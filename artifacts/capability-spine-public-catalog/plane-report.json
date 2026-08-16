@@ -37,7 +37,7 @@
   "ok": true,
   "schema_version": 1,
   "spine_public_catalog": true,
-  "stage_count": 19,
+  "stage_count": 20,
   "stages": [
     "execution",
     "actuation",
@@ -57,7 +57,8 @@
     "resolution",
     "restructuring",
     "emergence",
-    "reorganization"
+    "reorganization",
+    "rehabilitation"
   ],
   "used_skill_route_discovery": false,
   "wired": {

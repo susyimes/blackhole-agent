@@ -43,7 +43,7 @@
   },
   "done_when_met": true,
   "ok": true,
-  "plane_count": 20,
+  "plane_count": 21,
   "planes": [
     "finality",
     "execution",
@@ -64,7 +64,8 @@
     "resolution",
     "restructuring",
     "emergence",
-    "reorganization"
+    "reorganization",
+    "rehabilitation"
   ],
   "schema_version": 1,
   "spine_resume_catalog": true,

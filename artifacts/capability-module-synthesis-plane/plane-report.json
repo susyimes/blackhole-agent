@@ -1,6 +1,6 @@
 {
   "action": "module_synthesis_plane_proof",
-  "catalog_count": 42,
+  "catalog_count": 43,
   "checks": {
     "actuation_runner": true,
     "bootstrap_stays": true,
@@ -42,7 +42,7 @@
   "log_count": 4,
   "module_synthesis_plane": true,
   "ok": true,
-  "pair_count": 15,
+  "pair_count": 16,
   "schema_version": 1,
   "used_skill_route_discovery": false,
   "wired": {

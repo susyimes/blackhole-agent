@@ -26,7 +26,7 @@
   "ok": true,
   "probe_family": "ratification",
   "schema_version": 1,
-  "spec_count": 15,
+  "spec_count": 16,
   "spine_signature_catalog": true,
   "used_skill_route_discovery": false,
   "wired": {

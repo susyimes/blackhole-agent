@@ -25,7 +25,7 @@ from typing import Sequence
 
 # Apply-order catalog. Source variants are historical residue:
 # consensus (execution), pred (actuation/settlement), self_pred
-# (clearing through margin), self (collateral through reorganization).
+# (clearing through margin), self (collateral through rehabilitation).
 SPINE_FAMILY_CHAIN: tuple[tuple[str, str, str, str], ...] = (
     ("execution", "finality", "execute", "consensus"),
     ("actuation", "execution", "actuate", "pred"),
@@ -46,6 +46,7 @@ SPINE_FAMILY_CHAIN: tuple[tuple[str, str, str, str], ...] = (
     ("restructuring", "resolution", "restructuring", "self"),
     ("emergence", "restructuring", "emerge", "self"),
     ("reorganization", "emergence", "reorganize", "self"),
+    ("rehabilitation", "reorganization", "rehabilitate", "self"),
 )
 
 
@@ -56,7 +57,9 @@ class SpineFamilyQuirks:
     surface_skip: frozenset[str] = frozenset({"execution"})
     continuity_guard_through: str = "resolution"
     want_effects_through: str = "capital"
-    config_omit: frozenset[str] = frozenset({"emergence", "reorganization"})
+    config_omit: frozenset[str] = frozenset(
+        {"emergence", "reorganization", "rehabilitation"}
+    )
     resume_prepend: tuple[str, ...] = ("finality",)
 
 

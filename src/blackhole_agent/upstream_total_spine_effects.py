@@ -866,6 +866,52 @@ _register(
 
 _register(
     PairEffectSpec(
+        effect='rehabilitation',
+        live_dir='live',
+        short_dir='short',
+        short_resume_dir='live-reh',
+        out_tip_skip=('reorganization', 'emergence', 'restructuring'),
+        out_tip_alias={'rehabilitation': 'reorganization'},
+        plural='rehabilitations',
+        verb='rehabilitate',
+        pred='reorganization',
+        pred_plural='reorganizations',
+        code='rvr',
+        code_upper='Rvr',
+        pred_code='rvc',
+        pred_code_upper='Rvc',
+        verdict_1='rehabilitated_ok',
+        verdict_2='remedy_ok',
+        adj_1='rehabilitated',
+        adj_2='remedied',
+        adj_1_negated='unreorganized',
+        counterpart='remedy',
+        pred_done='reorganized',
+        pred_verdict_1='chartered',
+        pred_verdict_2='rvc_ok',
+        post_key='post_reorganization',
+        min_name='REHABILITATIONS',
+        collect_push=('reorganization', 'risk', 'capital', 'funding', 'collateral', 'margin', 'custody', 'delivery'),
+        abbr='reh',
+        chain_tag='risk',
+        out_extra_flags=('resolution',),
+        confirm_source='preds_or_body',
+        confirm_accessor_plural='reorganizations',
+        confirm_drops='self_loaded',
+        refusal_confirm_missing='remedy_missing',
+        refusal_pred_tampered='margin_tampered',
+        refusal_pred_partial='margin_partial',
+        refusal_pred_short='margins_short',
+        refusal_pred_not_done='capital_unreorganized',
+        refusal_pred_unmet='capital_uncapacitated',
+        refusal_code_failed='rvc_failed',
+        summary='Post-reorganization rehabilitation-versus-remedy for the absolute total spine.',
+    )
+)
+
+
+_register(
+    PairEffectSpec(
         effect='delivery',
         chain_layout='delivery',
         book_sig=(("observation_signature",), False, False, "observation_signatures", False, "net_count"),
@@ -2355,31 +2401,42 @@ def _restructurings_from(item: Any) -> list[dict[str, Any]]:
 
 
 def _emergences_from(item: Any) -> list[dict[str, Any]]:
+    return _rows_from_family(item, "emergence")
+
+
+def _rows_from_family(item: Any, name: str) -> list[dict[str, Any]]:
+    """Collect predecessor receipts for one catalog family."""
+
     found: list[dict[str, Any]] = []
     if not isinstance(item, Mapping):
         return found
-    nested = item.get("total_spine_emergence_certificate")
+    plural = _CHAIN_PLURALS.get(name, f"{name}s")
+    nested = item.get(f"total_spine_{name}_certificate")
     if isinstance(nested, Mapping) and (
-        nested.get("tip_emergence_root") or nested.get("emergences")
+        nested.get(f"tip_{name}_root") or nested.get(plural)
     ):
         found.append(dict(nested))
     kind = str(item.get("kind") or "")
     if (
-        kind == "total_spine_emergence"
-        or item.get("total_spine_emergence_loaded")
-        or item.get("total_spine_emergence")
-    ) and item.get("tip_emergence_root"):
+        kind == f"total_spine_{name}"
+        or item.get(f"total_spine_{name}_loaded")
+        or item.get(f"total_spine_{name}")
+    ) and item.get(f"tip_{name}_root"):
         found.append(dict(item))
-    extra = item.get("emergences")
+    extra = item.get(plural)
     if isinstance(extra, list):
         for row in extra:
             if isinstance(row, Mapping) and (
-                row.get("tip_emergence_root") or row.get("emergence_digest")
+                row.get(f"tip_{name}_root") or row.get(f"{name}_digest")
             ):
                 found.append(dict(row))
-    if item.get("tip_emergence_root") and item.get("emergences"):
+    if item.get(f"tip_{name}_root") and item.get(plural):
         found.append(dict(item))
     return found
+
+
+def _reorganizations_from(item: Any) -> list[dict[str, Any]]:
+    return _rows_from_family(item, "reorganization")
 
 
 # Accessor dispatch for the pair chain below the effect itself.
@@ -2420,6 +2477,7 @@ _CHAIN_ACCESSORS = {
     "capitals": _capitals_from,
     "restructurings": _restructurings_from,
     "emergences": _emergences_from,
+    "reorganizations": _reorganizations_from,
 }
 
 
@@ -2500,45 +2558,24 @@ def _as_effect_mapping(spec: PairEffectSpec, value: Any) -> dict[str, Any] | Non
         return None
 
 
-# The full absolute-tower chain from settlement up (pair effects in bold order).
-TOTAL_SPINE_CHAIN: tuple[str, ...] = (
-    "settlement",
-    "clearing",
-    "delivery",
-    "custody",
-    "margin",
-    "collateral",
-    "liquidity",
-    "funding",
-    "capital",
-    "solvency",
-    "risk",
-    "stress",
-    "recovery",
-    "resolution",
-    "restructuring",
-    "emergence",
-    "reorganization",
+# The full absolute-tower chain from settlement up. Derived from the family
+# catalog so a new post-settlement family is a chain row, not another list.
+def _settlement_onward_chain() -> tuple[tuple[str, str, str, str], ...]:
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+
+    rows = tuple(SPINE_FAMILY_CHAIN)
+    start = next(i for i, row in enumerate(rows) if row[0] == "settlement")
+    return rows[start:]
+
+
+TOTAL_SPINE_CHAIN: tuple[str, ...] = tuple(
+    row[0] for row in _settlement_onward_chain()
 )
 
 _CHAIN_PLURALS = {
     "settlement": "settlements",
     "clearing": "clearings",
-    "delivery": "deliveries",
-    "custody": "custodies",
-    "margin": "margins",
-    "collateral": "collaterals",
-    "liquidity": "liquidities",
-    "funding": "fundings",
-    "capital": "capitals",
-    "solvency": "solvencies",
-    "risk": "risks",
-    "stress": "stresses",
-    "recovery": "recoveries",
-    "resolution": "resolutions",
-    "restructuring": "restructurings",
-    "emergence": "emergences",
-    "reorganization": "reorganizations",
+    **{spec.effect: spec.plural for spec in PAIR_EFFECT_SPECS.values()},
 }
 
 
@@ -2612,16 +2649,9 @@ def _confirm_pred(
     seen: set[str] = set()
     accessor = _CHAIN_ACCESSORS.get(accessor_plural)
     if accessor is not None:
-        noun = accessor_plural[: -1] if accessor_plural.endswith("s") else accessor_plural
-        # singular digest/tip keys use the chain noun (solvency, not solvencie)
-        noun = {
-            "custodies": "custody", "deliveries": "delivery", "clearings": "clearing",
-            "settlements": "settlement", "collaterals": "collateral", "margins": "margin",
-            "liquidities": "liquidity", "fundings": "funding", "capitals": "capital",
-            "solvencies": "solvency", "risks": "risk", "stresses": "stress",
-            "recoveries": "recovery", "resolutions": "resolution",
-            "restructurings": "restructuring", "emergences": "emergence",
-        }[accessor_plural]
+        noun = {plural: name for name, plural in _CHAIN_PLURALS.items()}[
+            accessor_plural
+        ]
         for item in (primary, body, confirm_body):
             for row in accessor(item):
                 key = str(
@@ -3197,42 +3227,28 @@ def run_pair_effect(
     return apply_spine_family(spec.effect, source, **kwargs)
 
 
-_CHAIN_VERBS = {
-    "clearing": "clear",
-    "delivery": "deliver",
-    "custody": "custody",
-    "margin": "margin",
-    "collateral": "collateral",
-    "liquidity": "liquidity",
-    "funding": "funding",
-    "capital": "capital",
-    "solvency": "solvency",
-    "risk": "risk",
-    "stress": "stress",
-    "recovery": "recovery",
-    "resolution": "resolution",
-    "restructuring": "restructuring",
-    "emergence": "emerge",
-    "reorganization": "reorganize",
+# Historical proof-scratch prefixes that drifted from spec.abbr.
+_CHAIN_ABBR_QUIRKS: dict[str, str] = {
+    "clearing": "clr",
+    "stress": "str",
+    "restructuring": "rst",
+    "reorganization": "reo",
 }
 
+
+def _derive_chain_verbs() -> dict[str, str]:
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+
+    return {name: verb for name, _pred, verb, _variant in SPINE_FAMILY_CHAIN}
+
+
+_CHAIN_VERBS = _derive_chain_verbs()
 _CHAIN_ABBRS = {
-    "clearing": "clr",
-    "delivery": "dlv",
-    "custody": "cst",
-    "margin": "mgn",
-    "collateral": "col",
-    "liquidity": "liq",
-    "funding": "fnd",
-    "capital": "cap",
-    "solvency": "sol",
-    "risk": "rsk",
-    "stress": "str",
-    "recovery": "rec",
-    "resolution": "res",
-    "restructuring": "rst",
-    "emergence": "emg",
-    "reorganization": "reo",
+    name: _CHAIN_ABBR_QUIRKS.get(
+        name, PAIR_EFFECT_SPECS[name].abbr if name in PAIR_EFFECT_SPECS else name[:3]
+    )
+    for name in TOTAL_SPINE_CHAIN
+    if name != "settlement"
 }
 
 
@@ -4059,7 +4075,7 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
 
     checks: dict[str, bool] = {}
     checks["impl"] = SPINE_SIGNATURE_CATALOG_IMPL is True
-    checks["spec_count"] = len(PAIR_EFFECT_SPECS) == 15
+    checks["spec_count"] = len(PAIR_EFFECT_SPECS) == 16
     mismatches: list[str] = []
     for name, spec in PAIR_EFFECT_SPECS.items():
         derived = derive_pair_effect_signatures(spec)
@@ -4220,17 +4236,17 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
     kinds = derive_pair_effect_contract_kind_sets()
     verbs, preds, abbrs = derive_spine_contract_chain_maps()
     checks["impl"] = SPINE_CONTRACT_CATALOG_IMPL is True
-    checks["catalog_len"] = len(catalog) == 15
-    checks["kind_len"] = len(kinds) == 15
+    checks["catalog_len"] = len(catalog) == 16
+    checks["kind_len"] = len(kinds) == 16
     checks["kind_order"] = [name for name, _ in kinds] == [
         name for name in TOTAL_SPINE_CHAIN if name in PAIR_EFFECT_SPECS
     ]
-    checks["chain_len"] = len(verbs) == 16 and len(preds) == 16 and len(abbrs) == 16
+    checks["chain_len"] = len(verbs) == 17 and len(preds) == 17 and len(abbrs) == 17
     checks["chain_starts_clearing"] = (
         list(verbs)[0] == "clearing" and verbs["clearing"] == "clear"
     )
-    checks["chain_ends_reorganization"] = (
-        list(verbs)[-1] == "reorganization" and verbs["reorganization"] == "reorganize"
+    checks["chain_ends_rehabilitation"] = (
+        list(verbs)[-1] == "rehabilitation" and verbs["rehabilitation"] == "rehabilitate"
     )
     checks["abbr_quirks"] = (
         abbrs["clearing"] == "clr"
@@ -4344,6 +4360,119 @@ def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-contract-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def builtin_spine_rehabilitation_proof() -> dict[str, Any]:
+    """Hermetic proof: rehabilitation is a live spec+chain row."""
+
+    import importlib
+    import inspect
+
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+    from blackhole_agent.upstream_spine_family import (
+        apply_spine_family,
+        resolve_family_row,
+        spine_family_engine_catalog,
+    )
+    from blackhole_agent.upstream_module_synthesis import (
+        module_synthesis_catalog,
+        resolve_synthesis_row,
+    )
+    from blackhole_agent import capability_compounder as compounder
+    from blackhole_agent import upstream_control_engine as ce
+
+    checks: dict[str, bool] = {}
+    spec = PAIR_EFFECT_SPECS.get("rehabilitation")
+    checks["spec_row"] = spec is not None and spec.pred == "reorganization"
+    checks["spec_verb"] = spec is not None and spec.verb == "rehabilitate"
+    checks["spec_code"] = spec is not None and spec.code == "rvr"
+    chain_names = [row[0] for row in SPINE_FAMILY_CHAIN]
+    checks["chain_row"] = chain_names[-1] == "rehabilitation"
+    checks["chain_pred"] = SPINE_FAMILY_CHAIN[-1][1] == "reorganization"
+    checks["chain_verb"] = SPINE_FAMILY_CHAIN[-1][2] == "rehabilitate"
+    checks["total_chain_tip"] = TOTAL_SPINE_CHAIN[-1] == "rehabilitation"
+    checks["pair_count"] = len(PAIR_EFFECT_SPECS) == 16
+
+    engine_row = resolve_family_row("rehabilitation")
+    checks["engine_row"] = (
+        engine_row is not None and engine_row.kind == "pair_effect"
+    )
+    checks["engine_catalog"] = any(
+        row.name == "rehabilitation" for row in spine_family_engine_catalog()
+    )
+    synth_row = resolve_synthesis_row(
+        "blackhole_agent.upstream_total_spine_rehabilitation"
+    )
+    checks["synth_row"] = synth_row is not None and synth_row.kind == "pair_effect"
+    checks["synth_catalog"] = any(
+        row.name == "rehabilitation" for row in module_synthesis_catalog()
+    )
+
+    module = importlib.import_module(
+        "blackhole_agent.upstream_total_spine_rehabilitation"
+    )
+    checks["module_runner"] = callable(
+        getattr(module, "rehabilitate_total_spine", None)
+    )
+    checks["module_proof"] = callable(
+        getattr(module, "builtin_total_spine_rehabilitation_proof", None)
+    )
+    checks["module_impl"] = getattr(module, "TOTAL_SPINE_REHABILITATION_IMPL", None) is True
+    checks["engine_impl"] = ce.TOTAL_SPINE_REHABILITATION_IMPL is True
+    checks["engine_runner"] = callable(
+        getattr(ce, "rehabilitate_total_spine", None)
+    )
+    checks["public_flag"] = "rehabilitation" in ce.SPINE_PUBLIC_STAGE_FLAGS
+    checks["resume_plane"] = "rehabilitation" in ce.SPINE_RESUME_PLANES
+    checks["short_circuit"] = "rehabilitation" in ce._TOTAL_SPINE_SHORT_CIRCUIT
+    contract = derive_pair_effect_contract_catalog()
+    checks["contract_row"] = "rehabilitation" in contract
+    checks["contract_kinds"] = "rehabilitation_ok" in derive_pair_effect_contract_kinds(
+        PAIR_EFFECT_SPECS["rehabilitation"]
+    )
+    checks["apply_owned"] = callable(apply_spine_family)
+    checks["no_leftover_mat"] = "_MAT_PAIR_CONFIG:" not in Path(
+        compounder.__file__
+    ).read_text(encoding="utf-8")
+    wrap_src = inspect.getsource(
+        compounder.materialize_total_spine_rehabilitation_contract_context
+    )
+    checks["wrapper_thin"] = "materialize_spine_family_contract_context" in wrap_src
+    flags = ce._collect_spine_stage_flags(None, {"rehabilitation": True})
+    checks["flag_accepted"] = flags.get("rehabilitation") is True
+    try:
+        ce._collect_spine_stage_flags(None, {"not-a-family": True})
+        checks["unknown_flag_refused"] = False
+    except Exception:
+        checks["unknown_flag_refused"] = True
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "spec": "rehabilitation" in PAIR_EFFECT_SPECS,
+        "chain": chain_names[-1] == "rehabilitation",
+        "engine": engine_row is not None,
+        "module": callable(getattr(module, "rehabilitate_total_spine", None)),
+        "contract": "rehabilitation" in contract,
+        "impl": ce.TOTAL_SPINE_REHABILITATION_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_rehabilitation_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "spec_count": len(PAIR_EFFECT_SPECS),
+        "chain_count": len(SPINE_FAMILY_CHAIN),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_rehabilitation": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-rehabilitation"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report

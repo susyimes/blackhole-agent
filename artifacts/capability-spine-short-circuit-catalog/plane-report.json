@@ -25,12 +25,12 @@
     "short_reads_catalog": true,
     "solvency_default_reann": true
   },
-  "digest": "a9859a4d77903deeee33ec625fe1daf087e8829c7c582ac86f7656701ffe4887",
+  "digest": "9e5e2e4b04961a6f5408e06f29d00c02de96e3df1b8a849cfcd42341772a5174",
   "done_when_met": true,
   "ok": true,
   "schema_version": 1,
   "spine_short_circuit_catalog": true,
-  "stage_count": 20,
+  "stage_count": 21,
   "stages": [
     "finality",
     "execution",
@@ -51,7 +51,8 @@
     "resolution",
     "restructuring",
     "emergence",
-    "reorganization"
+    "reorganization",
+    "rehabilitation"
   ],
   "used_skill_route_discovery": false,
   "wired": {

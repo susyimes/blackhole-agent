@@ -362,10 +362,10 @@ def builtin_spine_family_engine_proof() -> dict[str, Any]:
         kinds[row.kind] = kinds.get(row.kind, 0) + 1
         shapes[row.shape] = shapes.get(row.shape, 0) + 1
     checks["impl"] = SPINE_FAMILY_ENGINE_IMPL is True
-    checks["catalog_len"] = len(catalog) == 19
-    checks["pair_count"] = kinds["pair_effect"] == 15
+    checks["catalog_len"] = len(catalog) == 20
+    checks["pair_count"] = kinds["pair_effect"] == 16
     checks["log_count"] = kinds["log_family"] == 4
-    checks["pair_shape"] = shapes["pair"] == 15
+    checks["pair_shape"] = shapes["pair"] == 16
     checks["rows_shape"] = shapes["rows"] == 3
     checks["state_shape"] = shapes["state"] == 1
     names = [row.name for row in catalog]

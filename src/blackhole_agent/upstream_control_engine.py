@@ -302,6 +302,17 @@ Composition:
   atomic reorganization certificate, refuses split / one-sided / mismatched /
   failed / wrong-root / tampered reorganizations, short-circuits on
   re-reorganization, and rebinds the depth-28 tip without skill-route
+* total-spine **post-reorganization rehabilitation-versus-remedy** — closes
+  the reorganized-but-unrehabilitated cliff: after atomic RvC seals
+  matching reorganization books, ``rehabilitate_total_spine(...)``
+  (and ``run_total_spine(rehabilitation=True)``) independently confirms a
+  second reorganization, books each reorganized pair into a
+  rehabilitation register and pairs it with a remedy (RvR), seals a
+  re-verifiable atomic rehabilitation certificate, refuses split /
+  one-sided / mismatched / failed / wrong-root / tampered
+  rehabilitations, short-circuits on re-rehabilitation, and rebinds the
+  depth-28 tip. Hosted as a spec+chain row on the family/contract
+  catalogs, not another host synthesizer.
 
 No skill-route discovery.
 """
@@ -7416,7 +7427,7 @@ SPINE_SHORT_CIRCUIT_REANN_FROM: dict[str, str] = {
 SPINE_SHORT_CIRCUIT_FEDERATE: frozenset[str] = frozenset({"finality"})
 SPINE_SHORT_CIRCUIT_POST_ACTUATION: frozenset[str] = frozenset({"execution"})
 SPINE_SHORT_CIRCUIT_DIGEST: str = (
-    "a9859a4d77903deeee33ec625fe1daf087e8829c7c582ac86f7656701ffe4887"
+    "9e5e2e4b04961a6f5408e06f29d00c02de96e3df1b8a849cfcd42341772a5174"
 )
 
 
@@ -14451,6 +14462,7 @@ def builtin_spine_stage_engine_proof() -> dict[str, Any]:
         "restructuring",
         "emergence",
         "reorganization",
+        "rehabilitation",
     )
     checks["catalog_slice"] = tuple(names) == expected
     checks["catalog_names"] = tuple(names) == expected
@@ -14545,9 +14557,10 @@ def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
         "restructuring",
         "emergence",
         "reorganization",
+        "rehabilitation",
     ]
     checks["catalog_planes"] = planes == expected
-    checks["catalog_len"] = len(planes) == 20
+    checks["catalog_len"] = len(planes) == 21
     checks["post_consensus"] = list(SPINE_RESUME_POST_CONSENSUS) == expected[1:]
     checks["impl"] = SPINE_RESUME_CATALOG_IMPL is True
     checks["imply_from_delivery"] = SPINE_CALLER_IMPLY_FROM == "delivery"
@@ -14590,7 +14603,7 @@ def builtin_spine_resume_catalog_proof() -> dict[str, Any]:
         empty = _load_spine_resume_certificates(empty_dir)
     finally:
         shutil.rmtree(empty_dir, ignore_errors=True)
-    checks["empty_load_count"] = len(empty) == 20
+    checks["empty_load_count"] = len(empty) == 21
     checks["empty_load_none"] = all(value is None for value in empty.values())
 
     implied = _imply_caller_spine_flags({"reorganization": True})
@@ -14908,7 +14921,7 @@ def builtin_spine_short_circuit_catalog_proof() -> dict[str, Any]:
     names = list(derived)
     checks["impl"] = SPINE_SHORT_CIRCUIT_CATALOG_IMPL is True
     checks["keys_match_resume"] = names == list(SPINE_RESUME_PLANES)
-    checks["key_count"] = len(names) == 20
+    checks["key_count"] = len(names) == 21
     checks["deterministic"] = derived == _derive_spine_short_circuit()
     checks["bound_to_module"] = derived == _TOTAL_SPINE_SHORT_CIRCUIT
     blob = json.dumps(derived, sort_keys=True, separators=(",", ":"))
@@ -15000,9 +15013,9 @@ def builtin_spine_public_catalog_proof() -> dict[str, Any]:
     names = list(SPINE_PUBLIC_STAGE_FLAGS)
     checks["impl"] = SPINE_PUBLIC_CATALOG_IMPL is True
     checks["catalog"] = tuple(names) == tuple(SPINE_RESUME_POST_CONSENSUS)
-    checks["catalog_len"] = len(names) == 19
+    checks["catalog_len"] = len(names) == 20
     checks["catalog_start"] = names[0] == "execution"
-    checks["catalog_end"] = names[-1] == "reorganization"
+    checks["catalog_end"] = names[-1] == "rehabilitation"
     checks["excludes_finality"] = "finality" not in names
 
     attach_sig = inspect.signature(_attach_total_spine_effects)
@@ -15040,7 +15053,7 @@ def builtin_spine_public_catalog_proof() -> dict[str, Any]:
     collected = _collect_spine_stage_flags(None, {"solvency": True})
     checks["collect_solvency"] = collected.get("solvency") is True
     checks["collect_defaults"] = collected.get("execution") is False
-    checks["collect_count"] = len(collected) == 19
+    checks["collect_count"] = len(collected) == 20
     merged = _collect_spine_stage_flags(
         {"execution": True},
         {"solvency": True},
@@ -15119,9 +15132,9 @@ def builtin_spine_surface_catalog_proof() -> dict[str, Any]:
     checks["log_families"] = tuple(SPINE_SURFACE_LOG_FAMILIES) == expected_log
     checks["catalog_log_prefix"] = tuple(families[:3]) == expected_log
     checks["catalog_pair_tail"] = tuple(families[3:]) == expected_pair
-    checks["catalog_len"] = len(families) == 18
+    checks["catalog_len"] = len(families) == 19
     checks["excludes_execution"] = "execution" not in families
-    checks["exported_count"] = len(SPINE_SURFACE_EXPORTED) >= 18 * 14
+    checks["exported_count"] = len(SPINE_SURFACE_EXPORTED) >= 19 * 14
 
     this = sys.modules[__name__]
     engine_src = Path(__file__).read_text(encoding="utf-8")
@@ -15297,7 +15310,7 @@ def builtin_spine_family_catalog_proof() -> dict[str, Any]:
     expected_log = ("actuation", "settlement", "clearing")
     checks["impl"] = SPINE_FAMILY_CATALOG_IMPL is True
     checks["quirks_skip_execution"] = "execution" in SPINE_FAMILY_QUIRKS.surface_skip
-    checks["chain_len"] = len(SPINE_FAMILY_CHAIN) == 19
+    checks["chain_len"] = len(SPINE_FAMILY_CHAIN) == 20
     checks["chain_alias"] = _TOTAL_SPINE_EFFECT_CHAIN == SPINE_FAMILY_CHAIN
     checks["views_surface_log"] = views["surface_log"] == expected_log
     checks["views_guard"] = views["continuity_guard"] == expected_guard
@@ -16981,6 +16994,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             "matching emergence books into irreversible reorganization receipts"
         ),
     )
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+
+    existing = set(sub.choices)
+    for spec in PAIR_EFFECT_SPECS.values():
+        cmd = f"{spec.effect}-proof"
+        if cmd in existing:
+            continue
+        sub.add_parser(
+            cmd,
+            help=(
+                f"Total spine {spec.effect} proof: catalog family "
+                f"{spec.code_upper} on the absolute tower"
+            ),
+        )
     sub.add_parser("list", help="List control modes and dialects")
     sub.add_parser("nest-path", help="Print canonical operational nest path")
     sub.add_parser(
@@ -17191,6 +17218,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = builtin_total_spine_reorganization_proof()
         print(json.dumps(result, indent=2, default=str))
         return 0 if result.get("ok") else 1
+    if args.cmd.endswith("-proof"):
+        family = args.cmd[: -len("-proof")]
+        from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+        from blackhole_agent.upstream_spine_family import prove_spine_family
+
+        if family in PAIR_EFFECT_SPECS:
+            result = prove_spine_family(family)
+            print(json.dumps(result, indent=2, default=str))
+            return 0 if result.get("ok") else 1
     return 2
 
 

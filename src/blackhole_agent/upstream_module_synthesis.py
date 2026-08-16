@@ -235,9 +235,9 @@ def builtin_module_synthesis_plane_proof() -> dict[str, Any]:
         kinds[row.kind] = kinds.get(row.kind, 0) + 1
     checks["impl"] = MODULE_SYNTHESIS_IMPL is True
     checks["facade_count"] = kinds["facade"] == 23
-    checks["pair_count"] = kinds["pair_effect"] == 15
+    checks["pair_count"] = kinds["pair_effect"] == 16
     checks["log_count"] = kinds["log_family"] == 4
-    checks["catalog_len"] = len(catalog) == 42
+    checks["catalog_len"] = len(catalog) == 43
     fullnames = [row.fullname for row in catalog]
     checks["unique_fullnames"] = len(fullnames) == len(set(fullnames))
     checks["resolve_omniverse"] = (

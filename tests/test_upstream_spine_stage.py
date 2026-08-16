@@ -46,8 +46,8 @@ from blackhole_agent.upstream_control_engine import (
 def test_builtin_spine_stage_engine_proof() -> None:
     result = builtin_spine_stage_engine_proof()
     assert result["ok"] is True
-    assert result["stage_count"] == 17
-    assert result["post_consensus_count"] == 19
+    assert result["stage_count"] == 18
+    assert result["post_consensus_count"] == 20
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -58,7 +58,7 @@ def test_attach_and_short_circuit_share_the_catalog_walk() -> None:
     assert SPINE_STAGE_POST_ACTUATION_START == "settlement"
     assert SPINE_STAGE_POST_CONSENSUS_START == "execution"
     assert [row[0] for row in SPINE_STAGE_CHAIN][0] == "settlement"
-    assert [row[0] for row in SPINE_STAGE_CHAIN][-1] == "reorganization"
+    assert [row[0] for row in SPINE_STAGE_CHAIN][-1] == "rehabilitation"
     assert [row[0] for row in SPINE_POST_CONSENSUS_CHAIN][:2] == [
         "execution",
         "actuation",
@@ -80,7 +80,7 @@ def test_attach_and_short_circuit_share_the_catalog_walk() -> None:
 def test_builtin_spine_resume_catalog_proof() -> None:
     result = builtin_spine_resume_catalog_proof()
     assert result["ok"] is True
-    assert result["plane_count"] == 20
+    assert result["plane_count"] == 21
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -88,7 +88,7 @@ def test_builtin_spine_resume_catalog_proof() -> None:
 
 def test_resume_catalog_owns_attach_rehydrate() -> None:
     assert list(SPINE_RESUME_PLANES)[0] == "finality"
-    assert list(SPINE_RESUME_PLANES)[-1] == "reorganization"
+    assert list(SPINE_RESUME_PLANES)[-1] == "rehabilitation"
     attach_src = inspect.getsource(_attach_total_spine_effects)
     assert "_load_spine_resume_certificates" in attach_src
     assert "_select_post_consensus_short_circuit" in attach_src
@@ -153,7 +153,7 @@ def test_builtin_spine_attach_catalog_proof() -> None:
 def test_builtin_spine_short_circuit_catalog_proof() -> None:
     result = builtin_spine_short_circuit_catalog_proof()
     assert result["ok"] is True
-    assert result["stage_count"] == 20
+    assert result["stage_count"] == 21
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -197,7 +197,7 @@ def test_live_attach_is_one_pre_consensus_catalog_walk() -> None:
 def test_builtin_spine_public_catalog_proof() -> None:
     result = builtin_spine_public_catalog_proof()
     assert result["ok"] is True
-    assert result["stage_count"] == 19
+    assert result["stage_count"] == 20
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -205,7 +205,7 @@ def test_builtin_spine_public_catalog_proof() -> None:
 
 def test_public_stage_flags_are_catalog_validated() -> None:
     assert list(SPINE_PUBLIC_STAGE_FLAGS)[0] == "execution"
-    assert list(SPINE_PUBLIC_STAGE_FLAGS)[-1] == "reorganization"
+    assert list(SPINE_PUBLIC_STAGE_FLAGS)[-1] == "rehabilitation"
     assert "finality" not in SPINE_PUBLIC_STAGE_FLAGS
     collected = _collect_spine_stage_flags(None, {"solvency": True})
     assert collected["solvency"] is True
@@ -228,7 +228,7 @@ def test_public_stage_flags_are_catalog_validated() -> None:
 def test_builtin_spine_surface_catalog_proof() -> None:
     result = builtin_spine_surface_catalog_proof()
     assert result["ok"] is True
-    assert result["family_count"] == 18
+    assert result["family_count"] == 19
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -253,6 +253,7 @@ def test_spine_surface_is_one_catalog_reexport() -> None:
     ]
     assert "execution" not in SPINE_SURFACE_FAMILIES
     assert "reorganization" in SPINE_SURFACE_FAMILIES
+    assert "rehabilitation" in SPINE_SURFACE_FAMILIES
     assert len(SPINE_SURFACE_EXPORTED) >= 18 * 14
     src = inspect.getsource(uce)
     leftover_families = ("actuation", "solvency", "reorganization")
@@ -269,8 +270,8 @@ def test_spine_surface_is_one_catalog_reexport() -> None:
 def test_builtin_spine_family_catalog_proof() -> None:
     result = builtin_spine_family_catalog_proof()
     assert result["ok"] is True
-    assert result["chain_count"] == 19
-    assert result["family_count"] == 18
+    assert result["chain_count"] == 20
+    assert result["family_count"] == 19
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -283,9 +284,9 @@ def test_builtin_module_synthesis_plane_proof() -> None:
 
     result = builtin_module_synthesis_plane_proof()
     assert result["ok"] is True
-    assert result["catalog_count"] == 42
+    assert result["catalog_count"] == 43
     assert result["facade_count"] == 23
-    assert result["pair_count"] == 15
+    assert result["pair_count"] == 16
     assert result["log_count"] == 4
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
@@ -319,7 +320,7 @@ def test_builtin_spine_signature_catalog_proof() -> None:
 
     result = builtin_spine_signature_catalog_proof()
     assert result["ok"] is True
-    assert result["spec_count"] == 15
+    assert result["spec_count"] == 16
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -379,8 +380,8 @@ def test_builtin_spine_family_engine_proof() -> None:
 
     result = builtin_spine_family_engine_proof()
     assert result["ok"] is True
-    assert result["catalog_count"] == 19
-    assert result["pair_count"] == 15
+    assert result["catalog_count"] == 20
+    assert result["pair_count"] == 16
     assert result["log_count"] == 4
     assert result["wired_count"] >= 8
     assert result["used_skill_route_discovery"] is False
@@ -412,8 +413,8 @@ def test_builtin_spine_contract_catalog_proof() -> None:
 
     result = builtin_spine_contract_catalog_proof()
     assert result["ok"] is True
-    assert result["catalog_count"] == 15
-    assert result["spec_count"] == 15
+    assert result["catalog_count"] == 16
+    assert result["spec_count"] == 16
     assert result["used_skill_route_discovery"] is False
     assert all(result["checks"].values())
     assert all(result["wired"].values())
@@ -483,7 +484,7 @@ def test_spine_family_catalog_probe_extends_views() -> None:
         extra_chain=(("ratification", "reorganization", "ratify", "self"),),
         extra_surface_pair=("ratification",),
     )
-    assert base["post_consensus"][-1] == "reorganization"
+    assert base["post_consensus"][-1] == "rehabilitation"
     assert probe["post_consensus"][-1] == "ratification"
     assert "ratification" in probe["public_flags"]
     assert "ratification" in probe["resume_planes"]
@@ -492,3 +493,22 @@ def test_spine_family_catalog_probe_extends_views() -> None:
     assert "ratification" not in probe["want_effects"]
     assert "ratification" not in probe["config_order"]
     assert "ratification" not in base["public_flags"]
+    assert "rehabilitation" in base["public_flags"]
+
+
+def test_builtin_spine_rehabilitation_proof() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        TOTAL_SPINE_CHAIN,
+        builtin_spine_rehabilitation_proof,
+    )
+
+    result = builtin_spine_rehabilitation_proof()
+    assert result["ok"] is True
+    assert result["spec_count"] == 16
+    assert result["chain_count"] == 20
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    assert "rehabilitation" in PAIR_EFFECT_SPECS
+    assert TOTAL_SPINE_CHAIN[-1] == "rehabilitation"
