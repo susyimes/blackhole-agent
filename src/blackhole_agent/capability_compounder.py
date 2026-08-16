@@ -2684,14 +2684,14 @@ def snapshot_outcome_metrics(
 
 
 # ---------------------------------------------------------------------------
-# Contract-context materializers: pair-effect family (data-driven).
+# Contract-context materializers: pair-effect family (catalog-driven).
 #
 # Each materializer proves a plane's machine-checkable predicates hermetically
-# with a synthetic absolute-tower run and fills the empty context. The 15
-# pair-effect variants were generated copies differing only in nouns, field
-# maps, and the chain depth; they are now one generic runner over
-# _MAT_PAIR_CONFIG (fields/ok-terms extracted verbatim from the historical
-# bodies, including residue). No skill-route discovery.
+# with a synthetic absolute-tower run and fills the empty context. Leftover
+# ``_MAT_PAIR_CONFIG`` / chain-map / kind-set copies derive from pair-effect
+# tokens plus a compact quirk overlay. A new pair-effect family is a token
+# row, not another config dict. Historical ``materialize_total_spine_*``
+# names stay as thin wrappers. No skill-route discovery.
 # ---------------------------------------------------------------------------
 
 
@@ -2745,10 +2745,11 @@ def _materialize_pair_effect(
     from blackhole_agent.upstream_total_spine_effects import (
         PAIR_EFFECT_SPECS,
         TOTAL_SPINE_CHAIN,
+        derive_pair_effect_contract_config,
     )
 
-    cfg = _MAT_PAIR_CONFIG[effect]
     spec = PAIR_EFFECT_SPECS[effect]
+    cfg = derive_pair_effect_contract_config(spec)
     existing = context.get(effect) or context.get(f"{effect}_plane") or {}
     if isinstance(existing, Mapping) and existing.get("ok"):
         return dict(existing)
@@ -2897,26 +2898,30 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
         body=dict(actuated),
         repo_path=repo_path,
     )
-    from blackhole_agent.upstream_total_spine_effects import TOTAL_SPINE_CHAIN
+    from blackhole_agent.upstream_total_spine_effects import (
+        TOTAL_SPINE_CHAIN,
+        derive_spine_contract_chain_maps,
+    )
 
+    verbs, preds, abbrs = derive_spine_contract_chain_maps()
     act_cert = actuated.get("total_spine_actuation_certificate")
     set_cert = settled_cert = prev.get("total_spine_settlement_certificate")
     clr_cert = None
     chain = list(TOTAL_SPINE_CHAIN)
     for name in chain[chain.index("clearing") : chain.index(effect) + 1]:
-        runner = getattr(ce, f"{_MAT_CHAIN_VERBS[name]}_total_spine")
+        runner = getattr(ce, f"{verbs[name]}_total_spine")
         kwargs: dict[str, Any] = {"body": dict(prev)}
         kwargs["actuation"] = act_cert
         if chain.index(name) >= chain.index("delivery"):
             kwargs["settlements"] = [set_cert or {}]
         if chain.index(name) >= chain.index("custody"):
             kwargs["clearings"] = [clr_cert or {}]
-        prev_cert = prev.get(f"total_spine_{_MAT_CHAIN_PREDS[name]}_certificate")
+        prev_cert = prev.get(f"total_spine_{preds[name]}_certificate")
         prev = runner(
             prev_cert,
-            out_root=scratch / f"{_MAT_CHAIN_ABBRS[name]}-h1",
+            out_root=scratch / f"{abbrs[name]}-h1",
             prior_tip=str(
-                prev.get(f"total_spine_{_MAT_CHAIN_PREDS[name]}_bound_tip") or ""
+                prev.get(f"total_spine_{preds[name]}_bound_tip") or ""
             ),
             repo_path=repo_path,
             **kwargs,
@@ -2926,79 +2931,29 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
     return prev
 
 
-_MAT_CHAIN_VERBS = {
-    "clearing": "clear",
-    "delivery": "deliver",
-    "custody": "custody",
-    "margin": "margin",
-    "collateral": "collateral",
-    "liquidity": "liquidity",
-    "funding": "funding",
-    "capital": "capital",
-    "solvency": "solvency",
-    "risk": "risk",
-    "stress": "stress",
-    "recovery": "recovery",
-    "resolution": "resolution",
-    "restructuring": "restructuring",
-    "emergence": "emerge",
-    "reorganization": "reorganize",
-}
-_MAT_CHAIN_PREDS = {
-    "clearing": "settlement",
-    "delivery": "clearing",
-    "custody": "delivery",
-    "margin": "custody",
-    "collateral": "margin",
-    "liquidity": "collateral",
-    "funding": "liquidity",
-    "capital": "funding",
-    "solvency": "capital",
-    "risk": "solvency",
-    "stress": "risk",
-    "recovery": "stress",
-    "resolution": "recovery",
-    "restructuring": "resolution",
-    "emergence": "restructuring",
-    "reorganization": "emergence",
-}
-_MAT_CHAIN_ABBRS = {
-    "clearing": "clr",
-    "delivery": "dlv",
-    "custody": "cst",
-    "margin": "mgn",
-    "collateral": "col",
-    "liquidity": "liq",
-    "funding": "fnd",
-    "capital": "cap",
-    "solvency": "sol",
-    "risk": "rsk",
-    "stress": "sts",
-    "recovery": "rec",
-    "resolution": "res",
-    "restructuring": "rst",
-    "emergence": "emg",
-    "reorganization": "reo",
-}
+def materialize_spine_family_contract_context(
+    name: str,
+    repo_path: Path,
+    context: MutableMapping[str, Any],
+    *,
+    ledger: CapabilityLedger | None = None,
+) -> dict[str, Any]:
+    """Materialize one catalog family. Public dispatch is this function."""
+
+    from blackhole_agent.upstream_total_spine_effects import PAIR_EFFECT_SPECS
+
+    if name not in PAIR_EFFECT_SPECS:
+        raise KeyError(f"unknown spine contract family: {name!r}")
+    return _materialize_pair_effect(name, repo_path, context, ledger=ledger)
 
 
-_MAT_PAIR_CONFIG: dict[str, dict[str, Any]] = {
-    "delivery": {'family': 'inline', 'abbr': 'dlv', 'ledger_tokens': ['delivery', 'dvp'], 'fields': {'action': ['lit', 'total_spine_delivery_contract'], 'delivered': ['lit', True], 'delivered_ok': ['lit', True], 'dvp_ok': ['lit', True], 'delivery_root_valid': ['lit', True], 'delivery_count': ['int', 'total_spine_delivery_count', '0'], 'tip_height': ['int', 'total_spine_delivery_height', '0'], 'delivery_root': ['get', "'total_spine_tip_delivery_root'"], 'tip_delivery_root': ['get', "'total_spine_tip_delivery_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_clearing_root': ['get', "'total_spine_tip_clearing_root'"], 'delivery_certificate': ['get', "'total_spine_delivery_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_delivery': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_delivery', True], ['is', 'total_spine_delivered', True], ['is', 'total_spine_dvp_ok', True], ['min', 'total_spine_delivery_count', 2], ['bool', 'total_spine_tip_delivery_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "custody": {'family': 'inline', 'abbr': 'cst', 'ledger_tokens': ['custody', 'cvt'], 'fields': {'action': ['lit', 'total_spine_custody_contract'], 'custodied': ['lit', True], 'custodied_ok': ['lit', True], 'cvt_ok': ['lit', True], 'title_ok': ['lit', True], 'titled_ok': ['lit', True], 'custody_root_valid': ['lit', True], 'custody_count': ['int', 'total_spine_custody_count', '0'], 'tip_height': ['int', 'total_spine_custody_height', '0'], 'custody_root': ['get', "'total_spine_tip_custody_root'"], 'tip_custody_root': ['get', "'total_spine_tip_custody_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_delivery_root': ['get', "'total_spine_tip_delivery_root'"], 'custody_certificate': ['get', "'total_spine_custody_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_custody': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_custody', True], ['is', 'total_spine_custodied', True], ['is', 'total_spine_cvt_ok', True], ['min', 'total_spine_custody_count', 2], ['bool', 'total_spine_tip_custody_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "margin": {'family': 'inline', 'abbr': 'mgn', 'ledger_tokens': ['margin', 'mve'], 'fields': {'action': ['lit', 'total_spine_margin_contract'], 'margined': ['lit', True], 'margined_ok': ['lit', True], 'mve_ok': ['lit', True], 'exposure_ok': ['lit', True], 'exposed_ok': ['lit', True], 'margin_root_valid': ['lit', True], 'margin_count': ['int', 'total_spine_margin_count', '0'], 'tip_height': ['int', 'total_spine_margin_height', '0'], 'margin_root': ['get', "'total_spine_tip_margin_root'"], 'tip_margin_root': ['get', "'total_spine_tip_margin_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_custody_root': ['get', "'total_spine_tip_custody_root'"], 'margin_certificate': ['get', "'total_spine_margin_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_margin': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_margin', True], ['is', 'total_spine_margined', True], ['is', 'total_spine_mve_ok', True], ['min', 'total_spine_margin_count', 2], ['bool', 'total_spine_tip_margin_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "collateral": {'family': 'inline', 'abbr': 'col', 'ledger_tokens': ['collateral', 'cvo'], 'fields': {'action': ['lit', 'total_spine_collateral_contract'], 'collateralized': ['lit', True], 'collateralized_ok': ['lit', True], 'cvo_ok': ['lit', True], 'obligation_ok': ['lit', True], 'obligated_ok': ['lit', True], 'collateral_root_valid': ['lit', True], 'collateral_count': ['int', 'total_spine_collateral_count', '0'], 'tip_height': ['int', 'total_spine_collateral_height', '0'], 'collateral_root': ['get', "'total_spine_tip_collateral_root'"], 'tip_collateral_root': ['get', "'total_spine_tip_collateral_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_margin_root': ['get', "'total_spine_tip_margin_root'"], 'collateral_certificate': ['get', "'total_spine_collateral_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_collateral': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_collateral', True], ['is', 'total_spine_collateralized', True], ['is', 'total_spine_cvo_ok', True], ['min', 'total_spine_collateral_count', 2], ['bool', 'total_spine_tip_collateral_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "liquidity": {'family': 'inline', 'abbr': 'liq', 'ledger_tokens': ['liquidity', 'lvc'], 'fields': {'action': ['lit', 'total_spine_liquidity_contract'], 'funded': ['lit', True], 'funded_ok': ['lit', True], 'liquid_ok': ['lit', True], 'lvc_ok': ['lit', True], 'coverage_ok': ['lit', True], 'covered_ok': ['lit', True], 'liquidity_root_valid': ['lit', True], 'liquidity_count': ['int', 'total_spine_liquidity_count', '0'], 'tip_height': ['int', 'total_spine_liquidity_height', '0'], 'liquidity_root': ['get', "'total_spine_tip_liquidity_root'"], 'tip_liquidity_root': ['get', "'total_spine_tip_liquidity_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_collateral_root': ['get', "'total_spine_tip_collateral_root'"], 'liquidity_certificate': ['get', "'total_spine_liquidity_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_liquidity': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_liquidity', True], ['is', 'total_spine_funded', True], ['is', 'total_spine_lvc_ok', True], ['min', 'total_spine_liquidity_count', 2], ['bool', 'total_spine_tip_liquidity_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "funding": {'family': 'inline', 'abbr': 'fnd', 'ledger_tokens': ['funding', 'fvr'], 'fields': {'action': ['lit', 'total_spine_funding_contract'], 'facilitated': ['lit', True], 'facilitated_ok': ['lit', True], 'facility_ok': ['lit', True], 'fvr_ok': ['lit', True], 'requirement_ok': ['lit', True], 'required_ok': ['lit', True], 'funding_root_valid': ['lit', True], 'funding_count': ['int', 'total_spine_funding_count', '0'], 'tip_height': ['int', 'total_spine_funding_height', '0'], 'funding_root': ['get', "'total_spine_tip_funding_root'"], 'tip_funding_root': ['get', "'total_spine_tip_funding_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_liquidity_root': ['get', "'total_spine_tip_liquidity_root'"], 'funding_certificate': ['get', "'total_spine_funding_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_funding': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_funding', True], ['is', 'total_spine_facilitated', True], ['is', 'total_spine_fvr_ok', True], ['min', 'total_spine_funding_count', 2], ['bool', 'total_spine_tip_funding_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "capital": {'family': 'inline', 'abbr': 'cap', 'ledger_tokens': ['capital', 'cva'], 'fields': {'action': ['lit', 'total_spine_capital_contract'], 'capitalized': ['lit', True], 'capitalized_ok': ['lit', True], 'buffer_ok': ['lit', True], 'cva_ok': ['lit', True], 'adequacy_ok': ['lit', True], 'adequate_ok': ['lit', True], 'capital_root_valid': ['lit', True], 'capital_count': ['int', 'total_spine_capital_count', '0'], 'tip_height': ['int', 'total_spine_capital_height', '0'], 'capital_root': ['get', "'total_spine_tip_capital_root'"], 'tip_capital_root': ['get', "'total_spine_tip_capital_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_funding_root': ['get', "'total_spine_tip_funding_root'"], 'capital_certificate': ['get', "'total_spine_capital_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_capital': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_capital', True], ['is', 'total_spine_capitalized', True], ['is', 'total_spine_cva_ok', True], ['min', 'total_spine_capital_count', 2], ['bool', 'total_spine_tip_capital_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "solvency": {'family': 'inline', 'abbr': 'sol', 'ledger_tokens': ['solvency', 'svr'], 'fields': {'action': ['lit', 'total_spine_solvency_contract'], 'solvent': ['lit', True], 'solvent_ok': ['lit', True], 'surplus_ok': ['lit', True], 'svr_ok': ['lit', True], 'solvency_requirement_ok': ['lit', True], 'required_ok': ['lit', True], 'solvency_root_valid': ['lit', True], 'solvency_count': ['int', 'total_spine_solvency_count', '0'], 'tip_height': ['int', 'total_spine_solvency_height', '0'], 'solvency_root': ['get', "'total_spine_tip_solvency_root'"], 'tip_solvency_root': ['get', "'total_spine_tip_solvency_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_capital_root': ['get', "'total_spine_tip_capital_root'"], 'solvency_certificate': ['get', "'total_spine_solvency_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_solvency': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_solvency', True], ['is', 'total_spine_solvent', True], ['is', 'total_spine_svr_ok', True], ['min', 'total_spine_solvency_count', 2], ['bool', 'total_spine_tip_solvency_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "risk": {'family': 'inline', 'abbr': 'rsk', 'ledger_tokens': ['risk', 'rva'], 'fields': {'action': ['lit', 'total_spine_risk_contract'], 'risked': ['lit', True], 'risked_ok': ['lit', True], 'assessed_ok': ['lit', True], 'rva_ok': ['lit', True], 'appetite_ok': ['lit', True], 'appetent_ok': ['lit', True], 'risk_root_valid': ['lit', True], 'risk_count': ['int', 'total_spine_risk_count', '0'], 'tip_height': ['int', 'total_spine_risk_height', '0'], 'risk_root': ['get', "'total_spine_tip_risk_root'"], 'tip_risk_root': ['get', "'total_spine_tip_risk_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_solvency_root': ['get', "'total_spine_tip_solvency_root'"], 'risk_certificate': ['get', "'total_spine_risk_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_risk': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_risk', True], ['is', 'total_spine_risked', True], ['is', 'total_spine_rva_ok', True], ['min', 'total_spine_risk_count', 2], ['bool', 'total_spine_tip_risk_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "stress": {'family': 'inline', 'abbr': 'sts', 'ledger_tokens': ['stress', 'svc'], 'fields': {'action': ['lit', 'total_spine_stress_contract'], 'stressed': ['lit', True], 'stressed_ok': ['lit', True], 'svc_ok': ['lit', True], 'capacity_ok': ['lit', True], 'capacious_ok': ['lit', True], 'stress_root_valid': ['lit', True], 'stress_count': ['int', 'total_spine_stress_count', '0'], 'tip_height': ['int', 'total_spine_stress_height', '0'], 'stress_root': ['get', "'total_spine_tip_stress_root'"], 'tip_stress_root': ['get', "'total_spine_tip_stress_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_risk_root': ['get', "'total_spine_tip_risk_root'"], 'stress_certificate': ['get', "'total_spine_stress_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_stress': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_stress', True], ['is', 'total_spine_stressed', True], ['is', 'total_spine_svc_ok', True], ['min', 'total_spine_stress_count', 2], ['bool', 'total_spine_tip_stress_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "recovery": {'family': 'inline', 'abbr': 'rec', 'ledger_tokens': ['recovery', 'rvp'], 'fields': {'action': ['lit', 'total_spine_recovery_contract'], 'restored': ['lit', True], 'restored_ok': ['lit', True], 'rvp_ok': ['lit', True], 'plan_ok': ['lit', True], 'planned_ok': ['lit', True], 'recovery_root_valid': ['lit', True], 'recovery_count': ['int', 'total_spine_recovery_count', '0'], 'tip_height': ['int', 'total_spine_recovery_height', '0'], 'recovery_root': ['get', "'total_spine_tip_recovery_root'"], 'tip_recovery_root': ['get', "'total_spine_tip_recovery_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_stress_root': ['get', "'total_spine_tip_stress_root'"], 'recovery_certificate': ['get', "'total_spine_recovery_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_recovery': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_recovery', True], ['is', 'total_spine_restored', True], ['is', 'total_spine_rvp_ok', True], ['min', 'total_spine_recovery_count', 2], ['bool', 'total_spine_tip_recovery_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "resolution": {'family': 'inline', 'abbr': 'res', 'ledger_tokens': ['resolution', 'rvs'], 'fields': {'action': ['lit', 'total_spine_resolution_contract'], 'resolved': ['lit', True], 'resolved_ok': ['lit', True], 'rvs_ok': ['lit', True], 'strategy_ok': ['lit', True], 'strategic_ok': ['lit', True], 'resolution_root_valid': ['lit', True], 'resolution_count': ['int', 'total_spine_resolution_count', '0'], 'tip_height': ['int', 'total_spine_resolution_height', '0'], 'resolution_root': ['get', "'total_spine_tip_resolution_root'"], 'tip_resolution_root': ['get', "'total_spine_tip_resolution_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_recovery_root': ['get', "'total_spine_tip_recovery_root'"], 'resolution_certificate': ['get', "'total_spine_resolution_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_resolution': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_resolution', True], ['is', 'total_spine_resolved', True], ['is', 'total_spine_rvs_ok', True], ['min', 'total_spine_resolution_count', 2], ['bool', 'total_spine_tip_resolution_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "restructuring": {'family': 'inline', 'abbr': 'rst', 'ledger_tokens': ['restructuring', 'rvm'], 'fields': {'action': ['lit', 'total_spine_restructuring_contract'], 'restructured': ['lit', True], 'restructured_ok': ['lit', True], 'rvm_ok': ['lit', True], 'mandate_ok': ['lit', True], 'mandated_ok': ['lit', True], 'restructuring_root_valid': ['lit', True], 'restructuring_count': ['int', 'total_spine_restructuring_count', '0'], 'tip_height': ['int', 'total_spine_restructuring_height', '0'], 'restructuring_root': ['get', "'total_spine_tip_restructuring_root'"], 'tip_restructuring_root': ['get', "'total_spine_tip_restructuring_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_resolution_root': ['get', "'total_spine_tip_resolution_root'"], 'restructuring_certificate': ['get', "'total_spine_restructuring_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_restructuring': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_restructuring', True], ['is', 'total_spine_restructured', True], ['is', 'total_spine_rvm_ok', True], ['min', 'total_spine_restructuring_count', 2], ['bool', 'total_spine_tip_restructuring_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "emergence": {'family': 'inline', 'abbr': 'emg', 'ledger_tokens': ['emergence', 'evc'], 'fields': {'action': ['lit', 'total_spine_emergence_contract'], 'emerged': ['lit', True], 'emerged_ok': ['lit', True], 'evc_ok': ['lit', True], 'confirmation_ok': ['lit', True], 'confirmed_ok': ['lit', True], 'emergence_root_valid': ['lit', True], 'emergence_count': ['int', 'total_spine_emergence_count', '0'], 'tip_height': ['int', 'total_spine_emergence_height', '0'], 'emergence_root': ['get', "'total_spine_tip_emergence_root'"], 'tip_emergence_root': ['get', "'total_spine_tip_emergence_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_restructuring_root': ['get', "'total_spine_tip_restructuring_root'"], 'emergence_certificate': ['get', "'total_spine_emergence_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_emergence': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_emergence', True], ['is', 'total_spine_emerged', True], ['is', 'total_spine_evc_ok', True], ['min', 'total_spine_emergence_count', 2], ['bool', 'total_spine_tip_emergence_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-    "reorganization": {'family': 'inline', 'abbr': 'reo', 'ledger_tokens': ['reorganization', 'rvc'], 'fields': {'action': ['lit', 'total_spine_reorganization_contract'], 'reorganized': ['lit', True], 'reorganized_ok': ['lit', True], 'rvc_ok': ['lit', True], 'charter_ok': ['lit', True], 'chartered_ok': ['lit', True], 'reorganization_root_valid': ['lit', True], 'reorganization_count': ['int', 'total_spine_reorganization_count', '0'], 'tip_height': ['int', 'total_spine_reorganization_height', '0'], 'reorganization_root': ['get', "'total_spine_tip_reorganization_root'"], 'tip_reorganization_root': ['get', "'total_spine_tip_reorganization_root'"], 'bound_state_root': ['get', "'total_spine_state_root'"], 'bound_action_root': ['get', "'total_spine_tip_action_root'"], 'bound_emergence_root': ['get', "'total_spine_tip_emergence_root'"], 'reorganization_certificate': ['get', "'total_spine_reorganization_certificate'"], 'certificate_valid': ['lit', True], 'total_spine_reorganization': ['lit', True], 'ledger_capability_ok': ['ledger'], 'used_skill_route_discovery': ['bool', "'used_skill_route_discovery'"]}, 'ok_terms': [['bool', 'ok'], ['is', 'total_spine_reorganization', True], ['is', 'total_spine_reorganized', True], ['is', 'total_spine_rvc_ok', True], ['min', 'total_spine_reorganization_count', 2], ['bool', 'total_spine_tip_reorganization_root'], ['ledger'], ['not_bool', 'used_skill_route_discovery']]},
-}
+_LOG_CONTRACT_KIND_SETS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("quorum", frozenset(['quorum_ok', 'quorum_met', 'min_quorum', 'byzantine_excluded', 'quorum_cert_valid'])),
+    ("execution", frozenset(['execution_ok', 'state_applied_ok', 'min_state_height', 'state_root_valid'])),
+    ("actuation", frozenset(['actuation_ok', 'effects_applied_ok', 'min_actions', 'action_root_valid'])),
+    ("settlement", frozenset(['settlement_ok', 'settled_ok', 'min_settlements', 'settlement_root_valid'])),
+    ("clearing", frozenset(['clearing_ok', 'cleared_ok', 'min_clearings', 'clearing_root_valid'])),
+)
 
 
 def materialize_total_spine_quorum_contract_context(
@@ -3608,7 +3563,9 @@ def materialize_total_spine_delivery_contract_context(
     finality → quorum → execution → actuation → settlement → clearing →
     confirmation clearing → delivery — no skill-route.
     """
-    return _materialize_pair_effect("delivery", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "delivery", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3627,7 +3584,9 @@ def materialize_total_spine_custody_contract_context(
     absolute-tower finality → quorum → execution → actuation → settlement
     → clearing → delivery → confirmation delivery → custody — no skill-route.
     """
-    return _materialize_pair_effect("custody", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "custody", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3647,7 +3606,9 @@ def materialize_total_spine_margin_contract_context(
     → clearing → delivery → custody → confirmation custody → margin —
     no skill-route.
     """
-    return _materialize_pair_effect("margin", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "margin", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3667,7 +3628,9 @@ def materialize_total_spine_collateral_contract_context(
     → clearing → delivery → custody → margin → confirmation margin →
     collateral — no skill-route.
     """
-    return _materialize_pair_effect("collateral", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "collateral", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3687,7 +3650,9 @@ def materialize_total_spine_liquidity_contract_context(
     → clearing → delivery → custody → margin → collateral → confirmation
     collateral → liquidity — no skill-route.
     """
-    return _materialize_pair_effect("liquidity", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "liquidity", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3707,7 +3672,9 @@ def materialize_total_spine_funding_contract_context(
     → clearing → delivery → custody → margin → collateral → liquidity →
     confirmation liquidity → funding — no skill-route.
     """
-    return _materialize_pair_effect("funding", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "funding", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3728,7 +3695,9 @@ def materialize_total_spine_capital_contract_context(
     → clearing → delivery → custody → margin → collateral → liquidity →
     funding → confirmation funding → capital — no skill-route.
     """
-    return _materialize_pair_effect("capital", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "capital", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3748,7 +3717,9 @@ def materialize_total_spine_solvency_contract_context(
     synthetic absolute-tower finality → … → capital → confirmation capital
     → solvency — no skill-route.
     """
-    return _materialize_pair_effect("solvency", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "solvency", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3764,7 +3735,9 @@ def materialize_total_spine_risk_contract_context(
     ``risk_root_valid`` / ``rva_ok`` / ``appetite_ok``, prove them
     hermetically from a solvent SvR book — no skill-route.
     """
-    return _materialize_pair_effect("risk", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "risk", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3782,7 +3755,9 @@ def materialize_total_spine_stress_contract_context(
     ``stress_root_valid`` / ``svc_ok`` / ``capacity_ok``, prove them
     hermetically from a risked RvA book — no skill-route.
     """
-    return _materialize_pair_effect("stress", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "stress", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3800,7 +3775,9 @@ def materialize_total_spine_recovery_contract_context(
     ``recovery_root_valid`` / ``rvp_ok`` / ``plan_ok``, prove them
     hermetically from a stressed SvC book — no skill-route.
     """
-    return _materialize_pair_effect("recovery", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "recovery", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3819,7 +3796,9 @@ def materialize_total_spine_resolution_contract_context(
     ``resolution_root_valid`` / ``rvs_ok`` / ``strategy_ok``, prove them
     hermetically from a restored RvP book — no skill-route.
     """
-    return _materialize_pair_effect("resolution", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "resolution", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3830,7 +3809,9 @@ def materialize_total_spine_restructuring_contract_context(
     ledger: CapabilityLedger | None = None,
 ) -> dict[str, Any]:
     '''Fill empty restructuring plane context via fast total-spine RvM.'''
-    return _materialize_pair_effect("restructuring", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "restructuring", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3842,7 +3823,9 @@ def materialize_total_spine_emergence_contract_context(
     ledger: CapabilityLedger | None = None,
 ) -> dict[str, Any]:
     """Fill empty emergence plane context via fast total-spine EvC."""
-    return _materialize_pair_effect("emergence", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "emergence", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3853,7 +3836,9 @@ def materialize_total_spine_reorganization_contract_context(
     ledger: CapabilityLedger | None = None,
 ) -> dict[str, Any]:
     """Fill empty reorganization plane context via fast total-spine RvC."""
-    return _materialize_pair_effect("reorganization", repo_path, context, ledger=ledger)
+    return materialize_spine_family_contract_context(
+        "reorganization", repo_path, context, ledger=ledger
+    )
 
 
 
@@ -3905,35 +3890,24 @@ def evaluate_outcome_contract(
     ctx.setdefault("workspace_path", str(root))
     # Auto-materialize total-spine N-of-M quorum evidence for empty-context
     # machine checks (controller complete gates inject no plane context).
-    # Plane-context materialization: predicate kind-sets are data; the
-    # dispatch order below preserves the historical evaluation order.
-    _MATERIALIZE_KIND_SETS: tuple[tuple[str, frozenset[str]], ...] = (
-        ("quorum", frozenset(['quorum_ok', 'quorum_met', 'min_quorum', 'byzantine_excluded', 'quorum_cert_valid'])),
-        ("execution", frozenset(['execution_ok', 'state_applied_ok', 'min_state_height', 'state_root_valid'])),
-        ("actuation", frozenset(['actuation_ok', 'effects_applied_ok', 'min_actions', 'action_root_valid'])),
-        ("settlement", frozenset(['settlement_ok', 'settled_ok', 'min_settlements', 'settlement_root_valid'])),
-        ("clearing", frozenset(['clearing_ok', 'cleared_ok', 'min_clearings', 'clearing_root_valid'])),
-        ("delivery", frozenset(['delivery_ok', 'delivered_ok', 'min_deliveries', 'delivery_root_valid', 'dvp_ok'])),
-        ("custody", frozenset(['custody_ok', 'custodied_ok', 'min_custodies', 'custody_root_valid', 'cvt_ok', 'title_ok', 'titled_ok'])),
-        ("margin", frozenset(['margin_ok', 'margined_ok', 'min_margins', 'margin_root_valid', 'mve_ok', 'exposure_ok', 'exposed_ok'])),
-        ("collateral", frozenset(['collateral_ok', 'collateralized_ok', 'min_collaterals', 'collateral_root_valid', 'cvo_ok', 'obligation_ok', 'obligated_ok'])),
-        ("liquidity", frozenset(['liquidity_ok', 'funded_ok', 'liquid_ok', 'min_liquidities', 'liquidity_root_valid', 'lvc_ok', 'coverage_ok', 'covered_ok'])),
-        ("funding", frozenset(['funding_ok', 'facility_ok', 'facilitated_ok', 'min_fundings', 'funding_root_valid', 'fvr_ok', 'requirement_ok', 'required_ok'])),
-        ("capital", frozenset(['capital_ok', 'buffer_ok', 'capitalized_ok', 'min_capitals', 'capital_root_valid', 'cva_ok', 'adequacy_ok', 'adequate_ok'])),
-        ("solvency", frozenset(['solvency_ok', 'surplus_ok', 'solvent_ok', 'min_solvencies', 'solvency_root_valid', 'svr_ok', 'solvency_requirement_ok', 'required_ok'])),
-        ("risk", frozenset(['risk_ok', 'risked_ok', 'assessed_ok', 'min_risks', 'risk_root_valid', 'rva_ok', 'appetite_ok', 'appetent_ok'])),
-        ("stress", frozenset(['stress_ok', 'stressed_ok', 'min_stresses', 'stress_root_valid', 'svc_ok', 'capacity_ok', 'capacious_ok'])),
-        ("recovery", frozenset(['recovery_ok', 'restored_ok', 'min_recoveries', 'recovery_root_valid', 'rvp_ok', 'plan_ok', 'planned_ok'])),
-        ("resolution", frozenset(['resolution_ok', 'resolved_ok', 'min_resolutions', 'resolution_root_valid', 'rvs_ok', 'strategy_ok', 'strategic_ok'])),
-        ("restructuring", frozenset(['restructuring_ok', 'restructured_ok', 'min_restructurings', 'restructuring_root_valid', 'rvm_ok', 'mandate_ok', 'mandated_ok'])),
-        ("emergence", frozenset(['emergence_ok', 'emerged_ok', 'min_emergences', 'emergence_root_valid', 'evc_ok', 'confirmation_ok', 'confirmed_ok'])),
-        ("reorganization", frozenset(['reorganization_ok', 'reorganized_ok', 'min_reorganizations', 'reorganization_root_valid', 'rvc_ok', 'charter_ok', 'chartered_ok'])),
+    # Pair-effect kind-sets are catalog data; log/pre-consensus rows stay
+    # the compact leftover prefix until those cores join the family engine.
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        derive_pair_effect_contract_kind_sets,
     )
-    for _mat_effect, _mat_kinds in _MATERIALIZE_KIND_SETS:
+
+    kind_sets = _LOG_CONTRACT_KIND_SETS + derive_pair_effect_contract_kind_sets()
+    for _mat_effect, _mat_kinds in kind_sets:
         if any(str(item.get("kind") or "") in _mat_kinds for item in predicates):
-            globals()[f"materialize_total_spine_{_mat_effect}_contract_context"](
-                root, ctx, ledger=ledger
-            )
+            if _mat_effect in PAIR_EFFECT_SPECS:
+                materialize_spine_family_contract_context(
+                    _mat_effect, root, ctx, ledger=ledger
+                )
+            else:
+                globals()[f"materialize_total_spine_{_mat_effect}_contract_context"](
+                    root, ctx, ledger=ledger
+                )
     results: list[dict[str, Any]] = []
     for predicate in predicates:
         kind = str(predicate.get("kind") or "")

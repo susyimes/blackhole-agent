@@ -153,6 +153,11 @@ Composition:
   synthesizers, apply, and seal share one catalog. A new family is a
   :class:`SpineFamilyEngineRow`, not another host synthesizer or public
   apply/seal copy. Historical solvency callers keep working.
+* total-spine **contract catalog** — leftover pair-effect
+  ``_MAT_PAIR_CONFIG`` / chain-map / kind-set copies derive from tokens
+  plus a compact quirk overlay. A new pair-effect family is a token row,
+  not another materializer config dict. Historical
+  ``materialize_total_spine_*`` names stay as thin wrappers.
 * total-spine **post-settlement clearing** — closes the settled-but-
   uncleared cliff: after settlement seals a unilateral observation
   receipt, ``clear_total_spine(...)`` (and ``run_total_spine(clearing=True)``)

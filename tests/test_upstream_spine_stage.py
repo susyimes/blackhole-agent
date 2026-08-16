@@ -403,6 +403,80 @@ def test_spine_family_engine_probe_is_a_catalog_row() -> None:
     assert row.populate == "signatures"
 
 
+def test_builtin_spine_contract_catalog_proof() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        builtin_spine_contract_catalog_proof,
+        derive_pair_effect_contract_config,
+    )
+
+    result = builtin_spine_contract_catalog_proof()
+    assert result["ok"] is True
+    assert result["catalog_count"] == 15
+    assert result["spec_count"] == 15
+    assert result["used_skill_route_discovery"] is False
+    assert all(result["checks"].values())
+    assert all(result["wired"].values())
+    solvency = PAIR_EFFECT_SPECS["solvency"]
+    derived = derive_pair_effect_contract_config(solvency)
+    assert derived["fields"]["surplus_ok"] == ["lit", True]
+    assert derived["ok_terms"][2] == ["is", "total_spine_solvent", True]
+
+
+def test_spine_contract_catalog_probe_is_a_token_row() -> None:
+    from blackhole_agent.upstream_total_spine_effects import (
+        PAIR_EFFECT_SPECS,
+        PairEffectSpec,
+        derive_pair_effect_contract_catalog,
+        derive_pair_effect_contract_config,
+        derive_spine_contract_chain_maps,
+    )
+
+    probe = PairEffectSpec(
+        effect="ratification",
+        plural="ratifications",
+        verb="ratify",
+        pred="reorganization",
+        pred_plural="reorganizations",
+        code="rtr",
+        code_upper="Rtr",
+        pred_code="rvc",
+        pred_code_upper="Rvc",
+        verdict_1="ratified_ok",
+        verdict_2="treaty_ok",
+        adj_1="ratified",
+        adj_2="treatied",
+        adj_1_negated="unratified",
+        counterpart="treaty",
+        pred_done="reorganized",
+        pred_verdict_1="chartered",
+        pred_verdict_2="rvc_ok",
+        post_key="post_reorganization",
+        min_name="RATIFICATIONS",
+        collect_push=("reorganization",),
+        abbr="rat",
+        refusal_pred_tampered="margin_tampered",
+        refusal_pred_short="margins_short",
+        refusal_pred_not_done="capital_unreorganized",
+        refusal_pred_unmet="capital_unrequired",
+        refusal_code_failed="rvc_failed",
+        summary="probe",
+    )
+    cfg = derive_pair_effect_contract_config(probe)
+    assert cfg["fields"]["ratified"] == ["lit", True]
+    assert "treaty_ok" in cfg["fields"]
+    live = derive_pair_effect_contract_catalog()
+    assert "ratification" not in live
+    verbs, preds, _abbrs = derive_spine_contract_chain_maps(
+        extra_chain=(("ratification", "reorganization", "ratify", "self"),)
+    )
+    assert verbs["ratification"] == "ratify"
+    assert preds["ratification"] == "reorganization"
+    live_verbs, _live_preds, _live_abbrs = derive_spine_contract_chain_maps()
+    assert "ratification" not in live_verbs
+    assert "ratification" not in PAIR_EFFECT_SPECS
+
+
 def test_spine_family_catalog_probe_extends_views() -> None:
     base = derive_spine_family_views()
     probe = derive_spine_family_views(

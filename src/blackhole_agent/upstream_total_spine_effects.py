@@ -334,6 +334,177 @@ def derive_pair_effect_signatures(spec: PairEffectSpec) -> dict[str, str]:
     }
 
 
+SPINE_CONTRACT_CATALOG_IMPL = True
+# Historical materializer scratch prefixes that drifted from spec.abbr.
+_CONTRACT_CHAIN_ABBR_QUIRKS: dict[str, str] = {
+    "clearing": "clr",
+    "restructuring": "rst",
+    "reorganization": "reo",
+}
+
+
+def pair_effect_contract_quirks(spec: PairEffectSpec) -> dict[str, Any]:
+    """Historical leftover contract-materializer slices that are data."""
+
+    adj_ok = f"{spec.adj_1}_ok"
+    effect_ok = f"{spec.effect}_ok"
+    include_verdict_1 = spec.verdict_1 not in {adj_ok, effect_ok} and spec.effect != "delivery"
+    include_verdict_2 = spec.effect != "delivery"
+    include_adj_2_ok = spec.effect != "delivery" and bool(spec.adj_2)
+    extra_before_code = ("liquid_ok",) if spec.effect == "liquidity" else ()
+    return {
+        "include_verdict_1": include_verdict_1,
+        "include_verdict_2": include_verdict_2,
+        "include_adj_2_ok": include_adj_2_ok,
+        "extra_before_code": extra_before_code,
+        "abbr": _CONTRACT_CHAIN_ABBR_QUIRKS.get(spec.effect, spec.abbr),
+    }
+
+
+def derive_pair_effect_contract_config(spec: PairEffectSpec) -> dict[str, Any]:
+    """Build the historical outcome-contract materializer row from tokens.
+
+    A new pair-effect family is a token row. The leftover ``_MAT_PAIR_CONFIG``
+    copy is derived. Probe specs still get a full materializer surface.
+    """
+
+    quirks = pair_effect_contract_quirks(spec)
+    effect = spec.effect
+    fields: dict[str, list[Any]] = {
+        "action": ["lit", f"total_spine_{effect}_contract"],
+        spec.adj_1: ["lit", True],
+        f"{spec.adj_1}_ok": ["lit", True],
+    }
+    for extra in quirks["extra_before_code"]:
+        fields[extra] = ["lit", True]
+    if quirks["include_verdict_1"]:
+        fields[spec.verdict_1] = ["lit", True]
+    fields[f"{spec.code}_ok"] = ["lit", True]
+    if quirks["include_verdict_2"]:
+        fields[spec.verdict_2] = ["lit", True]
+    if quirks["include_adj_2_ok"]:
+        fields[f"{spec.adj_2}_ok"] = ["lit", True]
+    fields.update(
+        {
+            f"{effect}_root_valid": ["lit", True],
+            f"{effect}_count": ["int", f"total_spine_{effect}_count", "0"],
+            "tip_height": ["int", f"total_spine_{effect}_height", "0"],
+            f"{effect}_root": ["get", f"'total_spine_tip_{effect}_root'"],
+            f"tip_{effect}_root": ["get", f"'total_spine_tip_{effect}_root'"],
+            "bound_state_root": ["get", "'total_spine_state_root'"],
+            "bound_action_root": ["get", "'total_spine_tip_action_root'"],
+            f"bound_{spec.pred}_root": ["get", f"'total_spine_tip_{spec.pred}_root'"],
+            f"{effect}_certificate": ["get", f"'total_spine_{effect}_certificate'"],
+            "certificate_valid": ["lit", True],
+            f"total_spine_{effect}": ["lit", True],
+            "ledger_capability_ok": ["ledger"],
+            "used_skill_route_discovery": ["bool", "'used_skill_route_discovery'"],
+        }
+    )
+    return {
+        "family": "inline",
+        "abbr": quirks["abbr"],
+        "ledger_tokens": [effect, spec.code],
+        "fields": fields,
+        "ok_terms": [
+            ["bool", "ok"],
+            ["is", f"total_spine_{effect}", True],
+            ["is", f"total_spine_{spec.adj_1}", True],
+            ["is", f"total_spine_{spec.code}_ok", True],
+            ["min", f"total_spine_{effect}_count", 2],
+            ["bool", f"total_spine_tip_{effect}_root"],
+            ["ledger"],
+            ["not_bool", "used_skill_route_discovery"],
+        ],
+    }
+
+
+def derive_pair_effect_contract_kinds(spec: PairEffectSpec) -> frozenset[str]:
+    """Predicate kinds that trigger one pair-effect contract materializer."""
+
+    quirks = pair_effect_contract_quirks(spec)
+    kinds = {
+        f"{spec.effect}_ok",
+        f"{spec.adj_1}_ok",
+        f"min_{spec.plural}",
+        f"{spec.effect}_root_valid",
+        f"{spec.code}_ok",
+    }
+    kinds.update(quirks["extra_before_code"])
+    if quirks["include_verdict_1"]:
+        kinds.add(spec.verdict_1)
+    if quirks["include_verdict_2"]:
+        kinds.add(spec.verdict_2)
+    if quirks["include_adj_2_ok"]:
+        kinds.add(f"{spec.adj_2}_ok")
+    return frozenset(kinds)
+
+
+def derive_pair_effect_contract_catalog(
+    *,
+    pair_families: Sequence[str] | None = None,
+    extra: Sequence[PairEffectSpec] = (),
+) -> dict[str, dict[str, Any]]:
+    """Live or probe contract-materializer catalog. A probe extra is not live."""
+
+    if pair_families is None:
+        specs = list(PAIR_EFFECT_SPECS.values())
+    else:
+        specs = [PAIR_EFFECT_SPECS[name] for name in pair_families]
+    catalog = {spec.effect: derive_pair_effect_contract_config(spec) for spec in specs}
+    for spec in extra:
+        catalog[spec.effect] = derive_pair_effect_contract_config(spec)
+    return catalog
+
+
+def derive_pair_effect_contract_kind_sets(
+    *,
+    pair_families: Sequence[str] | None = None,
+) -> tuple[tuple[str, frozenset[str]], ...]:
+    """Pair-effect materializer kind-sets in tower order."""
+
+    if pair_families is None:
+        names = [name for name in TOTAL_SPINE_CHAIN if name in PAIR_EFFECT_SPECS]
+    else:
+        names = list(pair_families)
+    return tuple(
+        (name, derive_pair_effect_contract_kinds(PAIR_EFFECT_SPECS[name]))
+        for name in names
+    )
+
+
+def derive_spine_contract_chain_maps(
+    *,
+    extra_chain: Sequence[tuple[str, str, str, str]] = (),
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Verb / predecessor / abbr maps for the inline materializer chain.
+
+    Derived from :data:`SPINE_FAMILY_CHAIN` plus spec tokens. Clearing stays
+    on the map (log-shaped predecessor of delivery). A probe extra chain row
+    appears without mutating the live maps.
+    """
+
+    from blackhole_agent.upstream_spine_catalog import SPINE_FAMILY_CHAIN
+
+    verbs: dict[str, str] = {}
+    preds: dict[str, str] = {}
+    abbrs: dict[str, str] = {}
+    rows = tuple(SPINE_FAMILY_CHAIN) + tuple(extra_chain)
+    started = False
+    for name, pred, verb, _variant in rows:
+        if name == "clearing" or started:
+            started = True
+            verbs[name] = verb
+            preds[name] = pred
+            if name in PAIR_EFFECT_SPECS:
+                abbrs[name] = pair_effect_contract_quirks(PAIR_EFFECT_SPECS[name])[
+                    "abbr"
+                ]
+            else:
+                abbrs[name] = _CONTRACT_CHAIN_ABBR_QUIRKS.get(name, name[:3])
+    return verbs, preds, abbrs
+
+
 PAIR_EFFECT_SPECS: dict[str, PairEffectSpec] = {}
 
 
@@ -3999,6 +4170,180 @@ def builtin_spine_signature_catalog_proof() -> dict[str, Any]:
         "done_when_met": ok,
     }
     out = REPO_ROOT / "artifacts" / "capability-spine-signature-catalog"
+    out.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(out / "plane-report.json", report)
+    return report
+
+
+def _probe_ratification_spec() -> PairEffectSpec:
+    return PairEffectSpec(
+        effect="ratification",
+        plural="ratifications",
+        verb="ratify",
+        pred="reorganization",
+        pred_plural="reorganizations",
+        code="rtr",
+        code_upper="Rtr",
+        pred_code="rvc",
+        pred_code_upper="Rvc",
+        verdict_1="ratified_ok",
+        verdict_2="treaty_ok",
+        adj_1="ratified",
+        adj_2="treatied",
+        adj_1_negated="unratified",
+        counterpart="treaty",
+        pred_done="reorganized",
+        pred_verdict_1="chartered",
+        pred_verdict_2="rvc_ok",
+        post_key="post_reorganization",
+        min_name="RATIFICATIONS",
+        collect_push=("reorganization",),
+        abbr="rat",
+        refusal_pred_tampered="margin_tampered",
+        refusal_pred_short="margins_short",
+        refusal_pred_not_done="capital_unreorganized",
+        refusal_pred_unmet="capital_unrequired",
+        refusal_code_failed="rvc_failed",
+        summary="probe contract catalog family",
+    )
+
+
+def builtin_spine_contract_catalog_proof() -> dict[str, Any]:
+    """Hermetic proof: leftover pair-effect contract materializers are one catalog."""
+
+    import inspect
+
+    from blackhole_agent import capability_compounder as compounder
+
+    checks: dict[str, bool] = {}
+    catalog = derive_pair_effect_contract_catalog()
+    kinds = derive_pair_effect_contract_kind_sets()
+    verbs, preds, abbrs = derive_spine_contract_chain_maps()
+    checks["impl"] = SPINE_CONTRACT_CATALOG_IMPL is True
+    checks["catalog_len"] = len(catalog) == 15
+    checks["kind_len"] = len(kinds) == 15
+    checks["kind_order"] = [name for name, _ in kinds] == [
+        name for name in TOTAL_SPINE_CHAIN if name in PAIR_EFFECT_SPECS
+    ]
+    checks["chain_len"] = len(verbs) == 16 and len(preds) == 16 and len(abbrs) == 16
+    checks["chain_starts_clearing"] = (
+        list(verbs)[0] == "clearing" and verbs["clearing"] == "clear"
+    )
+    checks["chain_ends_reorganization"] = (
+        list(verbs)[-1] == "reorganization" and verbs["reorganization"] == "reorganize"
+    )
+    checks["abbr_quirks"] = (
+        abbrs["clearing"] == "clr"
+        and abbrs["restructuring"] == "rst"
+        and abbrs["reorganization"] == "reo"
+        and abbrs["delivery"] == "dlv"
+    )
+    sol = catalog["solvency"]
+    checks["solvency_fields"] = (
+        sol["fields"]["surplus_ok"] == ["lit", True]
+        and "action" in sol["fields"]
+        and sol["abbr"] == "sol"
+    )
+    checks["delivery_no_pay"] = (
+        "pay_ok" not in catalog["delivery"]["fields"]
+        and "dvp_ok" in catalog["delivery"]["fields"]
+    )
+    checks["liquidity_liquid"] = "liquid_ok" in catalog["liquidity"]["fields"]
+    kind_map = dict(kinds)
+    checks["solvency_kinds"] = "svr_ok" in kind_map["solvency"] and (
+        "surplus_ok" in kind_map["solvency"]
+    )
+    checks["delivery_kinds"] = kind_map["delivery"] == frozenset(
+        {
+            "delivery_ok",
+            "delivered_ok",
+            "min_deliveries",
+            "delivery_root_valid",
+            "dvp_ok",
+        }
+    )
+
+    probe = _probe_ratification_spec()
+    probe_cfg = derive_pair_effect_contract_config(probe)
+    probe_kinds = derive_pair_effect_contract_kinds(probe)
+    checks["probe_config"] = (
+        probe_cfg["fields"]["ratified"] == ["lit", True]
+        and "treaty_ok" in probe_cfg["fields"]
+        and probe_cfg["abbr"] == "rat"
+    )
+    checks["probe_kinds"] = (
+        "ratification_ok" in probe_kinds and "treaty_ok" in probe_kinds
+    )
+    checks["probe_not_live"] = "ratification" not in catalog
+    probe_verbs, probe_preds, _probe_abbrs = derive_spine_contract_chain_maps(
+        extra_chain=(("ratification", "reorganization", "ratify", "self"),)
+    )
+    checks["probe_chain"] = (
+        probe_verbs.get("ratification") == "ratify"
+        and probe_preds.get("ratification") == "reorganization"
+        and "ratification" not in verbs
+    )
+
+    compounder_src = Path(compounder.__file__).read_text(encoding="utf-8")
+    effects_src = Path(__file__).read_text(encoding="utf-8")
+    checks["no_leftover_pair_config"] = "_MAT_PAIR_CONFIG:" not in compounder_src
+    checks["no_leftover_chain_verbs"] = "_MAT_CHAIN_VERBS =" not in compounder_src
+    checks["no_leftover_kind_unroll"] = (
+        '("delivery", frozenset(' not in compounder_src
+        and '("reorganization", frozenset(' not in compounder_src
+    )
+    checks["compounder_uses_catalog"] = (
+        "derive_pair_effect_contract_config" in compounder_src
+        and "derive_spine_contract_chain_maps" in compounder_src
+        and "derive_pair_effect_contract_kind_sets" in compounder_src
+        and "materialize_spine_family_contract_context" in compounder_src
+    )
+    checks["derive_present"] = "def derive_pair_effect_contract_config" in effects_src
+    wrap_src = inspect.getsource(compounder.materialize_total_spine_solvency_contract_context)
+    checks["solvency_wrapper_thin"] = (
+        "materialize_spine_family_contract_context" in wrap_src
+        and "_MAT_PAIR_CONFIG" not in wrap_src
+    )
+    checks["public_dispatch"] = callable(
+        compounder.materialize_spine_family_contract_context
+    )
+    try:
+        compounder.materialize_spine_family_contract_context(
+            "not-a-family", REPO_ROOT, {}
+        )
+        checks["unknown_refused"] = False
+    except KeyError:
+        checks["unknown_refused"] = True
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    wired = {
+        "derive_config": callable(derive_pair_effect_contract_config),
+        "derive_kinds": callable(derive_pair_effect_contract_kinds),
+        "derive_catalog": callable(derive_pair_effect_contract_catalog),
+        "derive_kind_sets": callable(derive_pair_effect_contract_kind_sets),
+        "derive_chain": callable(derive_spine_contract_chain_maps),
+        "quirks": callable(pair_effect_contract_quirks),
+        "dispatch": callable(compounder.materialize_spine_family_contract_context),
+        "impl": SPINE_CONTRACT_CATALOG_IMPL is True,
+    }
+    ok = all(checks.values()) and all(wired.values())
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "action": "spine_contract_catalog_proof",
+        "ok": ok,
+        "checks": checks,
+        "wired": wired,
+        "wired_count": sum(1 for value in wired.values() if value),
+        "spec_count": len(PAIR_EFFECT_SPECS),
+        "catalog_count": len(catalog),
+        "kind_count": len(kinds),
+        "chain_count": len(verbs),
+        "probe_family": "ratification",
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "spine_contract_catalog": True,
+        "done_when_met": ok,
+    }
+    out = REPO_ROOT / "artifacts" / "capability-spine-contract-catalog"
     out.mkdir(parents=True, exist_ok=True)
     atomic_write_json(out / "plane-report.json", report)
     return report
