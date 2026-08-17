@@ -239,6 +239,16 @@ Git, and self-modification capabilities; the worker is reloaded from the
 evolving mission worktree between turns so a milestone can change the
 controller used by the following turn.
 
+Completed missions leave their sibling worktrees behind; the loop reclaims
+them automatically once their proven milestones are part of the published
+lineage (keeping the newest three; `--no-worktree-gc` disables this). The same
+policy runs standalone for older backlogs:
+
+```bash
+uv run blackhole-unbound worktrees-gc --repo-path . --dry-run
+uv run blackhole-unbound worktrees-gc --repo-path .
+```
+
 Inspect or pause a mission:
 
 ```bash

@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 import typer
 from rich.console import Console
@@ -1945,6 +1945,151 @@ def latest_proven_lineage(
     return None, lineage_ref
 
 
+def reclaim_mission_worktrees(
+    repo_path: Path,
+    *,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    ancestor_refs: Sequence[str] = ("main",),
+    keep_recent: int = 3,
+    dry_run: bool = False,
+    delete_branches: bool = False,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> dict[str, Any]:
+    """Reclaim mission worktrees whose proven work already lives in the lineage.
+
+    A mission worktree is reclaimable only when ALL of the following hold:
+
+    - its durable state parses and reports ``status == "complete"``;
+    - its ``last_milestone_head`` is an ancestor of at least one ancestor ref
+      (local target branch, remote-tracking branch, or the current lineage
+      tip), so every proven milestone survives outside the worktree; and
+    - it is not among the ``keep_recent`` newest reclaimable missions.
+
+    Active and blocked missions are never touched: blocked missions preserve
+    work by contract, and active missions are running. Mission branches are
+    kept by default so milestone commits stay referenced; ``delete_branches``
+    uses ``git branch -d`` only, which refuses unmerged branches. Unparsable
+    state files are skipped and reported, never deleted. Worktree directories
+    that already vanished are cleaned from git's registry via
+    ``git worktree prune``.
+    """
+
+    repo_path = repo_path.resolve()
+    if keep_recent < 0:
+        raise ValueError("keep_recent cannot be negative")
+    missions_dir = mission_root(repo_path, output_dir) / "missions"
+    report: dict[str, Any] = {
+        "ok": True,
+        "action": "worktree_gc",
+        "dry_run": dry_run,
+        "ancestor_refs": list(ancestor_refs),
+        "keep_recent": keep_recent,
+        "scanned": 0,
+        "reclaimed": [],
+        "kept": [],
+        "errors": [],
+        "pruned_missing": [],
+    }
+    if not missions_dir.is_dir():
+        return report
+
+    resolved_refs: list[str] = []
+    for ref in ancestor_refs:
+        ref = str(ref).strip()
+        if not ref:
+            continue
+        verified = run_command(
+            ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
+            cwd=repo_path,
+            command_runner=command_runner,
+            check=False,
+        )
+        if verified.returncode == 0:
+            resolved_refs.append((verified.stdout or "").strip())
+
+    reclaimable: list[tuple[str, UnboundMission, Path]] = []
+    for state_path in sorted(missions_dir.glob("*/state.json")):
+        report["scanned"] += 1
+        try:
+            state = load_mission(state_path)
+        except (ValueError, json.JSONDecodeError, OSError) as error:
+            report["kept"].append(
+                {"mission_id": state_path.parent.name, "reason": f"unreadable_state: {error}"}
+            )
+            continue
+        if state.status != "complete":
+            report["kept"].append({"mission_id": state.mission_id, "reason": f"status_{state.status}"})
+            continue
+        workspace = Path(state.workspace_path)
+        if workspace.resolve() == repo_path:
+            report["kept"].append({"mission_id": state.mission_id, "reason": "workspace_is_repo_root"})
+            continue
+        if not workspace.exists():
+            report["pruned_missing"].append({"mission_id": state.mission_id, "workspace": str(workspace)})
+            continue
+        head = state.last_milestone_head or state.base_head
+        if not git_commit_exists(repo_path, head, command_runner=command_runner):
+            report["kept"].append({"mission_id": state.mission_id, "reason": "milestone_head_unresolvable"})
+            continue
+        published = any(
+            git_is_ancestor(repo_path, head, ref, command_runner=command_runner) for ref in resolved_refs
+        )
+        if not published:
+            report["kept"].append({"mission_id": state.mission_id, "reason": "milestones_not_in_lineage"})
+            continue
+        reclaimable.append((state.created_at, state, workspace))
+
+    reclaimable.sort(key=lambda item: item[0], reverse=True)
+    for index, (_, state, workspace) in enumerate(reclaimable):
+        if index < keep_recent:
+            report["kept"].append({"mission_id": state.mission_id, "reason": "keep_recent"})
+            continue
+        entry: dict[str, Any] = {
+            "mission_id": state.mission_id,
+            "workspace": str(workspace),
+            "branch": state.branch,
+            "head": state.last_milestone_head or state.base_head,
+        }
+        if dry_run:
+            entry["removed"] = False
+            report["reclaimed"].append(entry)
+            continue
+        removed = run_command(
+            ["git", "worktree", "remove", "--force", str(workspace)],
+            cwd=repo_path,
+            command_runner=command_runner,
+            check=False,
+            timeout=600,
+        )
+        if removed.returncode != 0:
+            report["errors"].append(
+                {"mission_id": state.mission_id, "error": (removed.stderr or removed.stdout or "").strip()}
+            )
+            continue
+        entry["removed"] = True
+        if delete_branches and state.branch:
+            deleted = run_command(
+                ["git", "branch", "-d", state.branch],
+                cwd=repo_path,
+                command_runner=command_runner,
+                check=False,
+            )
+            entry["branch_deleted"] = deleted.returncode == 0
+            if deleted.returncode != 0:
+                entry["branch_delete_error"] = (deleted.stderr or deleted.stdout or "").strip()
+        report["reclaimed"].append(entry)
+
+    if not dry_run and (report["reclaimed"] or report["pruned_missing"]):
+        run_command(
+            ["git", "worktree", "prune"],
+            cwd=repo_path,
+            command_runner=command_runner,
+            check=False,
+        )
+    report["ok"] = not report["errors"]
+    return report
+
+
 def run_continuous_loop(
     *,
     repo_path: Path,
@@ -1961,9 +2106,12 @@ def run_continuous_loop(
     resume_latest: bool = True,
     max_missions: int = 0,
     publish_remote: str = "",
+    worktree_gc: bool = True,
+    worktree_gc_keep_recent: int = 3,
     mission_creator: Callable[..., Path] = create_mission,
     mission_runner: Callable[..., int] = run_mission_loop,
     lineage_publisher: Callable[..., PublicationResult] = publish_lineage,
+    worktree_reclaimer: Callable[..., dict[str, Any]] = reclaim_mission_worktrees,
     interval_waiter: Callable[[int, Path], bool] = wait_for_continuous_interval,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> int:
@@ -2032,6 +2180,9 @@ def run_continuous_loop(
         "next_wake_at": "",
         "last_error": "",
         "last_mission_create_error": "",
+        "worktree_gc_count": 0,
+        "worktree_reclaimed_count": 0,
+        "last_worktree_gc_error": "",
         "stop_reason": "",
     }
 
@@ -2117,11 +2268,72 @@ def run_continuous_loop(
                 loop_state["last_published_ref"] = result.remote_after
                 loop_state["last_published_at"] = utc_now_iso()
                 loop_state["last_publish_error"] = ""
+                run_worktree_gc("publication")
             else:
                 loop_state["last_publish_error"] = result.error
             loop_state["status"] = "running"
             save_continuous_loop_state(state_path, loop_state)
             return result.ok
+
+        def run_worktree_gc(trigger: str) -> None:
+            """Reclaim published mission worktrees; failures never break the loop."""
+
+            if not worktree_gc:
+                return
+            ancestor_refs = [target_branch]
+            if publish_remote:
+                ancestor_refs.append(f"{publish_remote}/{target_branch}")
+            if lineage_ref and lineage_ref not in ancestor_refs:
+                ancestor_refs.append(lineage_ref)
+            try:
+                gc_report = worktree_reclaimer(
+                    repo_path,
+                    output_dir=output_dir,
+                    ancestor_refs=tuple(ancestor_refs),
+                    keep_recent=worktree_gc_keep_recent,
+                    command_runner=command_runner,
+                )
+            except Exception as error:  # noqa: BLE001 - reclamation must never break the loop
+                loop_state["last_worktree_gc_error"] = str(error) or error.__class__.__name__
+                save_continuous_loop_state(state_path, loop_state)
+                append_jsonl(
+                    events_path,
+                    {
+                        "event": "continuous_loop.worktree_gc_failed",
+                        "at": utc_now_iso(),
+                        "loop_id": loop_id,
+                        "trigger": trigger,
+                        "error": loop_state["last_worktree_gc_error"],
+                    },
+                )
+                return
+            reclaimed = list(gc_report.get("reclaimed") or [])
+            errors = list(gc_report.get("errors") or [])
+            loop_state["worktree_gc_count"] = int(loop_state["worktree_gc_count"]) + 1
+            loop_state["worktree_reclaimed_count"] = (
+                int(loop_state["worktree_reclaimed_count"]) + len(reclaimed)
+            )
+            loop_state["last_worktree_gc_error"] = (
+                "" if gc_report.get("ok") else "; ".join(str(item.get("error") or "") for item in errors)
+            )
+            save_continuous_loop_state(state_path, loop_state)
+            append_jsonl(
+                events_path,
+                {
+                    "event": "continuous_loop.worktree_gc",
+                    "at": utc_now_iso(),
+                    "loop_id": loop_id,
+                    "trigger": trigger,
+                    "ok": bool(gc_report.get("ok")),
+                    "ancestor_refs": list(gc_report.get("ancestor_refs") or ancestor_refs),
+                    "scanned": int(gc_report.get("scanned") or 0),
+                    "reclaimed_count": len(reclaimed),
+                    "reclaimed_ids": [str(item.get("mission_id") or "") for item in reclaimed],
+                    "kept_count": len(gc_report.get("kept") or []),
+                    "pruned_missing_count": len(gc_report.get("pruned_missing") or []),
+                    "error_count": len(errors),
+                },
+            )
 
         if loop_state["pending_publish_ref"] and not attempt_publication():
             should_wait = True
@@ -2291,6 +2503,10 @@ def run_continuous_loop(
                     if current.status == "complete" and publish_remote:
                         loop_state["pending_publish_ref"] = lineage_ref
                         loop_state["pending_publish_mission_id"] = current.mission_id
+                    elif current.status == "complete":
+                        # Local-only loops never reach the publication hook, so
+                        # reclaim published-by-lineage worktrees here instead.
+                        run_worktree_gc("mission_complete")
                     if current.status != "active":
                         current_state_path = None
                         loop_state["current_mission_id"] = ""
@@ -2488,6 +2704,17 @@ def loop(
         "--publish-remote",
         help="Push each completed proven lineage to this remote; use an empty value to disable.",
     ),
+    worktree_gc: bool = typer.Option(
+        True,
+        "--worktree-gc/--no-worktree-gc",
+        help="Reclaim published mission worktrees after each completed mission.",
+    ),
+    worktree_gc_keep: int = typer.Option(
+        3,
+        "--worktree-gc-keep",
+        min=0,
+        help="Always keep this many newest reclaimable mission worktrees.",
+    ),
 ) -> None:
     try:
         exit_code = run_continuous_loop(
@@ -2505,6 +2732,8 @@ def loop(
             resume_latest=resume_latest,
             max_missions=max_missions,
             publish_remote=publish_remote.strip(),
+            worktree_gc=worktree_gc,
+            worktree_gc_keep_recent=worktree_gc_keep,
         )
     except (ValueError, RuntimeError, FileNotFoundError) as error:
         console.print(f"Unbound continuous loop failed: {error}", style="red")
@@ -2542,6 +2771,47 @@ def loop_stop(
         },
     )
     console.print(f"stop requested: {stop_path}")
+
+
+@app.command(
+    "worktrees-gc",
+    help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",
+)
+def worktrees_gc(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository owning the mission worktrees."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+    target_branch: str = typer.Option("main", "--target-branch", help="Lineage branch proven work must reach."),
+    publish_remote: str = typer.Option(
+        "origin",
+        "--publish-remote",
+        help="Also accept the remote-tracking lineage of this remote; empty disables.",
+    ),
+    keep_recent: int = typer.Option(3, "--keep-recent", min=0, help="Always keep this many newest reclaimable worktrees."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report the partition without removing anything."),
+    delete_branches: bool = typer.Option(
+        False,
+        "--delete-branches",
+        help="Also delete reclaimed mission branches with git branch -d (refuses unmerged branches).",
+    ),
+) -> None:
+    ancestor_refs = [target_branch]
+    remote = publish_remote.strip()
+    if remote:
+        ancestor_refs.append(f"{remote}/{target_branch}")
+    try:
+        report = reclaim_mission_worktrees(
+            repo_path.resolve(),
+            output_dir=output_dir,
+            ancestor_refs=tuple(ancestor_refs),
+            keep_recent=keep_recent,
+            dry_run=dry_run,
+            delete_branches=delete_branches,
+        )
+    except (ValueError, RuntimeError, FileNotFoundError) as error:
+        console.print(f"Worktree reclamation failed: {error}", style="red")
+        raise typer.Exit(1) from error
+    console.print_json(data=report)
+    raise typer.Exit(0 if report["ok"] else 1)
 
 
 @app.command(help="Show durable state for an Unbound mission.")

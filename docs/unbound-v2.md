@@ -375,6 +375,39 @@ interval, and retries instead of terminating the continuous loop.
 Use another configured remote with `--publish-remote <name>`. Pass an empty
 value only when a deliberately local-only loop is wanted.
 
+### Worktree reclamation
+
+Every mission owns a sibling worktree, so an unattended loop accumulates one
+checkout per mission forever. The loop now reclaims them: after each successful
+lineage publication (or, for local-only loops, after each completed mission),
+`reclaim_mission_worktrees` removes mission worktrees that are safe to lose and
+records a `continuous_loop.worktree_gc` event.
+
+A worktree is reclaimed only when all of the following hold:
+
+- its mission state parses and reports `status=complete`;
+- its `last_milestone_head` is an ancestor of the target branch, the
+  remote-tracking lineage, or the current lineage tip — every proven milestone
+  survives outside the worktree; and
+- it is not among the `--worktree-gc-keep` newest reclaimable missions
+  (default 3).
+
+Active and blocked missions are never touched, unparsable state files are
+skipped and reported, and mission branches are kept by default so milestone
+commits stay referenced. Worktree directories that already vanished are
+cleaned from git's registry with `git worktree prune`. Reclamation failures
+are recorded in loop state (`last_worktree_gc_error`) and never interrupt the
+loop. Disable with `--no-worktree-gc`.
+
+The same policy is invocable directly, including for backlogs that predate the
+loop integration:
+
+```bash
+uv run blackhole-unbound worktrees-gc --repo-path . --dry-run
+uv run blackhole-unbound worktrees-gc --repo-path . --keep-recent 3
+uv run blackhole-unbound worktrees-gc --repo-path . --delete-branches
+```
+
 Loop state and events are durable:
 
 ```text
