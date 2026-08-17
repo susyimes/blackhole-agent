@@ -78,6 +78,27 @@ def test_grok_kernel_preserves_failure_artifact_before_raising(tmp_path, monkeyp
     assert payload["stderr_tail"] == "authentication failed"
 
 
+def test_grok_kernel_keeps_error_payload_message_on_nonzero_exit(tmp_path, monkeypatch):
+    monkeypatch.setattr("blackhole_agent.kernels.grok_cli.shutil.which", lambda _: "C:/tools/grok.exe")
+    stdout = json.dumps(
+        {
+            "type": "error",
+            "message": "API error (status 402 Payment Required): Grok Build usage balance exhausted",
+        }
+    )
+
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, stdout=stdout, stderr="status=402")
+
+    kernel = GrokCliKernel(GrokCliConfig(model="grok-4.5"), command_runner=runner)
+    with pytest.raises(RuntimeError, match="exit code 1"):
+        kernel.run("Task", cwd=tmp_path, output_dir=tmp_path / "out")
+
+    payload = json.loads((tmp_path / "out" / "latest-grok-run.json").read_text(encoding="utf-8"))
+    assert "402" in payload["last_message"]
+    assert payload["returncode"] == 1
+
+
 def test_grok_preflight_requires_binary_and_explicit_model(monkeypatch):
     monkeypatch.setattr("blackhole_agent.kernels.grok_cli.shutil.which", lambda _: None)
     preflight = build_grok_provider_preflight(GrokCliConfig(require_explicit_route=True), env={})
@@ -92,6 +113,9 @@ def test_grok_preflight_requires_binary_and_explicit_model(monkeypatch):
 
 def test_extract_grok_last_message_accepts_verified_headless_shape():
     assert extract_grok_last_message('{"text":"GROK_HEADLESS_OK","stopReason":"EndTurn"}') == "GROK_HEADLESS_OK"
+    assert "402" in extract_grok_last_message(
+        '{"type":"error","message":"API error (status 402 Payment Required)"}'
+    )
 
 
 def test_supervisor_wake_command_selects_grok_kernel(tmp_path):

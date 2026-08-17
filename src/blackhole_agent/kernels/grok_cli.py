@@ -101,7 +101,7 @@ class GrokCliKernel:
             stdout = timeout_text(error.stdout)
             stderr = timeout_text(error.stderr) or f"Timed out after {timeout_seconds} seconds."
 
-        last_message = extract_grok_last_message(stdout) if returncode == 0 else ""
+        last_message = extract_grok_last_message(stdout)
         if last_message:
             last_message_path.write_text(last_message, encoding="utf-8")
         result = GrokCliRunResult(
@@ -229,8 +229,12 @@ def extract_grok_last_message(stdout: str) -> str:
         return text
     if isinstance(payload, dict):
         value = payload.get("text")
-        if isinstance(value, str):
+        if isinstance(value, str) and value.strip():
             return value.strip()
+        if payload.get("type") == "error":
+            message = payload.get("message")
+            if isinstance(message, str) and message.strip():
+                return message.strip()
     return ""
 
 

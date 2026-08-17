@@ -806,6 +806,39 @@ def test_execution_stage_turn_can_refine_done_when_before_gating(tmp_path):
     assert state.done_when == "min_capabilities:1"
 
 
+def test_kernel_death_records_structured_decision_instead_of_raising(tmp_path):
+    from blackhole_agent.kernel_salvage import HARVESTED_GROK_402
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    state_path = create_mission(
+        repo_path=repo,
+        goal="Keep going after a kernel 402.",
+        done_when="A structured decision is recorded.",
+        worktree_parent=tmp_path / "worktrees",
+    )
+
+    def exploding_kernel(state, prompt, turn_dir, **kwargs):
+        kernel_dir = turn_dir / "kernel"
+        kernel_dir.mkdir(parents=True)
+        (kernel_dir / "latest-grok-run.json").write_text(
+            json.dumps(HARVESTED_GROK_402),
+            encoding="utf-8",
+        )
+        raise RuntimeError("Grok CLI failed with exit code 1")
+
+    record = run_unbound_turn(state_path, kernel_runner=exploding_kernel)
+    state = load_mission(state_path)
+
+    assert record["effective_status"] == "blocked"
+    assert record["requested_status"] == "blocked"
+    assert record["kernel_salvage"]["class_id"] == "quota_exhausted"
+    assert state.status == "blocked"
+    assert state.last_error == ""
+    assert "quota_exhausted" in state.last_summary
+
+
 def test_resolve_unbound_kernel_auto_selects_installed_first_class_kernel():
     kernel, resolution = resolve_unbound_kernel(
         "auto",

@@ -103,8 +103,6 @@ class KimiCliKernel:
 
         last_message, streamed_session_id, tool_titles = extract_kimi_stream(stdout)
         session_id = streamed_session_id or str(self.config.resume_session_id or "")
-        if returncode != 0:
-            last_message = ""
         if last_message:
             last_message_path.write_text(last_message, encoding="utf-8")
         result = KimiCliRunResult(

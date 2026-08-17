@@ -81,6 +81,10 @@ from blackhole_agent.capability_compounder import (
     load_lineage_log,
     detect_lineage_drift,
 )
+from blackhole_agent.kernel_salvage import (
+    execute_kernel_turn_with_salvage,
+    extract_json_decision,
+)
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.capability_repair import run_repair_plane
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
@@ -1051,25 +1055,6 @@ Return only one JSON object with exactly this shape:
     return compact_text(prompt, limit=PROMPT_TEXT_LIMIT)
 
 
-def extract_json_decision(message: str) -> dict[str, Any]:
-    """Find the last valid decision object in a model response."""
-
-    decoder = json.JSONDecoder()
-    candidates: list[dict[str, Any]] = []
-    for index, character in enumerate(message):
-        if character != "{":
-            continue
-        try:
-            payload, _ = decoder.raw_decode(message[index:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict) and "status" in payload:
-            candidates.append(payload)
-    if not candidates:
-        raise ValueError("Kernel final message did not contain a JSON decision object.")
-    return candidates[-1]
-
-
 def invoke_kernel_turn(
     state: UnboundMission,
     prompt: str,
@@ -1644,43 +1629,14 @@ def run_unbound_turn(
         prompt = build_turn_prompt(state, snapshot, state_path=state_path)
         (turn_dir / "prompt.md").write_text(prompt, encoding="utf-8")
 
-        kernel_result: KernelTurnResult | None = None
-        try:
-            kernel_result = kernel_runner(
-                state,
-                prompt,
-                turn_dir,
-                command_runner=command_runner,
-            )
-            (turn_dir / "final-message.md").write_text(kernel_result.last_message, encoding="utf-8")
-            decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
-        except Exception as error:
-            if kernel_result is not None:
-                state.session_id = kernel_result.session_id or state.session_id
-                state.session_started = bool(state.session_id) or state.session_started
-            state.iteration = iteration
-            state.last_error = str(error)
-            state.last_summary = "Kernel turn failed before a structured decision was recorded."
-            failure_record = {
-                "schema_version": SCHEMA_VERSION,
-                "iteration": iteration,
-                "started_at": started_at,
-                "finished_at": utc_now_iso(),
-                "kernel": state.kernel,
-                "requested_status": "error",
-                "effective_status": "error",
-                "summary": state.last_summary,
-                "error": str(error),
-            }
-            atomic_write_json(turn_dir / "turn.json", failure_record)
-            append_jsonl(state_path.parent / "events.jsonl", {"event": "turn.failed", **failure_record})
-            state.recent_turns = [*state.recent_turns, failure_record][-STATE_HISTORY_LIMIT:]
-            save_mission(state_path, state)
-            try:
-                ingest_unbound_turn(Path(state.repo_path), failure_record)
-            except Exception:  # noqa: BLE001 - pattern ingest must never fail a turn
-                pass
-            raise
+        kernel_result, decision, salvage_meta = execute_kernel_turn_with_salvage(
+            state,
+            prompt,
+            turn_dir,
+            kernel_runner=kernel_runner,
+            command_runner=command_runner,
+        )
+        (turn_dir / "final-message.md").write_text(kernel_result.last_message, encoding="utf-8")
 
         if state.stage == "genesis":
             if decision.mission_goal:
@@ -1790,6 +1746,7 @@ def run_unbound_turn(
             "commit_sha": commit_sha,
             "command": list(kernel_result.command),
             "kernel_result_path": kernel_result.result_path,
+            "kernel_salvage": salvage_meta,
         }
         atomic_write_json(turn_dir / "turn.json", record)
         append_jsonl(
