@@ -241,24 +241,32 @@ def empty_local_decision(**overrides: Any) -> dict[str, Any]:
 
 
 def default_local_capability_tick(state: Any, workspace: Path) -> dict[str, Any]:
-    repo_value = getattr(state, "repo_path", None) or workspace
-    health = load_kernel_health(Path(repo_value))
-    open_kernels = [
-        name
-        for name, breaker in sorted(health.kernels.items())
-        if breaker_status(breaker) == "open"
-    ]
-    return {
-        "ok": True,
-        "summary": (
-            "Local capability kernel kept the mission moving after first-class "
-            f"kernels were unavailable ({', '.join(open_kernels) or 'none open'})."
-        ),
-        "strategy": "Work locally while open-circuit first-class kernels cool down.",
-        "next_step": "Resume on a healthy first-class kernel when a breaker closes.",
-        "outcome_evidence": [f"open_circuit={open_kernels}"],
-        "capability_delta": "",
-    }
+    """Execute cheap ledger capabilities; never stall if the worker cannot load."""
+
+    try:
+        from blackhole_agent.local_capability_kernel import local_capability_tick
+
+        return dict(local_capability_tick(state, workspace) or {})
+    except Exception as error:  # noqa: BLE001 - failover tick must still emit a decision
+        repo_value = getattr(state, "repo_path", None) or workspace
+        health = load_kernel_health(Path(repo_value))
+        open_kernels = [
+            name
+            for name, breaker in sorted(health.kernels.items())
+            if breaker_status(breaker) == "open"
+        ]
+        return {
+            "ok": True,
+            "status": "continue",
+            "summary": (
+                f"Local capability kernel tick failed ({error}); "
+                "recorded a structured continue so the mission does not stall."
+            ),
+            "strategy": "Work locally while open-circuit first-class kernels cool down.",
+            "next_step": "Resume on a healthy first-class kernel when a breaker closes.",
+            "outcome_evidence": [f"open_circuit={open_kernels}", str(error)[:400]],
+            "capability_delta": "",
+        }
 
 
 def invoke_local_kernel(

@@ -113,7 +113,8 @@ MISSION_STATUSES = frozenset({"active", "complete", "blocked", "stopped"})
 TURN_STATUSES = frozenset({"continue", "milestone", "complete", "blocked"})
 KERNELS = frozenset({"codex", "grok", "kimi"})
 AUTO_KERNEL = "auto"
-KERNEL_CHOICES = frozenset({*KERNELS, AUTO_KERNEL})
+LOCAL_KERNEL = "local"
+KERNEL_CHOICES = frozenset({*KERNELS, AUTO_KERNEL, LOCAL_KERNEL})
 RECENT_TURN_LIMIT = 8
 STATE_HISTORY_LIMIT = 50
 PROMPT_TEXT_LIMIT = 12_000
@@ -690,7 +691,7 @@ def resolve_unbound_kernel(
     """
 
     if kernel != AUTO_KERNEL:
-        if kernel not in KERNELS:
+        if kernel not in KERNELS and kernel != LOCAL_KERNEL:
             raise ValueError(f"kernel must be one of: {', '.join(sorted(KERNEL_CHOICES))}")
         return kernel, {"mode": "explicit", "kernel": kernel}
     selection = select_provider_harness(
@@ -1066,6 +1067,17 @@ def invoke_kernel_turn(
 
     workspace = Path(state.workspace_path)
     kernel_dir = turn_dir / "kernel"
+    if state.kernel == LOCAL_KERNEL:
+        from blackhole_agent.kernel_health import invoke_local_kernel
+
+        local = invoke_local_kernel(state, prompt, turn_dir)
+        return KernelTurnResult(
+            kernel=LOCAL_KERNEL,
+            last_message=str(local["last_message"]),
+            session_id=str(local.get("session_id") or state.session_id or "local"),
+            command=tuple(local.get("command") or ("local-capability-kernel",)),
+            result_path=str(local.get("result_path") or ""),
+        )
     if state.kernel == "grok":
         if not state.session_id:
             state.session_id = str(uuid.uuid4())
