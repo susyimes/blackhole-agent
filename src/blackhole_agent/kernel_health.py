@@ -241,32 +241,37 @@ def empty_local_decision(**overrides: Any) -> dict[str, Any]:
 
 
 def default_local_capability_tick(state: Any, workspace: Path) -> dict[str, Any]:
-    """Execute cheap ledger capabilities; never stall if the worker cannot load."""
+    """Bind a mission and execute a local campaign; never stall if a worker cannot load."""
 
     try:
-        from blackhole_agent.local_capability_kernel import local_capability_tick
+        from blackhole_agent.local_mission_sovereignty import local_mission_tick
 
-        return dict(local_capability_tick(state, workspace) or {})
-    except Exception as error:  # noqa: BLE001 - failover tick must still emit a decision
-        repo_value = getattr(state, "repo_path", None) or workspace
-        health = load_kernel_health(Path(repo_value))
-        open_kernels = [
-            name
-            for name, breaker in sorted(health.kernels.items())
-            if breaker_status(breaker) == "open"
-        ]
-        return {
-            "ok": True,
-            "status": "continue",
-            "summary": (
-                f"Local capability kernel tick failed ({error}); "
-                "recorded a structured continue so the mission does not stall."
-            ),
-            "strategy": "Work locally while open-circuit first-class kernels cool down.",
-            "next_step": "Resume on a healthy first-class kernel when a breaker closes.",
-            "outcome_evidence": [f"open_circuit={open_kernels}", str(error)[:400]],
-            "capability_delta": "",
-        }
+        return dict(local_mission_tick(state, workspace) or {})
+    except Exception:
+        try:
+            from blackhole_agent.local_capability_kernel import local_capability_tick
+
+            return dict(local_capability_tick(state, workspace) or {})
+        except Exception as error:  # noqa: BLE001 - failover tick must still emit a decision
+            repo_value = getattr(state, "repo_path", None) or workspace
+            health = load_kernel_health(Path(repo_value))
+            open_kernels = [
+                name
+                for name, breaker in sorted(health.kernels.items())
+                if breaker_status(breaker) == "open"
+            ]
+            return {
+                "ok": True,
+                "status": "continue",
+                "summary": (
+                    f"Local capability kernel tick failed ({error}); "
+                    "recorded a structured continue so the mission does not stall."
+                ),
+                "strategy": "Work locally while open-circuit first-class kernels cool down.",
+                "next_step": "Resume on a healthy first-class kernel when a breaker closes.",
+                "outcome_evidence": [f"open_circuit={open_kernels}", str(error)[:400]],
+                "capability_delta": "",
+            }
 
 
 def invoke_local_kernel(
@@ -305,8 +310,9 @@ def invoke_local_kernel(
         next_step=str(report.get("next_step") or "Resume on a healthy first-class kernel when a breaker closes."),
         capability_delta=str(report.get("capability_delta") or ""),
         outcome_evidence=list(report.get("outcome_evidence") or []),
-        mission_goal=str(getattr(state, "goal", "") or ""),
-        done_when=str(getattr(state, "done_when", "") or ""),
+        mission_goal=str(report.get("mission_goal") or getattr(state, "goal", "") or ""),
+        done_when=str(report.get("done_when") or getattr(state, "done_when", "") or ""),
+        done_when_met=bool(report.get("done_when_met")),
     )
     last_message = json.dumps(decision)
     result_path = kernel_dir / "latest-local-run.json"

@@ -976,6 +976,13 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
         for item in state.recent_turns[-RECENT_TURN_LIMIT:]
     ]
     ledger_block = capability_ledger_for_prompt(Path(state.workspace_path))
+    try:
+        from blackhole_agent.local_mission_sovereignty import render_local_campaign_for_prompt
+
+        campaign_block = render_local_campaign_for_prompt(Path(state.repo_path))
+    except Exception:  # noqa: BLE001 - prompt construction must not fail a turn
+        campaign_block = ""
+    campaign_text = f"\n\n{campaign_block}" if campaign_block else ""
     prompt = f"""You are Blackhole Unbound, the single long-running agent responsible for this mission.
 
 There are no child agents in this version. Do not spawn, delegate to, fork, or simulate subagents. Work directly.
@@ -1014,7 +1021,7 @@ Recent mission turns:
 ```json
 {json.dumps(history, indent=2, ensure_ascii=False)}
 ```
-
+{campaign_text}
 Operating model:
 - Pursue capability growth and the mission outcome. Do not optimize for small diffs, hourly commits, or activity.
 - Continue unfinished work from this persistent worktree. A turn may end with substantial work still in progress.
