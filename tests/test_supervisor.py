@@ -163,6 +163,7 @@ def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):
         repo_path=repo,
         output_dir=output_dir,
         worktree_parent_dir=tmp_path / "worktrees",
+        evolution_mode="codex",
         model="gpt-5.5",
         bypass_approvals_and_sandbox=True,
     )
@@ -580,6 +581,7 @@ def test_provider_config_preflight_reports_missing_required_token_without_value(
     monkeypatch.delenv("BLACKHOLE_TEST_TOKEN", raising=False)
     config = SupervisorConfig(
         repo_path=tmp_path,
+        evolution_mode="codex",
         token_env="BLACKHOLE_TEST_TOKEN",
         require_token_env=True,
     )
@@ -671,6 +673,7 @@ def test_runtime_startup_preflight_rejects_placeholder_ambient_provider_env_with
     placeholder_token = "sk-dummy-openai-token"
     config = SupervisorConfig(
         repo_path=tmp_path,
+        evolution_mode="codex",
         model="gpt-5.5",
     )
 
@@ -698,7 +701,7 @@ def test_runtime_startup_preflight_rejects_placeholder_ambient_provider_env_with
 
 
 def test_provider_config_preflight_blocks_implicit_codex_route_before_scheduling(tmp_path):
-    config = SupervisorConfig(repo_path=tmp_path)
+    config = SupervisorConfig(repo_path=tmp_path, evolution_mode="codex")
 
     preflight = build_provider_config_preflight(config)
 
@@ -893,7 +896,7 @@ def test_runtime_startup_preflight_combines_provider_and_tool_gaps_without_token
 
 def test_runtime_startup_preflight_aggregates_provider_recovery_without_secret_values(tmp_path):
     placeholder_token = "sk-dummy-openai-token"
-    config = SupervisorConfig(repo_path=tmp_path)
+    config = SupervisorConfig(repo_path=tmp_path, evolution_mode="codex")
 
     preflight = build_runtime_startup_preflight(
         config,

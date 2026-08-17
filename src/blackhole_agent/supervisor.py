@@ -76,7 +76,9 @@ class SupervisorConfig:
     run_immediately: bool = True
     exit_on_failure: bool = False
     pass_timeout_seconds: int = 5400
-    evolution_mode: str = "codex"
+    # Signal-only by default: wakes produce digests unless an operator
+    # explicitly selects a mutating mode (codex / compound).
+    evolution_mode: str = "digest"
     prefer_capability_compounder: bool = True
     kernel: str = "codex"
     repos: str = ""
@@ -2024,9 +2026,12 @@ def main(
     exit_on_failure: bool = typer.Option(False, "--exit-on-failure", help="Stop the supervisor after a failed pass."),
     pass_timeout_seconds: int = typer.Option(5400, "--pass-timeout-seconds", min=1, help="Timeout for one child pass."),
     evolution_mode: str = typer.Option(
-        "codex",
+        "digest",
         "--evolution-mode",
-        help="One of: digest, plan, codex, compound. compound runs Capability Compounder prove/compose.",
+        help=(
+            "One of: digest, plan, codex, compound. Default digest is signal-only; "
+            "source mutation requires explicitly selecting codex or compound."
+        ),
     ),
     prefer_capability_compounder: bool = typer.Option(
         True,

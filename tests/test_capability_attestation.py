@@ -12,7 +12,9 @@ from blackhole_agent.capability_attestation import (
 def test_live_ledger_attests_ready() -> None:
     result = attest_ledger_structure()
     assert result["ready"] is True
-    assert result["count"] >= 100
+    # The distilled ledger keeps seeds and durable leaves only; readiness is
+    # structural (fields + resolvable dependencies), not a bloat floor.
+    assert result["count"] >= 50
     assert result["missing_fields"] == {}
     assert result["unresolved_dependencies"] == {}
 

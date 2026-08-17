@@ -21,6 +21,8 @@ is documented in `docs/unbound-v2.md`.
 
 Runs the intake job once per hour by launching a fresh one-shot child process in an isolated candidate worktree. It owns wake cadence, heartbeat artifacts, pass records, candidate worktree cleanup, health-gated promotion, restart requests, and optional pushes for successful autonomous source changes. It should never assume the previous run completed successfully unless the digest and pass record were persisted.
 
+The default wake mode is `digest` (signal-only). A wake mutates the checkout only when the operator explicitly selects `--evolution-mode codex` or `--evolution-mode compound`.
+
 Repository-native command:
 
 ```text

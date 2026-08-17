@@ -2731,7 +2731,7 @@ def _mat_eval_ok(terms: list, result: Mapping[str, Any], ledger_ok: bool) -> boo
             if not bool(result.get(_mat_role_key(term[1]))):
                 return False
         elif kind == "is":
-            if not (result.get(_mat_role_key(term[1])) is term[2]):
+            if result.get(_mat_role_key(term[1])) is not term[2]:
                 return False
         elif kind == "min":
             if not (int(result.get(_mat_role_key(term[1])) or 0) >= int(term[2])):
@@ -2758,7 +2758,6 @@ def _materialize_pair_effect(
 
     from blackhole_agent.upstream_total_spine_effects import (
         PAIR_EFFECT_SPECS,
-        TOTAL_SPINE_CHAIN,
         derive_pair_effect_contract_config,
     )
 
@@ -2919,7 +2918,7 @@ def _mat_inline_run(ce: Any, spec: Any, scratch: Path, repo_path: Path) -> Mappi
 
     verbs, preds, abbrs = derive_spine_contract_chain_maps()
     act_cert = actuated.get("total_spine_actuation_certificate")
-    set_cert = settled_cert = prev.get("total_spine_settlement_certificate")
+    set_cert = prev.get("total_spine_settlement_certificate")
     clr_cert = None
     chain = list(TOTAL_SPINE_CHAIN)
     for name in chain[chain.index("clearing") : chain.index(effect) + 1]:
@@ -3473,9 +3472,9 @@ _PREDICATE_METRIC_MINS: dict[str, Any] = {
 
 def _eval_field_check(cfg: Mapping[str, Any], kind: str, context: Mapping[str, Any]) -> tuple[bool, str]:
     plane = _plane_context(context, *cfg["keys"])
-    for field, mode in cfg["rules"]:
-        if field in plane:
-            ok = plane.get(field) is True
+    for field_name, mode in cfg["rules"]:
+        if field_name in plane:
+            ok = plane.get(field_name) is True
             if mode == "is_true_and_ok":
                 ok = ok and bool(plane.get("ok", True))
             return ok, cfg["detail"].format(ok=ok)
@@ -16280,56 +16279,87 @@ def run_growth_loop(
     before_ids = sorted(ledger.capabilities)
     scout = scout_capability_gaps(ledger, repo_path=root)
 
-    # Fitness gate: when a sealed benchmark/sweep map measures weakness in the
-    # live ledger, automatic growth halts before stacking new compositions on a
-    # broken base. The weakest capability is re-invoked through its live entry:
-    # a pass means the sealed measurement is stale (re-run the sweep), a
-    # failure means repair comes before any new promotion. Explicit recipe
-    # selection bypasses the gate so an operator can land a fix.
-    if recipe_id is None:
+    # Held-out gate: growth may only proceed while ledger-independent smoke
+    # proofs stay green. These run in-process and never consult the entry
+    # being promoted, so a capability cannot certify itself into the ledger.
+    heldout_failures: list[str] = []
+    for check_name, heldout_check in (
+        ("repo.import-health", builtin_repo_import_health),
+        ("unbound.milestone-gate", builtin_milestone_gate_smoke),
+    ):
         try:
-            from blackhole_agent.capability_benchmark import load_latest_fitness_map
+            heldout_outcome = heldout_check()
+        except Exception as error:  # noqa: BLE001 - a crashing held-out check must block growth
+            heldout_failures.append(f"{check_name}: {error}")
+            continue
+        if not heldout_outcome.get("ok"):
+            heldout_failures.append(check_name)
+    if heldout_failures:
+        return {
+            "ok": False,
+            "grew": False,
+            "action": "heldout_gate",
+            "reason": "heldout_check_failed",
+            "heldout_failures": heldout_failures,
+            "hint": "fix the failing held-out smoke checks before promoting new growth",
+            "scout": scout,
+            "before_count": before_count,
+            "after_count": before_count,
+            "before_ids": before_ids,
+            "after_ids": before_ids,
+            "used_skill_route_discovery": legacy_pipeline_was_used(),
+        }
 
-            gate_map = load_latest_fitness_map(root)
-        except Exception:  # noqa: BLE001 - no usable fitness signal means ungated growth
-            gate_map = None
-        if gate_map:
-            weakest = sorted(
-                (
-                    capability_id
-                    for capability_id in ledger.capabilities
-                    if float(gate_map.get(capability_id, 1.0)) < 1.0
-                ),
-                key=lambda cid: (float(gate_map[cid]), cid),
+    # Fitness gate: when a sealed benchmark/sweep map measures weakness in the
+    # live ledger, growth halts before stacking new compositions on a broken
+    # base — explicit recipes included. The weakest capability is re-invoked
+    # through its live entry: a pass means the sealed measurement is stale
+    # (re-run the sweep), a failure means repair comes first. Fixes land
+    # through `capability repair`, never through recipe promotion.
+    try:
+        from blackhole_agent.capability_benchmark import load_latest_fitness_map
+
+        gate_map = load_latest_fitness_map(root)
+    except Exception:  # noqa: BLE001 - no usable fitness signal means ungated growth
+        gate_map = None
+    if gate_map:
+        weakest = sorted(
+            (
+                capability_id
+                for capability_id in ledger.capabilities
+                if float(gate_map.get(capability_id, 1.0)) < 1.0
+            ),
+            key=lambda cid: (float(gate_map[cid]), cid),
+        )
+        if weakest:
+            target = weakest[0]
+            recheck = run_capability(
+                ledger.capabilities[target],
+                cwd=root,
+                command_runner=command_runner,
+                timeout=timeout,
             )
-            if weakest:
-                target = weakest[0]
-                recheck = run_capability(
-                    ledger.capabilities[target],
-                    cwd=root,
-                    command_runner=command_runner,
-                    timeout=timeout,
-                )
-                return {
-                    "ok": bool(recheck.ok),
-                    "grew": False,
-                    "action": "fitness_gate",
-                    "reason": "fitness_recheck_passed" if recheck.ok else "repair_needed",
-                    "hint": "re-run capability benchmark --sweep to refresh the sealed map"
-                    if recheck.ok
-                    else f"run capability repair --id {target} to autonomously repair before promoting new growth",
-                    "weakest_capabilities": weakest,
-                    "target": target,
-                    "recheck": recheck.to_dict(),
-                    "scout": scout,
-                    "before_count": before_count,
-                    "after_count": before_count,
-                    "before_ids": before_ids,
-                    "after_ids": before_ids,
-                    "used_skill_route_discovery": legacy_pipeline_was_used(),
-                }
+            return {
+                "ok": bool(recheck.ok),
+                "grew": False,
+                "action": "fitness_gate",
+                "reason": "fitness_recheck_passed" if recheck.ok else "repair_needed",
+                "hint": "re-run capability benchmark --sweep to refresh the sealed map"
+                if recheck.ok
+                else f"run capability repair --id {target} to autonomously repair before promoting new growth",
+                "weakest_capabilities": weakest,
+                "target": target,
+                "recheck": recheck.to_dict(),
+                "scout": scout,
+                "before_count": before_count,
+                "after_count": before_count,
+                "before_ids": before_ids,
+                "after_ids": before_ids,
+                "used_skill_route_discovery": legacy_pipeline_was_used(),
+            }
 
     selected: dict[str, Any] | None = None
+    novelty_frozen_id = ""
     if recipe_id:
         selected = next(
             (item for item in scout["opportunities"] if item["suggested_id"] == recipe_id),
@@ -16431,6 +16461,19 @@ def run_growth_loop(
                 }
     else:
         selected = scout.get("recommended")
+        # Novelty gate: automatic growth only promotes frontiers that add new
+        # primitive coverage. Re-packaged stacks over already-covered leaves
+        # (hierarchical / meta / superstack re-combinations) are frozen and
+        # the wake re-proves an existing capability instead. Operators can
+        # still land a specific composition with an explicit recipe id.
+        if (
+            selected
+            and selected.get("status") == "ready"
+            and selected.get("kind") != "domain_absorb"
+            and not selected.get("novel")
+        ):
+            novelty_frozen_id = str(selected.get("suggested_id") or "")
+            selected = None
 
     if not selected:
         # All known recipes already promoted (or blocked): re-prove the best existing one.
@@ -16444,7 +16487,8 @@ def run_growth_loop(
             return {
                 "ok": True,
                 "grew": False,
-                "reason": "no_ready_growth_opportunities",
+                "reason": "no_novel_frontier" if novelty_frozen_id else "no_ready_growth_opportunities",
+                "novelty_frozen": novelty_frozen_id,
                 "scout": scout,
                 "before_count": before_count,
                 "after_count": before_count,

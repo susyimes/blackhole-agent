@@ -24,17 +24,10 @@ def test_full_leaf_stack_owned_by_engine() -> None:
     assert up.LOOP_ENGINE_NESTED is True
 
 
-def test_builtin_loop_engine_proof_green() -> None:
-    result = le.builtin_loop_engine_proof()
-    assert result["ok"], result
-    assert result["dialect_count"] == 3
-    assert result["succession_loop_engine"]
-    assert result["epoch_loop_engine"]
-    assert result["program_loop_engine"]
-    assert result["full_stack_owned"]
-    assert result["live_program_flag"]
-    assert result["live_proofs_ok"]
-    assert result["seal_verified"]
-    assert result["tamper_detected"]
-    assert result.get("done_when_met")
-    assert not result["used_skill_route_discovery"]
+def test_loop_dialect_vocabulary_is_hermetic() -> None:
+    # The ledger-bound capstone proof left with the tower dialect: loop
+    # dialects stay testable without asserting their own ledger registration.
+    for name in le.list_loop_dialects():
+        dialect = le.get_loop_dialect(name)
+        assert dialect.child
+        assert dialect.child_plural

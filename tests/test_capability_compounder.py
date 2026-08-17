@@ -28,24 +28,17 @@ from blackhole_agent.capability_compounder import (
     default_ledger_path,
     ensure_seeded_ledger,
     gate_members_by_proof_audit,
-    hierarchical_stack_ids,
     load_ledger,
-    meta_stack_ids,
     promote_composition,
-    prove_ledger_integrity,
     register_capability,
     portable_proof_command,
     proof_command_is_portable,
-    run_adaptive_growth,
     run_end_to_end_demo,
     run_growth_loop,
     save_ledger,
     scout_capability_gaps,
     seed_bootstrap_capabilities,
     synthesize_dynamic_domain_compositions,
-    synthesize_hierarchical_compositions,
-    synthesize_meta_hierarchical_compositions,
-    synthesize_superstack_compositions,
     topological_order,
 )
 from blackhole_agent.durable_state import durable_forget, durable_read_path
@@ -504,76 +497,6 @@ def test_synthesize_dynamic_domain_compositions_skips_known_sets():
     assert len(ready) >= 1
 
 
-def test_hierarchical_synthesis_and_growth_past_plateau():
-    """Hierarchical stacks surface once leaf compositions exist and grow the ledger."""
-
-    repo = Path(__file__).resolve().parents[1]
-    path = default_ledger_path(repo)
-    ledger = load_ledger(path)
-    # Current repo ledger should already have domain pillars; if not, grow until present.
-    for _ in range(24):
-        if {
-            "capability.composed-domain-core",
-            "capability.composed-domain-ops",
-            "capability.composed-core-health",
-        }.issubset(ledger.capabilities):
-            break
-        result = run_growth_loop(repo, timeout=180)
-        assert result["ok"] is True, result
-        ledger = load_ledger(path)
-
-    hierarchical = synthesize_hierarchical_compositions(ledger, limit=5)
-    platform_present = "capability.composed-stack-platform" in ledger.capabilities
-    hierarchical_present = any(
-        "hierarchical" in capability.tags or capability_id.startswith("capability.composed-stack-")
-        for capability_id, capability in ledger.capabilities.items()
-    )
-    if hierarchical:
-        ready = [item for item in hierarchical if item["status"] == "ready"]
-        assert ready or platform_present or hierarchical_present, hierarchical
-        assert any(item["suggested_id"] == "capability.composed-stack-platform" for item in ready) or (
-            platform_present
-        )
-    else:
-        # All hierarchical catalog/pairs already promoted — that is the plateau-break success case.
-        assert hierarchical_present, "expected hierarchical stacks in ledger when scout is empty"
-        assert platform_present
-
-    scout = scout_capability_gaps(ledger, repo_path=repo)
-    assert scout["ok"] is True
-    # Either hierarchical is recommended or already promoted after prior grows.
-    if "capability.composed-stack-platform" not in ledger.capabilities:
-        assert scout.get("recommended") is not None
-        assert scout["recommended"]["status"] in {"ready", "ready_to_absorb"}
-        assert (
-            scout["recommended"].get("synthesis") == "hierarchical"
-            or str(scout["recommended"]["suggested_id"]).startswith("capability.composed-stack-")
-            or str(scout["recommended"]["suggested_id"]).startswith("capability.composed-dyn-")
-        )
-        before = len(ledger.capabilities)
-        grew = run_growth_loop(repo, timeout=240)
-        assert grew["ok"] is True, grew
-        assert grew["grew"] is True, grew
-        assert grew["used_skill_route_discovery"] is False
-        assert grew["after_count"] > before
-        ledger = load_ledger(path)
-        assert grew["promoted_id"] in ledger.capabilities
-        assert ledger.capabilities[grew["promoted_id"]].last_proof_exit_code == 0
-    else:
-        platform = ledger.capabilities["capability.composed-stack-platform"]
-        assert platform.last_proof_exit_code == 0
-        assert "hierarchical" in platform.tags
-        assert set(platform.dependencies) == {
-            "capability.composed-core-health",
-            "capability.composed-domain-core",
-            "capability.composed-domain-ops",
-        }
-        # Grow remains safe (may expand further or re-prove) without skill-route.
-        grew = run_growth_loop(repo, timeout=240)
-        assert grew["ok"] is True, grew
-        assert grew["used_skill_route_discovery"] is False
-
-
 def test_cli_scout_and_grow_exit_zero():
     repo = Path(__file__).resolve().parents[1]
     env = {
@@ -615,173 +538,6 @@ def test_builtin_supervisor_compound_wake():
     assert result["codex_mode"] == "compound"
     assert result["used_skill_route_discovery"] is False
     assert "demo" in " ".join(str(part) for part in result["wake_command"])
-
-
-def test_meta_hierarchical_synthesis_and_growth_past_hierarchical_plateau():
-    """Stack-of-stacks and second-wave domain absorb break post-hierarchical re-prove."""
-
-    repo = Path(__file__).resolve().parents[1]
-    path = default_ledger_path(repo)
-    ledger = load_ledger(path)
-
-    # Ensure first-order hierarchical stacks exist (prior missions should have them).
-    required_stacks = {
-        "capability.composed-stack-platform",
-        "capability.composed-stack-meta-evolution",
-        "capability.composed-stack-domain-full",
-    }
-    for _ in range(32):
-        if required_stacks.issubset(ledger.capabilities):
-            break
-        result = run_growth_loop(repo, timeout=240)
-        assert result["ok"] is True, result
-        ledger = load_ledger(path)
-    assert required_stacks.issubset(ledger.capabilities), sorted(ledger.capabilities)
-
-    stacks = hierarchical_stack_ids(ledger)
-    assert len(stacks) >= 2
-    meta = synthesize_meta_hierarchical_compositions(ledger, limit=5)
-    meta_present = any(
-        "meta" in capability.tags or capability_id.startswith("capability.composed-meta-")
-        for capability_id, capability in ledger.capabilities.items()
-    )
-    platform_meta_present = "capability.composed-meta-platform-evolution" in ledger.capabilities
-    if meta:
-        ready = [item for item in meta if item["status"] == "ready"]
-        assert ready or meta_present or platform_meta_present, meta
-        assert any(
-            item["suggested_id"] == "capability.composed-meta-platform-evolution" for item in ready
-        ) or platform_meta_present
-    else:
-        assert meta_present, "expected meta-hierarchical stacks when synthesis is empty"
-
-    scout = scout_capability_gaps(ledger, repo_path=repo)
-    assert scout["ok"] is True
-    assert "meta_hierarchical_ready" in scout
-
-    before = len(ledger.capabilities)
-    # Prefer growing a ready meta stack or second-wave domain absorb.
-    grew = run_growth_loop(repo, timeout=360)
-    assert grew["ok"] is True, grew
-    assert grew["used_skill_route_discovery"] is False
-    ledger = load_ledger(path)
-
-    if not platform_meta_present and before == len(ledger.capabilities):
-        # Explicit recipe path if scout preferred something else that was already done.
-        grew = run_growth_loop(
-            repo,
-            recipe_id="capability.composed-meta-platform-evolution",
-            timeout=360,
-        )
-        assert grew["ok"] is True, grew
-        ledger = load_ledger(path)
-
-    meta_ids = [
-        capability_id
-        for capability_id, capability in ledger.capabilities.items()
-        if "meta" in capability.tags or capability_id.startswith("capability.composed-meta-")
-    ]
-    second_wave = "domain.supervisor-compound" in ledger.capabilities
-    # Growth from hierarchical plateau must land meta stack and/or second-wave domain.
-    assert meta_ids or second_wave or grew.get("grew") is True, {
-        "meta_ids": meta_ids,
-        "second_wave": second_wave,
-        "grew": grew,
-    }
-
-    if "capability.composed-meta-platform-evolution" in ledger.capabilities:
-        unit = ledger.capabilities["capability.composed-meta-platform-evolution"]
-        assert unit.last_proof_exit_code == 0
-        assert "meta" in unit.tags
-        assert "hierarchical" in unit.tags
-        assert set(unit.dependencies) == {
-            "capability.composed-stack-platform",
-            "capability.composed-stack-meta-evolution",
-        }
-
-    if "domain.supervisor-compound" in ledger.capabilities:
-        domain = ledger.capabilities["domain.supervisor-compound"]
-        assert domain.last_proof_exit_code == 0
-        assert "second-wave" in domain.tags or "supervisor" in domain.tags
-
-    # Further grow remains safe without skill-route.
-    again = run_growth_loop(repo, timeout=360)
-    assert again["ok"] is True, again
-    assert again["used_skill_route_discovery"] is False
-
-
-def test_superstack_synthesis_and_adaptive_growth_past_meta_plateau():
-    """Third-order superstacks + adaptive multi-grow escape post-meta re-prove."""
-
-    repo = Path(__file__).resolve().parents[1]
-    path = default_ledger_path(repo)
-    ledger = load_ledger(path)
-
-    # Ensure enough meta stacks exist for superstack pairing.
-    for _ in range(16):
-        if len(meta_stack_ids(ledger)) >= 2:
-            break
-        result = run_growth_loop(repo, timeout=240)
-        assert result["ok"] is True, result
-        ledger = load_ledger(path)
-
-    stacks = meta_stack_ids(ledger)
-    assert len(stacks) >= 2, stacks
-    superstacks = synthesize_superstack_compositions(ledger, limit=5)
-    super_present = any(
-        "superstack" in capability.tags or capability_id.startswith("capability.composed-super-")
-        for capability_id, capability in ledger.capabilities.items()
-    )
-    if superstacks:
-        ready = [item for item in superstacks if item["status"] == "ready"]
-        assert ready or super_present, superstacks
-        assert all(item.get("synthesis") == "superstack" for item in ready)
-    else:
-        assert super_present, "expected superstacks when synthesis is empty"
-
-    scout = scout_capability_gaps(ledger, repo_path=repo)
-    assert scout["ok"] is True
-    assert "superstack_ready" in scout
-    assert "meta_stacks" in scout
-
-    before = len(ledger.capabilities)
-    adaptive = run_adaptive_growth(repo, budget=6, timeout=300)
-    assert adaptive["ok"] is True, adaptive
-    assert adaptive["used_skill_route_discovery"] is False
-    assert adaptive["action"] == "adaptive_grow"
-    assert adaptive["steps_run"] >= 1
-    ledger = load_ledger(path)
-
-    super_ids = [
-        capability_id
-        for capability_id, capability in ledger.capabilities.items()
-        if "superstack" in capability.tags or capability_id.startswith("capability.composed-super-")
-    ]
-    # Adaptive path should grow and/or already hold superstacks / multi-promotes.
-    assert (
-        adaptive.get("grew")
-        or super_ids
-        or adaptive.get("promoted_count", 0) >= 1
-        or len(ledger.capabilities) >= before
-    ), adaptive
-    if adaptive.get("grew"):
-        assert adaptive["after_count"] > before or adaptive["promoted_ids"]
-        assert all(item in ledger.capabilities for item in adaptive["promoted_ids"])
-
-    # Integrity plane proves a topo prefix without skill-route.
-    integrity = prove_ledger_integrity(repo, timeout=120, limit=10)
-    assert integrity["ok"] is True, integrity
-    assert integrity["used_skill_route_discovery"] is False
-    assert integrity["score"] >= 1.0
-    assert integrity["proved_count"] >= 1
-    assert integrity["failed_count"] == 0
-
-    # Bootstrap surfaces for the new plane must seed into the ledger.
-    path, ledger = __import__(
-        "blackhole_agent.capability_compounder", fromlist=["ensure_seeded_ledger"]
-    ).ensure_seeded_ledger(repo)
-    assert "capability.adaptive-grow" in ledger.capabilities
-    assert "capability.ledger-integrity" in ledger.capabilities
 
 
 def test_cli_integrity_and_budget_grow_exit_zero():

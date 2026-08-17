@@ -3496,11 +3496,11 @@ def test_build_self_evolution_plan_contains_bounded_codex_task(tmp_path):
     assert "Runner and harness control plane" in plan.task
     assert "Planned pass: 1 of 4" in plan.task
     assert "Continuity rule: advance this slice across passes" in plan.task
-    assert "Self-model context:" in plan.task
-    assert f"Path: {DEFAULT_SELF_MODEL_PATH.as_posix()}" in plan.task
-    assert "This file is a blank, revisable self-description" in plan.task
-    assert "Do not preserve any category merely because a previous run wrote it" in plan.task
-    assert "The current self-model suspects it is overfitting to GitHub." in plan.task
+    # The self-model is deliberately no longer injected into the kernel task:
+    # snapshots remain controller artifacts, but the prompt carries no
+    # self-model content or self-model editing instructions.
+    assert "Self-model context:" not in plan.task
+    assert "The current self-model suspects it is overfitting to GitHub." not in plan.task
     assert "Improve agent workflow tests" in plan.task
 
 
@@ -3516,8 +3516,9 @@ def test_missing_self_model_is_blank_seed_without_creating_file(tmp_path):
 
     assert plan is not None
     assert plan.self_model_before.exists is False
-    assert "There are no required headings below this line." in plan.task
-    assert "If no other safe repository change is available, a self-model revision can be the justified improvement for the run." in plan.task
+    # Snapshot bookkeeping survives, but no self-model content reaches the task prompt.
+    assert "There are no required headings below this line." not in plan.task
+    assert "a self-model revision can be the justified improvement for the run." not in plan.task
     assert not (tmp_path / DEFAULT_SELF_MODEL_PATH).exists()
 
 

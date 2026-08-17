@@ -131,10 +131,14 @@ Run the fully autonomous local loop used by this workstation:
 ```bash
 uv run blackhole-supervisor \
   --repo-path . \
+  --evolution-mode codex \
   --model gpt-5.5 \
   --bypass-approvals-and-sandbox \
   --interval-seconds 1200
 ```
+
+The supervisor default is now `--evolution-mode digest` (signal-only). Source
+mutation happens only when a wake explicitly selects `codex` or `compound`.
 
 This uses the default enhanced proposal mode, `hybrid`, so each wake first asks
 the read-only proposal interpretation layer to turn the frozen digest, memory,
@@ -274,7 +278,7 @@ contracts.
 Defaults:
 
 - cadence: `3600` seconds
-- mode: `codex`
+- mode: `digest` (signal-only; pass `--evolution-mode codex` or `compound` to allow source mutation)
 - trend query: `agent language:Python`
 - output: `.blackhole-agent/supervisor`
 - child growth artifacts: `.blackhole-agent/supervisor/growth`
@@ -365,6 +369,7 @@ For a watchdog-managed loop that exits after each successful promotion:
 ```bash
 uv run blackhole-supervisor \
   --repo-path . \
+  --evolution-mode codex \
   --model gpt-5.5 \
   --bypass-approvals-and-sandbox \
   --exit-after-promotion
