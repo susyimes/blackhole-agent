@@ -6,7 +6,10 @@
 [![Mode](https://img.shields.io/badge/mode-autonomous_local_evolution-111827?style=for-the-badge)](#autonomy-model)
 
 > A GitHub trend-eating growth agent with an optional long-horizon Unbound runtime.
-> It can either distill public signals or pursue one durable capability mission across as many turns as the outcome needs.
+> It distills public signals or pursues one durable capability mission, then
+> gates its own evolution so it cannot rewrite its judges, ignore a recurring
+> failure class, invent work when operational failures are waiting, or grow the
+> measured tree without an operator.
 
 <p align="center">
   <img src="docs/assets/blackhole-agent-hero.svg" alt="blackhole-agent control loop" width="100%" />
@@ -22,6 +25,10 @@
 - create autonomous self-evolution tasks
 - run a selected local Codex, Grok, or Kimi CLI kernel when explicitly requested
 - preserve a rollback point before source mutation
+- refuse automatic promotion or lineage publication that rewrites the judges
+- force the next mission onto a failure class after `N` recurrences
+- harvest failed wakes, rejected milestones, and kernel errors as genesis fuel
+- keep measured repository size shrink-only
 - keep every material action traceable through artifacts
 
 It borrows the deliberately small controller style of `susyimes/mini-swe-agent`, but this repository is its own bounded growth loop.
@@ -47,7 +54,8 @@ supervisor wake
   -> rollback point creation
   -> one-shot selected local CLI kernel run
   -> candidate commit
-  -> health-gated promotion into main
+  -> protected-path gate
+  -> health-gated promotion into main (pytest, ruff, size ratchet)
   -> push to origin
   -> restart request / startup rollback guard
 ```
@@ -193,7 +201,10 @@ uv run blackhole-unbound run --repo-path .
 ```
 
 To let the agent select its own high-impact mission after inspecting the
-repository, omit both `--goal` and `--done-when`:
+repository, omit both `--goal` and `--done-when`. Genesis prefers a harvested
+operational failure over a freshly invented mission. When a pattern-register
+class has recurred `N` times, genesis is skipped and that class becomes the
+mission:
 
 ```bash
 uv run blackhole-unbound start --repo-path . --kernel grok
@@ -218,10 +229,13 @@ latest proven milestone commit. This preserves capability growth across
 missions instead of restarting from `main`. The first mission starts
 immediately by default. Each completed lineage is pushed to `origin/main`
 without force and verified before the next mission is allowed to start. A
-failed push is retained as pending state and retried on the same 30-minute
-cadence. Worktree setup has a dedicated 15-minute timeout; a timeout that
-nevertheless produced the expected clean checkout is recovered in place, while
-a genuine creation failure is recorded and retried without stopping the loop.
+lineage whose diff touches a protected governance path is refused and retried
+on that cadence until an operator restarts the loop with
+`--allow-protected-path-publish`. A failed push is retained as pending state
+and retried on the same 30-minute cadence. Worktree setup has a dedicated
+15-minute timeout; a timeout that nevertheless produced the expected clean
+checkout is recovered in place, while a genuine creation failure is recorded
+and retried without stopping the loop.
 
 Each mission receives a persistent `unbound/<mission>` branch and sibling Git
 worktree. A turn with `status=continue` leaves its work in place without making
@@ -270,6 +284,10 @@ contracts.
 | Trend controller | `blackhole_agent.github_growth` | Search trends, fetch events, write digests, plan evolution |
 | Native supervisor | `blackhole_agent.supervisor` | Hourly wake loop for one-shot autonomous growth passes |
 | Unbound runtime | `blackhole_agent.unbound` | One persistent agent pursuing one long-horizon capability mission |
+| Protected-path gate | `blackhole_agent.protected_paths` | Refuse automatic promotion or publication that rewrites the judges |
+| Pattern register | `blackhole_agent.pattern_register` | Class-level failure ledger; force the next mission after `N` recurrences |
+| Experience fuel | `blackhole_agent.experience_fuel` | Harvest failed wakes, rejected milestones, and kernel errors as genesis candidates |
+| Size ratchet | `blackhole_agent.size_ratchet` | Shrink-only measured lines under `src/blackhole_agent` and `tests` |
 | Synthesis plane | `blackhole_agent.capability_synthesis` | Derives brand-new executable capabilities from frozen goal evidence when no composition of the proved ledger can plan a goal |
 | Memory layer | `memory.json` | Repo/topic/lesson statistics that bias future proposal selection |
 | Persona layer | `blackhole_agent.persona` | Mission, selection policy, rollback contract, restart boundary |
@@ -307,6 +325,7 @@ candidate worktree
   -> blackhole --evolution-mode codex
   -> local commit
   -> rollback artifact gate
+  -> protected-path gate
   -> health commands
   -> git switch main
   -> git merge --ff-only <candidate-head>
@@ -326,8 +345,6 @@ Promotion is autonomous but gated. A candidate is promoted only when:
 - `main` can merge the candidate with `git merge --ff-only`
 - post-merge health commands pass
 
-Protected paths are the judges: `supervisor.py`, `persona.py`, conformance, the watchdog, this gate, the pattern register, the size ratchet, `governance/`, and `pyproject.toml`. Evolution cannot rewrite its own referee. Recurring failure classes live in `.blackhole-agent/pattern-register.json`; after `N` recurrences the next Unbound mission and the next self-evolution plan must target that class. Failed supervisor passes, rejected milestones, and kernel errors are harvested as genesis candidates so daily operation becomes evolution fuel.
-
 By default the health commands are:
 
 ```text
@@ -336,7 +353,7 @@ uv run ruff check .
 uv run python -m blackhole_agent.size_ratchet
 ```
 
-The size ratchet is shrink-only: measured lines under `src/blackhole_agent` and `tests` cannot grow past `governance/size-ratchet.json`. Grandfathered files have a per-file ceiling; raising either ceiling is itself a protected-path change.
+The four mechanical judges that sit on this path are documented in [Governance Gates](#governance-gates).
 
 After a promotion the supervisor writes a stable activation record and a restart request. Use `--exit-after-promotion` when an outer watchdog, service manager, or Windows Scheduled Task should relaunch the process from the new `main`.
 
@@ -389,6 +406,66 @@ uv run blackhole-supervisor \
   --model gpt-5.5 \
   --bypass-approvals-and-sandbox \
   --exit-after-promotion
+```
+
+To promote a candidate that deliberately edits a judge file:
+
+```bash
+uv run blackhole-supervisor \
+  --repo-path . \
+  --evolution-mode codex \
+  --allow-protected-path-promotion \
+  --max-passes 1
+```
+
+## Governance Gates
+
+Evolution cannot rewrite its own referee. Four mechanical gates sit on the
+write path; JSON manifests can add constraints, but they cannot remove the
+in-code floor without also editing a protected module.
+
+### Protected paths
+
+`governance/protected-paths.json` is unioned with an in-code floor that the
+running supervisor loads from the *target* checkout, never from the candidate.
+A candidate or Unbound lineage that touches any of these paths is refused
+automatic promotion and remote publication:
+
+- `supervisor.py`, `persona.py`, `runtime_conformance.py`, `capability_watchdog.py`, `evolution_route.py`
+- the four gate modules themselves
+- `governance/`, `pyproject.toml`
+- the gate test files
+
+An operator acknowledges a deliberate judge edit with
+`--allow-protected-path-promotion` on the supervisor, or
+`--allow-protected-path-publish` on `blackhole-unbound loop`.
+
+### Pattern register
+
+`.blackhole-agent/pattern-register.json` is a class-level failure ledger
+(class, recurrence, root cause, structural fix). After a class recurs `N`
+times (default 3), the next Unbound mission and the next self-evolution plan
+must target that class. Completing a mission whose goal names the class
+clears the force until the class recurs again. A blocked promotion with no
+touched paths is recorded as `promotion_refused`, not as a governance
+interception.
+
+### Experience fuel
+
+Failed supervisor passes, rejected milestones, and kernel errors are harvested
+from artifacts and prepended to genesis prompts and digest proposals. Daily
+operation becomes the backlog. A forced pattern-register class outranks
+harvested candidates.
+
+### Size ratchet
+
+`governance/size-ratchet.json` is shrink-only. Measured lines under
+`src/blackhole_agent` and `tests` may fall or hold; they may not grow.
+Grandfathered files have a per-file ceiling. Raising either ceiling is itself
+a protected-path change.
+
+```bash
+uv run python -m blackhole_agent.size_ratchet
 ```
 
 ## Persona Layer
@@ -505,7 +582,7 @@ The default posture:
 - record material filesystem and external actions as artifacts
 - let runtime configuration define available capabilities
 
-Standalone `codex` mode applies changes on a prepared evolution branch inside the selected checkout. Under `blackhole-supervisor`, that checkout is an isolated candidate worktree, and only a health-gated fast-forward promotion can reach `main`.
+Standalone `codex` mode applies changes on a prepared evolution branch inside the selected checkout. Under `blackhole-supervisor`, that checkout is an isolated candidate worktree, and only a health-gated fast-forward promotion can reach `main`. Protected paths, the pattern register, experience fuel, and the size ratchet sit on that path so evolution cannot rewrite its judges, ignore a recurring class, invent work while failures wait, or grow the measured tree without an operator.
 
 ## Output Artifacts
 
@@ -537,6 +614,9 @@ One run can write:
 | `latest-activation.json` | latest health-verified activation and its previous rollback head |
 | `latest-startup-health.json` | startup health record and rollback status |
 | `supervisor.log` | append-only native wake loop log |
+| `.blackhole-agent/pattern-register.json` | class-level failure ledger and forced-mission state |
+| `governance/protected-paths.json` | checked-in protected-path list, unioned with the in-code floor |
+| `governance/size-ratchet.json` | shrink-only measured-line baseline and grandfather list |
 
 ## Development
 
@@ -550,6 +630,12 @@ Run lint:
 
 ```bash
 uv run ruff check .
+```
+
+Check the size ratchet:
+
+```bash
+uv run python -m blackhole_agent.size_ratchet
 ```
 
 ## Roadmap
