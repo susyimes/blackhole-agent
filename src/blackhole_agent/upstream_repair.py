@@ -717,7 +717,16 @@ def load_latest_report_dir(target_dir: Path) -> Path | None:
         return None
     pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
     report_dir = Path(pointer["report_dir"])
-    return report_dir if durable_read_path(report_dir / "report.json").is_file() else None
+    if durable_read_path(report_dir / "report.json").is_file():
+        return report_dir
+    # A pointer sealed inside a mission worktree records an absolute path that
+    # dies with worktree reclamation. The sealed copy travels with the
+    # repository next to the pointer, so fall back to the local directory of
+    # the same name; digest verification still gates acceptance.
+    local_dir = target_dir / report_dir.name
+    if durable_read_path(local_dir / "report.json").is_file():
+        return local_dir
+    return None
 
 
 # ---------------------------------------------------------------------------

@@ -438,7 +438,14 @@ def load_latest_external_trace(trace_root: Path | None = None) -> tuple[Path, di
     pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
     trace_dir = Path(pointer["trace_dir"])
     if not (trace_dir / "execution.json").is_file():
-        return None
+        # A pointer sealed inside a mission worktree records an absolute path
+        # that dies with worktree reclamation. The sealed copy travels with
+        # the repository next to the pointer, so fall back to the local
+        # directory of the same name; digest binding still gates acceptance.
+        local_dir = root / trace_dir.name
+        if not (local_dir / "execution.json").is_file():
+            return None
+        trace_dir = local_dir
     return trace_dir, pointer
 
 
@@ -454,8 +461,6 @@ def builtin_mcp_live_external_proof() -> dict[str, Any]:
     wall-clock. Refresh the underlying evidence with the explicit live tier
     (``run_live_external_proof`` / CLI ``live-external-proof``).
     """
-
-    import shutil
 
     found = load_latest_external_trace()
     if found is None:
