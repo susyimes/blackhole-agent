@@ -831,12 +831,14 @@ def test_kernel_death_records_structured_decision_instead_of_raising(tmp_path):
     record = run_unbound_turn(state_path, kernel_runner=exploding_kernel)
     state = load_mission(state_path)
 
-    assert record["effective_status"] == "blocked"
-    assert record["requested_status"] == "blocked"
-    assert record["kernel_salvage"]["class_id"] == "quota_exhausted"
-    assert state.status == "blocked"
+    assert record["effective_status"] == "continue"
+    assert record["requested_status"] == "continue"
+    assert record["kernel_salvage"]["source"] == "failover"
+    assert record["kernel_salvage"]["failover_kernel"] == "local"
+    assert state.status == "active"
+    assert state.kernel == "local"
     assert state.last_error == ""
-    assert "quota_exhausted" in state.last_summary
+    assert "local" in state.last_summary.lower() or "unavailable" in state.last_summary.lower()
 
 
 def test_resolve_unbound_kernel_auto_selects_installed_first_class_kernel():

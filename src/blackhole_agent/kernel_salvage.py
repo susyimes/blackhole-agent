@@ -3,9 +3,10 @@
 Harvested class ``kernel_turn_failed`` is a kernel that exits (402 quota,
 timeout, empty last_message, malformed JSON) before the controller can record
 a turn decision. This module classifies the failure, reuses any parseable
-decision, fails over to another installed first-class kernel on quota/auth,
-and otherwise synthesizes a blocked or continue decision so the mission loop
-does not stall.
+decision, trips the kernel circuit breaker on quota/auth, fails over to
+another installed first-class kernel or the local capability kernel, and
+otherwise synthesizes a blocked or continue decision so the mission loop
+does not stall or retry a dead kernel.
 """
 
 from __future__ import annotations
@@ -13,12 +14,32 @@ from __future__ import annotations
 import json
 import shutil
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-FAILOVER_ORDER = ("codex", "kimi", "grok")
-FAILOVER_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
-ARTIFACT_NAMES = ("latest-grok-run.json", "latest-kimi-run.json", "latest-codex-run.json")
+from blackhole_agent.kernel_health import (
+    CLI_FAILOVER_ORDER,
+    FAILOVER_ORDER,
+    LOCAL_KERNEL,
+    TRIP_CLASSES,
+    KernelHealth,
+    apply_health_reroute,
+    invoke_local_kernel,
+    kernel_is_available,
+    load_kernel_health,
+    mark_kernel_success,
+    save_kernel_health,
+    trip_kernel,
+)
+
+FAILOVER_CLASSES = TRIP_CLASSES
+ARTIFACT_NAMES = (
+    "latest-grok-run.json",
+    "latest-kimi-run.json",
+    "latest-codex-run.json",
+    "latest-local-run.json",
+)
 
 _QUOTA_MARKERS = (
     "payment required",
@@ -170,15 +191,30 @@ def load_kernel_run_artifact(turn_dir: Path) -> dict[str, Any]:
 
 
 def installed_first_class_kernels(*, which: Callable[[str], str | None] = shutil.which) -> set[str]:
-    return {name for name in FAILOVER_ORDER if which(name)}
+    return {name for name in CLI_FAILOVER_ORDER if which(name)}
 
 
-def select_failover_kernel(current: str, installed: Iterable[str]) -> str:
-    present = set(installed)
+def select_failover_kernel(
+    current: str,
+    installed: Iterable[str],
+    *,
+    health: KernelHealth | None = None,
+    now: datetime | None = None,
+    allow_local: bool = True,
+    exclude: Iterable[str] = (),
+) -> str:
+    present = {name for name in installed if name}
+    if allow_local:
+        present.add(LOCAL_KERNEL)
+    skipped = {name for name in exclude if name}
+    skipped.add(current)
     for name in FAILOVER_ORDER:
-        if name != current and name in present:
-            return name
-    return ""
+        if name in skipped or name not in present:
+            continue
+        if health is not None and not kernel_is_available(health, name, now=now):
+            continue
+        return name
+    return LOCAL_KERNEL if allow_local and LOCAL_KERNEL not in skipped else ""
 
 
 def empty_decision(**overrides: Any) -> dict[str, Any]:
@@ -249,6 +285,8 @@ def salvage_kernel_failure(
     artifact: dict[str, Any] | None = None,
     installed_kernels: Iterable[str] | None = None,
     allow_failover: bool = True,
+    health: KernelHealth | None = None,
+    now: datetime | None = None,
 ) -> KernelSalvage:
     artifact = artifact or {}
     error_text = str(error)
@@ -274,7 +312,13 @@ def salvage_kernel_failure(
     )
     failover = ""
     if allow_failover and failure.class_id in FAILOVER_CLASSES:
-        failover = select_failover_kernel(current_kernel, installed)
+        failover = select_failover_kernel(
+            current_kernel,
+            installed,
+            health=health,
+            now=now,
+            allow_local=True,
+        )
     return KernelSalvage(
         class_id=failure.class_id,
         retryable=failure.retryable,
@@ -305,6 +349,18 @@ def _synthetic_result(state: Any, salvaged: KernelSalvage, prior: Any, kernel_tu
     )
 
 
+def _repo_from_state(state: Any) -> Path | None:
+    value = getattr(state, "repo_path", None)
+    return Path(value) if value else None
+
+
+def _switch_kernel(state: Any, kernel: str) -> None:
+    if getattr(state, "kernel", None) != kernel:
+        state.kernel = kernel
+        state.session_id = ""
+        state.session_started = False
+
+
 def execute_kernel_turn_with_salvage(
     state: Any,
     prompt: str,
@@ -313,66 +369,129 @@ def execute_kernel_turn_with_salvage(
     kernel_runner: Callable[..., Any],
     command_runner: Callable[..., Any] | None = None,
     installed_kernels: Iterable[str] | None = None,
+    health: KernelHealth | None = None,
+    now: datetime | None = None,
+    persist_health: bool = True,
+    local_action: Callable[..., Any] | None = None,
 ) -> tuple[Any, Any, dict[str, Any]]:
     """Run the kernel; on death, salvage a decision instead of raising."""
 
     from blackhole_agent.unbound import KernelTurnResult, TurnDecision, extract_json_decision
 
-    kernel_result = None
-    try:
-        kernel_result = kernel_runner(
+    turn_dir = Path(turn_dir)
+    repo = _repo_from_state(state)
+    store = health if health is not None else (load_kernel_health(repo) if repo else KernelHealth())
+    installed = (
+        set(installed_kernels)
+        if installed_kernels is not None
+        else installed_first_class_kernels()
+    )
+
+    def persist() -> None:
+        if persist_health and repo is not None:
+            save_kernel_health(repo, store, now=now)
+
+    def dispatch() -> Any:
+        if state.kernel == LOCAL_KERNEL:
+            local = invoke_local_kernel(
+                state,
+                prompt,
+                turn_dir,
+                action=local_action,
+                now=now,
+            )
+            return KernelTurnResult(
+                kernel=LOCAL_KERNEL,
+                last_message=str(local["last_message"]),
+                session_id=str(local.get("session_id") or getattr(state, "session_id", "") or "local"),
+                command=tuple(local.get("command") or ("local-capability-kernel",)),
+                result_path=str(local.get("result_path") or ""),
+            )
+        return kernel_runner(
             state,
             prompt,
             turn_dir,
             command_runner=command_runner,
         )
-        decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
-        return kernel_result, decision, {"ok": False, "source": "kernel"}
-    except Exception as error:
-        if kernel_result is not None:
-            state.session_id = kernel_result.session_id or state.session_id
-            state.session_started = bool(state.session_id) or state.session_started
-        artifact = load_kernel_run_artifact(turn_dir)
-        salvaged = salvage_kernel_failure(
-            error=error,
-            current_kernel=state.kernel,
-            last_message=kernel_result.last_message if kernel_result else "",
-            artifact=artifact,
-            installed_kernels=installed_kernels,
-        )
-        if salvaged.source == "message":
-            decision = TurnDecision.from_payload(salvaged.decision)
-            result = kernel_result or _synthetic_result(state, salvaged, None, KernelTurnResult)
-            return result, decision, salvaged.to_dict()
-        if salvaged.failover_kernel:
-            previous = state.kernel
-            state.kernel = salvaged.failover_kernel
-            state.session_id = ""
-            state.session_started = False
-            try:
-                kernel_result = kernel_runner(
-                    state,
-                    prompt,
-                    turn_dir,
-                    command_runner=command_runner,
-                )
-                decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
-                meta = salvaged.to_dict()
-                meta.update({"ok": True, "source": "failover", "from_kernel": previous})
+
+    original = state.kernel
+    rerouted = apply_health_reroute(original, store, installed, now=now)
+    if rerouted != original:
+        _switch_kernel(state, rerouted)
+
+    tried: set[str] = set()
+    kernel_result = None
+    salvaged = None
+    from_kernel = original
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            kernel_result = dispatch()
+            mark_kernel_success(store, state.kernel, now=now)
+            persist()
+            decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
+            if attempt == 1:
+                meta = {"ok": True, "source": "kernel"}
+                if rerouted != original:
+                    meta.update({"rerouted_from": original, "health_reroute": True})
                 return kernel_result, decision, meta
-            except Exception as failover_error:
-                artifact = load_kernel_run_artifact(turn_dir)
-                salvaged = salvage_kernel_failure(
-                    error=failover_error,
+            meta = salvaged.to_dict() if salvaged is not None else {}
+            meta.update(
+                {
+                    "ok": True,
+                    "source": "failover",
+                    "from_kernel": from_kernel,
+                    "failover_kernel": state.kernel,
+                }
+            )
+            return kernel_result, decision, meta
+        except Exception as error:
+            if kernel_result is not None:
+                state.session_id = kernel_result.session_id or state.session_id
+                state.session_started = bool(state.session_id) or state.session_started
+            tried.add(state.kernel)
+            artifact = load_kernel_run_artifact(turn_dir)
+            salvaged = salvage_kernel_failure(
+                error=error,
+                current_kernel=state.kernel,
+                last_message=kernel_result.last_message if kernel_result else "",
+                artifact=artifact,
+                installed_kernels=installed,
+                health=store,
+                now=now,
+                allow_failover=True,
+            )
+            if salvaged.class_id in FAILOVER_CLASSES:
+                trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
+                persist()
+            if salvaged.source == "message":
+                decision = TurnDecision.from_payload(salvaged.decision)
+                result = kernel_result or _synthetic_result(state, salvaged, None, KernelTurnResult)
+                return result, decision, salvaged.to_dict()
+            next_kernel = select_failover_kernel(
+                state.kernel,
+                installed,
+                health=store,
+                now=now,
+                exclude=tried,
+            )
+            if not next_kernel:
+                blocked = salvage_kernel_failure(
+                    error=error,
                     current_kernel=state.kernel,
                     last_message=kernel_result.last_message if kernel_result else "",
                     artifact=artifact,
-                    installed_kernels=installed_kernels,
+                    installed_kernels=installed,
+                    health=store,
+                    now=now,
                     allow_failover=False,
                 )
-        decision = TurnDecision.from_payload(salvaged.decision)
-        result = _synthetic_result(state, salvaged, kernel_result, KernelTurnResult)
-        return result, decision, salvaged.to_dict()
+                decision = TurnDecision.from_payload(blocked.decision)
+                result = _synthetic_result(state, blocked, kernel_result, KernelTurnResult)
+                return result, decision, blocked.to_dict()
+            from_kernel = state.kernel
+            _switch_kernel(state, next_kernel)
 
 
 def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
@@ -390,9 +509,19 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
         current_kernel="grok",
         artifact=HARVESTED_GROK_402,
         installed_kernels=set(),
+        allow_failover=False,
     )
-    checks["blocks_without_peer"] = (
+    checks["blocks_when_failover_disabled"] = (
         blocked.decision["status"] == "blocked" and blocked.class_id == "quota_exhausted"
+    )
+    local = salvage_kernel_failure(
+        error="Grok CLI failed with exit code 1",
+        current_kernel="grok",
+        artifact=HARVESTED_GROK_402,
+        installed_kernels=set(),
+    )
+    checks["failsover_to_local"] = (
+        local.failover_kernel == LOCAL_KERNEL and local.decision["status"] == "continue"
     )
 
     failover = salvage_kernel_failure(
@@ -455,11 +584,13 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
             turn_dir,
             kernel_runner=boom,
             installed_kernels=set(),
+            persist_health=False,
         )
     checks["execute_does_not_raise"] = (
         isinstance(decision, TurnDecision)
-        and decision.status == "blocked"
-        and meta.get("class_id") == "quota_exhausted"
+        and decision.status == "continue"
+        and meta.get("source") == "failover"
+        and meta.get("failover_kernel") == LOCAL_KERNEL
         and isinstance(result, KernelTurnResult)
         and bool(result.last_message)
     )

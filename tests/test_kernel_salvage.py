@@ -1,5 +1,6 @@
 import json
 
+from blackhole_agent.kernel_health import LOCAL_KERNEL
 from blackhole_agent.kernel_salvage import (
     HARVESTED_GROK_402,
     builtin_kernel_decision_salvage_proof,
@@ -9,7 +10,7 @@ from blackhole_agent.kernel_salvage import (
 )
 
 
-def test_harvested_402_is_quota_and_blocks_without_peer():
+def test_harvested_402_is_quota_and_failsover_to_local_without_peer():
     failure = classify_run_artifact(HARVESTED_GROK_402, error="Grok CLI failed with exit code 1")
     assert failure.class_id == "quota_exhausted"
     assert failure.retryable is False
@@ -20,8 +21,18 @@ def test_harvested_402_is_quota_and_blocks_without_peer():
         artifact=HARVESTED_GROK_402,
         installed_kernels=set(),
     )
-    assert salvaged.decision["status"] == "blocked"
-    assert salvaged.failover_kernel == ""
+    assert salvaged.decision["status"] == "continue"
+    assert salvaged.failover_kernel == LOCAL_KERNEL
+
+    blocked = salvage_kernel_failure(
+        error="Grok CLI failed with exit code 1",
+        current_kernel="grok",
+        artifact=HARVESTED_GROK_402,
+        installed_kernels=set(),
+        allow_failover=False,
+    )
+    assert blocked.decision["status"] == "blocked"
+    assert blocked.failover_kernel == ""
 
 
 def test_quota_failsover_to_installed_peer_and_salvages_embedded_decision():
