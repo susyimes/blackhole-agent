@@ -3122,6 +3122,7 @@ def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
         output_dir=tmp_path,
         topics=["agent", "workflow"],
         client=client,
+        repo_path=tmp_path,
         proposal_mode="heuristic",
     )
 
@@ -3155,6 +3156,7 @@ def test_run_intake_once_updates_state_for_all_paginated_events(tmp_path):
         output_dir=tmp_path,
         topics=["workflow"],
         client=client,
+        repo_path=tmp_path,
         max_events_per_repo=100,
         proposal_mode="heuristic",
     )
@@ -3195,6 +3197,7 @@ def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
         state_path=state_path,
         trend_config=GitHubTrendConfig(),
         client=client,
+        repo_path=tmp_path,
         proposal_mode="heuristic",
     )
 
@@ -3228,6 +3231,7 @@ def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
         output_dir=tmp_path,
         trend_config=GitHubTrendConfig(),
         client=client,
+        repo_path=tmp_path,
         proposal_mode="heuristic",
     )
 

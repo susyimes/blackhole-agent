@@ -18,6 +18,10 @@ One mission owns:
 The goal may be supplied by the operator. If it is omitted, the first turn is a
 genesis turn: the agent inspects the repository, selects a high-impact mission,
 and writes both the goal and its completion contract into durable state.
+Harvested operational failures (failed supervisor passes, rejected milestones,
+kernel errors) are injected as candidate missions. When a pattern-register
+class has recurred `N` times, genesis is skipped and the next mission is
+forced onto that class.
 
 State lives under:
 
@@ -374,6 +378,12 @@ interval, and retries instead of terminating the continuous loop.
 
 Use another configured remote with `--publish-remote <name>`. Pass an empty
 value only when a deliberately local-only loop is wanted.
+
+Publication is subject to the protected-paths gate: if the lineage diff against
+the current remote head touches a protected governance path, the push is
+refused and retried on the normal publication schedule. An operator restarts
+the loop with `--allow-protected-path-publish` to acknowledge and release that
+specific lineage.
 
 ### Worktree reclamation
 

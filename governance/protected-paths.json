@@ -1,0 +1,21 @@
+{
+  "principle": "Evolution cannot rewrite its own judges. A candidate diff that touches these paths refuses automatic promotion unless an operator acknowledges it.",
+  "version": 1,
+  "paths": [
+    "src/blackhole_agent/supervisor.py",
+    "src/blackhole_agent/persona.py",
+    "src/blackhole_agent/runtime_conformance.py",
+    "src/blackhole_agent/capability_watchdog.py",
+    "src/blackhole_agent/evolution_route.py",
+    "src/blackhole_agent/protected_paths.py",
+    "src/blackhole_agent/pattern_register.py",
+    "src/blackhole_agent/experience_fuel.py",
+    "src/blackhole_agent/size_ratchet.py",
+    "governance/",
+    "pyproject.toml",
+    "tests/test_protected_paths.py",
+    "tests/test_pattern_register.py",
+    "tests/test_experience_fuel.py",
+    "tests/test_size_ratchet.py"
+  ]
+}

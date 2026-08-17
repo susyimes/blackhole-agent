@@ -239,7 +239,8 @@ Rollback execution is intentionally explicit because it uses destructive command
 
 Runs local checks for any generated patch or config change. A failed
 verification produces a digest entry and stops the write path. The default
-health commands are `uv run pytest` and `uv run ruff check .`; the supervisor
+health commands are `uv run pytest`, `uv run ruff check .`, and
+`uv run python -m blackhole_agent.size_ratchet`; the supervisor
 runs them on the candidate before promotion and again after merge.
 
 Durable verification lives in the capability ledger:
@@ -270,11 +271,14 @@ After a successful Codex pass, the supervisor may promote the candidate into `ma
 - the candidate has a new commit
 - `latest-rollback-point.json` exists
 - the target worktree is clean
+- the candidate diff does not touch protected governance paths, unless the operator passed `--allow-protected-path-promotion`
 - candidate health commands pass
 - `main` can accept the commit with `git merge --ff-only`
 - post-merge health commands pass
 
-The default health commands are `uv run pytest` and `uv run ruff check .`. If post-merge health fails, the supervisor resets the target branch back to the pre-merge HEAD and records that rollback in the pass artifact.
+The default health commands are `uv run pytest`, `uv run ruff check .`, and `uv run python -m blackhole_agent.size_ratchet`. If post-merge health fails, the supervisor resets the target branch back to the pre-merge HEAD and records that rollback in the pass artifact.
+
+Protected paths (`governance/protected-paths.json`, unioned with an in-code floor) isolate the judges from the ordinary write path. The pattern register (`.blackhole-agent/pattern-register.json`) upgrades recurring failures into a forced class-level mission after `N` recurrences. Harvested supervisor failures, rejected milestones, and kernel errors are prepended to genesis and digest proposals as operational experience. The size ratchet (`governance/size-ratchet.json`) is shrink-only: measured lines may fall or hold, never rise, unless an operator acknowledges a protected-path change.
 
 Successful promotions can be pushed to the configured remote. This is a runtime policy controlled by `--push-promotions/--no-push-promotions`. A successful promotion also writes `latest-activation.json` with the promoted HEAD and its previous rollback head.
 

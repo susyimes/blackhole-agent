@@ -321,16 +321,22 @@ Promotion is autonomous but gated. A candidate is promoted only when:
 - a candidate commit exists
 - the rollback artifact exists
 - the target worktree is clean
+- the candidate diff does not touch protected governance paths (or an operator passed `--allow-protected-path-promotion`)
 - candidate health commands pass
 - `main` can merge the candidate with `git merge --ff-only`
 - post-merge health commands pass
+
+Protected paths are the judges: `supervisor.py`, `persona.py`, conformance, the watchdog, this gate, the pattern register, the size ratchet, `governance/`, and `pyproject.toml`. Evolution cannot rewrite its own referee. Recurring failure classes live in `.blackhole-agent/pattern-register.json`; after `N` recurrences the next Unbound mission and the next self-evolution plan must target that class. Failed supervisor passes, rejected milestones, and kernel errors are harvested as genesis candidates so daily operation becomes evolution fuel.
 
 By default the health commands are:
 
 ```text
 uv run pytest
 uv run ruff check .
+uv run python -m blackhole_agent.size_ratchet
 ```
+
+The size ratchet is shrink-only: measured lines under `src/blackhole_agent` and `tests` cannot grow past `governance/size-ratchet.json`. Grandfathered files have a per-file ceiling; raising either ceiling is itself a protected-path change.
 
 After a promotion the supervisor writes a stable activation record and a restart request. Use `--exit-after-promotion` when an outer watchdog, service manager, or Windows Scheduled Task should relaunch the process from the new `main`.
 

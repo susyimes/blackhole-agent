@@ -1,0 +1,72 @@
+{
+  "baseline_lines": 193858,
+  "exceptions": [
+    {
+      "max_lines": 19708,
+      "path": "src/blackhole_agent/capability_compounder.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 4091,
+      "path": "src/blackhole_agent/github_growth.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 2015,
+      "path": "src/blackhole_agent/plane_engine.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 4019,
+      "path": "src/blackhole_agent/plane_golden.json",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 2301,
+      "path": "src/blackhole_agent/supervisor.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 4771,
+      "path": "src/blackhole_agent/unbound.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 2917,
+      "path": "src/blackhole_agent/upstream_constitution_engine.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 17230,
+      "path": "src/blackhole_agent/upstream_control_engine.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 4965,
+      "path": "src/blackhole_agent/upstream_total_spine_effects.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 6325,
+      "path": "src/blackhole_agent/upstream_total_spine_logs.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 2155,
+      "path": "tests/test_capability_compounder.py",
+      "reason": "grandfathered at ratchet install"
+    },
+    {
+      "max_lines": 4498,
+      "path": "tests/test_github_growth.py",
+      "reason": "grandfathered at ratchet install"
+    }
+  ],
+  "measured_roots": [
+    "src/blackhole_agent",
+    "tests"
+  ],
+  "principle": "Measured size may shrink or stay; it may not grow. Raise the ceiling only with operator acknowledgment.",
+  "unit": "lines",
+  "version": 1
+}

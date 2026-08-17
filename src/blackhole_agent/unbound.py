@@ -27,6 +27,13 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.durable_state import durable_overlay_session
+from blackhole_agent.experience_fuel import render_experience_for_genesis
+from blackhole_agent.pattern_register import (
+    ingest_unbound_turn,
+    maybe_resolve_from_goal,
+    required_pattern_mission,
+)
+from blackhole_agent.protected_paths import evaluate_candidate_protected_paths
 from blackhole_agent.capability_compounder import (
     Capability,
     absorb_domain_surface,
@@ -535,6 +542,7 @@ def publish_lineage(
     branch: str,
     *,
     command_runner: Callable[..., Any] = subprocess.run,
+    operator_acknowledged: bool = False,
 ) -> PublicationResult:
     """Fast-forward one proven local commit to the configured remote branch."""
 
@@ -578,6 +586,29 @@ def publish_lineage(
             error="",
             command=command,
         )
+    if remote_before:
+        protected = evaluate_candidate_protected_paths(
+            target_repo_path=repo_path,
+            candidate_repo_path=repo_path,
+            target_before=remote_before,
+            candidate_head=commit_sha,
+            operator_acknowledged=operator_acknowledged,
+            command_runner=command_runner,
+        )
+        if protected.blocked:
+            detail = protected.reason
+            if protected.touched:
+                detail = f"{detail}: {', '.join(protected.touched)}"
+            return PublicationResult(
+                ok=False,
+                commit_sha=commit_sha,
+                remote=remote,
+                branch=branch,
+                remote_before=remote_before,
+                remote_after="",
+                error=detail,
+                command=command,
+            )
     pushed = run_command(
         list(command),
         cwd=repo_path,
@@ -770,6 +801,11 @@ def create_mission(
     kernel, kernel_resolution = kernel_resolver(kernel)
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
+    if not goal.strip():
+        forced = required_pattern_mission(repo_path)
+        if forced:
+            goal = forced["goal"]
+            done_when = done_when.strip() or forced["done_when"]
     run_command(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=repo_path,
@@ -909,13 +945,17 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
     """Render compact, outcome-oriented context for one continuing turn."""
 
     if state.stage == "genesis":
+        experience_block = render_experience_for_genesis(Path(state.repo_path))
+        experience_text = f"\n\n{experience_block}" if experience_block else ""
         mission_block = (
             "Mission genesis is still open. Inspect the repository and choose one ambitious, high-impact capability "
             "mission. Define any missing mission_goal or done_when field in the response. Preserve an "
             "operator-supplied field unless repository evidence makes it impossible. You may begin implementation "
-            "in the same turn when the direction is clear.\n\n"
+            "in the same turn when the direction is clear. Prefer a harvested operational failure over a freshly "
+            "invented mission when experience fuel is present.\n\n"
             f"Operator-supplied goal, if any:\n{state.goal or '(not supplied)'}\n\n"
             f"Operator-supplied done_when, if any:\n{state.done_when or '(not supplied)'}"
+            f"{experience_text}"
         )
     else:
         mission_block = f"Mission goal:\n{state.goal}\n\nDone when:\n{state.done_when}"
@@ -1636,6 +1676,10 @@ def run_unbound_turn(
             append_jsonl(state_path.parent / "events.jsonl", {"event": "turn.failed", **failure_record})
             state.recent_turns = [*state.recent_turns, failure_record][-STATE_HISTORY_LIMIT:]
             save_mission(state_path, state)
+            try:
+                ingest_unbound_turn(Path(state.repo_path), failure_record)
+            except Exception:  # noqa: BLE001 - pattern ingest must never fail a turn
+                pass
             raise
 
         if state.stage == "genesis":
@@ -1703,6 +1747,14 @@ def run_unbound_turn(
 
         if effective_status == "complete":
             state.status = "complete"
+            try:
+                maybe_resolve_from_goal(
+                    Path(state.repo_path),
+                    state.goal,
+                    structural_fix=decision.capability_delta or decision.summary,
+                )
+            except Exception:  # noqa: BLE001 - pattern resolve must never fail completion
+                pass
         elif effective_status == "blocked":
             state.status = "blocked"
         else:
@@ -1746,6 +1798,10 @@ def run_unbound_turn(
         )
         state.recent_turns = [*state.recent_turns, record][-STATE_HISTORY_LIMIT:]
         save_mission(state_path, state)
+        try:
+            ingest_unbound_turn(Path(state.repo_path), record)
+        except Exception:  # noqa: BLE001 - pattern ingest must never fail a turn
+            pass
         return record
 
 
@@ -2106,6 +2162,7 @@ def run_continuous_loop(
     resume_latest: bool = True,
     max_missions: int = 0,
     publish_remote: str = "",
+    allow_protected_path_publish: bool = False,
     worktree_gc: bool = True,
     worktree_gc_keep_recent: int = 3,
     mission_creator: Callable[..., Path] = create_mission,
@@ -2239,6 +2296,7 @@ def run_continuous_loop(
                     publish_remote,
                     target_branch,
                     command_runner=command_runner,
+                    operator_acknowledged=allow_protected_path_publish,
                 )
             except Exception as error:
                 result = PublicationResult(
@@ -2704,6 +2762,11 @@ def loop(
         "--publish-remote",
         help="Push each completed proven lineage to this remote; use an empty value to disable.",
     ),
+    allow_protected_path_publish: bool = typer.Option(
+        False,
+        "--allow-protected-path-publish/--require-protected-path-publish-ack",
+        help="Operator acknowledgment: allow publishing a lineage whose diff touches protected governance paths.",
+    ),
     worktree_gc: bool = typer.Option(
         True,
         "--worktree-gc/--no-worktree-gc",
@@ -2732,6 +2795,7 @@ def loop(
             resume_latest=resume_latest,
             max_missions=max_missions,
             publish_remote=publish_remote.strip(),
+            allow_protected_path_publish=allow_protected_path_publish,
             worktree_gc=worktree_gc,
             worktree_gc_keep_recent=worktree_gc_keep,
         )

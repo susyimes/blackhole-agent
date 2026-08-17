@@ -659,6 +659,49 @@ def test_publish_lineage_pushes_and_verifies_exact_remote_head(tmp_path):
     assert remote_head == commit_sha
 
 
+def test_publish_lineage_blocks_protected_path_diff_without_operator_ack(tmp_path):
+    repo = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    repo.mkdir()
+    init_repository(repo)
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "push", str(remote), "main"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    package = repo / "src" / "blackhole_agent"
+    package.mkdir(parents=True)
+    (package / "persona.py").write_text("JUDGE = True\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "touch judge file"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    commit_sha = git_head(repo)
+
+    blocked = publish_lineage(repo, commit_sha, str(remote), "main")
+
+    assert blocked.ok is False
+    assert "src/blackhole_agent/persona.py" in blocked.error
+
+    acked = publish_lineage(repo, commit_sha, str(remote), "main", operator_acknowledged=True)
+    remote_head = subprocess.run(
+        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert acked.ok is True
+    assert remote_head == commit_sha
+
+
 def test_continuous_loop_retries_failed_publication_before_creating_another_mission(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -666,6 +709,7 @@ def test_continuous_loop_retries_failed_publication_before_creating_another_miss
     worktrees = tmp_path / "worktrees"
     waits = []
     publish_attempts = []
+    publish_ack_values = []
 
     def completing_runner(state_path, **kwargs):
         state = load_mission(state_path)
@@ -688,6 +732,7 @@ def test_continuous_loop_retries_failed_publication_before_creating_another_miss
 
     def flaky_publisher(repo_path, commit_sha, remote, branch, **kwargs):
         publish_attempts.append(commit_sha)
+        publish_ack_values.append(kwargs.get("operator_acknowledged"))
         if len(publish_attempts) == 1:
             raise RuntimeError("simulated remote failure")
         return PublicationResult(
@@ -720,6 +765,7 @@ def test_continuous_loop_retries_failed_publication_before_creating_another_miss
 
     assert result == 0
     assert len(publish_attempts) == 2
+    assert publish_ack_values == [False, False]
     assert waits == [1800]
     assert loop_state["mission_count"] == 1
     assert loop_state["publish_attempt_count"] == 2

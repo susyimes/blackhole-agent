@@ -28,10 +28,16 @@ from blackhole_agent.evolution_route import (
     build_compound_wake_command,
     resolve_supervisor_evolution_surface,
 )
+from blackhole_agent.experience_fuel import render_experience_brief
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, build_codex_provider_preflight, token_quality
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, build_grok_provider_preflight
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, build_kimi_provider_preflight
+from blackhole_agent.pattern_register import ingest_supervisor_pass, required_pattern_mission
 from blackhole_agent.proposal_synthesis import DEFAULT_PROPOSAL_MODE, PROPOSAL_MODES
+from blackhole_agent.protected_paths import (
+    PROTECTED_PATH_INSTRUCTION,
+    evaluate_candidate_protected_paths,
+)
 from blackhole_agent.self_model import DEFAULT_SELF_MODEL_PATH
 from blackhole_agent.tool_routing import (
     ToolDescriptor,
@@ -44,7 +50,11 @@ console = Console(highlight=False)
 
 SUPPORTED_EVOLUTION_MODES = {"digest", "plan", "codex", "compound"}
 DEFAULT_OUTPUT_DIR = Path(".blackhole-agent/supervisor")
-DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = ("uv run pytest", "uv run ruff check .")
+DEFAULT_HEALTH_COMMANDS: tuple[str, ...] = (
+    "uv run pytest",
+    "uv run ruff check .",
+    "uv run python -m blackhole_agent.size_ratchet",
+)
 DEFAULT_RESTART_EXIT_CODE = 75
 LATEST_ACTIVATION_FILENAME = "latest-activation.json"
 VERSION_PREVIEW_MARKERS = ("dev", "alpha", "a", "beta", "b", "rc", "pre", "preview", "nightly", "snapshot")
@@ -120,6 +130,7 @@ class SupervisorConfig:
     promote_successful_changes: bool = True
     push_promotions: bool = True
     require_rollback_artifact: bool = True
+    allow_protected_path_promotion: bool = False
     health_commands: tuple[str, ...] = DEFAULT_HEALTH_COMMANDS
     health_timeout_seconds: int = 900
     startup_health_check: bool = True
@@ -207,6 +218,9 @@ class PromotionResult:
     restart_request_path: str
     stdout_tail: str
     stderr_tail: str
+    protected_paths_blocked: bool = False
+    protected_paths_touched: tuple[str, ...] = ()
+    operator_acknowledged: bool = False
 
 
 @dataclass(frozen=True)
@@ -373,7 +387,14 @@ def build_wake_command(config: SupervisorConfig, *, repo_path: Path | None = Non
 
 
 def build_supervisor_extra_instruction(config: SupervisorConfig) -> str:
-    parts = [DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION]
+    parts = [DEFAULT_SUPERVISOR_EXTRA_INSTRUCTION, PROTECTED_PATH_INSTRUCTION]
+    forced = required_pattern_mission(config.repo_path)
+    if forced:
+        parts.append(forced["instruction"])
+    else:
+        brief = render_experience_brief(config.repo_path)
+        if brief:
+            parts.append(brief)
     if config.extra_instruction.strip():
         parts.append(config.extra_instruction.strip())
     return "\n\n".join(parts)
@@ -484,6 +505,10 @@ def run_wake_once(
             )
             write_pass_record(config.resolved_output_dir, record, interval_seconds=config.interval_seconds)
             append_supervisor_log(config.resolved_output_dir, record)
+            try:
+                ingest_supervisor_pass(config.repo_path, pass_record_to_dict(record))
+            except Exception:  # noqa: BLE001 - pattern ingest must never fail a wake
+                pass
             return record
 
     start_branch = git_text(child_repo_path, ["git", "branch", "--show-current"], command_runner=command_runner)
@@ -570,6 +595,10 @@ def run_wake_once(
     )
     write_pass_record(config.resolved_output_dir, record, interval_seconds=config.interval_seconds)
     append_supervisor_log(config.resolved_output_dir, record)
+    try:
+        ingest_supervisor_pass(config.repo_path, pass_record_to_dict(record))
+    except Exception:  # noqa: BLE001 - pattern ingest must never fail a wake
+        pass
     return record
 
 
@@ -765,6 +794,9 @@ def promote_candidate(
         rollback_succeeded: bool = False,
         restart_requested: bool = False,
         restart_request_path: str = "",
+        protected_paths_blocked: bool = False,
+        protected_paths_touched: tuple[str, ...] = (),
+        operator_acknowledged: bool = False,
     ) -> PromotionResult:
         return PromotionResult(
             attempted=True,
@@ -786,6 +818,9 @@ def promote_candidate(
             restart_request_path=restart_request_path,
             stdout_tail=tail_text("\n".join(stdout_parts)),
             stderr_tail=tail_text("\n".join(stderr_parts)),
+            protected_paths_blocked=protected_paths_blocked,
+            protected_paths_touched=protected_paths_touched,
+            operator_acknowledged=operator_acknowledged,
         )
 
     if not candidate_head:
@@ -807,6 +842,25 @@ def promote_candidate(
     if (target_status.stdout or "").strip():
         stderr_parts.append("target worktree is not clean")
         return result(returncode=1)
+
+    protected = evaluate_candidate_protected_paths(
+        target_repo_path=config.repo_path,
+        candidate_repo_path=candidate_repo_path,
+        target_before=target_before,
+        candidate_head=candidate_head,
+        operator_acknowledged=config.allow_protected_path_promotion,
+        command_runner=command_runner,
+    )
+    if protected.blocked:
+        stderr_parts.append(protected.reason)
+        if protected.touched:
+            stderr_parts.append("protected paths touched: " + ", ".join(protected.touched))
+        return result(
+            returncode=1,
+            protected_paths_blocked=True,
+            protected_paths_touched=protected.touched,
+            operator_acknowledged=protected.operator_acknowledged,
+        )
 
     health_checks = run_health_checks(config, candidate_repo_path, command_runner=command_runner)
     failed_health = first_failed_health_check(health_checks)
@@ -891,6 +945,8 @@ def promote_candidate(
         returncode=push_returncode,
         restart_requested=True,
         restart_request_path=str(restart_request_path),
+        protected_paths_touched=protected.touched,
+        operator_acknowledged=protected.operator_acknowledged,
     )
 
 
@@ -2138,6 +2194,11 @@ def main(
         "--require-rollback-artifact/--no-require-rollback-artifact",
         help="Require latest rollback artifact before promotion.",
     ),
+    allow_protected_path_promotion: bool = typer.Option(
+        False,
+        "--allow-protected-path-promotion/--require-protected-path-ack",
+        help="Operator acknowledgment: allow promoting a candidate that touches protected governance paths.",
+    ),
     health_commands: str = typer.Option(
         "\n".join(DEFAULT_HEALTH_COMMANDS),
         "--health-commands",
@@ -2218,6 +2279,7 @@ def main(
         promote_successful_changes=promote_successful_changes,
         push_promotions=push_promotions,
         require_rollback_artifact=require_rollback_artifact,
+        allow_protected_path_promotion=allow_protected_path_promotion,
         health_commands=parse_health_commands(health_commands),
         health_timeout_seconds=health_timeout_seconds,
         startup_health_check=startup_health_check,

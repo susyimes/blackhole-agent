@@ -77,6 +77,9 @@ def test_architecture_links_upstream_evidence_interpretation_contract():
     assert "harness_activation_gate_decision" in architecture
     assert "uv run pytest" in architecture
     assert "uv run ruff check ." in architecture
+    assert "uv run python -m blackhole_agent.size_ratchet" in architecture
+    assert "protected governance paths" in architecture
+    assert "pattern register" in architecture
     # The demolished labyrinth must not reappear as living architecture.
     assert architecture.count("skill_route_discovery_capability_pipeline") <= 1
     assert "pytest tests/test_harness_eval.py" not in architecture

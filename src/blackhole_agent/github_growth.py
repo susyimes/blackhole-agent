@@ -22,10 +22,12 @@ import requests
 import typer
 from rich.console import Console
 
+from blackhole_agent.experience_fuel import harvest_experience, merge_experience_into_proposals
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel, GrokCliRunResult
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
 from blackhole_agent.persona import render_persona_layer
+from blackhole_agent.protected_paths import PROTECTED_PATH_INSTRUCTION
 from blackhole_agent.proposal_synthesis import (
     DEFAULT_PROPOSAL_MODE,
     PROPOSAL_MODES,
@@ -2786,6 +2788,18 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
                 f"  - Confidence: {item['confidence']:.2f}",
             ]
         )
+    experience_fuel = digest.get("experience_fuel")
+    if isinstance(experience_fuel, dict) and (experience_fuel.get("forced") or experience_fuel.get("candidates")):
+        lines.extend(["", "## Operational Experience", ""])
+        forced = experience_fuel.get("forced") or {}
+        if forced:
+            lines.append(f"- Forced class: `{forced.get('class_id', '')}` — {forced.get('goal', '')}")
+        for item in experience_fuel.get("candidates") or []:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
+                f"- `{item.get('source', 'artifact')}/{item.get('class_id') or 'operational'}`: {item.get('summary', '')}"
+            )
     lines.extend(["", "## Proposals", ""])
     if not digest["proposals"]:
         lines.append("No proposals generated.")
@@ -2880,7 +2894,11 @@ def build_self_evolution_plan(
 ) -> SelfEvolutionPlan | None:
     """Turn a digest into a concrete Codex CLI task for local self-improvement."""
 
-    proposals = list(digest.get("proposals", []))[:max_proposals]
+    proposals = list(digest.get("proposals", []))
+    if not any(isinstance(item, dict) and item.get("proposal_source") == "experience" for item in proposals):
+        proposals = merge_experience_into_proposals(proposals, repo_path, limit=max_proposals)
+    else:
+        proposals = proposals[:max_proposals]
     if not proposals and not force:
         return None
     if not proposals:
@@ -3049,6 +3067,18 @@ def render_self_evolution_task(
         upstream_evidence_capability_step or {}
     )
     extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
+    fuel = harvest_experience(repo_path)
+    if fuel.forced:
+        extra = (
+            f"\nForced pattern-class mission:\n{fuel.forced['instruction']}\n"
+            f"{extra}"
+        )
+    elif fuel.candidates:
+        extra = (
+            "\nOperational experience candidates:\n"
+            + "\n".join(f"- {item.summary}" for item in fuel.candidates)
+            + f"\n{extra}"
+        )
     if capability_step_lines:
         capability_step_block = [
             "",
@@ -3095,6 +3125,7 @@ def render_self_evolution_task(
             "",
             "Operating constraints:",
             "- Stay inside this repository.",
+            f"- {PROTECTED_PATH_INSTRUCTION}",
             "- Apply local repository changes autonomously when they are logged, rollback-backed, validated, and outside the narrow safety boundary.",
             "- Use only capabilities and runtime configuration available to this run.",
             "- Record material filesystem and external actions in run artifacts.",
@@ -3796,6 +3827,8 @@ def run_intake_once(
         )
         attach_upstream_evidence_capability_step(digest)
         attach_evolution_route_surface(digest)
+    digest["proposals"] = merge_experience_into_proposals(list(digest.get("proposals") or []), repo_path)
+    digest["experience_fuel"] = harvest_experience(repo_path).to_dict()
     update_memory_from_digest(memory, digest)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
