@@ -83,6 +83,8 @@ class LocalCampaign:
     last_summary: str = ""
     handoff: dict[str, Any] = field(default_factory=dict)
     updated_at: str = ""
+    consumed_at: str = ""
+    resumed_by_mission_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -110,11 +112,27 @@ class LocalCampaign:
             last_summary=str(payload.get("last_summary") or ""),
             handoff=dict(handoff),
             updated_at=str(payload.get("updated_at") or ""),
+            consumed_at=str(payload.get("consumed_at") or ""),
+            resumed_by_mission_id=str(payload.get("resumed_by_mission_id") or ""),
         )
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def durable_campaign_root(state: Any, workspace: Path | None = None) -> Path:
+    """Persist campaigns on the controller repo so worktree GC cannot drop them."""
+
+    repo = str(getattr(state, "repo_path", "") or "").strip()
+    if repo:
+        return Path(repo)
+    work = str(getattr(state, "workspace_path", "") or "").strip()
+    if work:
+        return Path(work)
+    if workspace:
+        return Path(workspace)
+    return Path(".")
 
 
 def campaign_path(root: Path) -> Path:
@@ -364,10 +382,11 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     """Default local-kernel action: bind a mission and advance a campaign."""
 
     root = resolve_tick_root(state, workspace)
-    binding = bind_local_mission(state, repo_path=root)
+    durable = durable_campaign_root(state, workspace)
+    binding = bind_local_mission(state, repo_path=durable)
     mission_id = str(getattr(state, "mission_id", "") or "local")
     ledger = load_tick_ledger(root)
-    campaign = load_campaign(root)
+    campaign = load_campaign(durable)
     invoked: list[dict[str, Any]] = []
     contract: dict[str, Any] = {"ok": True, "met": None, "machine_checkable": False, "results": []}
 
@@ -383,7 +402,7 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.tick_count += 1
         campaign.last_summary = summary
         campaign.handoff = campaign_handoff(campaign)
-        save_campaign(root, campaign)
+        save_campaign(durable, campaign)
         report = empty_local_decision(
             status="continue",
             summary=summary,
@@ -495,7 +514,7 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     campaign.last_contract_met = contract.get("met") if isinstance(contract.get("met"), bool) else None
     campaign.last_summary = summary[:400]
     campaign.handoff = campaign_handoff(campaign)
-    save_campaign(root, campaign)
+    save_campaign(durable, campaign)
     report = empty_local_decision(
         status="continue",
         summary=summary,

@@ -28,6 +28,11 @@ from rich.console import Console
 
 from blackhole_agent.durable_state import durable_overlay_session
 from blackhole_agent.experience_fuel import render_experience_for_genesis
+from blackhole_agent.kernel_resume import (
+    bind_create_fields,
+    consume_resumed_campaign,
+    hydrate_mission_from_campaign,
+)
 from blackhole_agent.pattern_register import (
     ingest_unbound_turn,
     maybe_resolve_from_goal,
@@ -811,6 +816,8 @@ def create_mission(
         if forced:
             goal = forced["goal"]
             done_when = done_when.strip() or forced["done_when"]
+    if not goal.strip() or not done_when.strip():
+        goal, done_when, _src = bind_create_fields(repo_path, goal, done_when)
     run_command(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=repo_path,
@@ -949,6 +956,7 @@ def capability_ledger_for_prompt(workspace: Path) -> str:
 def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_path: Path) -> str:
     """Render compact, outcome-oriented context for one continuing turn."""
 
+    hydrate_mission_from_campaign(state)
     if state.stage == "genesis":
         experience_block = render_experience_for_genesis(Path(state.repo_path))
         experience_text = f"\n\n{experience_block}" if experience_block else ""
@@ -1635,6 +1643,8 @@ def run_unbound_turn(
     state_path = state_path.resolve()
     with mission_turn_lock(state_path):
         state = load_mission(state_path)
+        if hydrate_mission_from_campaign(state, persist=True).get("applied"):
+            save_mission(state_path, state)
         if state.status != "active":
             raise RuntimeError(f"Mission is {state.status}; resume it before running another turn.")
         workspace = Path(state.workspace_path)
@@ -1728,6 +1738,7 @@ def run_unbound_turn(
                     state.goal,
                     structural_fix=decision.capability_delta or decision.summary,
                 )
+                consume_resumed_campaign(state)
             except Exception:  # noqa: BLE001 - pattern resolve must never fail completion
                 pass
         elif effective_status == "blocked":
