@@ -332,6 +332,14 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
     if campaign.tick_count <= 0:
         return ""
     completed = ", ".join(campaign.completed_ids) or "(none)"
+    remaining = [
+        item
+        for item in campaign.program[campaign.cursor :]
+        if item not in campaign.completed_ids
+    ]
+    remaining_text = ", ".join(remaining) or "(none)"
+    succession = str((campaign.handoff or {}).get("succession_step") or "")
+    succession_line = f"\n- succession_step: {succession}" if succession else ""
     return (
         "Local-kernel campaign handoff (first-class kernel was unavailable; "
         "resume from this progress, do not restart genesis):\n"
@@ -340,8 +348,10 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
         f"- done_when: {campaign.done_when}\n"
         f"- ticks: {campaign.tick_count}\n"
         f"- completed: {completed}\n"
+        f"- remaining: {remaining_text}\n"
         f"- contract_met: {campaign.last_contract_met}\n"
         f"- last: {campaign.last_summary}"
+        f"{succession_line}"
     )
 
 
@@ -433,6 +443,16 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
 
     campaign = _prepare_campaign(campaign, mission_id=mission_id, binding=binding, ledger=ledger)
     capability_id = _next_step(campaign)
+    succession_used = False
+    if not capability_id:
+        try:
+            from blackhole_agent.kernel_succession import attach_succession_step
+
+            capability_id = attach_succession_step(campaign, ledger, goal=binding.goal)
+            succession_used = bool(capability_id)
+        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
+            capability_id = ""
+            succession_used = False
     if capability_id:
         capability = ledger.capabilities.get(capability_id)
         if capability is None:
@@ -476,12 +496,22 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         f"ledger_count={len(ledger.capabilities)}",
         f"invoked_count={len(invoked)}",
         f"bound_from={binding.source}",
-        f"reason={'invoked' if invoked else 'no_safe_capability'}",
+        f"reason={'succession' if succession_used else ('invoked' if invoked else 'no_safe_capability')}",
         f"contract_met={contract.get('met')}",
         f"campaign_ticks={campaign.tick_count + 1}",
     ]
     evidence.extend(f"invoked={item['capability_id']}:ok={item.get('ok')}" for item in invoked)
-    if passed:
+    if passed and succession_used:
+        delta = (
+            "Local mission succession escaped cheap-anchor rotation via "
+            + ", ".join(passed)
+            + " after first-class kernels were unavailable."
+        )
+        summary = (
+            f"Local mission succession executed {', '.join(passed)} after cheap "
+            "local-anchor rotation was exhausted."
+        )
+    elif passed:
         delta = (
             "Local mission sovereignty bound a campaign from "
             f"{binding.source} and invoked "
@@ -514,6 +544,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     campaign.last_contract_met = contract.get("met") if isinstance(contract.get("met"), bool) else None
     campaign.last_summary = summary[:400]
     campaign.handoff = campaign_handoff(campaign)
+    if succession_used and passed:
+        campaign.handoff["succession_step"] = passed[0]
     save_campaign(durable, campaign)
     report = empty_local_decision(
         status="continue",

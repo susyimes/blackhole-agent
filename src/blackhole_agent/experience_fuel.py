@@ -24,6 +24,28 @@ from blackhole_agent.pattern_register import (
 DEFAULT_CANDIDATE_LIMIT = 5
 DEFAULT_PASS_SCAN_LIMIT = 8
 DEFAULT_MISSION_SCAN_LIMIT = 8
+DEFAULT_LEFTOVER_SCAN_LIMIT = 16
+
+_GENERIC_NEXT_PREFIXES = (
+    "none",
+    "resume on a healthy",
+    "keep advancing",
+    "keep compounding",
+    "n/a",
+)
+_LEFTOVER_HINTS = (
+    "follow-on",
+    "follow on",
+    "leftover",
+    "later work",
+    "later turn",
+    "later genesis",
+    "once cheap",
+    "rotation is exhausted",
+    "mission-plane",
+    "cheap-anchor",
+)
+_SALVAGE_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
 
 
 @dataclass(frozen=True)
@@ -126,6 +148,22 @@ def harvest_supervisor_failures(repo_path: Path, *, limit: int = DEFAULT_PASS_SC
     return candidates
 
 
+def leftover_next_step(text: str) -> str:
+    """Return leftover follow-on work, or empty when the next_step is generic/closed."""
+
+    raw = " ".join(str(text or "").split())
+    if not raw:
+        return ""
+    lowered = raw.lower()
+    if lowered in {"none.", "none", "n/a", "n/a."}:
+        return ""
+    if any(lowered.startswith(prefix) for prefix in _GENERIC_NEXT_PREFIXES):
+        return ""
+    if any(hint in lowered for hint in _LEFTOVER_HINTS):
+        return raw
+    return ""
+
+
 def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SCAN_LIMIT) -> list[ExperienceCandidate]:
     from blackhole_agent.pattern_register import classify_unbound_turn
 
@@ -134,11 +172,12 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
         return []
     candidates: list[ExperienceCandidate] = []
     seen: set[tuple[str, str]] = set()
-    state_files = sorted(
+    all_states = sorted(
         missions_dir.glob("*/state.json"),
         key=lambda path: path.stat().st_mtime,
         reverse=True,
-    )[:limit]
+    )
+    state_files = all_states[: max(int(limit), DEFAULT_LEFTOVER_SCAN_LIMIT)]
     for state_path in state_files:
         state = _read_json(state_path)
         if not state:
@@ -165,9 +204,37 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
             if key not in seen:
                 seen.add(key)
                 candidates.append(_candidate_from_event(event, priority=2))
+        leftover = leftover_next_step(str(state.get("next_step") or ""))
+        if leftover:
+            event = {
+                "class_id": "mission_leftover",
+                "source": "unbound",
+                "summary": leftover,
+                "evidence": f"mission {state.get('mission_id', '')} leftover next_step",
+            }
+            key = (event["class_id"], event["summary"])
+            if key not in seen:
+                seen.add(key)
+                candidates.append(_candidate_from_event(event, priority=5))
         for turn in reversed(list(state.get("recent_turns") or [])):
             if not isinstance(turn, dict):
                 continue
+            salvage = turn.get("kernel_salvage") if isinstance(turn.get("kernel_salvage"), dict) else {}
+            salvage_class = str(salvage.get("class_id") or "")
+            if salvage_class in _SALVAGE_CLASSES:
+                event = {
+                    "class_id": salvage_class,
+                    "source": "unbound-salvage",
+                    "summary": (
+                        f"mission {state.get('mission_id', '')} salvaged "
+                        f"{salvage_class} without stalling"
+                    ),
+                    "evidence": str(salvage.get("evidence") or salvage.get("source") or "")[:400],
+                }
+                key = (event["class_id"], event["summary"])
+                if key not in seen:
+                    seen.add(key)
+                    candidates.append(_candidate_from_event(event, priority=2))
             for event in classify_unbound_turn(turn):
                 key = (event.get("class_id", ""), event.get("summary", ""))
                 if key in seen:

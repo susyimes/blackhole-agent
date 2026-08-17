@@ -84,6 +84,12 @@ def hydrate_mission_from_campaign(
     if before_goal and before_done:
         if str(getattr(state, "stage", "") or "") == "genesis":
             state.stage = "execution"
+        try:
+            from blackhole_agent.kernel_succession import continue_resumed_succession
+
+            continue_resumed_succession(state, repo_path=durable)
+        except Exception:  # noqa: BLE001 - resume must still return bound fields
+            pass
         return {
             "applied": False,
             "source": "state",
@@ -114,6 +120,12 @@ def hydrate_mission_from_campaign(
     if persist and applied and mission_id and campaign.resumed_by_mission_id != mission_id:
         campaign.resumed_by_mission_id = mission_id
         save_campaign(durable, campaign)
+    try:
+        from blackhole_agent.kernel_succession import continue_resumed_succession
+
+        continue_resumed_succession(state, repo_path=durable)
+    except Exception:  # noqa: BLE001 - resume must still return hydrated fields
+        pass
     return {
         "applied": applied,
         "source": "local_campaign",
