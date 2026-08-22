@@ -148,19 +148,37 @@ def harvest_supervisor_failures(repo_path: Path, *, limit: int = DEFAULT_PASS_SC
     return candidates
 
 
+_CLOSED_NEXT_STEPS = frozenset({"none.", "none", "n/a", "n/a."})
+_GENERIC_CLOSER_PREFIXES = (
+    "None. Mission complete.",
+    "Mission complete.",
+    "None.",
+    "N/A.",
+)
+
+
 def leftover_next_step(text: str) -> str:
-    """Return leftover follow-on work, or empty when the next_step is generic/closed."""
+    """Return leftover follow-on work, or empty when the next_step is generic/closed.
+
+    A closer prefix such as ``None. Mission complete.`` does not hide leftover
+    work that follows it. Harvested missions often write both in one field.
+    """
 
     raw = " ".join(str(text or "").split())
     if not raw:
         return ""
     lowered = raw.lower()
-    if lowered in {"none.", "none", "n/a", "n/a."}:
-        return ""
-    if any(lowered.startswith(prefix) for prefix in _GENERIC_NEXT_PREFIXES):
+    if lowered in _CLOSED_NEXT_STEPS:
         return ""
     if any(hint in lowered for hint in _LEFTOVER_HINTS):
-        return raw
+        remainder = raw
+        for prefix in _GENERIC_CLOSER_PREFIXES:
+            if remainder.lower().startswith(prefix.lower()):
+                remainder = remainder[len(prefix) :].strip()
+                break
+        return remainder or raw
+    if any(lowered.startswith(prefix) for prefix in _GENERIC_NEXT_PREFIXES):
+        return ""
     return ""
 
 

@@ -28,6 +28,13 @@ def test_leftover_next_step_keeps_follow_on_and_drops_generic():
     assert "cheap-anchor" in leftover
     assert leftover_next_step("None. Mission complete.") == ""
     assert leftover_next_step("Resume on a healthy first-class kernel when a breaker closes.") == ""
+    later = leftover_next_step(
+        "None. Mission complete. Optional later work is live-registry catalog "
+        "refresh so application-growth can forage from a live npm/pypi search "
+        "instead of a frozen catalog."
+    )
+    assert later.startswith("Optional later work")
+    assert "live-registry catalog refresh" in later
 
 
 def test_salvage_continue_is_not_kernel_turn_failed():

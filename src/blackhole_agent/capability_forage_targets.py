@@ -19,8 +19,10 @@ selection**:
   fails.
 
 The hermetic catalog is a frozen trend payload (grounded-growth replay
-shape). Live npm search is an optional refresh of that payload, never the
-registered proof.
+shape). Live npm/pypi search is an optional refresh of that payload, never
+the registered proof. ``refresh_registry_catalog`` merges both registries
+and accepts a frozen replay so application-growth can forage from a
+live-shaped catalog without networking.
 """
 
 from __future__ import annotations
@@ -64,8 +66,10 @@ SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-forage-targets"
 DEFAULT_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_catalog.json"
+DEFAULT_LIVE_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_live_catalog.json"
 WINNER_SLUG = "forage-pick"
 GOAL_OVERRIDE_SLUG = "js-shouter"
+_GOAL_QUERY_SUFFIXES = ("_output", "_html", "_json", "_text", "_result")
 
 # Frozen absorbed set for hermetic ranking so absorbing the winner cannot
 # change the sealed grade on a later proof run.
@@ -166,6 +170,7 @@ def _normalize_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
         "provides": [str(item) for item in entry.get("provides") or []],
         "viable": bool(entry.get("viable", True)),
         "source": str(entry.get("source") or ""),
+        "replay_source": str(entry.get("replay_source") or ""),
         "hint": str(entry.get("hint") or slug),
         "runtime": str(entry.get("runtime") or ""),
         "version": str(entry.get("version") or ""),
@@ -238,7 +243,7 @@ def forage_request_for(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT)
         "slug": normalized["slug"],
         "hint": normalized["hint"],
     }
-    source = normalized["source"]
+    source = normalized["source"] or normalized["replay_source"]
     if source:
         path = Path(source)
         if not path.is_absolute():
@@ -289,6 +294,143 @@ def fetch_npm_search(query: str, *, size: int = 10, timeout: int = 30) -> dict[s
             }
         )
     return {"ok": True, "query": query, "items": items}
+
+
+def query_from_goal(goal_keys: Sequence[str]) -> str:
+    """Derive a registry search query from goal keys. No package name is supplied."""
+
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for raw in goal_keys:
+        text = str(raw or "").strip().lower().replace("-", "_")
+        for suffix in _GOAL_QUERY_SUFFIXES:
+            if text.endswith(suffix) and len(text) > len(suffix):
+                text = text[: -len(suffix)]
+                break
+        for part in text.split("_"):
+            if part and part not in seen:
+                seen.add(part)
+                tokens.append(part)
+    return " ".join(tokens)
+
+
+def _pypi_candidate_names(query: str, *, size: int) -> list[str]:
+    raw = " ".join(str(query or "").split()).strip().lower()
+    names: list[str] = []
+    seen: set[str] = set()
+
+    def _add(name: str) -> None:
+        value = name.strip().lower()
+        if value and value not in seen:
+            seen.add(value)
+            names.append(value)
+
+    if raw:
+        _add(raw.replace(" ", "-"))
+        _add(raw.replace(" ", "_"))
+        _add(raw.replace(" ", ""))
+        for token in raw.split():
+            _add(token)
+    return names[: max(1, int(size))]
+
+
+def _pypi_keywords(info: Mapping[str, Any]) -> list[str]:
+    raw = info.get("keywords") or ""
+    if isinstance(raw, str):
+        return [part.strip() for part in raw.replace(",", " ").split() if part.strip()]
+    if isinstance(raw, list):
+        return [str(part) for part in raw if str(part).strip()]
+    return []
+
+
+def fetch_pypi_search(query: str, *, size: int = 10, timeout: int = 30) -> dict[str, Any]:
+    """Lookup query-derived names on the PyPI JSON API. Live lane only."""
+
+    names = _pypi_candidate_names(query, size=size)
+    if not names:
+        return {"ok": False, "query": query, "error": "empty pypi query", "items": []}
+    items: list[dict[str, Any]] = []
+    for name in names:
+        api = f"https://pypi.org/pypi/{quote(name, safe='-_.')}/json"
+        try:
+            with urllib.request.urlopen(api, timeout=timeout) as response:
+                meta = json.loads(response.read().decode("utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(meta, Mapping):
+            continue
+        info = meta.get("info") if isinstance(meta.get("info"), Mapping) else {}
+        pkg = str(info.get("name") or name)
+        items.append(
+            {
+                "name": pkg,
+                "slug": slugify_capability_id(pkg),
+                "registry": "pypi",
+                "downloads": max(int(meta.get("last_serial") or 0), 0),
+                "recent_downloads": 0,
+                "keywords": _pypi_keywords(info),
+                "provides": [],
+                "viable": True,
+                "version": str(info.get("version") or ""),
+                "runtime": "python",
+            }
+        )
+        if len(items) >= max(1, int(size)):
+            break
+    return {"ok": True, "query": query, "items": items}
+
+
+def refresh_registry_catalog(
+    query: str = "",
+    *,
+    replay: Mapping[str, Any] | None = None,
+    live: bool = False,
+    size: int = 10,
+    timeout: int = 30,
+) -> dict[str, Any]:
+    """Build a forage catalog from npm + PyPI search.
+
+    Replay (the registered path) never networks. Live search is an optional
+    refresh of that payload, never the hermetic proof.
+    """
+
+    requested = str(query or "").strip()
+    if not live:
+        payload = dict(replay) if replay is not None else load_catalog(DEFAULT_LIVE_CATALOG)
+        items = [_normalize_entry(item) for item in payload.get("items") or []]
+        registries = sorted({item["registry"] for item in items if item["registry"] in {"npm", "pypi"}})
+        return {
+            "ok": bool(items),
+            "query": requested or str(payload.get("query") or ""),
+            "items": items,
+            "live": False,
+            "replay": True,
+            "network_used": False,
+            "registries": registries,
+            "error": "" if items else "empty forage catalog",
+        }
+    resolved = requested or "text"
+    npm = fetch_npm_search(resolved, size=size, timeout=timeout)
+    pypi = fetch_pypi_search(resolved, size=size, timeout=timeout)
+    items = []
+    if npm.get("ok"):
+        items.extend(_normalize_entry(item) for item in npm.get("items") or [])
+    if pypi.get("ok"):
+        items.extend(_normalize_entry(item) for item in pypi.get("items") or [])
+    registries = sorted({item["registry"] for item in items if item["registry"] in {"npm", "pypi"}})
+    ok = bool(items)
+    return {
+        "ok": ok,
+        "query": resolved,
+        "items": items,
+        "live": True,
+        "replay": False,
+        "network_used": True,
+        "registries": registries,
+        "error": "" if ok else str(npm.get("error") or pypi.get("error") or "empty forage catalog"),
+        "npm_ok": bool(npm.get("ok")),
+        "pypi_ok": bool(pypi.get("ok")),
+    }
 
 
 def _goal_task(record: Mapping[str, Any]) -> ApplicationTask:
@@ -676,6 +818,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     live_parser.add_argument("--query", default="text transform")
     live_parser.add_argument("--size", type=int, default=10)
 
+    refresh_parser = sub.add_parser("refresh", help="refresh npm+pypi catalog (replay unless --network)")
+    refresh_parser.add_argument("--query", default="")
+    refresh_parser.add_argument("--goal", action="append", default=None, help="goal key used to derive the query")
+    refresh_parser.add_argument("--size", type=int, default=10)
+    refresh_parser.add_argument("--network", action="store_true", help="hit live registries; never the registered proof")
+
     sub.add_parser("proof", help="run the registered forage-target-plane proof")
     sub.add_parser("register", help="register and prove the plane in the live ledger")
 
@@ -699,6 +847,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             ranking = rank_catalog(fetched["items"], absorbed=sorted(live_absorbed_slugs()))
             result = {**ranking, "query": args.query, "live": True}
+    elif args.command_name == "refresh":
+        query = str(args.query or "").strip() or query_from_goal(tuple(args.goal or ()))
+        refreshed = refresh_registry_catalog(query, live=bool(args.network), size=args.size)
+        if not refreshed.get("ok"):
+            result = refreshed
+        else:
+            ranking = rank_catalog(refreshed["items"], absorbed=sorted(live_absorbed_slugs()))
+            result = {**refreshed, **ranking}
     elif args.command_name == "proof":
         result = builtin_forage_target_plane_proof()
     elif args.command_name == "register":

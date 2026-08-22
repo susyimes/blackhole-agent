@@ -49,6 +49,18 @@ def test_apply_growth_leftover_marks_application_growth_plane():
     assert "capability.application-growth-plane" in leftover_marker_ids(leftover)
 
 
+def test_live_catalog_leftover_marks_application_live_growth_plane():
+    leftover = (
+        "Optional later work is live-registry catalog refresh so "
+        "application-growth can forage from a live npm/pypi search instead "
+        "of a frozen catalog."
+    )
+    assert "capability.application-live-growth-plane" in leftover_marker_ids(leftover)
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "live-registry catalog refresh" in leftover_next_step(prefixed)
+
+
 def test_harvested_leftover_text_is_still_detected():
     leftover = leftover_next_step(HARVESTED_MISSION_PLANE_LEFTOVER)
     assert "mission-plane" in leftover

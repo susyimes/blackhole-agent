@@ -1,0 +1,93 @@
+{
+  "kind": "forage_live_catalog",
+  "query": "rotate",
+  "schema_version": 1,
+  "items": [
+    {
+      "name": "left-pad",
+      "slug": "left-pad",
+      "registry": "npm",
+      "downloads": 20000000,
+      "recent_downloads": 500000,
+      "keywords": ["text", "pad", "rotate"],
+      "provides": ["rotate_output"],
+      "viable": true,
+      "runtime": "node",
+      "version": "1.3.0"
+    },
+    {
+      "name": "inflection",
+      "slug": "inflection",
+      "registry": "pypi",
+      "downloads": 5000000,
+      "recent_downloads": 80000,
+      "keywords": ["text", "inflection"],
+      "provides": ["camelize_output"],
+      "viable": true,
+      "runtime": "python"
+    },
+    {
+      "name": "forage-js",
+      "slug": "forage-js",
+      "registry": "npm",
+      "downloads": 800000,
+      "recent_downloads": 12000,
+      "keywords": ["text", "shout"],
+      "provides": ["shout_output"],
+      "viable": true,
+      "runtime": "node"
+    },
+    {
+      "name": "forage-empty (no viable candidate fixture)",
+      "slug": "forage-empty",
+      "registry": "pypi",
+      "downloads": 9000000,
+      "recent_downloads": 120000,
+      "keywords": ["text"],
+      "provides": [],
+      "viable": false,
+      "runtime": "python",
+      "replay_source": "tests/fixtures/external_packages/forage-empty",
+      "hint": "forage_empty"
+    },
+    {
+      "name": "forage-pick (uncooperative fixture package)",
+      "slug": "forage-pick",
+      "registry": "pypi",
+      "downloads": 12000,
+      "recent_downloads": 900,
+      "keywords": ["text", "pick", "rotate"],
+      "provides": ["rotate_output"],
+      "viable": true,
+      "runtime": "python",
+      "replay_source": "tests/fixtures/external_packages/forage-pick",
+      "hint": "forage_pick"
+    },
+    {
+      "name": "forage-lab (uncooperative fixture package)",
+      "slug": "forage-lab",
+      "registry": "pypi",
+      "downloads": 4000,
+      "recent_downloads": 100,
+      "keywords": ["text", "shout"],
+      "provides": ["shout_output"],
+      "viable": true,
+      "runtime": "python",
+      "replay_source": "tests/fixtures/external_packages/forage-lab",
+      "hint": "forage_lab"
+    },
+    {
+      "name": "forage-rotate (uncooperative fixture package)",
+      "slug": "forage-rotate",
+      "registry": "pypi",
+      "downloads": 400,
+      "recent_downloads": 20,
+      "keywords": ["text", "rotate"],
+      "provides": [],
+      "viable": true,
+      "runtime": "python",
+      "replay_source": "tests/fixtures/external_packages/forage-rotate",
+      "hint": "forage_rotate"
+    }
+  ]
+}

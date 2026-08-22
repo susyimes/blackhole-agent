@@ -136,6 +136,9 @@ _MARKERS = (
     ("unplannable application goal", "capability.application-growth-plane"),
     ("without a separate plane invocation", "capability.application-growth-plane"),
     ("forage matching without a separate", "capability.application-growth-plane"),
+    ("live-registry catalog refresh", "capability.application-live-growth-plane"),
+    ("live npm/pypi search", "capability.application-live-growth-plane"),
+    ("instead of a frozen catalog", "capability.application-live-growth-plane"),
 )
 
 

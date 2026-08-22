@@ -13,7 +13,9 @@ from blackhole_agent.capability_forage_targets import (
     WINNER_SLUG,
     builtin_forage_target_plane_proof,
     load_catalog,
+    query_from_goal,
     rank_catalog,
+    refresh_registry_catalog,
     run_forage_target_plane,
     select_forage_target,
     verify_forage_target_plane,
@@ -79,6 +81,28 @@ def test_plane_forages_winner_and_rejects_tamper(tmp_path: Path) -> None:
     report["grade"]["winner_is_forage_pick"] = False
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     assert not verify_forage_target_plane(report_dir)["ok"]
+
+
+def test_query_from_goal_strips_output_suffix() -> None:
+    assert query_from_goal(("rotate_output",)) == "rotate"
+    assert query_from_goal(("flip_output", "shout_output")) == "flip shout"
+
+
+def test_refresh_replay_is_npm_and_pypi_without_network() -> None:
+    catalog = refresh_registry_catalog("rotate", live=False)
+    assert catalog["ok"], catalog
+    assert catalog["replay"] is True
+    assert catalog["network_used"] is False
+    assert catalog["live"] is False
+    assert "npm" in catalog["registries"]
+    assert "pypi" in catalog["registries"]
+    slugs = {item["slug"] for item in catalog["items"]}
+    assert "left-pad" in slugs
+    assert "forage-rotate" in slugs
+    rotate = next(item for item in catalog["items"] if item["slug"] == "forage-rotate")
+    assert rotate["source"] == ""
+    assert rotate["replay_source"]
+    assert rotate["registry"] == "pypi"
 
 
 def test_builtin_forage_target_plane_proof() -> None:
