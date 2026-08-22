@@ -29,7 +29,123 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.101716Z"
+      "updated_at": "2026-08-22T21:23:40.611088Z"
+    },
+    "capability.absorbed-forage-js": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/forage-js/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'forage-js' is now a first-class invocable capability providing ['shout_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-22T21:20:22.621570Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'forage-js' (fixture origin tests/fixtures/external_packages/forage-js): provides ['shout_output'] from ['arg0']. Vendored under capabilities/absorbed/forage-js/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-forage-js",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:23:33.658455Z",
+      "name": "Absorbed external capability: forage-js (uncooperative node fixture package)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('forage-js'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:23:33.658455Z"
+    },
+    "capability.absorbed-forage-js-needs-two": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/forage-js-needs-two/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'forage-js-needs-two' is now a first-class invocable capability providing ['needs_two_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-22T21:20:25.388682Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'forage-js-needs-two' (fixture origin tests/fixtures/external_packages/forage-js): provides ['needs_two_output'] from ['arg0', 'arg1']. Vendored under capabilities/absorbed/forage-js-needs-two/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-forage-js-needs-two",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:23:36.443849Z",
+      "name": "Absorbed external capability: forage-js (uncooperative node fixture package) (needsTwo)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('forage-js-needs-two'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:23:36.443849Z"
+    },
+    "capability.absorbed-forage-js-whisper": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/forage-js-whisper/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'forage-js-whisper' is now a first-class invocable capability providing ['whisper_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-22T21:20:24.006737Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'forage-js-whisper' (fixture origin tests/fixtures/external_packages/forage-js): provides ['whisper_output'] from ['arg0']. Vendored under capabilities/absorbed/forage-js-whisper/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-forage-js-whisper",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:23:35.044064Z",
+      "name": "Absorbed external capability: forage-js (uncooperative node fixture package) (whisper)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('forage-js-whisper'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:23:35.044064Z"
+    },
+    "capability.absorbed-forage-lab": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/forage-lab/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'forage-lab' is now a first-class invocable capability providing ['shout_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-22T21:20:11.087217Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'forage-lab' (fixture origin tests/fixtures/external_packages/forage-lab): provides ['shout_output'] from ['text']. Vendored under capabilities/absorbed/forage-lab/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-forage-lab",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:23:22.125594Z",
+      "name": "Absorbed external capability: forage-lab (uncooperative fixture package)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('forage-lab'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:23:22.125594Z"
     },
     "capability.absorbed-inflection": {
       "behavior_paths": [
@@ -38,13 +154,13 @@
         "capabilities/absorbed/inflection/",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "External tool 'inflection' is now a first-class invocable capability providing ['camelize_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "capability_delta": "External tool 'inflection' is now a first-class invocable capability providing ['camelize_output'].",
       "created_at": "2026-08-14T19:54:04.360477Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory"
       ],
-      "description": "Absorbed from external tool 'inflection' (pypi-live origin ): provides ['camelize_output'] from ['string']. Vendored under capabilities/absorbed/inflection/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "description": "Absorbed from external tool 'inflection' (pypi-live origin ): provides ['camelize_output'] from ['string']. Vendored under capabilities/absorbed/inflection/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
       "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
       "id": "capability.absorbed-inflection",
       "kind": "python",
@@ -58,7 +174,7 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-17T07:00:12.363734Z"
+      "updated_at": "2026-08-22T21:20:51.598719Z"
     },
     "capability.absorbed-json-indenter": {
       "behavior_paths": [
@@ -67,13 +183,13 @@
         "capabilities/absorbed/json-indenter/",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "External tool 'json-indenter' is now a first-class invocable capability providing ['indented_json']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "capability_delta": "External tool 'json-indenter' is now a first-class invocable capability providing ['indented_json'].",
       "created_at": "2026-08-14T18:36:40.012009Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory"
       ],
-      "description": "Absorbed from external tool 'json-indenter' (fixture origin tests/fixtures/external_packages/json-indenter): provides ['indented_json'] from ['raw_json']. Vendored under capabilities/absorbed/json-indenter/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "description": "Absorbed from external tool 'json-indenter' (fixture origin tests/fixtures/external_packages/json-indenter): provides ['indented_json'] from ['raw_json']. Vendored under capabilities/absorbed/json-indenter/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
       "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
       "id": "capability.absorbed-json-indenter",
       "kind": "python",
@@ -87,7 +203,65 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-17T07:00:12.674144Z"
+      "updated_at": "2026-08-22T21:20:51.730131Z"
+    },
+    "capability.absorbed-markdown-foraged": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/markdown-foraged/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'markdown-foraged' is now a first-class invocable capability providing ['markdown_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-22T21:20:18.338984Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'markdown-foraged' (pypi-sdist origin stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz): provides ['markdown_output'] from ['text']. Vendored under capabilities/absorbed/markdown-foraged/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-markdown-foraged",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:23:29.719113Z",
+      "name": "Absorbed external capability: Python-Markdown renderer (stewardship sdist, inferred spec)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('markdown-foraged'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:23:29.719113Z"
+    },
+    "capability.absorbed-marked-renderer": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/marked-renderer/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'marked-renderer' is now a first-class invocable capability providing ['marked_html'].",
+      "created_at": "2026-08-22T21:20:52.432194Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'marked-renderer' (npm-tarball origin stewardship/marked-18.0.7/marked-18.0.7.tgz): provides ['marked_html'] from ['markdown_source']. Vendored under capabilities/absorbed/marked-renderer/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-marked-renderer",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:20:50.424400Z",
+      "name": "Absorbed external capability: marked markdown parser (stewardship-staged npm tarball)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('marked-renderer'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:20:52.432194Z"
     },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
@@ -96,13 +270,13 @@
         "capabilities/absorbed/mistune-markdown/",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "External tool 'mistune-markdown' is now a first-class invocable capability providing ['rendered_html']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "capability_delta": "External tool 'mistune-markdown' is now a first-class invocable capability providing ['rendered_html'].",
       "created_at": "2026-08-02T01:02:32.906720Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory"
       ],
-      "description": "Absorbed from external tool 'mistune-markdown' (git origin https://github.com/lepture/mistune): provides ['rendered_html'] from ['markdown_source']. Vendored under capabilities/absorbed/mistune-markdown/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "description": "Absorbed from external tool 'mistune-markdown' (git origin https://github.com/lepture/mistune): provides ['rendered_html'] from ['markdown_source']. Vendored under capabilities/absorbed/mistune-markdown/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
       "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
       "id": "capability.absorbed-mistune-markdown",
       "kind": "python",
@@ -116,7 +290,36 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-17T07:00:13.195880Z"
+      "updated_at": "2026-08-22T21:20:52.788009Z"
+    },
+    "capability.absorbed-python-markdown": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/python-markdown/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'python-markdown' is now a first-class invocable capability providing ['rendered_markdown'].",
+      "created_at": "2026-08-22T21:20:53.161412Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'python-markdown' (pypi-sdist origin stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz): provides ['rendered_markdown'] from ['markdown_source']. Vendored under capabilities/absorbed/python-markdown/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-python-markdown",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:20:50.424400Z",
+      "name": "Absorbed external capability: Python-Markdown renderer (stewardship-staged pypi sdist)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('python-markdown'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:20:53.161412Z"
     },
     "capability.absorbed-text-reverser": {
       "behavior_paths": [
@@ -125,13 +328,13 @@
         "capabilities/absorbed/text-reverser/",
         "capabilities/ledger.json"
       ],
-      "capability_delta": "External tool 'text-reverser' is now a first-class invocable capability providing ['reversed_text']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "capability_delta": "External tool 'text-reverser' is now a first-class invocable capability providing ['reversed_text'].",
       "created_at": "2026-08-02T00:47:17.908606Z",
       "dependencies": [
         "repo.import-health",
         "capability.ledger-inventory"
       ],
-      "description": "Absorbed from external tool 'text-reverser' (fixture origin tests/fixtures/external_tools/text-reverser): provides ['reversed_text'] from ['raw_text']. Vendored under capabilities/absorbed/text-reverser/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "description": "Absorbed from external tool 'text-reverser' (fixture origin tests/fixtures/external_tools/text-reverser): provides ['reversed_text'] from ['raw_text']. Vendored under capabilities/absorbed/text-reverser/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
       "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
       "id": "capability.absorbed-text-reverser",
       "kind": "python",
@@ -145,7 +348,65 @@
         "absorbed",
         "external"
       ],
-      "updated_at": "2026-08-17T07:00:13.636633Z"
+      "updated_at": "2026-08-22T21:20:53.341268Z"
+    },
+    "capability.absorbed-tomli-foraged": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/tomli-foraged/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'tomli-foraged' is now a first-class invocable capability providing ['loads_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-22T21:20:13.345103Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'tomli-foraged' (pypi-sdist origin stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz): provides ['loads_output'] from ['s']. Vendored under capabilities/absorbed/tomli-foraged/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-tomli-foraged",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:23:24.407086Z",
+      "name": "Absorbed external capability: tomli TOML parser (stewardship sdist, inferred spec)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('tomli-foraged'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:23:24.407086Z"
+    },
+    "capability.absorbed-tomli-parser": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/tomli-parser/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'tomli-parser' is now a first-class invocable capability providing ['parsed_toml'].",
+      "created_at": "2026-08-22T21:20:53.845493Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'tomli-parser' (pypi-sdist origin stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz): provides ['parsed_toml'] from ['toml_source']. Vendored under capabilities/absorbed/tomli-parser/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-tomli-parser",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:20:50.424400Z",
+      "name": "Absorbed external capability: tomli TOML parser (stewardship-staged pypi sdist)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('tomli-parser'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-22T21:20:53.845493Z"
     },
     "capability.actuation-plane": {
       "behavior_paths": [
@@ -200,7 +461,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102399Z"
+      "updated_at": "2026-08-22T21:23:40.611959Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -232,7 +493,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-22T20:45:12.101107Z"
+      "updated_at": "2026-08-22T21:23:40.610273Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -265,7 +526,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.101826Z"
+      "updated_at": "2026-08-22T21:23:40.611230Z"
     },
     "capability.application-plane": {
       "behavior_paths": [
@@ -300,7 +561,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102562Z"
+      "updated_at": "2026-08-22T21:23:40.612176Z"
     },
     "capability.assurance-plane": {
       "behavior_paths": [
@@ -337,7 +598,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.101880Z"
+      "updated_at": "2026-08-22T21:23:40.611301Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -372,7 +633,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-22T20:45:12.101329Z"
+      "updated_at": "2026-08-22T21:23:40.610595Z"
     },
     "capability.continuity-plane": {
       "behavior_paths": [
@@ -417,7 +678,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102100Z"
+      "updated_at": "2026-08-22T21:23:40.611586Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -452,7 +713,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-22T20:45:12.101661Z"
+      "updated_at": "2026-08-22T21:23:40.611017Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -482,7 +743,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-22T20:45:12.101273Z"
+      "updated_at": "2026-08-22T21:23:40.610525Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -535,7 +796,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102325Z"
+      "updated_at": "2026-08-22T21:23:40.611888Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -580,7 +841,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102156Z"
+      "updated_at": "2026-08-22T21:23:40.611675Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -629,7 +890,45 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102269Z"
+      "updated_at": "2026-08-22T21:23:40.611816Z"
+    },
+    "capability.foraging-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_absorption.py",
+        "tests/fixtures/external_packages/forage-lab/",
+        "tests/fixtures/external_packages/forage-empty/",
+        "tests/fixtures/external_packages/forage-js/",
+        "tests/fixtures/external_packages/forage-js-empty/",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Uncooperative packages are foraged from a bare name on Python and Node: runtime and entry are detected from the staged tree, callables are selected by sandboxed introspection with held-out generalization, every honest winner is absorbed as a bounded multi-callable bundle, and the live lane fetches a PyPI sdist or npm tarball through the identical inference path.",
+      "created_at": "2026-08-22T21:20:28.911538Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.application-plane",
+        "capability.ablation-proof"
+      ],
+      "description": "Zero-spec autonomous acquisition across Python and Node: a request names only a package (local source or live PyPI/npm registry entry); runtime, import root or Node entry, callables, state keys, and probe inputs are all machine-derived by sandboxed introspection and a fixed, task-independent probe vocabulary with split-honest held-out generalization. Every held-out-honest callable is acquired (primary leaf plus a bounded multi-callable bundle). Packages with no viable candidate are refused before any ledger write.",
+      "entry": "blackhole_agent.capability_foraging:demo_foraging_plane",
+      "id": "capability.foraging-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-22T21:20:50.413118Z",
+      "name": "Capability foraging plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_foraging import builtin_foraging_plane_proof; r=builtin_foraging_plane_proof(); assert r['ok'] and r.get('action')=='foraging_plane' and r.get('inference_ok') and r.get('winner_is_shout') and r.get('brittle_rejected') and r.get('python_bundle_has_whisper') and r.get('empty_refused') and r.get('node_ok') and r.get('node_runtime') and r.get('node_winner_is_shout') and r.get('node_bundle_has_whisper') and r.get('node_brittle_rejected') and r.get('node_empty_refused') and r.get('node_forage_ok') and r.get('node_bundle_acquired') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "node",
+        "bundle"
+      ],
+      "updated_at": "2026-08-22T21:20:50.413118Z"
     },
     "capability.fragility-audit": {
       "behavior_paths": [
@@ -665,7 +964,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102668Z"
+      "updated_at": "2026-08-22T21:23:40.612314Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -695,7 +994,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-22T20:45:12.101218Z"
+      "updated_at": "2026-08-22T21:23:40.610454Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -724,7 +1023,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-22T20:45:12.101385Z"
+      "updated_at": "2026-08-22T21:23:40.610665Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -761,7 +1060,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102929Z"
+      "updated_at": "2026-08-22T21:23:40.612662Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -795,7 +1094,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102772Z"
+      "updated_at": "2026-08-22T21:23:40.612454Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -826,7 +1125,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-22T20:45:12.101050Z"
+      "updated_at": "2026-08-22T21:23:40.610179Z"
     },
     "capability.kernel-circuit-breaker": {
       "behavior_paths": [
@@ -1164,7 +1463,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102720Z"
+      "updated_at": "2026-08-22T21:23:40.612384Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -1192,7 +1491,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-22T20:45:12.101163Z"
+      "updated_at": "2026-08-22T21:23:40.610345Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -1218,7 +1517,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-22T20:45:12.100869Z"
+      "updated_at": "2026-08-22T21:23:40.609953Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -1259,7 +1558,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.101989Z"
+      "updated_at": "2026-08-22T21:23:40.611444Z"
     },
     "capability.local-capability-kernel": {
       "behavior_paths": [
@@ -1364,7 +1663,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-22T20:45:12.101551Z"
+      "updated_at": "2026-08-22T21:23:40.610873Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -1396,7 +1695,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.101606Z"
+      "updated_at": "2026-08-22T21:23:40.610944Z"
     },
     "capability.portability-proof": {
       "behavior_paths": [
@@ -1432,7 +1731,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102876Z"
+      "updated_at": "2026-08-22T21:23:40.612591Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -1462,7 +1761,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-22T20:45:12.101441Z"
+      "updated_at": "2026-08-22T21:23:40.610735Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -1509,7 +1808,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102213Z"
+      "updated_at": "2026-08-22T21:23:40.611746Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -1552,7 +1851,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102044Z"
+      "updated_at": "2026-08-22T21:23:40.611515Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -1588,7 +1887,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102615Z"
+      "updated_at": "2026-08-22T21:23:40.612244Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -1623,7 +1922,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102457Z"
+      "updated_at": "2026-08-22T21:23:40.612030Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -1651,7 +1950,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-22T20:45:12.100991Z"
+      "updated_at": "2026-08-22T21:23:40.610100Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -1685,7 +1984,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-22T20:45:12.101496Z"
+      "updated_at": "2026-08-22T21:23:40.610804Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -1724,7 +2023,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.101935Z"
+      "updated_at": "2026-08-22T21:23:40.611372Z"
     },
     "capability.synthesis-plane": {
       "behavior_paths": [
@@ -1757,7 +2056,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102825Z"
+      "updated_at": "2026-08-22T21:23:40.612523Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -1884,7 +2183,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-22T20:45:12.101771Z"
+      "updated_at": "2026-08-22T21:23:40.611160Z"
     },
     "capability.upstream-admission": {
       "behavior_paths": [
@@ -1916,7 +2215,7 @@
         "discovery",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103147Z"
+      "updated_at": "2026-08-22T21:23:40.612975Z"
     },
     "capability.upstream-campaign": {
       "behavior_paths": [
@@ -1958,7 +2257,7 @@
         "impact",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103358Z"
+      "updated_at": "2026-08-22T21:23:40.613270Z"
     },
     "capability.upstream-contribution": {
       "behavior_paths": [
@@ -1989,7 +2288,7 @@
         "contribution",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103199Z"
+      "updated_at": "2026-08-22T21:23:40.613061Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -2022,7 +2321,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103035Z"
+      "updated_at": "2026-08-22T21:23:40.612836Z"
     },
     "capability.upstream-epoch": {
       "behavior_paths": [
@@ -2062,7 +2361,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103466Z"
+      "updated_at": "2026-08-22T21:23:40.613409Z"
     },
     "capability.upstream-fleet": {
       "behavior_paths": [
@@ -2099,7 +2398,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103411Z"
+      "updated_at": "2026-08-22T21:23:40.613340Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -2132,7 +2431,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103093Z"
+      "updated_at": "2026-08-22T21:23:40.612905Z"
     },
     "capability.upstream-impact": {
       "behavior_paths": [
@@ -2165,7 +2464,7 @@
         "portfolio",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103304Z"
+      "updated_at": "2026-08-22T21:23:40.613200Z"
     },
     "capability.upstream-program": {
       "behavior_paths": [
@@ -2210,7 +2509,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103577Z"
+      "updated_at": "2026-08-22T21:23:40.613546Z"
     },
     "capability.upstream-publication": {
       "behavior_paths": [
@@ -2242,7 +2541,7 @@
         "actuation",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103252Z"
+      "updated_at": "2026-08-22T21:23:40.613131Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -2277,7 +2576,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102982Z"
+      "updated_at": "2026-08-22T21:23:40.612766Z"
     },
     "capability.upstream-succession": {
       "behavior_paths": [
@@ -2319,7 +2618,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.103524Z"
+      "updated_at": "2026-08-22T21:23:40.613478Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -2352,7 +2651,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-22T20:45:12.102510Z"
+      "updated_at": "2026-08-22T21:23:40.612100Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -2658,7 +2957,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-22T20:45:12.100933Z"
+      "updated_at": "2026-08-22T21:23:40.610028Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -2682,7 +2981,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-22T20:45:12.100693Z"
+      "updated_at": "2026-08-22T21:23:40.609731Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -2707,9 +3006,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-22T20:45:12.100799Z"
+      "updated_at": "2026-08-22T21:23:40.609869Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-22T20:45:12.103678Z"
+  "updated_at": "2026-08-22T21:23:40.613713Z"
 }

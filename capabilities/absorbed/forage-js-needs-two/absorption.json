@@ -1,0 +1,59 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "needs_two_output": "Hello WorldHello World"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "needs_two_output": "blackhole unboundblackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "needs_two_output": "MiXeD CaSeMiXeD CaSe"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "needs_two_output": ""
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "forage-js (uncooperative node fixture package) (needsTwo)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-js"
+  },
+  "provides": [
+    "needs_two_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "forage-js-needs-two",
+  "version": ""
+}

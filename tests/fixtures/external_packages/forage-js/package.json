@@ -1,0 +1,6 @@
+{
+  "name": "forage-js",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": "./index.mjs"
+}

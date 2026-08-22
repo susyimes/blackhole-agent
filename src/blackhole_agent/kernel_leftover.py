@@ -124,6 +124,9 @@ _MARKERS = (
     ("campaign handoff", "capability.kernel-resume"),
     ("resume from the local campaign", "capability.kernel-resume"),
     ("machine-checkable campaign contract", "capability.kernel-finality"),
+    ("node runtime", "capability.foraging-plane"),
+    ("multi-callable bundle", "capability.foraging-plane"),
+    ("bundle foraging", "capability.foraging-plane"),
 )
 
 

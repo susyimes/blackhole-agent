@@ -79,6 +79,9 @@ LOCAL_DENYLIST = frozenset(
         "capability.ledger-integrity",
         "capability.distill-ledger",
         "capability.repair-plane",
+        "capability.foraging-plane",
+        "capability.acquisition-plane",
+        "capability.absorption-plane",
     }
 )
 

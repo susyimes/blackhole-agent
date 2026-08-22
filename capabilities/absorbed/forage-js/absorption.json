@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "shout_output": "HELLO WORLD!"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "shout_output": "BLACKHOLE UNBOUND!"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "shout_output": "MIXED CASE!"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "shout_output": "!"
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "forage-js (uncooperative node fixture package)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-js"
+  },
+  "provides": [
+    "shout_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "forage-js",
+  "version": ""
+}

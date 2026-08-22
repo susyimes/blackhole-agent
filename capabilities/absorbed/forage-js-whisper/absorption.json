@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "whisper_output": "hello world"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "whisper_output": "blackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "whisper_output": "mixed case"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "whisper_output": ""
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "forage-js (uncooperative node fixture package) (whisper)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-js"
+  },
+  "provides": [
+    "whisper_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "forage-js-whisper",
+  "version": ""
+}

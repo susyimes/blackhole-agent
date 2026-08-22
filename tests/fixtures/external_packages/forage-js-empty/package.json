@@ -1,0 +1,6 @@
+{
+  "name": "forage-js-empty",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": "./index.mjs"
+}

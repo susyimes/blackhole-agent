@@ -4,6 +4,7 @@ from blackhole_agent.kernel_leftover import (
     HARVESTED_MISSION_PLANE_LEFTOVER,
     builtin_kernel_leftover_proof,
     leftover_is_open,
+    leftover_marker_ids,
     leftover_phrase_overlap,
 )
 from blackhole_agent.kernel_salvage import HARVESTED_GROK_402, classify_run_artifact
@@ -14,6 +15,15 @@ def test_harvested_402_is_still_quota_exhausted():
     failure = classify_run_artifact(HARVESTED_GROK_402, error="Grok CLI failed with exit code 1")
     assert failure.class_id == "quota_exhausted"
     assert failure.retryable is False
+
+
+def test_foraging_leftover_marks_foraging_plane():
+    leftover = (
+        "Mission complete. Follow-on missions could extend foraging to the "
+        "node runtime lane, multi-callable bundle foraging, or trend-driven "
+        "automatic target selection."
+    )
+    assert "capability.foraging-plane" in leftover_marker_ids(leftover)
 
 
 def test_harvested_leftover_text_is_still_detected():

@@ -39,23 +39,21 @@ ARCHIVE_DIR = REPO_ROOT / "artifacts" / "ledger-archive"
 
 KEEP_PREFIXES = ("domain.", "repo.", "unbound.", "evolution.")
 KEEP_CAPABILITY_PREFIXES = ("capability.synthesized-", "capability.absorbed-")
-
-# Red leaves: their proof commands fail on this checkout (vendored-tree drift
-# or missing acquisition runtimes), so a green stamp in the live ledger would
-# be self-attestation. They stay in the archive until repaired through
-# `capability repair`.
-FORCE_ARCHIVE_IDS = {
-    "capability.absorbed-forage-lab",
-    "capability.absorbed-markdown-foraged",
-    "capability.absorbed-marked-renderer",
-    "capability.absorbed-python-markdown",
-    "capability.absorbed-tomli-foraged",
-    "capability.absorbed-tomli-parser",
+KEEP_IDS = {
+    "capability.foraging-plane",
+    "capability.acquisition-plane",
+    "capability.absorption-plane",
 }
+
+# Previously force-archived when vendored-tree seals drifted even though
+# frozen cases still passed. Reseal restores checkout-reproducible digests,
+# so green absorbed leaves stay in the live ledger.
+FORCE_ARCHIVE_IDS: set[str] = set()
 
 
 def keep_set(capabilities: dict[str, dict]) -> set[str]:
     kept: set[str] = {str(entry["id"]) for entry in _BOOTSTRAP_SEED_TABLE}
+    kept.update(KEEP_IDS & set(capabilities))
     for capability_id in capabilities:
         if capability_id.startswith(KEEP_PREFIXES) or capability_id.startswith(KEEP_CAPABILITY_PREFIXES):
             kept.add(capability_id)

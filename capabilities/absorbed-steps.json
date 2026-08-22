@@ -1,8 +1,184 @@
 {
-  "absorbed_at": "2026-08-15T07:43:53.383563Z",
+  "absorbed_at": "2026-08-22T21:20:25.385602Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-forage-js",
+      "cases": [
+        {
+          "expect": {
+            "shout_output": "HELLO WORLD!"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "shout_output": "BLACKHOLE UNBOUND!"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "shout_output": "MIXED CASE!"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "shout_output": "!"
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "forage-js (uncooperative node fixture package)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-js"
+      },
+      "provides": [
+        "shout_output"
+      ],
+      "record_digest": "c3d4adc1a04c5222530ca22e4c7933004afd92bae54fbd13e5234e5c045f1847",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "forage-js",
+      "vendored_tree_digest": "402073a796437d56ed78afe3fbd27fb8e02d5f0dc16cafbeb9e61348a4000491",
+      "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-forage-js-needs-two",
+      "cases": [
+        {
+          "expect": {
+            "needs_two_output": "Hello WorldHello World"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "needs_two_output": "blackhole unboundblackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "needs_two_output": "MiXeD CaSeMiXeD CaSe"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "needs_two_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "forage-js (uncooperative node fixture package) (needsTwo)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-js"
+      },
+      "provides": [
+        "needs_two_output"
+      ],
+      "record_digest": "9d095c4306569629306dfce3b4167cd20a1ec2344ca69261444d7522d15f5143",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "forage-js-needs-two",
+      "vendored_tree_digest": "b0b843467eae4401d7d1be47384d14ed2a2960cda0fba6bef17f41c78073f1d6",
+      "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-forage-js-whisper",
+      "cases": [
+        {
+          "expect": {
+            "whisper_output": "hello world"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "whisper_output": "blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "whisper_output": "mixed case"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "whisper_output": ""
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "forage-js (uncooperative node fixture package) (whisper)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-js"
+      },
+      "provides": [
+        "whisper_output"
+      ],
+      "record_digest": "485af01615a06204ed9ec12a19ccc05470dbc6814cf2b95c479239930fa81cb5",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "forage-js-whisper",
+      "vendored_tree_digest": "d60f259fda37e7f4d5400636cbdbc723c561fa79d45cf997119fd4e2e06aee27",
+      "version": ""
+    },
     {
       "capability_id": "capability.absorbed-forage-lab",
       "cases": [
@@ -259,13 +435,13 @@
       "provides": [
         "marked_html"
       ],
-      "record_digest": "79a02cebee544efd11cebd1d6900a6e122406832f238f5a4a91f7d080e2073e4",
+      "record_digest": "01d1f4f192741f6c46a19db0ac867a2af4a406e3adf9c150464f0bc18e47dd59",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "marked-renderer",
-      "vendored_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
+      "vendored_tree_digest": "0a4287a195aa31a20f9216ec400504fb620d5b0602ea7138b8e8e43c6fc8a94c",
       "version": "18.0.7"
     },
     {
@@ -358,13 +534,13 @@
       "provides": [
         "rendered_markdown"
       ],
-      "record_digest": "a7d36889e4a825a7cb0bc16b9accb2f553a6c3186fdd688a4f139a077d8c79c7",
+      "record_digest": "7de58a621af634e1c691cb65b185b5052c4714130b4b5e65e6bffc03faa3200a",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "python-markdown",
-      "vendored_tree_digest": "859429f965447b2f46aff75b46bdd15e011ae6c8fc47b9781fbd8bdb2b999823",
+      "vendored_tree_digest": "886c7f1a77b17153d1033f79619d29bfb73e4e376cc913fbe729c9096c574826",
       "version": "3.10.3"
     },
     {
@@ -542,15 +718,15 @@
       "provides": [
         "parsed_toml"
       ],
-      "record_digest": "baf37f4ea7ea9343e4722dc0e57c87705f908b2864cbd6646103e7b84e7254dd",
+      "record_digest": "c4756a2dd09dbe5086dc06e73671b371f37e24228ef75299bbea5e3d1716054a",
       "requires": [
         "toml_source"
       ],
       "schema_version": 1,
       "slug": "tomli-parser",
-      "vendored_tree_digest": "4761e4afd5f456a0c62da810e3590bf8cd3cb5cd756878909e086adfa737b878",
+      "vendored_tree_digest": "00242ab421a81ebd2bdf0badc14d844afb451041b6d9a788ea2e852273162a0a",
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "5653fba595fe26d16855e41fa2b71d126b1e011dfa28896fcb57656491bed710"
+  "steps_digest": "486b4caebc6e1721af8698d8ab0104bf918bb26a01fd212a7b703bd81a499299"
 }

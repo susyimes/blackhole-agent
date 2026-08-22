@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-forage-js-whisper",
+  "generated_at": "2026-08-22T21:23:35.355830Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-forage-js-whisper"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-js"
+  },
+  "record_digest": "485af01615a06204ed9ec12a19ccc05470dbc6814cf2b95c479239930fa81cb5",
+  "report_digest": "97fa476e7a782033c5814554ff034b23f522a1bfab54499298282e982404fca3",
+  "schema_version": 1,
+  "slug": "forage-js-whisper",
+  "task": {
+    "goal": [
+      "whisper_output"
+    ],
+    "id": "absorbed-forage-js-whisper",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "whisper_output": "hello world"
+    }
+  },
+  "vendored_tree_digest": "d60f259fda37e7f4d5400636cbdbc723c561fa79d45cf997119fd4e2e06aee27",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

@@ -5,12 +5,17 @@ each ``AcquisitionSpec``: import name, entry callable, state keys, and probe
 inputs. This module removes that last human input — **foraging**:
 
 - a forage request names only a package: a local source (directory or
-  sdist tarball) or a live PyPI registry name plus an optional version;
-- the import root and import name are detected from the staged tree layout
-  (flat, src-layout, or nested), never declared;
+  sdist/npm tarball) or a live PyPI / npm registry name plus an optional
+  version;
+- the runtime is detected from the staged tree (Python import layout vs
+  ``package.json`` / ``.mjs`` entry), never declared unless the request
+  pins it;
+- Python import root/name and Node entry modules are detected from the
+  staged tree layout, never declared;
 - candidate callables are enumerated by sandboxed introspection — a
-  subprocess imports the package and reflects its module-level functions —
-  filtered to JSON-scalar signatures, and ordered deterministically;
+  subprocess imports the package (CPython or Node) and reflects its
+  exported functions — filtered to JSON-scalar signatures, and ordered
+  deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
   samples for int/float/bool), split into selection and held-out probes; no
@@ -19,12 +24,12 @@ inputs. This module removes that last human input — **foraging**:
   selection probe of one sample domain and then generalize to that domain's
   held-out probe the selector never used; rejected candidates are recorded
   with their reason;
-- the winner becomes a complete ``AcquisitionSpec`` and flows through the
-  acquisition plane unchanged: expectations are measured from the real
-  package's behavior, the tree is absorbed, vendored, digest-sealed,
-  registered, and proved;
-- the live lane fetches a package from the PyPI JSON API, verifies its
-  sha256, and forages it through the identical inference path;
+- every held-out-honest callable becomes an ``AcquisitionSpec``: the first
+  winner is the primary leaf and additional winners are a multi-callable
+  bundle, each flowing through the acquisition plane unchanged;
+- the live lane fetches a package from the PyPI JSON API or the npm
+  registry, verifies its digest, and forages it through the identical
+  inference path;
 - falsification: a package with no viable candidate is refused before any
   ledger write; a candidate that only fits the selection probes fails the
   held-out probe; a tampered or forged foraging report fails verification;
@@ -52,6 +57,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from urllib.parse import quote
 
 from blackhole_agent.capability_absorption import (
     _STATE_KEY_PATTERN,
@@ -61,11 +67,12 @@ from blackhole_agent.capability_absorption import (
 from blackhole_agent.capability_acquisition import (
     STEWARDSHIP_ROOT,
     AcquisitionSpec,
+    RUNTIMES,
     _run_probe,
     acquire_capability,
+    adapter_name_for,
     stage_acquisition_source,
     synthesize_adapter_source,
-    adapter_name_for,
 )
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -86,6 +93,10 @@ DEFAULT_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-foraging"
 DEFAULT_DOWNLOAD_DIR = DEFAULT_ARTIFACT_DIR / "downloads"
 FIXTURE_FORAGE_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-lab"
 FIXTURE_EMPTY_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-empty"
+FIXTURE_NODE_FORAGE_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-js"
+FIXTURE_NODE_EMPTY_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-js-empty"
+_NODE_ENTRY_NAMES = ("index.mjs", "index.js", "main.mjs", "main.js")
+_NODE_SKIP_DIR_NAMES = frozenset({"node_modules", "__pycache__", ".git", "test", "tests"})
 
 _SKIP_MODULE_NAMES = frozenset({"setup", "conftest", "test", "tests", "__init__"})
 _SCALAR_ANNOTATIONS = frozenset({"", "str", "int", "float", "bool"})
@@ -268,6 +279,173 @@ def introspect_module(staged_dir: Path, import_name: str, path_root: str, timeou
     return {"ok": True, "candidates": payload.get("candidates") or []}
 
 
+def _skip_node_dir(path: Path, root: Path) -> bool:
+    return any(part in _NODE_SKIP_DIR_NAMES for part in path.relative_to(root).parts)
+
+
+def detect_package_runtime(staged_dir: Path, requested: str = "") -> str:
+    """Detect ``python`` or ``node`` from the staged tree, honoring a pin."""
+
+    pinned = str(requested or "").strip().lower()
+    if pinned in RUNTIMES:
+        return pinned
+    package_json = [
+        path
+        for path in staged_dir.rglob("package.json")
+        if path.is_file() and not _skip_node_dir(path.parent, staged_dir)
+    ]
+    mjs_files = [
+        path
+        for path in staged_dir.rglob("*.mjs")
+        if path.is_file() and not _skip_node_dir(path.parent, staged_dir)
+    ]
+    python_names: set[str] = set()
+    for root in _candidate_roots(staged_dir):
+        python_names |= _importable_names(root)
+    if (package_json or mjs_files) and not python_names:
+        return "node"
+    if python_names and not package_json and not mjs_files:
+        return "python"
+    if package_json or mjs_files:
+        return "node"
+    return "python"
+
+
+def _package_json_entry(data: Mapping[str, Any]) -> str:
+    exports = data.get("exports")
+    if isinstance(exports, str) and exports.strip():
+        return exports.lstrip("./")
+    if isinstance(exports, Mapping):
+        for key in (".", "import", "default", "node"):
+            value = exports.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.lstrip("./")
+            if isinstance(value, Mapping):
+                for nested in ("import", "default", "node", "require"):
+                    inner = value.get(nested)
+                    if isinstance(inner, str) and inner.strip():
+                        return inner.lstrip("./")
+    for field in ("module", "main"):
+        value = data.get(field)
+        if isinstance(value, str) and value.strip():
+            return value.lstrip("./")
+    return ""
+
+
+def detect_node_entry(staged_dir: Path, hint: str = "") -> tuple[str, str]:
+    """Detect ``(path_root, entry)`` for a Node package from ``package.json`` or index files."""
+
+    normalized_hint = re.sub(r"[^a-z0-9]+", "-", hint.lower()).strip("-")
+    discoveries: list[tuple[str, str]] = []
+    for package_json in sorted(staged_dir.rglob("package.json")):
+        if not package_json.is_file() or _skip_node_dir(package_json.parent, staged_dir):
+            continue
+        try:
+            payload = json.loads(package_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        relative_entry = _package_json_entry(payload)
+        if not relative_entry:
+            continue
+        entry_path = (package_json.parent / relative_entry).resolve()
+        try:
+            entry_path.relative_to(staged_dir.resolve())
+        except ValueError:
+            continue
+        if not entry_path.is_file():
+            continue
+        staged_entry = entry_path.relative_to(staged_dir).as_posix()
+        package_name = re.sub(r"[^a-z0-9]+", "-", str(payload.get("name") or "").lower()).strip("-")
+        if normalized_hint and package_name == normalized_hint:
+            return ".", staged_entry
+        discoveries.append((staged_entry, package_name))
+    unique = {entry for entry, _ in discoveries}
+    if len(unique) == 1:
+        return ".", next(iter(unique))
+    fallback: list[str] = []
+    for name in _NODE_ENTRY_NAMES:
+        matches = [
+            path.relative_to(staged_dir).as_posix()
+            for path in staged_dir.rglob(name)
+            if path.is_file() and not _skip_node_dir(path.parent, staged_dir)
+        ]
+        if len(matches) == 1:
+            fallback.append(matches[0])
+    if len(set(fallback)) == 1:
+        return ".", fallback[0]
+    raise ValueError(
+        f"cannot detect a unique node entry under {staged_dir}: "
+        f"hint={normalized_hint!r} entries={sorted(unique)}"
+    )
+
+
+_NODE_INTROSPECT_SCRIPT = """\
+import { pathToFileURL } from "node:url";
+import path from "node:path";
+
+const entry = process.argv[2];
+try {
+  const mod = await import(pathToFileURL(path.resolve(entry)).href);
+  const candidates = [];
+  for (const name of Object.keys(mod).sort()) {
+    if (name.startsWith("_") || name === "default") {
+      continue;
+    }
+    const target = mod[name];
+    if (typeof target !== "function") {
+      continue;
+    }
+    const arity = Number(target.length) || 0;
+    if (arity < 1 || arity > 2) {
+      continue;
+    }
+    const params = [];
+    for (let index = 0; index < arity; index += 1) {
+      params.push({
+        name: `arg${index}`,
+        kind: "POSITIONAL_OR_KEYWORD",
+        required: true,
+        annotation: "",
+      });
+    }
+    candidates.push({ name, params, doc: "" });
+  }
+  process.stdout.write(JSON.stringify({ ok: true, candidates }));
+} catch (err) {
+  process.stdout.write(JSON.stringify({ ok: false, error: `import failed: ${err}` }));
+}
+"""
+
+
+def introspect_node_module(staged_dir: Path, entry: str, timeout: int = 60) -> dict[str, Any]:
+    """Reflect one Node module's exported functions in a subprocess."""
+
+    entry_path = staged_dir / entry
+    if not entry_path.is_file():
+        return {"ok": False, "error": f"node entry module not present: {entry}"}
+    with tempfile.TemporaryDirectory(prefix="blackhole-forage-node-introspect-") as tmp:
+        script = Path(tmp) / "introspect.mjs"
+        script.write_text(_NODE_INTROSPECT_SCRIPT, encoding="utf-8")
+        completed = subprocess.run(
+            ["node", str(script), str(entry_path.resolve())],
+            capture_output=True,
+            text=True,
+            cwd=staged_dir,
+            timeout=timeout,
+            check=False,
+        )
+    try:
+        payload = json.loads(completed.stdout or "")
+    except json.JSONDecodeError:
+        stderr = (completed.stderr or "").strip()[-200:]
+        return {"ok": False, "error": f"introspection produced no JSON: {stderr}"}
+    if not payload.get("ok"):
+        return {"ok": False, "error": str(payload.get("error") or "introspection failed")}
+    return {"ok": True, "candidates": payload.get("candidates") or []}
+
+
 # ---------------------------------------------------------------------------
 # Candidate filtering and probe derivation.
 # ---------------------------------------------------------------------------
@@ -325,6 +503,12 @@ def _provides_key(callable_name: str, requires: Sequence[str]) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _bundle_slug(base: str, callable_name: str) -> str:
+    suffix = re.sub(r"[^a-z0-9]+", "-", _snake_key(callable_name)).strip("-")
+    slug = f"{base}-{suffix}" if suffix and suffix != base else f"{base}-bundle"
+    return slugify_capability_id(slug)
+
+
 def infer_acquisition_spec(
     *,
     slug: str,
@@ -334,13 +518,17 @@ def infer_acquisition_spec(
     hint: str = "",
     version: str = "",
     origin: Mapping[str, Any] | None = None,
+    runtime: str = "",
+    bundle: bool | None = None,
+    max_bundle: int = 3,
 ) -> dict[str, Any]:
-    """Infer a complete ``AcquisitionSpec`` for one uncooperative package.
+    """Infer complete ``AcquisitionSpec`` values for one uncooperative package.
 
-    Every spec field — import root, import name, entry callable, state keys,
-    and probe inputs — is machine-derived. The winner must pass every
-    selection probe of one sample domain and then the held-out probe the
-    selector never used. Any failure refuses the inference honestly.
+    Every spec field — runtime, import root or Node entry, entry callable,
+    state keys, and probe inputs — is machine-derived. Each winner must pass
+    every selection probe of one sample domain and then the held-out probe
+    the selector never used. Additional winners become a multi-callable
+    bundle. Any total failure refuses the inference honestly.
     """
 
     staged_dir = staging_root / slug
@@ -350,12 +538,24 @@ def infer_acquisition_spec(
         stage_acquisition_source(source, staged_dir)
     except (ValueError, OSError) as exc:
         return {"ok": False, "stage": "stage", "slug": slug, "error": str(exc)}
-    try:
-        path_root, import_name = detect_import_root(staged_dir, hint)
-    except ValueError as exc:
-        return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
-
-    introspection = introspect_module(staged_dir, import_name, path_root)
+    detected_runtime = detect_package_runtime(staged_dir, runtime)
+    collect_bundle = detected_runtime == "node" if bundle is None else bool(bundle)
+    winner_limit = max(1, int(max_bundle)) if collect_bundle else 1
+    entry = ""
+    import_name = ""
+    path_root = "."
+    if detected_runtime == "node":
+        try:
+            path_root, entry = detect_node_entry(staged_dir, hint)
+        except ValueError as exc:
+            return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
+        introspection = introspect_node_module(staged_dir, entry)
+    else:
+        try:
+            path_root, import_name = detect_import_root(staged_dir, hint)
+        except ValueError as exc:
+            return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
+        introspection = introspect_module(staged_dir, import_name, path_root)
     if not introspection["ok"]:
         return {"ok": False, "stage": "introspect", "slug": slug, "error": introspection["error"]}
 
@@ -367,6 +567,7 @@ def infer_acquisition_spec(
             str(item.get("name")),
         ),
     )
+    collected: list[dict[str, Any]] = []
     for candidate in ordered:
         candidate_name = str(candidate.get("name"))
         required = _required_params(candidate)
@@ -382,9 +583,10 @@ def infer_acquisition_spec(
         winner: dict[str, Any] | None = None
         for domain in domains:
             probes = _derive_probes(requires, domain)
+            spec_slug = slug if not collected else _bundle_slug(slug, candidate_name)
             spec = AcquisitionSpec(
-                slug=slug,
-                name=name,
+                slug=spec_slug,
+                name=name if not collected else f"{name} ({candidate_name})",
                 source=source,
                 import_name=import_name,
                 callable_name=candidate_name,
@@ -394,6 +596,8 @@ def infer_acquisition_spec(
                 version=version,
                 origin=origin or {},
                 probes=tuple(probes),
+                runtime=detected_runtime,
+                entry=entry,
             )
             _probe_tree(staged_dir, spec)
             selection_results = [
@@ -407,28 +611,42 @@ def infer_acquisition_spec(
                     f"held-out probe failed in domain {domain['domain']!r}: {held_out['error']}"
                 )
                 break
-            winner = {"spec": spec, "domain": str(domain["domain"])}
+            winner = {"spec": spec.validate(), "domain": str(domain["domain"])}
             break
         if winner is not None:
-            spec = winner["spec"].validate()
-            record = {
-                "import_name": import_name,
-                "path_root": path_root,
-                "winner": candidate_name,
-                "domain": winner["domain"],
-                "requires": list(spec.requires),
-                "provides": spec.provides,
-                "probe_count": len(spec.probes),
-                "rejected": rejected,
-            }
-            return {"ok": True, "slug": slug, "spec": spec, "record": record}
+            collected.append(winner)
+            if len(collected) >= winner_limit:
+                break
+            continue
         rejected.setdefault(candidate_name, "no sample domain satisfied every selection probe")
-    return {
-        "ok": False,
-        "stage": "select",
-        "slug": slug,
-        "error": "no viable candidate generalized to a held-out probe",
+    if not collected:
+        return {
+            "ok": False,
+            "stage": "select",
+            "slug": slug,
+            "error": "no viable candidate generalized to a held-out probe",
+            "rejected": rejected,
+        }
+    primary = collected[0]["spec"]
+    record = {
+        "runtime": detected_runtime,
+        "import_name": import_name,
+        "path_root": path_root,
+        "entry": entry,
+        "winner": primary.callable_name,
+        "domain": collected[0]["domain"],
+        "requires": list(primary.requires),
+        "provides": primary.provides,
+        "probe_count": len(primary.probes),
+        "bundle": [item["spec"].callable_name for item in collected],
         "rejected": rejected,
+    }
+    return {
+        "ok": True,
+        "slug": slug,
+        "spec": primary,
+        "bundle_specs": [item["spec"] for item in collected[1:]],
+        "record": record,
     }
 
 
@@ -483,6 +701,60 @@ def fetch_pypi_sdist(
     }
 
 
+def fetch_npm_tarball(
+    name: str,
+    version: str | None = None,
+    dest_dir: Path = DEFAULT_DOWNLOAD_DIR,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Download one package tarball from npm and verify its sha1 when published."""
+
+    encoded = quote(name, safe="@")
+    api = (
+        f"https://registry.npmjs.org/{encoded}/{version}"
+        if version
+        else f"https://registry.npmjs.org/{encoded}/latest"
+    )
+    try:
+        with urllib.request.urlopen(api, timeout=timeout) as response:
+            meta = json.loads(response.read().decode("utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"ok": False, "stage": "fetch", "name": name, "error": f"npm metadata failed: {exc}"}
+    resolved = str(meta.get("version") or "")
+    dist = meta.get("dist") if isinstance(meta.get("dist"), Mapping) else {}
+    url = str(dist.get("tarball") or "")
+    expected_shasum = str(dist.get("shasum") or "")
+    if not url:
+        return {"ok": False, "stage": "fetch", "name": name, "error": "registry release ships no tarball"}
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / Path(url.split("?")[0]).name
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            payload = response.read()
+    except OSError as exc:
+        return {"ok": False, "stage": "fetch", "name": name, "error": f"tarball download failed: {exc}"}
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if expected_shasum:
+        actual_shasum = hashlib.sha1(payload).hexdigest()
+        if actual_shasum != expected_shasum:
+            return {
+                "ok": False,
+                "stage": "fetch",
+                "name": name,
+                "error": f"shasum mismatch: expected {expected_shasum}, got {actual_shasum}",
+            }
+    dest.write_bytes(payload)
+    return {
+        "ok": True,
+        "name": name,
+        "version": resolved,
+        "path": str(dest),
+        "sha256": actual_sha256,
+        "shasum": expected_shasum,
+        "url": url,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Foraging: fetch (optional), infer, acquire, seal.
 # ---------------------------------------------------------------------------
@@ -494,7 +766,7 @@ def forage_package(
     repo_root: Path = REPO_ROOT,
     output_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """Forage one package into a proved ledger capability, zero human spec."""
+    """Forage one package into proved ledger capabilities, zero human spec."""
 
     name = str(request["name"])
     slug = str(request.get("slug") or slugify_capability_id(name))
@@ -502,8 +774,10 @@ def forage_package(
     source = request.get("source")
     version = str(request.get("version") or "")
     origin: dict[str, Any] = dict(request.get("origin") or {})
+    runtime = str(request.get("runtime") or "")
+    registry = str(request.get("registry") or "").strip().lower()
 
-    if request.get("registry") == "pypi":
+    if registry == "pypi":
         fetch_record = fetch_pypi_sdist(name, version or None)
         if not fetch_record["ok"]:
             return {"ok": False, "slug": slug, "stage": "fetch", "error": fetch_record["error"]}
@@ -512,6 +786,21 @@ def forage_package(
         origin = {
             "kind": "pypi-live",
             "registry": "pypi",
+            "name": name,
+            "version": version,
+            "sha256": fetch_record["sha256"],
+            "url": fetch_record["url"],
+        }
+    elif registry == "npm":
+        fetch_record = fetch_npm_tarball(name, version or None)
+        if not fetch_record["ok"]:
+            return {"ok": False, "slug": slug, "stage": "fetch", "error": fetch_record["error"]}
+        source = fetch_record["path"]
+        version = fetch_record["version"]
+        runtime = runtime or "node"
+        origin = {
+            "kind": "npm-live",
+            "registry": "npm",
             "name": name,
             "version": version,
             "sha256": fetch_record["sha256"],
@@ -529,6 +818,8 @@ def forage_package(
             hint=str(request.get("hint") or name),
             version=version,
             origin=origin,
+            runtime=runtime,
+            bundle=request.get("bundle"),
         )
     if not inference["ok"]:
         return {
@@ -536,25 +827,53 @@ def forage_package(
             "slug": slug,
             "stage": inference.get("stage"),
             "error": inference.get("error"),
-            "inference": {key: value for key, value in inference.items() if key not in {"ok", "spec"}},
+            "inference": {key: value for key, value in inference.items() if key not in {"ok", "spec", "bundle_specs"}},
         }
-    acquisition = acquire_capability(inference["spec"], repo_root=repo_root, output_dir=output_dir)
+    specs = [inference["spec"], *list(inference.get("bundle_specs") or [])]
+    acquisitions: list[dict[str, Any]] = []
+    for spec in specs:
+        acquisition = acquire_capability(spec, repo_root=repo_root, output_dir=output_dir)
+        acquisitions.append(
+            {
+                "ok": bool(acquisition.get("ok")),
+                "slug": spec.slug,
+                "callable": spec.callable_name,
+                "capability_id": acquisition.get("capability_id"),
+                "stage": acquisition.get("stage"),
+                "derived_case_count": acquisition.get("derived_case_count"),
+                "proof_exit_code": acquisition.get("proof_exit_code"),
+                "error": acquisition.get("error"),
+            }
+        )
+        if not acquisition.get("ok"):
+            return {
+                "ok": False,
+                "slug": slug,
+                "stage": acquisition.get("stage"),
+                "error": acquisition.get("error") or f"acquisition failed at {acquisition.get('stage')}",
+                "inference": inference["record"],
+                "bundle": acquisitions,
+            }
+    primary = acquisitions[0]
     result: dict[str, Any] = {
-        "ok": bool(acquisition.get("ok")),
+        "ok": True,
         "slug": slug,
-        "stage": acquisition.get("stage"),
-        "capability_id": acquisition.get("capability_id"),
+        "stage": primary.get("stage"),
+        "capability_id": primary.get("capability_id"),
+        "runtime": inference["record"].get("runtime"),
         "inference": inference["record"],
         "acquisition": {
-            key: value
-            for key, value in acquisition.items()
-            if key in {"ok", "stage", "derived_case_count", "proof_exit_code"}
+            key: primary.get(key)
+            for key in ("ok", "stage", "derived_case_count", "proof_exit_code")
         },
+        "bundle": acquisitions,
     }
-    if not acquisition.get("ok"):
-        result["error"] = acquisition.get("error") or f"acquisition failed at {acquisition.get('stage')}"
     if fetch_record is not None:
-        result["fetch"] = {key: fetch_record[key] for key in ("version", "sha256", "url")}
+        result["fetch"] = {
+            key: fetch_record[key]
+            for key in ("version", "sha256", "url")
+            if key in fetch_record
+        }
     return result
 
 
@@ -587,6 +906,14 @@ def hermetic_forage_requests() -> list[dict[str, Any]]:
                 "kind": "pypi-sdist",
                 "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz",
             },
+        },
+        {
+            "name": "forage-js (uncooperative node fixture package)",
+            "slug": "forage-js",
+            "hint": "forage-js",
+            "runtime": "node",
+            "source": FIXTURE_NODE_FORAGE_PACKAGE,
+            "origin": {"kind": "fixture", "source": "tests/fixtures/external_packages/forage-js"},
         },
     ]
 
@@ -674,40 +1001,80 @@ def verify_foraging_plane(report_dir: Path) -> dict[str, Any]:
 def builtin_foraging_plane_proof() -> dict[str, Any]:
     """Registered proof: hermetic falsification plus the live sealed plane.
 
-    Hermetic half: inference on the fixture recovers a complete spec whose
-    winner is ``shout`` while the selection-only decoy ``brittle`` is
-    rejected by the held-out probe; the empty fixture (no viable candidate)
-    is refused at the selection stage before any ledger write. Live half:
-    the sealed plane runs all hermetic targets end-to-end and verifies, and
-    a hand-tampered report fails verification.
+    Hermetic half: inference on the Python fixture recovers a complete spec
+    whose winner is ``shout`` while the selection-only decoy ``brittle`` is
+    rejected by the held-out probe; the empty fixture is refused before any
+    ledger write. Node half: the forage-js fixture is detected as ``node``,
+    ``shout`` wins, ``whisper`` joins the multi-callable bundle, and the
+    held-out decoy plus the empty Node package are refused. Live half: the
+    sealed plane runs all hermetic targets end-to-end and verifies, and a
+    hand-tampered report fails verification.
     """
 
     with tempfile.TemporaryDirectory(prefix="blackhole-foraging-proof-") as tmp:
+        root = Path(tmp)
         inference = infer_acquisition_spec(
             slug="forage-lab",
             name="forage-lab (uncooperative fixture package)",
             source=FIXTURE_FORAGE_PACKAGE,
-            staging_root=Path(tmp) / "infer",
+            staging_root=root / "infer",
             hint="forage_lab",
+            bundle=True,
         )
         inference_ok = bool(inference["ok"])
         winner_is_shout = inference_ok and inference["record"]["winner"] == "shout"
         brittle_rejected = inference_ok and "held-out probe failed" in inference["record"][
             "rejected"
         ].get("brittle", "")
+        python_bundle_has_whisper = inference_ok and "whisper" in inference["record"].get("bundle", [])
 
         refusal = infer_acquisition_spec(
             slug="forage-empty",
             name="forage-empty (no viable candidate fixture)",
             source=FIXTURE_EMPTY_PACKAGE,
-            staging_root=Path(tmp) / "refuse",
+            staging_root=root / "refuse",
             hint="forage_empty",
         )
         empty_refused = (not refusal["ok"]) and refusal.get("stage") == "select"
 
-        report_dir = Path(tmp) / "report"
+        node_inference = infer_acquisition_spec(
+            slug="forage-js",
+            name="forage-js (uncooperative node fixture package)",
+            source=FIXTURE_NODE_FORAGE_PACKAGE,
+            staging_root=root / "node-infer",
+            hint="forage-js",
+            runtime="node",
+        )
+        node_ok = bool(node_inference["ok"])
+        node_runtime = node_ok and node_inference["record"].get("runtime") == "node"
+        node_winner_is_shout = node_ok and node_inference["record"]["winner"] == "shout"
+        node_bundle_has_whisper = node_ok and "whisper" in node_inference["record"].get("bundle", [])
+        node_brittle_rejected = node_ok and "held-out probe failed" in node_inference["record"][
+            "rejected"
+        ].get("brittle", "")
+
+        node_refusal = infer_acquisition_spec(
+            slug="forage-js-empty",
+            name="forage-js-empty (no viable node candidate fixture)",
+            source=FIXTURE_NODE_EMPTY_PACKAGE,
+            staging_root=root / "node-refuse",
+            hint="forage-js-empty",
+            runtime="node",
+        )
+        node_empty_refused = (not node_refusal["ok"]) and node_refusal.get("stage") == "select"
+
+        report_dir = root / "report"
         plane = run_foraging_plane(report_dir)
         verification = verify_foraging_plane(report_dir) if plane.get("ok") else {"ok": False}
+        node_forage = {}
+        if plane.get("ok"):
+            sealed = json.loads((report_dir / "plane-report.json").read_text(encoding="utf-8"))
+            node_forage = dict((sealed.get("forages") or {}).get("forage-js") or {})
+        node_forage_ok = bool(node_forage.get("ok")) and node_forage.get("runtime") == "node"
+        node_bundle_acquired = node_forage_ok and any(
+            item.get("callable") == "whisper" and item.get("ok")
+            for item in node_forage.get("bundle") or []
+        )
 
         tampered_rejected = False
         if plane.get("ok"):
@@ -721,21 +1088,42 @@ def builtin_foraging_plane_proof() -> dict[str, Any]:
         "inference_ok": inference_ok,
         "winner_is_shout": winner_is_shout,
         "brittle_rejected": brittle_rejected,
+        "python_bundle_has_whisper": python_bundle_has_whisper,
         "empty_refused": empty_refused,
+        "node_ok": node_ok,
+        "node_runtime": node_runtime,
+        "node_winner_is_shout": node_winner_is_shout,
+        "node_bundle_has_whisper": node_bundle_has_whisper,
+        "node_brittle_rejected": node_brittle_rejected,
+        "node_empty_refused": node_empty_refused,
+        "node_forage_ok": node_forage_ok,
+        "node_bundle_acquired": node_bundle_acquired,
         "plane_ok": bool(plane.get("ok")),
         "verify_ok": bool(verification.get("ok")),
         "tampered_rejected": tampered_rejected,
     }
-    return {"ok": all(verdicts.values()), **verdicts, "slugs": plane.get("slugs") or []}
+    return {
+        "ok": all(verdicts.values()),
+        **verdicts,
+        "slugs": plane.get("slugs") or [],
+        "action": "foraging_plane",
+        "used_skill_route_discovery": False,
+    }
 
 
 def foraging_plane_proof_command() -> str:
     return (
         'uv run python -c "from blackhole_agent.capability_foraging import '
         "builtin_foraging_plane_proof; r=builtin_foraging_plane_proof(); "
-        "assert r['ok'] and r.get('inference_ok') and r.get('winner_is_shout') "
-        "and r.get('brittle_rejected') and r.get('empty_refused') "
-        "and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected')\""
+        "assert r['ok'] and r.get('action')=='foraging_plane' "
+        "and r.get('inference_ok') and r.get('winner_is_shout') "
+        "and r.get('brittle_rejected') and r.get('python_bundle_has_whisper') "
+        "and r.get('empty_refused') and r.get('node_ok') and r.get('node_runtime') "
+        "and r.get('node_winner_is_shout') and r.get('node_bundle_has_whisper') "
+        "and r.get('node_brittle_rejected') and r.get('node_empty_refused') "
+        "and r.get('node_forage_ok') and r.get('node_bundle_acquired') "
+        "and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') "
+        "and not r.get('used_skill_route_discovery')\""
     )
 
 
@@ -760,14 +1148,14 @@ def register_foraging_plane_capability(repo_root: Path = REPO_ROOT) -> dict[str,
         id="capability.foraging-plane",
         name="Capability foraging plane",
         description=(
-            "Zero-spec autonomous acquisition: a request names only a package (local "
-            "source or live PyPI registry entry); import root, import name, entry "
-            "callable, state keys, and probe inputs are all machine-derived by "
-            "sandboxed introspection and a fixed, task-independent probe vocabulary "
-            "with split-honest held-out generalization. The inferred spec flows "
-            "through the acquisition and absorption planes unchanged, ending as a "
-            "proved, vendored, digest-sealed ledger capability. Packages with no "
-            "viable candidate are refused before any ledger write."
+            "Zero-spec autonomous acquisition across Python and Node: a request names "
+            "only a package (local source or live PyPI/npm registry entry); runtime, "
+            "import root or Node entry, callables, state keys, and probe inputs are "
+            "all machine-derived by sandboxed introspection and a fixed, "
+            "task-independent probe vocabulary with split-honest held-out "
+            "generalization. Every held-out-honest callable is acquired (primary leaf "
+            "plus a bounded multi-callable bundle). Packages with no viable candidate "
+            "are refused before any ledger write."
         ),
         kind="python",
         entry="blackhole_agent.capability_foraging:demo_foraging_plane",
@@ -779,19 +1167,20 @@ def register_foraging_plane_capability(repo_root: Path = REPO_ROOT) -> dict[str,
             "src/blackhole_agent/capability_absorption.py",
             "tests/fixtures/external_packages/forage-lab/",
             "tests/fixtures/external_packages/forage-empty/",
+            "tests/fixtures/external_packages/forage-js/",
+            "tests/fixtures/external_packages/forage-js-empty/",
             "capabilities/absorbed-steps.json",
             "capabilities/ledger.json",
         ),
         capability_delta=(
-            "The last human-authored input to acquisition is gone: packages are "
-            "foraged from a bare name — import root detected from the tree layout, "
-            "entry callable selected by sandboxed introspection with held-out "
-            "generalization, probes derived from a fixed task-independent "
-            "vocabulary, and the result absorbed and proved through the existing "
-            "planes. The live lane fetches a real PyPI sdist, verifies its sha256, "
-            "and forages it through the identical inference path."
+            "Uncooperative packages are foraged from a bare name on Python and Node: "
+            "runtime and entry are detected from the staged tree, callables are "
+            "selected by sandboxed introspection with held-out generalization, every "
+            "honest winner is absorbed as a bounded multi-callable bundle, and the "
+            "live lane fetches a PyPI sdist or npm tarball through the identical "
+            "inference path."
         ),
-        tags=("foraging", "plane"),
+        tags=("foraging", "plane", "node", "bundle"),
     )
     ledger = register_capability(ledger, capability, replace=True)
     save_ledger(ledger_path, ledger)
@@ -827,8 +1216,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser("proof", help="run the registered foraging-plane proof")
     sub.add_parser("register", help="register and prove the plane in the live ledger")
 
-    forage_parser = sub.add_parser("forage", help="forage one live PyPI package end-to-end")
-    forage_parser.add_argument("--pypi", required=True, help="PyPI package name")
+    forage_parser = sub.add_parser("forage", help="forage one live registry package end-to-end")
+    source = forage_parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--pypi", help="PyPI package name")
+    source.add_argument("--npm", help="npm package name")
     forage_parser.add_argument("--version", default=None, help="pinned version")
 
     verify_parser = sub.add_parser("verify", help="verify a sealed foraging report")
@@ -843,9 +1234,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.command_name == "register":
         result = register_foraging_plane_capability()
     elif args.command_name == "forage":
-        result = forage_package(
-            {"registry": "pypi", "name": args.pypi, "version": args.version or "", "hint": args.pypi}
-        )
+        if args.npm:
+            result = forage_package(
+                {
+                    "registry": "npm",
+                    "name": args.npm,
+                    "version": args.version or "",
+                    "hint": args.npm,
+                    "runtime": "node",
+                }
+            )
+        else:
+            result = forage_package(
+                {
+                    "registry": "pypi",
+                    "name": args.pypi,
+                    "version": args.version or "",
+                    "hint": args.pypi,
+                }
+            )
     else:
         result = verify_foraging_plane(args.report_dir)
     print(json.dumps(result, indent=2, sort_keys=True))

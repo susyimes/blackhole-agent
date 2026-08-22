@@ -8,12 +8,17 @@ from pathlib import Path
 from blackhole_agent.capability_foraging import (
     FIXTURE_EMPTY_PACKAGE,
     FIXTURE_FORAGE_PACKAGE,
+    FIXTURE_NODE_EMPTY_PACKAGE,
+    FIXTURE_NODE_FORAGE_PACKAGE,
     STEWARDSHIP_ROOT,
     builtin_foraging_plane_proof,
     detect_import_root,
+    detect_node_entry,
+    detect_package_runtime,
     hermetic_forage_requests,
     infer_acquisition_spec,
     introspect_module,
+    introspect_node_module,
     probe_domains_for,
     run_foraging_plane,
     verify_foraging_plane,
@@ -164,3 +169,77 @@ def test_builtin_foraging_plane_proof() -> None:
     assert result["brittle_rejected"]
     assert result["empty_refused"]
     assert result["tampered_rejected"]
+    assert result["node_runtime"]
+    assert result["node_winner_is_shout"]
+    assert result["node_bundle_has_whisper"]
+    assert result["node_forage_ok"]
+    assert result["node_bundle_acquired"]
+    assert result["used_skill_route_discovery"] is False
+
+
+def test_detect_node_runtime_and_entry() -> None:
+    assert detect_package_runtime(FIXTURE_NODE_FORAGE_PACKAGE) == "node"
+    assert detect_package_runtime(FIXTURE_FORAGE_PACKAGE) == "python"
+    path_root, entry = detect_node_entry(FIXTURE_NODE_FORAGE_PACKAGE, "forage-js")
+    assert path_root == "."
+    assert entry == "index.mjs"
+
+
+def test_node_introspection_enumerates_exported_functions() -> None:
+    result = introspect_node_module(FIXTURE_NODE_FORAGE_PACKAGE, "index.mjs")
+    assert result["ok"], result
+    names = [candidate["name"] for candidate in result["candidates"]]
+    assert "shout" in names and "whisper" in names and "brittle" in names
+    assert "_hidden" not in names and "CONSTANT" not in names and "needsThree" not in names
+
+
+def test_node_inference_recovers_bundle(tmp_path: Path) -> None:
+    result = infer_acquisition_spec(
+        slug="forage-js",
+        name="forage-js (uncooperative node fixture package)",
+        source=FIXTURE_NODE_FORAGE_PACKAGE,
+        staging_root=tmp_path,
+        hint="forage-js",
+        runtime="node",
+    )
+    assert result["ok"], result
+    spec = result["spec"]
+    assert spec.runtime == "node"
+    assert spec.entry == "index.mjs"
+    assert spec.callable_name == "shout"
+    assert result["record"]["winner"] == "shout"
+    assert "whisper" in result["record"]["bundle"]
+    assert "held-out probe failed" in result["record"]["rejected"]["brittle"]
+    extras = [item.callable_name for item in result["bundle_specs"]]
+    assert "whisper" in extras
+
+
+def test_node_inference_refuses_package_without_candidate(tmp_path: Path) -> None:
+    result = infer_acquisition_spec(
+        slug="forage-js-empty",
+        name="forage-js-empty",
+        source=FIXTURE_NODE_EMPTY_PACKAGE,
+        staging_root=tmp_path,
+        hint="forage-js-empty",
+        runtime="node",
+    )
+    assert not result["ok"]
+    assert result["stage"] == "select"
+
+
+def test_forage_node_fixture_end_to_end() -> None:
+    result = forage_package(
+        {
+            "name": "forage-js (uncooperative node fixture package)",
+            "slug": "forage-js",
+            "hint": "forage-js",
+            "runtime": "node",
+            "source": FIXTURE_NODE_FORAGE_PACKAGE,
+            "origin": {"kind": "fixture", "source": "tests/fixtures/external_packages/forage-js"},
+        }
+    )
+    assert result["ok"], result
+    assert result["runtime"] == "node"
+    assert result["capability_id"] == "capability.absorbed-forage-js"
+    assert result["inference"]["winner"] == "shout"
+    assert any(item.get("callable") == "whisper" and item.get("ok") for item in result["bundle"])

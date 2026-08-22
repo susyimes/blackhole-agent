@@ -2,7 +2,7 @@
   "kind": "absorption_reseal_receipt",
   "ok": true,
   "persisted": true,
-  "receipt_digest": "a34d3ef69f75849128cf3410b32cdbf1617cfa48389c10002828650853854ab3",
+  "receipt_digest": "07fdf113d2b48c0b3ca15cba9a868b624e04bebc1cc47318fce3a127059615d8",
   "record_count": 10,
   "refusals": [],
   "resealed": [
@@ -14,19 +14,7 @@
     },
     {
       "case_count": 4,
-      "previous_tree_digest": "c54d0352e84f3c0cac49685137e00589abb8b025625918e821142cd435c18f3e",
-      "resealed_tree_digest": "95dff536545a0d32375347377bb7ec9b7c0614d806baddb67ed1c4ead55701bb",
-      "slug": "inflection"
-    },
-    {
-      "case_count": 2,
-      "previous_tree_digest": "a13d1ba5aee103f47734320ad4cd32537f0fafa212e4a68f6667d074726e58b4",
-      "resealed_tree_digest": "1389efb860be96eff7b3333ed62e6c49c05b425b06ef032f7fc6ab8b8be6e580",
-      "slug": "json-indenter"
-    },
-    {
-      "case_count": 4,
-      "previous_tree_digest": "e1445cce0aaa19171739546b7924605bafdc9eaa3f6708d97936242f1646ea39",
+      "previous_tree_digest": "2ccd048b5d3e31585eb7faa356986af2bb4eb5ec9faa265973b823d1f2a9befe",
       "resealed_tree_digest": "80136ddf1b0fbe24c661ea78850171485adb1202696fcc79d7faad63df1fee2a",
       "slug": "markdown-foraged"
     },
@@ -38,7 +26,7 @@
     },
     {
       "case_count": 3,
-      "previous_tree_digest": "0800eb0afceaad5937b45e2e337974b36ff3b67e48906fd93f200dc509551e5d",
+      "previous_tree_digest": "859429f965447b2f46aff75b46bdd15e011ae6c8fc47b9781fbd8bdb2b999823",
       "resealed_tree_digest": "886c7f1a77b17153d1033f79619d29bfb73e4e376cc913fbe729c9096c574826",
       "slug": "python-markdown"
     },
@@ -55,9 +43,11 @@
       "slug": "tomli-parser"
     }
   ],
-  "resealed_at": "2026-08-14T20:58:26.373776Z",
+  "resealed_at": "2026-08-22T21:16:50.296602Z",
   "schema_version": 1,
   "unchanged": [
+    "inflection",
+    "json-indenter",
     "mistune-markdown",
     "text-reverser"
   ],

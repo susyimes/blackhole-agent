@@ -539,6 +539,77 @@ def reseal_absorbed_records(
     return receipt
 
 
+def sync_green_absorbed_capabilities(
+    *,
+    repo_root: Path = REPO_ROOT,
+    persist_path: Path | None = None,
+) -> dict[str, Any]:
+    """Register every absorbed record whose live proof is green onto the ledger.
+
+    Distill previously force-archived drifted seals even when frozen cases
+    still passed. After reseal, this restores those leaves so they remain
+    invocable instead of sitting only in ``absorbed-steps.json``.
+    """
+
+    ledger_path = default_ledger_path(repo_root)
+    ledger = load_ledger(ledger_path)
+    restored: list[str] = []
+    skipped: list[str] = []
+    now = utc_now_iso()
+    for record in load_persisted_records(persist_path):
+        slug = str(record.get("slug") or "")
+        proof = prove_absorbed_capability(slug, persist_path=persist_path)
+        if not proof.get("ok"):
+            skipped.append(slug)
+            continue
+        capability_id = str(record.get("capability_id") or capability_id_for_slug(slug))
+        dependencies = tuple(
+            dependency
+            for dependency in ("repo.import-health", "capability.ledger-inventory")
+            if dependency in ledger.capabilities
+        )
+        capability = Capability(
+            id=capability_id,
+            name=f"Absorbed external capability: {record.get('name') or slug}",
+            description=(
+                f"Absorbed from external tool '{slug}' "
+                f"({(record.get('origin') or {}).get('kind', 'unknown')} origin "
+                f"{(record.get('origin') or {}).get('source', '')}): provides "
+                f"{record.get('provides')} from {record.get('requires')}. Vendored "
+                f"under capabilities/absorbed/{slug}/ with a tree digest; the proof "
+                "re-checks the persisted record digest, the vendored tree digest, "
+                "and re-executes every frozen case."
+            ),
+            kind="python",
+            entry="blackhole_agent.capability_absorption:demo_absorbed_steps",
+            proof_command=absorbed_proof_command(slug),
+            dependencies=dependencies,
+            behavior_paths=(
+                "src/blackhole_agent/capability_absorption.py",
+                "capabilities/absorbed-steps.json",
+                f"capabilities/absorbed/{slug}/",
+                "capabilities/ledger.json",
+            ),
+            capability_delta=(
+                f"External tool '{slug}' is now a first-class invocable capability "
+                f"providing {record.get('provides')}."
+            ),
+            tags=("absorbed", "external"),
+            last_proved_at=now,
+            last_proof_exit_code=0,
+        )
+        ledger = register_capability(ledger, capability, replace=True)
+        restored.append(capability_id)
+    save_ledger(ledger_path, ledger)
+    return {
+        "ok": True,
+        "restored": restored,
+        "skipped": skipped,
+        "count": len(restored),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Absorption: vendor, persist, register, prove.
 # ---------------------------------------------------------------------------
