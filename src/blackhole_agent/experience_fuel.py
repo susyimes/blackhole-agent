@@ -271,8 +271,17 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
 def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT) -> ExperienceFuel:
     """Collect forced pattern classes and harvested operational failures."""
 
+    try:
+        from blackhole_agent.kernel_class_closure import class_is_closed
+    except Exception:  # noqa: BLE001 - harvest must still return fuel
+
+        def class_is_closed(class_id: str, root: Path, **kwargs: Any) -> bool:
+            return False
+
     register = load_register(repo_path)
     forced = required_pattern_mission(repo_path, register=register)
+    if forced and class_is_closed(str(forced.get("class_id") or ""), repo_path):
+        forced = None
     candidates: list[ExperienceCandidate] = []
     if forced:
         candidates.append(
@@ -288,6 +297,8 @@ def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT)
     for entry in forced_classes(register):
         if forced and entry.class_id == forced["class_id"]:
             continue
+        if class_is_closed(entry.class_id, repo_path):
+            continue
         candidates.append(
             ExperienceCandidate(
                 source="pattern-register",
@@ -302,6 +313,8 @@ def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT)
     deduped: list[ExperienceCandidate] = []
     seen: set[str] = set()
     for item in sorted(candidates, key=lambda row: row.priority, reverse=True):
+        if class_is_closed(item.class_id, repo_path):
+            continue
         key = item.class_id or item.summary
         if key in seen:
             continue

@@ -215,6 +215,19 @@ def bind_local_mission(
     fill_goal = HARVESTED_KERNEL_FAILURE_GOAL
     fill_done = HARVESTED_KERNEL_FAILURE_DONE_WHEN
     fill_source = "harvested_kernel_failure"
+    if live is not None:
+        tick_root = Path(
+            repo_path or getattr(state, "repo_path", "") or getattr(state, "workspace_path", "") or "."
+        )
+        try:
+            from blackhole_agent.kernel_class_closure import class_is_closed
+
+            if class_is_closed("kernel_turn_failed", tick_root):
+                fill_goal = ""
+                fill_done = ""
+                fill_source = "class_closed"
+        except Exception:  # noqa: BLE001 - binding must still choose a mission
+            pass
     if live and live.forced:
         fill_goal = str(live.forced.get("goal") or fill_goal)
         fill_done = str(live.forced.get("done_when") or fill_done)
