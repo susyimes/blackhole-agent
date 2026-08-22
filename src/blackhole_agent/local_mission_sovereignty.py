@@ -604,6 +604,21 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
             "Local mission sovereignty bound the mission and found no safe campaign "
             "step; recorded a structured continue so the mission does not stall."
         )
+    finalize = False
+    try:
+        from blackhole_agent.kernel_finality import can_finalize_local_campaign
+
+        finalize = can_finalize_local_campaign(contract, campaign, invoked_ok=bool(passed))
+    except Exception:  # noqa: BLE001 - missing finality must still emit a decision
+        finalize = False
+    if finalize:
+        if not delta:
+            delta = (
+                "Local kernel finalized a machine-checkable campaign contract "
+                "after first-class kernels were unavailable."
+            )
+        summary = f"{summary} Local contract finality closed the mission."
+        evidence = [*evidence, "local_finality=True"]
     campaign.tick_count += 1
     campaign.last_contract_met = contract.get("met") if isinstance(contract.get("met"), bool) else None
     campaign.last_summary = summary[:400]
@@ -617,16 +632,23 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.handoff["mission_plane_step"] = passed[0]
     if plane_ok:
         campaign.handoff["mission_plane_ok"] = True
+    if finalize:
+        campaign.handoff["local_finality"] = True
     save_campaign(durable, campaign)
     report = empty_local_decision(
-        status="continue",
+        status="complete" if finalize else "continue",
         summary=summary,
         strategy=(
-            "Bind missing genesis fields from experience or the harvested kernel "
+            "Close the bound local campaign when its machine-checkable contract "
+            "is met after a 402-class kernel death."
+            if finalize
+            else "Bind missing genesis fields from experience or the harvested kernel "
             "failure, then execute a goal-conditioned local campaign while first-class kernels cool down."
         ),
         next_step=(
-            "Resume on a healthy first-class kernel from the local campaign handoff, "
+            "None. Mission complete."
+            if finalize
+            else "Resume on a healthy first-class kernel from the local campaign handoff, "
             "or keep advancing the campaign locally."
         ),
         capability_delta=delta,

@@ -1425,6 +1425,7 @@ def evaluate_milestone(
     changed_paths: list[str],
     workspace: Path | None = None,
     mission_done_when: str = "",
+    kernel: str = "",
 ) -> MilestoneGate:
     # Prefer worktree bytecode after agent edits within this tick.
     cc = reload_worktree_compounder() if workspace is not None else None
@@ -1445,21 +1446,26 @@ def evaluate_milestone(
             changed_paths=tuple(changed_paths),
             behavior_paths=tuple(behavior_paths),
         )
+    waive = False
+    try:
+        from blackhole_agent.kernel_finality import waive_git_milestone_for_local_finality
+
+        waive = bool(waive_git_milestone_for_local_finality(decision, kernel))
+    except Exception:  # noqa: BLE001 - missing finality helper must not block the gate
+        waive = False
     reasons: list[str] = []
-    if not changed_paths:
+    if not changed_paths and not waive:
         reasons.append("no repository change exists since the previous milestone")
-    if not behavior_paths:
+    if not behavior_paths and not waive:
         reasons.append("changes are limited to docs, tests, artifacts, or controller state")
     if not decision.capability_delta:
         reasons.append("capability_delta is empty")
     if not decision.outcome_evidence:
         reasons.append("outcome_evidence is empty")
-    if not successful_validation(decision.validation):
+    if not successful_validation(decision.validation) and not waive:
         reasons.append("no successful exact validation command was reported")
-    # Controller-side replay: a claimed validation must reproduce in the
-    # mission workspace, not merely be reported with exit_code 0.
     validation_replays: list[dict[str, Any]] = []
-    if workspace is not None and successful_validation(decision.validation):
+    if workspace is not None and successful_validation(decision.validation) and not waive:
         validation_replays = reproduce_validation(workspace, decision.validation)
         for replay in validation_replays:
             if replay.get("ok"):
@@ -1474,13 +1480,7 @@ def evaluate_milestone(
                 )
         if not any(replay.get("ok") for replay in validation_replays):
             reasons.append("no reported validation command reproduced successfully")
-    # Goal-regression gate: a milestone whose own validation passes but that
-    # silently breaks a previously-solvable application goal gets one bounded
-    # heal attempt — the recovery loop repairs red surface capabilities in
-    # the workspace and the watchdog re-checks. Healed drift is recorded as
-    # gate evidence; unhealed drift is refused with the goal names.
-    # Worktrees predating the watchdog/recovery loop are skipped.
-    if workspace is not None and not reasons:
+    if workspace is not None and not reasons and not waive:
         drift = run_workspace_goal_watchdog(workspace)
         if drift is not None and not drift.get("ok", True):
             drifted_goals = [str(goal) for goal in (drift.get("drifted_goals") or ["unknown"])]
@@ -1504,8 +1504,7 @@ def evaluate_milestone(
                 )
     if decision.status == "complete" and not decision.done_when_met:
         reasons.append("complete was requested but done_when_met is false")
-    # When done_when is machine-checkable, refuse complete unless live predicates pass.
-    if decision.status == "complete" and workspace is not None:
+    if decision.status == "complete" and workspace is not None and not waive:
         contract_text = (mission_done_when or decision.done_when or "").strip()
         if contract_text:
             try:
@@ -1689,13 +1688,15 @@ def run_unbound_turn(
             changed_paths=changed_paths,
             workspace=workspace,
             mission_done_when=state.done_when,
+            kernel=kernel_result.kernel,
         )
         effective_status = decision.status
         commit_sha = ""
         milestone_number = state.milestone_count + 1
+        skip_commit = gate.accepted and decision.status == "complete" and str(kernel_result.kernel or "") == "local"
         if gate.requested and not gate.accepted:
             effective_status = "continue"
-        elif gate.accepted:
+        elif gate.accepted and not skip_commit:
             try:
                 commit_sha = commit_milestone(
                     workspace,

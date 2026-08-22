@@ -70,6 +70,7 @@ HANDOFF_KEYS = (
     "mission_plane_step",
     "mission_plane_ok",
     "mission_plane_program",
+    "local_finality",
 )
 
 
