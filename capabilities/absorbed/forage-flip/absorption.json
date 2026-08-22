@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "flip_output": "flipped:Hello World"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "flip_output": "flipped:blackhole unbound"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "flip_output": "flipped:MiXeD CaSe"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "flip_output": "flipped:"
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "forage-flip (uncooperative fixture package)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-flip"
+  },
+  "provides": [
+    "flip_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "forage-flip",
+  "version": ""
+}

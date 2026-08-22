@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-forage-flip",
+  "generated_at": "2026-08-22T22:23:42.523698Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-forage-flip"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-flip"
+  },
+  "record_digest": "ad75157371b6b0bd08c8b62ad987e82f38af02f42e656acb94324fce36c503b5",
+  "report_digest": "f427546c8affa7a8a14c20eaf77ada95fc55dcc1353e4aa9c34527a00142ace4",
+  "schema_version": 1,
+  "slug": "forage-flip",
+  "task": {
+    "goal": [
+      "flip_output"
+    ],
+    "id": "absorbed-forage-flip",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "flip_output": "flipped:Hello World"
+    }
+  },
+  "vendored_tree_digest": "3a91aa5a96d8722ba8f9fd99b9471c81a12eb4d97905d916a0009db99dfcc56c",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

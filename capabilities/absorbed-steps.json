@@ -1,8 +1,65 @@
 {
-  "absorbed_at": "2026-08-22T21:50:50.270260Z",
+  "absorbed_at": "2026-08-22T22:20:56.802785Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-forage-flip",
+      "cases": [
+        {
+          "expect": {
+            "flip_output": "flipped:Hello World"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "flip_output": "flipped:blackhole unbound"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "flip_output": "flipped:MiXeD CaSe"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "flip_output": "flipped:"
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "forage-flip (uncooperative fixture package)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-flip"
+      },
+      "provides": [
+        "flip_output"
+      ],
+      "record_digest": "ad75157371b6b0bd08c8b62ad987e82f38af02f42e656acb94324fce36c503b5",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "forage-flip",
+      "vendored_tree_digest": "3a91aa5a96d8722ba8f9fd99b9471c81a12eb4d97905d916a0009db99dfcc56c",
+      "version": ""
+    },
     {
       "capability_id": "capability.absorbed-forage-js",
       "cases": [
@@ -785,5 +842,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "b916d3954db630ccd1f29efdd6d9aa55b76f0e6e732807ceaa85b663f433f79e"
+  "steps_digest": "db70b72ffc8868fb52ac9c5c7a1a86f94021b7c3f8d6b1c4337cddb988fe0456"
 }

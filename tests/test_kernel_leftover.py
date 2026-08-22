@@ -32,6 +32,14 @@ def test_target_selection_leftover_marks_forage_target_plane():
     assert "capability.forage-target-plane" in leftover_marker_ids(leftover)
 
 
+def test_growth_match_leftover_marks_forage_growth_plane():
+    leftover = (
+        "Optional later work is goal-driven forage matching that ignores "
+        "pre-declared catalog provides."
+    )
+    assert "capability.forage-growth-plane" in leftover_marker_ids(leftover)
+
+
 def test_harvested_leftover_text_is_still_detected():
     leftover = leftover_next_step(HARVESTED_MISSION_PLANE_LEFTOVER)
     assert "mission-plane" in leftover

@@ -130,6 +130,9 @@ _MARKERS = (
     ("trend-driven automatic forage-target", "capability.forage-target-plane"),
     ("trend-driven automatic target selection", "capability.forage-target-plane"),
     ("forage-target selection", "capability.forage-target-plane"),
+    ("goal-driven forage match", "capability.forage-growth-plane"),
+    ("forage matching that ignores", "capability.forage-growth-plane"),
+    ("pre-declared catalog provides", "capability.forage-growth-plane"),
 )
 
 

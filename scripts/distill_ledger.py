@@ -42,6 +42,7 @@ KEEP_CAPABILITY_PREFIXES = ("capability.synthesized-", "capability.absorbed-")
 KEEP_IDS = {
     "capability.foraging-plane",
     "capability.forage-target-plane",
+    "capability.forage-growth-plane",
     "capability.acquisition-plane",
     "capability.absorption-plane",
 }
