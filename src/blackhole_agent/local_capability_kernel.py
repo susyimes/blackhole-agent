@@ -48,6 +48,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.local-mission-sovereignty",
         "capability.kernel-resume",
         "capability.kernel-succession",
+        "capability.kernel-mission-plane",
         "capability.kernel-circuit-breaker",
         "capability.kernel-decision-salvage",
         "capability.mission-plane",

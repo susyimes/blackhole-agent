@@ -228,6 +228,7 @@ def evaluate_campaign_contract(
     done_when: str,
     *,
     completed_ids: tuple[str, ...] = (),
+    mission_plane_ok: bool | None = None,
 ) -> dict[str, Any]:
     """Cheap in-process contract check against the given ledger. No program runs."""
 
@@ -268,6 +269,9 @@ def evaluate_campaign_contract(
         elif kind == "program_passes":
             passed = arg in completed
             detail = f"completed={passed}"
+        elif kind == "mission_plane_ok":
+            passed = bool(mission_plane_ok)
+            detail = f"mission_plane_ok={passed}"
         else:
             detail = "unsupported_in_local_evaluator"
         results.append({"kind": kind, "arg": arg, "passed": passed, "detail": detail})
@@ -340,6 +344,10 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
     remaining_text = ", ".join(remaining) or "(none)"
     succession = str((campaign.handoff or {}).get("succession_step") or "")
     succession_line = f"\n- succession_step: {succession}" if succession else ""
+    plane_step = str((campaign.handoff or {}).get("mission_plane_step") or "")
+    plane_line = f"\n- mission_plane_step: {plane_step}" if plane_step else ""
+    plane_ok = (campaign.handoff or {}).get("mission_plane_ok")
+    plane_ok_line = f"\n- mission_plane_ok: {plane_ok}" if plane_ok is not None else ""
     return (
         "Local-kernel campaign handoff (first-class kernel was unavailable; "
         "resume from this progress, do not restart genesis):\n"
@@ -352,6 +360,8 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
         f"- contract_met: {campaign.last_contract_met}\n"
         f"- last: {campaign.last_summary}"
         f"{succession_line}"
+        f"{plane_line}"
+        f"{plane_ok_line}"
     )
 
 
@@ -442,8 +452,10 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         return report
 
     campaign = _prepare_campaign(campaign, mission_id=mission_id, binding=binding, ledger=ledger)
+    previous_handoff = dict(campaign.handoff or {})
     capability_id = _next_step(campaign)
     succession_used = False
+    mission_plane_used = False
     if not capability_id:
         try:
             from blackhole_agent.kernel_succession import attach_succession_step
@@ -453,6 +465,15 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
             capability_id = ""
             succession_used = False
+    if not capability_id:
+        try:
+            from blackhole_agent.kernel_mission_plane import attach_mission_plane_step
+
+            capability_id = attach_mission_plane_step(campaign, ledger, goal=binding.goal)
+            mission_plane_used = bool(capability_id)
+        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
+            capability_id = ""
+            mission_plane_used = False
     if capability_id:
         capability = ledger.capabilities.get(capability_id)
         if capability is None:
@@ -485,23 +506,57 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
             else:
                 campaign.failed_ids.append(capability_id)
 
+    plane_ok = False
+    preserve_handoff = None
+    try:
+        from blackhole_agent.kernel_mission_plane import (
+            preserve_campaign_handoff,
+            refresh_mission_plane_ok,
+        )
+
+        preserve_handoff = preserve_campaign_handoff
+        plane_ok = refresh_mission_plane_ok(campaign, ledger)
+    except Exception:  # noqa: BLE001 - contract evaluation must still run
+        plane_ok = bool((campaign.handoff or {}).get("mission_plane_ok"))
     contract = evaluate_campaign_contract(
         ledger,
         binding.done_when,
         completed_ids=tuple(campaign.completed_ids),
+        mission_plane_ok=plane_ok,
     )
     passed = [item["capability_id"] for item in invoked if item.get("ok")]
+    if mission_plane_used:
+        reason = "mission_plane"
+    elif succession_used:
+        reason = "succession"
+    elif invoked:
+        reason = "invoked"
+    elif plane_ok:
+        reason = "mission_plane_ok"
+    else:
+        reason = "no_safe_capability"
     evidence = [
         f"root={root}",
         f"ledger_count={len(ledger.capabilities)}",
         f"invoked_count={len(invoked)}",
         f"bound_from={binding.source}",
-        f"reason={'succession' if succession_used else ('invoked' if invoked else 'no_safe_capability')}",
+        f"reason={reason}",
         f"contract_met={contract.get('met')}",
         f"campaign_ticks={campaign.tick_count + 1}",
+        f"mission_plane_ok={plane_ok}",
     ]
     evidence.extend(f"invoked={item['capability_id']}:ok={item.get('ok')}" for item in invoked)
-    if passed and succession_used:
+    if passed and mission_plane_used:
+        delta = (
+            "Local mission-plane escaped cheap-anchor rotation and succession via "
+            + ", ".join(passed)
+            + " after first-class kernels were unavailable."
+        )
+        summary = (
+            f"Local mission-plane executed {', '.join(passed)} after cheap "
+            "local-anchor rotation and succession were exhausted."
+        )
+    elif passed and succession_used:
         delta = (
             "Local mission succession escaped cheap-anchor rotation via "
             + ", ".join(passed)
@@ -529,6 +584,15 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
             + ", ".join(item["capability_id"] for item in invoked)
             + " but the entries failed; recorded a structured continue."
         )
+    elif plane_ok:
+        delta = (
+            "Local mission-plane recorded mission_plane_ok because the bound "
+            "goal program already completed in-process after first-class kernels were unavailable."
+        )
+        summary = (
+            "Local mission-plane marked mission_plane_ok from the completed "
+            "local campaign program."
+        )
     else:
         delta = (
             "Local mission sovereignty bound genesis from "
@@ -543,9 +607,16 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     campaign.tick_count += 1
     campaign.last_contract_met = contract.get("met") if isinstance(contract.get("met"), bool) else None
     campaign.last_summary = summary[:400]
-    campaign.handoff = campaign_handoff(campaign)
+    if preserve_handoff is not None:
+        preserve_handoff(campaign, previous_handoff)
+    else:
+        campaign.handoff = campaign_handoff(campaign)
     if succession_used and passed:
         campaign.handoff["succession_step"] = passed[0]
+    if mission_plane_used and passed:
+        campaign.handoff["mission_plane_step"] = passed[0]
+    if plane_ok:
+        campaign.handoff["mission_plane_ok"] = True
     save_campaign(durable, campaign)
     report = empty_local_decision(
         status="continue",

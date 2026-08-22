@@ -36,6 +36,23 @@ KERNEL_RESUME_DONE_WHEN = (
 )
 
 
+def _continue_resumed_follow_ons(state: Any, durable: Path) -> None:
+    """Attach remaining succession, then a bounded mission-plane, without failing resume."""
+
+    try:
+        from blackhole_agent.kernel_succession import continue_resumed_succession
+
+        continue_resumed_succession(state, repo_path=durable)
+    except Exception:  # noqa: BLE001 - resume must still return bound fields
+        pass
+    try:
+        from blackhole_agent.kernel_mission_plane import continue_resumed_mission_plane
+
+        continue_resumed_mission_plane(state, repo_path=durable)
+    except Exception:  # noqa: BLE001 - resume must still return bound fields
+        pass
+
+
 def campaign_is_resumable(campaign: LocalCampaign) -> bool:
     if int(campaign.tick_count or 0) <= 0:
         return False
@@ -84,12 +101,7 @@ def hydrate_mission_from_campaign(
     if before_goal and before_done:
         if str(getattr(state, "stage", "") or "") == "genesis":
             state.stage = "execution"
-        try:
-            from blackhole_agent.kernel_succession import continue_resumed_succession
-
-            continue_resumed_succession(state, repo_path=durable)
-        except Exception:  # noqa: BLE001 - resume must still return bound fields
-            pass
+        _continue_resumed_follow_ons(state, durable)
         return {
             "applied": False,
             "source": "state",
@@ -120,12 +132,7 @@ def hydrate_mission_from_campaign(
     if persist and applied and mission_id and campaign.resumed_by_mission_id != mission_id:
         campaign.resumed_by_mission_id = mission_id
         save_campaign(durable, campaign)
-    try:
-        from blackhole_agent.kernel_succession import continue_resumed_succession
-
-        continue_resumed_succession(state, repo_path=durable)
-    except Exception:  # noqa: BLE001 - resume must still return hydrated fields
-        pass
+    _continue_resumed_follow_ons(state, durable)
     return {
         "applied": applied,
         "source": "local_campaign",
