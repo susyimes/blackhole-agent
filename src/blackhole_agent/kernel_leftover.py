@@ -127,6 +127,9 @@ _MARKERS = (
     ("node runtime", "capability.foraging-plane"),
     ("multi-callable bundle", "capability.foraging-plane"),
     ("bundle foraging", "capability.foraging-plane"),
+    ("trend-driven automatic forage-target", "capability.forage-target-plane"),
+    ("trend-driven automatic target selection", "capability.forage-target-plane"),
+    ("forage-target selection", "capability.forage-target-plane"),
 )
 
 

@@ -1,0 +1,66 @@
+{
+  "kind": "forage_target_catalog",
+  "query": "text-transform",
+  "schema_version": 1,
+  "items": [
+    {
+      "name": "inflection",
+      "slug": "inflection",
+      "registry": "pypi",
+      "downloads": 5000000,
+      "recent_downloads": 80000,
+      "keywords": ["text", "inflection"],
+      "provides": ["camelize_output"],
+      "viable": true
+    },
+    {
+      "name": "forage-empty (no viable candidate fixture)",
+      "slug": "forage-empty",
+      "registry": "local",
+      "downloads": 9000000,
+      "recent_downloads": 120000,
+      "keywords": ["text"],
+      "provides": [],
+      "viable": false,
+      "source": "tests/fixtures/external_packages/forage-empty",
+      "hint": "forage_empty"
+    },
+    {
+      "name": "JS shouter (uncooperative node fixture package)",
+      "slug": "js-shouter",
+      "registry": "local",
+      "downloads": 800,
+      "recent_downloads": 40,
+      "keywords": ["text", "shout"],
+      "provides": ["shouted_text"],
+      "viable": true,
+      "source": "tests/fixtures/external_packages/js-shouter",
+      "hint": "js-shouter",
+      "runtime": "node"
+    },
+    {
+      "name": "forage-pick (uncooperative fixture package)",
+      "slug": "forage-pick",
+      "registry": "local",
+      "downloads": 12000,
+      "recent_downloads": 900,
+      "keywords": ["text", "pick", "select"],
+      "provides": ["pick_output"],
+      "viable": true,
+      "source": "tests/fixtures/external_packages/forage-pick",
+      "hint": "forage_pick"
+    },
+    {
+      "name": "forage-lab (uncooperative fixture package)",
+      "slug": "forage-lab",
+      "registry": "local",
+      "downloads": 4000,
+      "recent_downloads": 100,
+      "keywords": ["text", "shout"],
+      "provides": ["shout_output"],
+      "viable": true,
+      "source": "tests/fixtures/external_packages/forage-lab",
+      "hint": "forage_lab"
+    }
+  ]
+}

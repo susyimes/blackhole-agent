@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-22T21:20:25.385602Z",
+  "absorbed_at": "2026-08-22T21:50:50.270260Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -234,6 +234,63 @@
       "schema_version": 1,
       "slug": "forage-lab",
       "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+      "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-forage-pick",
+      "cases": [
+        {
+          "expect": {
+            "pick_output": "picked:Hello World"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "pick_output": "picked:blackhole unbound"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "pick_output": "picked:MiXeD CaSe"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "pick_output": "picked:"
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "forage-pick (uncooperative fixture package)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-pick"
+      },
+      "provides": [
+        "pick_output"
+      ],
+      "record_digest": "60f9b404fdbedb0798ae04790a2160f5a4fb8157cf7ec1fcc3a204b385ee77d3",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "forage-pick",
+      "vendored_tree_digest": "97ee671072bdd79720d23c5677f4cb76a62a04397c42b571f777d536e7b1f8af",
       "version": ""
     },
     {
@@ -728,5 +785,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "486b4caebc6e1721af8698d8ab0104bf918bb26a01fd212a7b703bd81a499299"
+  "steps_digest": "b916d3954db630ccd1f29efdd6d9aa55b76f0e6e732807ceaa85b663f433f79e"
 }

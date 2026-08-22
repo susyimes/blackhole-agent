@@ -41,6 +41,7 @@ KEEP_PREFIXES = ("domain.", "repo.", "unbound.", "evolution.")
 KEEP_CAPABILITY_PREFIXES = ("capability.synthesized-", "capability.absorbed-")
 KEEP_IDS = {
     "capability.foraging-plane",
+    "capability.forage-target-plane",
     "capability.acquisition-plane",
     "capability.absorption-plane",
 }

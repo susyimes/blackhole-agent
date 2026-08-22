@@ -24,6 +24,12 @@ def test_foraging_leftover_marks_foraging_plane():
         "automatic target selection."
     )
     assert "capability.foraging-plane" in leftover_marker_ids(leftover)
+    assert "capability.forage-target-plane" in leftover_marker_ids(leftover)
+
+
+def test_target_selection_leftover_marks_forage_target_plane():
+    leftover = "Optional later work is trend-driven automatic forage-target selection."
+    assert "capability.forage-target-plane" in leftover_marker_ids(leftover)
 
 
 def test_harvested_leftover_text_is_still_detected():

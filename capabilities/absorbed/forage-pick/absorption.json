@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "pick_output": "picked:Hello World"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "pick_output": "picked:blackhole unbound"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "pick_output": "picked:MiXeD CaSe"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "pick_output": "picked:"
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "forage-pick (uncooperative fixture package)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-pick"
+  },
+  "provides": [
+    "pick_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "forage-pick",
+  "version": ""
+}

@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-forage-pick",
+  "generated_at": "2026-08-22T21:56:08.886799Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-forage-pick"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-pick"
+  },
+  "record_digest": "60f9b404fdbedb0798ae04790a2160f5a4fb8157cf7ec1fcc3a204b385ee77d3",
+  "report_digest": "886378e8f6677eec7c9b4846b2177cf393ad0709607ec61afcf3316b6600d52e",
+  "schema_version": 1,
+  "slug": "forage-pick",
+  "task": {
+    "goal": [
+      "pick_output"
+    ],
+    "id": "absorbed-forage-pick",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "pick_output": "picked:Hello World"
+    }
+  },
+  "vendored_tree_digest": "97ee671072bdd79720d23c5677f4cb76a62a04397c42b571f777d536e7b1f8af",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}
