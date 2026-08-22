@@ -50,6 +50,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.kernel-succession",
         "capability.kernel-mission-plane",
         "capability.kernel-finality",
+        "capability.kernel-leftover",
         "capability.kernel-circuit-breaker",
         "capability.kernel-decision-salvage",
         "capability.mission-plane",

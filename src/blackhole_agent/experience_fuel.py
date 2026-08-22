@@ -206,16 +206,29 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
                 candidates.append(_candidate_from_event(event, priority=2))
         leftover = leftover_next_step(str(state.get("next_step") or ""))
         if leftover:
-            event = {
-                "class_id": "mission_leftover",
-                "source": "unbound",
-                "summary": leftover,
-                "evidence": f"mission {state.get('mission_id', '')} leftover next_step",
-            }
-            key = (event["class_id"], event["summary"])
-            if key not in seen:
-                seen.add(key)
-                candidates.append(_candidate_from_event(event, priority=5))
+            mission_id = str(state.get("mission_id") or "")
+            leftover_open = True
+            try:
+                from blackhole_agent.kernel_leftover import leftover_is_open
+
+                leftover_open = leftover_is_open(
+                    leftover,
+                    Path(repo_path),
+                    source_mission_id=mission_id,
+                )
+            except Exception:  # noqa: BLE001 - harvest must still surface unknown leftovers
+                leftover_open = True
+            if leftover_open:
+                event = {
+                    "class_id": "mission_leftover",
+                    "source": "unbound",
+                    "summary": leftover,
+                    "evidence": f"mission {mission_id} leftover next_step",
+                }
+                key = (event["class_id"], event["summary"])
+                if key not in seen:
+                    seen.add(key)
+                    candidates.append(_candidate_from_event(event, priority=5))
         for turn in reversed(list(state.get("recent_turns") or [])):
             if not isinstance(turn, dict):
                 continue

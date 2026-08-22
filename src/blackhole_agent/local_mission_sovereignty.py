@@ -158,7 +158,10 @@ def save_campaign(root: Path, campaign: LocalCampaign) -> Path:
     return path
 
 
-def mission_from_candidate(candidate: ExperienceCandidate | None) -> tuple[str, str]:
+def mission_from_candidate(
+    candidate: ExperienceCandidate | None,
+    ledger: CapabilityLedger | None = None,
+) -> tuple[str, str]:
     """Map harvested operational fuel onto a bindable Unbound mission."""
 
     if candidate is None:
@@ -172,6 +175,13 @@ def mission_from_candidate(candidate: ExperienceCandidate | None) -> tuple[str, 
         goal = f"Close operational class `{class_id}`: {summary}"
     else:
         goal = summary or HARVESTED_KERNEL_FAILURE_GOAL
+    if class_id == "mission_leftover":
+        try:
+            from blackhole_agent.kernel_leftover import leftover_campaign_done_when
+
+            return goal, leftover_campaign_done_when(summary, ledger=ledger)
+        except Exception:  # noqa: BLE001 - leftover bind must still choose a mission
+            return goal, HARVESTED_KERNEL_FAILURE_DONE_WHEN
     return goal, HARVESTED_KERNEL_FAILURE_DONE_WHEN
 
 
@@ -210,7 +220,13 @@ def bind_local_mission(
         fill_done = str(live.forced.get("done_when") or fill_done)
         fill_source = "pattern-register"
     elif live and live.candidates:
-        fill_goal, fill_done = mission_from_candidate(live.candidates[0])
+        tick_root = Path(
+            repo_path or getattr(state, "repo_path", "") or getattr(state, "workspace_path", "") or "."
+        )
+        fill_goal, fill_done = mission_from_candidate(
+            live.candidates[0],
+            ledger=load_tick_ledger(tick_root),
+        )
         fill_source = f"experience/{live.candidates[0].class_id or 'operational'}"
 
     if not goal:
@@ -452,6 +468,12 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         return report
 
     campaign = _prepare_campaign(campaign, mission_id=mission_id, binding=binding, ledger=ledger)
+    if "mission_leftover" in binding.source:
+        prefix = "Close operational class `mission_leftover`: "
+        leftover_summary = (
+            binding.goal[len(prefix) :] if binding.goal.startswith(prefix) else binding.goal
+        )
+        campaign.handoff = {**dict(campaign.handoff or {}), "leftover_summary": leftover_summary}
     previous_handoff = dict(campaign.handoff or {})
     capability_id = _next_step(campaign)
     succession_used = False
@@ -634,6 +656,12 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.handoff["mission_plane_ok"] = True
     if finalize:
         campaign.handoff["local_finality"] = True
+        try:
+            from blackhole_agent.kernel_leftover import consume_bound_leftover
+
+            consume_bound_leftover(durable, campaign)
+        except Exception:  # noqa: BLE001 - missing leftover consume must still emit a decision
+            pass
     save_campaign(durable, campaign)
     report = empty_local_decision(
         status="complete" if finalize else "continue",
