@@ -40,6 +40,15 @@ def test_growth_match_leftover_marks_forage_growth_plane():
     assert "capability.forage-growth-plane" in leftover_marker_ids(leftover)
 
 
+def test_apply_growth_leftover_marks_application_growth_plane():
+    leftover = (
+        "Optional later work is automatically growing an unplannable "
+        "application goal through forage matching without a separate plane "
+        "invocation."
+    )
+    assert "capability.application-growth-plane" in leftover_marker_ids(leftover)
+
+
 def test_harvested_leftover_text_is_still_detected():
     leftover = leftover_next_step(HARVESTED_MISSION_PLANE_LEFTOVER)
     assert "mission-plane" in leftover

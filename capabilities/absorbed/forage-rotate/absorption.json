@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "rotate_output": "rotated:Hello World"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "rotate_output": "rotated:blackhole unbound"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "rotate_output": "rotated:MiXeD CaSe"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "rotate_output": "rotated:"
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "forage-rotate (uncooperative fixture package)",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-rotate"
+  },
+  "provides": [
+    "rotate_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "forage-rotate",
+  "version": ""
+}

@@ -513,10 +513,22 @@ def run_application_task(
     registry: Mapping[str, ApplicationStep],
     *,
     plan_override: Sequence[str] | None = None,
+    grow: bool = False,
 ) -> dict[str, Any]:
-    """Plan (or take an override), execute, and grade one task by outcome."""
+    """Plan (or take an override), execute, and grade one task by outcome.
+
+    ``grow=True`` is the leftover closed by the application-growth plane: an
+    unplannable task automatically forage-matches a covering package and
+    retries. Already-solvable tasks still execute here and never forage.
+    Default ``grow=False`` keeps planner honesty: hidden capabilities stay
+    unsolved.
+    """
 
     plan = list(plan_override) if plan_override is not None else plan_application_task(task, registry)
+    if plan is None and grow and plan_override is None:
+        from blackhole_agent.capability_application_growth import grow_application_task
+
+        return grow_application_task(task)
     if plan is None:
         return {"ok": False, "plan": None, "outcome": {}, "error": "no plan covers the goal"}
     outcome: dict[str, Any] = {}
@@ -527,7 +539,10 @@ def run_application_task(
     except Exception as exc:  # noqa: BLE001 - a crashed plan is a broken outcome, not a crashed plane
         matched = False
         error = f"{type(exc).__name__}: {exc}"
-    return {"ok": matched, "plan": plan, "outcome": outcome, "error": error}
+    result = {"ok": matched, "plan": plan, "outcome": outcome, "error": error}
+    if grow:
+        result.update({"grew": False, "forage": None, "used_forage_growth_plane": False})
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,42 @@
+{
+  "capability_id": "capability.absorbed-forage-rotate",
+  "generated_at": "2026-08-22T22:53:27.503654Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-forage-rotate"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "fixture",
+    "source": "tests/fixtures/external_packages/forage-rotate"
+  },
+  "record_digest": "9636b90196eece6bfc1d2b3848c57a4b4aea02ca19a54eec9bcd9d2aa0c6bfe6",
+  "report_digest": "d4d39935bf0afcc102466419f1ed91f9e7962db323b3ccad231bc209629460f4",
+  "schema_version": 1,
+  "slug": "forage-rotate",
+  "task": {
+    "goal": [
+      "rotate_output"
+    ],
+    "id": "absorbed-forage-rotate",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "rotate_output": "rotated:Hello World"
+    }
+  },
+  "vendored_tree_digest": "55f6b2d1485bbcf88f4561550d0064d4d4f1872f8de03bce76657f46d89a532c",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

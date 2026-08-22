@@ -43,6 +43,7 @@ KEEP_IDS = {
     "capability.foraging-plane",
     "capability.forage-target-plane",
     "capability.forage-growth-plane",
+    "capability.application-growth-plane",
     "capability.acquisition-plane",
     "capability.absorption-plane",
 }

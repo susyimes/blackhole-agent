@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-22T22:20:56.802785Z",
+  "absorbed_at": "2026-08-22T22:51:06.228691Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -348,6 +348,63 @@
       "schema_version": 1,
       "slug": "forage-pick",
       "vendored_tree_digest": "97ee671072bdd79720d23c5677f4cb76a62a04397c42b571f777d536e7b1f8af",
+      "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-forage-rotate",
+      "cases": [
+        {
+          "expect": {
+            "rotate_output": "rotated:Hello World"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "rotate_output": "rotated:blackhole unbound"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "rotate_output": "rotated:MiXeD CaSe"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "rotate_output": "rotated:"
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "forage-rotate (uncooperative fixture package)",
+      "origin": {
+        "kind": "fixture",
+        "source": "tests/fixtures/external_packages/forage-rotate"
+      },
+      "provides": [
+        "rotate_output"
+      ],
+      "record_digest": "9636b90196eece6bfc1d2b3848c57a4b4aea02ca19a54eec9bcd9d2aa0c6bfe6",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "forage-rotate",
+      "vendored_tree_digest": "55f6b2d1485bbcf88f4561550d0064d4d4f1872f8de03bce76657f46d89a532c",
       "version": ""
     },
     {
@@ -842,5 +899,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "db70b72ffc8868fb52ac9c5c7a1a86f94021b7c3f8d6b1c4337cddb988fe0456"
+  "steps_digest": "b0f5e2b50953e747f2af37ce5107cea75d8f84237cbaaafaeb22ae545fdacbba"
 }

@@ -133,6 +133,9 @@ _MARKERS = (
     ("goal-driven forage match", "capability.forage-growth-plane"),
     ("forage matching that ignores", "capability.forage-growth-plane"),
     ("pre-declared catalog provides", "capability.forage-growth-plane"),
+    ("unplannable application goal", "capability.application-growth-plane"),
+    ("without a separate plane invocation", "capability.application-growth-plane"),
+    ("forage matching without a separate", "capability.application-growth-plane"),
 )
 
 
