@@ -20,9 +20,11 @@ inputs. This module removes that last human input — **foraging**:
   ``Class.method``, a named class export such as ``Base64.encode``,
   ``new Parser().parse``, or ``new Parser(options).parse`` (constructor
   arguments and instance-own methods visible only after construction),
-  or a nested namespace class such as ``buffer.Buffer.byteLength`` —
-  filtered to JSON-scalar signatures,
-  and ordered deterministically;
+  or a nested namespace class such as ``buffer.Buffer.byteLength``, and
+  Python class instance methods such as ``Parser(opts).loads``
+  (constructed with ``()``, ``{}``, or ``""``, including methods that
+  exist only on the instance after construction) — filtered to
+  JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
   samples for int/float/bool), split into selection and held-out probes; no
@@ -262,36 +264,123 @@ except Exception as exc:  # noqa: BLE001 - reported, never raised through
     print(json.dumps({"ok": False, "error": f"import failed: {exc}"}))
     raise SystemExit(0)
 
+EMPTY = inspect.Parameter.empty
 candidates = []
-for name in sorted(dir(module)):
-    if name.startswith("_"):
-        continue
-    target = getattr(module, name, None)
-    if not (inspect.isfunction(target) or inspect.isbuiltin(target)):
-        continue
+seen = set()
+
+
+def _owner_ok(target):
     owner = getattr(target, "__module__", "") or ""
-    if owner != import_name and not owner.startswith(import_name + "."):
-        continue
+    func = getattr(target, "__func__", None)
+    if func is not None:
+        owner = getattr(func, "__module__", owner) or owner
+    if not owner:
+        return True
+    return owner == import_name or owner.startswith(import_name + ".")
+
+
+def _params_of(target, skip_self=False):
     try:
         signature = inspect.signature(target)
     except (TypeError, ValueError):
-        continue
+        return None
     params = []
-    for param in signature.parameters.values():
+    for index, param in enumerate(signature.parameters.values()):
+        if skip_self and index == 0 and param.name in {"self", "cls"}:
+            continue
         annotation = ""
-        if param.annotation is not inspect.Parameter.empty:
+        if param.annotation is not EMPTY:
             raw = param.annotation
             annotation = getattr(raw, "__name__", str(raw)).strip("'\\"")
         params.append(
             {
                 "name": param.name,
                 "kind": param.kind.name,
-                "required": param.default is inspect.Parameter.empty,
+                "required": param.default is EMPTY,
                 "annotation": annotation,
             }
         )
+    return params
+
+
+def _consider(name, target, flags, skip_self=False):
+    leaf = str(name or "").split(".")[-1]
+    if not leaf or leaf.startswith("_") or name in seen:
+        return
+    if inspect.isclass(target) or not callable(target):
+        return
+    if not (
+        inspect.isfunction(target)
+        or inspect.ismethod(target)
+        or inspect.isbuiltin(target)
+        or flags.get("python_class_instance")
+    ):
+        return
+    if not _owner_ok(target):
+        return
+    params = _params_of(target, skip_self=skip_self)
+    if params is None:
+        return
     doc = inspect.getdoc(target) or ""
-    candidates.append({"name": name, "params": params, "doc": doc.splitlines()[0] if doc else ""})
+    item = {"name": name, "params": params, "doc": doc.splitlines()[0] if doc else ""}
+    item.update(flags)
+    seen.add(name)
+    candidates.append(item)
+
+
+def _construct_instance(cls):
+    try:
+        return cls(), False
+    except Exception:
+        pass
+    try:
+        return cls({}), True
+    except Exception:
+        pass
+    try:
+        return cls(""), True
+    except Exception:
+        return None, True
+
+
+def _instance_method_names(cls, instance):
+    names = set()
+    for klass in inspect.getmro(cls):
+        if klass is object:
+            continue
+        for name, value in klass.__dict__.items():
+            if name.startswith("_") or isinstance(value, (staticmethod, classmethod, property)):
+                continue
+            if inspect.isfunction(value):
+                names.add(name)
+    if instance is not None:
+        for name, value in getattr(instance, "__dict__", {}).items():
+            if name.startswith("_") or inspect.isclass(value) or not callable(value):
+                continue
+            names.add(name)
+    return names
+
+
+for name in sorted(dir(module)):
+    if name.startswith("_"):
+        continue
+    target = getattr(module, name, None)
+    if inspect.isfunction(target) or inspect.isbuiltin(target):
+        _consider(name, target, {})
+        continue
+    if not inspect.isclass(target):
+        continue
+    instance, requires_args = _construct_instance(target)
+    if instance is None:
+        continue
+    flags = {
+        "python_class_instance": True,
+        "constructor_requires_args": bool(requires_args),
+    }
+    for attr in sorted(_instance_method_names(target, instance)):
+        fn = getattr(instance, attr, None)
+        _consider(f"{name}.{attr}", fn, flags, skip_self=False)
+
 print(json.dumps({"ok": True, "candidates": candidates}))
 '''
 
@@ -903,7 +992,7 @@ def _cached_pypi_archive(name: str, dest: Path) -> Path | None:
     matches: list[Path] = []
     for prefix in prefixes:
         matches.extend(dest.glob(f"{prefix}-*.tar.gz"))
-        matches.extend(dest.glob(f"{prefix}-*.tgz"))
+        matches.extend(dest.glob(f"{prefix}-*.zip"))
     files = [path for path in matches if path.is_file()]
     if not files:
         return None
@@ -1115,6 +1204,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         bool(item.get("default_export_class"))
         or _is_named_class_instance_candidate(item)
         or _is_class_static_candidate(item)
+        or bool(item.get("python_class_instance"))
     )
 
 
@@ -1192,6 +1282,7 @@ def infer_acquisition_spec(
         key=lambda item: (
             0 if _is_class_static_candidate(item) else 1,
             0 if _is_named_class_instance_candidate(item) else 1,
+            0 if not item.get("python_class_instance") else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1260,6 +1351,7 @@ def infer_acquisition_spec(
                 "named_export_class": bool(candidate.get("named_export_class")),
                 "nested_namespace_class": bool(candidate.get("nested_namespace_class")),
                 "constructor_requires_args": bool(candidate.get("constructor_requires_args")),
+                "python_class_instance": bool(candidate.get("python_class_instance")),
             }
             break
         if winner is not None:
@@ -1300,6 +1392,7 @@ def infer_acquisition_spec(
         "named_export_class": bool(collected[0].get("named_export_class")),
         "nested_namespace_class": bool(collected[0].get("nested_namespace_class")),
         "constructor_requires_args": bool(collected[0].get("constructor_requires_args")),
+        "python_class_instance": bool(collected[0].get("python_class_instance")),
     }
     return {
         "ok": True,

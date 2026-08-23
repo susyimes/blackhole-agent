@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "markdown_it_render_output": "<p>Hello World</p>\n"
+      },
+      "input": {
+        "src": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "markdown_it_render_output": "<p>blackhole unbound</p>\n"
+      },
+      "input": {
+        "src": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "markdown_it_render_output": "<p>MiXeD CaSe</p>\n"
+      },
+      "input": {
+        "src": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "markdown_it_render_output": ""
+      },
+      "input": {
+        "src": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "markdown-it-py (MarkdownIt.render)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "markdown-it-py",
+    "registry": "pypi",
+    "sha256": "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3",
+    "source": "artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz",
+    "url": "",
+    "version": "4.0.0"
+  },
+  "provides": [
+    "markdown_it_render_output"
+  ],
+  "requires": [
+    "src"
+  ],
+  "schema_version": 1,
+  "slug": "markdown-it-py-markdown-it-render",
+  "version": "4.0.0"
+}

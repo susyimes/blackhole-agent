@@ -611,6 +611,93 @@
       ],
       "updated_at": "2026-08-23T03:51:23.371030Z"
     },
+    "capability.absorbed-markdown-it-py": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/markdown-it-py/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'markdown-it-py' is now a first-class invocable capability providing ['markdown_it_normalize_link_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T08:19:11.427059Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'markdown-it-py' (pypi-live origin artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz): provides ['markdown_it_normalize_link_output'] from ['url']. Vendored under capabilities/absorbed/markdown-it-py/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-markdown-it-py",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T08:20:47.936561Z",
+      "name": "Absorbed external capability: markdown-it-py",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('markdown-it-py'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T08:20:47.936561Z"
+    },
+    "capability.absorbed-markdown-it-py-markdown-it-normalize-link": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/markdown-it-py-markdown-it-normalize-link/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'markdown-it-py-markdown-it-normalize-link' is now a first-class invocable capability providing ['markdown_it_normalize_link_text_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T08:19:15.938959Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'markdown-it-py-markdown-it-normalize-link' (pypi-live origin artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz): provides ['markdown_it_normalize_link_text_output'] from ['link']. Vendored under capabilities/absorbed/markdown-it-py-markdown-it-normalize-link/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-markdown-it-py-markdown-it-normalize-link",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T08:20:52.297210Z",
+      "name": "Absorbed external capability: markdown-it-py (MarkdownIt.normalizeLinkText)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('markdown-it-py-markdown-it-normalize-link'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T08:20:52.297210Z"
+    },
+    "capability.absorbed-markdown-it-py-markdown-it-render": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/markdown-it-py-markdown-it-render/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'markdown-it-py-markdown-it-render' is now a first-class invocable capability providing ['markdown_it_render_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T08:19:19.361679Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'markdown-it-py-markdown-it-render' (pypi-live origin artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz): provides ['markdown_it_render_output'] from ['src']. Vendored under capabilities/absorbed/markdown-it-py-markdown-it-render/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-markdown-it-py-markdown-it-render",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T08:20:56.373834Z",
+      "name": "Absorbed external capability: markdown-it-py (MarkdownIt.render)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('markdown-it-py-markdown-it-render'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T08:20:56.373834Z"
+    },
     "capability.absorbed-markdown-it-render-inline": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -1865,6 +1952,51 @@
         "evidence"
       ],
       "updated_at": "2026-08-23T02:36:38.718087Z"
+    },
+    "capability.application-python-class-instance-growth-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application_growth.py",
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_forage_growth.py",
+        "tests/fixtures/forage_python_class_instance_catalog.json",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application-growth no longer skips sdists whose callable API is a Python class instance method that exists only after construction: introspection constructs Parser(opts) / MarkdownIt() and reflects MarkdownIt.normalizeLink, and a covering package is foraged so the original task becomes solvable.",
+      "created_at": "2026-08-23T08:20:09.549357Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+        "capability.application-node-named-class-construct-growth-plane",
+        "capability.application-node-named-class-instance-growth-plane",
+        "capability.application-runtime-deps-growth-plane",
+        "capability.application-live-fetch-growth-plane",
+        "capability.application-growth-plane",
+        "capability.application-plane"
+      ],
+      "description": "An unplannable application goal grows itself from a live-fetched sdist whose callable API is a Python class instance method: introspection constructs Parser(opts) / MarkdownIt() and reflects instance methods that exist only after construction rather than a module-level function, and the covering package is foraged so the original task becomes solvable.",
+      "entry": "blackhole_agent.capability_application_growth:demo_application_python_class_instance_growth_plane",
+      "id": "capability.application-python-class-instance-growth-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T08:21:22.092333Z",
+      "name": "Application python class-instance growth plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_application_growth import builtin_application_python_class_instance_growth_plane_proof; r=builtin_application_python_class_instance_growth_plane_proof(); assert r['ok'] and r.get('action')=='application_python_class_instance_growth_plane' and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') and r.get('grow_winner_is_markdown_it_py') and r.get('npm_decoy_probed') and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') and r.get('python_class_instance_selected') and r.get('winner_is_python_class_instance') and r.get('winner_is_not_named_export_class_static') and r.get('winner_is_not_default_export') and r.get('winner_is_not_default_export_class') and r.get('winner_is_not_default_export_object') and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') and r.get('registries_npm_and_pypi') and r.get('query_from_goal') and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "application",
+        "growth",
+        "python",
+        "class-instance"
+      ],
+      "updated_at": "2026-08-23T08:21:22.092333Z"
     },
     "capability.application-registry-growth-plane": {
       "behavior_paths": [
@@ -4468,5 +4600,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-23T07:37:08.911693Z"
+  "updated_at": "2026-08-23T08:21:22.094685Z"
 }

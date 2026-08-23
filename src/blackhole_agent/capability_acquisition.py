@@ -176,6 +176,7 @@ Do not hand-edit: the vendored tree digest seals this file.
 """
 
 import importlib
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -188,14 +189,36 @@ for _extra in CONFIG.get("extra_paths") or []:
 sys.path.insert(0, str(_ROOT / CONFIG["path_root"]))
 
 
+def _construct_instance(ctor):
+    if not inspect.isclass(ctor):
+        return None
+    for args in ((), ({{}},), ("",)):
+        try:
+            return ctor(*args)
+        except Exception:
+            continue
+    return None
+
+
 def main() -> int:
     state = json.load(sys.stdin)
     module = importlib.import_module(CONFIG["import_name"])
-    target = module
-    for part in CONFIG["callable_name"].split("."):
-        target = getattr(target, part)
+    parts = str(CONFIG["callable_name"]).split(".")
     args = [state[key] for key in CONFIG["requires"]]
-    result = target(*args)
+    if len(parts) == 1:
+        result = getattr(module, parts[0])(*args)
+    else:
+        parent = module
+        for part in parts[:-1]:
+            parent = getattr(parent, part)
+        leaf = parts[-1]
+        if inspect.isclass(parent):
+            instance = _construct_instance(parent)
+            if instance is None:
+                raise TypeError("cannot construct " + ".".join(parts[:-1]))
+            result = getattr(instance, leaf)(*args)
+        else:
+            result = getattr(parent, leaf)(*args)
     json.dump({{CONFIG["provides"]: result}}, sys.stdout)
     return 0
 

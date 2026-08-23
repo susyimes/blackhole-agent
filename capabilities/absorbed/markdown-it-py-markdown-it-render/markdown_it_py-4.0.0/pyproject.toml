@@ -1,0 +1,116 @@
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "markdown-it-py"
+dynamic = ["version"]
+description = "Python port of markdown-it. Markdown parsing, done right!"
+readme = "README.md"
+authors = [{name = "Chris Sewell", email = "chrisj_sewell@hotmail.com"}]
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup",
+]
+keywords = ["markdown", "lexer", "parser", "commonmark", "markdown-it"]
+requires-python = ">=3.10"
+dependencies = [
+    "mdurl~=0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/executablebooks/markdown-it-py"
+Documentation = "https://markdown-it-py.readthedocs.io"
+
+[project.optional-dependencies]
+compare = [
+    "commonmark~=0.9",
+    "markdown~=3.4",
+    "mistletoe~=1.0",
+    "mistune~=3.0",
+    "panflute~=2.3",
+    "markdown-it-pyrs",
+]
+linkify = ["linkify-it-py>=1,<3"]
+plugins = ["mdit-py-plugins>=0.5.0"]
+rtd = [
+    "mdit-py-plugins>=0.5.0",
+    "myst-parser",
+    "pyyaml",
+    "sphinx",
+    "sphinx-copybutton",
+    "sphinx-design",
+    "sphinx-book-theme~=1.0",
+    "jupyter_sphinx",
+    "ipykernel",
+]
+testing = [
+    "coverage",
+    "pytest",
+    "pytest-cov",
+    "pytest-regressions",
+    "requests",
+]
+benchmarking = [
+    "psutil",
+    "pytest",
+    "pytest-benchmark",
+]
+profiling = ["gprof2dot"]
+
+[dependency-groups]
+pre_commit = ["pre-commit"]
+mypy = ["mypy", "mdurl", "typing-extensions"]
+
+[project.scripts]
+markdown-it = "markdown_it.cli.parse:main"
+
+[tool.flit.module]
+name = "markdown_it"
+
+[tool.flit.sdist]
+exclude = [
+    "docs/",
+    "tests/",
+    "benchmarking/"
+]
+
+[tool.ruff.lint]
+extend-select = ["B0", "C4", "I", "ICN", "ISC", "N", "RUF", "SIM", "UP"]
+extend-ignore = ["ISC001", "ISC003", "N802", "N803", "N806", "N816", "RUF003"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+
+[tool.mypy]
+show_error_codes = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["tests.test_plugins.*", "markdown.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["markdown.*", "linkify_it.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+xfail_strict = true

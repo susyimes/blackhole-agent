@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "markdown_it_normalize_link_text_output": "Hello World"
+      },
+      "input": {
+        "link": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "markdown_it_normalize_link_text_output": "blackhole unbound"
+      },
+      "input": {
+        "link": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "markdown_it_normalize_link_text_output": "MiXeD CaSe"
+      },
+      "input": {
+        "link": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "markdown_it_normalize_link_text_output": ""
+      },
+      "input": {
+        "link": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "markdown-it-py (MarkdownIt.normalizeLinkText)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "markdown-it-py",
+    "registry": "pypi",
+    "sha256": "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3",
+    "source": "artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz",
+    "url": "",
+    "version": "4.0.0"
+  },
+  "provides": [
+    "markdown_it_normalize_link_text_output"
+  ],
+  "requires": [
+    "link"
+  ],
+  "schema_version": 1,
+  "slug": "markdown-it-py-markdown-it-normalize-link",
+  "version": "4.0.0"
+}

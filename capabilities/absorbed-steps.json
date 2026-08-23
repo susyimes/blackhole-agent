@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T07:33:43.779106Z",
+  "absorbed_at": "2026-08-23T08:19:19.347871Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1210,6 +1210,195 @@
       "slug": "markdown-it",
       "vendored_tree_digest": "e9d0addd45ba04c354c289fc2183325e5623e5cb1dc84a185fc901900240b600",
       "version": "14.1.0"
+    },
+    {
+      "capability_id": "capability.absorbed-markdown-it-py",
+      "cases": [
+        {
+          "expect": {
+            "markdown_it_normalize_link_output": "Hello%20World"
+          },
+          "input": {
+            "url": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_normalize_link_output": "blackhole%20unbound"
+          },
+          "input": {
+            "url": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_normalize_link_output": "MiXeD%20CaSe"
+          },
+          "input": {
+            "url": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_normalize_link_output": ""
+          },
+          "input": {
+            "url": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "markdown-it-py",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "markdown-it-py",
+        "registry": "pypi",
+        "sha256": "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3",
+        "source": "artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz",
+        "url": "",
+        "version": "4.0.0"
+      },
+      "provides": [
+        "markdown_it_normalize_link_output"
+      ],
+      "record_digest": "2116cca107a893ea6ffdcbe0edd51971a1beed63abf4c379608297655ef40470",
+      "requires": [
+        "url"
+      ],
+      "schema_version": 1,
+      "slug": "markdown-it-py",
+      "vendored_tree_digest": "ba1caad334861bcc30fdd14efdedaa4cf150868491a2dc66024256ce71dacce2",
+      "version": "4.0.0"
+    },
+    {
+      "capability_id": "capability.absorbed-markdown-it-py-markdown-it-normalize-link",
+      "cases": [
+        {
+          "expect": {
+            "markdown_it_normalize_link_text_output": "Hello World"
+          },
+          "input": {
+            "link": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_normalize_link_text_output": "blackhole unbound"
+          },
+          "input": {
+            "link": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_normalize_link_text_output": "MiXeD CaSe"
+          },
+          "input": {
+            "link": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_normalize_link_text_output": ""
+          },
+          "input": {
+            "link": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "markdown-it-py (MarkdownIt.normalizeLinkText)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "markdown-it-py",
+        "registry": "pypi",
+        "sha256": "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3",
+        "source": "artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz",
+        "url": "",
+        "version": "4.0.0"
+      },
+      "provides": [
+        "markdown_it_normalize_link_text_output"
+      ],
+      "record_digest": "929fad55b4faf9839cad982036aff5b5051b814fbee6bd497711b50d7d102c5f",
+      "requires": [
+        "link"
+      ],
+      "schema_version": 1,
+      "slug": "markdown-it-py-markdown-it-normalize-link",
+      "vendored_tree_digest": "2ca057d6e7953ab568e2e483f300eedd8a32c739bf199fd2d923ffa54987bc20",
+      "version": "4.0.0"
+    },
+    {
+      "capability_id": "capability.absorbed-markdown-it-py-markdown-it-render",
+      "cases": [
+        {
+          "expect": {
+            "markdown_it_render_output": "<p>Hello World</p>\n"
+          },
+          "input": {
+            "src": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_render_output": "<p>blackhole unbound</p>\n"
+          },
+          "input": {
+            "src": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_render_output": "<p>MiXeD CaSe</p>\n"
+          },
+          "input": {
+            "src": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "markdown_it_render_output": ""
+          },
+          "input": {
+            "src": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "markdown-it-py (MarkdownIt.render)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "markdown-it-py",
+        "registry": "pypi",
+        "sha256": "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3",
+        "source": "artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz",
+        "url": "",
+        "version": "4.0.0"
+      },
+      "provides": [
+        "markdown_it_render_output"
+      ],
+      "record_digest": "57f978fe2bceee467aa66b4fab919eb2287b3838acb1922f6100c7112c5b40bc",
+      "requires": [
+        "src"
+      ],
+      "schema_version": 1,
+      "slug": "markdown-it-py-markdown-it-render",
+      "vendored_tree_digest": "0a5552c45a68d5725ba0771525ea9b04c1aa094469f25ccba4a97ec16674e5b2",
+      "version": "4.0.0"
     },
     {
       "capability_id": "capability.absorbed-markdown-it-render-inline",
@@ -2554,5 +2743,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "9d2f974c809cda4a3fe0b66ed58e87c4b80e916078bf67737c134a18bd883907"
+  "steps_digest": "91cb4a3aed3dae50cab8a3d875a6244a0ee28cae639686ad38aae9c9075647a5"
 }

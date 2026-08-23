@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-markdown-it-py",
+  "generated_at": "2026-08-23T08:20:49.058839Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-markdown-it-py"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "markdown-it-py",
+    "registry": "pypi",
+    "sha256": "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3",
+    "source": "artifacts/capability-foraging/downloads/markdown_it_py-4.0.0.tar.gz",
+    "url": "",
+    "version": "4.0.0"
+  },
+  "record_digest": "2116cca107a893ea6ffdcbe0edd51971a1beed63abf4c379608297655ef40470",
+  "report_digest": "df7ac56b15136baf52041534fd54003d55ea11c1e1979b80de85bf6873a556bb",
+  "schema_version": 1,
+  "slug": "markdown-it-py",
+  "task": {
+    "goal": [
+      "markdown_it_normalize_link_output"
+    ],
+    "id": "absorbed-markdown-it-py",
+    "initial_state": {
+      "url": "Hello World"
+    },
+    "oracle": {
+      "markdown_it_normalize_link_output": "Hello%20World"
+    }
+  },
+  "vendored_tree_digest": "ba1caad334861bcc30fdd14efdedaa4cf150868491a2dc66024256ce71dacce2",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

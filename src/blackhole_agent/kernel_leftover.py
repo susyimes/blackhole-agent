@@ -172,6 +172,8 @@ _MARKERS = (
     ("constructor requires arguments", "capability.application-node-named-class-construct-growth-plane"),
     ("parser(options).parse", "capability.application-node-named-class-construct-growth-plane"),
     ("new parser(options)", "capability.application-node-named-class-construct-growth-plane"),
+    ("python class instance methods", "capability.application-python-class-instance-growth-plane"),
+    ("parser(opts).loads", "capability.application-python-class-instance-growth-plane"),
     ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
     ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
 )

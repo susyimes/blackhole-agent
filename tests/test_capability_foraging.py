@@ -762,6 +762,113 @@ def test_named_class_construct_npm_tarball_forages_eta(tmp_path: Path) -> None:
     assert closed["spec"].callable_name == "Eta.compileBody"
 
 
+def test_pypi_dep_cache_ignores_npm_tgz(tmp_path: Path) -> None:
+    from blackhole_agent.capability_foraging import _cached_pypi_archive
+
+    (tmp_path / "mdurl-2.1.0.tgz").write_bytes(b"npm")
+    (tmp_path / "mdurl-0.1.2.tar.gz").write_bytes(b"pypi")
+    cached = _cached_pypi_archive("mdurl", tmp_path)
+    assert cached is not None
+    assert cached.name == "mdurl-0.1.2.tar.gz"
+    (tmp_path / "mdurl-0.1.2.tar.gz").unlink()
+    assert _cached_pypi_archive("mdurl", tmp_path) is None
+
+
+def test_python_introspection_reflects_class_construct_args(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "forage_parser.py").write_text(
+        "class Parser:\n"
+        "    def __init__(self, opts):\n"
+        "        if opts is None:\n"
+        "            raise TypeError('Parser options required')\n"
+        "        self.opts = opts\n"
+        "    def loads(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('loads expects a string')\n"
+        "        return text.lower()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_parser", ".")
+    assert reflected["ok"], reflected
+    parsed = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "Parser.loads")
+    assert parsed["python_class_instance"] is True
+    assert parsed["constructor_requires_args"] is True
+    result = infer_acquisition_spec(
+        slug="forage-parser",
+        name="forage-parser",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_parser",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "Parser.loads"
+    assert result["record"]["python_class_instance"] is True
+    assert result["record"]["constructor_requires_args"] is True
+    assert result["spec"].provides == "parser_loads_output"
+
+
+def test_python_introspection_reflects_instance_own_methods_after_construct(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "forage_own.py").write_text(
+        "class Parser:\n"
+        "    def __init__(self, opts=None):\n"
+        "        options = opts or {}\n"
+        "        def loads(text):\n"
+        "            if not isinstance(text, str):\n"
+        "                raise TypeError('loads expects a string')\n"
+        "            return text.lower()\n"
+        "        self.loads = loads\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_own", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "Parser.loads" in names
+    parsed = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "Parser.loads")
+    assert parsed["python_class_instance"] is True
+    result = infer_acquisition_spec(
+        slug="forage-own",
+        name="forage-own",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_own",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "Parser.loads"
+    assert result["record"]["python_class_instance"] is True
+    assert result["spec"].provides == "parser_loads_output"
+
+
+def test_python_class_instance_sdist_forages_markdown_it_py(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "markdown-it-py", "slug": "markdown-it-py", "registry": "pypi", "version": "4.0.0"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="markdown-it-py",
+        name="markdown-it-py",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="markdown_it",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "MarkdownIt.normalizeLink"
+    assert result["record"]["python_class_instance"] is True
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "markdown_it_normalize_link_output"
+    assert result["spec"].callable_name == "MarkdownIt.normalizeLink"
+    assert any(item.get("name") == "mdurl" for item in result["record"]["runtime_deps"])
+
+
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:
     result = infer_acquisition_spec(
         slug="forage-lab",

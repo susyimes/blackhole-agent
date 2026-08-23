@@ -177,6 +177,9 @@ def probe_candidate(
         "constructor_requires_args": bool(
             (inference.get("record") or {}).get("constructor_requires_args")
         ),
+        "python_class_instance": bool(
+            (inference.get("record") or {}).get("python_class_instance")
+        ),
     }
 
 

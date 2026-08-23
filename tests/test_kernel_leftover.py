@@ -191,6 +191,20 @@ def test_node_named_class_construct_leftover_marks_application_node_named_class_
     assert "constructor requires arguments" in leftover_next_step(prefixed)
 
 
+def test_python_class_instance_leftover_marks_application_python_class_instance_growth_plane():
+    leftover = (
+        "Optional later work is reflecting Python class instance methods that exist "
+        "only after construction so sdists whose API is Parser(opts).loads rather "
+        "than a module-level function can be foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-class-instance-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "Parser(opts).loads" in leftover_next_step(prefixed)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "
