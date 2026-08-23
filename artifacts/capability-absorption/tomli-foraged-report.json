@@ -1,21 +1,21 @@
 {
   "capability_id": "capability.absorbed-tomli-foraged",
-  "generated_at": "2026-08-22T21:23:24.828025Z",
+  "generated_at": "2026-08-23T01:25:49.351329Z",
   "grade": {
-    "ok": true,
+    "ok": false,
     "verdict_count": 6,
-    "verdicts_passed": 6
+    "verdicts_passed": 3
   },
   "grown_plan": [
-    "capability.absorbed-tomli-foraged"
+    "capability.absorbed-tomli"
   ],
   "kind": "capability_absorption_scenario",
   "origin": {
     "kind": "pypi-sdist",
     "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz"
   },
-  "record_digest": "8221d9cfeda857e351ee34227b51960e4fdb30692d54db36ffe0292b94fc1d98",
-  "report_digest": "d29faf08dd63779a2388a03d99f051f963790928c21320bd06db3ebc8353f9fb",
+  "record_digest": "d9d7ddaabf9815a8c182ffa9b9122d26df54ab8a3a60dc9fe2c36a5cac0c7d24",
+  "report_digest": "2a85850f2e7689a18491847f8cc000bc36ca05a483100fb817bc2ac8a592abcb",
   "schema_version": 1,
   "slug": "tomli-foraged",
   "task": {
@@ -32,13 +32,13 @@
       }
     }
   },
-  "vendored_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
+  "vendored_tree_digest": "365efcbe420a7ca000394c6739acd5efb0096a2b451042e8855b6070e4d5255b",
   "verdicts": {
-    "ablation_unplannable": true,
+    "ablation_unplannable": false,
     "forgery_rejected": true,
-    "grown_plan_solved": true,
+    "grown_plan_solved": false,
     "live_proof_ok": true,
     "tamper_rejected": true,
-    "unplannable_before": true
+    "unplannable_before": false
   }
 }

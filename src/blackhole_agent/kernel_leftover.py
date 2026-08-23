@@ -145,6 +145,9 @@ _MARKERS = (
     ("live-fetch probing", "capability.application-live-fetch-growth-plane"),
     ("no on-disk archive", "capability.application-live-fetch-growth-plane"),
     ("stewardship tree has never seen", "capability.application-live-fetch-growth-plane"),
+    ("transitive runtime dependencies", "capability.application-runtime-deps-growth-plane"),
+    ("import-unclosed", "capability.application-runtime-deps-growth-plane"),
+    ("runtime dependencies of a fetched", "capability.application-runtime-deps-growth-plane"),
 )
 
 
@@ -326,11 +329,20 @@ def leftover_satisfied_by(
         if _ledger_proves(live_ledger, capability_id):
             return f"ledger:{capability_id}"
     skip = str(source_mission_id or "").strip()
+    source_created = ""
+    if skip:
+        for state in _mission_states(root):
+            if str(state.get("mission_id") or "") == skip:
+                source_created = str(state.get("created_at") or "")
+                break
     for state in _mission_states(root):
         mission_id = str(state.get("mission_id") or "")
         if skip and mission_id == skip:
             continue
         if str(state.get("status") or "") != "complete":
+            continue
+        other_created = str(state.get("created_at") or "")
+        if source_created and other_created and other_created <= source_created:
             continue
         other = _complete_mission_text(state)
         if leftover_phrase_overlap(leftover, other) >= PHRASE_OVERLAP_MIN:

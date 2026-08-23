@@ -156,6 +156,8 @@ def probe_candidate(
         "skip_reason": "",
         "error": "",
         "runtime": (inference.get("record") or {}).get("runtime"),
+        "runtime_deps": list((inference.get("record") or {}).get("runtime_deps") or []),
+        "extra_paths": list((inference.get("record") or {}).get("extra_paths") or []),
     }
 
 
@@ -247,6 +249,10 @@ def match_forage_goal(
         else [str((forage_result.get("inference") or {}).get("provides") or "")]
         if (forage_result.get("inference") or {}).get("provides")
         else list((covering_probe or {}).get("inferred_provides") or []),
+        "runtime_deps": list((forage_result.get("inference") or {}).get("runtime_deps") or [])
+        or list((covering_probe or {}).get("runtime_deps") or []),
+        "extra_paths": list((forage_result.get("inference") or {}).get("extra_paths") or [])
+        or list((covering_probe or {}).get("extra_paths") or []),
     }
     result["ok"] = bool(forage_result.get("ok"))
     if not forage_result.get("ok"):

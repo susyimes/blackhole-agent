@@ -12,6 +12,7 @@ from blackhole_agent.capability_foraging import (
     FIXTURE_NODE_FORAGE_PACKAGE,
     STEWARDSHIP_ROOT,
     builtin_foraging_plane_proof,
+    close_runtime_dependencies,
     detect_import_root,
     detect_node_entry,
     detect_package_runtime,
@@ -19,6 +20,7 @@ from blackhole_agent.capability_foraging import (
     infer_acquisition_spec,
     introspect_module,
     introspect_node_module,
+    parse_runtime_requires,
     probe_domains_for,
     run_foraging_plane,
     verify_foraging_plane,
@@ -75,6 +77,47 @@ def test_introspection_import_failure_refused(tmp_path: Path) -> None:
     result = introspect_module(tmp_path, "broken", ".")
     assert not result["ok"]
     assert "import failed" in result["error"]
+
+
+def test_import_unclosed_sdist_closes_runtime_deps(tmp_path: Path) -> None:
+    from blackhole_agent.capability_acquisition import stage_acquisition_source
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "python-slugify", "slug": "python-slugify", "registry": "pypi", "version": "8.0.4"}
+    )
+    assert fetched and fetched["ok"], fetched
+    source = Path(str(fetched["path"]))
+    staged = tmp_path / "staged"
+    stage_acquisition_source(source, staged)
+    requires = parse_runtime_requires(staged)
+    assert any(name.replace("_", "-").lower() == "text-unidecode" for name in requires)
+    opened = infer_acquisition_spec(
+        slug="python-slugify",
+        name="python-slugify",
+        source=source,
+        staging_root=tmp_path / "open",
+        hint="slugify",
+        close_deps=False,
+    )
+    assert not opened["ok"]
+    assert "import failed" in str(opened.get("error") or "")
+    closed = infer_acquisition_spec(
+        slug="python-slugify",
+        name="python-slugify",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="slugify",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "slugify"
+    assert closed["spec"].provides == "slugify_output"
+    assert any(item.get("name") == "text-unidecode" for item in closed["record"]["runtime_deps"])
+    assert closed["spec"].extra_paths
+    vendored = close_runtime_dependencies(staged)
+    assert vendored["ok"], vendored
+    assert "text-unidecode" in vendored["requires"]
 
 
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:

@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const CONFIG = {
   "callable_name": "whisper",
   "entry": "index.mjs",
+  "extra_paths": [],
   "import_name": "",
   "path_root": ".",
   "provides": "whisper_output",

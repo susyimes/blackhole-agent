@@ -1,6 +1,6 @@
 {
   "capability_id": "capability.absorbed-forage-lab",
-  "generated_at": "2026-08-22T21:23:22.480072Z",
+  "generated_at": "2026-08-23T01:25:47.034105Z",
   "grade": {
     "ok": true,
     "verdict_count": 6,
@@ -14,8 +14,8 @@
     "kind": "fixture",
     "source": "tests/fixtures/external_packages/forage-lab"
   },
-  "record_digest": "92e2ee2daf97d25fd13e2ec33676ff356a892969f9489226f83207e86c5f4550",
-  "report_digest": "cf573fccf0b2fd308988f7b801ae724cde2c1167692f2f3286e34e7749e38f34",
+  "record_digest": "6081ffeb8f44a48c8deb91f197ed8c6ac78572d81b28a5431e1b407d6b86ab11",
+  "report_digest": "9b7a9b04a38e3d9aa69a4be68c0d79da5fd7ab57fa31c9f29203fd233e10a143",
   "schema_version": 1,
   "slug": "forage-lab",
   "task": {
@@ -30,7 +30,7 @@
       "shout_output": "HELLO WORLD!"
     }
   },
-  "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+  "vendored_tree_digest": "55219e808bb079635469ba5f13d6573e97b41f22b389b16dd70fd2d43867daec",
   "verdicts": {
     "ablation_unplannable": true,
     "forgery_rejected": true,

@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "smart_truncate_output": "Hello World"
+      },
+      "input": {
+        "string": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "smart_truncate_output": "blackhole unbound"
+      },
+      "input": {
+        "string": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "smart_truncate_output": "MiXeD CaSe"
+      },
+      "input": {
+        "string": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "smart_truncate_output": ""
+      },
+      "input": {
+        "string": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "python-slugify (smart_truncate)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "python-slugify",
+    "registry": "pypi",
+    "sha256": "59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856",
+    "source": "artifacts/capability-foraging/downloads/python-slugify-8.0.4.tar.gz",
+    "url": "",
+    "version": "8.0.4"
+  },
+  "provides": [
+    "smart_truncate_output"
+  ],
+  "requires": [
+    "string"
+  ],
+  "schema_version": 1,
+  "slug": "python-slugify-smart-truncate",
+  "version": "8.0.4"
+}

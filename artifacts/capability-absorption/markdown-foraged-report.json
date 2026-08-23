@@ -1,6 +1,6 @@
 {
   "capability_id": "capability.absorbed-markdown-foraged",
-  "generated_at": "2026-08-22T21:23:31.656794Z",
+  "generated_at": "2026-08-23T01:25:57.099014Z",
   "grade": {
     "ok": true,
     "verdict_count": 6,
@@ -14,8 +14,8 @@
     "kind": "pypi-sdist",
     "source": "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz"
   },
-  "record_digest": "ba4c40393cb9a716634172b02c6389d40f88fef1e27f3ef2fab84b71bfb6acf3",
-  "report_digest": "4d33f4f9b5b2c67c6cd856e811867293eb2f8b547eac548b1fe4995248d1925d",
+  "record_digest": "f6d7d40aaf5e6d95d3856896c768c3a54b1a14373e8e2649e6409a0d2dad5bdd",
+  "report_digest": "0dfee5ac5adfb9bc54d9df77747a68611cc02a6b87a25c00b815b08ecf10611b",
   "schema_version": 1,
   "slug": "markdown-foraged",
   "task": {
@@ -30,7 +30,7 @@
       "markdown_output": "<p>Hello World</p>"
     }
   },
-  "vendored_tree_digest": "2ccd048b5d3e31585eb7faa356986af2bb4eb5ec9faa265973b823d1f2a9befe",
+  "vendored_tree_digest": "983a3563df4293b22c2b99d5dfd7501814838c3e4c9cecceaef456d89dbbc207",
   "verdicts": {
     "ablation_unplannable": true,
     "forgery_rejected": true,

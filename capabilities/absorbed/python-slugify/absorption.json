@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "slugify_output": "hello-world"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "slugify_output": "blackhole-unbound"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "slugify_output": "mixed-case"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "slugify_output": ""
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "python-slugify",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "python-slugify",
+    "registry": "pypi",
+    "sha256": "59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856",
+    "source": "artifacts/capability-foraging/downloads/python-slugify-8.0.4.tar.gz",
+    "url": "",
+    "version": "8.0.4"
+  },
+  "provides": [
+    "slugify_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "python-slugify",
+  "version": "8.0.4"
+}

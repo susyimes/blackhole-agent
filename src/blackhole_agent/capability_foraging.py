@@ -96,7 +96,29 @@ FIXTURE_EMPTY_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" /
 FIXTURE_NODE_FORAGE_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-js"
 FIXTURE_NODE_EMPTY_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-js-empty"
 _NODE_ENTRY_NAMES = ("index.mjs", "index.js", "main.mjs", "main.js")
-_NODE_SKIP_DIR_NAMES = frozenset({"node_modules", "__pycache__", ".git", "test", "tests"})
+_NODE_SKIP_DIR_NAMES = frozenset({"node_modules", "__pycache__", ".git", "test", "tests", ".forage-deps"})
+FORAGE_DEPS_DIR = ".forage-deps"
+_DEV_REQUIREMENT_NAMES = frozenset(
+    {
+        "pip",
+        "setuptools",
+        "wheel",
+        "pytest",
+        "coverage",
+        "sphinx",
+        "black",
+        "flake8",
+        "mypy",
+        "tox",
+        "hatch",
+        "flit",
+        "build",
+        "twine",
+    }
+)
+_REQUIREMENT_NAME = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)")
+_INSTALL_REQUIRES_ASSIGN = re.compile(r"install_requires\s*=\s*\[(.*?)\]", re.DOTALL)
+_QUOTED_REQUIREMENT = re.compile(r"""['"]([^'"]+)['"]""")
 
 _SKIP_MODULE_NAMES = frozenset({"setup", "conftest", "test", "tests", "__init__"})
 _SCALAR_ANNOTATIONS = frozenset({"", "str", "int", "float", "bool"})
@@ -170,7 +192,9 @@ def _importable_names(root: Path) -> set[str]:
 
 def _candidate_roots(staged_dir: Path) -> list[Path]:
     roots = [staged_dir]
-    for child in sorted(entry for entry in staged_dir.iterdir() if entry.is_dir()):
+    for child in sorted(
+        entry for entry in staged_dir.iterdir() if entry.is_dir() and not entry.name.startswith(".")
+    ):
         roots.append(child)
         src = child / "src"
         if src.is_dir():
@@ -215,6 +239,8 @@ import json
 import sys
 
 root, import_name = sys.argv[1], sys.argv[2]
+for extra in sys.argv[3:]:
+    sys.path.insert(0, extra)
 sys.path.insert(0, root)
 try:
     module = importlib.import_module(import_name)
@@ -256,14 +282,21 @@ print(json.dumps({"ok": True, "candidates": candidates}))
 '''
 
 
-def introspect_module(staged_dir: Path, import_name: str, path_root: str, timeout: int = 60) -> dict[str, Any]:
-    """Reflect one module's public functions in a subprocess."""
+def introspect_module(
+    staged_dir: Path,
+    import_name: str,
+    path_root: str,
+    timeout: int = 60,
+    extra_paths: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Reflect one module's public functions in an isolated subprocess."""
 
+    extras = [str(staged_dir / item) for item in extra_paths if str(item).strip()]
     with tempfile.TemporaryDirectory(prefix="blackhole-forage-introspect-") as tmp:
         script = Path(tmp) / "introspect.py"
         script.write_text(_INTROSPECT_SCRIPT, encoding="utf-8")
         completed = subprocess.run(
-            [sys.executable, str(script), str(staged_dir / path_root), import_name],
+            [sys.executable, "-S", str(script), str(staged_dir / path_root), import_name, *extras],
             capture_output=True,
             text=True,
             cwd=staged_dir,
@@ -499,6 +532,226 @@ def _provides_key(callable_name: str, requires: Sequence[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Runtime dependency closing: import-unclosed sdists become introspectable.
+# ---------------------------------------------------------------------------
+
+
+def _pep_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", str(value or "").strip()).lower()
+
+
+def _requirement_name(line: str) -> str | None:
+    raw = str(line or "").strip()
+    if not raw or raw.startswith(("#", "-", "[")):
+        return None
+    lowered = raw.lower()
+    if lowered.startswith("requires-dist:"):
+        raw = raw.split(":", 1)[1].strip()
+        lowered = raw.lower()
+    if "extra ==" in lowered.replace('"', "'"):
+        return None
+    raw = raw.split(";", 1)[0].strip().split("[", 1)[0].strip()
+    match = _REQUIREMENT_NAME.match(raw)
+    if not match:
+        return None
+    name = match.group(1)
+    if _pep_name(name) in _DEV_REQUIREMENT_NAMES:
+        return None
+    return name
+
+
+def _add_requirement_names(names: list[str], seen: set[str], candidates: Sequence[str | None]) -> None:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        pep = _pep_name(candidate)
+        if not pep or pep in seen:
+            continue
+        seen.add(pep)
+        names.append(candidate)
+
+
+def _parse_requires_txt(text: str) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            break
+        _add_requirement_names(names, seen, [_requirement_name(stripped)])
+    return names
+
+
+def _parse_requires_dist(text: str) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        if line.lower().startswith("requires-dist:"):
+            _add_requirement_names(names, seen, [_requirement_name(line)])
+    return names
+
+
+def _parse_setup_cfg_requires(text: str) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    in_options = False
+    in_install = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_options = stripped.lower() == "[options]"
+            in_install = False
+            continue
+        if in_options and stripped.lower().startswith("install_requires"):
+            _, _, rest = stripped.partition("=")
+            in_install = True
+            _add_requirement_names(names, seen, [_requirement_name(rest)])
+            continue
+        if in_install:
+            if not stripped:
+                in_install = False
+                continue
+            _add_requirement_names(names, seen, [_requirement_name(stripped)])
+    return names
+
+
+def _parse_pyproject_dependencies(text: str) -> list[str]:
+    match = re.search(r"(?ms)^\[project\].*?^dependencies\s*=\s*\[(.*?)\]", text)
+    if not match:
+        return []
+    names: list[str] = []
+    seen: set[str] = set()
+    _add_requirement_names(names, seen, [_requirement_name(item) for item in _QUOTED_REQUIREMENT.findall(match.group(1))])
+    return names
+
+
+def _parse_setup_py_requires(text: str) -> list[str]:
+    match = _INSTALL_REQUIRES_ASSIGN.search(text)
+    if not match:
+        return []
+    names: list[str] = []
+    seen: set[str] = set()
+    _add_requirement_names(names, seen, [_requirement_name(item) for item in _QUOTED_REQUIREMENT.findall(match.group(1))])
+    return names
+
+
+def parse_runtime_requires(staged_dir: Path) -> list[str]:
+    """Declared install_requires / Requires-Dist, extras skipped."""
+
+    names: list[str] = []
+    seen: set[str] = set()
+    if not staged_dir.is_dir():
+        return names
+    for path in staged_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(staged_dir)
+        if any(part == FORAGE_DEPS_DIR or part.startswith(".") for part in relative.parts):
+            continue
+        label = path.name.lower()
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        parsed: list[str] = []
+        if label == "requires.txt":
+            parsed = _parse_requires_txt(text)
+        elif label in {"pkg-info", "metadata"}:
+            parsed = _parse_requires_dist(text)
+        elif label == "setup.cfg":
+            parsed = _parse_setup_cfg_requires(text)
+        elif label == "pyproject.toml":
+            parsed = _parse_pyproject_dependencies(text)
+        elif label == "setup.py":
+            parsed = _parse_setup_py_requires(text)
+        _add_requirement_names(names, seen, parsed)
+    return names
+
+
+def _cached_pypi_archive(name: str, dest: Path) -> Path | None:
+    prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
+    matches: list[Path] = []
+    for prefix in prefixes:
+        matches.extend(dest.glob(f"{prefix}-*.tar.gz"))
+        matches.extend(dest.glob(f"{prefix}-*.tgz"))
+    files = [path for path in matches if path.is_file()]
+    if not files:
+        return None
+    files.sort(key=lambda path: path.name)
+    return files[-1]
+
+
+def close_runtime_dependencies(
+    staged_dir: Path,
+    *,
+    dest_dir: Path | None = None,
+    max_depth: int = 3,
+) -> dict[str, Any]:
+    """Fetch and vendor declared runtime deps next to an import-unclosed sdist."""
+
+    download_dir = dest_dir or DEFAULT_DOWNLOAD_DIR
+    extra_paths: list[str] = []
+    closed: list[dict[str, Any]] = []
+    pending = [(name, 0) for name in parse_runtime_requires(staged_dir)]
+    seen: set[str] = set()
+    errors: list[str] = []
+    while pending:
+        name, depth = pending.pop(0)
+        pep = _pep_name(name)
+        if not pep or pep in seen or depth > max(0, int(max_depth)):
+            continue
+        seen.add(pep)
+        cached = _cached_pypi_archive(name, download_dir)
+        archive: Path | None = cached
+        version = ""
+        cache_hit = cached is not None
+        if archive is None:
+            fetched = fetch_pypi_sdist(name, None, dest_dir=download_dir)
+            if not fetched.get("ok"):
+                errors.append(str(fetched.get("error") or f"fetch failed: {name}"))
+                continue
+            archive = Path(str(fetched["path"]))
+            version = str(fetched.get("version") or "")
+        else:
+            filename = archive.name
+            for suffix in (".tar.gz", ".tgz", ".zip"):
+                if filename.endswith(suffix):
+                    filename = filename[: -len(suffix)]
+                    break
+            version = filename.rsplit("-", 1)[-1] if "-" in filename else ""
+        dep_root = staged_dir / FORAGE_DEPS_DIR / pep
+        if dep_root.exists():
+            shutil.rmtree(dep_root)
+        try:
+            stage_acquisition_source(archive, dep_root)
+            path_root, _import_name = detect_import_root(dep_root, hint=name)
+        except (ValueError, OSError) as exc:
+            errors.append(f"{name}: {exc}")
+            continue
+        relative = Path(FORAGE_DEPS_DIR) / pep / path_root
+        extra = relative.as_posix() if path_root != "." else (Path(FORAGE_DEPS_DIR) / pep).as_posix()
+        extra_paths.append(extra)
+        closed.append(
+            {
+                "name": pep,
+                "requested": name,
+                "version": version,
+                "path_root": extra,
+                "cache_hit": cache_hit,
+            }
+        )
+        if depth < max(0, int(max_depth)):
+            pending.extend((child, depth + 1) for child in parse_runtime_requires(dep_root))
+    return {
+        "ok": not errors,
+        "error": "; ".join(errors),
+        "requires": [item["name"] for item in closed],
+        "closed": closed,
+        "extra_paths": extra_paths,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Spec inference: the full AcquisitionSpec from introspection alone.
 # ---------------------------------------------------------------------------
 
@@ -521,6 +774,7 @@ def infer_acquisition_spec(
     runtime: str = "",
     bundle: bool | None = None,
     max_bundle: int = 3,
+    close_deps: bool = True,
 ) -> dict[str, Any]:
     """Infer complete ``AcquisitionSpec`` values for one uncooperative package.
 
@@ -544,6 +798,8 @@ def infer_acquisition_spec(
     entry = ""
     import_name = ""
     path_root = "."
+    extra_paths: tuple[str, ...] = ()
+    closed_deps: dict[str, Any] = {"ok": True, "closed": [], "extra_paths": []}
     if detected_runtime == "node":
         try:
             path_root, entry = detect_node_entry(staged_dir, hint)
@@ -551,11 +807,16 @@ def infer_acquisition_spec(
             return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
         introspection = introspect_node_module(staged_dir, entry)
     else:
+        if close_deps:
+            closed_deps = close_runtime_dependencies(staged_dir)
+            extra_paths = tuple(str(item) for item in closed_deps.get("extra_paths") or [])
         try:
             path_root, import_name = detect_import_root(staged_dir, hint)
         except ValueError as exc:
             return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
-        introspection = introspect_module(staged_dir, import_name, path_root)
+        introspection = introspect_module(
+            staged_dir, import_name, path_root, extra_paths=extra_paths
+        )
     if not introspection["ok"]:
         return {"ok": False, "stage": "introspect", "slug": slug, "error": introspection["error"]}
 
@@ -598,6 +859,7 @@ def infer_acquisition_spec(
                 probes=tuple(probes),
                 runtime=detected_runtime,
                 entry=entry,
+                extra_paths=extra_paths,
             )
             _probe_tree(staged_dir, spec)
             selection_results = [
@@ -640,6 +902,8 @@ def infer_acquisition_spec(
         "probe_count": len(primary.probes),
         "bundle": [item["spec"].callable_name for item in collected],
         "rejected": rejected,
+        "runtime_deps": list(closed_deps.get("closed") or []),
+        "extra_paths": list(extra_paths),
     }
     return {
         "ok": True,

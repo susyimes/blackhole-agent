@@ -73,6 +73,17 @@ def test_registry_overlay_leftover_marks_application_registry_growth_plane():
     assert "no replay_source" in leftover_next_step(prefixed)
 
 
+def test_runtime_deps_leftover_marks_application_runtime_deps_growth_plane():
+    leftover = (
+        "Optional later work is installing transitive runtime dependencies of a "
+        "fetched registry package so application-growth can forage import-unclosed sdists."
+    )
+    assert leftover_marker_ids(leftover) == ("capability.application-runtime-deps-growth-plane",)
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "import-unclosed" in leftover_next_step(prefixed)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

@@ -12,6 +12,7 @@ from pathlib import Path
 CONFIG = {
   "callable_name": "markdown",
   "entry": "",
+  "extra_paths": [],
   "import_name": "markdown",
   "path_root": "markdown-3.10.3",
   "provides": "markdown_output",
@@ -22,6 +23,8 @@ CONFIG = {
 }
 
 _ROOT = Path(__file__).resolve().parent
+for _extra in CONFIG.get("extra_paths") or []:
+    sys.path.insert(0, str(_ROOT / _extra))
 sys.path.insert(0, str(_ROOT / CONFIG["path_root"]))
 
 

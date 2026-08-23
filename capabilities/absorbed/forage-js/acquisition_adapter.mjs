@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const CONFIG = {
   "callable_name": "shout",
   "entry": "index.mjs",
+  "extra_paths": [],
   "import_name": "",
   "path_root": ".",
   "provides": "shout_output",

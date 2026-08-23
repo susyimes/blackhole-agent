@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-python-slugify-smart-truncate",
+  "generated_at": "2026-08-23T01:29:55.979462Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-python-slugify-smart-truncate"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "python-slugify",
+    "registry": "pypi",
+    "sha256": "59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856",
+    "source": "artifacts/capability-foraging/downloads/python-slugify-8.0.4.tar.gz",
+    "url": "",
+    "version": "8.0.4"
+  },
+  "record_digest": "ab9f642b122197453548144003ba3379358336b13dd6d15e420e3d7e111752fb",
+  "report_digest": "a040d51190b5e92c506b3b157d0fe1bece79722b800c07caec84a8ad7997ca67",
+  "schema_version": 1,
+  "slug": "python-slugify-smart-truncate",
+  "task": {
+    "goal": [
+      "smart_truncate_output"
+    ],
+    "id": "absorbed-python-slugify-smart-truncate",
+    "initial_state": {
+      "string": "Hello World"
+    },
+    "oracle": {
+      "smart_truncate_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "7f94033645bfa0988184bd2f540a3f151f271c5c15b0cf9259e06c6ff1dadba5",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

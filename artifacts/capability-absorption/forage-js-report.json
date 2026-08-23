@@ -1,6 +1,6 @@
 {
   "capability_id": "capability.absorbed-forage-js",
-  "generated_at": "2026-08-22T21:23:33.939463Z",
+  "generated_at": "2026-08-23T01:26:38.826072Z",
   "grade": {
     "ok": true,
     "verdict_count": 6,
@@ -14,8 +14,8 @@
     "kind": "fixture",
     "source": "tests/fixtures/external_packages/forage-js"
   },
-  "record_digest": "c3d4adc1a04c5222530ca22e4c7933004afd92bae54fbd13e5234e5c045f1847",
-  "report_digest": "16f35a77f565659e0d567cdf0588f6f18a70d4b7d6b1fb3316b9c73728f110d7",
+  "record_digest": "4eef18def66daf2438cda59fd246870650347088baf006a46e64af220bf7bc62",
+  "report_digest": "6caad0d965175fe64bcac6635bae3623db6b7e4e03fec723f7752a6a6b9568a7",
   "schema_version": 1,
   "slug": "forage-js",
   "task": {
@@ -30,7 +30,7 @@
       "shout_output": "HELLO WORLD!"
     }
   },
-  "vendored_tree_digest": "402073a796437d56ed78afe3fbd27fb8e02d5f0dc16cafbeb9e61348a4000491",
+  "vendored_tree_digest": "7a7ee8ff1291e61c575578b45865a36e280781b399f9ed5b676a7dd0c3026de2",
   "verdicts": {
     "ablation_unplannable": true,
     "forgery_rejected": true,

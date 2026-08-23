@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T00:42:49.509043Z",
+  "absorbed_at": "2026-08-23T01:26:01.862571Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -108,13 +108,13 @@
       "provides": [
         "shout_output"
       ],
-      "record_digest": "c3d4adc1a04c5222530ca22e4c7933004afd92bae54fbd13e5234e5c045f1847",
+      "record_digest": "4eef18def66daf2438cda59fd246870650347088baf006a46e64af220bf7bc62",
       "requires": [
         "arg0"
       ],
       "schema_version": 1,
       "slug": "forage-js",
-      "vendored_tree_digest": "402073a796437d56ed78afe3fbd27fb8e02d5f0dc16cafbeb9e61348a4000491",
+      "vendored_tree_digest": "7a7ee8ff1291e61c575578b45865a36e280781b399f9ed5b676a7dd0c3026de2",
       "version": ""
     },
     {
@@ -169,14 +169,14 @@
       "provides": [
         "needs_two_output"
       ],
-      "record_digest": "9d095c4306569629306dfce3b4167cd20a1ec2344ca69261444d7522d15f5143",
+      "record_digest": "8f43577bd0def6867d6d8f868d0504e9964760609c86002a0d2f264123a0c393",
       "requires": [
         "arg0",
         "arg1"
       ],
       "schema_version": 1,
       "slug": "forage-js-needs-two",
-      "vendored_tree_digest": "b0b843467eae4401d7d1be47384d14ed2a2960cda0fba6bef17f41c78073f1d6",
+      "vendored_tree_digest": "f6a891ac6dfacfd66ac54666863ebeff900541fa5c99941ab8d194b275911e6a",
       "version": ""
     },
     {
@@ -227,13 +227,13 @@
       "provides": [
         "whisper_output"
       ],
-      "record_digest": "485af01615a06204ed9ec12a19ccc05470dbc6814cf2b95c479239930fa81cb5",
+      "record_digest": "e38a127c26184f1a94c12ea195665018b7b3b8c7b6be9b046dedd3ac2cd19282",
       "requires": [
         "arg0"
       ],
       "schema_version": 1,
       "slug": "forage-js-whisper",
-      "vendored_tree_digest": "d60f259fda37e7f4d5400636cbdbc723c561fa79d45cf997119fd4e2e06aee27",
+      "vendored_tree_digest": "f34959f91eac46836aaefccd0c8c0a966bd30936e23f68ddfe86b5d3894c9e3f",
       "version": ""
     },
     {
@@ -284,13 +284,13 @@
       "provides": [
         "shout_output"
       ],
-      "record_digest": "92e2ee2daf97d25fd13e2ec33676ff356a892969f9489226f83207e86c5f4550",
+      "record_digest": "6081ffeb8f44a48c8deb91f197ed8c6ac78572d81b28a5431e1b407d6b86ab11",
       "requires": [
         "text"
       ],
       "schema_version": 1,
       "slug": "forage-lab",
-      "vendored_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
+      "vendored_tree_digest": "55219e808bb079635469ba5f13d6573e97b41f22b389b16dd70fd2d43867daec",
       "version": ""
     },
     {
@@ -557,13 +557,13 @@
       "provides": [
         "markdown_output"
       ],
-      "record_digest": "ba4c40393cb9a716634172b02c6389d40f88fef1e27f3ef2fab84b71bfb6acf3",
+      "record_digest": "f6d7d40aaf5e6d95d3856896c768c3a54b1a14373e8e2649e6409a0d2dad5bdd",
       "requires": [
         "text"
       ],
       "schema_version": 1,
       "slug": "markdown-foraged",
-      "vendored_tree_digest": "2ccd048b5d3e31585eb7faa356986af2bb4eb5ec9faa265973b823d1f2a9befe",
+      "vendored_tree_digest": "983a3563df4293b22c2b99d5dfd7501814838c3e4c9cecceaef456d89dbbc207",
       "version": "3.10.3"
     },
     {
@@ -910,6 +910,132 @@
       "version": "3.10.3"
     },
     {
+      "capability_id": "capability.absorbed-python-slugify",
+      "cases": [
+        {
+          "expect": {
+            "slugify_output": "hello-world"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "slugify_output": "blackhole-unbound"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "slugify_output": "mixed-case"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "slugify_output": ""
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "python-slugify",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "python-slugify",
+        "registry": "pypi",
+        "sha256": "59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856",
+        "source": "artifacts/capability-foraging/downloads/python-slugify-8.0.4.tar.gz",
+        "url": "",
+        "version": "8.0.4"
+      },
+      "provides": [
+        "slugify_output"
+      ],
+      "record_digest": "ad1880f26c9faf08ed702706129916c9bbc68ba4e0e356d21d053f3a85984770",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "python-slugify",
+      "vendored_tree_digest": "f3fae35cfa9759ada3ffe1a5bdc585ca8477d87b1564efa9424879bf1b20b5e0",
+      "version": "8.0.4"
+    },
+    {
+      "capability_id": "capability.absorbed-python-slugify-smart-truncate",
+      "cases": [
+        {
+          "expect": {
+            "smart_truncate_output": "Hello World"
+          },
+          "input": {
+            "string": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "smart_truncate_output": "blackhole unbound"
+          },
+          "input": {
+            "string": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "smart_truncate_output": "MiXeD CaSe"
+          },
+          "input": {
+            "string": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "smart_truncate_output": ""
+          },
+          "input": {
+            "string": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "python-slugify (smart_truncate)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "python-slugify",
+        "registry": "pypi",
+        "sha256": "59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856",
+        "source": "artifacts/capability-foraging/downloads/python-slugify-8.0.4.tar.gz",
+        "url": "",
+        "version": "8.0.4"
+      },
+      "provides": [
+        "smart_truncate_output"
+      ],
+      "record_digest": "ab9f642b122197453548144003ba3379358336b13dd6d15e420e3d7e111752fb",
+      "requires": [
+        "string"
+      ],
+      "schema_version": 1,
+      "slug": "python-slugify-smart-truncate",
+      "vendored_tree_digest": "7f94033645bfa0988184bd2f540a3f151f271c5c15b0cf9259e06c6ff1dadba5",
+      "version": "8.0.4"
+    },
+    {
       "capability_id": "capability.absorbed-text-reverser",
       "cases": [
         {
@@ -1158,13 +1284,13 @@
       "provides": [
         "loads_output"
       ],
-      "record_digest": "8221d9cfeda857e351ee34227b51960e4fdb30692d54db36ffe0292b94fc1d98",
+      "record_digest": "d9d7ddaabf9815a8c182ffa9b9122d26df54ab8a3a60dc9fe2c36a5cac0c7d24",
       "requires": [
         "s"
       ],
       "schema_version": 1,
       "slug": "tomli-foraged",
-      "vendored_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
+      "vendored_tree_digest": "365efcbe420a7ca000394c6739acd5efb0096a2b451042e8855b6070e4d5255b",
       "version": "2.4.1"
     },
     {
@@ -1231,5 +1357,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "006937bf82b83164eddd75e24b6d75d48b37cf64d0baea056befb766987b6921"
+  "steps_digest": "03aee9de484457e39a27e851d52b388bb534fb50d13c974ef3c4cddd34809e71"
 }

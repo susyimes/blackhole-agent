@@ -118,6 +118,7 @@ class AcquisitionSpec:
     path_root: str = "."
     version: str = ""
     origin: Mapping[str, Any] = field(default_factory=dict)
+    extra_paths: tuple[str, ...] = ()
 
     def validate(self) -> "AcquisitionSpec":
         if not SLUG_PATTERN.match(self.slug):
@@ -157,6 +158,10 @@ class AcquisitionSpec:
                 raise ValueError(f"probe {index} input is missing required keys: {missing}")
         if Path(self.path_root).is_absolute() or ".." in Path(self.path_root).parts:
             raise ValueError(f"path_root must stay inside the staged tree: {self.path_root!r}")
+        for extra in self.extra_paths:
+            extra_path = Path(str(extra))
+            if extra_path.is_absolute() or ".." in extra_path.parts:
+                raise ValueError(f"extra_paths must stay inside the staged tree: {extra!r}")
         return self
 
 
@@ -178,6 +183,8 @@ from pathlib import Path
 CONFIG = {config}
 
 _ROOT = Path(__file__).resolve().parent
+for _extra in CONFIG.get("extra_paths") or []:
+    sys.path.insert(0, str(_ROOT / _extra))
 sys.path.insert(0, str(_ROOT / CONFIG["path_root"]))
 
 
@@ -238,6 +245,8 @@ def synthesize_adapter_source(spec: AcquisitionSpec) -> str:
         "path_root": spec.path_root,
         "entry": spec.entry,
     }
+    if spec.extra_paths:
+        config["extra_paths"] = list(spec.extra_paths)
     template = _ADAPTER_TEMPLATE if spec.runtime == "python" else _NODE_ADAPTER_TEMPLATE
     return template.format(slug=spec.slug, config=json.dumps(config, indent=2, sort_keys=True))
 
@@ -322,6 +331,18 @@ def synthesize_acquisition(spec: AcquisitionSpec, staging_root: Path) -> dict[st
         stage_acquisition_source(spec.source, staged_dir)
     except (ValueError, tarfile.TarError, OSError) as exc:
         return {"ok": False, "stage": "stage", "slug": spec.slug, "error": str(exc)}
+    if spec.runtime == "python" and spec.extra_paths:
+        from blackhole_agent.capability_foraging import close_runtime_dependencies
+
+        closed = close_runtime_dependencies(staged_dir)
+        missing = [path for path in spec.extra_paths if not (staged_dir / path).exists()]
+        if missing or not closed.get("ok"):
+            return {
+                "ok": False,
+                "stage": "deps",
+                "slug": spec.slug,
+                "error": str(closed.get("error") or f"runtime extra_paths missing: {missing}"),
+            }
     if not (staged_dir / spec.path_root).exists():
         return {
             "ok": False,

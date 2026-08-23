@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-python-slugify",
+  "generated_at": "2026-08-23T01:29:53.849118Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-python-slugify"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "python-slugify",
+    "registry": "pypi",
+    "sha256": "59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856",
+    "source": "artifacts/capability-foraging/downloads/python-slugify-8.0.4.tar.gz",
+    "url": "",
+    "version": "8.0.4"
+  },
+  "record_digest": "ad1880f26c9faf08ed702706129916c9bbc68ba4e0e356d21d053f3a85984770",
+  "report_digest": "327e8b39193d4cb9e88063e2f3deeaa87ab87c8e337615e67de43d5df3eca629",
+  "schema_version": 1,
+  "slug": "python-slugify",
+  "task": {
+    "goal": [
+      "slugify_output"
+    ],
+    "id": "absorbed-python-slugify",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "slugify_output": "hello-world"
+    }
+  },
+  "vendored_tree_digest": "f3fae35cfa9759ada3ffe1a5bdc585ca8477d87b1564efa9424879bf1b20b5e0",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

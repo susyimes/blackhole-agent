@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const CONFIG = {
   "callable_name": "needsTwo",
   "entry": "index.mjs",
+  "extra_paths": [],
   "import_name": "",
   "path_root": ".",
   "provides": "needs_two_output",
