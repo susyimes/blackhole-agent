@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "titlecase_output": "Hello World"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "titlecase_output": "Blackhole Unbound"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "titlecase_output": "MiXeD CaSe"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "titlecase_output": ""
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "titlecase",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "titlecase",
+    "registry": "pypi",
+    "sha256": "7d83a277ccbbda11a2944e78a63e5ccaf3d32f828c594312e4862f9a07f635f5",
+    "source": "artifacts/capability-foraging/downloads/titlecase-2.4.1.tar.gz",
+    "url": "",
+    "version": "2.4.1"
+  },
+  "provides": [
+    "titlecase_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "titlecase",
+  "version": "2.4.1"
+}

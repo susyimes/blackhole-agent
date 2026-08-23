@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-titlecase",
+  "generated_at": "2026-08-23T00:50:01.426480Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-titlecase"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "titlecase",
+    "registry": "pypi",
+    "sha256": "7d83a277ccbbda11a2944e78a63e5ccaf3d32f828c594312e4862f9a07f635f5",
+    "source": "artifacts/capability-foraging/downloads/titlecase-2.4.1.tar.gz",
+    "url": "",
+    "version": "2.4.1"
+  },
+  "record_digest": "c023e0388080b1f7923dff3e7594173bf315da39fd3c7b31b748553c2c25cf1f",
+  "report_digest": "4adf5aa2a4509cab5b415e867d8f30678b47d13f961a0bbc8b8d41e0884784c5",
+  "schema_version": 1,
+  "slug": "titlecase",
+  "task": {
+    "goal": [
+      "titlecase_output"
+    ],
+    "id": "absorbed-titlecase",
+    "initial_state": {
+      "text": "Hello World"
+    },
+    "oracle": {
+      "titlecase_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "62628abc7b84e25060f5f7b52afd9a482e0ab8f19ecee758b4c3728eef99972b",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

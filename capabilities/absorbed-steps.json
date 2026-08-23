@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T00:00:38.351145Z",
+  "absorbed_at": "2026-08-23T00:42:49.509043Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -960,6 +960,69 @@
       "version": "1.0.0"
     },
     {
+      "capability_id": "capability.absorbed-titlecase",
+      "cases": [
+        {
+          "expect": {
+            "titlecase_output": "Hello World"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "titlecase_output": "Blackhole Unbound"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "titlecase_output": "MiXeD CaSe"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "titlecase_output": ""
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "titlecase",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "titlecase",
+        "registry": "pypi",
+        "sha256": "7d83a277ccbbda11a2944e78a63e5ccaf3d32f828c594312e4862f9a07f635f5",
+        "source": "artifacts/capability-foraging/downloads/titlecase-2.4.1.tar.gz",
+        "url": "",
+        "version": "2.4.1"
+      },
+      "provides": [
+        "titlecase_output"
+      ],
+      "record_digest": "c023e0388080b1f7923dff3e7594173bf315da39fd3c7b31b748553c2c25cf1f",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "titlecase",
+      "vendored_tree_digest": "62628abc7b84e25060f5f7b52afd9a482e0ab8f19ecee758b4c3728eef99972b",
+      "version": "2.4.1"
+    },
+    {
       "capability_id": "capability.absorbed-tomli",
       "cases": [
         {
@@ -1168,5 +1231,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "124f7c0cd9d1fb9ab2d22ae9fbae3ca73afa615af8de3b592c2c675cdb1887e9"
+  "steps_digest": "006937bf82b83164eddd75e24b6d75d48b37cf64d0baea056befb766987b6921"
 }

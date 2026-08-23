@@ -73,6 +73,18 @@ def test_registry_overlay_leftover_marks_application_registry_growth_plane():
     assert "no replay_source" in leftover_next_step(prefixed)
 
 
+def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
+    leftover = (
+        "Optional later work is live-fetch probing of registry hits that have no "
+        "on-disk archive so application-growth can forage packages the "
+        "stewardship tree has never seen."
+    )
+    assert leftover_marker_ids(leftover) == ("capability.application-live-fetch-growth-plane",)
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "live-fetch probing" in leftover_next_step(prefixed)
+
+
 def test_harvested_leftover_text_is_still_detected():
     leftover = leftover_next_step(HARVESTED_MISSION_PLANE_LEFTOVER)
     assert "mission-plane" in leftover

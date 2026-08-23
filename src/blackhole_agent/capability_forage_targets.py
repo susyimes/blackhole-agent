@@ -29,11 +29,19 @@ published npm tarball or PyPI sdist is already on disk as a registry replay:
 ``forage_request_for`` materializes that archive (origin is the registry
 artifact, never a fixture overlay) so probing can infer provides and
 application-growth can forage a covering registry package.
+
+Hits with no stewardship archive keep a registry identity by default so
+hermetic planes can still skip them as ``no_source``. ``live_fetch=True``
+downloads the published npm tarball or PyPI sdist (replayable from
+``artifacts/capability-foraging/downloads/``) so probing can cover packages
+the stewardship tree has never seen. Origin kind is ``npm-live`` /
+``pypi-live``, never a fixture overlay and never a stewardship path.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import tempfile
@@ -65,7 +73,7 @@ from blackhole_agent.capability_compounder import (
     slugify_capability_id,
     utc_now_iso,
 )
-from blackhole_agent.capability_foraging import forage_package
+from blackhole_agent.capability_foraging import fetch_npm_tarball, fetch_pypi_sdist, forage_package
 
 SCHEMA_VERSION = 1
 
@@ -266,7 +274,93 @@ def registry_replay_archive(entry: Mapping[str, Any], *, repo_root: Path = REPO_
     return path if path.is_file() else None
 
 
-def forage_request_for(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+def _repo_relative(path: Path, repo_root: Path) -> str:
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def registry_download_dir(repo_root: Path = REPO_ROOT) -> Path:
+    """Live-fetch cache: published archives, not the stewardship tree."""
+
+    return repo_root / "artifacts" / "capability-foraging" / "downloads"
+
+
+def cached_registry_download(
+    entry: Mapping[str, Any],
+    *,
+    repo_root: Path = REPO_ROOT,
+    dest_dir: Path | None = None,
+) -> Path | None:
+    """Return a previously live-fetched npm/pypi archive if one is cached."""
+
+    normalized = _normalize_entry(entry)
+    version = (normalized["version"] or "").strip()
+    if not version:
+        return None
+    dest = dest_dir or registry_download_dir(repo_root)
+    registry = (normalized["registry"] or "").strip().lower()
+    name = (normalized["name"] or "").strip()
+    candidates: list[Path] = []
+    if registry == "npm":
+        candidates.append(dest / f"{name.rsplit('/', 1)[-1]}-{version}.tgz")
+    elif registry == "pypi":
+        prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
+        for prefix in prefixes:
+            candidates.append(dest / f"{prefix}-{version}.tar.gz")
+            candidates.append(dest / f"{prefix}-{version}.zip")
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def live_registry_archive(
+    entry: Mapping[str, Any],
+    *,
+    repo_root: Path = REPO_ROOT,
+    dest_dir: Path | None = None,
+) -> dict[str, Any] | None:
+    """Fetch a published npm/pypi archive the stewardship tree does not own.
+
+    Prefers a replay cache under ``artifacts/capability-foraging/downloads/``
+    so a registered proof can re-run without networking after the first fetch.
+    """
+
+    normalized = _normalize_entry(entry)
+    registry = (normalized["registry"] or "").strip().lower()
+    if registry not in {"npm", "pypi"}:
+        return None
+    dest = dest_dir or registry_download_dir(repo_root)
+    cached = cached_registry_download(normalized, repo_root=repo_root, dest_dir=dest)
+    if cached is not None:
+        return {
+            "ok": True,
+            "name": normalized["name"],
+            "version": normalized["version"],
+            "path": str(cached),
+            "sha256": hashlib.sha256(cached.read_bytes()).hexdigest(),
+            "url": "",
+            "cache_hit": True,
+        }
+    version = normalized["version"] or None
+    if registry == "npm":
+        fetched = fetch_npm_tarball(normalized["name"], version, dest_dir=dest)
+    else:
+        fetched = fetch_pypi_sdist(normalized["name"], version, dest_dir=dest)
+    if not fetched.get("ok"):
+        return None
+    fetched["cache_hit"] = False
+    return fetched
+
+
+def forage_request_for(
+    entry: Mapping[str, Any],
+    *,
+    repo_root: Path = REPO_ROOT,
+    live_fetch: bool = False,
+) -> dict[str, Any]:
     """Build a :func:`forage_package` request from a ranked catalog entry."""
 
     normalized = _normalize_entry(entry)
@@ -285,10 +379,7 @@ def forage_request_for(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT)
     else:
         archive = registry_replay_archive(normalized, repo_root=repo_root)
         if archive is not None:
-            try:
-                rel = archive.resolve().relative_to(repo_root.resolve()).as_posix()
-            except ValueError:
-                rel = archive.as_posix()
+            rel = _repo_relative(archive, repo_root)
             kind = "npm-tarball" if normalized["registry"] == "npm" else "pypi-sdist"
             request["source"] = archive
             request["origin"] = {
@@ -298,6 +389,24 @@ def forage_request_for(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT)
                 "version": normalized["version"],
                 "source": rel,
             }
+        elif live_fetch:
+            fetched = live_registry_archive(normalized, repo_root=repo_root)
+            if fetched is not None:
+                path = Path(str(fetched["path"]))
+                kind = "npm-live" if normalized["registry"] == "npm" else "pypi-live"
+                request["source"] = path
+                request["origin"] = {
+                    "kind": kind,
+                    "registry": normalized["registry"],
+                    "name": normalized["name"],
+                    "version": str(fetched.get("version") or normalized["version"]),
+                    "source": _repo_relative(path, repo_root),
+                    "sha256": str(fetched.get("sha256") or ""),
+                    "cache_hit": bool(fetched.get("cache_hit")),
+                    "url": str(fetched.get("url") or ""),
+                }
+            else:
+                request["registry"] = normalized["registry"] or "pypi"
         else:
             request["registry"] = normalized["registry"] or "pypi"
     if normalized["runtime"]:

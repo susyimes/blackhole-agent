@@ -142,6 +142,9 @@ _MARKERS = (
     ("no replay_source", "capability.application-registry-growth-plane"),
     ("without a fixture overlay", "capability.application-registry-growth-plane"),
     ("covering registry package", "capability.application-registry-growth-plane"),
+    ("live-fetch probing", "capability.application-live-fetch-growth-plane"),
+    ("no on-disk archive", "capability.application-live-fetch-growth-plane"),
+    ("stewardship tree has never seen", "capability.application-live-fetch-growth-plane"),
 )
 
 

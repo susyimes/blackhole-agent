@@ -97,10 +97,15 @@ def strip_declared_provides(items: Sequence[Mapping[str, Any]]) -> list[dict[str
     return stripped
 
 
-def probe_candidate(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+def probe_candidate(
+    entry: Mapping[str, Any],
+    *,
+    repo_root: Path = REPO_ROOT,
+    live_fetch: bool = False,
+) -> dict[str, Any]:
     """Infer provided keys from the package itself. Never writes the ledger."""
 
-    request = forage_request_for(entry, repo_root=repo_root)
+    request = forage_request_for(entry, repo_root=repo_root, live_fetch=live_fetch)
     slug = str(request.get("slug") or "")
     source = request.get("source")
     if source is None or not Path(str(source)).exists():
@@ -167,6 +172,7 @@ def match_forage_goal(
     absorbed: Sequence[str] | None = None,
     forage: bool = False,
     repo_root: Path = REPO_ROOT,
+    live_fetch: bool = False,
 ) -> dict[str, Any]:
     """Probe ranked candidates until inferred provides cover the goal."""
 
@@ -204,7 +210,7 @@ def match_forage_goal(
     covering_entry: dict[str, Any] | None = None
     covering_probe: dict[str, Any] | None = None
     for entry in ranking.get("ranked") or []:
-        probe = probe_candidate(entry, repo_root=repo_root)
+        probe = probe_candidate(entry, repo_root=repo_root, live_fetch=live_fetch)
         covers = _covers(probe, goals)
         probe["covers_goal"] = covers
         if probe.get("ok") and not covers:
@@ -215,6 +221,7 @@ def match_forage_goal(
             covering_probe = probe
             break
     result["probes"] = probes
+    result["live_fetch"] = bool(live_fetch)
     if covering_entry is None:
         result["ok"] = False
         result["error"] = "no forage match"
@@ -225,7 +232,7 @@ def match_forage_goal(
     result["covering"] = covering_probe
     if not forage:
         return result
-    request = forage_request_for(covering_entry, repo_root=repo_root)
+    request = forage_request_for(covering_entry, repo_root=repo_root, live_fetch=live_fetch)
     request["bundle"] = True
     forage_result = forage_package(request, repo_root=repo_root)
     result["forage"] = {

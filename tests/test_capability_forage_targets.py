@@ -126,6 +126,23 @@ def test_registry_replay_materializes_published_archive_without_replay_source() 
     live = forage_request_for(left_pad)
     assert live["registry"] == "npm"
     assert "source" not in live
+    fetched = forage_request_for(left_pad, live_fetch=True)
+    assert fetched["origin"]["kind"] == "npm-live"
+    assert "source" in fetched
+    assert Path(fetched["source"]).is_file()
+    assert not str(fetched["origin"]["source"]).replace("\\", "/").startswith("stewardship/")
+    titlecase = {
+        "name": "titlecase",
+        "slug": "titlecase",
+        "registry": "pypi",
+        "version": "2.4.1",
+        "runtime": "python",
+    }
+    assert registry_replay_archive(titlecase) is None
+    title_req = forage_request_for(titlecase, live_fetch=True)
+    assert title_req["origin"]["kind"] == "pypi-live"
+    assert Path(title_req["source"]).is_file()
+    assert "stewardship/" not in str(title_req["origin"]["source"]).replace("\\", "/")
 
 
 def test_builtin_forage_target_plane_proof() -> None:
