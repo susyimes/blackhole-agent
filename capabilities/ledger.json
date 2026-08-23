@@ -292,6 +292,64 @@
       ],
       "updated_at": "2026-08-22T21:20:51.598719Z"
     },
+    "capability.absorbed-ip-address": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/ip-address/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'ip-address' is now a first-class invocable capability providing ['address4_is_valid_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T05:37:58.596212Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'ip-address' (npm-live origin artifacts/capability-foraging/downloads/ip-address-10.5.0.tgz): provides ['address4_is_valid_output'] from ['arg0']. Vendored under capabilities/absorbed/ip-address/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-ip-address",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T05:37:59.139444Z",
+      "name": "Absorbed external capability: ip-address",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('ip-address'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T05:37:59.139444Z"
+    },
+    "capability.absorbed-ip-address-address6-is-valid": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/ip-address-address6-is-valid/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'ip-address-address6-is-valid' is now a first-class invocable capability providing ['address6_is_valid_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T05:38:00.723661Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'ip-address-address6-is-valid' (npm-live origin artifacts/capability-foraging/downloads/ip-address-10.5.0.tgz): provides ['address6_is_valid_output'] from ['arg0']. Vendored under capabilities/absorbed/ip-address-address6-is-valid/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-ip-address-address6-is-valid",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T05:38:01.219439Z",
+      "name": "Absorbed external capability: ip-address (Address6.isValid)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('ip-address-address6-is-valid'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T05:38:01.219439Z"
+    },
     "capability.absorbed-json-indenter": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -1408,6 +1466,54 @@
         "default-export-object"
       ],
       "updated_at": "2026-08-23T03:07:41.377415Z"
+    },
+    "capability.application-node-named-class-static-growth-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application_growth.py",
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_forage_growth.py",
+        "tests/fixtures/forage_node_named_class_static_catalog.json",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application-growth no longer skips npm packages whose callable API is a named class static or nested namespace class static: Node introspection reflects Base64.encode and buffer.Buffer.byteLength, and a covering package is foraged so the original task becomes solvable.",
+      "created_at": "2026-08-23T05:35:13.664528Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+        "capability.application-node-class-static-growth-plane",
+        "capability.application-node-default-export-class-growth-plane",
+        "capability.application-node-default-export-object-growth-plane",
+        "capability.application-node-default-export-growth-plane",
+        "capability.application-node-runtime-deps-growth-plane",
+        "capability.application-runtime-deps-growth-plane",
+        "capability.application-live-fetch-growth-plane",
+        "capability.application-growth-plane",
+        "capability.application-plane"
+      ],
+      "description": "An unplannable application goal grows itself from a live-fetched npm tarball whose callable API is a named class static method: Node introspection reflects Base64.encode and buffer.Buffer.byteLength rather than a default-exported Class.method, and the covering package is foraged so the original task becomes solvable.",
+      "entry": "blackhole_agent.capability_application_growth:demo_application_node_named_class_static_growth_plane",
+      "id": "capability.application-node-named-class-static-growth-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T05:39:50.745804Z",
+      "name": "Application node named class-static growth plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_application_growth import builtin_application_node_named_class_static_growth_plane_proof; r=builtin_application_node_named_class_static_growth_plane_proof(); assert r['ok'] and r.get('action')=='application_node_named_class_static_growth_plane' and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') and r.get('grow_winner_is_ip_address') and r.get('npm_decoy_probed') and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') and r.get('named_class_static_selected') and r.get('winner_is_named_export_class_static') and r.get('winner_is_not_default_export') and r.get('winner_is_not_default_export_class_static') and r.get('winner_is_not_default_export_class') and r.get('winner_is_not_default_export_object') and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') and r.get('registries_npm_and_pypi') and r.get('query_from_goal') and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "application",
+        "growth",
+        "node",
+        "named-class-static"
+      ],
+      "updated_at": "2026-08-23T05:39:50.745804Z"
     },
     "capability.application-node-runtime-deps-growth-plane": {
       "behavior_paths": [
@@ -4089,5 +4195,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-23T04:43:24.331656Z"
+  "updated_at": "2026-08-23T05:39:50.747828Z"
 }

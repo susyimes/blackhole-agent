@@ -237,11 +237,28 @@ try {{
     fs.cpSync(src, dest, {{ recursive: true }});
     created.push(dest);
   }}
+  function resolvePath(root, dotted) {{
+    let current = root;
+    for (const part of String(dotted || "").split(".")) {{
+      if (current == null) {{
+        return undefined;
+      }}
+      current = current[part];
+    }}
+    return current;
+  }}
   const moduleUrl = pathToFileURL(path.join(ROOT, CONFIG.entry));
   const mod = await import(moduleUrl);
-  let target = mod;
-  for (const part of CONFIG.callable_name.split(".")) {{
-    target = target?.[part];
+  const dotted = String(CONFIG.callable_name).includes(".");
+  let target = resolvePath(mod, CONFIG.callable_name);
+  if (typeof target !== "function" && dotted) {{
+    target = resolvePath(mod.default, CONFIG.callable_name);
+  }}
+  if (typeof target === "function" && dotted) {{
+    const parentName = String(CONFIG.callable_name).split(".").slice(0, -1).join(".");
+    const receiver = resolvePath(mod, parentName) ?? resolvePath(mod.default, parentName);
+    const method = target;
+    target = (...args) => method.apply(receiver, args);
   }}
   if (typeof target !== "function") {{
     const fallback = mod.default;

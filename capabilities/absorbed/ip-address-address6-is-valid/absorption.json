@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "address6_is_valid_output": false
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "address6_is_valid_output": false
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "address6_is_valid_output": false
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "address6_is_valid_output": false
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "ip-address (Address6.isValid)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "ip-address",
+    "registry": "npm",
+    "sha256": "35e23227dfeca9179f03f899a9e3a21faf542a8079821bce95d5620642d75873",
+    "source": "artifacts/capability-foraging/downloads/ip-address-10.5.0.tgz",
+    "url": "",
+    "version": "10.5.0"
+  },
+  "provides": [
+    "address6_is_valid_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "ip-address-address6-is-valid",
+  "version": "10.5.0"
+}

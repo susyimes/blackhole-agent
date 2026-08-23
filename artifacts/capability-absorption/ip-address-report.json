@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-ip-address",
+  "generated_at": "2026-08-23T05:37:59.658187Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-ip-address"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "ip-address",
+    "registry": "npm",
+    "sha256": "35e23227dfeca9179f03f899a9e3a21faf542a8079821bce95d5620642d75873",
+    "source": "artifacts/capability-foraging/downloads/ip-address-10.5.0.tgz",
+    "url": "",
+    "version": "10.5.0"
+  },
+  "record_digest": "67a60fcbbb0ad0465c7240d420d0edb30798cfbc0e35d1e12351a5d200fc15b7",
+  "report_digest": "c30272701845d6133e338ebcd9a3f6a685aef875550ea246d97fe6804767f439",
+  "schema_version": 1,
+  "slug": "ip-address",
+  "task": {
+    "goal": [
+      "address4_is_valid_output"
+    ],
+    "id": "absorbed-ip-address",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "address4_is_valid_output": false
+    }
+  },
+  "vendored_tree_digest": "b8f97089f23d22594bd0a291310c5a31d16bfbd45d36902d2b933156e3303f61",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

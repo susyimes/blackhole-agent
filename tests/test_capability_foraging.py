@@ -276,6 +276,71 @@ def test_node_introspection_reflects_default_export_class_static(tmp_path: Path)
     assert digest["default_export_class_static"] is False
 
 
+def test_node_introspection_reflects_named_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-named-static","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "export class Base64 {\n"
+        "  static encode(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('encode expects a string');\n"
+        "    return text.toLowerCase();\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    skipped = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert skipped["ok"], skipped
+    names = [candidate["name"] for candidate in skipped["candidates"]]
+    assert "Base64.encode" in names
+    encoded = next(candidate for candidate in skipped["candidates"] if candidate["name"] == "Base64.encode")
+    assert encoded["default_export"] is False
+    assert encoded["default_export_class_static"] is False
+    assert encoded["named_export_class_static"] is True
+    assert encoded["nested_namespace_class_static"] is False
+    reflected = introspect_node_module(pkg, "index.mjs")
+    assert reflected["ok"], reflected
+    assert "Base64.encode" in [candidate["name"] for candidate in reflected["candidates"]]
+
+
+def test_node_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-nested-static","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "class Buffer {\n"
+        "  static byteLength(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('byteLength expects a string');\n"
+        "    return String(text.length);\n"
+        "  }\n"
+        "}\n"
+        "export const buffer = { Buffer };\n"
+        "export default { Buffer };\n",
+        encoding="utf-8",
+    )
+    named_only = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert named_only["ok"], named_only
+    named_names = [candidate["name"] for candidate in named_only["candidates"]]
+    assert "buffer.Buffer.byteLength" in named_names
+    nested = next(
+        candidate for candidate in named_only["candidates"] if candidate["name"] == "buffer.Buffer.byteLength"
+    )
+    assert nested["named_export_class_static"] is False
+    assert nested["nested_namespace_class_static"] is True
+    assert nested["default_export"] is False
+    reflected = introspect_node_module(pkg, "index.mjs")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "Buffer.byteLength" in names or "buffer.Buffer.byteLength" in names
+    default_nested = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] in {"Buffer.byteLength", "buffer.Buffer.byteLength"}
+        and candidate.get("nested_namespace_class_static")
+    )
+    assert default_nested["nested_namespace_class_static"] is True
+
+
 def test_default_export_only_npm_tarball_closes_runtime_deps(tmp_path: Path) -> None:
     from blackhole_agent.capability_acquisition import stage_acquisition_source
     from blackhole_agent.capability_forage_targets import live_registry_archive
@@ -481,6 +546,48 @@ def test_default_export_class_static_npm_tarball_forages_spark_md5(tmp_path: Pat
     assert closed["record"]["default_export_class"] is False
     assert closed["record"]["default_export_class_static"] is True
     assert closed["spec"].provides == "hash_output"
+
+
+def test_named_class_static_npm_tarball_forages_ip_address(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "ip-address", "slug": "ip-address", "registry": "npm", "version": "10.5.0"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    named_only = infer_acquisition_spec(
+        slug="ip-address",
+        name="ip-address",
+        source=source,
+        staging_root=tmp_path / "named",
+        hint="ip-address",
+        runtime="node",
+        close_deps=True,
+        include_default=False,
+    )
+    assert named_only["ok"], named_only
+    assert named_only["record"]["winner"] == "Address4.isValid"
+    assert named_only["record"]["named_export_class_static"] is True
+    assert named_only["record"]["default_export"] is False
+    closed = infer_acquisition_spec(
+        slug="ip-address",
+        name="ip-address",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="ip-address",
+        runtime="node",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "Address4.isValid"
+    assert closed["record"]["default_export"] is False
+    assert closed["record"]["default_export_object"] is False
+    assert closed["record"]["default_export_class"] is False
+    assert closed["record"]["default_export_class_static"] is False
+    assert closed["record"]["named_export_class_static"] is True
+    assert closed["spec"].provides == "address4_is_valid_output"
+    assert closed["spec"].callable_name == "Address4.isValid"
 
 
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:

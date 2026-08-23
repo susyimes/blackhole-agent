@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T04:42:01.693852Z",
+  "absorbed_at": "2026-08-23T05:38:00.719128Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -530,6 +530,132 @@
       "slug": "inflection",
       "vendored_tree_digest": "95dff536545a0d32375347377bb7ec9b7c0614d806baddb67ed1c4ead55701bb",
       "version": "0.5.1"
+    },
+    {
+      "capability_id": "capability.absorbed-ip-address",
+      "cases": [
+        {
+          "expect": {
+            "address4_is_valid_output": false
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "address4_is_valid_output": false
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "address4_is_valid_output": false
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "address4_is_valid_output": false
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "ip-address",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "ip-address",
+        "registry": "npm",
+        "sha256": "35e23227dfeca9179f03f899a9e3a21faf542a8079821bce95d5620642d75873",
+        "source": "artifacts/capability-foraging/downloads/ip-address-10.5.0.tgz",
+        "url": "",
+        "version": "10.5.0"
+      },
+      "provides": [
+        "address4_is_valid_output"
+      ],
+      "record_digest": "67a60fcbbb0ad0465c7240d420d0edb30798cfbc0e35d1e12351a5d200fc15b7",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "ip-address",
+      "vendored_tree_digest": "b8f97089f23d22594bd0a291310c5a31d16bfbd45d36902d2b933156e3303f61",
+      "version": "10.5.0"
+    },
+    {
+      "capability_id": "capability.absorbed-ip-address-address6-is-valid",
+      "cases": [
+        {
+          "expect": {
+            "address6_is_valid_output": false
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "address6_is_valid_output": false
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "address6_is_valid_output": false
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "address6_is_valid_output": false
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "ip-address (Address6.isValid)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "ip-address",
+        "registry": "npm",
+        "sha256": "35e23227dfeca9179f03f899a9e3a21faf542a8079821bce95d5620642d75873",
+        "source": "artifacts/capability-foraging/downloads/ip-address-10.5.0.tgz",
+        "url": "",
+        "version": "10.5.0"
+      },
+      "provides": [
+        "address6_is_valid_output"
+      ],
+      "record_digest": "e497eb6eddc71443b6277a53a228f1f9e4e413e7853fcd6a91d77c2501587247",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "ip-address-address6-is-valid",
+      "vendored_tree_digest": "d7686c06aa82679cb9b777b002c17c49ca0748ff34d3e181aeac043f69544362",
+      "version": "10.5.0"
     },
     {
       "capability_id": "capability.absorbed-json-indenter",
@@ -2040,5 +2166,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "25c7ea6020a17bcc7df3196ce8800e726371ebd05fd6637faaa949e7a6a7e73a"
+  "steps_digest": "ed2456dbf8f64e83aace91d2a63422a2b52c332a47a401043d50a6129bd4c13e"
 }

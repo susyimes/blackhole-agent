@@ -164,6 +164,12 @@ def probe_candidate(
         "default_export_class_static": bool(
             (inference.get("record") or {}).get("default_export_class_static")
         ),
+        "named_export_class_static": bool(
+            (inference.get("record") or {}).get("named_export_class_static")
+        ),
+        "nested_namespace_class_static": bool(
+            (inference.get("record") or {}).get("nested_namespace_class_static")
+        ),
     }
 
 

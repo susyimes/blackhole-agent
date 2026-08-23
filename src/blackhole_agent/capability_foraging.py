@@ -16,9 +16,10 @@ inputs. This module removes that last human input — **foraging**:
   subprocess imports the package (CPython or Node) and reflects its
   exported functions, including a Node default export when that is a
   single function, a namespace object of functions, a constructable
-  with instance methods, or a class whose callable API is static
-  ``Class.method`` — filtered to JSON-scalar signatures, and ordered
-  deterministically;
+  with instance methods, a class whose callable API is static
+  ``Class.method``, a named class export such as ``Base64.encode``, or a
+  nested namespace class such as ``buffer.Buffer.byteLength`` — filtered
+  to JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
   samples for int/float/bool), split into selection and held-out probes; no
@@ -430,8 +431,19 @@ import path from "node:path";
 
 const entry = process.argv[2];
 const includeDefault = process.argv[3] !== "0";
-function consider(name, target, isDefault, isDefaultObject, isDefaultClass, isDefaultClassStatic, candidates, seen) {
-  if (typeof target !== "function" || !name || name.startsWith("_") || seen.has(name)) {
+function isIdent(name) {
+  return typeof name === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+function consider(name, target, flags, candidates, seen) {
+  const parts = String(name || "").split(".");
+  const leaf = parts[parts.length - 1];
+  if (
+    typeof target !== "function" ||
+    !leaf ||
+    leaf.startsWith("_") ||
+    seen.has(name) ||
+    parts.some((part) => !isIdent(part))
+  ) {
     return;
   }
   const arity = Number(target.length) || 0;
@@ -452,10 +464,12 @@ function consider(name, target, isDefault, isDefaultObject, isDefaultClass, isDe
     name,
     params,
     doc: "",
-    default_export: Boolean(isDefault),
-    default_export_object: Boolean(isDefaultObject),
-    default_export_class: Boolean(isDefaultClass),
-    default_export_class_static: Boolean(isDefaultClassStatic),
+    default_export: Boolean(flags.defaultExport),
+    default_export_object: Boolean(flags.defaultExportObject),
+    default_export_class: Boolean(flags.defaultExportClass),
+    default_export_class_static: Boolean(flags.defaultExportClassStatic),
+    named_export_class_static: Boolean(flags.namedExportClassStatic),
+    nested_namespace_class_static: Boolean(flags.nestedNamespaceClassStatic),
   });
 }
 function objectKeys(value) {
@@ -467,7 +481,32 @@ function objectKeys(value) {
   names.delete("__esModule");
   names.delete("constructor");
   names.delete("prototype");
-  return [...names].sort();
+  names.delete("length");
+  names.delete("name");
+  names.delete("arguments");
+  names.delete("caller");
+  return [...names].filter(isIdent).sort();
+}
+function considerClassStatics(prefix, ctor, flags, candidates, seen) {
+  if (typeof ctor !== "function" || !isIdent(prefix.split(".").pop() || "")) {
+    return;
+  }
+  for (const name of objectKeys(ctor)) {
+    consider(`${prefix}.${name}`, ctor[name], flags, candidates, seen);
+  }
+}
+function considerNestedClassStatics(prefix, namespace, flags, candidates, seen) {
+  if (!namespace || typeof namespace !== "object" || Array.isArray(namespace)) {
+    return;
+  }
+  for (const name of objectKeys(namespace)) {
+    const nested = namespace[name];
+    if (typeof nested !== "function") {
+      continue;
+    }
+    const nestedPrefix = prefix ? `${prefix}.${name}` : name;
+    considerClassStatics(nestedPrefix, nested, flags, candidates, seen);
+  }
 }
 try {
   const mod = await import(pathToFileURL(path.resolve(entry)).href);
@@ -479,24 +518,30 @@ try {
       typeof def.name === "string" && /^[A-Za-z][A-Za-z0-9]{2,}$/.test(def.name)
         ? def.name
         : "default";
-    consider(inferred, def, true, false, false, false, candidates, seen);
+    consider(inferred, def, { defaultExport: true }, candidates, seen);
     for (const name of objectKeys(def)) {
-      consider(name, def[name], true, false, false, true, candidates, seen);
+      consider(name, def[name], { defaultExport: true, defaultExportClassStatic: true }, candidates, seen);
     }
     for (const name of objectKeys(def.prototype)) {
-      consider(name, def.prototype[name], true, false, true, false, candidates, seen);
+      consider(name, def.prototype[name], { defaultExport: true, defaultExportClass: true }, candidates, seen);
     }
   }
   if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
     for (const name of objectKeys(def)) {
-      consider(name, def[name], true, true, false, false, candidates, seen);
+      consider(name, def[name], { defaultExport: true, defaultExportObject: true }, candidates, seen);
     }
   }
-  for (const name of Object.keys(mod).sort()) {
-    if (name === "default") {
-      continue;
+  const namedKeys = Object.keys(mod).filter((name) => name !== "default" && isIdent(name)).sort();
+  for (const name of namedKeys) {
+    consider(name, mod[name], {}, candidates, seen);
+    if (typeof mod[name] === "function") {
+      considerClassStatics(name, mod[name], { namedExportClassStatic: true }, candidates, seen);
+    } else {
+      considerNestedClassStatics(name, mod[name], { nestedNamespaceClassStatic: true }, candidates, seen);
     }
-    consider(name, mod[name], false, false, false, false, candidates, seen);
+  }
+  if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
+    considerNestedClassStatics("", def, { defaultExport: true, nestedNamespaceClassStatic: true }, candidates, seen);
   }
   process.stdout.write(JSON.stringify({ ok: true, candidates }));
 } catch (err) {
@@ -976,6 +1021,18 @@ def close_runtime_dependencies(
 # ---------------------------------------------------------------------------
 
 
+def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
+    return bool(
+        item.get("default_export_class_static")
+        or item.get("named_export_class_static")
+        or item.get("nested_namespace_class_static")
+    )
+
+
+def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
+    return bool(item.get("default_export_class")) or _is_class_static_candidate(item)
+
+
 def _bundle_slug(base: str, callable_name: str) -> str:
     suffix = re.sub(r"[^a-z0-9]+", "-", _snake_key(callable_name)).strip("-")
     slug = f"{base}-{suffix}" if suffix and suffix != base else f"{base}-bundle"
@@ -1047,7 +1104,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
-            0 if item.get("default_export_class_static") else 1,
+            0 if _is_class_static_candidate(item) else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1097,7 +1154,7 @@ def infer_acquisition_spec(
                     f"held-out probe failed in domain {domain['domain']!r}: {held_out['error']}"
                 )
                 break
-            if candidate.get("default_export_class") or candidate.get("default_export_class_static"):
+            if _is_class_method_candidate(candidate):
                 fragments = [result.get("fragment") or {} for result in selection_results]
                 fragments.append(held_out.get("fragment") or {})
                 values = [frag.get(spec.provides) for frag in fragments]
@@ -1111,6 +1168,8 @@ def infer_acquisition_spec(
                 "default_export_object": bool(candidate.get("default_export_object")),
                 "default_export_class": bool(candidate.get("default_export_class")),
                 "default_export_class_static": bool(candidate.get("default_export_class_static")),
+                "named_export_class_static": bool(candidate.get("named_export_class_static")),
+                "nested_namespace_class_static": bool(candidate.get("nested_namespace_class_static")),
             }
             break
         if winner is not None:
@@ -1146,6 +1205,8 @@ def infer_acquisition_spec(
         "default_export_object": bool(collected[0].get("default_export_object")),
         "default_export_class": bool(collected[0].get("default_export_class")),
         "default_export_class_static": bool(collected[0].get("default_export_class_static")),
+        "named_export_class_static": bool(collected[0].get("named_export_class_static")),
+        "nested_namespace_class_static": bool(collected[0].get("nested_namespace_class_static")),
     }
     return {
         "ok": True,
