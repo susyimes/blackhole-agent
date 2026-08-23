@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-query-string",
+  "generated_at": "2026-08-23T03:09:52.923434Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-query-string"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "query-string",
+    "registry": "npm",
+    "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+    "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+    "url": "",
+    "version": "9.5.0"
+  },
+  "record_digest": "3b9517d5b6a35308dac81fa1e46ff5a52453600c1c09c4aa87111bf85dcbd5f4",
+  "report_digest": "4c2e9b39b63ff407bab77aba63db393d42c6439d28629b299af55f26326fb89c",
+  "schema_version": 1,
+  "slug": "query-string",
+  "task": {
+    "goal": [
+      "extract_output"
+    ],
+    "id": "absorbed-query-string",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "extract_output": ""
+    }
+  },
+  "vendored_tree_digest": "eab1ded5fbcc2153db3fcb722f1db11f69dc6629c2116953b4fa716334a98788",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

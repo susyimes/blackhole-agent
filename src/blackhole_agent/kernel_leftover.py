@@ -155,7 +155,10 @@ _MARKERS = (
     ("default-export-only", "capability.application-node-default-export-growth-plane"),
     ("default exports", "capability.application-node-default-export-growth-plane"),
     ("node default export", "capability.application-node-default-export-growth-plane"),
-    ("reflecting node default", "capability.application-node-default-export-growth-plane"),
+    ("reflecting node default exports", "capability.application-node-default-export-growth-plane"),
+    ("default-exported objects", "capability.application-node-default-export-object-growth-plane"),
+    ("namespace of functions", "capability.application-node-default-export-object-growth-plane"),
+    ("default export is a namespace", "capability.application-node-default-export-object-growth-plane"),
 )
 
 

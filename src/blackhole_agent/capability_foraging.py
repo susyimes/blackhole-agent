@@ -14,9 +14,9 @@ inputs. This module removes that last human input — **foraging**:
   staged tree layout, never declared;
 - candidate callables are enumerated by sandboxed introspection — a
   subprocess imports the package (CPython or Node) and reflects its
-  exported functions, including a Node default export when that is the
-  only callable — filtered to JSON-scalar signatures, and ordered
-  deterministically;
+  exported functions, including a Node default export when that is a
+  single function *or* a namespace object of functions — filtered to
+  JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
   samples for int/float/bool), split into selection and held-out probes; no
@@ -27,7 +27,9 @@ inputs. This module removes that last human input — **foraging**:
   with their reason;
 - every held-out-honest callable becomes an ``AcquisitionSpec``: the first
   winner is the primary leaf and additional winners are a multi-callable
-  bundle, each flowing through the acquisition plane unchanged;
+  bundle; extras that fail acquisition (for example a provides key already
+  covered by another absorbed leaf) are recorded and skipped, and do not
+  refuse a covering primary;
 - the live lane fetches a package from the PyPI JSON API or the npm
   registry, verifies its digest, and forages it through the identical
   inference path;
@@ -426,7 +428,7 @@ import path from "node:path";
 
 const entry = process.argv[2];
 const includeDefault = process.argv[3] !== "0";
-function consider(name, target, isDefault, candidates, seen) {
+function consider(name, target, isDefault, isDefaultObject, candidates, seen) {
   if (typeof target !== "function" || !name || name.startsWith("_") || seen.has(name)) {
     return;
   }
@@ -444,7 +446,24 @@ function consider(name, target, isDefault, candidates, seen) {
     });
   }
   seen.add(name);
-  candidates.push({ name, params, doc: "", default_export: Boolean(isDefault) });
+  candidates.push({
+    name,
+    params,
+    doc: "",
+    default_export: Boolean(isDefault),
+    default_export_object: Boolean(isDefaultObject),
+  });
+}
+function objectKeys(value) {
+  const names = new Set([
+    ...Object.keys(value || {}),
+    ...Object.getOwnPropertyNames(value || {}),
+  ]);
+  names.delete("default");
+  names.delete("__esModule");
+  names.delete("constructor");
+  names.delete("prototype");
+  return [...names].sort();
 }
 try {
   const mod = await import(pathToFileURL(path.resolve(entry)).href);
@@ -456,13 +475,18 @@ try {
       typeof def.name === "string" && /^[A-Za-z][A-Za-z0-9]{2,}$/.test(def.name)
         ? def.name
         : "default";
-    consider(inferred, def, true, candidates, seen);
+    consider(inferred, def, true, false, candidates, seen);
+  }
+  if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
+    for (const name of objectKeys(def)) {
+      consider(name, def[name], true, true, candidates, seen);
+    }
   }
   for (const name of Object.keys(mod).sort()) {
     if (name === "default") {
       continue;
     }
-    consider(name, mod[name], false, candidates, seen);
+    consider(name, mod[name], false, false, candidates, seen);
   }
   process.stdout.write(JSON.stringify({ ok: true, candidates }));
 } catch (err) {
@@ -1066,6 +1090,7 @@ def infer_acquisition_spec(
                 "spec": spec.validate(),
                 "domain": str(domain["domain"]),
                 "default_export": bool(candidate.get("default_export")),
+                "default_export_object": bool(candidate.get("default_export_object")),
             }
             break
         if winner is not None:
@@ -1098,6 +1123,7 @@ def infer_acquisition_spec(
         "runtime_deps": list(closed_deps.get("closed") or []),
         "extra_paths": list(extra_paths),
         "default_export": bool(collected[0].get("default_export")),
+        "default_export_object": bool(collected[0].get("default_export_object")),
     }
     return {
         "ok": True,
@@ -1289,7 +1315,7 @@ def forage_package(
         }
     specs = [inference["spec"], *list(inference.get("bundle_specs") or [])]
     acquisitions: list[dict[str, Any]] = []
-    for spec in specs:
+    for index, spec in enumerate(specs):
         acquisition = acquire_capability(spec, repo_root=repo_root, output_dir=output_dir)
         acquisitions.append(
             {
@@ -1303,7 +1329,9 @@ def forage_package(
                 "error": acquisition.get("error"),
             }
         )
-        if not acquisition.get("ok"):
+        if acquisition.get("ok"):
+            continue
+        if index == 0:
             return {
                 "ok": False,
                 "slug": slug,

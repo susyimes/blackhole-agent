@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T02:34:18.726623Z",
+  "absorbed_at": "2026-08-23T03:07:35.341086Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1099,6 +1099,223 @@
       "version": "8.0.4"
     },
     {
+      "capability_id": "capability.absorbed-query-string",
+      "cases": [
+        {
+          "expect": {
+            "extract_output": ""
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "extract_output": ""
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "extract_output": ""
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "extract_output": ""
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "query-string",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "query-string",
+        "registry": "npm",
+        "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+        "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+        "url": "",
+        "version": "9.5.0"
+      },
+      "provides": [
+        "extract_output"
+      ],
+      "record_digest": "3b9517d5b6a35308dac81fa1e46ff5a52453600c1c09c4aa87111bf85dcbd5f4",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "query-string",
+      "vendored_tree_digest": "eab1ded5fbcc2153db3fcb722f1db11f69dc6629c2116953b4fa716334a98788",
+      "version": "9.5.0"
+    },
+    {
+      "capability_id": "capability.absorbed-query-string-parse",
+      "cases": [
+        {
+          "expect": {
+            "parse_output": {
+              "Hello World": null
+            }
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "parse_output": {
+              "blackhole unbound": null
+            }
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "parse_output": {
+              "MiXeD CaSe": null
+            }
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "parse_output": {}
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "query-string (parse)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "query-string",
+        "registry": "npm",
+        "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+        "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+        "url": "",
+        "version": "9.5.0"
+      },
+      "provides": [
+        "parse_output"
+      ],
+      "record_digest": "9a7f47900e6e87cddba9c0b9900b8478a8610f3f16b224853ff0d010efc2a716",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "query-string-parse",
+      "vendored_tree_digest": "8e81a5a94fb44181c2271cb1e26c4d13fc6a2ba39ff3f2a44d1c9cce850dea14",
+      "version": "9.5.0"
+    },
+    {
+      "capability_id": "capability.absorbed-query-string-parse-url",
+      "cases": [
+        {
+          "expect": {
+            "parse_url_output": {
+              "query": {},
+              "url": "Hello World"
+            }
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "parse_url_output": {
+              "query": {},
+              "url": "blackhole unbound"
+            }
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "parse_url_output": {
+              "query": {},
+              "url": "MiXeD CaSe"
+            }
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "parse_url_output": {
+              "query": {},
+              "url": ""
+            }
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "query-string (parseUrl)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "query-string",
+        "registry": "npm",
+        "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+        "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+        "url": "",
+        "version": "9.5.0"
+      },
+      "provides": [
+        "parse_url_output"
+      ],
+      "record_digest": "b628c5bc668b1c56369b6b1e21987d52de28e2b823d09ef3ba123bf7c2c634e7",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "query-string-parse-url",
+      "vendored_tree_digest": "9abe5781752b9a41ce6762f2abd6576204602f3542fcc265d34c40a34922ac49",
+      "version": "9.5.0"
+    },
+    {
       "capability_id": "capability.absorbed-snake-case",
       "cases": [
         {
@@ -1488,5 +1705,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "4086000a256c1701d6dcac66a8dd319351c679e2fb2797bfd2aa95a7d046b364"
+  "steps_digest": "fcbdba1ae8c91b565860474f4732e3b67eb7bda00c48f8028c6fd66588ac934c"
 }

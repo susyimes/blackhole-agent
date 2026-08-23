@@ -1,0 +1,51 @@
+{
+  "capability_id": "capability.absorbed-query-string-parse",
+  "generated_at": "2026-08-23T03:09:55.701659Z",
+  "grade": {
+    "ok": false,
+    "verdict_count": 6,
+    "verdicts_passed": 3
+  },
+  "grown_plan": [
+    "capability.absorbed-marked-parse"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "query-string",
+    "registry": "npm",
+    "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+    "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+    "url": "",
+    "version": "9.5.0"
+  },
+  "record_digest": "9a7f47900e6e87cddba9c0b9900b8478a8610f3f16b224853ff0d010efc2a716",
+  "report_digest": "b6eeb8f581108fd5f7662c3a29bf3a79e15f5e86050010b3b544d856bc5a2d4d",
+  "schema_version": 1,
+  "slug": "query-string-parse",
+  "task": {
+    "goal": [
+      "parse_output"
+    ],
+    "id": "absorbed-query-string-parse",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "parse_output": {
+        "Hello World": null
+      }
+    }
+  },
+  "vendored_tree_digest": "8e81a5a94fb44181c2271cb1e26c4d13fc6a2ba39ff3f2a44d1c9cce850dea14",
+  "verdicts": {
+    "ablation_unplannable": false,
+    "forgery_rejected": true,
+    "grown_plan_solved": false,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": false
+  }
+}

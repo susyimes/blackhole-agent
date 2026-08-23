@@ -250,6 +250,11 @@ try {{
       (CONFIG.callable_name === "default" || fallback.name === CONFIG.callable_name)
     ) {{
       target = fallback;
+    }} else if (fallback && typeof fallback === "object") {{
+      const nested = fallback[CONFIG.callable_name];
+      if (typeof nested === "function") {{
+        target = nested;
+      }}
     }}
   }}
   if (typeof target !== "function") {{

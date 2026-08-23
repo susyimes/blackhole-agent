@@ -51,6 +51,12 @@ Node default-export leftover: ``run_application_node_default_export_growth_plane
 reflects a Node default export so a default-export-only live-fetched tarball
 with declared ``package.json`` dependencies can be foraged the same way.
 Named-export-only introspection of that package still fails.
+
+Node default-export-object leftover:
+``run_application_node_default_export_object_growth_plane`` reflects a Node
+default-exported namespace of functions so a live-fetched tarball whose
+default export is an object rather than a single function can be foraged
+the same way. Named-export-only introspection of that package still fails.
 """
 
 from __future__ import annotations
@@ -121,6 +127,12 @@ DEFAULT_NODE_DEFAULT_EXPORT_ARTIFACT_DIR = (
 DEFAULT_NODE_DEFAULT_EXPORT_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_node_default_export_catalog.json"
 )
+DEFAULT_NODE_DEFAULT_EXPORT_OBJECT_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-node-default-export-object-growth"
+)
+DEFAULT_NODE_DEFAULT_EXPORT_OBJECT_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_node_default_export_object_catalog.json"
+)
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
 LIVE_NPM_DECOY_SLUG = "left-pad"
@@ -150,6 +162,13 @@ NODE_DEFAULT_EXPORT_NPM_DECOY_SLUG = LIVE_NPM_DECOY_SLUG
 NODE_DEFAULT_EXPORT_DEP_NAME = "decamelize"
 NODE_DEFAULT_EXPORT_GOAL_KEY = "humanize_string_output"
 NODE_DEFAULT_EXPORT_WINNER_CAPABILITY_ID = f"capability.absorbed-{NODE_DEFAULT_EXPORT_WINNER_SLUG}"
+NODE_DEFAULT_EXPORT_OBJECT_WINNER_SLUG = "query-string"
+NODE_DEFAULT_EXPORT_OBJECT_NPM_DECOY_SLUG = LIVE_NPM_DECOY_SLUG
+NODE_DEFAULT_EXPORT_OBJECT_DEP_NAME = "decode-uri-component"
+NODE_DEFAULT_EXPORT_OBJECT_GOAL_KEY = "extract_output"
+NODE_DEFAULT_EXPORT_OBJECT_WINNER_CAPABILITY_ID = (
+    f"capability.absorbed-{NODE_DEFAULT_EXPORT_OBJECT_WINNER_SLUG}"
+)
 APPLY_ABSORBED_SLUGS = frozenset(HERMETIC_ABSORBED_SLUGS) | frozenset({"forage-flip"})
 REGISTRY_COMPETING_HIDE: tuple[str, ...] = ()
 LIVE_FETCH_COMPETING_HIDE: tuple[str, ...] = ()
@@ -210,6 +229,17 @@ NODE_DEFAULT_EXPORT_GROW_TASK = ApplicationTask(
     initial_state={"arg0": "Hello World"},
     goal=(NODE_DEFAULT_EXPORT_GOAL_KEY,),
     oracle={NODE_DEFAULT_EXPORT_GOAL_KEY: "Hello world"},
+)
+
+NODE_DEFAULT_EXPORT_OBJECT_GROW_TASK = ApplicationTask(
+    id="query-string-unplannable",
+    description=(
+        "Unplannable application goal grown from a live-fetched npm tarball "
+        "whose default export is a namespace of functions."
+    ),
+    initial_state={"arg0": "https://example.com?foo=bar"},
+    goal=(NODE_DEFAULT_EXPORT_OBJECT_GOAL_KEY,),
+    oracle={NODE_DEFAULT_EXPORT_OBJECT_GOAL_KEY: "foo=bar"},
 )
 
 
@@ -3511,6 +3541,524 @@ def demo_application_node_default_export_growth_plane() -> dict[str, Any]:
     }
 
 
+def load_node_default_export_object_apply_catalog() -> dict[str, Any]:
+    """Load the catalog whose covering npm tarball default-exports a namespace."""
+
+    payload = load_catalog(DEFAULT_NODE_DEFAULT_EXPORT_OBJECT_CATALOG)
+    payload["network_used"] = False
+    payload["replay"] = True
+    payload["live"] = False
+    payload["registries"] = sorted(
+        {
+            str(item.get("registry") or "")
+            for item in payload.get("items") or []
+            if str(item.get("registry") or "") in {"npm", "pypi"}
+        }
+    )
+    return payload
+
+
+def _node_default_export_object_hide(repo_root: Path) -> tuple[str, ...]:
+    ledger = load_ledger(default_ledger_path(repo_root))
+    return (
+        (NODE_DEFAULT_EXPORT_OBJECT_WINNER_CAPABILITY_ID,)
+        if NODE_DEFAULT_EXPORT_OBJECT_WINNER_CAPABILITY_ID in ledger.capabilities
+        else ()
+    )
+
+
+def _node_default_export_object_scenario_grades(
+    catalog: Mapping[str, Any], *, repo_root: Path = REPO_ROOT
+) -> dict[str, Any]:
+    items = list(catalog.get("items") or [])
+    absorbed = sorted(APPLY_ABSORBED_SLUGS)
+    trend = rank_catalog(strip_declared_provides(items), absorbed=absorbed)
+    lying = rank_catalog(items, absorbed=absorbed, goal_keys=(NODE_DEFAULT_EXPORT_OBJECT_GOAL_KEY,))
+    matched = match_forage_goal(
+        (NODE_DEFAULT_EXPORT_OBJECT_GOAL_KEY,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    probes = list(matched.get("probes") or [])
+    npm_probe = next(
+        (row for row in probes if row.get("slug") == NODE_DEFAULT_EXPORT_OBJECT_NPM_DECOY_SLUG), {}
+    )
+    winner_entry = matched.get("winner") or {}
+    origin = dict(forage_request_for(winner_entry, repo_root=repo_root, live_fetch=True).get("origin") or {})
+    overlay_fields = any(str(item.get("source") or item.get("replay_source") or "") for item in items)
+    registries = {str(item.get("registry") or "") for item in items}
+    uncovered = match_forage_goal(
+        (NO_MATCH_GOAL,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    covering = matched.get("covering") or {}
+    dep_names = _runtime_dep_names(covering)
+    return {
+        "trend_npm_decoy_wins": (trend.get("winner") or {}).get("slug")
+        == NODE_DEFAULT_EXPORT_OBJECT_NPM_DECOY_SLUG,
+        "lying_catalog_picks_npm_decoy": (lying.get("winner") or {}).get("slug")
+        == NODE_DEFAULT_EXPORT_OBJECT_NPM_DECOY_SLUG,
+        "match_is_query_string": (matched.get("winner") or {}).get("slug")
+        == NODE_DEFAULT_EXPORT_OBJECT_WINNER_SLUG,
+        "npm_decoy_probed": npm_probe.get("skip_reason") not in {"", None, "no_source"},
+        "npm_decoy_not_no_source": npm_probe.get("skip_reason") != "no_source",
+        "catalog_provides_ignored": bool(matched.get("ok"))
+        and (matched.get("winner") or {}).get("slug") != (lying.get("winner") or {}).get("slug"),
+        "no_replay_source_field": overlay_fields is False,
+        "winner_origin_live": origin.get("kind") in {"npm-live", "pypi-live"},
+        "winner_source_not_stewardship": bool(origin.get("source")) and not _source_is_stewardship(origin),
+        "registries_npm_and_pypi": "npm" in registries and "pypi" in registries,
+        "query_from_goal": catalog.get("query") == query_from_goal(NODE_DEFAULT_EXPORT_OBJECT_GROW_TASK.goal),
+        "network_unused": catalog.get("network_used") is False,
+        "uncovered_refused": (not uncovered["ok"]) and uncovered.get("error") == "no forage match",
+        "unclosed_without_deps": _unclosed_without_deps(winner_entry, repo_root=repo_root)
+        if winner_entry
+        else False,
+        "named_only_unselected": _named_only_unselected(winner_entry, repo_root=repo_root)
+        if winner_entry
+        else False,
+        "winner_is_default_export": bool(covering.get("default_export")),
+        "winner_is_default_export_object": bool(covering.get("default_export_object")),
+        "closed_dep_is_decode_uri_component": NODE_DEFAULT_EXPORT_OBJECT_DEP_NAME in dep_names,
+        "extra_paths_vendored": bool(covering.get("extra_paths")),
+        "matched": {
+            "ok": bool(matched.get("ok")),
+            "winner": (matched.get("winner") or {}).get("slug") or "",
+            "origin": origin,
+            "inferred_provides": list((matched.get("covering") or {}).get("inferred_provides") or []),
+            "runtime_deps": list(covering.get("runtime_deps") or []),
+            "extra_paths": list(covering.get("extra_paths") or []),
+            "default_export": bool(covering.get("default_export")),
+            "default_export_object": bool(covering.get("default_export_object")),
+            "probes": [
+                {
+                    "slug": row.get("slug"),
+                    "skip_reason": row.get("skip_reason"),
+                    "covers_goal": bool(row.get("covers_goal")),
+                }
+                for row in probes
+            ],
+        },
+        "lying": {"ok": bool(lying.get("ok")), "winner": (lying.get("winner") or {}).get("slug") or ""},
+        "trend": {
+            "ok": bool(trend["ok"]),
+            "winner": (trend.get("winner") or {}).get("slug") or "",
+            "ranked_slugs": [row["slug"] for row in trend.get("ranked") or []],
+        },
+    }
+
+
+def _node_default_export_object_grade(
+    *,
+    skip_result: Mapping[str, Any],
+    uncovered: Mapping[str, Any],
+    grown: Mapping[str, Any],
+    scenarios: Mapping[str, Any],
+    origin: Mapping[str, Any],
+    honesty: Mapping[str, Any],
+    separate_plane: bool | None = None,
+) -> dict[str, Any]:
+    deps = _runtime_dep_names((grown.get("forage") or {}).get("runtime_deps"))
+    extra_paths = list((grown.get("forage") or {}).get("extra_paths") or [])
+    grade = {
+        "already_solvable_skips_forage": bool(skip_result.get("ok")) and skip_result.get("grew") is False,
+        "uncovered_stays_unsolved": (not uncovered.get("ok"))
+        and uncovered.get("error") == "no forage match"
+        and uncovered.get("grew") is False,
+        "trend_npm_decoy_wins": bool(scenarios["trend_npm_decoy_wins"]),
+        "lying_catalog_picks_npm_decoy": bool(scenarios["lying_catalog_picks_npm_decoy"]),
+        "grow_winner_is_query_string": grown.get("winner_slug") == NODE_DEFAULT_EXPORT_OBJECT_WINNER_SLUG,
+        "npm_decoy_probed": bool(scenarios["npm_decoy_probed"]),
+        "npm_decoy_not_no_source": bool(scenarios["npm_decoy_not_no_source"]),
+        "catalog_provides_ignored": bool(scenarios["catalog_provides_ignored"]),
+        "no_replay_source_field": bool(scenarios["no_replay_source_field"]),
+        "winner_origin_live": origin.get("kind") == "npm-live"
+        and (grown.get("forage") or {}).get("fixture_overlay") is False,
+        "winner_source_not_stewardship": bool(origin.get("source")) and not _source_is_stewardship(origin),
+        "registries_npm_and_pypi": bool(scenarios["registries_npm_and_pypi"]),
+        "query_from_goal": bool(scenarios["query_from_goal"]),
+        "network_unused": bool(scenarios["network_unused"]),
+        "unclosed_without_deps": bool(scenarios["unclosed_without_deps"]),
+        "named_only_unselected": bool(scenarios["named_only_unselected"]),
+        "winner_is_default_export": bool(scenarios["winner_is_default_export"]),
+        "winner_is_default_export_object": bool(scenarios["winner_is_default_export_object"]),
+        "winner_runtime_deps_closed": NODE_DEFAULT_EXPORT_OBJECT_DEP_NAME in deps,
+        "extra_paths_vendored": bool(extra_paths) or bool(scenarios["extra_paths_vendored"]),
+        "forage_ok": bool((grown.get("forage") or {}).get("ok")),
+        "grew": bool(grown.get("grew")),
+        "unplannable_before": bool(honesty.get("unplannable_before")),
+        "grown_plan_solved": bool(honesty.get("grown_plan_solved")),
+        "ablation_unplannable": bool(honesty.get("ablation_unplannable")),
+        "no_separate_plane_invocation": True if separate_plane is None else bool(separate_plane),
+    }
+    grade["ok"] = all(grade.values())
+    return grade
+
+
+def run_application_node_default_export_object_growth_plane(
+    output_dir: Path | None = None,
+    *,
+    repo_root: Path = REPO_ROOT,
+    forage: bool = True,
+) -> dict[str, Any]:
+    """Grow an unplannable task from a default-exported-object live-fetched npm tarball."""
+
+    catalog = load_node_default_export_object_apply_catalog()
+    scenarios = _node_default_export_object_scenario_grades(catalog, repo_root=repo_root)
+    skip_result = grow_application_task(
+        ALREADY_SOLVABLE_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    uncovered = grow_application_task(
+        UNCOVERED_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    hide_before = _node_default_export_object_hide(repo_root)
+    grown = grow_application_task(
+        NODE_DEFAULT_EXPORT_OBJECT_GROW_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        hide_before=hide_before,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    honesty: dict[str, Any] = {
+        "ok": False,
+        "unplannable_before": False,
+        "grown_plan_solved": False,
+        "ablation_unplannable": False,
+    }
+    capability_id = str(
+        (grown.get("forage") or {}).get("capability_id") or NODE_DEFAULT_EXPORT_OBJECT_WINNER_CAPABILITY_ID
+    )
+    if grown.get("ok") and grown.get("grew"):
+        honesty = _honesty(NODE_DEFAULT_EXPORT_OBJECT_GROW_TASK, capability_id, repo_root=repo_root)
+    origin = dict((grown.get("forage") or {}).get("origin") or {})
+    grade = _node_default_export_object_grade(
+        skip_result=skip_result,
+        uncovered=uncovered,
+        grown=grown,
+        scenarios=scenarios,
+        origin=origin,
+        honesty=honesty,
+        separate_plane=skip_result.get("used_forage_growth_plane") is False
+        and grown.get("used_forage_growth_plane") is False
+        and uncovered.get("used_forage_growth_plane") is False,
+    )
+    report: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "capability_application_node_default_export_object_growth_plane",
+        "generated_at": utc_now_iso(),
+        "query": catalog.get("query") or "",
+        "goal_key": NODE_DEFAULT_EXPORT_OBJECT_GOAL_KEY,
+        "catalog_digest": _digest({"query": catalog.get("query"), "items": catalog.get("items")}),
+        "scenarios": {
+            "trend": scenarios["trend"],
+            "lying": scenarios["lying"],
+            "matched": scenarios["matched"],
+        },
+        "already_solvable": {"ok": bool(skip_result.get("ok")), "grew": bool(skip_result.get("grew"))},
+        "uncovered": {
+            "ok": bool(uncovered.get("ok")),
+            "grew": bool(uncovered.get("grew")),
+            "error": uncovered.get("error") or "",
+        },
+        "grown": {
+            "ok": bool(grown.get("ok")),
+            "grew": bool(grown.get("grew")),
+            "plan": grown.get("plan"),
+            "winner_slug": grown.get("winner_slug") or "",
+            "forage": grown.get("forage") or {},
+        },
+        "honesty": {
+            "ok": bool(honesty.get("ok")),
+            "unplannable_before": bool(honesty.get("unplannable_before")),
+            "grown_plan_solved": bool(honesty.get("grown_plan_solved")),
+            "ablation_unplannable": bool(honesty.get("ablation_unplannable")),
+            "capability_id": honesty.get("capability_id"),
+            "plan": honesty.get("plan"),
+        },
+        "grade": grade,
+    }
+    report["report_digest"] = _report_digest(report)
+    target_dir = output_dir or DEFAULT_NODE_DEFAULT_EXPORT_OBJECT_ARTIFACT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(target_dir / "plane-report.json", report)
+    return {
+        "ok": bool(grade["ok"]),
+        "report_dir": str(target_dir),
+        "winner": grown.get("winner_slug") or "",
+        "grade": grade,
+        "capability_id": (grown.get("forage") or {}).get("capability_id"),
+        "query": catalog.get("query") or "",
+        "registries": list(catalog.get("registries") or []),
+        "origin": origin,
+        "runtime_deps": list((grown.get("forage") or {}).get("runtime_deps") or []),
+    }
+
+
+def verify_application_node_default_export_object_growth_plane(
+    report_dir: Path, *, repo_root: Path = REPO_ROOT
+) -> dict[str, Any]:
+    """Re-match the default-exported-object npm catalog and re-prove the foraged winner."""
+
+    report_path = report_dir / "plane-report.json"
+    if not report_path.is_file():
+        return {"ok": False, "error": f"report not found: {report_path}"}
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    digest_ok = _report_digest(report) == report.get("report_digest")
+    catalog = load_node_default_export_object_apply_catalog()
+    scenarios = _node_default_export_object_scenario_grades(catalog, repo_root=repo_root)
+    catalog_ok = _digest({"query": catalog.get("query"), "items": catalog.get("items")}) == report.get(
+        "catalog_digest"
+    )
+    origin = dict(((report.get("grown") or {}).get("forage") or {}).get("origin") or {})
+    expected_grade = _node_default_export_object_grade(
+        skip_result=report.get("already_solvable") or {},
+        uncovered=report.get("uncovered") or {},
+        grown=report.get("grown") or {},
+        scenarios=scenarios,
+        origin=origin,
+        honesty=report.get("honesty") or {},
+    )
+    recorded_grade = dict(report.get("grade") or {})
+    grade_ok = recorded_grade == expected_grade and bool(recorded_grade.get("ok"))
+    winner_ok = (report.get("grown") or {}).get("winner_slug") == NODE_DEFAULT_EXPORT_OBJECT_WINNER_SLUG
+    live_proof = prove_absorbed_capability(NODE_DEFAULT_EXPORT_OBJECT_WINNER_SLUG)
+    live_ok = bool(live_proof.get("ok"))
+    kind_ok = report.get("kind") == "capability_application_node_default_export_object_growth_plane"
+    overlay_ok = ((report.get("grown") or {}).get("forage") or {}).get("fixture_overlay") is False
+    deps_ok = NODE_DEFAULT_EXPORT_OBJECT_DEP_NAME in _runtime_dep_names(
+        ((report.get("grown") or {}).get("forage") or {}).get("runtime_deps")
+    )
+    default_ok = (
+        bool(scenarios.get("winner_is_default_export"))
+        and bool(scenarios.get("winner_is_default_export_object"))
+        and bool(scenarios.get("named_only_unselected"))
+    )
+    origin_ok = origin.get("kind") == "npm-live" and not _source_is_stewardship(origin)
+    ok = (
+        digest_ok
+        and catalog_ok
+        and grade_ok
+        and winner_ok
+        and live_ok
+        and kind_ok
+        and overlay_ok
+        and origin_ok
+        and deps_ok
+        and default_ok
+    )
+    return {
+        "ok": ok,
+        "digest_ok": digest_ok,
+        "catalog_ok": catalog_ok,
+        "grade_ok": grade_ok,
+        "winner_ok": winner_ok,
+        "live_ok": live_ok,
+        "kind_ok": kind_ok,
+        "overlay_ok": overlay_ok,
+        "origin_ok": origin_ok,
+        "deps_ok": deps_ok,
+        "default_ok": default_ok,
+    }
+
+
+def builtin_application_node_default_export_object_growth_plane_proof() -> dict[str, Any]:
+    """Registered proof: default-exported-object npm tarballs grow after namespace reflection."""
+
+    catalog = load_node_default_export_object_apply_catalog()
+    scenarios = _node_default_export_object_scenario_grades(catalog)
+    with tempfile.TemporaryDirectory(prefix="blackhole-application-node-default-export-object-proof-") as tmp:
+        report_dir = Path(tmp) / "report"
+        plane = run_application_node_default_export_object_growth_plane(report_dir)
+        verification = (
+            verify_application_node_default_export_object_growth_plane(report_dir)
+            if plane.get("ok")
+            else {"ok": False}
+        )
+        tampered_rejected = False
+        if plane.get("ok"):
+            report_path = report_dir / "plane-report.json"
+            tampered = json.loads(report_path.read_text(encoding="utf-8"))
+            tampered["grade"]["grow_winner_is_query_string"] = False
+            report_path.write_text(json.dumps(tampered, indent=2, sort_keys=True), encoding="utf-8")
+            tampered_rejected = not verify_application_node_default_export_object_growth_plane(report_dir)["ok"]
+
+    verdicts = {
+        "already_solvable_skips_forage": bool((plane.get("grade") or {}).get("already_solvable_skips_forage")),
+        "uncovered_stays_unsolved": bool((plane.get("grade") or {}).get("uncovered_stays_unsolved")),
+        "trend_npm_decoy_wins": bool(scenarios["trend_npm_decoy_wins"]),
+        "lying_catalog_picks_npm_decoy": bool(scenarios["lying_catalog_picks_npm_decoy"]),
+        "grow_winner_is_query_string": bool((plane.get("grade") or {}).get("grow_winner_is_query_string")),
+        "npm_decoy_probed": bool(scenarios["npm_decoy_probed"]),
+        "npm_decoy_not_no_source": bool(scenarios["npm_decoy_not_no_source"]),
+        "catalog_provides_ignored": bool(scenarios["catalog_provides_ignored"]),
+        "unclosed_without_deps": bool(scenarios["unclosed_without_deps"]),
+        "named_only_unselected": bool(scenarios["named_only_unselected"]),
+        "winner_is_default_export": bool(scenarios["winner_is_default_export"]),
+        "winner_is_default_export_object": bool(scenarios["winner_is_default_export_object"]),
+        "winner_runtime_deps_closed": bool((plane.get("grade") or {}).get("winner_runtime_deps_closed")),
+        "extra_paths_vendored": bool((plane.get("grade") or {}).get("extra_paths_vendored")),
+        "winner_origin_live": bool((plane.get("grade") or {}).get("winner_origin_live")),
+        "winner_source_not_stewardship": bool((plane.get("grade") or {}).get("winner_source_not_stewardship")),
+        "registries_npm_and_pypi": bool(scenarios["registries_npm_and_pypi"]),
+        "query_from_goal": bool(scenarios["query_from_goal"]),
+        "network_unused": bool(scenarios["network_unused"]),
+        "plane_ok": bool(plane.get("ok")),
+        "verify_ok": bool(verification.get("ok")),
+        "tampered_rejected": tampered_rejected,
+        "forage_ok": bool((plane.get("grade") or {}).get("forage_ok")),
+        "grew": bool((plane.get("grade") or {}).get("grew")),
+        "unplannable_before": bool((plane.get("grade") or {}).get("unplannable_before")),
+        "grown_plan_solved": bool((plane.get("grade") or {}).get("grown_plan_solved")),
+        "ablation_unplannable": bool((plane.get("grade") or {}).get("ablation_unplannable")),
+        "no_separate_plane_invocation": bool((plane.get("grade") or {}).get("no_separate_plane_invocation")),
+    }
+    return {
+        "ok": all(verdicts.values()),
+        **verdicts,
+        "winner": plane.get("winner") or "",
+        "query": plane.get("query") or "",
+        "registries": plane.get("registries") or [],
+        "origin": plane.get("origin") or {},
+        "runtime_deps": plane.get("runtime_deps") or [],
+        "action": "application_node_default_export_object_growth_plane",
+        "used_skill_route_discovery": False,
+    }
+
+
+def application_node_default_export_object_growth_plane_proof_command() -> str:
+    return (
+        'uv run python -c "from blackhole_agent.capability_application_growth import '
+        "builtin_application_node_default_export_object_growth_plane_proof; "
+        "r=builtin_application_node_default_export_object_growth_plane_proof(); "
+        "assert r['ok'] and r.get('action')=='application_node_default_export_object_growth_plane' "
+        "and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') "
+        "and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') "
+        "and r.get('grow_winner_is_query_string') and r.get('npm_decoy_probed') "
+        "and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') "
+        "and r.get('unclosed_without_deps') and r.get('named_only_unselected') "
+        "and r.get('winner_is_default_export') and r.get('winner_is_default_export_object') "
+        "and r.get('winner_runtime_deps_closed') and r.get('extra_paths_vendored') "
+        "and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') "
+        "and r.get('registries_npm_and_pypi') and r.get('query_from_goal') "
+        "and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') "
+        "and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') "
+        "and r.get('unplannable_before') and r.get('grown_plan_solved') "
+        "and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') "
+        "and not r.get('used_skill_route_discovery')\""
+    )
+
+
+def register_application_node_default_export_object_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    """Register (idempotently) and prove the node default-export-object application-growth plane."""
+
+    ledger_path = default_ledger_path(repo_root)
+    ledger = load_ledger(ledger_path)
+    dependencies = tuple(
+        dependency
+        for dependency in (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "capability.foraging-plane",
+            "capability.forage-target-plane",
+            "capability.forage-growth-plane",
+            "capability.application-node-default-export-growth-plane",
+            "capability.application-node-runtime-deps-growth-plane",
+            "capability.application-runtime-deps-growth-plane",
+            "capability.application-live-fetch-growth-plane",
+            "capability.application-growth-plane",
+            "capability.application-plane",
+            "capability.absorption-plane",
+        )
+        if dependency in ledger.capabilities
+    )
+    capability = Capability(
+        id="capability.application-node-default-export-object-growth-plane",
+        name="Application node default-export-object growth plane",
+        description=(
+            "An unplannable application goal grows itself from a live-fetched "
+            "npm tarball whose default export is a namespace of functions: Node "
+            "introspection reflects those default-object methods, declared "
+            "package.json dependencies are vendored, named-export-only "
+            "introspection still fails, and the covering package is foraged so "
+            "the original task becomes solvable."
+        ),
+        kind="python",
+        entry="blackhole_agent.capability_application_growth:demo_application_node_default_export_object_growth_plane",
+        proof_command=application_node_default_export_object_growth_plane_proof_command(),
+        dependencies=dependencies,
+        behavior_paths=(
+            "src/blackhole_agent/capability_application_growth.py",
+            "src/blackhole_agent/capability_foraging.py",
+            "src/blackhole_agent/capability_acquisition.py",
+            "src/blackhole_agent/capability_forage_growth.py",
+            "tests/fixtures/forage_node_default_export_object_catalog.json",
+            "capabilities/absorbed-steps.json",
+            "capabilities/ledger.json",
+        ),
+        capability_delta=(
+            "Application-growth no longer skips npm packages whose default export "
+            "is a namespace of functions: Node introspection reflects default-exported "
+            "objects, declared package.json dependencies of a live-fetched tarball "
+            "are still closed, named-export-only introspection still fails, and a "
+            "covering package is foraged so the original task becomes solvable."
+        ),
+        tags=("foraging", "plane", "application", "growth", "node", "default-export-object"),
+    )
+    ledger = register_capability(ledger, capability, replace=True)
+    save_ledger(ledger_path, ledger)
+    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=280)
+    stamped = ledger.capabilities[capability.id]
+    disk = load_ledger(ledger_path)
+    merged = dict(disk.capabilities)
+    merged[stamped.id] = stamped
+    save_ledger(
+        ledger_path,
+        CapabilityLedger(
+            schema_version=disk.schema_version,
+            updated_at=utc_now_iso(),
+            capabilities=merged,
+        ),
+    )
+    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
+
+
+def demo_application_node_default_export_object_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a default-exported-object live-fetched npm tarball."""
+
+    result = run_application_node_default_export_object_growth_plane()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "capability_id": result.get("capability_id"),
+        "query": result.get("query"),
+        "registries": result.get("registries"),
+        "origin": result.get("origin"),
+        "runtime_deps": result.get("runtime_deps"),
+        "grade": result.get("grade"),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Application-growth forage plane")
     sub = parser.add_subparsers(dest="command_name", required=True)
@@ -3550,6 +4098,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     node_default_export_parser.add_argument("--no-forage", action="store_true", help="match only; do not forage")
 
+    node_default_export_object_parser = sub.add_parser(
+        "node-default-export-object-plane",
+        help="grow from a default-exported-object npm tarball by reflecting namespace methods",
+    )
+    node_default_export_object_parser.add_argument(
+        "--no-forage", action="store_true", help="match only; do not forage"
+    )
+
     sub.add_parser("proof", help="run the registered application-growth-plane proof")
     sub.add_parser("live-proof", help="run the registered live-registry application-growth proof")
     sub.add_parser("registry-proof", help="run the registered registry-archive application-growth proof")
@@ -3559,6 +4115,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser(
         "node-default-export-proof", help="run the registered node default-export application-growth proof"
     )
+    sub.add_parser(
+        "node-default-export-object-proof",
+        help="run the registered node default-export-object application-growth proof",
+    )
     sub.add_parser("register", help="register and prove the plane in the live ledger")
     sub.add_parser("live-register", help="register and prove the live-registry plane")
     sub.add_parser("registry-register", help="register and prove the registry-archive plane")
@@ -3566,6 +4126,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser("runtime-deps-register", help="register and prove the runtime-deps plane")
     sub.add_parser("node-runtime-deps-register", help="register and prove the node runtime-deps plane")
     sub.add_parser("node-default-export-register", help="register and prove the node default-export plane")
+    sub.add_parser(
+        "node-default-export-object-register",
+        help="register and prove the node default-export-object plane",
+    )
 
     verify_parser = sub.add_parser("verify", help="verify a sealed application-growth report")
     verify_parser.add_argument("--report-dir", type=Path, default=DEFAULT_ARTIFACT_DIR)
@@ -3596,6 +4160,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--report-dir", type=Path, default=DEFAULT_NODE_DEFAULT_EXPORT_ARTIFACT_DIR
     )
 
+    node_default_export_object_verify = sub.add_parser(
+        "node-default-export-object-verify",
+        help="verify a sealed node default-export-object growth report",
+    )
+    node_default_export_object_verify.add_argument(
+        "--report-dir", type=Path, default=DEFAULT_NODE_DEFAULT_EXPORT_OBJECT_ARTIFACT_DIR
+    )
+
     args = parser.parse_args(argv)
     if args.command_name == "grow":
         goal = tuple(args.goal)
@@ -3621,6 +4193,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = run_application_node_runtime_deps_growth_plane(forage=not args.no_forage)
     elif args.command_name == "node-default-export-plane":
         result = run_application_node_default_export_growth_plane(forage=not args.no_forage)
+    elif args.command_name == "node-default-export-object-plane":
+        result = run_application_node_default_export_object_growth_plane(forage=not args.no_forage)
     elif args.command_name == "proof":
         result = builtin_application_growth_plane_proof()
     elif args.command_name == "live-proof":
@@ -3635,6 +4209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = builtin_application_node_runtime_deps_growth_plane_proof()
     elif args.command_name == "node-default-export-proof":
         result = builtin_application_node_default_export_growth_plane_proof()
+    elif args.command_name == "node-default-export-object-proof":
+        result = builtin_application_node_default_export_object_growth_plane_proof()
     elif args.command_name == "register":
         result = register_application_growth_plane_capability()
     elif args.command_name == "live-register":
@@ -3649,6 +4225,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = register_application_node_runtime_deps_growth_plane_capability()
     elif args.command_name == "node-default-export-register":
         result = register_application_node_default_export_growth_plane_capability()
+    elif args.command_name == "node-default-export-object-register":
+        result = register_application_node_default_export_object_growth_plane_capability()
     elif args.command_name == "live-verify":
         result = verify_application_live_growth_plane(args.report_dir)
     elif args.command_name == "registry-verify":
@@ -3661,6 +4239,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = verify_application_node_runtime_deps_growth_plane(args.report_dir)
     elif args.command_name == "node-default-export-verify":
         result = verify_application_node_default_export_growth_plane(args.report_dir)
+    elif args.command_name == "node-default-export-object-verify":
+        result = verify_application_node_default_export_object_growth_plane(args.report_dir)
     else:
         result = verify_application_growth_plane(args.report_dir)
     print(json.dumps(result, indent=2, sort_keys=True, default=str))

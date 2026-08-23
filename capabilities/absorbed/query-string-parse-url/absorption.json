@@ -1,0 +1,77 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "parse_url_output": {
+          "query": {},
+          "url": "Hello World"
+        }
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "parse_url_output": {
+          "query": {},
+          "url": "blackhole unbound"
+        }
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "parse_url_output": {
+          "query": {},
+          "url": "MiXeD CaSe"
+        }
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "parse_url_output": {
+          "query": {},
+          "url": ""
+        }
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "query-string (parseUrl)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "query-string",
+    "registry": "npm",
+    "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+    "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+    "url": "",
+    "version": "9.5.0"
+  },
+  "provides": [
+    "parse_url_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "query-string-parse-url",
+  "version": "9.5.0"
+}

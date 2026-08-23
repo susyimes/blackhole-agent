@@ -159,6 +159,7 @@ def probe_candidate(
         "runtime_deps": list((inference.get("record") or {}).get("runtime_deps") or []),
         "extra_paths": list((inference.get("record") or {}).get("extra_paths") or []),
         "default_export": bool((inference.get("record") or {}).get("default_export")),
+        "default_export_object": bool((inference.get("record") or {}).get("default_export_object")),
     }
 
 

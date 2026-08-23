@@ -1,0 +1,52 @@
+{
+  "capability_id": "capability.absorbed-query-string-parse-url",
+  "generated_at": "2026-08-23T03:09:58.057536Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-query-string-parse-url"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "query-string",
+    "registry": "npm",
+    "sha256": "df66dd9ec83d1fef7380ce104c186b717ae12248692e4b01ee1cf194aa99221b",
+    "source": "artifacts/capability-foraging/downloads/query-string-9.5.0.tgz",
+    "url": "",
+    "version": "9.5.0"
+  },
+  "record_digest": "b628c5bc668b1c56369b6b1e21987d52de28e2b823d09ef3ba123bf7c2c634e7",
+  "report_digest": "d63c55c3c9c1e4248f02648d9be949596c86f34ff6551a0e3fc74fbf1a1d5607",
+  "schema_version": 1,
+  "slug": "query-string-parse-url",
+  "task": {
+    "goal": [
+      "parse_url_output"
+    ],
+    "id": "absorbed-query-string-parse-url",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "parse_url_output": {
+        "query": {},
+        "url": "Hello World"
+      }
+    }
+  },
+  "vendored_tree_digest": "9abe5781752b9a41ce6762f2abd6576204602f3542fcc265d34c40a34922ac49",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}
