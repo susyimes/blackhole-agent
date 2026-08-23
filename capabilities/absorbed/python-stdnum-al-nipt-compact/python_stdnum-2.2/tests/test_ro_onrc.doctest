@@ -1,0 +1,248 @@
+test_ro_onrc.doctest - more detailed doctests for the stdnum.ro.onrc module
+
+Copyright (C) 2020-2025 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.ro.onrc module.
+
+>>> from stdnum.ro import onrc
+>>> from stdnum.exceptions import *
+
+
+Test some corner cases of the old format.
+
+>>> onrc.validate('J/52/750/2012')
+'J52/750/2012'
+>>> onrc.validate('J52/750/22.11.2012')  # valid, strip date, leave year
+'J52/750/2012'
+>>> onrc.validate('J 52 / 750 / 2012')
+'J52/750/2012'
+>>> onrc.validate('F 26 1132/2007')
+'F26/1132/2007'
+>>> onrc.validate('J22-1515-2007')
+'J22/1515/2007'
+>>> onrc.validate('X52/750/2012')  # fist letter invalid
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J52/100000/2012')  # second number too large
+Traceback (most recent call last):
+    ...
+InvalidLength: ...
+>>> onrc.validate('J 52 / 750 / 200')  # year too short
+Traceback (most recent call last):
+    ...
+InvalidLength: ...
+>>> onrc.validate('J/2/750/2012')  # county is normalised to two digits
+'J02/750/2012'
+>>> onrc.validate('J49/750/2012')  # invalid county
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J002 /123 /2015')  # invalid county
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J/52/750/2112')  # year in the future
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J22/1515/2007/123')  # too many components
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+
+
+Test some corner cases of the new format.
+
+>>> onrc.validate('J2016012984401')
+'J2016012984401'
+>>> onrc.validate('J201601298440')
+Traceback (most recent call last):
+    ...
+InvalidLength: ...
+>>> onrc.validate('J1822012984405')  # year too old
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J2112012984408')  # year in the future
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J2016012984007')  # number before 2024 with 0 county
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J2024012984994')  # number from 2024 with invalid county
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> onrc.validate('J2025012984401')  # number after 2024 with non-0 county
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+
+
+These have been found online and should all be valid numbers.
+
+>>> numbers = '''
+...
+... C04/32/2005
+... C22/4/2018
+... C30/2/2009
+... F01 /592 /2013
+... F01 587 2023
+... F01 988 2003
+... F01/1477/2011
+... F05/696/2006
+... F07/477/2003
+... F08/1095/2005
+... F12/617/2011
+... F13/1917/2005
+... F14/217/2013
+... F20/491/2013
+... F31/786/2011
+... F32/639/2013
+... F36/64/2008
+... F5/1055/2013
+... F5/2659/2013
+... F5/550/2012
+... F6/496/2015
+... F8/1302/2013
+... F8/672/2012
+... J 01/585/2002
+... J 40/1323/2005
+... J01/568/2015
+... J02/1253/2008
+... J02/143/2011
+... J02/238/2012
+... J02/310/2004
+... J03/442/2002
+... J03/920/2002
+... J04/368/2006
+... J05/1117/2004
+... J05/1729/09.09.1991
+... J05/5114/1994
+... J05/582/2011
+... J06/307/2009
+... J06/52/2001
+... J07 4 2024
+... J07/147/2001
+... J07/208/1998
+... J08/1716/1997
+... J08/2679/2008
+... J08/2720/2007
+... J08/545/2001
+... J09 49 2023
+... J09 87 2024
+... J1/384/13.05.2015
+... J10/460/2012
+... J12/1701/16.10.1996
+... J12/1811/2002
+... J12/2322/2002
+... J12/2553/1992
+... J12/3388/2016
+... J12/4365/2006
+... J12/487/2012
+... J12/595/1991
+... J12/633/2012
+... J12/850/2014
+... J13/197/2012
+... J13/2949/1991
+... J13/60/2005
+... J13/674/2016
+... J17/1241/1992
+... J18/583/2015
+... J18/877/2006
+... J20/2034/1993
+... J21/565/1992
+... J22/874/1996
+... J22/930/2016
+... J23/134/27.01.2006
+... J23/1657/14.06.2012
+... J23/4802/2017
+... J23/864/2017
+... J24/1082/2015
+... J24/908/2006
+... J26/1077/2008
+... J30/428/1993
+... J30/722/08.08.2016
+... J30/734/2014
+... J30/855/1993
+... J32/2241/1994
+... J32/631/2013
+... J35/1056/2008
+... J36/25/2001
+... J36/284/2017
+... J36/637/2018
+... J37/384/2009
+... J39 /771 /2005
+... J40 14850 2021
+... J40 1546 2018
+... J40 3509 2020
+... J40 4214 2024
+... J40 4834 2000
+... J40 5302 2020
+... J40 8068 2024
+... J40 8364 2024
+... J40 9214 2024
+... J40/10944/2006
+... J40/11591/2003
+... J40/11591/2009
+... J40/1293/23.10.2014
+... J40/1472/1992
+... J40/17202/2006
+... J40/19473/2006
+... J40/3905/30.03.2015
+... J40/4206/2008
+... J40/4502/2011
+... J40/467/1998
+... J40/5139/1998
+... J40/7888/1999
+... J40/8633/2013
+... J5/1243/2016
+... J5/2916/03.09.1993
+... J51/159/2016
+... J51/229/2011
+... J52/474/1994
+... j05/1455/2012
+... j30/61/2010
+... j39/151/2019
+... j40/3674/2002
+...
+... C2005000007045
+... C2005000011220
+... C2009000002022
+... J1992002621040
+... J1993001036400
+... J1994000536225
+... J2007007766403
+... J2012000750528
+... J2016012984401
+... J2021016333409
+... J2024012585407
+... J2024030812006
+... J2024035703000
+... J2024044457006
+... J2025007112004
+... J2025066599008
+... J2025085871002
+...
+... '''
+>>> [x for x in numbers.splitlines() if x and not onrc.is_valid(x)]
+[]

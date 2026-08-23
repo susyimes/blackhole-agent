@@ -188,6 +188,8 @@ _MARKERS = (
     ("functions exported only on nested submodules", "capability.application-python-nested-function-growth-plane"),
     ("package.subpackage.submodule.func rather than a class method", "capability.application-python-nested-function-growth-plane"),
     ("package.submodule.func rather than a class method", "capability.application-python-nested-function-growth-plane"),
+    ("functions exported two submodule levels down", "capability.application-python-deep-nested-function-growth-plane"),
+    ("package.subpackage.submodule.func rather than package.submodule.func", "capability.application-python-deep-nested-function-growth-plane"),
     ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
     ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
 )

@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-python-stdnum",
+  "generated_at": "2026-08-23T14:26:52.940285Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-python-stdnum"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "python-stdnum",
+    "registry": "pypi",
+    "sha256": "e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9",
+    "source": "artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz",
+    "url": "",
+    "version": "2.2"
+  },
+  "record_digest": "cfc15aa996cb6629544cc0d2a736883f53411e420e5d05b3c1b8407f465e5d79",
+  "report_digest": "73b073651e8bf00546ae2afdce991d22fdf4ef2acc1cca219fe933f0eeedc26f",
+  "schema_version": 1,
+  "slug": "python-stdnum",
+  "task": {
+    "goal": [
+      "ad_nrt_compact_output"
+    ],
+    "id": "absorbed-python-stdnum",
+    "initial_state": {
+      "number": "Hello World"
+    },
+    "oracle": {
+      "ad_nrt_compact_output": "HELLOWORLD"
+    }
+  },
+  "vendored_tree_digest": "f96e4d06015b29b063022691d79189fdd84f70b3cf14464bdb9ee1184f41006a",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

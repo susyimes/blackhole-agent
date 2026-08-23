@@ -1,0 +1,69 @@
+test_imei.doctest - more detailed doctests for stdnum.imei module
+
+Copyright (C) 2010, 2013 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.imei module. It
+tries to test more corner cases and detailed functionality that is not
+really useful as module documentation.
+
+>>> from stdnum import imei
+
+
+Should be valid numbers:
+
+>>> imei.validate('49-015420-323751')
+'49015420323751'
+>>> imei.validate('35-209900-176148-1')
+'352099001761481'
+>>> imei.validate('35-209900-176148-23')
+'3520990017614823'
+>>> imei.validate('350077-52-323751-3')
+'350077523237513'
+>>> imei.validate('354178036859789')
+'354178036859789'
+
+
+These are normal variations that should just work. Getting the type:
+
+>>> imei.imei_type('35686800-004141-20')
+'IMEISV'
+>>> imei.imei_type('35-417803-685978-9')
+'IMEI'
+>>> imei.imei_type('35-417803-685978-2') is None  # invalid check digit
+True
+>>> imei.imei_type('3568680000414120')
+'IMEISV'
+
+
+The format() function can add the check digit if needed. It should leave
+alone existing check digits (even invalid ones) and only add them to the
+14 digit format.
+
+>>> imei.format('354178036859789')
+'35-417803-685978-9'
+>>> imei.format('35417803685978')
+'35-417803-685978'
+>>> imei.format('354178036859786', add_check_digit=True)
+'35-417803-685978-6'
+>>> imei.format('35417803685978', add_check_digit=True)
+'35-417803-685978-9'
+>>> imei.format('35686800-004141', add_check_digit=True)
+'35-686800-004141-8'
+>>> imei.format('35686800-004141-20', add_check_digit=True)
+'35-686800-004141-20'

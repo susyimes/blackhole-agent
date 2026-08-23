@@ -1,0 +1,112 @@
+test_fi_hetu.doctest - more detailed doctests for stdnum.fi.hetu module
+
+Copyright (C) 2011 Jussi Judin
+Copyright (C) 2013 Arthur de Jong
+Copyright (C) 2020 Aleksi Hoffman
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.fi.hetu. It
+tries to cover more corner cases and detailed functionality that is not
+really useful as module documentation.
+
+>>> from stdnum.fi import hetu
+>>> from stdnum.exceptions import *
+
+
+Normal values that should just work.
+
+>>> hetu.validate('131052-308T')
+'131052-308T'
+>>> hetu.validate('131052+308T')
+'131052+308T'
+>>> hetu.validate('131052A308T')
+'131052A308T'
+>>> hetu.validate('131052a308t')
+'131052A308T'
+
+From the beginning of year 2023, additional century indicating signs were added.
+This doesn't affect the checksum calculation.
+
+>>> hetu.validate('131052B308T')
+'131052B308T'
+
+>>> hetu.validate('131052X308T')
+'131052X308T'
+
+Invalid checksum:
+
+>>> hetu.validate('131052-308U')
+Traceback (most recent call last):
+    ...
+InvalidChecksum: ...
+
+
+Invalid century indicator:
+
+>>> hetu.validate('131052/308T')
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+>>> hetu.validate('131052T308T')
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+
+
+Invalid birth date:
+
+>>> hetu.validate('310252-308Y')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> hetu.validate('130052-308R')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+
+Leaving out the first zero is wrong:
+
+>>> hetu.validate('10101-0101')
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+
+
+Test for invalid individual numbers. For historical reasons individual IDs
+start from 002. The range from 900 to 999 is used as temporary identifiers
+(which should only be allowed when `allow_temporary` parameter is explicitly
+set to True).
+
+>>> hetu.validate('131052-000V')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> hetu.validate('131052-9993')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> hetu.validate('131052-9993', allow_temporary=True)
+'131052-9993'
+
+
+compact() and format() don't do much special:
+
+>>> hetu.compact('131052a308t')
+'131052A308T'
+>>> hetu.format('131052a308t')
+'131052A308T'

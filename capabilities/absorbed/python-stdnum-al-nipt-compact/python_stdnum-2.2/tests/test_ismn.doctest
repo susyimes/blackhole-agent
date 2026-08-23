@@ -1,0 +1,101 @@
+test_ismn.doctest - more detailed doctests for stdnum.ismn module
+
+Copyright (C) 2010-2017 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.ismn module. It
+tries to test more corner cases and detailed functionality that is not
+really useful as module documentation.
+
+>>> from stdnum import ismn
+
+
+These are normal variations that should just work.
+
+>>> ismn.validate('979-0-3217-6543-6')
+'9790321765436'
+>>> ismn.validate('979-0-3217-6544-3')
+'9790321765443'
+>>> ismn.validate('9790321765450')
+'9790321765450'
+>>> ismn.validate('M-3217-6546-7')
+'M321765467'
+>>> ismn.validate('M321765474')
+'M321765474'
+>>> ismn.validate('979-0-260000438')
+'9790260000438'
+
+
+Tests for mangling and incorrect check digits.
+
+>>> ismn.validate('979-0-3217-6543-x')
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+>>> ismn.validate('M-3217-6546-8')
+Traceback (most recent call last):
+    ...
+InvalidChecksum: ...
+>>> ismn.validate('979M321765450')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+>>> ismn.validate('Z-3217-6546-8')
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+
+
+See if 10 to 13 digit conversion works.
+
+>>> ismn.to_ismn13('979-0-32176544-3')  # ismn13 should stay ismn13
+'979-0-32176544-3'
+>>> ismn.to_ismn13('M-32176546-7')
+'979-0-32176546-7'
+>>> ismn.to_ismn13('M 3217 65504')
+'979 0 3217 65504'
+
+
+Test the ismn_type() function
+
+>>> ismn.ismn_type('M-3217-6546-7')
+'ISMN10'
+>>> ismn.ismn_type('BAD')
+>>> ismn.ismn_type('9790321765450')
+'ISMN13'
+
+
+Regrouping tests.
+
+>>> ismn.format('M-3217-6546-7')
+'979-0-3217-6546-7'
+>>> ismn.format('9790321765450')
+'979-0-3217-6545-0'
+
+
+While an EAN can also be less than 13 digits and ISMN should always be
+13 digits (when not 10 digits) and start with 9790.
+
+>>> ismn.validate('979023456784')
+Traceback (most recent call last):
+    ...
+InvalidLength: ...
+>>> ismn.validate('9781234567866')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...

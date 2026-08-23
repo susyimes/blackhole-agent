@@ -1,0 +1,35 @@
+test_robustness.doctest - test is_valid() functions to not break
+
+Copyright (C) 2011-2025 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains some tests for modules in the stdnum package to
+check whether all provided is_valid() functions can handle clearly
+invalid junk.
+
+>>> testvalues = (
+...     None, '*&^%$', '', 0, False, object(), 'Z', 'QQ', '3', '€', '€'.encode('utf-8'),
+...     '😴', '¥', '3²', 'ⅷ', '⑱', '᭓', b'\xc2\xb2'.decode('utf-8'))
+>>> from stdnum.util import get_number_modules
+
+Go over each module and try every value.
+
+>>> for mod in get_number_modules():
+...     results = [ x for x in testvalues if mod.is_valid(x) != False ]
+...     if results:
+...         print(mod.__name__, results)

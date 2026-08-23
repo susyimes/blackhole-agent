@@ -39,7 +39,9 @@ inputs. This module removes that last human input — **foraging**:
   and Python nested-submodule functions such as
   ``package.submodule.func`` / ``package.subpackage.submodule.func``
   (module-level callables exported only on a nested submodule, not a
-  class method)
+  class method; two-level ``package.subpackage.submodule.func`` is
+  selected ahead of one-level ``package.submodule.func`` so a deeper
+  module function is not shadowed)
   — filtered to
   JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
@@ -405,6 +407,15 @@ def _module_ok(target):
     return owner == import_name or owner.startswith(import_name + ".")
 
 
+def _defined_on(target, prefix):
+    owner = getattr(target, "__module__", "") or ""
+    func = getattr(target, "__func__", None)
+    if func is not None:
+        owner = getattr(func, "__module__", owner) or owner
+    expected = import_name if not prefix else import_name + "." + prefix
+    return (not owner) or owner == expected
+
+
 def _consider_class(prefix, target, nested=False, deep=False):
     static_flags = {
         "python_class_static": (not nested) and (not deep),
@@ -484,14 +495,15 @@ for name, target in sorted(submodules.items()):
             continue
         nested_target = getattr(target, nested_name, None)
         if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
-            _consider(
-                f"{name}.{nested_name}",
-                nested_target,
-                {
-                    "python_nested_namespace_function": True,
-                    "python_deep_nested_namespace_function": False,
-                },
-            )
+            if _defined_on(nested_target, name):
+                _consider(
+                    f"{name}.{nested_name}",
+                    nested_target,
+                    {
+                        "python_nested_namespace_function": True,
+                        "python_deep_nested_namespace_function": False,
+                    },
+                )
             continue
         if inspect.isclass(nested_target):
             _consider_class(f"{name}.{nested_name}", nested_target, nested=True, deep=False)
@@ -504,14 +516,15 @@ for prefix, target in sorted(deep_submodules.items()):
             continue
         nested_target = getattr(target, nested_name, None)
         if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
-            _consider(
-                f"{prefix}.{nested_name}",
-                nested_target,
-                {
-                    "python_nested_namespace_function": False,
-                    "python_deep_nested_namespace_function": True,
-                },
-            )
+            if _defined_on(nested_target, prefix):
+                _consider(
+                    f"{prefix}.{nested_name}",
+                    nested_target,
+                    {
+                        "python_nested_namespace_function": False,
+                        "python_deep_nested_namespace_function": True,
+                    },
+                )
             continue
         if inspect.isclass(nested_target):
             _consider_class(f"{prefix}.{nested_name}", nested_target, nested=True, deep=True)
@@ -1453,8 +1466,11 @@ def infer_acquisition_spec(
             0 if item.get("python_nested_namespace_class_instance") else 1,
             0 if item.get("python_deep_nested_namespace_class_instance") else 1,
             0 if item.get("python_deep_nested_namespace_class_static") else 1,
-            int(bool(item.get("python_nested_namespace_function")))
-            + 2 * int(bool(item.get("python_deep_nested_namespace_function"))),
+            0
+            if item.get("python_deep_nested_namespace_function")
+            else 1
+            if item.get("python_nested_namespace_function")
+            else 2,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),

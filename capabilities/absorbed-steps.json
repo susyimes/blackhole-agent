@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T13:32:27.102909Z",
+  "absorbed_at": "2026-08-23T14:22:20.067378Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -2694,6 +2694,195 @@
       "version": "8.0.4"
     },
     {
+      "capability_id": "capability.absorbed-python-stdnum",
+      "cases": [
+        {
+          "expect": {
+            "ad_nrt_compact_output": "HELLOWORLD"
+          },
+          "input": {
+            "number": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "ad_nrt_compact_output": "BLACKHOLEUNBOUND"
+          },
+          "input": {
+            "number": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "ad_nrt_compact_output": "MIXEDCASE"
+          },
+          "input": {
+            "number": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "ad_nrt_compact_output": ""
+          },
+          "input": {
+            "number": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "python-stdnum",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "python-stdnum",
+        "registry": "pypi",
+        "sha256": "e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9",
+        "source": "artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz",
+        "url": "",
+        "version": "2.2"
+      },
+      "provides": [
+        "ad_nrt_compact_output"
+      ],
+      "record_digest": "cfc15aa996cb6629544cc0d2a736883f53411e420e5d05b3c1b8407f465e5d79",
+      "requires": [
+        "number"
+      ],
+      "schema_version": 1,
+      "slug": "python-stdnum",
+      "vendored_tree_digest": "f96e4d06015b29b063022691d79189fdd84f70b3cf14464bdb9ee1184f41006a",
+      "version": "2.2"
+    },
+    {
+      "capability_id": "capability.absorbed-python-stdnum-ad-nrt-is-valid",
+      "cases": [
+        {
+          "expect": {
+            "ad_nrt_is_valid_output": false
+          },
+          "input": {
+            "number": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "ad_nrt_is_valid_output": false
+          },
+          "input": {
+            "number": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "ad_nrt_is_valid_output": false
+          },
+          "input": {
+            "number": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "ad_nrt_is_valid_output": false
+          },
+          "input": {
+            "number": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "python-stdnum (ad.nrt.is_valid)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "python-stdnum",
+        "registry": "pypi",
+        "sha256": "e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9",
+        "source": "artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz",
+        "url": "",
+        "version": "2.2"
+      },
+      "provides": [
+        "ad_nrt_is_valid_output"
+      ],
+      "record_digest": "6d322e25f9e42e8338855b5d587995c636c633089dbf863ca513fcf03d116f62",
+      "requires": [
+        "number"
+      ],
+      "schema_version": 1,
+      "slug": "python-stdnum-ad-nrt-is-valid",
+      "vendored_tree_digest": "2593c561df9ddf18261d490563722b473c658e5ec107c3fff0fab28230936a7e",
+      "version": "2.2"
+    },
+    {
+      "capability_id": "capability.absorbed-python-stdnum-al-nipt-compact",
+      "cases": [
+        {
+          "expect": {
+            "al_nipt_compact_output": "HELLOWORLD"
+          },
+          "input": {
+            "number": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "al_nipt_compact_output": "BLACKHOLEUNBOUND"
+          },
+          "input": {
+            "number": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "al_nipt_compact_output": "MIXEDCASE"
+          },
+          "input": {
+            "number": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "al_nipt_compact_output": ""
+          },
+          "input": {
+            "number": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "python-stdnum (al.nipt.compact)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "python-stdnum",
+        "registry": "pypi",
+        "sha256": "e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9",
+        "source": "artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz",
+        "url": "",
+        "version": "2.2"
+      },
+      "provides": [
+        "al_nipt_compact_output"
+      ],
+      "record_digest": "141be71308c6f3fc3a85006ce00701fae25bf07932bf777dabf489511705114f",
+      "requires": [
+        "number"
+      ],
+      "schema_version": 1,
+      "slug": "python-stdnum-al-nipt-compact",
+      "vendored_tree_digest": "fdaae2b8e5ffcb081de4a9ca3fba57a5d6e3193310081799315280b2da0f4e63",
+      "version": "2.2"
+    },
+    {
       "capability_id": "capability.absorbed-query-string",
       "cases": [
         {
@@ -3688,5 +3877,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "013d4a37a2b01288e940f9d429773856589f158f0aaec3facc32569c183e0791"
+  "steps_digest": "25c5337745b3dfef827f1cf6d1b474c9d3cd2ccfb866b5faab92e666f69a4154"
 }

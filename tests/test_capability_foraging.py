@@ -1074,6 +1074,88 @@ def test_python_introspection_reflects_deep_nested_namespace_function(tmp_path: 
     assert result["spec"].callable_name == "codec.text.shout"
 
 
+def test_python_introspection_prefers_deep_nested_function_over_one_level(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns"
+    subpkg = ns / "codec"
+    subpkg.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    (ns / "text.py").write_text(
+        "def shout(value):\n"
+        "    if not isinstance(value, str):\n"
+        "        raise TypeError('shout expects a string')\n"
+        "    return value.lower()\n",
+        encoding="utf-8",
+    )
+    (subpkg / "__init__.py").write_text("", encoding="utf-8")
+    (subpkg / "text.py").write_text(
+        "def shout(value):\n"
+        "    if not isinstance(value, str):\n"
+        "        raise TypeError('shout expects a string')\n"
+        "    return value.upper()\n",
+        encoding="utf-8",
+    )
+    result = infer_acquisition_spec(
+        slug="forage-ns-prefer-deep-shout",
+        name="forage-ns-prefer-deep-shout",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.shout"
+    assert result["record"]["python_deep_nested_namespace_function"] is True
+    assert result["record"]["python_nested_namespace_function"] is False
+    assert result["spec"].callable_name == "codec.text.shout"
+
+
+def test_python_introspection_skips_reexported_deep_nested_function(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns"
+    subpkg = ns / "codec"
+    subpkg.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    (ns / "util.py").write_text(
+        "def helper(value):\n"
+        "    if not isinstance(value, str):\n"
+        "        raise TypeError('helper expects a string')\n"
+        "    return value\n",
+        encoding="utf-8",
+    )
+    (subpkg / "__init__.py").write_text("", encoding="utf-8")
+    (subpkg / "text.py").write_text(
+        "from forage_ns.util import helper\n"
+        "\n"
+        "def shout(value):\n"
+        "    if not isinstance(value, str):\n"
+        "        raise TypeError('shout expects a string')\n"
+        "    return value.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.text.shout" in names
+    assert "codec.text.helper" not in names
+    shouted = next(
+        candidate for candidate in reflected["candidates"] if candidate["name"] == "codec.text.shout"
+    )
+    assert shouted["python_deep_nested_namespace_function"] is True
+    result = infer_acquisition_spec(
+        slug="forage-ns-skip-reexport",
+        name="forage-ns-skip-reexport",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.shout"
+    assert result["record"]["python_deep_nested_namespace_function"] is True
+    assert result["spec"].callable_name == "codec.text.shout"
+
+
 def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     ns = pkg / "forage_ns"
@@ -1258,6 +1340,36 @@ def test_python_nested_namespace_function_sdist_forages_packaging(tmp_path: Path
     assert result["record"]["default_export"] is False
     assert result["spec"].provides == "utils_canonicalize_name_output"
     assert result["spec"].callable_name == "utils.canonicalize_name"
+
+
+def test_python_deep_nested_namespace_function_sdist_forages_python_stdnum(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "python-stdnum", "slug": "python-stdnum", "registry": "pypi", "version": "2.2"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="python-stdnum",
+        name="python-stdnum",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="stdnum",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "ad.nrt.compact"
+    assert result["record"]["python_deep_nested_namespace_function"] is True
+    assert result["record"]["python_nested_namespace_function"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"].get("python_nested_namespace_class_static") is not True
+    assert result["record"].get("python_nested_namespace_class_instance") is not True
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "ad_nrt_compact_output"
+    assert result["spec"].callable_name == "ad.nrt.compact"
 
 
 def test_python_class_instance_sdist_forages_markdown_it_py(tmp_path: Path) -> None:

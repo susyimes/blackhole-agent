@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416101Z"
+      "updated_at": "2026-08-23T14:27:07.293857Z"
     },
     "capability.absorbed-eta": {
       "behavior_paths": [
@@ -1307,6 +1307,93 @@
       ],
       "updated_at": "2026-08-23T01:29:55.500938Z"
     },
+    "capability.absorbed-python-stdnum": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/python-stdnum/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'python-stdnum' is now a first-class invocable capability providing ['ad_nrt_compact_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T14:22:05.090823Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'python-stdnum' (pypi-live origin artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz): provides ['ad_nrt_compact_output'] from ['number']. Vendored under capabilities/absorbed/python-stdnum/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-python-stdnum",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T14:26:49.193681Z",
+      "name": "Absorbed external capability: python-stdnum",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('python-stdnum'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T14:26:49.193681Z"
+    },
+    "capability.absorbed-python-stdnum-ad-nrt-is-valid": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/python-stdnum-ad-nrt-is-valid/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'python-stdnum-ad-nrt-is-valid' is now a first-class invocable capability providing ['ad_nrt_is_valid_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T14:22:13.453199Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'python-stdnum-ad-nrt-is-valid' (pypi-live origin artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz): provides ['ad_nrt_is_valid_output'] from ['number']. Vendored under capabilities/absorbed/python-stdnum-ad-nrt-is-valid/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-python-stdnum-ad-nrt-is-valid",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T14:26:59.175026Z",
+      "name": "Absorbed external capability: python-stdnum (ad.nrt.is_valid)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('python-stdnum-ad-nrt-is-valid'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T14:26:59.175026Z"
+    },
+    "capability.absorbed-python-stdnum-al-nipt-compact": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/python-stdnum-al-nipt-compact/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'python-stdnum-al-nipt-compact' is now a first-class invocable capability providing ['al_nipt_compact_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T14:22:20.080483Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'python-stdnum-al-nipt-compact' (pypi-live origin artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz): provides ['al_nipt_compact_output'] from ['number']. Vendored under capabilities/absorbed/python-stdnum-al-nipt-compact/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-python-stdnum-al-nipt-compact",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T14:27:05.053877Z",
+      "name": "Absorbed external capability: python-stdnum (al.nipt.compact)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('python-stdnum-al-nipt-compact'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T14:27:05.053877Z"
+    },
     "capability.absorbed-query-string": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -1795,7 +1882,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417317Z"
+      "updated_at": "2026-08-23T14:27:07.295109Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -1827,7 +1914,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-08-23T13:35:38.414958Z"
+      "updated_at": "2026-08-23T14:27:07.292721Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -1860,7 +1947,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416300Z"
+      "updated_at": "2026-08-23T14:27:07.294063Z"
     },
     "capability.application-growth-plane": {
       "behavior_paths": [
@@ -2386,7 +2473,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417616Z"
+      "updated_at": "2026-08-23T14:27:07.295414Z"
     },
     "capability.application-python-class-instance-growth-plane": {
       "behavior_paths": [
@@ -2478,6 +2565,58 @@
         "class-static"
       ],
       "updated_at": "2026-08-23T09:04:41.352083Z"
+    },
+    "capability.application-python-deep-nested-function-growth-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application_growth.py",
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_forage_growth.py",
+        "tests/fixtures/forage_python_deep_nested_namespace_function_catalog.json",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application-growth no longer skips sdists whose callable API is a Python nested-namespace module function two submodule levels down: introspection reflects ad.nrt.compact as package.subpackage.submodule.func rather than a one-level package.submodule.func, and a covering package is foraged so the original task becomes solvable.",
+      "created_at": "2026-08-23T14:21:12.512163Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+        "capability.application-python-nested-function-growth-plane",
+        "capability.application-python-deep-nested-instance-growth-plane",
+        "capability.application-python-nested-class-instance-growth-plane",
+        "capability.application-python-nested-class-static-growth-plane",
+        "capability.application-python-class-static-growth-plane",
+        "capability.application-python-class-instance-growth-plane",
+        "capability.application-node-named-class-static-growth-plane",
+        "capability.application-runtime-deps-growth-plane",
+        "capability.application-live-fetch-growth-plane",
+        "capability.application-growth-plane",
+        "capability.application-plane"
+      ],
+      "description": "An unplannable application goal grows itself from a live-fetched sdist whose callable API is a Python nested-namespace module function two submodule levels down: introspection reflects package.subpackage.submodule.func / ad.nrt.compact rather than a one-level package.submodule.func, and the covering package is foraged so the original task becomes solvable.",
+      "entry": "blackhole_agent.capability_application_growth:demo_application_python_deep_nested_namespace_function_growth_plane",
+      "id": "capability.application-python-deep-nested-function-growth-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T14:22:22.933932Z",
+      "name": "Application python deep nested-namespace function growth plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_application_growth import builtin_application_python_deep_nested_namespace_function_growth_plane_proof; r=builtin_application_python_deep_nested_namespace_function_growth_plane_proof(); assert r['ok'] and r.get('action')=='application_python_deep_nested_namespace_function_growth_plane' and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') and r.get('grow_winner_is_python_stdnum') and r.get('npm_decoy_probed') and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') and r.get('python_deep_nested_namespace_function_selected') and r.get('winner_is_python_deep_nested_namespace_function') and r.get('winner_is_not_python_nested_namespace_function') and r.get('winner_is_not_python_deep_nested_namespace_class_instance') and r.get('winner_is_not_python_nested_namespace_class_instance') and r.get('winner_is_not_python_nested_namespace_class_static') and r.get('winner_is_not_python_class_static') and r.get('winner_is_not_python_class_instance') and r.get('winner_is_not_named_export_class_static') and r.get('winner_is_not_default_export') and r.get('winner_is_not_default_export_class') and r.get('winner_is_not_default_export_object') and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') and r.get('registries_npm_and_pypi') and r.get('query_from_goal') and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "application",
+        "growth",
+        "python",
+        "nested-namespace",
+        "function",
+        "deep-nested"
+      ],
+      "updated_at": "2026-08-23T14:22:22.933932Z"
     },
     "capability.application-python-deep-nested-instance-growth-plane": {
       "behavior_paths": [
@@ -2792,7 +2931,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416401Z"
+      "updated_at": "2026-08-23T14:27:07.294165Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -2827,7 +2966,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-08-23T13:35:38.415397Z"
+      "updated_at": "2026-08-23T14:27:07.293136Z"
     },
     "capability.continuity-plane": {
       "behavior_paths": [
@@ -2872,7 +3011,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416807Z"
+      "updated_at": "2026-08-23T14:27:07.294578Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -2907,7 +3046,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-08-23T13:35:38.416001Z"
+      "updated_at": "2026-08-23T14:27:07.293755Z"
     },
     "capability.distill-ledger": {
       "behavior_paths": [
@@ -2937,7 +3076,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-08-23T13:35:38.415298Z"
+      "updated_at": "2026-08-23T14:27:07.293032Z"
     },
     "capability.execution-plane": {
       "behavior_paths": [
@@ -2990,7 +3129,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417207Z"
+      "updated_at": "2026-08-23T14:27:07.295010Z"
     },
     "capability.federation-plane": {
       "behavior_paths": [
@@ -3035,7 +3174,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416906Z"
+      "updated_at": "2026-08-23T14:27:07.294697Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -3084,7 +3223,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417108Z"
+      "updated_at": "2026-08-23T14:27:07.294906Z"
     },
     "capability.forage-growth-plane": {
       "behavior_paths": [
@@ -3230,7 +3369,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417818Z"
+      "updated_at": "2026-08-23T14:27:07.295758Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -3260,7 +3399,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-08-23T13:35:38.415196Z"
+      "updated_at": "2026-08-23T14:27:07.292929Z"
     },
     "capability.goal-plan": {
       "behavior_paths": [
@@ -3289,7 +3428,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-08-23T13:35:38.415498Z"
+      "updated_at": "2026-08-23T14:27:07.293239Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -3326,7 +3465,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418373Z"
+      "updated_at": "2026-08-23T14:27:07.296420Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -3360,7 +3499,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418040Z"
+      "updated_at": "2026-08-23T14:27:07.296017Z"
     },
     "capability.growth-loop": {
       "behavior_paths": [
@@ -3391,7 +3530,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-23T13:35:38.414855Z"
+      "updated_at": "2026-08-23T14:27:07.292605Z"
     },
     "capability.kernel-circuit-breaker": {
       "behavior_paths": [
@@ -3729,7 +3868,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417936Z"
+      "updated_at": "2026-08-23T14:27:07.295890Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -3757,7 +3896,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-08-23T13:35:38.415096Z"
+      "updated_at": "2026-08-23T14:27:07.292825Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -3783,7 +3922,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-08-23T13:35:38.414542Z"
+      "updated_at": "2026-08-23T14:27:07.292268Z"
     },
     "capability.lineage-plane": {
       "behavior_paths": [
@@ -3824,7 +3963,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416604Z"
+      "updated_at": "2026-08-23T14:27:07.294371Z"
     },
     "capability.local-capability-kernel": {
       "behavior_paths": [
@@ -3929,7 +4068,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-08-23T13:35:38.415795Z"
+      "updated_at": "2026-08-23T14:27:07.293546Z"
     },
     "capability.outcome-contract": {
       "behavior_paths": [
@@ -3961,7 +4100,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.415895Z"
+      "updated_at": "2026-08-23T14:27:07.293649Z"
     },
     "capability.portability-proof": {
       "behavior_paths": [
@@ -3997,7 +4136,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418241Z"
+      "updated_at": "2026-08-23T14:27:07.296279Z"
     },
     "capability.program-run": {
       "behavior_paths": [
@@ -4027,7 +4166,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-08-23T13:35:38.415597Z"
+      "updated_at": "2026-08-23T14:27:07.293341Z"
     },
     "capability.quorum-plane": {
       "behavior_paths": [
@@ -4074,7 +4213,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417007Z"
+      "updated_at": "2026-08-23T14:27:07.294803Z"
     },
     "capability.reconciliation-plane": {
       "behavior_paths": [
@@ -4117,7 +4256,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416705Z"
+      "updated_at": "2026-08-23T14:27:07.294474Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -4153,7 +4292,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417717Z"
+      "updated_at": "2026-08-23T14:27:07.295607Z"
     },
     "capability.repair-plane": {
       "behavior_paths": [
@@ -4188,7 +4327,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417415Z"
+      "updated_at": "2026-08-23T14:27:07.295213Z"
     },
     "capability.scout-gaps": {
       "behavior_paths": [
@@ -4216,7 +4355,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-08-23T13:35:38.414754Z"
+      "updated_at": "2026-08-23T14:27:07.292495Z"
     },
     "capability.second-wave-absorb": {
       "behavior_paths": [
@@ -4250,7 +4389,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-08-23T13:35:38.415696Z"
+      "updated_at": "2026-08-23T14:27:07.293444Z"
     },
     "capability.sovereignty-plane": {
       "behavior_paths": [
@@ -4289,7 +4428,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.416501Z"
+      "updated_at": "2026-08-23T14:27:07.294266Z"
     },
     "capability.synthesis-plane": {
       "behavior_paths": [
@@ -4322,7 +4461,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418141Z"
+      "updated_at": "2026-08-23T14:27:07.296145Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -4449,7 +4588,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-08-23T13:35:38.416201Z"
+      "updated_at": "2026-08-23T14:27:07.293961Z"
     },
     "capability.upstream-admission": {
       "behavior_paths": [
@@ -4481,7 +4620,7 @@
         "discovery",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418775Z"
+      "updated_at": "2026-08-23T14:27:07.296950Z"
     },
     "capability.upstream-campaign": {
       "behavior_paths": [
@@ -4523,7 +4662,7 @@
         "impact",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419302Z"
+      "updated_at": "2026-08-23T14:27:07.297437Z"
     },
     "capability.upstream-contribution": {
       "behavior_paths": [
@@ -4554,7 +4693,7 @@
         "contribution",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418875Z"
+      "updated_at": "2026-08-23T14:27:07.297074Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -4587,7 +4726,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418573Z"
+      "updated_at": "2026-08-23T14:27:07.296738Z"
     },
     "capability.upstream-epoch": {
       "behavior_paths": [
@@ -4627,7 +4766,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419521Z"
+      "updated_at": "2026-08-23T14:27:07.297671Z"
     },
     "capability.upstream-fleet": {
       "behavior_paths": [
@@ -4664,7 +4803,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419414Z"
+      "updated_at": "2026-08-23T14:27:07.297554Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -4697,7 +4836,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418676Z"
+      "updated_at": "2026-08-23T14:27:07.296841Z"
     },
     "capability.upstream-impact": {
       "behavior_paths": [
@@ -4730,7 +4869,7 @@
         "portfolio",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419186Z"
+      "updated_at": "2026-08-23T14:27:07.297302Z"
     },
     "capability.upstream-program": {
       "behavior_paths": [
@@ -4775,7 +4914,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419742Z"
+      "updated_at": "2026-08-23T14:27:07.297917Z"
     },
     "capability.upstream-publication": {
       "behavior_paths": [
@@ -4807,7 +4946,7 @@
         "actuation",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419024Z"
+      "updated_at": "2026-08-23T14:27:07.297186Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -4842,7 +4981,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.418473Z"
+      "updated_at": "2026-08-23T14:27:07.296602Z"
     },
     "capability.upstream-succession": {
       "behavior_paths": [
@@ -4884,7 +5023,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.419636Z"
+      "updated_at": "2026-08-23T14:27:07.297797Z"
     },
     "capability.utility-plane": {
       "behavior_paths": [
@@ -4917,7 +5056,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-08-23T13:35:38.417513Z"
+      "updated_at": "2026-08-23T14:27:07.295314Z"
     },
     "domain.ci-security": {
       "behavior_paths": [
@@ -5223,7 +5362,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-08-23T13:35:38.414650Z"
+      "updated_at": "2026-08-23T14:27:07.292384Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -5247,7 +5386,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-08-23T13:35:38.413799Z"
+      "updated_at": "2026-08-23T14:27:07.291057Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -5272,9 +5411,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-08-23T13:35:38.414424Z"
+      "updated_at": "2026-08-23T14:27:07.292133Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-23T13:35:38.419927Z"
+  "updated_at": "2026-08-23T14:27:07.298191Z"
 }

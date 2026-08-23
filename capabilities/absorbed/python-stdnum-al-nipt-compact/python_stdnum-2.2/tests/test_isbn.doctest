@@ -1,0 +1,330 @@
+test_isbn.doctest - more detailed doctests for stdnum.isbn module
+
+Copyright (C) 2010-2019 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.isbn module. It
+tries to test more corner cases and detailed functionality that is not
+really useful as module documentation.
+
+>>> from stdnum import isbn
+
+
+Tests for mangling and incorrect check digits.
+
+>>> isbn.validate('08515x-629-2')  # added X in the middle
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+>>> isbn.validate('85152-629-1')  # incorrect check digit
+Traceback (most recent call last):
+    ...
+InvalidChecksum: ...
+>>> isbn.validate('978-902453827X')  # ISBN13 with X check digit
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+>>> isbn.validate('978-902453827')  # invalid length
+Traceback (most recent call last):
+    ...
+InvalidLength: ...
+>>> isbn.validate('7501031311309')  # valid EAN, unknown bookland code
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+
+
+See if ISBN10 to 13 conversion works.
+
+>>> isbn.to_isbn13('978-9024538270')  # ISBN13 should stay ISBN13
+'978-9024538270'
+>>> isbn.to_isbn13('1 85798218 5')
+'978 1 85798218 3'
+>>> isbn.to_isbn13('1857982185')
+'9781857982183'
+>>> isbn.to_isbn13('1-85798-218-5')
+'978-1-85798-218-3'
+>>> isbn.validate(isbn.to_isbn13('1 85798218 5'))
+'9781857982183'
+>>> isbn.compact('1 85798218 5', convert=True)
+'9781857982183'
+>>> isbn.validate('1 85798218 5', convert=True)
+'9781857982183'
+
+
+Conversion of 9 digit ISBN to ISBN13 also works.
+
+>>> isbn.is_valid('12-345678-9')
+True
+>>> isbn.validate(isbn.to_isbn13('12-345678-9'))
+'9780123456786'
+
+
+See if ISBN13 to 10 conversion works.
+
+>>> isbn.to_isbn10('1-85798-218-5')  # ISBN10 should stay ISBN10
+'1-85798-218-5'
+>>> isbn.to_isbn10('978 1 85798218 3')
+'1 85798218 5'
+>>> isbn.to_isbn10('9781857982183')
+'1857982185'
+>>> isbn.to_isbn10('978-1-85798-218-3')
+'1-85798-218-5'
+>>> isbn.to_isbn10('979-20-1234567-8')  # incorrect check digit
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+>>> isbn.to_isbn10('9791843123391')
+Traceback (most recent call last):
+    ...
+InvalidComponent: ...
+
+
+Regrouping tests.
+
+>>> isbn.split('9024538270')  # normal ISBN10
+('', '90', '245', '3827', '0')
+>>> isbn.split('9999678270')  # ISBN10, unknown publisher in group
+('', '99996', '', '7827', '0')
+>>> isbn.split('979-20-1234567-8')
+('979', '', '', '201234567', '8')
+>>> isbn.split('5413170121522')  # valid check digit, unknown prefix
+('', '', '', '541317012152', '2')
+
+
+Explicit tests for invalid characters. The first number is 978-90245᭓8270,
+the second is 978-9024538²70.
+
+>>> isbn.validate(b'978-90245\xe1\xad\x938270'.decode('utf-8'))
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+>>> isbn.validate(b'978-9024538\xc2\xb270'.decode('utf-8'))
+Traceback (most recent call last):
+    ...
+InvalidFormat: ...
+
+
+These have been found online and should all be valid numbers.
+
+>>> numbers = '''
+...
+... 0-19-963209-X
+... 0-201-75041-4
+... 0-7503-0197-X
+... 0-7506-9275-8
+... 0-8412-0473-X
+... 0-8493-0464-4
+... 0-8493-0504-7
+... 0080423906
+... 013036004X
+... 2-225-30547-1
+... 9284401348
+... 978-1-4200-4561-1
+... 978-1-4200-8032-2
+... 978-1-4397-3244-1
+... 978-1-4398-2494-8
+... 978-1-4398-8929-9
+... 978-1-55156-438-8
+... 978-90-208-3866-4
+... 978-90-208-5330-8
+... 978-90-345-0790-7
+... 978-90-345-1183-6
+... 978-90-345-1341-0
+... 978-90-345-2135-4
+... 978-90-345-2248-1
+... 978-90-345-3025-7
+... 978-90-345-3239-8
+... 978-90-345-3629-7
+... 978-90-345-4767-5
+... 978-90-345-4770-5
+... 978-90-345-4934-1
+... 978-90-345-5216-7
+... 978-90-345-5632-5
+... 978-90-345-6767-3
+... 978-963-88880-5-1
+... 9780 8872 76743
+... 9780231501132
+... 9780231506236
+... 9780231507387
+... 9780231508360
+... 9780231527682
+... 9780252092022
+... 9780271055206
+... 9780271055480
+... 9780271056289
+... 9780292717664
+... 9780292752252
+... 9780300058024
+... 9780300091960
+... 9780300097474
+... 9780300110654
+... 9780300115406
+... 9780300133523
+... 9780300156263
+... 9780470010037
+... 9780470012536
+... 9780470026977
+... 9780470027257
+... 9780470027424
+... 9780470058084
+... 9780470149676
+... 9780470180907
+... 9780470317372
+... 9780470358139
+... 9780470358184
+... 9780470358849
+... 9780470519578
+... 9780470706459
+... 9780470707296
+... 9780470723807
+... 9780470757659
+... 9780470760123
+... 9780470773154
+... 9780470774618
+... 9780470841785
+... 9780470863343
+... 9780470869697
+... 9780470987056
+... 9780470996027
+... 9780471024033
+... 9780471206910
+... 9780471221951
+... 9780471444541
+... 9780471445340
+... 9780471619772
+... 9780471623793
+... 9780471713425
+... 9780471718161
+... 9780471723950
+... 9780471740452
+... 9780471790594
+... 9780520205802
+... 9780520217676
+... 9780520230453
+... 9780520238879
+... 9780520238961
+... 9780520244306
+... 9780520255791
+... 9780520911543
+... 9780520928572
+... 9780520937529
+... 9780520939431
+... 9780520939769
+... 9780520945227
+... 9780520945821
+... 9780631211532
+... 9780631224068
+... 9780631225799
+... 9780632038961
+... 9780674061910
+... 9780727917867
+... 9780748621651
+... 9780748625208
+... 9780748633340
+... 9780773506688
+... 9780773528499
+... 9780773528673
+... 9780773530843
+... 9780773563438
+... 9780773563629
+... 9780773566217
+... 9780773567221
+... 9780773570498
+... 9780773572966
+... 9780773574533
+... 9780773582712
+... 9780773587861
+... 9780801447518
+... 9780801467677
+... 9780802009685
+... 9780802043108
+... 9780802078636
+... 9780802081544
+... 9780802088161
+... 9780802096456
+... 9780807845837
+... 9780807871584
+... 9780807871935
+... 9780807872192
+... 9780815730347
+... 9780816604777
+... 9780816606597
+... 9780816647774
+... 9780816655281
+... 9780816659760
+... 9780816665976
+... 9780816681600
+... 9780833035202
+... 9780833048646
+... 9780833059949
+... 9780833077851
+... 9780871545183
+... 9781111525545
+... 9781400821600
+... 9781400822232
+... 9781400826414
+... 9781400828623
+... 9781400828647
+... 9781400840861
+... 9781400842483
+... 9781400845934
+... 9781405131902
+... 9781405175791
+... 9781442602380
+... 9781442612877
+... 9781442613140
+... 9781442641198
+... 9781442644335
+... 9781442670174
+... 9781442670747
+... 9781442674202
+... 9781442685376
+... 9781442688636
+... 9781442693517
+... 9781442696716
+... 9781469606309
+... 9781571136329
+... 9781571138392
+... 9781610447775
+... 9781846156243
+... 9783527283217
+... 9783527298365
+... 9783527305797
+... 9783527307258
+... 9783527311125
+... 9783527406371
+... 9783527602803
+... 9783527604296
+... 9783527606757
+... 9783527615186
+... 9783527615759
+... 9783527619771
+... 9783527621781
+... 9783826334054
+... 9789622091252
+... 9789622099760
+... 9789814319089
+... 9789888052509
+... 9789888139590
+... 981-02-1046-9
+... 9814 253065
+...
+... '''
+>>> [x for x in numbers.splitlines() if x and not isbn.is_valid(x)]
+[]

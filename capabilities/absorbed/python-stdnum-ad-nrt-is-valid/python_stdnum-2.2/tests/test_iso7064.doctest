@@ -1,0 +1,81 @@
+test_iso7064.doctest - more detailed doctests for the stdnum.iso7064 package
+
+Copyright (C) 2010-2022 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.iso7064 package. It
+tries to test more corner cases and detailed functionality that is not
+really useful as module documentation.
+
+>>> from stdnum.iso7064 import mod_11_10, mod_11_2, mod_37_2, mod_37_36, mod_97_10
+
+
+These are normal variations of Mod 11, 10 that should just work.
+
+>>> mod_11_10.validate('12323')
+'12323'
+>>> mod_11_10.validate('546794')
+'546794'
+>>> mod_11_10.calc_check_digit('0794')
+'5'
+>>> mod_11_10.validate('07945')
+'07945'
+>>> mod_11_10.calc_check_digit('00200667308')
+'5'
+>>> mod_11_10.validate('002006673085')
+'002006673085'
+>>> mod_11_10.validate('002006673084')
+Traceback (most recent call last):
+    ...
+InvalidChecksum: ...
+>>> mod_11_10.calc_check_digit('00200667309')
+'3'
+>>> mod_11_10.calc_check_digit('00200667310')
+'8'
+>>> mod_11_10.calc_check_digit('00200667311')
+'6'
+>>> mod_11_10.calc_check_digit('00200667312')
+'4'
+
+
+These normal tests of Mod 11, 2 should just work.
+
+>>> mod_11_2.calc_check_digit('0794')
+'0'
+>>> mod_11_2.validate('07940')
+'07940'
+>>> mod_11_2.calc_check_digit('079')
+'X'
+>>> mod_11_2.validate('079X')
+'079X'
+
+These normal tests of Mod 37, 2 should just work
+
+>>> mod_37_2.calc_check_digit('G123498654321')
+'H'
+
+
+The Mod 97, 10 check digit suggestion should prefer check digits in the
+range of 02 to 98 as is used in IBAN.
+
+>>> mod_97_10.calc_check_digits('5367')
+'02'
+>>> mod_97_10.calc_check_digits('5303')
+'97'
+>>> mod_97_10.calc_check_digits('5335')
+'98'

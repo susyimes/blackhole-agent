@@ -1,0 +1,145 @@
+test_cusip.doctest - more detailed doctests for the stdnum.cusip module
+
+Copyright (C) 2015-2022 Arthur de Jong
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA
+
+
+This file contains more detailed doctests for the stdnum.cusip module. It
+tries to validate a number of numbers that have been found online.
+
+>>> from stdnum import cusip
+>>> from stdnum.exceptions import *
+
+
+Previously it was thought that O (capital o) or I (capital 1) were not allowed but
+apparently
+0 and 1:
+
+>>> cusip.validate('FDIC90903')
+'FDIC90903'
+
+
+These have been found online and should all be valid numbers.
+
+>>> numbers = '''
+...
+... 00141V267
+... 00142K500
+... 00170M873
+... 00758M261
+... 024524746
+... 024934408
+... 025081704
+... 068278704
+... 068278878
+... 101156602
+... 140543828
+... 192476109
+... 207267105
+... 23336W809
+... 23337G134
+... 24610B859
+... 25155T528
+... 25156A668
+... 25157M778
+... 25264S403
+... 254939424
+... 261967822
+... 261986566
+... 265458513
+... 265458570
+... 269858817
+... 29372R208
+... 313923302
+... 315911875
+... 315920579
+... 316390640
+... 320600109
+... 320917107
+... 354128704
+... 354723769
+... 409902624
+... 416649507
+... 425888104
+... 461418691
+... 465898682
+... 469785109
+... 471023531
+... 47803M663
+... 4812C0548
+... 52106N442
+... 543912604
+... 56063J849
+... 561709692
+... 561717661
+... 57056B ZW1
+... 592905756
+... 640917407
+... 643642200
+... 648018828
+... 67065R408
+... 67065R812
+... 670690767
+... 670700608
+... 670729730
+... 704329101
+... 70472Q880
+... 72201T664
+... 72201U430
+... 74149P648
+... 74149P689
+... 742935521
+... 742935547
+... 743185373
+... 743185464
+... 74318Q864
+... 749255121
+... 74972H283
+... 74972H598
+... 76628T496
+... 77956H302
+... 783554728
+... 784924458
+... 803431105
+... 803431410
+... 82980D400
+... 884116872
+... 890085327
+... 904504586
+... 912810EQ7
+... 912828EG1
+... 912828HA1
+... 920461209
+... 92646A252
+... 92913K884
+... 92913L775
+... 92914A661
+... 93208V106
+... 94984B108
+... 94984B538
+... 949915177
+... 949915557
+... 957904584
+... 984281204
+... FDIC99375
+... FDIC99425
+... Y0488F100
+... Y44425117
+...
+... '''
+>>> [x for x in numbers.splitlines() if x and not cusip.is_valid(x)]
+[]

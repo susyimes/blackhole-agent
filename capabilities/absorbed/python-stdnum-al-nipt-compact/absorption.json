@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "al_nipt_compact_output": "HELLOWORLD"
+      },
+      "input": {
+        "number": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "al_nipt_compact_output": "BLACKHOLEUNBOUND"
+      },
+      "input": {
+        "number": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "al_nipt_compact_output": "MIXEDCASE"
+      },
+      "input": {
+        "number": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "al_nipt_compact_output": ""
+      },
+      "input": {
+        "number": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "python-stdnum (al.nipt.compact)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "python-stdnum",
+    "registry": "pypi",
+    "sha256": "e95fcfa858a703d4a40130cb3eaac133c60d8808a7f3c98efeedac968c2479b9",
+    "source": "artifacts/capability-foraging/downloads/python_stdnum-2.2.tar.gz",
+    "url": "",
+    "version": "2.2"
+  },
+  "provides": [
+    "al_nipt_compact_output"
+  ],
+  "requires": [
+    "number"
+  ],
+  "schema_version": 1,
+  "slug": "python-stdnum-al-nipt-compact",
+  "version": "2.2"
+}
