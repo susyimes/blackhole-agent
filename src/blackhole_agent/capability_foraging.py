@@ -20,10 +20,13 @@ inputs. This module removes that last human input — **foraging**:
   ``Class.method``, a named class export such as ``Base64.encode``,
   ``new Parser().parse``, or ``new Parser(options).parse`` (constructor
   arguments and instance-own methods visible only after construction),
-  or a nested namespace class such as ``buffer.Buffer.byteLength``, and
+  or a nested namespace class such as ``buffer.Buffer.byteLength``,
   Python class instance methods such as ``Parser(opts).loads``
   (constructed with ``()``, ``{}``, or ``""``, including methods that
-  exist only on the instance after construction) — filtered to
+  exist only on the instance after construction), and Python class
+  static methods such as ``Class.method`` / ``HTMLRenderer.escape_html``
+  (``@staticmethod`` / ``@classmethod`` called on the class, including
+  when the constructor cannot be satisfied) — filtered to
   JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
@@ -314,6 +317,7 @@ def _consider(name, target, flags, skip_self=False):
         or inspect.ismethod(target)
         or inspect.isbuiltin(target)
         or flags.get("python_class_instance")
+        or flags.get("python_class_static")
     ):
         return
     if not _owner_ok(target):
@@ -361,6 +365,19 @@ def _instance_method_names(cls, instance):
     return names
 
 
+def _static_method_names(cls):
+    names = set()
+    for klass in inspect.getmro(cls):
+        if klass is object:
+            continue
+        for name, value in klass.__dict__.items():
+            if name.startswith("_"):
+                continue
+            if isinstance(value, (staticmethod, classmethod)):
+                names.add(name)
+    return names
+
+
 for name in sorted(dir(module)):
     if name.startswith("_"):
         continue
@@ -370,6 +387,10 @@ for name in sorted(dir(module)):
         continue
     if not inspect.isclass(target):
         continue
+    static_flags = {"python_class_static": True}
+    for attr in sorted(_static_method_names(target)):
+        fn = getattr(target, attr, None)
+        _consider(f"{name}.{attr}", fn, static_flags, skip_self=True)
     instance, requires_args = _construct_instance(target)
     if instance is None:
         continue
@@ -1192,6 +1213,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         item.get("default_export_class_static")
         or item.get("named_export_class_static")
         or item.get("nested_namespace_class_static")
+        or item.get("python_class_static")
     )
 
 
@@ -1352,6 +1374,7 @@ def infer_acquisition_spec(
                 "nested_namespace_class": bool(candidate.get("nested_namespace_class")),
                 "constructor_requires_args": bool(candidate.get("constructor_requires_args")),
                 "python_class_instance": bool(candidate.get("python_class_instance")),
+                "python_class_static": bool(candidate.get("python_class_static")),
             }
             break
         if winner is not None:
@@ -1393,6 +1416,7 @@ def infer_acquisition_spec(
         "nested_namespace_class": bool(collected[0].get("nested_namespace_class")),
         "constructor_requires_args": bool(collected[0].get("constructor_requires_args")),
         "python_class_instance": bool(collected[0].get("python_class_instance")),
+        "python_class_static": bool(collected[0].get("python_class_static")),
     }
     return {
         "ok": True,

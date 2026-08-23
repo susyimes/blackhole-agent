@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "convert_output": "<p>Hello World</p>\n"
+      },
+      "input": {
+        "text": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "convert_output": "<p>blackhole unbound</p>\n"
+      },
+      "input": {
+        "text": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "convert_output": "<p>MiXeD CaSe</p>\n"
+      },
+      "input": {
+        "text": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "convert_output": ""
+      },
+      "input": {
+        "text": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "marko (convert)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "marko",
+    "registry": "pypi",
+    "sha256": "c042c66f835425673123d7536b39b4660de3b68e30078c70fd26245b31170683",
+    "source": "artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz",
+    "url": "",
+    "version": "2.2.4"
+  },
+  "provides": [
+    "convert_output"
+  ],
+  "requires": [
+    "text"
+  ],
+  "schema_version": 1,
+  "slug": "marko-convert",
+  "version": "2.2.4"
+}

@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "htmlrenderer_escape_url_output": "Hello%20World"
+      },
+      "input": {
+        "raw": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "htmlrenderer_escape_url_output": "blackhole%20unbound"
+      },
+      "input": {
+        "raw": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "htmlrenderer_escape_url_output": "MiXeD%20CaSe"
+      },
+      "input": {
+        "raw": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "htmlrenderer_escape_url_output": ""
+      },
+      "input": {
+        "raw": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "marko (HTMLRenderer.escape_url)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "marko",
+    "registry": "pypi",
+    "sha256": "c042c66f835425673123d7536b39b4660de3b68e30078c70fd26245b31170683",
+    "source": "artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz",
+    "url": "",
+    "version": "2.2.4"
+  },
+  "provides": [
+    "htmlrenderer_escape_url_output"
+  ],
+  "requires": [
+    "raw"
+  ],
+  "schema_version": 1,
+  "slug": "marko-htmlrenderer-escape-url",
+  "version": "2.2.4"
+}

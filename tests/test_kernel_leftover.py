@@ -205,6 +205,20 @@ def test_python_class_instance_leftover_marks_application_python_class_instance_
     assert "Parser(opts).loads" in leftover_next_step(prefixed)
 
 
+def test_python_class_static_leftover_marks_application_python_class_static_growth_plane():
+    leftover = (
+        "Optional later work is reflecting Python class static methods so sdists "
+        "whose API is Class.method rather than Parser(opts).loads can be foraged "
+        "the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-class-static-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "Class.method" in leftover_next_step(prefixed)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T08:19:19.347871Z",
+  "absorbed_at": "2026-08-23T09:04:33.419565Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1713,6 +1713,195 @@
       "version": "18.0.7"
     },
     {
+      "capability_id": "capability.absorbed-marko",
+      "cases": [
+        {
+          "expect": {
+            "htmlrenderer_escape_html_output": "Hello World"
+          },
+          "input": {
+            "raw": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "htmlrenderer_escape_html_output": "blackhole unbound"
+          },
+          "input": {
+            "raw": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "htmlrenderer_escape_html_output": "MiXeD CaSe"
+          },
+          "input": {
+            "raw": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "htmlrenderer_escape_html_output": ""
+          },
+          "input": {
+            "raw": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "marko",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "marko",
+        "registry": "pypi",
+        "sha256": "c042c66f835425673123d7536b39b4660de3b68e30078c70fd26245b31170683",
+        "source": "artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz",
+        "url": "",
+        "version": "2.2.4"
+      },
+      "provides": [
+        "htmlrenderer_escape_html_output"
+      ],
+      "record_digest": "81d0ae9f20a41d766470d05ffc8df244fee90768949c69a22baaa5410900eed5",
+      "requires": [
+        "raw"
+      ],
+      "schema_version": 1,
+      "slug": "marko",
+      "vendored_tree_digest": "5999cba5214e2adda718589880d3b8ce01b437649572f9aa6e372787827778f3",
+      "version": "2.2.4"
+    },
+    {
+      "capability_id": "capability.absorbed-marko-convert",
+      "cases": [
+        {
+          "expect": {
+            "convert_output": "<p>Hello World</p>\n"
+          },
+          "input": {
+            "text": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "convert_output": "<p>blackhole unbound</p>\n"
+          },
+          "input": {
+            "text": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "convert_output": "<p>MiXeD CaSe</p>\n"
+          },
+          "input": {
+            "text": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "convert_output": ""
+          },
+          "input": {
+            "text": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "marko (convert)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "marko",
+        "registry": "pypi",
+        "sha256": "c042c66f835425673123d7536b39b4660de3b68e30078c70fd26245b31170683",
+        "source": "artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz",
+        "url": "",
+        "version": "2.2.4"
+      },
+      "provides": [
+        "convert_output"
+      ],
+      "record_digest": "76804c6f249587ae7ac1dff5ff2d0d35fa2e963b53977c6484e5bd0447949266",
+      "requires": [
+        "text"
+      ],
+      "schema_version": 1,
+      "slug": "marko-convert",
+      "vendored_tree_digest": "fa265f6787e40a93383624f4a9b434440bb1788b7b975cc0f232de0a14a88d75",
+      "version": "2.2.4"
+    },
+    {
+      "capability_id": "capability.absorbed-marko-htmlrenderer-escape-url",
+      "cases": [
+        {
+          "expect": {
+            "htmlrenderer_escape_url_output": "Hello%20World"
+          },
+          "input": {
+            "raw": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "htmlrenderer_escape_url_output": "blackhole%20unbound"
+          },
+          "input": {
+            "raw": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "htmlrenderer_escape_url_output": "MiXeD%20CaSe"
+          },
+          "input": {
+            "raw": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "htmlrenderer_escape_url_output": ""
+          },
+          "input": {
+            "raw": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "marko (HTMLRenderer.escape_url)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "marko",
+        "registry": "pypi",
+        "sha256": "c042c66f835425673123d7536b39b4660de3b68e30078c70fd26245b31170683",
+        "source": "artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz",
+        "url": "",
+        "version": "2.2.4"
+      },
+      "provides": [
+        "htmlrenderer_escape_url_output"
+      ],
+      "record_digest": "b896b3ec6af4bee8c361a005a291c4e3080a3c5114451dce54ce53b8cd5e6afe",
+      "requires": [
+        "raw"
+      ],
+      "schema_version": 1,
+      "slug": "marko-htmlrenderer-escape-url",
+      "vendored_tree_digest": "091a56cb660de1fa93638464fe67b1ef801ca66f286ed6711296f14044a50b7a",
+      "version": "2.2.4"
+    },
+    {
       "capability_id": "capability.absorbed-mistune-markdown",
       "cases": [
         {
@@ -2743,5 +2932,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "91cb4a3aed3dae50cab8a3d875a6244a0ee28cae639686ad38aae9c9075647a5"
+  "steps_digest": "ca208f3640d3487c26a67a33c23b596cc523614cf1478daddaff41813c470c96"
 }

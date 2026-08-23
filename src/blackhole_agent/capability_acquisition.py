@@ -213,10 +213,14 @@ def main() -> int:
             parent = getattr(parent, part)
         leaf = parts[-1]
         if inspect.isclass(parent):
-            instance = _construct_instance(parent)
-            if instance is None:
-                raise TypeError("cannot construct " + ".".join(parts[:-1]))
-            result = getattr(instance, leaf)(*args)
+            raw = inspect.getattr_static(parent, leaf, None)
+            if isinstance(raw, (staticmethod, classmethod)):
+                result = getattr(parent, leaf)(*args)
+            else:
+                instance = _construct_instance(parent)
+                if instance is None:
+                    raise TypeError("cannot construct " + ".".join(parts[:-1]))
+                result = getattr(instance, leaf)(*args)
         else:
             result = getattr(parent, leaf)(*args)
     json.dump({{CONFIG["provides"]: result}}, sys.stdout)

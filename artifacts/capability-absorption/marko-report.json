@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-marko",
+  "generated_at": "2026-08-23T09:06:51.088893Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-marko"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "marko",
+    "registry": "pypi",
+    "sha256": "c042c66f835425673123d7536b39b4660de3b68e30078c70fd26245b31170683",
+    "source": "artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz",
+    "url": "",
+    "version": "2.2.4"
+  },
+  "record_digest": "81d0ae9f20a41d766470d05ffc8df244fee90768949c69a22baaa5410900eed5",
+  "report_digest": "9f3e4fffc35352da34b845b16f822f7a70debdecc6dce8d3b4ef39a2cba5f56b",
+  "schema_version": 1,
+  "slug": "marko",
+  "task": {
+    "goal": [
+      "htmlrenderer_escape_html_output"
+    ],
+    "id": "absorbed-marko",
+    "initial_state": {
+      "raw": "Hello World"
+    },
+    "oracle": {
+      "htmlrenderer_escape_html_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "5999cba5214e2adda718589880d3b8ce01b437649572f9aa6e372787827778f3",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

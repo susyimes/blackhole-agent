@@ -1,0 +1,95 @@
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[project]
+authors = [
+    { name = "Frost Ming", email = "mianghong@gmail.com" },
+]
+dynamic = []
+requires-python = ">=3.9"
+dependencies = []
+description = "A markdown parser with high extensibility."
+name = "marko"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+version = "2.2.4"
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+homepage = "https://github.com/frostming/marko"
+Documentation = "https://marko-py.readthedocs.io"
+
+[project.optional-dependencies]
+toc = [
+    "python-slugify",
+]
+codehilite = [
+    "pygments",
+]
+repr = [
+    "objprint",
+]
+
+[project.scripts]
+marko = "marko.cli:main"
+
+[tool.pdm]
+plugins = [
+    "pdm-autoexport",
+]
+
+[tool.pdm.version]
+source = "file"
+path = "marko/__init__.py"
+
+[tool.pdm.dev-dependencies]
+benchmark = [
+    "commonmark>=0.9",
+    "markdown>=3.3",
+    "markdown-it-py>=2.0; python_version >= '3.7'",
+    "mistune>=2.0",
+    "mistletoe>=0.7",
+]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "mypy>=0.950",
+    "types-Pygments>=2.19.0.20251121",
+]
+doc = [
+    "marko[toc]",
+    "sphinx>=5.3.0",
+    "shibuya>=2023.6.8",
+]
+
+[[tool.pdm.autoexport]]
+filename = "docs/reqs.txt"
+groups = [
+    "doc",
+]
+without-hashes = true
+
+[tool.isort]
+profile = "black"
+
+[[tool.mypy.overrides]]
+module = [
+    "objprint.*",
+]
+follow_untyped_imports = true

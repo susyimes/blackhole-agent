@@ -843,6 +843,76 @@ def test_python_introspection_reflects_instance_own_methods_after_construct(tmp_
     assert result["spec"].provides == "parser_loads_output"
 
 
+def test_python_introspection_reflects_class_static_without_construct(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "forage_hasher.py").write_text(
+        "class Hasher:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Hasher cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def hash(text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('hash expects a string')\n"
+        "        return text.lower()\n"
+        "    @classmethod\n"
+        "    def encode(cls, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_hasher", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "Hasher.hash" in names
+    assert "Hasher.encode" in names
+    hashed = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "Hasher.hash")
+    encoded = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "Hasher.encode")
+    assert hashed["python_class_static"] is True
+    assert hashed.get("python_class_instance") is not True
+    assert encoded["python_class_static"] is True
+    result = infer_acquisition_spec(
+        slug="forage-hasher",
+        name="forage-hasher",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_hasher",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] in {"Hasher.hash", "Hasher.encode"}
+    assert result["record"]["python_class_static"] is True
+    assert result["record"]["python_class_instance"] is False
+    assert result["spec"].callable_name in {"Hasher.hash", "Hasher.encode"}
+
+
+def test_python_class_static_sdist_forages_marko(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "marko", "slug": "marko", "registry": "pypi", "version": "2.2.4"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="marko",
+        name="marko",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="marko",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "HTMLRenderer.escape_html"
+    assert result["record"]["python_class_static"] is True
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "htmlrenderer_escape_html_output"
+    assert result["spec"].callable_name == "HTMLRenderer.escape_html"
+
+
 def test_python_class_instance_sdist_forages_markdown_it_py(tmp_path: Path) -> None:
     from blackhole_agent.capability_forage_targets import live_registry_archive
 

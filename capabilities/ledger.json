@@ -843,6 +843,93 @@
       ],
       "updated_at": "2026-08-22T21:20:52.432194Z"
     },
+    "capability.absorbed-marko": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/marko/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'marko' is now a first-class invocable capability providing ['htmlrenderer_escape_html_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T09:04:28.419280Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'marko' (pypi-live origin artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz): provides ['htmlrenderer_escape_html_output'] from ['raw']. Vendored under capabilities/absorbed/marko/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-marko",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T09:06:50.334673Z",
+      "name": "Absorbed external capability: marko",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('marko'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T09:06:50.334673Z"
+    },
+    "capability.absorbed-marko-convert": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/marko-convert/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'marko-convert' is now a first-class invocable capability providing ['convert_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T09:04:33.430044Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'marko-convert' (pypi-live origin artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz): provides ['convert_output'] from ['text']. Vendored under capabilities/absorbed/marko-convert/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-marko-convert",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T09:06:55.565530Z",
+      "name": "Absorbed external capability: marko (convert)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('marko-convert'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T09:06:55.565530Z"
+    },
+    "capability.absorbed-marko-htmlrenderer-escape-url": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/marko-htmlrenderer-escape-url/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'marko-htmlrenderer-escape-url' is now a first-class invocable capability providing ['htmlrenderer_escape_url_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T09:04:31.247423Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'marko-htmlrenderer-escape-url' (pypi-live origin artifacts/capability-foraging/downloads/marko-2.2.4.tar.gz): provides ['htmlrenderer_escape_url_output'] from ['raw']. Vendored under capabilities/absorbed/marko-htmlrenderer-escape-url/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-marko-htmlrenderer-escape-url",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T09:06:53.313163Z",
+      "name": "Absorbed external capability: marko (HTMLRenderer.escape_url)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('marko-htmlrenderer-escape-url'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T09:06:53.313163Z"
+    },
     "capability.absorbed-mistune-markdown": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -1997,6 +2084,52 @@
         "class-instance"
       ],
       "updated_at": "2026-08-23T08:21:22.092333Z"
+    },
+    "capability.application-python-class-static-growth-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application_growth.py",
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_forage_growth.py",
+        "tests/fixtures/forage_python_class_static_catalog.json",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application-growth no longer skips sdists whose callable API is a Python class static method: introspection reflects HTMLRenderer.escape_html as Class.method rather than Parser(opts).loads, and a covering package is foraged so the original task becomes solvable.",
+      "created_at": "2026-08-23T09:04:16.480726Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+        "capability.application-python-class-instance-growth-plane",
+        "capability.application-node-named-class-construct-growth-plane",
+        "capability.application-node-named-class-instance-growth-plane",
+        "capability.application-runtime-deps-growth-plane",
+        "capability.application-live-fetch-growth-plane",
+        "capability.application-growth-plane",
+        "capability.application-plane"
+      ],
+      "description": "An unplannable application goal grows itself from a live-fetched sdist whose callable API is a Python class static method: introspection reflects Class.method / HTMLRenderer.escape_html rather than Parser(opts).loads, including when the constructor cannot be satisfied, and the covering package is foraged so the original task becomes solvable.",
+      "entry": "blackhole_agent.capability_application_growth:demo_application_python_class_static_growth_plane",
+      "id": "capability.application-python-class-static-growth-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T09:04:41.352083Z",
+      "name": "Application python class-static growth plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_application_growth import builtin_application_python_class_static_growth_plane_proof; r=builtin_application_python_class_static_growth_plane_proof(); assert r['ok'] and r.get('action')=='application_python_class_static_growth_plane' and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') and r.get('grow_winner_is_marko') and r.get('npm_decoy_probed') and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') and r.get('python_class_static_selected') and r.get('winner_is_python_class_static') and r.get('winner_is_not_python_class_instance') and r.get('winner_is_not_named_export_class_static') and r.get('winner_is_not_default_export') and r.get('winner_is_not_default_export_class') and r.get('winner_is_not_default_export_object') and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') and r.get('registries_npm_and_pypi') and r.get('query_from_goal') and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "application",
+        "growth",
+        "python",
+        "class-static"
+      ],
+      "updated_at": "2026-08-23T09:04:41.352083Z"
     },
     "capability.application-registry-growth-plane": {
       "behavior_paths": [
@@ -4600,5 +4733,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-23T08:21:22.094685Z"
+  "updated_at": "2026-08-23T09:06:55.565561Z"
 }

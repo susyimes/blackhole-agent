@@ -180,6 +180,9 @@ def probe_candidate(
         "python_class_instance": bool(
             (inference.get("record") or {}).get("python_class_instance")
         ),
+        "python_class_static": bool(
+            (inference.get("record") or {}).get("python_class_static")
+        ),
     }
 
 
