@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-eta",
+  "generated_at": "2026-08-23T07:36:47.761230Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-eta"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "eta",
+    "registry": "npm",
+    "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+    "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+    "url": "",
+    "version": "4.6.0"
+  },
+  "record_digest": "3be4b957c5e01e3c9cc4920c1f3181946eed1b5061cf7e540dbc8d9296820f3b",
+  "report_digest": "800007bc65e0b6082ff36124f80103c9d2840edf043f154c7a86b979dc2850f5",
+  "schema_version": 1,
+  "slug": "eta",
+  "task": {
+    "goal": [
+      "eta_compile_body_output"
+    ],
+    "id": "absorbed-eta",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "eta_compile_body_output": "__eta.res+='H';\n__eta.res+='e';\n__eta.res+='l';\n__eta.res+='l';\n__eta.res+='o';\n__eta.res+=' ';\n__eta.res+='W';\n__eta.res+='o';\n__eta.res+='r';\n__eta.res+='l';\n__eta.res+='d';\n"
+    }
+  },
+  "vendored_tree_digest": "0c84ae0d2dcfea8c97e4d7c08e5a2686e52e9790d4ba8468923981270456e27c",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

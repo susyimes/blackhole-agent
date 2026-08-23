@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "eta_compile_body_output": "__eta.res+='H';\n__eta.res+='e';\n__eta.res+='l';\n__eta.res+='l';\n__eta.res+='o';\n__eta.res+=' ';\n__eta.res+='W';\n__eta.res+='o';\n__eta.res+='r';\n__eta.res+='l';\n__eta.res+='d';\n"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "eta_compile_body_output": "__eta.res+='b';\n__eta.res+='l';\n__eta.res+='a';\n__eta.res+='c';\n__eta.res+='k';\n__eta.res+='h';\n__eta.res+='o';\n__eta.res+='l';\n__eta.res+='e';\n__eta.res+=' ';\n__eta.res+='u';\n__eta.res+='n';\n__eta.res+='b';\n__eta.res+='o';\n__eta.res+='u';\n__eta.res+='n';\n__eta.res+='d';\n"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "eta_compile_body_output": "__eta.res+='M';\n__eta.res+='i';\n__eta.res+='X';\n__eta.res+='e';\n__eta.res+='D';\n__eta.res+=' ';\n__eta.res+='C';\n__eta.res+='a';\n__eta.res+='S';\n__eta.res+='e';\n"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "eta_compile_body_output": ""
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "eta",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "eta",
+    "registry": "npm",
+    "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+    "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+    "url": "",
+    "version": "4.6.0"
+  },
+  "provides": [
+    "eta_compile_body_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "eta",
+  "version": "4.6.0"
+}

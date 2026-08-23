@@ -177,6 +177,20 @@ def test_node_named_class_instance_leftover_marks_application_node_named_class_i
     assert "instance methods on named class exports" in leftover_next_step(prefixed)
 
 
+def test_node_named_class_construct_leftover_marks_application_node_named_class_construct_growth_plane():
+    leftover = (
+        "Optional later work is reflecting instance methods whose class constructor "
+        "requires arguments so packages whose API is new Parser(options).parse rather "
+        "than new Parser().parse can be foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-node-named-class-construct-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "constructor requires arguments" in leftover_next_step(prefixed)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

@@ -1,8 +1,207 @@
 {
-  "absorbed_at": "2026-08-23T06:22:15.421342Z",
+  "absorbed_at": "2026-08-23T07:33:43.779106Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-eta",
+      "cases": [
+        {
+          "expect": {
+            "eta_compile_body_output": "__eta.res+='H';\n__eta.res+='e';\n__eta.res+='l';\n__eta.res+='l';\n__eta.res+='o';\n__eta.res+=' ';\n__eta.res+='W';\n__eta.res+='o';\n__eta.res+='r';\n__eta.res+='l';\n__eta.res+='d';\n"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "eta_compile_body_output": "__eta.res+='b';\n__eta.res+='l';\n__eta.res+='a';\n__eta.res+='c';\n__eta.res+='k';\n__eta.res+='h';\n__eta.res+='o';\n__eta.res+='l';\n__eta.res+='e';\n__eta.res+=' ';\n__eta.res+='u';\n__eta.res+='n';\n__eta.res+='b';\n__eta.res+='o';\n__eta.res+='u';\n__eta.res+='n';\n__eta.res+='d';\n"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "eta_compile_body_output": "__eta.res+='M';\n__eta.res+='i';\n__eta.res+='X';\n__eta.res+='e';\n__eta.res+='D';\n__eta.res+=' ';\n__eta.res+='C';\n__eta.res+='a';\n__eta.res+='S';\n__eta.res+='e';\n"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "eta_compile_body_output": ""
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "eta",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "eta",
+        "registry": "npm",
+        "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+        "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+        "url": "",
+        "version": "4.6.0"
+      },
+      "provides": [
+        "eta_compile_body_output"
+      ],
+      "record_digest": "3be4b957c5e01e3c9cc4920c1f3181946eed1b5061cf7e540dbc8d9296820f3b",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "eta",
+      "vendored_tree_digest": "0c84ae0d2dcfea8c97e4d7c08e5a2686e52e9790d4ba8468923981270456e27c",
+      "version": "4.6.0"
+    },
+    {
+      "capability_id": "capability.absorbed-eta-eta-compile-to-string",
+      "cases": [
+        {
+          "expect": {
+            "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n__eta.res+='Hello World';\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n__eta.res+='blackhole unbound';\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n__eta.res+='MiXeD CaSe';\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "eta (Eta.compileToString)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "eta",
+        "registry": "npm",
+        "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+        "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+        "url": "",
+        "version": "4.6.0"
+      },
+      "provides": [
+        "eta_compile_to_string_output"
+      ],
+      "record_digest": "c00ae5d7c46e570031253565cefdee3327cc7bc32b1683775db455a2c169072f",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "eta-eta-compile-to-string",
+      "vendored_tree_digest": "ce5144dcff51546864d4a573708a5e5e0916b8975991be591479021e7a2471ce",
+      "version": "4.6.0"
+    },
+    {
+      "capability_id": "capability.absorbed-eta-eta-render-string",
+      "cases": [
+        {
+          "expect": {
+            "eta_render_string_output": "Hello World"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "eta_render_string_output": "blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "eta_render_string_output": "MiXeD CaSe"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "eta_render_string_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "eta (Eta.renderString)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "eta",
+        "registry": "npm",
+        "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+        "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+        "url": "",
+        "version": "4.6.0"
+      },
+      "provides": [
+        "eta_render_string_output"
+      ],
+      "record_digest": "6f4500a621161cffca1f562e8e5280a992a7f4a31bfc448980bf172b732b3d41",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "eta-eta-render-string",
+      "vendored_tree_digest": "00f05fbfaeee447f7434bc1fa42466be2dd2f2220678e699c37e867ea7f371b1",
+      "version": "4.6.0"
+    },
     {
       "capability_id": "capability.absorbed-fast-xml-parser",
       "cases": [
@@ -2355,5 +2554,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "a5904f97be7a0237b028f3d9c20f8359aaa0802d1ad9502b355b0bd849e1db07"
+  "steps_digest": "9d2f974c809cda4a3fe0b66ed58e87c4b80e916078bf67737c134a18bd883907"
 }

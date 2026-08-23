@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n__eta.res+='Hello World';\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n__eta.res+='blackhole unbound';\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n__eta.res+='MiXeD CaSe';\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "eta_compile_to_string_output": "\nlet include = (__eta_t, __eta_d) => this.render(__eta_t, {...it, ...(__eta_d ?? {})}, options);\nlet includeAsync = (__eta_t, __eta_d) => this.renderAsync(__eta_t, {...it, ...(__eta_d ?? {})}, options);\n\nlet __eta = {res: \"\", e: this.config.escapeFunction, f: this.config.filterFunction, blocks: {}};\n\nfunction layout(path, data) {\n  __eta.layout = path;\n  __eta.layoutData = data;\n}\n\nfunction output(s){__eta.res+=s;}\nfunction capture(fn){const s=__eta.res;__eta.res='';try{fn();return __eta.res}finally{__eta.res=s;}}\nasync function captureAsync(fn){const s=__eta.res;__eta.res='';try{await fn();return __eta.res}finally{__eta.res=s;}}\nfunction block(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=capture(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?capture(fn):'';}\nasync function blockAsync(name,fn){if(__eta.layout){if(fn){__eta.blocks[name]=await captureAsync(fn);}return '';}const b=it.__blocks||{};if(name in b){return b[name];}return fn?await captureAsync(fn):'';}\n\n\nif (__eta.layout) {\n  __eta.res = include (__eta.layout, {...it, body: __eta.res, ...__eta.layoutData, __blocks: __eta.blocks});\n}\n\nreturn __eta.res;\n"
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "eta (Eta.compileToString)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "eta",
+    "registry": "npm",
+    "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+    "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+    "url": "",
+    "version": "4.6.0"
+  },
+  "provides": [
+    "eta_compile_to_string_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "eta-eta-compile-to-string",
+  "version": "4.6.0"
+}

@@ -661,6 +661,107 @@ def test_named_class_instance_npm_tarball_forages_fast_xml_parser(tmp_path: Path
     assert closed["spec"].callable_name == "XMLBuilder.build"
 
 
+def test_node_introspection_reflects_named_class_construct_args(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-ctor","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "export class Parser {\n"
+        "  constructor(options) {\n"
+        "    if (options === undefined) throw new TypeError('Parser options required');\n"
+        "    this.options = options;\n"
+        "  }\n"
+        "  parse(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('parse expects a string');\n"
+        "    return text.toLowerCase();\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    named_only = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert named_only["ok"], named_only
+    parsed = next(candidate for candidate in named_only["candidates"] if candidate["name"] == "Parser.parse")
+    assert parsed["named_export_class"] is True
+    assert parsed["constructor_requires_args"] is True
+    result = infer_acquisition_spec(
+        slug="forage-js-ctor",
+        name="forage-js-ctor",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage-js-ctor",
+        runtime="node",
+        close_deps=False,
+        include_default=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "Parser.parse"
+    assert result["record"]["constructor_requires_args"] is True
+    assert result["record"]["named_export_class"] is True
+    assert result["spec"].provides == "parser_parse_output"
+
+
+def test_node_introspection_reflects_instance_own_methods_after_construct(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-own","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "export class Parser {\n"
+        "  constructor(options = {}) {\n"
+        "    this.options = options;\n"
+        "    this.parse = (text) => {\n"
+        "      if (typeof text !== 'string') throw new TypeError('parse expects a string');\n"
+        "      return text.toLowerCase();\n"
+        "    };\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    named_only = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert named_only["ok"], named_only
+    names = [candidate["name"] for candidate in named_only["candidates"]]
+    assert "Parser.parse" in names
+    parsed = next(candidate for candidate in named_only["candidates"] if candidate["name"] == "Parser.parse")
+    assert parsed["named_export_class"] is True
+
+
+def test_named_class_construct_npm_tarball_forages_eta(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive({"name": "eta", "slug": "eta", "registry": "npm", "version": "4.6.0"})
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    named_only = infer_acquisition_spec(
+        slug="eta",
+        name="eta",
+        source=source,
+        staging_root=tmp_path / "named",
+        hint="eta",
+        runtime="node",
+        close_deps=True,
+        include_default=False,
+    )
+    assert named_only["ok"], named_only
+    assert named_only["record"]["winner"] == "Eta.compileBody"
+    assert named_only["record"]["named_export_class"] is True
+    assert named_only["record"]["named_export_class_static"] is False
+    assert named_only["record"]["default_export"] is False
+    closed = infer_acquisition_spec(
+        slug="eta",
+        name="eta",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="eta",
+        runtime="node",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "Eta.compileBody"
+    assert closed["record"]["default_export"] is False
+    assert closed["record"]["named_export_class"] is True
+    assert closed["spec"].provides == "eta_compile_body_output"
+    assert closed["spec"].callable_name == "Eta.compileBody"
+
+
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:
     result = infer_acquisition_spec(
         slug="forage-lab",

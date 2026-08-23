@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "eta_render_string_output": "Hello World"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "eta_render_string_output": "blackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "eta_render_string_output": "MiXeD CaSe"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "eta_render_string_output": ""
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "eta (Eta.renderString)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "eta",
+    "registry": "npm",
+    "sha256": "323cbc46707186a5ff3b914bdf6bacc6c55e6245d59780dd9e53b8967efea0ac",
+    "source": "artifacts/capability-foraging/downloads/eta-4.6.0.tgz",
+    "url": "",
+    "version": "4.6.0"
+  },
+  "provides": [
+    "eta_render_string_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "eta-eta-render-string",
+  "version": "4.6.0"
+}

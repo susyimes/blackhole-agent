@@ -247,6 +247,36 @@ try {{
     }}
     return current;
   }}
+  function constructInstance(ctor) {{
+    if (typeof ctor !== "function") {{
+      return null;
+    }}
+    try {{
+      return new ctor();
+    }} catch {{
+      /* constructor rejected zero arguments */
+    }}
+    try {{
+      return new ctor({{}});
+    }} catch {{
+      /* constructor rejected empty options */
+    }}
+    try {{
+      return new ctor("");
+    }} catch {{
+      return null;
+    }}
+  }}
+  function instanceMethod(ctor, leaf) {{
+    const instance = constructInstance(ctor);
+    if (instance && typeof instance[leaf] === "function") {{
+      return instance[leaf];
+    }}
+    if (ctor && ctor.prototype && typeof ctor.prototype[leaf] === "function") {{
+      return ctor.prototype[leaf];
+    }}
+    return null;
+  }}
   const moduleUrl = pathToFileURL(path.join(ROOT, CONFIG.entry));
   const mod = await import(moduleUrl);
   const dotted = String(CONFIG.callable_name).includes(".");
@@ -260,15 +290,21 @@ try {{
     const leaf = parts[parts.length - 1];
     const parentName = parts.slice(0, -1).join(".");
     const ctor = resolvePath(mod, parentName) ?? resolvePath(mod.default, parentName);
-    if (typeof ctor === "function" && ctor.prototype && typeof ctor.prototype[leaf] === "function") {{
-      target = ctor.prototype[leaf];
+    const method = instanceMethod(ctor, leaf);
+    if (typeof method === "function") {{
+      target = method;
       instanceCtor = ctor;
     }}
   }}
   if (typeof target === "function" && dotted) {{
     const method = target;
     if (instanceCtor) {{
-      target = (...args) => method.apply(new instanceCtor(), args);
+      const leaf = String(CONFIG.callable_name).split(".").pop();
+      target = (...args) => {{
+        const instance = constructInstance(instanceCtor);
+        const fn = instance && typeof instance[leaf] === "function" ? instance[leaf] : method;
+        return fn.apply(instance, args);
+      }};
     }} else {{
       const parentName = String(CONFIG.callable_name).split(".").slice(0, -1).join(".");
       const receiver = resolvePath(mod, parentName) ?? resolvePath(mod.default, parentName);
@@ -289,14 +325,20 @@ try {{
     ) {{
       const method = fallback[CONFIG.callable_name];
       target = (...args) => method.apply(fallback, args);
-    }} else if (
-      typeof fallback === "function" &&
-      fallback.prototype &&
-      typeof fallback.prototype[CONFIG.callable_name] === "function"
-    ) {{
-      const method = fallback.prototype[CONFIG.callable_name];
-      target = (...args) => method.apply(new fallback(), args);
-    }} else if (fallback && typeof fallback === "object") {{
+    }} else if (typeof fallback === "function") {{
+      const method = instanceMethod(fallback, CONFIG.callable_name);
+      if (typeof method === "function") {{
+        target = (...args) => {{
+          const instance = constructInstance(fallback);
+          const fn =
+            instance && typeof instance[CONFIG.callable_name] === "function"
+              ? instance[CONFIG.callable_name]
+              : method;
+          return fn.apply(instance, args);
+        }};
+      }}
+    }}
+    if (typeof target !== "function" && fallback && typeof fallback === "object") {{
       const nested = fallback[CONFIG.callable_name];
       if (typeof nested === "function") {{
         target = nested;

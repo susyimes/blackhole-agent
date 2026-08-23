@@ -169,10 +169,11 @@ _MARKERS = (
     ("nested namespace classes", "capability.application-node-named-class-static-growth-plane"),
     ("base64.encode", "capability.application-node-named-class-static-growth-plane"),
     ("buffer.buffer.bytelength", "capability.application-node-named-class-static-growth-plane"),
+    ("constructor requires arguments", "capability.application-node-named-class-construct-growth-plane"),
+    ("parser(options).parse", "capability.application-node-named-class-construct-growth-plane"),
+    ("new parser(options)", "capability.application-node-named-class-construct-growth-plane"),
     ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
     ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
-    ("new parser().parse", "capability.application-node-named-class-instance-growth-plane"),
-    ("parser().parse", "capability.application-node-named-class-instance-growth-plane"),
 )
 
 
@@ -350,9 +351,12 @@ def leftover_satisfied_by(
     if leftover_claim_consumed(root, leftover):
         return "claim_consumed"
     live_ledger = ledger if ledger is not None else _load_repo_ledger(root)
-    for capability_id in leftover_marker_ids(leftover):
+    markers = leftover_marker_ids(leftover)
+    for capability_id in markers:
         if _ledger_proves(live_ledger, capability_id):
             return f"ledger:{capability_id}"
+    if markers:
+        return ""
     skip = str(source_mission_id or "").strip()
     source_created = ""
     if skip:

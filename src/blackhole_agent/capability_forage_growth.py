@@ -174,6 +174,9 @@ def probe_candidate(
         "nested_namespace_class": bool(
             (inference.get("record") or {}).get("nested_namespace_class")
         ),
+        "constructor_requires_args": bool(
+            (inference.get("record") or {}).get("constructor_requires_args")
+        ),
     }
 
 

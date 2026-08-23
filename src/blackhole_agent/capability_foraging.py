@@ -17,9 +17,11 @@ inputs. This module removes that last human input — **foraging**:
   exported functions, including a Node default export when that is a
   single function, a namespace object of functions, a constructable
   with instance methods, a class whose callable API is static
-  ``Class.method``, a named class export such as ``Base64.encode`` or
-  ``new Parser().parse``, or a nested namespace class such as
-  ``buffer.Buffer.byteLength`` — filtered to JSON-scalar signatures,
+  ``Class.method``, a named class export such as ``Base64.encode``,
+  ``new Parser().parse``, or ``new Parser(options).parse`` (constructor
+  arguments and instance-own methods visible only after construction),
+  or a nested namespace class such as ``buffer.Buffer.byteLength`` —
+  filtered to JSON-scalar signatures,
   and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
@@ -473,6 +475,7 @@ function consider(name, target, flags, candidates, seen) {
     nested_namespace_class_static: Boolean(flags.nestedNamespaceClassStatic),
     named_export_class: Boolean(flags.namedExportClass),
     nested_namespace_class: Boolean(flags.nestedNamespaceClass),
+    constructor_requires_args: Boolean(flags.constructorRequiresArgs),
   });
 }
 function objectKeys(value) {
@@ -490,6 +493,26 @@ function objectKeys(value) {
   names.delete("caller");
   return [...names].filter(isIdent).sort();
 }
+function constructInstance(ctor) {
+  if (typeof ctor !== "function") {
+    return { ok: false, instance: null, requiresArgs: false };
+  }
+  try {
+    return { ok: true, instance: new ctor(), requiresArgs: false };
+  } catch {
+    /* constructor rejected zero arguments */
+  }
+  try {
+    return { ok: true, instance: new ctor({}), requiresArgs: true };
+  } catch {
+    /* constructor rejected empty options */
+  }
+  try {
+    return { ok: true, instance: new ctor(""), requiresArgs: true };
+  } catch {
+    return { ok: false, instance: null, requiresArgs: true };
+  }
+}
 function considerClassStatics(prefix, ctor, flags, candidates, seen) {
   if (typeof ctor !== "function" || !isIdent(prefix.split(".").pop() || "")) {
     return;
@@ -499,11 +522,25 @@ function considerClassStatics(prefix, ctor, flags, candidates, seen) {
   }
 }
 function considerClassInstance(prefix, ctor, flags, candidates, seen) {
-  if (typeof ctor !== "function" || !ctor.prototype) {
+  if (typeof ctor !== "function") {
     return;
   }
-  for (const name of objectKeys(ctor.prototype)) {
-    consider(`${prefix}.${name}`, ctor.prototype[name], flags, candidates, seen);
+  const built = constructInstance(ctor);
+  const names = new Set(ctor.prototype ? objectKeys(ctor.prototype) : []);
+  if (built.instance) {
+    for (const name of objectKeys(built.instance)) {
+      names.add(name);
+    }
+  }
+  const nextFlags = {
+    ...flags,
+    constructorRequiresArgs: Boolean(built.ok && built.requiresArgs),
+  };
+  for (const name of [...names].sort()) {
+    const fn =
+      (built.instance && typeof built.instance[name] === "function" && built.instance[name]) ||
+      (ctor.prototype && ctor.prototype[name]);
+    consider(`${prefix}.${name}`, fn, nextFlags, candidates, seen);
   }
 }
 function considerNestedClassStatics(prefix, namespace, flags, candidates, seen) {
@@ -546,8 +583,22 @@ try {
     for (const name of objectKeys(def)) {
       consider(name, def[name], { defaultExport: true, defaultExportClassStatic: true }, candidates, seen);
     }
-    for (const name of objectKeys(def.prototype)) {
-      consider(name, def.prototype[name], { defaultExport: true, defaultExportClass: true }, candidates, seen);
+    const built = constructInstance(def);
+    const instanceNames = new Set(def.prototype ? objectKeys(def.prototype) : []);
+    if (built.instance) {
+      for (const name of objectKeys(built.instance)) {
+        instanceNames.add(name);
+      }
+    }
+    for (const name of [...instanceNames].sort()) {
+      const fn =
+        (built.instance && typeof built.instance[name] === "function" && built.instance[name]) ||
+        (def.prototype && def.prototype[name]);
+      consider(name, fn, {
+        defaultExport: true,
+        defaultExportClass: true,
+        constructorRequiresArgs: Boolean(built.ok && built.requiresArgs),
+      }, candidates, seen);
     }
   }
   if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
@@ -1208,6 +1259,7 @@ def infer_acquisition_spec(
                 "nested_namespace_class_static": bool(candidate.get("nested_namespace_class_static")),
                 "named_export_class": bool(candidate.get("named_export_class")),
                 "nested_namespace_class": bool(candidate.get("nested_namespace_class")),
+                "constructor_requires_args": bool(candidate.get("constructor_requires_args")),
             }
             break
         if winner is not None:
@@ -1247,6 +1299,7 @@ def infer_acquisition_spec(
         "nested_namespace_class_static": bool(collected[0].get("nested_namespace_class_static")),
         "named_export_class": bool(collected[0].get("named_export_class")),
         "nested_namespace_class": bool(collected[0].get("nested_namespace_class")),
+        "constructor_requires_args": bool(collected[0].get("constructor_requires_args")),
     }
     return {
         "ok": True,
@@ -1440,7 +1493,12 @@ def forage_package(
     acquisitions: list[dict[str, Any]] = []
     for index, spec in enumerate(specs):
         try:
-            acquisition = acquire_capability(spec, repo_root=repo_root, output_dir=output_dir)
+            acquisition = acquire_capability(
+                spec,
+                repo_root=repo_root,
+                output_dir=output_dir,
+                scenario=index == 0,
+            )
         except (ValueError, OSError) as exc:
             acquisition = {
                 "ok": False,

@@ -31,6 +31,93 @@
       ],
       "updated_at": "2026-08-23T02:36:38.716739Z"
     },
+    "capability.absorbed-eta": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/eta/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'eta' is now a first-class invocable capability providing ['eta_compile_body_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T07:21:33.676453Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'eta' (npm-live origin artifacts/capability-foraging/downloads/eta-4.6.0.tgz): provides ['eta_compile_body_output'] from ['arg0']. Vendored under capabilities/absorbed/eta/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-eta",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T07:36:47.262265Z",
+      "name": "Absorbed external capability: eta",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('eta'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T07:36:47.262265Z"
+    },
+    "capability.absorbed-eta-eta-compile-to-string": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/eta-eta-compile-to-string/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'eta-eta-compile-to-string' is now a first-class invocable capability providing ['eta_compile_to_string_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T07:21:35.500953Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'eta-eta-compile-to-string' (npm-live origin artifacts/capability-foraging/downloads/eta-4.6.0.tgz): provides ['eta_compile_to_string_output'] from ['arg0', 'arg1']. Vendored under capabilities/absorbed/eta-eta-compile-to-string/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-eta-eta-compile-to-string",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T07:36:49.035495Z",
+      "name": "Absorbed external capability: eta (Eta.compileToString)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('eta-eta-compile-to-string'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T07:36:49.035495Z"
+    },
+    "capability.absorbed-eta-eta-render-string": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/eta-eta-render-string/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'eta-eta-render-string' is now a first-class invocable capability providing ['eta_render_string_output']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-23T07:33:43.791088Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'eta-eta-render-string' (npm-live origin artifacts/capability-foraging/downloads/eta-4.6.0.tgz): provides ['eta_render_string_output'] from ['arg0', 'arg1']. Vendored under capabilities/absorbed/eta-eta-render-string/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-eta-eta-render-string",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T07:36:50.296801Z",
+      "name": "Absorbed external capability: eta (Eta.renderString)",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('eta-eta-render-string'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-23T07:36:50.296801Z"
+    },
     "capability.absorbed-fast-xml-parser": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -1553,6 +1640,56 @@
         "default-export-object"
       ],
       "updated_at": "2026-08-23T03:07:41.377415Z"
+    },
+    "capability.application-node-named-class-construct-growth-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application_growth.py",
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_forage_growth.py",
+        "tests/fixtures/forage_node_named_class_construct_catalog.json",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application-growth no longer skips npm packages whose named class instance methods exist only after construction, including constructors that require arguments: Node introspection constructs new Parser(options) / new Eta() and reflects Eta.compileBody, named-only also selects that instance method, and a covering package is foraged so the original task becomes solvable.",
+      "created_at": "2026-08-23T07:36:18.781972Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+        "capability.application-node-named-class-instance-growth-plane",
+        "capability.application-node-named-class-static-growth-plane",
+        "capability.application-node-class-static-growth-plane",
+        "capability.application-node-default-export-class-growth-plane",
+        "capability.application-node-default-export-object-growth-plane",
+        "capability.application-node-default-export-growth-plane",
+        "capability.application-node-runtime-deps-growth-plane",
+        "capability.application-runtime-deps-growth-plane",
+        "capability.application-live-fetch-growth-plane",
+        "capability.application-growth-plane",
+        "capability.application-plane"
+      ],
+      "description": "An unplannable application goal grows itself from a live-fetched npm tarball whose named class instance methods exist only after construction: Node introspection constructs new Parser(options) / new Eta(options) rather than requiring new Parser().parse on the prototype, and the covering package is foraged so the original task becomes solvable.",
+      "entry": "blackhole_agent.capability_application_growth:demo_application_node_named_class_construct_growth_plane",
+      "id": "capability.application-node-named-class-construct-growth-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-23T07:37:08.909168Z",
+      "name": "Application node named class-construct growth plane",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_application_growth import builtin_application_node_named_class_construct_growth_plane_proof; r=builtin_application_node_named_class_construct_growth_plane_proof(); assert r['ok'] and r.get('action')=='application_node_named_class_construct_growth_plane' and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') and r.get('grow_winner_is_eta') and r.get('npm_decoy_probed') and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') and r.get('named_class_construct_selected') and r.get('winner_is_named_export_class') and r.get('winner_is_not_named_export_class_static') and r.get('winner_is_not_default_export') and r.get('winner_is_not_default_export_class_static') and r.get('winner_is_not_default_export_class') and r.get('winner_is_not_default_export_object') and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') and r.get('registries_npm_and_pypi') and r.get('query_from_goal') and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') and r.get('unplannable_before') and r.get('grown_plan_solved') and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "application",
+        "growth",
+        "node",
+        "named-class-construct"
+      ],
+      "updated_at": "2026-08-23T07:37:08.909168Z"
     },
     "capability.application-node-named-class-instance-growth-plane": {
       "behavior_paths": [
@@ -4331,5 +4468,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-23T06:23:01.515541Z"
+  "updated_at": "2026-08-23T07:37:08.911693Z"
 }
