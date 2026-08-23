@@ -17,9 +17,10 @@ inputs. This module removes that last human input — **foraging**:
   exported functions, including a Node default export when that is a
   single function, a namespace object of functions, a constructable
   with instance methods, a class whose callable API is static
-  ``Class.method``, a named class export such as ``Base64.encode``, or a
-  nested namespace class such as ``buffer.Buffer.byteLength`` — filtered
-  to JSON-scalar signatures, and ordered deterministically;
+  ``Class.method``, a named class export such as ``Base64.encode`` or
+  ``new Parser().parse``, or a nested namespace class such as
+  ``buffer.Buffer.byteLength`` — filtered to JSON-scalar signatures,
+  and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
   samples for int/float/bool), split into selection and held-out probes; no
@@ -470,6 +471,8 @@ function consider(name, target, flags, candidates, seen) {
     default_export_class_static: Boolean(flags.defaultExportClassStatic),
     named_export_class_static: Boolean(flags.namedExportClassStatic),
     nested_namespace_class_static: Boolean(flags.nestedNamespaceClassStatic),
+    named_export_class: Boolean(flags.namedExportClass),
+    nested_namespace_class: Boolean(flags.nestedNamespaceClass),
   });
 }
 function objectKeys(value) {
@@ -495,6 +498,14 @@ function considerClassStatics(prefix, ctor, flags, candidates, seen) {
     consider(`${prefix}.${name}`, ctor[name], flags, candidates, seen);
   }
 }
+function considerClassInstance(prefix, ctor, flags, candidates, seen) {
+  if (typeof ctor !== "function" || !ctor.prototype) {
+    return;
+  }
+  for (const name of objectKeys(ctor.prototype)) {
+    consider(`${prefix}.${name}`, ctor.prototype[name], flags, candidates, seen);
+  }
+}
 function considerNestedClassStatics(prefix, namespace, flags, candidates, seen) {
   if (!namespace || typeof namespace !== "object" || Array.isArray(namespace)) {
     return;
@@ -506,6 +517,19 @@ function considerNestedClassStatics(prefix, namespace, flags, candidates, seen) 
     }
     const nestedPrefix = prefix ? `${prefix}.${name}` : name;
     considerClassStatics(nestedPrefix, nested, flags, candidates, seen);
+  }
+}
+function considerNestedClassInstance(prefix, namespace, flags, candidates, seen) {
+  if (!namespace || typeof namespace !== "object" || Array.isArray(namespace)) {
+    return;
+  }
+  for (const name of objectKeys(namespace)) {
+    const nested = namespace[name];
+    if (typeof nested !== "function") {
+      continue;
+    }
+    const nestedPrefix = prefix ? `${prefix}.${name}` : name;
+    considerClassInstance(nestedPrefix, nested, flags, candidates, seen);
   }
 }
 try {
@@ -536,8 +560,10 @@ try {
     consider(name, mod[name], {}, candidates, seen);
     if (typeof mod[name] === "function") {
       considerClassStatics(name, mod[name], { namedExportClassStatic: true }, candidates, seen);
+      considerClassInstance(name, mod[name], { namedExportClass: true }, candidates, seen);
     } else {
       considerNestedClassStatics(name, mod[name], { nestedNamespaceClassStatic: true }, candidates, seen);
+      considerNestedClassInstance(name, mod[name], { nestedNamespaceClass: true }, candidates, seen);
     }
   }
   if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
@@ -1029,14 +1055,23 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
     )
 
 
+def _is_named_class_instance_candidate(item: Mapping[str, Any]) -> bool:
+    return bool(item.get("named_export_class") or item.get("nested_namespace_class"))
+
+
 def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
-    return bool(item.get("default_export_class")) or _is_class_static_candidate(item)
+    return (
+        bool(item.get("default_export_class"))
+        or _is_named_class_instance_candidate(item)
+        or _is_class_static_candidate(item)
+    )
 
 
 def _bundle_slug(base: str, callable_name: str) -> str:
     suffix = re.sub(r"[^a-z0-9]+", "-", _snake_key(callable_name)).strip("-")
     slug = f"{base}-{suffix}" if suffix and suffix != base else f"{base}-bundle"
-    return slugify_capability_id(slug)
+    # ``capability.absorbed-`` is 22 chars; ids must stay within 64.
+    return slugify_capability_id(slug, limit=42)
 
 
 def infer_acquisition_spec(
@@ -1105,6 +1140,7 @@ def infer_acquisition_spec(
         introspection["candidates"],
         key=lambda item: (
             0 if _is_class_static_candidate(item) else 1,
+            0 if _is_named_class_instance_candidate(item) else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1170,6 +1206,8 @@ def infer_acquisition_spec(
                 "default_export_class_static": bool(candidate.get("default_export_class_static")),
                 "named_export_class_static": bool(candidate.get("named_export_class_static")),
                 "nested_namespace_class_static": bool(candidate.get("nested_namespace_class_static")),
+                "named_export_class": bool(candidate.get("named_export_class")),
+                "nested_namespace_class": bool(candidate.get("nested_namespace_class")),
             }
             break
         if winner is not None:
@@ -1207,6 +1245,8 @@ def infer_acquisition_spec(
         "default_export_class_static": bool(collected[0].get("default_export_class_static")),
         "named_export_class_static": bool(collected[0].get("named_export_class_static")),
         "nested_namespace_class_static": bool(collected[0].get("nested_namespace_class_static")),
+        "named_export_class": bool(collected[0].get("named_export_class")),
+        "nested_namespace_class": bool(collected[0].get("nested_namespace_class")),
     }
     return {
         "ok": True,
@@ -1399,7 +1439,15 @@ def forage_package(
     specs = [inference["spec"], *list(inference.get("bundle_specs") or [])]
     acquisitions: list[dict[str, Any]] = []
     for index, spec in enumerate(specs):
-        acquisition = acquire_capability(spec, repo_root=repo_root, output_dir=output_dir)
+        try:
+            acquisition = acquire_capability(spec, repo_root=repo_root, output_dir=output_dir)
+        except (ValueError, OSError) as exc:
+            acquisition = {
+                "ok": False,
+                "stage": "acquire",
+                "error": str(exc),
+                "capability_id": "",
+            }
         acquisitions.append(
             {
                 "ok": bool(acquisition.get("ok")),

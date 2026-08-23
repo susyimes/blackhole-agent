@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-fast-xml-parser-xmlbuilder-replace-entitie",
+  "generated_at": "2026-08-23T06:22:54.699843Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-fast-xml-parser-xmlbuilder-replace-entitie"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "fast-xml-parser",
+    "registry": "npm",
+    "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+    "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+    "url": "",
+    "version": "5.2.5"
+  },
+  "record_digest": "6f6ecb032c66b0dfe670caea5e16c00af03e29be9987fdde7a4fa0e441402438",
+  "report_digest": "a0ed8838cfb536b5cc318144cd6f9660210825083d1b49bfb702294011d98cad",
+  "schema_version": 1,
+  "slug": "fast-xml-parser-xmlbuilder-replace-entitie",
+  "task": {
+    "goal": [
+      "xmlbuilder_replace_entities_value_output"
+    ],
+    "id": "absorbed-fast-xml-parser-xmlbuilder-replace-entitie",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "xmlbuilder_replace_entities_value_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "e6e9087cb07cf281770ff060450668008742e753fe95929f537fcb4a58793b89",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

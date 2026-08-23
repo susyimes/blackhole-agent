@@ -163,6 +163,20 @@ def test_node_named_class_static_leftover_marks_application_node_named_class_sta
     assert "named class exports" in leftover_next_step(prefixed)
 
 
+def test_node_named_class_instance_leftover_marks_application_node_named_class_instance_growth_plane():
+    leftover = (
+        "Optional later work is reflecting instance methods on named class exports "
+        "so packages whose API is new Parser().parse rather than a default-exported "
+        "constructable can be foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-node-named-class-instance-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "instance methods on named class exports" in leftover_next_step(prefixed)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

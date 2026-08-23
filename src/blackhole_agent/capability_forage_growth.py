@@ -170,6 +170,10 @@ def probe_candidate(
         "nested_namespace_class_static": bool(
             (inference.get("record") or {}).get("nested_namespace_class_static")
         ),
+        "named_export_class": bool((inference.get("record") or {}).get("named_export_class")),
+        "nested_namespace_class": bool(
+            (inference.get("record") or {}).get("nested_namespace_class")
+        ),
     }
 
 

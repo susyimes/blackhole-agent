@@ -254,11 +254,26 @@ try {{
   if (typeof target !== "function" && dotted) {{
     target = resolvePath(mod.default, CONFIG.callable_name);
   }}
+  let instanceCtor = null;
+  if (typeof target !== "function" && dotted) {{
+    const parts = String(CONFIG.callable_name).split(".");
+    const leaf = parts[parts.length - 1];
+    const parentName = parts.slice(0, -1).join(".");
+    const ctor = resolvePath(mod, parentName) ?? resolvePath(mod.default, parentName);
+    if (typeof ctor === "function" && ctor.prototype && typeof ctor.prototype[leaf] === "function") {{
+      target = ctor.prototype[leaf];
+      instanceCtor = ctor;
+    }}
+  }}
   if (typeof target === "function" && dotted) {{
-    const parentName = String(CONFIG.callable_name).split(".").slice(0, -1).join(".");
-    const receiver = resolvePath(mod, parentName) ?? resolvePath(mod.default, parentName);
     const method = target;
-    target = (...args) => method.apply(receiver, args);
+    if (instanceCtor) {{
+      target = (...args) => method.apply(new instanceCtor(), args);
+    }} else {{
+      const parentName = String(CONFIG.callable_name).split(".").slice(0, -1).join(".");
+      const receiver = resolvePath(mod, parentName) ?? resolvePath(mod.default, parentName);
+      target = (...args) => method.apply(receiver, args);
+    }}
   }}
   if (typeof target !== "function") {{
     const fallback = mod.default;

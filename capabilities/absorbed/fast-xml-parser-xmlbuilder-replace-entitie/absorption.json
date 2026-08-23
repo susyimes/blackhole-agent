@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "xmlbuilder_replace_entities_value_output": "Hello World"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "xmlbuilder_replace_entities_value_output": "blackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "xmlbuilder_replace_entities_value_output": "MiXeD CaSe"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "xmlbuilder_replace_entities_value_output": ""
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "fast-xml-parser (XMLBuilder.replaceEntitiesValue)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "fast-xml-parser",
+    "registry": "npm",
+    "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+    "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+    "url": "",
+    "version": "5.2.5"
+  },
+  "provides": [
+    "xmlbuilder_replace_entities_value_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "fast-xml-parser-xmlbuilder-replace-entitie",
+  "version": "5.2.5"
+}

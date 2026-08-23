@@ -1,8 +1,197 @@
 {
-  "absorbed_at": "2026-08-23T05:38:00.719128Z",
+  "absorbed_at": "2026-08-23T06:22:15.421342Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-fast-xml-parser",
+      "cases": [
+        {
+          "expect": {
+            "xmlbuilder_build_output": "<0>H</0><1>e</1><2>l</2><3>l</3><4>o</4><5> </5><6>W</6><7>o</7><8>r</8><9>l</9><10>d</10>"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_build_output": "<0>b</0><1>l</1><2>a</2><3>c</3><4>k</4><5>h</5><6>o</6><7>l</7><8>e</8><9> </9><10>u</10><11>n</11><12>b</12><13>o</13><14>u</14><15>n</15><16>d</16>"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_build_output": "<0>M</0><1>i</1><2>X</2><3>e</3><4>D</4><5> </5><6>C</6><7>a</7><8>S</8><9>e</9>"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_build_output": ""
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "fast-xml-parser",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "fast-xml-parser",
+        "registry": "npm",
+        "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+        "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+        "url": "",
+        "version": "5.2.5"
+      },
+      "provides": [
+        "xmlbuilder_build_output"
+      ],
+      "record_digest": "0ecb220811c9b3a813ce993e2b873d407d703da2d5a0146bb71bec92fe233129",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "fast-xml-parser",
+      "vendored_tree_digest": "b9a7217534876cc8b0a3bf36043677cc5c368f28a3e32c1bb74c17999308a75f",
+      "version": "5.2.5"
+    },
+    {
+      "capability_id": "capability.absorbed-fast-xml-parser-xmlbuilder-close-tag",
+      "cases": [
+        {
+          "expect": {
+            "xmlbuilder_close_tag_output": "></Hello World"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_close_tag_output": "></blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_close_tag_output": "></MiXeD CaSe"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_close_tag_output": "></"
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "fast-xml-parser (XMLBuilder.closeTag)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "fast-xml-parser",
+        "registry": "npm",
+        "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+        "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+        "url": "",
+        "version": "5.2.5"
+      },
+      "provides": [
+        "xmlbuilder_close_tag_output"
+      ],
+      "record_digest": "ee12fb3d5724b5c525ee2e1c66169524c52c75f6d79dc7bf613b0de016340be8",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "fast-xml-parser-xmlbuilder-close-tag",
+      "vendored_tree_digest": "5390f22de38fca2c943d809660bc2c105f6b7d54f9c1285f446c86764c320794",
+      "version": "5.2.5"
+    },
+    {
+      "capability_id": "capability.absorbed-fast-xml-parser-xmlbuilder-replace-entitie",
+      "cases": [
+        {
+          "expect": {
+            "xmlbuilder_replace_entities_value_output": "Hello World"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_replace_entities_value_output": "blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_replace_entities_value_output": "MiXeD CaSe"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "xmlbuilder_replace_entities_value_output": ""
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "fast-xml-parser (XMLBuilder.replaceEntitiesValue)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "fast-xml-parser",
+        "registry": "npm",
+        "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+        "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+        "url": "",
+        "version": "5.2.5"
+      },
+      "provides": [
+        "xmlbuilder_replace_entities_value_output"
+      ],
+      "record_digest": "6f6ecb032c66b0dfe670caea5e16c00af03e29be9987fdde7a4fa0e441402438",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "fast-xml-parser-xmlbuilder-replace-entitie",
+      "vendored_tree_digest": "e6e9087cb07cf281770ff060450668008742e753fe95929f537fcb4a58793b89",
+      "version": "5.2.5"
+    },
     {
       "capability_id": "capability.absorbed-forage-flip",
       "cases": [
@@ -2166,5 +2355,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "ed2456dbf8f64e83aace91d2a63422a2b52c332a47a401043d50a6129bd4c13e"
+  "steps_digest": "a5904f97be7a0237b028f3d9c20f8359aaa0802d1ad9502b355b0bd849e1db07"
 }

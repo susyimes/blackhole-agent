@@ -165,10 +165,14 @@ _MARKERS = (
     ("class static methods", "capability.application-node-class-static-growth-plane"),
     ("class.method rather than", "capability.application-node-class-static-growth-plane"),
     ("new class().method", "capability.application-node-class-static-growth-plane"),
-    ("named class exports", "capability.application-node-named-class-static-growth-plane"),
+    ("static methods on named class exports", "capability.application-node-named-class-static-growth-plane"),
     ("nested namespace classes", "capability.application-node-named-class-static-growth-plane"),
     ("base64.encode", "capability.application-node-named-class-static-growth-plane"),
     ("buffer.buffer.bytelength", "capability.application-node-named-class-static-growth-plane"),
+    ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
+    ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
+    ("new parser().parse", "capability.application-node-named-class-instance-growth-plane"),
+    ("parser().parse", "capability.application-node-named-class-instance-growth-plane"),
 )
 
 

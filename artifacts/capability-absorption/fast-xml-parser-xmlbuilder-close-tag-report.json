@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-fast-xml-parser-xmlbuilder-close-tag",
+  "generated_at": "2026-08-23T06:22:51.833071Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-fast-xml-parser-xmlbuilder-close-tag"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "fast-xml-parser",
+    "registry": "npm",
+    "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+    "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+    "url": "",
+    "version": "5.2.5"
+  },
+  "record_digest": "ee12fb3d5724b5c525ee2e1c66169524c52c75f6d79dc7bf613b0de016340be8",
+  "report_digest": "c5a5a8565aed5315286f35913b448ebee9f33798374dc37309dcbbc215e0c101",
+  "schema_version": 1,
+  "slug": "fast-xml-parser-xmlbuilder-close-tag",
+  "task": {
+    "goal": [
+      "xmlbuilder_close_tag_output"
+    ],
+    "id": "absorbed-fast-xml-parser-xmlbuilder-close-tag",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "xmlbuilder_close_tag_output": "></Hello World"
+    }
+  },
+  "vendored_tree_digest": "5390f22de38fca2c943d809660bc2c105f6b7d54f9c1285f446c86764c320794",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

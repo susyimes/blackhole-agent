@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "xmlbuilder_build_output": "<0>H</0><1>e</1><2>l</2><3>l</3><4>o</4><5> </5><6>W</6><7>o</7><8>r</8><9>l</9><10>d</10>"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "xmlbuilder_build_output": "<0>b</0><1>l</1><2>a</2><3>c</3><4>k</4><5>h</5><6>o</6><7>l</7><8>e</8><9> </9><10>u</10><11>n</11><12>b</12><13>o</13><14>u</14><15>n</15><16>d</16>"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "xmlbuilder_build_output": "<0>M</0><1>i</1><2>X</2><3>e</3><4>D</4><5> </5><6>C</6><7>a</7><8>S</8><9>e</9>"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "xmlbuilder_build_output": ""
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "fast-xml-parser",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "fast-xml-parser",
+    "registry": "npm",
+    "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+    "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+    "url": "",
+    "version": "5.2.5"
+  },
+  "provides": [
+    "xmlbuilder_build_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "fast-xml-parser",
+  "version": "5.2.5"
+}

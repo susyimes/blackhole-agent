@@ -276,6 +276,33 @@ def test_node_introspection_reflects_default_export_class_static(tmp_path: Path)
     assert digest["default_export_class_static"] is False
 
 
+def test_node_introspection_reflects_named_class_instance(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-named-class","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "export class Parser {\n"
+        "  parse(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('parse expects a string');\n"
+        "    return text.toLowerCase();\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    skipped = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert skipped["ok"], skipped
+    names = [candidate["name"] for candidate in skipped["candidates"]]
+    assert "Parser.parse" in names
+    parsed = next(candidate for candidate in skipped["candidates"] if candidate["name"] == "Parser.parse")
+    assert parsed["default_export"] is False
+    assert parsed["default_export_class"] is False
+    assert parsed["named_export_class_static"] is False
+    assert parsed["named_export_class"] is True
+    reflected = introspect_node_module(pkg, "index.mjs")
+    assert reflected["ok"], reflected
+    assert "Parser.parse" in [candidate["name"] for candidate in reflected["candidates"]]
+
+
 def test_node_introspection_reflects_named_class_static(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     pkg.mkdir()
@@ -588,6 +615,50 @@ def test_named_class_static_npm_tarball_forages_ip_address(tmp_path: Path) -> No
     assert closed["record"]["named_export_class_static"] is True
     assert closed["spec"].provides == "address4_is_valid_output"
     assert closed["spec"].callable_name == "Address4.isValid"
+
+
+def test_named_class_instance_npm_tarball_forages_fast_xml_parser(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "fast-xml-parser", "slug": "fast-xml-parser", "registry": "npm", "version": "5.2.5"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    named_only = infer_acquisition_spec(
+        slug="fast-xml-parser",
+        name="fast-xml-parser",
+        source=source,
+        staging_root=tmp_path / "named",
+        hint="fast-xml-parser",
+        runtime="node",
+        close_deps=True,
+        include_default=False,
+    )
+    assert named_only["ok"], named_only
+    assert named_only["record"]["winner"] == "XMLBuilder.build"
+    assert named_only["record"]["named_export_class"] is True
+    assert named_only["record"]["named_export_class_static"] is False
+    assert named_only["record"]["default_export"] is False
+    closed = infer_acquisition_spec(
+        slug="fast-xml-parser",
+        name="fast-xml-parser",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="fast-xml-parser",
+        runtime="node",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "XMLBuilder.build"
+    assert closed["record"]["default_export"] is False
+    assert closed["record"]["default_export_object"] is False
+    assert closed["record"]["default_export_class"] is False
+    assert closed["record"]["default_export_class_static"] is False
+    assert closed["record"]["named_export_class_static"] is False
+    assert closed["record"]["named_export_class"] is True
+    assert closed["spec"].provides == "xmlbuilder_build_output"
+    assert closed["spec"].callable_name == "XMLBuilder.build"
 
 
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:

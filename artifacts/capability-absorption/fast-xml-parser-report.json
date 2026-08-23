@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-fast-xml-parser",
+  "generated_at": "2026-08-23T06:22:48.894587Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-fast-xml-parser"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "fast-xml-parser",
+    "registry": "npm",
+    "sha256": "3d79a7b12748fb0ba831cbb6be1366d455ac82e90fcc558b32d05ba05c67a934",
+    "source": "artifacts/capability-foraging/downloads/fast-xml-parser-5.2.5.tgz",
+    "url": "",
+    "version": "5.2.5"
+  },
+  "record_digest": "0ecb220811c9b3a813ce993e2b873d407d703da2d5a0146bb71bec92fe233129",
+  "report_digest": "69050ffe6e78e88a0baa976e33f8705608957db92d8aa4fb970a4eab5c886af4",
+  "schema_version": 1,
+  "slug": "fast-xml-parser",
+  "task": {
+    "goal": [
+      "xmlbuilder_build_output"
+    ],
+    "id": "absorbed-fast-xml-parser",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "xmlbuilder_build_output": "<0>H</0><1>e</1><2>l</2><3>l</3><4>o</4><5> </5><6>W</6><7>o</7><8>r</8><9>l</9><10>d</10>"
+    }
+  },
+  "vendored_tree_digest": "b9a7217534876cc8b0a3bf36043677cc5c368f28a3e32c1bb74c17999308a75f",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}
