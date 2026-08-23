@@ -1,0 +1,613 @@
+import io
+import json
+import os
+
+from datetime import date
+from datetime import datetime
+from datetime import time
+from types import MappingProxyType
+from typing import Any
+from typing import Callable
+
+import pytest
+
+import tomlkit
+
+from tomlkit import dump
+from tomlkit import dumps
+from tomlkit import load
+from tomlkit import loads
+from tomlkit import parse
+from tomlkit.exceptions import InvalidCharInStringError
+from tomlkit.exceptions import InvalidControlChar
+from tomlkit.exceptions import InvalidDateError
+from tomlkit.exceptions import InvalidDateTimeError
+from tomlkit.exceptions import InvalidNumberError
+from tomlkit.exceptions import InvalidStringError
+from tomlkit.exceptions import InvalidTimeError
+from tomlkit.exceptions import UnexpectedCharError
+from tomlkit.items import AoT
+from tomlkit.items import Array
+from tomlkit.items import Bool
+from tomlkit.items import Date
+from tomlkit.items import DateTime
+from tomlkit.items import Float
+from tomlkit.items import InlineTable
+from tomlkit.items import Integer
+from tomlkit.items import Key
+from tomlkit.items import Table
+from tomlkit.items import Time
+from tomlkit.parser import Parser
+from tomlkit.toml_document import TOMLDocument
+
+
+def json_serial(obj: Any) -> str:
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, (datetime, date, time)):
+        return obj.isoformat()
+
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
+@pytest.mark.parametrize(
+    "example_name",
+    [
+        "example",
+        "fruit",
+        "hard",
+        "sections_with_same_start",
+        "pyproject",
+        "0.5.0",
+        "test",
+        "newline_in_strings",
+        "preserve_quotes_in_string",
+        "string_slash_whitespace_newline",
+        "table_names",
+    ],
+)
+def test_parse_can_parse_valid_toml_files(
+    example: Callable[[str], str], example_name: str
+) -> None:
+    assert isinstance(parse(example(example_name)), TOMLDocument)
+    assert isinstance(loads(example(example_name)), TOMLDocument)
+
+
+@pytest.mark.parametrize(
+    "example_name",
+    [
+        "example",
+        "fruit",
+        "hard",
+        "sections_with_same_start",
+        "pyproject",
+        "0.5.0",
+        "test",
+        "newline_in_strings",
+        "preserve_quotes_in_string",
+        "string_slash_whitespace_newline",
+        "table_names",
+    ],
+)
+def test_load_from_file_object(example_name: str) -> None:
+    with open(
+        os.path.join(os.path.dirname(__file__), "examples", example_name + ".toml"),
+        encoding="utf-8",
+    ) as fp:
+        assert isinstance(load(fp), TOMLDocument)
+
+
+@pytest.mark.parametrize("example_name", ["0.5.0", "pyproject", "table_names"])
+def test_parsed_document_are_properly_json_representable(
+    example: Callable[[str], str], json_example: Callable[[str], str], example_name: str
+) -> None:
+    doc = json.loads(json.dumps(parse(example(example_name)), default=json_serial))
+    json_doc = json.loads(json_example(example_name))
+
+    assert doc == json_doc
+
+
+@pytest.mark.parametrize(
+    "example_name,error",
+    [
+        ("section_with_trailing_characters", UnexpectedCharError),
+        ("key_value_with_trailing_chars", UnexpectedCharError),
+        ("array_with_invalid_chars", UnexpectedCharError),
+        ("invalid_number", InvalidNumberError),
+        ("invalid_date", InvalidDateError),
+        ("invalid_time", InvalidTimeError),
+        ("invalid_datetime", InvalidDateTimeError),
+        ("trailing_comma", UnexpectedCharError),
+        ("newline_in_singleline_string", InvalidControlChar),
+        ("string_slash_whitespace_char", InvalidCharInStringError),
+        ("array_no_comma", UnexpectedCharError),
+        ("array_duplicate_comma", UnexpectedCharError),
+        ("array_leading_comma", UnexpectedCharError),
+        ("inline_table_no_comma", UnexpectedCharError),
+        ("inline_table_duplicate_comma", UnexpectedCharError),
+        ("inline_table_leading_comma", UnexpectedCharError),
+    ],
+)
+def test_parse_raises_errors_for_invalid_toml_files(
+    invalid_example: Callable[[str], str], error: type[Exception], example_name: str
+) -> None:
+    with pytest.raises(error):
+        parse(invalid_example(example_name))
+
+
+@pytest.mark.parametrize(
+    "example_name",
+    [
+        "example",
+        "fruit",
+        "hard",
+        "sections_with_same_start",
+        "pyproject",
+        "0.5.0",
+        "test",
+        "table_names",
+    ],
+)
+def test_original_string_and_dumped_string_are_equal(
+    example: Callable[[str], str], example_name: str
+) -> None:
+    content = example(example_name)
+    parsed = parse(content)
+
+    assert content == dumps(parsed)
+
+
+def test_a_raw_dict_can_be_dumped() -> None:
+    s = dumps({"foo": "bar"})
+
+    assert s == 'foo = "bar"\n'
+
+
+def test_mapping_types_can_be_dumped() -> None:
+    x = MappingProxyType({"foo": "bar"})
+    assert dumps(x) == 'foo = "bar"\n'
+
+
+def test_dumps_wrapper_delegating_as_string_preserves_layout() -> None:
+    """Mapping-like wrappers around a parsed document dump it verbatim (#482)."""
+
+    class DocumentWrapper:
+        """Bare-bones stand-in for wrappers such as dotty_dict's Dotty."""
+
+        def __init__(self, document: TOMLDocument) -> None:
+            self._document = document
+
+        def __getitem__(self, key: str) -> Any:
+            return self._document[key]
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._document, name)
+
+    content = '[tool.a]\nx = 1\n\n[project]\nname = "demo"\n\n[tool.b]\ny = 2\n'
+    assert dumps(DocumentWrapper(parse(content))) == content  # type: ignore[arg-type]
+
+
+def test_parsed_document_can_be_dumped_with_sorted_keys() -> None:
+    doc = loads('zzz = 1\naaa = "foo"')
+
+    assert dumps(doc, sort_keys=True) == 'aaa = "foo"\nzzz = 1\n'
+
+
+def test_dumps_weird_object() -> None:
+    with pytest.raises(TypeError):
+        dumps(object())  # type: ignore[arg-type]
+
+
+def test_dump_tuple_value_as_array() -> None:
+    x: dict[str, Any] = {"foo": (1, 2)}
+    assert dumps(x) == "foo = [1, 2]\n"
+
+    x = {"foo": ({"a": 1}, {"a": 2})}
+    assert dumps(x) == "[[foo]]\na = 1\n\n[[foo]]\na = 2\n"
+
+
+def test_dump_to_file_object() -> None:
+    doc = {"foo": "bar"}
+    fp = io.StringIO()
+    dump(doc, fp)
+    assert fp.getvalue() == 'foo = "bar"\n'
+
+
+def test_dump_nested_dotted_table() -> None:
+    a: Any = tomlkit.parse("a.b.c.d='e'")["a"]
+    assert a == {"b": {"c": {"d": "e"}}}
+    assert dumps(a) == "b.c.d='e'"
+
+
+def test_integer() -> None:
+    i = tomlkit.integer("34")
+
+    assert isinstance(i, Integer)
+
+
+def test_float() -> None:
+    i = tomlkit.float_("34.56")
+
+    assert isinstance(i, Float)
+
+
+def test_boolean() -> None:
+    i = tomlkit.boolean("true")
+
+    assert isinstance(i, Bool)
+
+
+def test_date() -> None:
+    dt = tomlkit.date("1979-05-13")
+
+    assert isinstance(dt, Date)
+
+    with pytest.raises(ValueError):
+        tomlkit.date("12:34:56")
+
+
+def test_time() -> None:
+    dt = tomlkit.time("12:34:56")
+
+    assert isinstance(dt, Time)
+
+    with pytest.raises(ValueError):
+        tomlkit.time("1979-05-13")
+
+
+def test_datetime() -> None:
+    dt = tomlkit.datetime("1979-05-13T12:34:56")
+
+    assert isinstance(dt, DateTime)
+
+    with pytest.raises(ValueError):
+        tomlkit.time("1979-05-13")
+
+
+def test_comment_single_line() -> None:
+    doc = tomlkit.document()
+    doc.add(tomlkit.comment("a comment"))
+    assert doc.as_string() == "# a comment\n"
+
+
+def test_comment_multiline_is_valid_toml() -> None:
+    """A multiline comment prefixes every line so the output re-parses (#449)."""
+    doc = tomlkit.document()
+    doc.add(tomlkit.comment("line one\nline two\n\nline four"))
+    rendered = doc.as_string()
+    assert rendered == "# line one\n# line two\n#\n# line four\n"
+    # The rendered document must round-trip.
+    assert parse(rendered).as_string() == rendered
+
+
+def test_array() -> None:
+    a = tomlkit.array()
+
+    assert isinstance(a, Array)
+
+    a = tomlkit.array("[1,2, 3]")
+
+    assert isinstance(a, Array)
+
+
+def test_table() -> None:
+    t = tomlkit.table()
+
+    assert isinstance(t, Table)
+
+
+def test_inline_table() -> None:
+    t = tomlkit.inline_table()
+
+    assert isinstance(t, InlineTable)
+
+
+def test_aot() -> None:
+    t = tomlkit.aot()
+
+    assert isinstance(t, AoT)
+
+
+def test_key() -> None:
+    k = tomlkit.key("foo")
+
+    assert isinstance(k, Key)
+
+
+def test_key_value() -> None:
+    k, i = tomlkit.key_value("foo = 12")
+
+    assert isinstance(k, Key)
+    assert isinstance(i, Integer)
+
+
+def test_string() -> None:
+    s = tomlkit.string('foo "')
+
+    assert s.value == 'foo "'
+    assert s.as_string() == '"foo \\""'
+
+
+def test_item_dict_to_table() -> None:
+    t = tomlkit.item({"foo": {"bar": "baz"}})
+
+    assert t.value == {"foo": {"bar": "baz"}}
+    assert (
+        t.as_string()
+        == """[foo]
+bar = "baz"
+"""
+    )
+
+
+def test_item_mixed_aray() -> None:
+    example = [{"a": 3}, "b", 42]
+    expected = '[{a = 3}, "b", 42]'
+    t = tomlkit.item(example)
+    assert t.as_string().strip() == expected
+    assert dumps({"x": {"y": example}}).strip() == "[x]\ny = " + expected
+
+
+def test_build_super_table() -> None:
+    doc = tomlkit.document()
+    table = tomlkit.table(True)
+    table.add("bar", {"x": 1})
+    doc.add("foo", table)
+    assert doc.as_string() == "[foo.bar]\nx = 1\n"
+
+
+def test_add_dotted_key() -> None:
+    doc = tomlkit.document()
+    doc.add(tomlkit.key(["foo", "bar"]), 1)
+    assert doc.as_string() == "foo.bar = 1\n"
+
+    table = tomlkit.table()
+    table.add(tomlkit.key(["foo", "bar"]), 1)
+    assert table.as_string() == "foo.bar = 1\n"
+
+
+def test_key_with_single_element_list_is_a_single_key() -> None:
+    # Regression test for
+    # https://github.com/python-poetry/tomlkit/issues/430: a one-element key
+    # list should behave like a plain key, not a single-element dotted key.
+    doc = tomlkit.document()
+    doc.append(tomlkit.key(["foo"]), "value")
+    assert "foo" in doc
+    assert doc["foo"] == "value"
+    assert doc.as_string() == 'foo = "value"\n'
+
+    # Multi-element key lists are still dotted keys.
+    doc = tomlkit.document()
+    doc.add(tomlkit.key(["foo", "bar"]), 1)
+    assert doc.as_string() == "foo.bar = 1\n"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("true", True),
+        ("false", False),
+    ],
+)
+def test_value_parses_boolean(raw: str, expected: bool) -> None:
+    parsed = tomlkit.value(raw)
+    assert parsed == expected  # type: ignore[comparison-overlap]
+
+
+@pytest.mark.parametrize(
+    "raw", ["t", "f", "tru", "fals", "test", "friend", "truthy", "falsify"]
+)
+def test_value_rejects_values_looking_like_bool_at_start(raw: str) -> None:
+    """Reproduces https://github.com/sdispater/tomlkit/issues/165"""
+    with pytest.raises(tomlkit.exceptions.ParseError):
+        tomlkit.value(raw)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "truee",
+        "truely",
+        "true-thoughts",
+        "true_hip_hop",
+    ],
+)
+def test_value_rejects_values_having_true_prefix(raw: str) -> None:
+    """Values that have ``true`` or ``false`` as prefix but then have additional chars are rejected."""
+    with pytest.raises(tomlkit.exceptions.ParseError):
+        tomlkit.value(raw)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "falsee",
+        "falsely",
+        "false-ideas",
+        "false_prophet",
+    ],
+)
+def test_value_rejects_values_having_false_prefix(raw: str) -> None:
+    """Values that have ``true`` or ``false`` as prefix but then have additional chars are rejected."""
+    with pytest.raises(tomlkit.exceptions.ParseError):
+        tomlkit.value(raw)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '"foo"1.2',
+        "truefalse",
+        "1.0false",
+        "100true",
+        "truetrue",
+        "falsefalse",
+        "1.2.3.4",
+        "[][]",
+        "{a=[][]}[]",
+        "true[]",
+        "false{a=1}",
+    ],
+)
+def test_value_rejects_values_with_appendage(raw: str) -> None:
+    """Values that appear valid at the beginning but leave chars unparsed are rejected."""
+    with pytest.raises(tomlkit.exceptions.ParseError):
+        tomlkit.value(raw)
+
+
+def test_parse_many_dotted_keys_with_shared_prefix() -> None:
+    """Each dotted key adds a fragment to the same out-of-order key; parsing
+    validates incrementally instead of re-merging every fragment (#479)."""
+    content = "\n".join(f"a.b.c.key{i} = {i}" for i in range(200)) + "\n"
+    doc = parse(content)
+    assert doc["a"]["b"]["c"]["key0"] == 0
+    assert doc["a"]["b"]["c"]["key199"] == 199
+    assert doc.as_string() == content
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[a]\nb.c = 1\n[q]\nx = 1\n[a]\nb.c = 2",
+        "[t.a]\nk = 1\n[u]\nz = 1\n[t.a]\nk = 2",
+    ],
+)
+def test_parse_rejects_collisions_across_out_of_order_fragments(
+    content: str,
+) -> None:
+    """Key collisions between out-of-order table parts still fail at parse
+    time with the incremental validation (#479)."""
+    with pytest.raises(tomlkit.exceptions.ParseError):
+        parse(content)
+
+
+def test_create_super_table_with_table() -> None:
+    data = {"foo": {"bar": {"a": 1}}}
+    assert dumps(data) == "[foo.bar]\na = 1\n"
+
+
+def test_create_super_table_with_aot() -> None:
+    data = {"foo": {"bar": [{"a": 1}]}}
+    assert dumps(data) == "[[foo.bar]]\na = 1\n"
+
+
+@pytest.mark.parametrize(
+    "kwargs, example, expected",
+    [
+        ({}, "My\nString", '"My\\nString"'),
+        ({"escape": False}, "My String\t", '"My String\t"'),
+        ({"literal": True}, "My String\t", "'My String\t'"),
+        ({"escape": True, "literal": True}, "My String\t", "'My String\t'"),
+        ({}, "My String\u0001", '"My String\\u0001"'),
+        ({}, "My String\u000b", '"My String\\u000b"'),
+        ({}, "My String\x08", '"My String\\b"'),
+        ({}, "My String\x0c", '"My String\\f"'),
+        ({}, "My String\x01", '"My String\\u0001"'),
+        ({}, "My String\x06", '"My String\\u0006"'),
+        ({}, "My String\x12", '"My String\\u0012"'),
+        ({}, "My String\x7f", '"My String\\u007f"'),
+        ({"escape": False}, "My String\u0001", '"My String\u0001"'),
+        ({"multiline": True}, "\nMy\nString\n", '"""\n\nMy\nString\n"""'),
+        ({"multiline": True}, 'My"String', '"""My"String"""'),
+        ({"multiline": True}, 'My""String', '"""My""String"""'),
+        ({"multiline": True}, 'My"""String', '"""My""\\"String"""'),
+        ({"multiline": True}, 'My""""String', '"""My""\\""String"""'),
+        (
+            {"multiline": True},
+            '"""My"""Str"""ing"""',
+            '"""""\\"My""\\"Str""\\"ing""\\""""',
+        ),
+        ({"multiline": True, "literal": True}, "My\nString", "'''My\nString'''"),
+        ({"multiline": True, "literal": True}, "My'String", "'''My'String'''"),
+        ({"multiline": True, "literal": True}, "My\r\nString", "'''My\r\nString'''"),
+        (
+            {"literal": True},
+            r"C:\Users\nodejs\templates",
+            r"'C:\Users\nodejs\templates'",
+        ),
+        ({"literal": True}, r"<\i\c*\s*>", r"'<\i\c*\s*>'"),
+        (
+            {"multiline": True, "literal": True},
+            r"I [dw]on't need \d{2} apples",
+            r"'''I [dw]on't need \d{2} apples'''",
+        ),
+    ],
+)
+def test_create_string(kwargs: dict[str, Any], example: str, expected: str) -> None:
+    value = tomlkit.string(example, **kwargs)
+    assert value.as_string() == expected
+
+
+@pytest.mark.parametrize(
+    "kwargs, example",
+    [
+        ({"multiline": True}, "\n"),
+        ({"multiline": True}, "\nMy\nString\n"),
+        ({"multiline": True}, "\r\nMy\nString"),
+        ({"multiline": True, "literal": True}, "\nMy\nString"),
+        ({"multiline": True, "literal": True}, "\r\nMy\nString"),
+    ],
+)
+def test_create_multiline_string_with_leading_newline_round_trips(
+    kwargs: dict[str, Any], example: str
+) -> None:
+    """A multiline string whose value starts with a newline must survive a
+    round-trip. The parser trims a newline immediately following the opening
+    delimiter, so the rendered form has to account for it (otherwise the
+    leading newline is silently dropped when the output is parsed again).
+    """
+    value = tomlkit.string(example, **kwargs)
+    assert str(value) == example
+    reparsed = parse(f"k = {value.as_string()}\n")["k"]
+    assert str(reparsed) == example
+
+
+@pytest.mark.parametrize(
+    "kwargs, example",
+    [
+        ({"literal": True}, "My'String"),
+        ({"literal": True}, "My\nString"),
+        ({"literal": True}, "My\r\nString"),
+        ({"literal": True}, "My\bString"),
+        ({"literal": True}, "My\x08String"),
+        ({"literal": True}, "My\x0cString"),
+        ({"literal": True}, "My\x7fString"),
+        ({"multiline": True, "literal": True}, "My'''String"),
+    ],
+)
+def test_create_string_with_invalid_characters(
+    kwargs: dict[str, Any], example: str
+) -> None:
+    with pytest.raises(InvalidStringError):
+        tomlkit.string(example, **kwargs)
+
+
+def test_parse_empty_quoted_table_name() -> None:
+    content = "['']\nx = 1\n"
+    parsed = loads(content)
+    assert parsed == {"": {"x": 1}}
+    assert dumps(parsed) == content
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "x = " + "[" * 500 + "1" + "]" * 500,
+        "x = " + "{a = " * 500 + "1" + "}" * 500,
+        "x = " + "[{a = " * 500 + "1" + "}]" * 500,
+        ".".join(["a"] * 500) + " = 1",
+        "[" + ".".join(["a"] * 500) + "]\nx = 1",
+        "[[" + ".".join(["a"] * 500) + "]]\nx = 1",
+    ],
+)
+def test_parse_rejects_deeply_nested_documents(payload: str) -> None:
+    """Nesting beyond the depth limit raises ParseError, not RecursionError."""
+    with pytest.raises(tomlkit.exceptions.ParseError):
+        parse(payload)
+
+
+def test_parse_accepts_nesting_at_the_depth_limit() -> None:
+    depth = Parser.MAX_NESTING_DEPTH
+    array = "x = " + "[" * depth + "1" + "]" * depth
+    assert parse(array).as_string() == array
+    dotted = ".".join(["a"] * depth) + " = 1"
+    assert parse(dotted).as_string() == dotted

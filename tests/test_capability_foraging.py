@@ -887,6 +887,49 @@ def test_python_introspection_reflects_class_static_without_construct(tmp_path: 
     assert result["spec"].callable_name in {"Hasher.hash", "Hasher.encode"}
 
 
+def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns"
+    ns.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    (ns / "codec.py").write_text(
+        "class Codec:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Codec cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def encode(text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.Codec.encode" in names
+    assert "Codec.encode" not in names
+    encoded = next(
+        candidate for candidate in reflected["candidates"] if candidate["name"] == "codec.Codec.encode"
+    )
+    assert encoded["python_nested_namespace_class_static"] is True
+    assert encoded.get("python_class_static") is not True
+    assert encoded.get("python_class_instance") is not True
+    result = infer_acquisition_spec(
+        slug="forage-ns",
+        name="forage-ns",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.Codec.encode"
+    assert result["record"]["python_nested_namespace_class_static"] is True
+    assert result["record"]["python_class_static"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["spec"].callable_name == "codec.Codec.encode"
+
+
 def test_python_class_static_sdist_forages_marko(tmp_path: Path) -> None:
     from blackhole_agent.capability_forage_targets import live_registry_archive
 
@@ -907,10 +950,38 @@ def test_python_class_static_sdist_forages_marko(tmp_path: Path) -> None:
     assert result["record"]["winner"] == "HTMLRenderer.escape_html"
     assert result["record"]["python_class_static"] is True
     assert result["record"]["python_class_instance"] is False
+    assert result["record"].get("python_nested_namespace_class_static") is not True
     assert result["record"]["named_export_class"] is False
     assert result["record"]["default_export"] is False
     assert result["spec"].provides == "htmlrenderer_escape_html_output"
     assert result["spec"].callable_name == "HTMLRenderer.escape_html"
+
+
+def test_python_nested_namespace_class_static_sdist_forages_tomlkit(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "tomlkit", "slug": "tomlkit", "registry": "pypi", "version": "0.15.1"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="tomlkit",
+        name="tomlkit",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="tomlkit",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "api.String.from_raw"
+    assert result["record"]["python_nested_namespace_class_static"] is True
+    assert result["record"]["python_class_static"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "api_string_from_raw_output"
+    assert result["spec"].callable_name == "api.String.from_raw"
 
 
 def test_python_class_instance_sdist_forages_markdown_it_py(tmp_path: Path) -> None:

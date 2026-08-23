@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T09:04:33.419565Z",
+  "absorbed_at": "2026-08-23T09:51:46.226937Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -2930,7 +2930,196 @@
       "slug": "tomli-parser",
       "vendored_tree_digest": "00242ab421a81ebd2bdf0badc14d844afb451041b6d9a788ea2e852273162a0a",
       "version": "2.4.1"
+    },
+    {
+      "capability_id": "capability.absorbed-tomlkit",
+      "cases": [
+        {
+          "expect": {
+            "api_string_from_raw_output": "Hello World"
+          },
+          "input": {
+            "value": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "api_string_from_raw_output": "blackhole unbound"
+          },
+          "input": {
+            "value": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "api_string_from_raw_output": "MiXeD CaSe"
+          },
+          "input": {
+            "value": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "api_string_from_raw_output": ""
+          },
+          "input": {
+            "value": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "tomlkit",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "tomlkit",
+        "registry": "pypi",
+        "sha256": "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97",
+        "source": "artifacts/capability-foraging/downloads/tomlkit-0.15.1.tar.gz",
+        "url": "",
+        "version": "0.15.1"
+      },
+      "provides": [
+        "api_string_from_raw_output"
+      ],
+      "record_digest": "a9e86a8405c660c2be4089e3e800b770957010f294be0beec91225279f152cc4",
+      "requires": [
+        "value"
+      ],
+      "schema_version": 1,
+      "slug": "tomlkit",
+      "vendored_tree_digest": "5cccce1c63c5ea7345c397d7dfc246fa424d1b0eedaa4eebf0d1d524a31c9db5",
+      "version": "0.15.1"
+    },
+    {
+      "capability_id": "capability.absorbed-tomlkit-items-string-from-raw",
+      "cases": [
+        {
+          "expect": {
+            "items_string_from_raw_output": "Hello World"
+          },
+          "input": {
+            "value": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "items_string_from_raw_output": "blackhole unbound"
+          },
+          "input": {
+            "value": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "items_string_from_raw_output": "MiXeD CaSe"
+          },
+          "input": {
+            "value": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "items_string_from_raw_output": ""
+          },
+          "input": {
+            "value": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "tomlkit (items.String.from_raw)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "tomlkit",
+        "registry": "pypi",
+        "sha256": "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97",
+        "source": "artifacts/capability-foraging/downloads/tomlkit-0.15.1.tar.gz",
+        "url": "",
+        "version": "0.15.1"
+      },
+      "provides": [
+        "items_string_from_raw_output"
+      ],
+      "record_digest": "d31e3fbec6be8c15e276de88fdfa092b56231a11517da6836409a42133a26f74",
+      "requires": [
+        "value"
+      ],
+      "schema_version": 1,
+      "slug": "tomlkit-items-string-from-raw",
+      "vendored_tree_digest": "cb018fb6bde6ebdf4e03d9605acdaea57bc9bd13e502bccb2320b3b2e69898ac",
+      "version": "0.15.1"
+    },
+    {
+      "capability_id": "capability.absorbed-tomlkit-parser-string-from-raw",
+      "cases": [
+        {
+          "expect": {
+            "parser_string_from_raw_output": "Hello World"
+          },
+          "input": {
+            "value": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "parser_string_from_raw_output": "blackhole unbound"
+          },
+          "input": {
+            "value": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "parser_string_from_raw_output": "MiXeD CaSe"
+          },
+          "input": {
+            "value": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "parser_string_from_raw_output": ""
+          },
+          "input": {
+            "value": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "tomlkit (parser.String.from_raw)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "tomlkit",
+        "registry": "pypi",
+        "sha256": "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97",
+        "source": "artifacts/capability-foraging/downloads/tomlkit-0.15.1.tar.gz",
+        "url": "",
+        "version": "0.15.1"
+      },
+      "provides": [
+        "parser_string_from_raw_output"
+      ],
+      "record_digest": "cf4f1011c7cac5c0478d324dacffec4389d4b59e6a7941e2add91923b0cca695",
+      "requires": [
+        "value"
+      ],
+      "schema_version": 1,
+      "slug": "tomlkit-parser-string-from-raw",
+      "vendored_tree_digest": "d0cf21e7cc218b400b0dc51648bf667ab4a51ff784b69db8cdfd2f573b0da807",
+      "version": "0.15.1"
     }
   ],
-  "steps_digest": "ca208f3640d3487c26a67a33c23b596cc523614cf1478daddaff41813c470c96"
+  "steps_digest": "a3b3f4202393df84bb8a6592fb30c82910eb337f1ce682893d104ad650ceb821"
 }

@@ -176,6 +176,8 @@ _MARKERS = (
     ("parser(opts).loads rather than a module-level", "capability.application-python-class-instance-growth-plane"),
     ("python class static methods", "capability.application-python-class-static-growth-plane"),
     ("class.method rather than parser", "capability.application-python-class-static-growth-plane"),
+    ("python nested-namespace class statics", "capability.application-python-nested-class-static-growth-plane"),
+    ("rather than a top-level class.method", "capability.application-python-nested-class-static-growth-plane"),
     ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
     ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
 )

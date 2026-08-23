@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-tomlkit",
+  "generated_at": "2026-08-23T09:51:32.119736Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-tomlkit"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "tomlkit",
+    "registry": "pypi",
+    "sha256": "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97",
+    "source": "artifacts/capability-foraging/downloads/tomlkit-0.15.1.tar.gz",
+    "url": "",
+    "version": "0.15.1"
+  },
+  "record_digest": "a9e86a8405c660c2be4089e3e800b770957010f294be0beec91225279f152cc4",
+  "report_digest": "05d5f3fa378627354f76a8c5c699308cd3f643dec758004e1a4a14533f7489fa",
+  "schema_version": 1,
+  "slug": "tomlkit",
+  "task": {
+    "goal": [
+      "api_string_from_raw_output"
+    ],
+    "id": "absorbed-tomlkit",
+    "initial_state": {
+      "value": "Hello World"
+    },
+    "oracle": {
+      "api_string_from_raw_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "5cccce1c63c5ea7345c397d7dfc246fa424d1b0eedaa4eebf0d1d524a31c9db5",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

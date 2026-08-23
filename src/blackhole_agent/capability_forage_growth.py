@@ -183,6 +183,9 @@ def probe_candidate(
         "python_class_static": bool(
             (inference.get("record") or {}).get("python_class_static")
         ),
+        "python_nested_namespace_class_static": bool(
+            (inference.get("record") or {}).get("python_nested_namespace_class_static")
+        ),
     }
 
 

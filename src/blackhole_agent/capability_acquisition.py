@@ -209,8 +209,22 @@ def main() -> int:
         result = getattr(module, parts[0])(*args)
     else:
         parent = module
+        imported = str(CONFIG["import_name"])
         for part in parts[:-1]:
-            parent = getattr(parent, part)
+            nxt = getattr(parent, part, None)
+            if inspect.ismodule(nxt):
+                imported = getattr(nxt, "__name__", imported + "." + part) or imported
+            elif nxt is None:
+                imported = imported + "." + part
+                try:
+                    nxt = importlib.import_module(imported)
+                except Exception:
+                    nxt = None
+            if nxt is None:
+                raise AttributeError(
+                    "acquisition callable parent not found: " + ".".join(parts[:-1])
+                )
+            parent = nxt
         leaf = parts[-1]
         if inspect.isclass(parent):
             raw = inspect.getattr_static(parent, leaf, None)

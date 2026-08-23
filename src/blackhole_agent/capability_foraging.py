@@ -23,10 +23,13 @@ inputs. This module removes that last human input — **foraging**:
   or a nested namespace class such as ``buffer.Buffer.byteLength``,
   Python class instance methods such as ``Parser(opts).loads``
   (constructed with ``()``, ``{}``, or ``""``, including methods that
-  exist only on the instance after construction), and Python class
+  exist only on the instance after construction), Python class
   static methods such as ``Class.method`` / ``HTMLRenderer.escape_html``
   (``@staticmethod`` / ``@classmethod`` called on the class, including
-  when the constructor cannot be satisfied) — filtered to
+  when the constructor cannot be satisfied), and Python nested-namespace
+  class statics such as ``package.submodule.Class.method`` /
+  ``api.String.from_raw`` (class statics on a submodule that is not a
+  top-level ``Class.method``) — filtered to
   JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
@@ -255,6 +258,7 @@ _INTROSPECT_SCRIPT = '''"""Sandboxed module reflector for capability foraging.""
 import importlib
 import inspect
 import json
+import pkgutil
 import sys
 
 root, import_name = sys.argv[1], sys.argv[2]
@@ -318,6 +322,7 @@ def _consider(name, target, flags, skip_self=False):
         or inspect.isbuiltin(target)
         or flags.get("python_class_instance")
         or flags.get("python_class_static")
+        or flags.get("python_nested_namespace_class_static")
     ):
         return
     if not _owner_ok(target):
@@ -378,6 +383,34 @@ def _static_method_names(cls):
     return names
 
 
+def _module_ok(target):
+    owner = getattr(target, "__name__", "") or ""
+    return owner == import_name or owner.startswith(import_name + ".")
+
+
+def _consider_class(prefix, target, nested=False):
+    static_flags = {
+        "python_class_static": not nested,
+        "python_nested_namespace_class_static": nested,
+    }
+    for attr in sorted(_static_method_names(target)):
+        fn = getattr(target, attr, None)
+        _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
+    if nested:
+        return
+    instance, requires_args = _construct_instance(target)
+    if instance is None:
+        return
+    flags = {
+        "python_class_instance": True,
+        "constructor_requires_args": bool(requires_args),
+    }
+    for attr in sorted(_instance_method_names(target, instance)):
+        fn = getattr(instance, attr, None)
+        _consider(f"{prefix}.{attr}", fn, flags, skip_self=False)
+
+
+submodules = {}
 for name in sorted(dir(module)):
     if name.startswith("_"):
         continue
@@ -385,22 +418,30 @@ for name in sorted(dir(module)):
     if inspect.isfunction(target) or inspect.isbuiltin(target):
         _consider(name, target, {})
         continue
+    if inspect.ismodule(target) and _module_ok(target):
+        submodules[name] = target
+        continue
     if not inspect.isclass(target):
         continue
-    static_flags = {"python_class_static": True}
-    for attr in sorted(_static_method_names(target)):
-        fn = getattr(target, attr, None)
-        _consider(f"{name}.{attr}", fn, static_flags, skip_self=True)
-    instance, requires_args = _construct_instance(target)
-    if instance is None:
-        continue
-    flags = {
-        "python_class_instance": True,
-        "constructor_requires_args": bool(requires_args),
-    }
-    for attr in sorted(_instance_method_names(target, instance)):
-        fn = getattr(instance, attr, None)
-        _consider(f"{name}.{attr}", fn, flags, skip_self=False)
+    _consider_class(name, target, nested=False)
+
+if hasattr(module, "__path__"):
+    for _finder, modname, _ispkg in pkgutil.iter_modules(module.__path__, import_name + "."):
+        short = modname.rsplit(".", 1)[-1]
+        if short.startswith("_") or short in submodules or short in {"test", "tests", "testing", "conftest"}:
+            continue
+        try:
+            submodules[short] = importlib.import_module(modname)
+        except Exception:
+            continue
+
+for name, target in sorted(submodules.items()):
+    for nested_name in sorted(dir(target)):
+        if nested_name.startswith("_"):
+            continue
+        nested_target = getattr(target, nested_name, None)
+        if inspect.isclass(nested_target):
+            _consider_class(f"{name}.{nested_name}", nested_target, nested=True)
 
 print(json.dumps({"ok": True, "candidates": candidates}))
 '''
@@ -1214,6 +1255,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("named_export_class_static")
         or item.get("nested_namespace_class_static")
         or item.get("python_class_static")
+        or item.get("python_nested_namespace_class_static")
     )
 
 
@@ -1375,6 +1417,9 @@ def infer_acquisition_spec(
                 "constructor_requires_args": bool(candidate.get("constructor_requires_args")),
                 "python_class_instance": bool(candidate.get("python_class_instance")),
                 "python_class_static": bool(candidate.get("python_class_static")),
+                "python_nested_namespace_class_static": bool(
+                    candidate.get("python_nested_namespace_class_static")
+                ),
             }
             break
         if winner is not None:
@@ -1417,6 +1462,9 @@ def infer_acquisition_spec(
         "constructor_requires_args": bool(collected[0].get("constructor_requires_args")),
         "python_class_instance": bool(collected[0].get("python_class_instance")),
         "python_class_static": bool(collected[0].get("python_class_static")),
+        "python_nested_namespace_class_static": bool(
+            collected[0].get("python_nested_namespace_class_static")
+        ),
     }
     return {
         "ok": True,

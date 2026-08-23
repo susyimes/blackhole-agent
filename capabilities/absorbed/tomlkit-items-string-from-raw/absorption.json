@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "items_string_from_raw_output": "Hello World"
+      },
+      "input": {
+        "value": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "items_string_from_raw_output": "blackhole unbound"
+      },
+      "input": {
+        "value": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "items_string_from_raw_output": "MiXeD CaSe"
+      },
+      "input": {
+        "value": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "items_string_from_raw_output": ""
+      },
+      "input": {
+        "value": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "tomlkit (items.String.from_raw)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "tomlkit",
+    "registry": "pypi",
+    "sha256": "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97",
+    "source": "artifacts/capability-foraging/downloads/tomlkit-0.15.1.tar.gz",
+    "url": "",
+    "version": "0.15.1"
+  },
+  "provides": [
+    "items_string_from_raw_output"
+  ],
+  "requires": [
+    "value"
+  ],
+  "schema_version": 1,
+  "slug": "tomlkit-items-string-from-raw",
+  "version": "0.15.1"
+}
