@@ -1,0 +1,255 @@
+# This file is dual licensed under the terms of the Apache License, Version
+# 2.0, and the BSD License. See the LICENSE file in the root of this repository
+# for complete details.
+
+from __future__ import annotations
+
+import pytest
+
+from packaging.tags import Tag
+from packaging.utils import (
+    InvalidName,
+    InvalidSdistFilename,
+    InvalidWheelFilename,
+    canonicalize_name,
+    canonicalize_version,
+    is_normalized_name,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
+from packaging.version import Version
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("foo", "foo"),
+        ("Foo", "foo"),
+        ("fOo", "foo"),
+        ("foo.bar", "foo-bar"),
+        ("Foo.Bar", "foo-bar"),
+        ("Foo.....Bar", "foo-bar"),
+        ("foo_bar", "foo-bar"),
+        ("foo___bar", "foo-bar"),
+        ("foo-bar", "foo-bar"),
+        ("foo----bar", "foo-bar"),
+    ],
+)
+def test_canonicalize_name(name: str, expected: str) -> None:
+    assert canonicalize_name(name) == expected
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("_not_legal", "-not-legal"),
+        ("hi\n", "hi\n"),
+        ("\nhi", "\nhi"),
+        ("h\ni", "h\ni"),
+        ("hi\r", "hi\r"),
+        ("\rhi", "\rhi"),
+        ("h\ri", "h\ri"),
+    ],
+)
+def test_canonicalize_name_invalid(name: str, expected: str) -> None:
+    with pytest.raises(InvalidName):
+        canonicalize_name(name, validate=True)
+    assert canonicalize_name(name) == expected
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("foo", "foo"),
+        ("Foo", "foo"),
+        ("fOo", "foo"),
+        ("foo.bar", "foo-bar"),
+        ("Foo.Bar", "foo-bar"),
+        ("Foo.....Bar", "foo-bar"),
+        ("foo_bar", "foo-bar"),
+        ("foo___bar", "foo-bar"),
+        ("foo-bar", "foo-bar"),
+        ("foo----bar", "foo-bar"),
+        ("a--b", "a-b"),
+        ("1--1", "1-1"),
+    ],
+)
+def test_is_normalized_name(name: str, expected: str) -> None:
+    assert is_normalized_name(expected)
+    if name != expected:
+        assert not is_normalized_name(name)
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        (Version("1.4.0"), "1.4"),
+        ("1.4.0", "1.4"),
+        ("1.40.0", "1.40"),
+        ("1.4.0.0.00.000.0000", "1.4"),
+        ("1.0", "1"),
+        ("1.0+abc", "1+abc"),
+        ("1.0.dev0", "1.dev0"),
+        ("1.0.post0", "1.post0"),
+        ("1.0a0", "1a0"),
+        ("1.0rc0", "1rc0"),
+        ("100!0.0", "100!0"),
+        # improper version strings are unchanged
+        ("lolwat", "lolwat"),
+        ("1.0.1-test7", "1.0.1-test7"),
+    ],
+)
+def test_canonicalize_version(version: str, expected: str) -> None:
+    assert canonicalize_version(version) == expected
+
+
+@pytest.mark.parametrize(("version"), ["1.4.0", "1.0"])
+def test_canonicalize_version_no_strip_trailing_zero(version: str) -> None:
+    assert canonicalize_version(version, strip_trailing_zero=False) == version
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version", "build", "tags"),
+    [
+        (
+            "foo-1.0-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "some_PACKAGE-1.0-py3-none-any.whl",
+            "some-package",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo-1.0-1000-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, ""),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo-1.0-1000abc-py3-none-any.whl",
+            "foo",
+            Version("1.0"),
+            (1000, "abc"),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "pyvirtualcam-0.13.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+            "pyvirtualcam",
+            Version("0.13.0"),
+            (),
+            {
+                Tag("cp310", "cp310", "manylinux2014_x86_64"),
+                Tag("cp310", "cp310", "manylinux_2_17_x86_64"),
+            },
+        ),
+        (
+            "foo-2-py2.py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+            "foo",
+            Version("2"),
+            (),
+            {
+                Tag("py2", "none", "manylinux_2_17_x86_64"),
+                Tag("py2", "none", "manylinux2014_x86_64"),
+                Tag("py3", "none", "manylinux_2_17_x86_64"),
+                Tag("py3", "none", "manylinux2014_x86_64"),
+            },
+        ),
+        (
+            "foo_bár-1.0-py3-none-any.whl",
+            "foo-bár",
+            Version("1.0"),
+            (),
+            {Tag("py3", "none", "any")},
+        ),
+        (
+            "foo_bár-1.0-1000-py3-none-any.whl",
+            "foo-bár",
+            Version("1.0"),
+            (1000, ""),
+            {Tag("py3", "none", "any")},
+        ),
+    ],
+)
+def test_parse_wheel_filename(
+    filename: str, name: str, version: Version, build: tuple[int, str], tags: set[Tag]
+) -> None:
+    assert parse_wheel_filename(filename) == (name, version, build, frozenset(tags))
+
+
+@pytest.mark.parametrize(
+    ("filename"),
+    [
+        ("foo-1.0.whl"),  # Missing tags
+        ("foo-1.0-py3-none-any.wheel"),  # Incorrect file extension (`.wheel`)
+        ("foo__bar-1.0-py3-none-any.whl"),  # Invalid name (`__`)
+        ("foo\n-1.0-py3-none-any.whl"),  # Invalid name (`\n`)
+        ("foo#bar-1.0-py3-none-any.whl"),  # Invalid name (`#`)
+        ("-1.0-py3-none-any.whl"),  # Empty project name
+        ("-1.0-200-py3-none-any.whl"),  # Empty project name (with build number)
+        ("foobar-1.x-py3-none-any.whl"),  # Invalid version (`1.x`)
+        # Build number doesn't start with a digit (`abc`)
+        ("foo-1.0-abc-py3-none-any.whl"),
+        ("foo-1.0-200-py3-none-any-junk.whl"),  # Too many dashes (`-junk`)
+        ("foo-1.0--none-any.whl"),  # Empty interpreter component
+        ("foo-1.0-py3-none-.whl"),  # Empty platform component
+        ("foo-1.0-py3.-none-any.whl"),  # Empty member in a compressed tag set
+        ("playlyfe-0.1.1-2.7.6-none-any.whl"),  # Invalid interpreter components
+    ],
+)
+def test_parse_wheel_invalid_filename(filename: str) -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "foo-1.0-py3.py2-none-any.whl",
+    ],
+)
+def test_parse_wheel_unsorted_tags_valid_by_default(filename: str) -> None:
+    # Unsorted compressed tags should parse fine without validate_order
+    parse_wheel_filename(filename)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "pyvirtualcam-0.13.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "foo-1.0-py3.py2-none-any.whl",
+    ],
+)
+def test_parse_wheel_unsorted_tags_invalid_with_validate(filename: str) -> None:
+    with pytest.raises(InvalidWheelFilename):
+        parse_wheel_filename(filename, validate_order=True)
+
+
+@pytest.mark.parametrize(
+    ("filename", "name", "version"),
+    [("foo-1.0.tar.gz", "foo", Version("1.0")), ("foo-1.0.zip", "foo", Version("1.0"))],
+)
+def test_parse_sdist_filename(filename: str, name: str, version: Version) -> None:
+    assert parse_sdist_filename(filename) == (name, version)
+
+
+@pytest.mark.parametrize(
+    ("filename"),
+    [
+        ("foo-1.0.xz"),  # Incorrect extension
+        ("foo1.0.tar.gz"),  # Missing separator
+        ("foo-1.x.tar.gz"),  # Invalid version
+        ("-1.0.tar.gz"),  # Empty project name
+        ("-1.0.zip"),  # Empty project name (zip)
+    ],
+)
+def test_parse_sdist_invalid_filename(filename: str) -> None:
+    with pytest.raises(InvalidSdistFilename):
+        parse_sdist_filename(filename)

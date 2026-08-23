@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "version_normalize_pre_output": "hello world"
+      },
+      "input": {
+        "letter": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "version_normalize_pre_output": "blackhole unbound"
+      },
+      "input": {
+        "letter": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "version_normalize_pre_output": "mixed case"
+      },
+      "input": {
+        "letter": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "version_normalize_pre_output": ""
+      },
+      "input": {
+        "letter": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "packaging (version.normalize_pre)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "packaging",
+    "registry": "pypi",
+    "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+    "source": "artifacts/capability-foraging/downloads/packaging-26.3.tar.gz",
+    "url": "",
+    "version": "26.3"
+  },
+  "provides": [
+    "version_normalize_pre_output"
+  ],
+  "requires": [
+    "letter"
+  ],
+  "schema_version": 1,
+  "slug": "packaging-version-normalize-pre",
+  "version": "26.3"
+}

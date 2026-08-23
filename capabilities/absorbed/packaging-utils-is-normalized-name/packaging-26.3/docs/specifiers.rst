@@ -1,0 +1,93 @@
+Specifiers
+==========
+
+A core requirement of dealing with dependencies is the ability to
+specify what versions of a dependency are acceptable for you.
+
+See `Version Specifiers Specification`_ for more details on the exact
+format implemented in this module, for use in Python Packaging tooling.
+
+.. _Version Specifiers Specification: https://packaging.python.org/en/latest/specifications/version-specifiers/
+
+Usage
+-----
+
+.. doctest::
+
+    >>> from packaging.specifiers import SpecifierSet
+    >>> from packaging.version import Version
+    >>> spec1 = SpecifierSet("~=1.0")
+    >>> spec1
+    <SpecifierSet('~=1.0')>
+    >>> spec2 = SpecifierSet(">=1.0")
+    >>> spec2
+    <SpecifierSet('>=1.0')>
+    >>> # We can combine specifiers
+    >>> combined_spec = spec1 & spec2
+    >>> combined_spec
+    <SpecifierSet('>=1.0,~=1.0')>
+    >>> # We can also implicitly combine a string specifier
+    >>> combined_spec &= "!=1.1"
+    >>> combined_spec
+    <SpecifierSet('!=1.1,>=1.0,~=1.0')>
+    >>> # We can iterate over the SpecifierSet to recover the
+    >>> # individual specifiers
+    >>> sorted(combined_spec, key=str)
+    [<Specifier('!=1.1')>, <Specifier('>=1.0')>, <Specifier('~=1.0')>]
+    >>> # Create a few versions to check for contains.
+    >>> v1 = Version("1.0a5")
+    >>> v2 = Version("1.0")
+    >>> # We can check a version object to see if it falls within a specifier
+    >>> v1 in combined_spec
+    False
+    >>> v2 in combined_spec
+    True
+    >>> # We can even do the same with a string based version
+    >>> "1.4" in combined_spec
+    True
+    >>> # Finally we can filter a list of versions to get only those which are
+    >>> # contained within our specifier.
+    >>> list(combined_spec.filter([v1, v2, "1.4"]))
+    [<Version('1.0')>, '1.4']
+    >>> # We can check if a specifier set can never be satisfied
+    >>> SpecifierSet(">=2.0,<1.0").is_unsatisfiable()
+    True
+    >>> SpecifierSet(">=1.0,<2.0").is_unsatisfiable()
+    False
+    >>> # Compound sets built with ``&`` may also become unsatisfiable
+    >>> (SpecifierSet(">=3.9,<4.0") & SpecifierSet("==3.12.*")).is_unsatisfiable()
+    False
+    >>> (SpecifierSet(">=3.13,<4.0") & SpecifierSet("==3.12.*")).is_unsatisfiable()
+    True
+    >>> # We can convert a specifier set into a set-algebra VersionRange
+    >>> SpecifierSet(">=1.0,<2.0").to_range()
+    <VersionRange '[1.0, 2.0.dev0)'>
+    >>> # Or ask set-relation questions directly
+    >>> SpecifierSet(">=3.12,<3.13").is_subset(SpecifierSet(">=3.12"))
+    True
+    >>> SpecifierSet(">=3.12").is_superset(SpecifierSet(">=3.12,<3.13"))
+    True
+    >>> SpecifierSet("<3.12").is_disjoint(SpecifierSet(">=3.12"))
+    True
+
+The :meth:`~packaging.specifiers.SpecifierSet.to_range` method returns a
+:class:`~packaging.ranges.VersionRange`, a set-algebra view of the accepted
+versions that supports intersection, union, complement, and difference. See
+:doc:`ranges` for details.
+
+The relation helpers take another :class:`~packaging.specifiers.SpecifierSet`
+and compare the versions the two sets accept, not the specifier objects
+themselves. Both sets must have been given the same ``prereleases`` argument,
+not just the same derived
+:attr:`~packaging.specifiers.SpecifierSet.prereleases` value, or the
+comparison raises :exc:`ValueError`. Sets containing ``===`` specifiers are
+rejected; call :meth:`~packaging.specifiers.SpecifierSet.to_range` on both
+sides for those.
+
+
+Reference
+---------
+
+.. automodule:: packaging.specifiers
+    :members:
+    :special-members:

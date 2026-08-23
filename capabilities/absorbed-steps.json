@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T12:04:37.535031Z",
+  "absorbed_at": "2026-08-23T13:32:27.102909Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -2330,6 +2330,195 @@
       "version": "3.4.0"
     },
     {
+      "capability_id": "capability.absorbed-packaging",
+      "cases": [
+        {
+          "expect": {
+            "utils_canonicalize_name_output": "hello world"
+          },
+          "input": {
+            "name": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "utils_canonicalize_name_output": "blackhole unbound"
+          },
+          "input": {
+            "name": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "utils_canonicalize_name_output": "mixed case"
+          },
+          "input": {
+            "name": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "utils_canonicalize_name_output": ""
+          },
+          "input": {
+            "name": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "packaging",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "packaging",
+        "registry": "pypi",
+        "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+        "source": "artifacts/capability-foraging/downloads/packaging-26.3.tar.gz",
+        "url": "",
+        "version": "26.3"
+      },
+      "provides": [
+        "utils_canonicalize_name_output"
+      ],
+      "record_digest": "6944aae3898158287a7a71afa0e6b6eb0574b82a6bfb21201013b96952604adf",
+      "requires": [
+        "name"
+      ],
+      "schema_version": 1,
+      "slug": "packaging",
+      "vendored_tree_digest": "b5685a2e386e5e40dc81b92a0954660fc60c9bc0100862218ae1fdcf9741388b",
+      "version": "26.3"
+    },
+    {
+      "capability_id": "capability.absorbed-packaging-utils-is-normalized-name",
+      "cases": [
+        {
+          "expect": {
+            "utils_is_normalized_name_output": false
+          },
+          "input": {
+            "name": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "utils_is_normalized_name_output": false
+          },
+          "input": {
+            "name": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "utils_is_normalized_name_output": false
+          },
+          "input": {
+            "name": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "utils_is_normalized_name_output": false
+          },
+          "input": {
+            "name": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "packaging (utils.is_normalized_name)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "packaging",
+        "registry": "pypi",
+        "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+        "source": "artifacts/capability-foraging/downloads/packaging-26.3.tar.gz",
+        "url": "",
+        "version": "26.3"
+      },
+      "provides": [
+        "utils_is_normalized_name_output"
+      ],
+      "record_digest": "35fd36fb294e285f56d1e6d9e2ce73f2847635f940b5f29ac37e6f08ae16a2ce",
+      "requires": [
+        "name"
+      ],
+      "schema_version": 1,
+      "slug": "packaging-utils-is-normalized-name",
+      "vendored_tree_digest": "4d0d6d140ba500833e1a98585859e2a81c328723322a4bdd2e3beae22cdec639",
+      "version": "26.3"
+    },
+    {
+      "capability_id": "capability.absorbed-packaging-version-normalize-pre",
+      "cases": [
+        {
+          "expect": {
+            "version_normalize_pre_output": "hello world"
+          },
+          "input": {
+            "letter": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "version_normalize_pre_output": "blackhole unbound"
+          },
+          "input": {
+            "letter": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "version_normalize_pre_output": "mixed case"
+          },
+          "input": {
+            "letter": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "version_normalize_pre_output": ""
+          },
+          "input": {
+            "letter": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "packaging (version.normalize_pre)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "packaging",
+        "registry": "pypi",
+        "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+        "source": "artifacts/capability-foraging/downloads/packaging-26.3.tar.gz",
+        "url": "",
+        "version": "26.3"
+      },
+      "provides": [
+        "version_normalize_pre_output"
+      ],
+      "record_digest": "b463ccd77229a13ba36ad1e939c213dd18685b410c7936564d29a344f86d24d6",
+      "requires": [
+        "letter"
+      ],
+      "schema_version": 1,
+      "slug": "packaging-version-normalize-pre",
+      "vendored_tree_digest": "786755c7a8eae0a554448262147925066a2cd00abde902e035b063911ff0add1",
+      "version": "26.3"
+    },
+    {
       "capability_id": "capability.absorbed-python-markdown",
       "cases": [
         {
@@ -3499,5 +3688,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "b7cc43261f44de569d9d10861a8b22b3faa53ee516a97a9fa4843a414ee212ee"
+  "steps_digest": "013d4a37a2b01288e940f9d429773856589f158f0aaec3facc32569c183e0791"
 }

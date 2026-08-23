@@ -35,7 +35,11 @@ inputs. This module removes that last human input — **foraging**:
   ``Class(opts).method``), and Python nested-namespace class
   instance methods two submodule levels down such as
   ``package.subpackage.submodule.Class(opts).method`` (constructed
-  classes that are not a one-level ``package.submodule.Class(opts).method``)
+  classes that are not a one-level ``package.submodule.Class(opts).method``),
+  and Python nested-submodule functions such as
+  ``package.submodule.func`` / ``package.subpackage.submodule.func``
+  (module-level callables exported only on a nested submodule, not a
+  class method)
   — filtered to
   JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
@@ -334,6 +338,8 @@ def _consider(name, target, flags, skip_self=False):
         or flags.get("python_nested_namespace_class_instance")
         or flags.get("python_deep_nested_namespace_class_static")
         or flags.get("python_deep_nested_namespace_class_instance")
+        or flags.get("python_nested_namespace_function")
+        or flags.get("python_deep_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
@@ -477,6 +483,16 @@ for name, target in sorted(submodules.items()):
         if nested_name.startswith("_"):
             continue
         nested_target = getattr(target, nested_name, None)
+        if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
+            _consider(
+                f"{name}.{nested_name}",
+                nested_target,
+                {
+                    "python_nested_namespace_function": True,
+                    "python_deep_nested_namespace_function": False,
+                },
+            )
+            continue
         if inspect.isclass(nested_target):
             _consider_class(f"{name}.{nested_name}", nested_target, nested=True, deep=False)
     for child_name, child in sorted(_child_modules(target, name).items()):
@@ -487,6 +503,16 @@ for prefix, target in sorted(deep_submodules.items()):
         if nested_name.startswith("_"):
             continue
         nested_target = getattr(target, nested_name, None)
+        if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
+            _consider(
+                f"{prefix}.{nested_name}",
+                nested_target,
+                {
+                    "python_nested_namespace_function": False,
+                    "python_deep_nested_namespace_function": True,
+                },
+            )
+            continue
         if inspect.isclass(nested_target):
             _consider_class(f"{prefix}.{nested_name}", nested_target, nested=True, deep=True)
 
@@ -1427,6 +1453,8 @@ def infer_acquisition_spec(
             0 if item.get("python_nested_namespace_class_instance") else 1,
             0 if item.get("python_deep_nested_namespace_class_instance") else 1,
             0 if item.get("python_deep_nested_namespace_class_static") else 1,
+            int(bool(item.get("python_nested_namespace_function")))
+            + 2 * int(bool(item.get("python_deep_nested_namespace_function"))),
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1509,6 +1537,12 @@ def infer_acquisition_spec(
                 "python_deep_nested_namespace_class_instance": bool(
                     candidate.get("python_deep_nested_namespace_class_instance")
                 ),
+                "python_nested_namespace_function": bool(
+                    candidate.get("python_nested_namespace_function")
+                ),
+                "python_deep_nested_namespace_function": bool(
+                    candidate.get("python_deep_nested_namespace_function")
+                ),
             }
             break
         if winner is not None:
@@ -1564,6 +1598,12 @@ def infer_acquisition_spec(
         ),
         "python_deep_nested_namespace_class_instance": bool(
             collected[0].get("python_deep_nested_namespace_class_instance")
+        ),
+        "python_nested_namespace_function": bool(
+            collected[0].get("python_nested_namespace_function")
+        ),
+        "python_deep_nested_namespace_function": bool(
+            collected[0].get("python_deep_nested_namespace_function")
         ),
     }
     inferred = {

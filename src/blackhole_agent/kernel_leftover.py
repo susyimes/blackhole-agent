@@ -185,6 +185,9 @@ _MARKERS = (
     ("two submodule levels down so sdists whose api is package.subpackage.submodule.class(opts).method", "capability.application-python-deep-nested-instance-growth-plane"),
     ("package.subpackage.submodule.class(opts).method", "capability.application-python-deep-nested-instance-growth-plane"),
     ("rather than package.submodule.class(opts).method", "capability.application-python-deep-nested-instance-growth-plane"),
+    ("functions exported only on nested submodules", "capability.application-python-nested-function-growth-plane"),
+    ("package.subpackage.submodule.func rather than a class method", "capability.application-python-nested-function-growth-plane"),
+    ("package.submodule.func rather than a class method", "capability.application-python-nested-function-growth-plane"),
     ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
     ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
 )

@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-packaging",
+  "generated_at": "2026-08-23T13:33:01.028283Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-packaging"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "packaging",
+    "registry": "pypi",
+    "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+    "source": "artifacts/capability-foraging/downloads/packaging-26.3.tar.gz",
+    "url": "",
+    "version": "26.3"
+  },
+  "record_digest": "6944aae3898158287a7a71afa0e6b6eb0574b82a6bfb21201013b96952604adf",
+  "report_digest": "4bc036473426a2e986f07a8fe479168a28ff2a62033a4a9bbdd7064f8cfd5cd9",
+  "schema_version": 1,
+  "slug": "packaging",
+  "task": {
+    "goal": [
+      "utils_canonicalize_name_output"
+    ],
+    "id": "absorbed-packaging",
+    "initial_state": {
+      "name": "Hello World"
+    },
+    "oracle": {
+      "utils_canonicalize_name_output": "hello world"
+    }
+  },
+  "vendored_tree_digest": "b5685a2e386e5e40dc81b92a0954660fc60c9bc0100862218ae1fdcf9741388b",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

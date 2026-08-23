@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "utils_canonicalize_name_output": "hello world"
+      },
+      "input": {
+        "name": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "utils_canonicalize_name_output": "blackhole unbound"
+      },
+      "input": {
+        "name": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "utils_canonicalize_name_output": "mixed case"
+      },
+      "input": {
+        "name": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "utils_canonicalize_name_output": ""
+      },
+      "input": {
+        "name": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "packaging",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "packaging",
+    "registry": "pypi",
+    "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+    "source": "artifacts/capability-foraging/downloads/packaging-26.3.tar.gz",
+    "url": "",
+    "version": "26.3"
+  },
+  "provides": [
+    "utils_canonicalize_name_output"
+  ],
+  "requires": [
+    "name"
+  ],
+  "schema_version": 1,
+  "slug": "packaging",
+  "version": "26.3"
+}
