@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T02:02:09.527709Z",
+  "absorbed_at": "2026-08-23T02:34:18.726623Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -406,6 +406,69 @@
       "slug": "forage-rotate",
       "vendored_tree_digest": "55f6b2d1485bbcf88f4561550d0064d4d4f1872f8de03bce76657f46d89a532c",
       "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-humanize-string",
+      "cases": [
+        {
+          "expect": {
+            "humanize_string_output": "Hello world"
+          },
+          "input": {
+            "arg0": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "humanize_string_output": "Blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "humanize_string_output": "Mi xe d ca se"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "humanize_string_output": ""
+          },
+          "input": {
+            "arg0": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "humanize-string",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "humanize-string",
+        "registry": "npm",
+        "sha256": "56de1adfbfb12def1472a783e55cb9f890bb4be8b166eb50346f6351d44e46a9",
+        "source": "artifacts/capability-foraging/downloads/humanize-string-3.1.0.tgz",
+        "url": "",
+        "version": "3.1.0"
+      },
+      "provides": [
+        "humanize_string_output"
+      ],
+      "record_digest": "2a4d6ada60b5587179ce5ea3df104cad2829403e3f97d556f66dd93644ba8089",
+      "requires": [
+        "arg0"
+      ],
+      "schema_version": 1,
+      "slug": "humanize-string",
+      "vendored_tree_digest": "8be971f21b630d07bedf9100d498fb93ba5d9d9b6ee0017426994981b4d6615d",
+      "version": "3.1.0"
     },
     {
       "capability_id": "capability.absorbed-inflection",
@@ -1425,5 +1488,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "3213386587c045119ac2e119b5badebd7ac9ae0719fb71180b211314d8b0fc78"
+  "steps_digest": "4086000a256c1701d6dcac66a8dd319351c679e2fb2797bfd2aa95a7d046b364"
 }

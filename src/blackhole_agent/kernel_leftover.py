@@ -152,6 +152,10 @@ _MARKERS = (
     ("import-unclosed npm", "capability.application-node-runtime-deps-growth-plane"),
     ("node package.json", "capability.application-node-runtime-deps-growth-plane"),
     ("live-fetched tarball", "capability.application-node-runtime-deps-growth-plane"),
+    ("default-export-only", "capability.application-node-default-export-growth-plane"),
+    ("default exports", "capability.application-node-default-export-growth-plane"),
+    ("node default export", "capability.application-node-default-export-growth-plane"),
+    ("reflecting node default", "capability.application-node-default-export-growth-plane"),
 )
 
 

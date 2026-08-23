@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-humanize-string",
+  "generated_at": "2026-08-23T02:36:33.574645Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-humanize-string"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "humanize-string",
+    "registry": "npm",
+    "sha256": "56de1adfbfb12def1472a783e55cb9f890bb4be8b166eb50346f6351d44e46a9",
+    "source": "artifacts/capability-foraging/downloads/humanize-string-3.1.0.tgz",
+    "url": "",
+    "version": "3.1.0"
+  },
+  "record_digest": "2a4d6ada60b5587179ce5ea3df104cad2829403e3f97d556f66dd93644ba8089",
+  "report_digest": "0a180d393b0e93a16ffa245b5e92b1cce013d3e71f22d1dafda5fe6e1a6a5974",
+  "schema_version": 1,
+  "slug": "humanize-string",
+  "task": {
+    "goal": [
+      "humanize_string_output"
+    ],
+    "id": "absorbed-humanize-string",
+    "initial_state": {
+      "arg0": "Hello World"
+    },
+    "oracle": {
+      "humanize_string_output": "Hello world"
+    }
+  },
+  "vendored_tree_digest": "8be971f21b630d07bedf9100d498fb93ba5d9d9b6ee0017426994981b4d6615d",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

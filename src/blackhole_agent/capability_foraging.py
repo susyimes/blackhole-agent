@@ -14,7 +14,8 @@ inputs. This module removes that last human input — **foraging**:
   staged tree layout, never declared;
 - candidate callables are enumerated by sandboxed introspection — a
   subprocess imports the package (CPython or Node) and reflects its
-  exported functions — filtered to JSON-scalar signatures, and ordered
+  exported functions, including a Node default export when that is the
+  only callable — filtered to JSON-scalar signatures, and ordered
   deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
@@ -424,31 +425,44 @@ import { pathToFileURL } from "node:url";
 import path from "node:path";
 
 const entry = process.argv[2];
+const includeDefault = process.argv[3] !== "0";
+function consider(name, target, isDefault, candidates, seen) {
+  if (typeof target !== "function" || !name || name.startsWith("_") || seen.has(name)) {
+    return;
+  }
+  const arity = Number(target.length) || 0;
+  if (arity < 1 || arity > 2) {
+    return;
+  }
+  const params = [];
+  for (let index = 0; index < arity; index += 1) {
+    params.push({
+      name: `arg${index}`,
+      kind: "POSITIONAL_OR_KEYWORD",
+      required: true,
+      annotation: "",
+    });
+  }
+  seen.add(name);
+  candidates.push({ name, params, doc: "", default_export: Boolean(isDefault) });
+}
 try {
   const mod = await import(pathToFileURL(path.resolve(entry)).href);
   const candidates = [];
+  const seen = new Set();
+  const def = mod.default;
+  if (includeDefault && typeof def === "function") {
+    const inferred =
+      typeof def.name === "string" && /^[A-Za-z][A-Za-z0-9]{2,}$/.test(def.name)
+        ? def.name
+        : "default";
+    consider(inferred, def, true, candidates, seen);
+  }
   for (const name of Object.keys(mod).sort()) {
-    if (name.startsWith("_") || name === "default") {
+    if (name === "default") {
       continue;
     }
-    const target = mod[name];
-    if (typeof target !== "function") {
-      continue;
-    }
-    const arity = Number(target.length) || 0;
-    if (arity < 1 || arity > 2) {
-      continue;
-    }
-    const params = [];
-    for (let index = 0; index < arity; index += 1) {
-      params.push({
-        name: `arg${index}`,
-        kind: "POSITIONAL_OR_KEYWORD",
-        required: true,
-        annotation: "",
-      });
-    }
-    candidates.push({ name, params, doc: "" });
+    consider(name, mod[name], false, candidates, seen);
   }
   process.stdout.write(JSON.stringify({ ok: true, candidates }));
 } catch (err) {
@@ -474,7 +488,13 @@ def _ensure_node_modules(staged_dir: Path) -> None:
         shutil.copytree(child, dest)
 
 
-def introspect_node_module(staged_dir: Path, entry: str, timeout: int = 60) -> dict[str, Any]:
+def introspect_node_module(
+    staged_dir: Path,
+    entry: str,
+    timeout: int = 60,
+    *,
+    include_default: bool = True,
+) -> dict[str, Any]:
     """Reflect one Node module's exported functions in a subprocess."""
 
     entry_path = staged_dir / entry
@@ -485,7 +505,7 @@ def introspect_node_module(staged_dir: Path, entry: str, timeout: int = 60) -> d
         script = Path(tmp) / "introspect.mjs"
         script.write_text(_NODE_INTROSPECT_SCRIPT, encoding="utf-8")
         completed = subprocess.run(
-            ["node", str(script), str(entry_path.resolve())],
+            ["node", str(script), str(entry_path.resolve()), "1" if include_default else "0"],
             capture_output=True,
             text=True,
             cwd=staged_dir,
@@ -941,6 +961,7 @@ def infer_acquisition_spec(
     bundle: bool | None = None,
     max_bundle: int = 3,
     close_deps: bool = True,
+    include_default: bool = True,
 ) -> dict[str, Any]:
     """Infer complete ``AcquisitionSpec`` values for one uncooperative package.
 
@@ -974,7 +995,9 @@ def infer_acquisition_spec(
             path_root, entry = detect_node_entry(staged_dir, hint)
         except ValueError as exc:
             return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
-        introspection = introspect_node_module(staged_dir, entry)
+        introspection = introspect_node_module(
+            staged_dir, entry, include_default=include_default
+        )
     else:
         try:
             path_root, import_name = detect_import_root(staged_dir, hint)
@@ -1039,7 +1062,11 @@ def infer_acquisition_spec(
                     f"held-out probe failed in domain {domain['domain']!r}: {held_out['error']}"
                 )
                 break
-            winner = {"spec": spec.validate(), "domain": str(domain["domain"])}
+            winner = {
+                "spec": spec.validate(),
+                "domain": str(domain["domain"]),
+                "default_export": bool(candidate.get("default_export")),
+            }
             break
         if winner is not None:
             collected.append(winner)
@@ -1070,6 +1097,7 @@ def infer_acquisition_spec(
         "rejected": rejected,
         "runtime_deps": list(closed_deps.get("closed") or []),
         "extra_paths": list(extra_paths),
+        "default_export": bool(collected[0].get("default_export")),
     }
     return {
         "ok": True,

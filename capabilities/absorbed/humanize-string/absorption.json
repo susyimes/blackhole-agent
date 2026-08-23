@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "humanize_string_output": "Hello world"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "humanize_string_output": "Blackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "humanize_string_output": "Mi xe d ca se"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "humanize_string_output": ""
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "humanize-string",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "humanize-string",
+    "registry": "npm",
+    "sha256": "56de1adfbfb12def1472a783e55cb9f890bb4be8b166eb50346f6351d44e46a9",
+    "source": "artifacts/capability-foraging/downloads/humanize-string-3.1.0.tgz",
+    "url": "",
+    "version": "3.1.0"
+  },
+  "provides": [
+    "humanize_string_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "humanize-string",
+  "version": "3.1.0"
+}

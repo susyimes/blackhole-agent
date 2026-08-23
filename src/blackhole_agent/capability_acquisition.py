@@ -244,6 +244,15 @@ try {{
     target = target?.[part];
   }}
   if (typeof target !== "function") {{
+    const fallback = mod.default;
+    if (
+      typeof fallback === "function" &&
+      (CONFIG.callable_name === "default" || fallback.name === CONFIG.callable_name)
+    ) {{
+      target = fallback;
+    }}
+  }}
+  if (typeof target !== "function") {{
     console.error(`acquisition callable not found: ${{CONFIG.callable_name}}`);
     process.exitCode = 1;
   }} else {{
