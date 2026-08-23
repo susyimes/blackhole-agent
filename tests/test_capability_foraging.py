@@ -934,6 +934,61 @@ def test_python_introspection_reflects_nested_namespace_class_instance(tmp_path:
     assert result["spec"].callable_name == "parser.Parser.loads"
 
 
+def test_python_introspection_reflects_deep_nested_namespace_class_instance(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns"
+    subpkg = ns / "codec"
+    subpkg.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    (subpkg / "__init__.py").write_text("", encoding="utf-8")
+    (subpkg / "parser.py").write_text(
+        "class Parser:\n"
+        "    def __init__(self, opts):\n"
+        "        if opts is None:\n"
+        "            raise TypeError('Parser options required')\n"
+        "        self.opts = opts\n"
+        "    def loads(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('loads expects a string')\n"
+        "        return text.lower()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.parser.Parser.loads" in names
+    assert "parser.Parser.loads" not in names
+    assert "Parser.loads" not in names
+    parsed = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] == "codec.parser.Parser.loads"
+    )
+    assert parsed["python_deep_nested_namespace_class_instance"] is True
+    assert parsed.get("python_nested_namespace_class_instance") is not True
+    assert parsed.get("python_class_instance") is not True
+    assert parsed.get("python_class_static") is not True
+    assert parsed.get("python_nested_namespace_class_static") is not True
+    assert parsed.get("python_deep_nested_namespace_class_static") is not True
+    assert parsed["constructor_requires_args"] is True
+    result = infer_acquisition_spec(
+        slug="forage-ns-deep-parser",
+        name="forage-ns-deep-parser",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.parser.Parser.loads"
+    assert result["record"]["python_deep_nested_namespace_class_instance"] is True
+    assert result["record"]["python_nested_namespace_class_instance"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"]["python_nested_namespace_class_static"] is False
+    assert result["spec"].callable_name == "codec.parser.Parser.loads"
+
+
 def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     ns = pkg / "forage_ns"
@@ -1058,6 +1113,36 @@ def test_python_nested_namespace_class_instance_sdist_forages_mako(tmp_path: Pat
     assert result["record"]["default_export"] is False
     assert result["spec"].provides == "cmd_template_has_def_output"
     assert result["spec"].callable_name == "cmd.Template.has_def"
+
+
+def test_python_deep_nested_namespace_class_instance_sdist_forages_html5lib(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "html5lib", "slug": "html5lib", "registry": "pypi", "version": "1.1"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="html5lib",
+        name="html5lib",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="html5lib",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "filters.sanitizer.Filter.allowed_token"
+    assert result["record"]["python_deep_nested_namespace_class_instance"] is True
+    assert result["record"]["python_nested_namespace_class_instance"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"].get("python_nested_namespace_class_static") is not True
+    assert result["record"]["constructor_requires_args"] is True
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "filters_sanitizer_filter_allowed_token_output"
+    assert result["spec"].callable_name == "filters.sanitizer.Filter.allowed_token"
 
 
 def test_python_class_instance_sdist_forages_markdown_it_py(tmp_path: Path) -> None:

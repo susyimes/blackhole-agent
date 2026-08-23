@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T10:45:52.897263Z",
+  "absorbed_at": "2026-08-23T12:04:37.535031Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -794,6 +794,195 @@
       "slug": "forage-rotate",
       "vendored_tree_digest": "55f6b2d1485bbcf88f4561550d0064d4d4f1872f8de03bce76657f46d89a532c",
       "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-html5lib",
+      "cases": [
+        {
+          "expect": {
+            "filters_sanitizer_filter_allowed_token_output": "Hello World"
+          },
+          "input": {
+            "token": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "filters_sanitizer_filter_allowed_token_output": "blackhole unbound"
+          },
+          "input": {
+            "token": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "filters_sanitizer_filter_allowed_token_output": "MiXeD CaSe"
+          },
+          "input": {
+            "token": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "filters_sanitizer_filter_allowed_token_output": ""
+          },
+          "input": {
+            "token": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "html5lib",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "html5lib",
+        "registry": "pypi",
+        "sha256": "b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f",
+        "source": "artifacts/capability-foraging/downloads/html5lib-1.1.tar.gz",
+        "url": "",
+        "version": "1.1"
+      },
+      "provides": [
+        "filters_sanitizer_filter_allowed_token_output"
+      ],
+      "record_digest": "a545baf3d6c75678f06890618227f67dbad8d9f6d0d46b769412c76a52a3fa4a",
+      "requires": [
+        "token"
+      ],
+      "schema_version": 1,
+      "slug": "html5lib",
+      "vendored_tree_digest": "b04c7181555f50c334549b1640dae037fa2829f6002f0019fbe5d205ce948b7d",
+      "version": "1.1"
+    },
+    {
+      "capability_id": "capability.absorbed-html5lib-filters-sanitizer-filter-sanitize",
+      "cases": [
+        {
+          "expect": {
+            "filters_sanitizer_filter_sanitize_css_output": ""
+          },
+          "input": {
+            "style": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "filters_sanitizer_filter_sanitize_css_output": ""
+          },
+          "input": {
+            "style": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "filters_sanitizer_filter_sanitize_css_output": ""
+          },
+          "input": {
+            "style": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "filters_sanitizer_filter_sanitize_css_output": ""
+          },
+          "input": {
+            "style": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "html5lib (filters.sanitizer.Filter.sanitize_css)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "html5lib",
+        "registry": "pypi",
+        "sha256": "b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f",
+        "source": "artifacts/capability-foraging/downloads/html5lib-1.1.tar.gz",
+        "url": "",
+        "version": "1.1"
+      },
+      "provides": [
+        "filters_sanitizer_filter_sanitize_css_output"
+      ],
+      "record_digest": "aff691175cd4cbbdf56c0bd38a50e9bc5fb4b2fbcd6be0310d70efe5c50851be",
+      "requires": [
+        "style"
+      ],
+      "schema_version": 1,
+      "slug": "html5lib-filters-sanitizer-filter-sanitize",
+      "vendored_tree_digest": "4233836eaae5d11eb23fc4ccf3d1afd01d7b3cc0992243ef9e78348ae2e27bdb",
+      "version": "1.1"
+    },
+    {
+      "capability_id": "capability.absorbed-html5lib-get-tree-walker",
+      "cases": [
+        {
+          "expect": {
+            "get_tree_walker_output": null
+          },
+          "input": {
+            "tree_type": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "get_tree_walker_output": null
+          },
+          "input": {
+            "tree_type": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "get_tree_walker_output": null
+          },
+          "input": {
+            "tree_type": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "get_tree_walker_output": null
+          },
+          "input": {
+            "tree_type": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "html5lib (getTreeWalker)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "html5lib",
+        "registry": "pypi",
+        "sha256": "b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f",
+        "source": "artifacts/capability-foraging/downloads/html5lib-1.1.tar.gz",
+        "url": "",
+        "version": "1.1"
+      },
+      "provides": [
+        "get_tree_walker_output"
+      ],
+      "record_digest": "27a49e80da9674270c3f156d4a52fa9c3ef598f69c8d9c0101681c42b72f8fc7",
+      "requires": [
+        "tree_type"
+      ],
+      "schema_version": 1,
+      "slug": "html5lib-get-tree-walker",
+      "vendored_tree_digest": "edc526407d68ef66cf6955cc76a2b5017d82d2c2f1eea2ecd07fc072a1a8fb2d",
+      "version": "1.1"
     },
     {
       "capability_id": "capability.absorbed-humanize-string",
@@ -3310,5 +3499,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "4cbf42758e3587c76ad2989c955213a492d69916f1c902bf3d9cc3b14cdd2c00"
+  "steps_digest": "b7cc43261f44de569d9d10861a8b22b3faa53ee516a97a9fa4843a414ee212ee"
 }

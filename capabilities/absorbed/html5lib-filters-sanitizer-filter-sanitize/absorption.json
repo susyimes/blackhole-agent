@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "filters_sanitizer_filter_sanitize_css_output": ""
+      },
+      "input": {
+        "style": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "filters_sanitizer_filter_sanitize_css_output": ""
+      },
+      "input": {
+        "style": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "filters_sanitizer_filter_sanitize_css_output": ""
+      },
+      "input": {
+        "style": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "filters_sanitizer_filter_sanitize_css_output": ""
+      },
+      "input": {
+        "style": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "html5lib (filters.sanitizer.Filter.sanitize_css)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "html5lib",
+    "registry": "pypi",
+    "sha256": "b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f",
+    "source": "artifacts/capability-foraging/downloads/html5lib-1.1.tar.gz",
+    "url": "",
+    "version": "1.1"
+  },
+  "provides": [
+    "filters_sanitizer_filter_sanitize_css_output"
+  ],
+  "requires": [
+    "style"
+  ],
+  "schema_version": 1,
+  "slug": "html5lib-filters-sanitizer-filter-sanitize",
+  "version": "1.1"
+}

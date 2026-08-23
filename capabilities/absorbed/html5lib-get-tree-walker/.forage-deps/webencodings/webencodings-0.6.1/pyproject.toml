@@ -1,0 +1,53 @@
+[build-system]
+requires = ['flit_core >=3.2,<5']
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'webencodings'
+description = 'Character encoding aliases for legacy web content'
+keywords = ['web', 'encoding']
+authors = [{name = 'Simon Sapin', email = 'simon.sapin@exyr.org'}]
+maintainers = [{name = 'CourtBouillon', email = 'contact@courtbouillon.org'}]
+requires-python = '>=3.10'
+readme = {file = 'README.rst', content-type = 'text/x-rst'}
+license = {file = 'LICENSE'}
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: BSD License',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3 :: Only',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Programming Language :: Python :: 3.12',
+  'Programming Language :: Python :: 3.13',
+  'Programming Language :: Python :: 3.14',
+  'Programming Language :: Python :: Implementation :: CPython',
+  'Programming Language :: Python :: Implementation :: PyPy',
+  'Topic :: Internet :: WWW/HTTP',
+]
+dynamic = ['version']
+
+[project.urls]
+Homepage = 'https://github.com/CourtBouillon/webencodings'
+Documentation = 'https://doc.courtbouillon.org/webencodings'
+Code = 'https://github.com/CourtBouillon/webencodings'
+Issues = 'https://github.com/CourtBouillon/webencodings/issues'
+Changelog = 'https://github.com/CourtBouillon/webencodings/releases'
+Donation = 'https://opencollective.com/courtbouillon'
+
+[project.optional-dependencies]
+doc = ['sphinx', 'furo']
+test = ['pytest', 'ruff']
+
+[tool.flit.sdist]
+exclude = ['.*']
+
+[tool.ruff.lint]
+select = ['E', 'W', 'F', 'I', 'N', 'RUF', 'T20', 'PIE', 'PT', 'RSE', 'UP', 'Q', 'LOG', 'G']
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = 'single'
+multiline-quotes = 'single'

@@ -247,6 +247,26 @@ def test_python_nested_namespace_class_instance_leftover_marks_growth_plane():
     assert "package.submodule.Class(opts).method" in leftover_next_step(prefixed)
 
 
+def test_python_deep_nested_namespace_class_instance_leftover_marks_growth_plane():
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "two submodule levels down so sdists whose API is "
+        "package.subpackage.submodule.Class(opts).method rather than "
+        "package.submodule.Class(opts).method can be foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-deep-nested-instance-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "package.subpackage.submodule.Class(opts).method" in leftover_next_step(prefixed)
+    assert leftover_marker_ids(
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "so sdists whose API is package.submodule.Class(opts).method rather than "
+        "package.submodule.Class.method can be foraged the same way."
+    ) == ("capability.application-python-nested-class-instance-growth-plane",)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

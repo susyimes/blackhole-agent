@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-html5lib",
+  "generated_at": "2026-08-23T12:44:25.880466Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-html5lib"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "html5lib",
+    "registry": "pypi",
+    "sha256": "b2e5b40261e20f354d198eae92afc10d750afb487ed5e50f9c4eaf07c184146f",
+    "source": "artifacts/capability-foraging/downloads/html5lib-1.1.tar.gz",
+    "url": "",
+    "version": "1.1"
+  },
+  "record_digest": "a545baf3d6c75678f06890618227f67dbad8d9f6d0d46b769412c76a52a3fa4a",
+  "report_digest": "8f324d2df03b5f9318902e92a981c2f1232c398530143efc302bf6eaa069bb92",
+  "schema_version": 1,
+  "slug": "html5lib",
+  "task": {
+    "goal": [
+      "filters_sanitizer_filter_allowed_token_output"
+    ],
+    "id": "absorbed-html5lib",
+    "initial_state": {
+      "token": "Hello World"
+    },
+    "oracle": {
+      "filters_sanitizer_filter_allowed_token_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "b04c7181555f50c334549b1640dae037fa2829f6002f0019fbe5d205ce948b7d",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}
