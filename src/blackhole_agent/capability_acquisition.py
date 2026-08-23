@@ -216,20 +216,58 @@ import {{ fileURLToPath, pathToFileURL }} from "node:url";
 const CONFIG = {config};
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const moduleUrl = pathToFileURL(path.join(ROOT, CONFIG.entry));
-const mod = await import(moduleUrl);
-let target = mod;
-for (const part of CONFIG.callable_name.split(".")) {{
-  target = target?.[part];
+const extras = CONFIG.extra_paths || [];
+const nmDir = path.join(ROOT, "node_modules");
+const created = [];
+const nmExisted = fs.existsSync(nmDir);
+function destFor(extra) {{
+  const parts = String(extra).split(/[\\\\/]/).filter(Boolean);
+  const idx = parts.indexOf(".forage-deps");
+  const rest = idx >= 0 ? parts.slice(idx + 1) : parts.slice(-1);
+  return path.join(nmDir, ...rest);
 }}
-if (typeof target !== "function") {{
-  console.error(`acquisition callable not found: ${{CONFIG.callable_name}}`);
-  process.exit(1);
+try {{
+  for (const extra of extras) {{
+    const src = path.join(ROOT, extra);
+    const dest = destFor(extra);
+    if (!fs.existsSync(src) || fs.existsSync(dest)) {{
+      continue;
+    }}
+    fs.mkdirSync(path.dirname(dest), {{ recursive: true }});
+    fs.cpSync(src, dest, {{ recursive: true }});
+    created.push(dest);
+  }}
+  const moduleUrl = pathToFileURL(path.join(ROOT, CONFIG.entry));
+  const mod = await import(moduleUrl);
+  let target = mod;
+  for (const part of CONFIG.callable_name.split(".")) {{
+    target = target?.[part];
+  }}
+  if (typeof target !== "function") {{
+    console.error(`acquisition callable not found: ${{CONFIG.callable_name}}`);
+    process.exitCode = 1;
+  }} else {{
+    const state = JSON.parse(fs.readFileSync(0, "utf8"));
+    const args = CONFIG.requires.map((key) => state[key]);
+    const result = await target(...args);
+    process.stdout.write(JSON.stringify({{ [CONFIG.provides]: result }}));
+  }}
+}} finally {{
+  for (const dest of created.reverse()) {{
+    try {{
+      fs.rmSync(dest, {{ recursive: true, force: true }});
+    }} catch {{
+      /* ignore */
+    }}
+  }}
+  if (!nmExisted && fs.existsSync(nmDir)) {{
+    try {{
+      fs.rmSync(nmDir, {{ recursive: true, force: true }});
+    }} catch {{
+      /* ignore */
+    }}
+  }}
 }}
-const state = JSON.parse(fs.readFileSync(0, "utf8"));
-const args = CONFIG.requires.map((key) => state[key]);
-const result = await target(...args);
-process.stdout.write(JSON.stringify({{ [CONFIG.provides]: result }}));
 '''
 
 
@@ -331,10 +369,10 @@ def synthesize_acquisition(spec: AcquisitionSpec, staging_root: Path) -> dict[st
         stage_acquisition_source(spec.source, staged_dir)
     except (ValueError, tarfile.TarError, OSError) as exc:
         return {"ok": False, "stage": "stage", "slug": spec.slug, "error": str(exc)}
-    if spec.runtime == "python" and spec.extra_paths:
+    if spec.extra_paths:
         from blackhole_agent.capability_foraging import close_runtime_dependencies
 
-        closed = close_runtime_dependencies(staged_dir)
+        closed = close_runtime_dependencies(staged_dir, runtime=spec.runtime)
         missing = [path for path in spec.extra_paths if not (staged_dir / path).exists()]
         if missing or not closed.get("ok"):
             return {

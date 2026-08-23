@@ -30,6 +30,11 @@ inputs. This module removes that last human input — **foraging**:
 - the live lane fetches a package from the PyPI JSON API or the npm
   registry, verifies its digest, and forages it through the identical
   inference path;
+- declared runtime dependencies are closed into the staged tree: Python
+  ``install_requires`` / Requires-Dist into ``.forage-deps`` on ``sys.path``,
+  Node ``package.json`` ``dependencies`` into ``.forage-deps`` then materialized
+  as ``node_modules`` so ESM imports resolve; isolated introspection without
+  those deps stays an honest refusal;
 - falsification: a package with no viable candidate is refused before any
   ledger write; a candidate that only fits the selection probes fails the
   held-out probe; a tampered or forged foraging report fails verification;
@@ -452,12 +457,30 @@ try {
 """
 
 
+def _ensure_node_modules(staged_dir: Path) -> None:
+    """Copy vendored ``.forage-deps`` packages into ``node_modules`` for ESM resolution."""
+
+    deps = staged_dir / FORAGE_DEPS_DIR
+    if not deps.is_dir():
+        return
+    nm_dir = staged_dir / "node_modules"
+    for child in deps.iterdir():
+        if not child.is_dir():
+            continue
+        dest = nm_dir / child.name
+        if dest.exists():
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(child, dest)
+
+
 def introspect_node_module(staged_dir: Path, entry: str, timeout: int = 60) -> dict[str, Any]:
     """Reflect one Node module's exported functions in a subprocess."""
 
     entry_path = staged_dir / entry
     if not entry_path.is_file():
         return {"ok": False, "error": f"node entry module not present: {entry}"}
+    _ensure_node_modules(staged_dir)
     with tempfile.TemporaryDirectory(prefix="blackhole-forage-node-introspect-") as tmp:
         script = Path(tmp) / "introspect.mjs"
         script.write_text(_NODE_INTROSPECT_SCRIPT, encoding="utf-8")
@@ -668,6 +691,37 @@ def parse_runtime_requires(staged_dir: Path) -> list[str]:
     return names
 
 
+def parse_node_runtime_requires(staged_dir: Path) -> list[str]:
+    """Declared package.json dependencies, skipping dev/optional extras."""
+
+    names: list[str] = []
+    seen: set[str] = set()
+    if not staged_dir.is_dir():
+        return names
+    for path in staged_dir.rglob("package.json"):
+        if not path.is_file() or _skip_node_dir(path.parent, staged_dir):
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        deps = payload.get("dependencies")
+        if not isinstance(deps, Mapping):
+            continue
+        for raw in deps:
+            name = str(raw or "").strip()
+            if not name or name.startswith(("node:", ".", "/")):
+                continue
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(name)
+    return names
+
+
 def _cached_pypi_archive(name: str, dest: Path) -> Path | None:
     prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
     matches: list[Path] = []
@@ -681,14 +735,46 @@ def _cached_pypi_archive(name: str, dest: Path) -> Path | None:
     return files[-1]
 
 
-def close_runtime_dependencies(
+def _cached_npm_archive(name: str, dest: Path) -> Path | None:
+    basename = name.rsplit("/", 1)[-1]
+    files = [path for path in dest.glob(f"{basename}-*.tgz") if path.is_file()]
+    if not files:
+        return None
+    files.sort(key=lambda path: path.name)
+    return files[-1]
+
+
+def _flatten_npm_stage(root: Path) -> None:
+    children = [path for path in root.iterdir()]
+    if len(children) != 1 or not children[0].is_dir() or children[0].name != "package":
+        return
+    inner = children[0]
+    for item in list(inner.iterdir()):
+        dest = root / item.name
+        if dest.exists():
+            if dest.is_dir():
+                shutil.rmtree(dest)
+            else:
+                dest.unlink()
+        shutil.move(str(item), str(dest))
+    shutil.rmtree(inner, ignore_errors=True)
+
+
+def _archive_version(archive: Path) -> str:
+    filename = archive.name
+    for suffix in (".tar.gz", ".tgz", ".zip"):
+        if filename.endswith(suffix):
+            filename = filename[: -len(suffix)]
+            break
+    return filename.rsplit("-", 1)[-1] if "-" in filename else ""
+
+
+def _close_python_runtime_dependencies(
     staged_dir: Path,
     *,
     dest_dir: Path | None = None,
     max_depth: int = 3,
 ) -> dict[str, Any]:
-    """Fetch and vendor declared runtime deps next to an import-unclosed sdist."""
-
     download_dir = dest_dir or DEFAULT_DOWNLOAD_DIR
     extra_paths: list[str] = []
     closed: list[dict[str, Any]] = []
@@ -713,12 +799,7 @@ def close_runtime_dependencies(
             archive = Path(str(fetched["path"]))
             version = str(fetched.get("version") or "")
         else:
-            filename = archive.name
-            for suffix in (".tar.gz", ".tgz", ".zip"):
-                if filename.endswith(suffix):
-                    filename = filename[: -len(suffix)]
-                    break
-            version = filename.rsplit("-", 1)[-1] if "-" in filename else ""
+            version = _archive_version(archive)
         dep_root = staged_dir / FORAGE_DEPS_DIR / pep
         if dep_root.exists():
             shutil.rmtree(dep_root)
@@ -749,6 +830,91 @@ def close_runtime_dependencies(
         "closed": closed,
         "extra_paths": extra_paths,
     }
+
+
+def _close_node_runtime_dependencies(
+    staged_dir: Path,
+    *,
+    dest_dir: Path | None = None,
+    max_depth: int = 3,
+) -> dict[str, Any]:
+    download_dir = dest_dir or DEFAULT_DOWNLOAD_DIR
+    extra_paths: list[str] = []
+    closed: list[dict[str, Any]] = []
+    pending = [(name, 0) for name in parse_node_runtime_requires(staged_dir)]
+    seen: set[str] = set()
+    errors: list[str] = []
+    while pending:
+        name, depth = pending.pop(0)
+        key = name.strip().lower()
+        if not key or key in seen or depth > max(0, int(max_depth)):
+            continue
+        seen.add(key)
+        cached = _cached_npm_archive(name, download_dir)
+        archive: Path | None = cached
+        version = ""
+        cache_hit = cached is not None
+        if archive is None:
+            fetched = fetch_npm_tarball(name, None, dest_dir=download_dir)
+            if not fetched.get("ok"):
+                errors.append(str(fetched.get("error") or f"fetch failed: {name}"))
+                continue
+            archive = Path(str(fetched["path"]))
+            version = str(fetched.get("version") or "")
+        else:
+            version = _archive_version(archive)
+        relative = Path(FORAGE_DEPS_DIR, *name.split("/"))
+        dep_root = staged_dir / relative
+        if dep_root.exists():
+            shutil.rmtree(dep_root)
+        dep_root.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            stage_acquisition_source(archive, dep_root)
+            _flatten_npm_stage(dep_root)
+        except (ValueError, OSError) as exc:
+            errors.append(f"{name}: {exc}")
+            continue
+        extra = relative.as_posix()
+        extra_paths.append(extra)
+        closed.append(
+            {
+                "name": key,
+                "requested": name,
+                "version": version,
+                "path_root": extra,
+                "cache_hit": cache_hit,
+            }
+        )
+        if depth < max(0, int(max_depth)):
+            pending.extend((child, depth + 1) for child in parse_node_runtime_requires(dep_root))
+    return {
+        "ok": not errors,
+        "error": "; ".join(errors),
+        "requires": [item["name"] for item in closed],
+        "closed": closed,
+        "extra_paths": extra_paths,
+    }
+
+
+def close_runtime_dependencies(
+    staged_dir: Path,
+    *,
+    dest_dir: Path | None = None,
+    max_depth: int = 3,
+    runtime: str = "",
+) -> dict[str, Any]:
+    """Fetch and vendor declared runtime deps next to an import-unclosed package."""
+
+    detected = str(runtime or "").strip().lower()
+    if detected not in RUNTIMES:
+        detected = detect_package_runtime(staged_dir)
+    if detected == "node":
+        return _close_node_runtime_dependencies(
+            staged_dir, dest_dir=dest_dir, max_depth=max_depth
+        )
+    return _close_python_runtime_dependencies(
+        staged_dir, dest_dir=dest_dir, max_depth=max_depth
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -800,6 +966,9 @@ def infer_acquisition_spec(
     path_root = "."
     extra_paths: tuple[str, ...] = ()
     closed_deps: dict[str, Any] = {"ok": True, "closed": [], "extra_paths": []}
+    if close_deps:
+        closed_deps = close_runtime_dependencies(staged_dir, runtime=detected_runtime)
+        extra_paths = tuple(str(item) for item in closed_deps.get("extra_paths") or [])
     if detected_runtime == "node":
         try:
             path_root, entry = detect_node_entry(staged_dir, hint)
@@ -807,9 +976,6 @@ def infer_acquisition_spec(
             return {"ok": False, "stage": "detect", "slug": slug, "error": str(exc)}
         introspection = introspect_node_module(staged_dir, entry)
     else:
-        if close_deps:
-            closed_deps = close_runtime_dependencies(staged_dir)
-            extra_paths = tuple(str(item) for item in closed_deps.get("extra_paths") or [])
         try:
             path_root, import_name = detect_import_root(staged_dir, hint)
         except ValueError as exc:

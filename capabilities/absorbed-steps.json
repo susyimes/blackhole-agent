@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T01:26:01.862571Z",
+  "absorbed_at": "2026-08-23T02:02:09.527709Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1036,6 +1036,74 @@
       "version": "8.0.4"
     },
     {
+      "capability_id": "capability.absorbed-snake-case",
+      "cases": [
+        {
+          "expect": {
+            "snake_case_output": "hello_world"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "snake_case_output": "blackhole_unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "snake_case_output": "mi_xe_d_ca_se"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "snake_case_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "snake-case",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "snake-case",
+        "registry": "npm",
+        "sha256": "c8b34aec2959e6abbbd0ad280091bff584a13514fec1eb78bfe8b1290ca866cc",
+        "source": "artifacts/capability-foraging/downloads/snake-case-4.0.0.tgz",
+        "url": "",
+        "version": "4.0.0"
+      },
+      "provides": [
+        "snake_case_output"
+      ],
+      "record_digest": "8129fed665c810a616de44587322574fd6799f982ad7bfcbcd154fe882bc7e3d",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "snake-case",
+      "vendored_tree_digest": "49567a28c73fc58c3944f64ef3eb6ea4527b8846324a42a4e99cc0a51ed7a03c",
+      "version": "4.0.0"
+    },
+    {
       "capability_id": "capability.absorbed-text-reverser",
       "cases": [
         {
@@ -1357,5 +1425,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "03aee9de484457e39a27e851d52b388bb534fb50d13c974ef3c4cddd34809e71"
+  "steps_digest": "3213386587c045119ac2e119b5badebd7ac9ae0719fb71180b211314d8b0fc78"
 }

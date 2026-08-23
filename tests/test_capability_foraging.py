@@ -20,6 +20,7 @@ from blackhole_agent.capability_foraging import (
     infer_acquisition_spec,
     introspect_module,
     introspect_node_module,
+    parse_node_runtime_requires,
     parse_runtime_requires,
     probe_domains_for,
     run_foraging_plane,
@@ -118,6 +119,49 @@ def test_import_unclosed_sdist_closes_runtime_deps(tmp_path: Path) -> None:
     vendored = close_runtime_dependencies(staged)
     assert vendored["ok"], vendored
     assert "text-unidecode" in vendored["requires"]
+
+
+def test_import_unclosed_npm_tarball_closes_runtime_deps(tmp_path: Path) -> None:
+    from blackhole_agent.capability_acquisition import stage_acquisition_source
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "snake-case", "slug": "snake-case", "registry": "npm", "version": "4.0.0"}
+    )
+    assert fetched and fetched["ok"], fetched
+    source = Path(str(fetched["path"]))
+    staged = tmp_path / "staged"
+    stage_acquisition_source(source, staged)
+    requires = parse_node_runtime_requires(staged)
+    assert any(name.lower() == "no-case" for name in requires)
+    opened = infer_acquisition_spec(
+        slug="snake-case",
+        name="snake-case",
+        source=source,
+        staging_root=tmp_path / "open",
+        hint="snake-case",
+        runtime="node",
+        close_deps=False,
+    )
+    assert not opened["ok"]
+    assert "import failed" in str(opened.get("error") or "")
+    closed = infer_acquisition_spec(
+        slug="snake-case",
+        name="snake-case",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="snake-case",
+        runtime="node",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "snakeCase"
+    assert closed["spec"].provides == "snake_case_output"
+    assert any(item.get("name") == "no-case" for item in closed["record"]["runtime_deps"])
+    assert closed["spec"].extra_paths
+    vendored = close_runtime_dependencies(staged, runtime="node")
+    assert vendored["ok"], vendored
+    assert "no-case" in vendored["requires"]
 
 
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:

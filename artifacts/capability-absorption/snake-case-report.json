@@ -1,0 +1,49 @@
+{
+  "capability_id": "capability.absorbed-snake-case",
+  "generated_at": "2026-08-23T02:03:57.376502Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-snake-case"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "snake-case",
+    "registry": "npm",
+    "sha256": "c8b34aec2959e6abbbd0ad280091bff584a13514fec1eb78bfe8b1290ca866cc",
+    "source": "artifacts/capability-foraging/downloads/snake-case-4.0.0.tgz",
+    "url": "",
+    "version": "4.0.0"
+  },
+  "record_digest": "8129fed665c810a616de44587322574fd6799f982ad7bfcbcd154fe882bc7e3d",
+  "report_digest": "b915a9fb6900d478ea92d4778f466f3ae4ca820e00e66dac6d5fad56fd532d49",
+  "schema_version": 1,
+  "slug": "snake-case",
+  "task": {
+    "goal": [
+      "snake_case_output"
+    ],
+    "id": "absorbed-snake-case",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "snake_case_output": "hello_world"
+    }
+  },
+  "vendored_tree_digest": "49567a28c73fc58c3944f64ef3eb6ea4527b8846324a42a4e99cc0a51ed7a03c",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

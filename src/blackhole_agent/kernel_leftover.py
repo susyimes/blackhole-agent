@@ -146,8 +146,12 @@ _MARKERS = (
     ("no on-disk archive", "capability.application-live-fetch-growth-plane"),
     ("stewardship tree has never seen", "capability.application-live-fetch-growth-plane"),
     ("transitive runtime dependencies", "capability.application-runtime-deps-growth-plane"),
-    ("import-unclosed", "capability.application-runtime-deps-growth-plane"),
+    ("import-unclosed sdists", "capability.application-runtime-deps-growth-plane"),
     ("runtime dependencies of a fetched", "capability.application-runtime-deps-growth-plane"),
+    ("package.json dependencies", "capability.application-node-runtime-deps-growth-plane"),
+    ("import-unclosed npm", "capability.application-node-runtime-deps-growth-plane"),
+    ("node package.json", "capability.application-node-runtime-deps-growth-plane"),
+    ("live-fetched tarball", "capability.application-node-runtime-deps-growth-plane"),
 )
 
 

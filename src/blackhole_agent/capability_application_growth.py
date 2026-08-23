@@ -41,6 +41,11 @@ an import-unclosed sdist, vendors its declared transitive runtime
 dependencies into the staged tree, then forages it so application-growth
 can solve the original task. Isolated introspection without those deps
 stays an honest refusal.
+
+Node runtime-deps leftover: ``run_application_node_runtime_deps_growth_plane``
+live-fetches an import-unclosed npm tarball, vendors declared
+``package.json`` dependencies into the staged tree, then forages it so
+application-growth can solve the original task.
 """
 
 from __future__ import annotations
@@ -97,10 +102,14 @@ DEFAULT_LIVE_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-application-li
 DEFAULT_REGISTRY_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-application-registry-growth"
 DEFAULT_LIVE_FETCH_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-application-live-fetch-growth"
 DEFAULT_RUNTIME_DEPS_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-application-runtime-deps-growth"
+DEFAULT_NODE_RUNTIME_DEPS_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-node-runtime-deps-growth"
+)
 DEFAULT_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_apply_catalog.json"
 DEFAULT_REGISTRY_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_registry_catalog.json"
 DEFAULT_LIVE_FETCH_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_live_fetch_catalog.json"
 DEFAULT_RUNTIME_DEPS_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_runtime_deps_catalog.json"
+DEFAULT_NODE_RUNTIME_DEPS_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_node_runtime_deps_catalog.json"
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
 LIVE_NPM_DECOY_SLUG = "left-pad"
@@ -111,15 +120,20 @@ LIVE_FETCH_NPM_DECOY_SLUG = LIVE_NPM_DECOY_SLUG
 RUNTIME_DEPS_WINNER_SLUG = "python-slugify"
 RUNTIME_DEPS_NPM_DECOY_SLUG = LIVE_NPM_DECOY_SLUG
 RUNTIME_DEPS_DEP_NAME = "text-unidecode"
+NODE_RUNTIME_DEPS_WINNER_SLUG = "snake-case"
+NODE_RUNTIME_DEPS_NPM_DECOY_SLUG = LIVE_NPM_DECOY_SLUG
+NODE_RUNTIME_DEPS_DEP_NAME = "no-case"
 GOAL_KEY = "rotate_output"
 REGISTRY_GOAL_KEY = "marked_output"
 LIVE_FETCH_GOAL_KEY = "titlecase_output"
 RUNTIME_DEPS_GOAL_KEY = "slugify_output"
+NODE_RUNTIME_DEPS_GOAL_KEY = "snake_case_output"
 NO_MATCH_GOAL = "unicorn_output"
 WINNER_CAPABILITY_ID = f"capability.absorbed-{WINNER_SLUG}"
 REGISTRY_WINNER_CAPABILITY_ID = f"capability.absorbed-{REGISTRY_WINNER_SLUG}"
 LIVE_FETCH_WINNER_CAPABILITY_ID = f"capability.absorbed-{LIVE_FETCH_WINNER_SLUG}"
 RUNTIME_DEPS_WINNER_CAPABILITY_ID = f"capability.absorbed-{RUNTIME_DEPS_WINNER_SLUG}"
+NODE_RUNTIME_DEPS_WINNER_CAPABILITY_ID = f"capability.absorbed-{NODE_RUNTIME_DEPS_WINNER_SLUG}"
 APPLY_ABSORBED_SLUGS = frozenset(HERMETIC_ABSORBED_SLUGS) | frozenset({"forage-flip"})
 REGISTRY_COMPETING_HIDE: tuple[str, ...] = ()
 LIVE_FETCH_COMPETING_HIDE: tuple[str, ...] = ()
@@ -164,6 +178,14 @@ RUNTIME_DEPS_GROW_TASK = ApplicationTask(
     initial_state={"text": "Hello World"},
     goal=(RUNTIME_DEPS_GOAL_KEY,),
     oracle={RUNTIME_DEPS_GOAL_KEY: "hello-world"},
+)
+
+NODE_RUNTIME_DEPS_GROW_TASK = ApplicationTask(
+    id="snake-case-unplannable",
+    description="Unplannable application goal grown from an import-unclosed live-fetched npm tarball.",
+    initial_state={"arg0": "Hello World", "arg1": "Hello World"},
+    goal=(NODE_RUNTIME_DEPS_GOAL_KEY,),
+    oracle={NODE_RUNTIME_DEPS_GOAL_KEY: "hello_world"},
 )
 
 
@@ -2007,11 +2029,11 @@ def _unclosed_without_deps(entry: Mapping[str, Any], *, repo_root: Path) -> bool
         return False
     with tempfile.TemporaryDirectory(prefix="blackhole-unclosed-sdist-") as tmp:
         opened = infer_acquisition_spec(
-            slug=str(request.get("slug") or RUNTIME_DEPS_WINNER_SLUG),
-            name=str(request.get("name") or RUNTIME_DEPS_WINNER_SLUG),
+            slug=str(request.get("slug") or ""),
+            name=str(request.get("name") or request.get("slug") or ""),
             source=Path(str(source)),
             staging_root=Path(tmp),
-            hint=str(request.get("hint") or "slugify"),
+            hint=str(request.get("hint") or request.get("name") or request.get("slug") or ""),
             origin=request.get("origin") or {},
             close_deps=False,
         )
@@ -2467,6 +2489,485 @@ def demo_application_runtime_deps_growth_plane() -> dict[str, Any]:
     }
 
 
+def load_node_runtime_deps_apply_catalog() -> dict[str, Any]:
+    """Load the catalog whose covering npm tarball is import-unclosed without deps."""
+
+    payload = load_catalog(DEFAULT_NODE_RUNTIME_DEPS_CATALOG)
+    payload["network_used"] = False
+    payload["replay"] = True
+    payload["live"] = False
+    payload["registries"] = sorted(
+        {
+            str(item.get("registry") or "")
+            for item in payload.get("items") or []
+            if str(item.get("registry") or "") in {"npm", "pypi"}
+        }
+    )
+    return payload
+
+
+def _node_runtime_deps_hide(repo_root: Path) -> tuple[str, ...]:
+    ledger = load_ledger(default_ledger_path(repo_root))
+    return (
+        (NODE_RUNTIME_DEPS_WINNER_CAPABILITY_ID,)
+        if NODE_RUNTIME_DEPS_WINNER_CAPABILITY_ID in ledger.capabilities
+        else ()
+    )
+
+
+def _node_runtime_deps_scenario_grades(catalog: Mapping[str, Any], *, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+    items = list(catalog.get("items") or [])
+    absorbed = sorted(APPLY_ABSORBED_SLUGS)
+    trend = rank_catalog(strip_declared_provides(items), absorbed=absorbed)
+    lying = rank_catalog(items, absorbed=absorbed, goal_keys=(NODE_RUNTIME_DEPS_GOAL_KEY,))
+    matched = match_forage_goal(
+        (NODE_RUNTIME_DEPS_GOAL_KEY,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    probes = list(matched.get("probes") or [])
+    npm_probe = next((row for row in probes if row.get("slug") == NODE_RUNTIME_DEPS_NPM_DECOY_SLUG), {})
+    winner_entry = matched.get("winner") or {}
+    origin = dict(forage_request_for(winner_entry, repo_root=repo_root, live_fetch=True).get("origin") or {})
+    overlay_fields = any(str(item.get("source") or item.get("replay_source") or "") for item in items)
+    registries = {str(item.get("registry") or "") for item in items}
+    uncovered = match_forage_goal(
+        (NO_MATCH_GOAL,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    covering = matched.get("covering") or {}
+    dep_names = _runtime_dep_names(covering)
+    return {
+        "trend_npm_decoy_wins": (trend.get("winner") or {}).get("slug") == NODE_RUNTIME_DEPS_NPM_DECOY_SLUG,
+        "lying_catalog_picks_npm_decoy": (lying.get("winner") or {}).get("slug") == NODE_RUNTIME_DEPS_NPM_DECOY_SLUG,
+        "match_is_snake_case": (matched.get("winner") or {}).get("slug") == NODE_RUNTIME_DEPS_WINNER_SLUG,
+        "npm_decoy_probed": npm_probe.get("skip_reason") not in {"", None, "no_source"},
+        "npm_decoy_not_no_source": npm_probe.get("skip_reason") != "no_source",
+        "catalog_provides_ignored": bool(matched.get("ok"))
+        and (matched.get("winner") or {}).get("slug") != (lying.get("winner") or {}).get("slug"),
+        "no_replay_source_field": overlay_fields is False,
+        "winner_origin_live": origin.get("kind") in {"npm-live", "pypi-live"},
+        "winner_source_not_stewardship": bool(origin.get("source")) and not _source_is_stewardship(origin),
+        "registries_npm_and_pypi": "npm" in registries and "pypi" in registries,
+        "query_from_goal": catalog.get("query") == query_from_goal(NODE_RUNTIME_DEPS_GROW_TASK.goal),
+        "network_unused": catalog.get("network_used") is False,
+        "uncovered_refused": (not uncovered["ok"]) and uncovered.get("error") == "no forage match",
+        "unclosed_without_deps": _unclosed_without_deps(winner_entry, repo_root=repo_root) if winner_entry else False,
+        "closed_dep_is_no_case": NODE_RUNTIME_DEPS_DEP_NAME in dep_names,
+        "extra_paths_vendored": bool(covering.get("extra_paths")),
+        "matched": {
+            "ok": bool(matched.get("ok")),
+            "winner": (matched.get("winner") or {}).get("slug") or "",
+            "origin": origin,
+            "inferred_provides": list((matched.get("covering") or {}).get("inferred_provides") or []),
+            "runtime_deps": list(covering.get("runtime_deps") or []),
+            "extra_paths": list(covering.get("extra_paths") or []),
+            "probes": [
+                {
+                    "slug": row.get("slug"),
+                    "skip_reason": row.get("skip_reason"),
+                    "covers_goal": bool(row.get("covers_goal")),
+                }
+                for row in probes
+            ],
+        },
+        "lying": {"ok": bool(lying.get("ok")), "winner": (lying.get("winner") or {}).get("slug") or ""},
+        "trend": {
+            "ok": bool(trend["ok"]),
+            "winner": (trend.get("winner") or {}).get("slug") or "",
+            "ranked_slugs": [row["slug"] for row in trend.get("ranked") or []],
+        },
+    }
+
+
+def _node_runtime_deps_grade(
+    *,
+    skip_result: Mapping[str, Any],
+    uncovered: Mapping[str, Any],
+    grown: Mapping[str, Any],
+    scenarios: Mapping[str, Any],
+    origin: Mapping[str, Any],
+    honesty: Mapping[str, Any],
+    separate_plane: bool | None = None,
+) -> dict[str, Any]:
+    deps = _runtime_dep_names((grown.get("forage") or {}).get("runtime_deps"))
+    extra_paths = list((grown.get("forage") or {}).get("extra_paths") or [])
+    grade = {
+        "already_solvable_skips_forage": bool(skip_result.get("ok")) and skip_result.get("grew") is False,
+        "uncovered_stays_unsolved": (not uncovered.get("ok"))
+        and uncovered.get("error") == "no forage match"
+        and uncovered.get("grew") is False,
+        "trend_npm_decoy_wins": bool(scenarios["trend_npm_decoy_wins"]),
+        "lying_catalog_picks_npm_decoy": bool(scenarios["lying_catalog_picks_npm_decoy"]),
+        "grow_winner_is_snake_case": grown.get("winner_slug") == NODE_RUNTIME_DEPS_WINNER_SLUG,
+        "npm_decoy_probed": bool(scenarios["npm_decoy_probed"]),
+        "npm_decoy_not_no_source": bool(scenarios["npm_decoy_not_no_source"]),
+        "catalog_provides_ignored": bool(scenarios["catalog_provides_ignored"]),
+        "no_replay_source_field": bool(scenarios["no_replay_source_field"]),
+        "winner_origin_live": origin.get("kind") == "npm-live"
+        and (grown.get("forage") or {}).get("fixture_overlay") is False,
+        "winner_source_not_stewardship": bool(origin.get("source")) and not _source_is_stewardship(origin),
+        "registries_npm_and_pypi": bool(scenarios["registries_npm_and_pypi"]),
+        "query_from_goal": bool(scenarios["query_from_goal"]),
+        "network_unused": bool(scenarios["network_unused"]),
+        "unclosed_without_deps": bool(scenarios["unclosed_without_deps"]),
+        "winner_runtime_deps_closed": NODE_RUNTIME_DEPS_DEP_NAME in deps,
+        "extra_paths_vendored": bool(extra_paths) or bool(scenarios["extra_paths_vendored"]),
+        "forage_ok": bool((grown.get("forage") or {}).get("ok")),
+        "grew": bool(grown.get("grew")),
+        "unplannable_before": bool(honesty.get("unplannable_before")),
+        "grown_plan_solved": bool(honesty.get("grown_plan_solved")),
+        "ablation_unplannable": bool(honesty.get("ablation_unplannable")),
+        "no_separate_plane_invocation": True if separate_plane is None else bool(separate_plane),
+    }
+    grade["ok"] = all(grade.values())
+    return grade
+
+
+def run_application_node_runtime_deps_growth_plane(
+    output_dir: Path | None = None,
+    *,
+    repo_root: Path = REPO_ROOT,
+    forage: bool = True,
+) -> dict[str, Any]:
+    """Grow an unplannable task from an import-unclosed live-fetched npm tarball."""
+
+    catalog = load_node_runtime_deps_apply_catalog()
+    scenarios = _node_runtime_deps_scenario_grades(catalog, repo_root=repo_root)
+    skip_result = grow_application_task(
+        ALREADY_SOLVABLE_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    uncovered = grow_application_task(
+        UNCOVERED_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    hide_before = _node_runtime_deps_hide(repo_root)
+    grown = grow_application_task(
+        NODE_RUNTIME_DEPS_GROW_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        hide_before=hide_before,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    honesty: dict[str, Any] = {
+        "ok": False,
+        "unplannable_before": False,
+        "grown_plan_solved": False,
+        "ablation_unplannable": False,
+    }
+    capability_id = str((grown.get("forage") or {}).get("capability_id") or NODE_RUNTIME_DEPS_WINNER_CAPABILITY_ID)
+    if grown.get("ok") and grown.get("grew"):
+        honesty = _honesty(NODE_RUNTIME_DEPS_GROW_TASK, capability_id, repo_root=repo_root)
+    origin = dict((grown.get("forage") or {}).get("origin") or {})
+    grade = _node_runtime_deps_grade(
+        skip_result=skip_result,
+        uncovered=uncovered,
+        grown=grown,
+        scenarios=scenarios,
+        origin=origin,
+        honesty=honesty,
+        separate_plane=skip_result.get("used_forage_growth_plane") is False
+        and grown.get("used_forage_growth_plane") is False
+        and uncovered.get("used_forage_growth_plane") is False,
+    )
+    report: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "capability_application_node_runtime_deps_growth_plane",
+        "generated_at": utc_now_iso(),
+        "query": catalog.get("query") or "",
+        "goal_key": NODE_RUNTIME_DEPS_GOAL_KEY,
+        "catalog_digest": _digest({"query": catalog.get("query"), "items": catalog.get("items")}),
+        "scenarios": {
+            "trend": scenarios["trend"],
+            "lying": scenarios["lying"],
+            "matched": scenarios["matched"],
+        },
+        "already_solvable": {"ok": bool(skip_result.get("ok")), "grew": bool(skip_result.get("grew"))},
+        "uncovered": {
+            "ok": bool(uncovered.get("ok")),
+            "grew": bool(uncovered.get("grew")),
+            "error": uncovered.get("error") or "",
+        },
+        "grown": {
+            "ok": bool(grown.get("ok")),
+            "grew": bool(grown.get("grew")),
+            "plan": grown.get("plan"),
+            "winner_slug": grown.get("winner_slug") or "",
+            "forage": grown.get("forage") or {},
+        },
+        "honesty": {
+            "ok": bool(honesty.get("ok")),
+            "unplannable_before": bool(honesty.get("unplannable_before")),
+            "grown_plan_solved": bool(honesty.get("grown_plan_solved")),
+            "ablation_unplannable": bool(honesty.get("ablation_unplannable")),
+            "capability_id": honesty.get("capability_id"),
+            "plan": honesty.get("plan"),
+        },
+        "grade": grade,
+    }
+    report["report_digest"] = _report_digest(report)
+    target_dir = output_dir or DEFAULT_NODE_RUNTIME_DEPS_ARTIFACT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(target_dir / "plane-report.json", report)
+    return {
+        "ok": bool(grade["ok"]),
+        "report_dir": str(target_dir),
+        "winner": grown.get("winner_slug") or "",
+        "grade": grade,
+        "capability_id": (grown.get("forage") or {}).get("capability_id"),
+        "query": catalog.get("query") or "",
+        "registries": list(catalog.get("registries") or []),
+        "origin": origin,
+        "runtime_deps": list((grown.get("forage") or {}).get("runtime_deps") or []),
+    }
+
+
+def verify_application_node_runtime_deps_growth_plane(
+    report_dir: Path, *, repo_root: Path = REPO_ROOT
+) -> dict[str, Any]:
+    """Re-match the import-unclosed npm catalog and re-prove the foraged winner."""
+
+    report_path = report_dir / "plane-report.json"
+    if not report_path.is_file():
+        return {"ok": False, "error": f"report not found: {report_path}"}
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    digest_ok = _report_digest(report) == report.get("report_digest")
+    catalog = load_node_runtime_deps_apply_catalog()
+    scenarios = _node_runtime_deps_scenario_grades(catalog, repo_root=repo_root)
+    catalog_ok = _digest({"query": catalog.get("query"), "items": catalog.get("items")}) == report.get(
+        "catalog_digest"
+    )
+    origin = dict(((report.get("grown") or {}).get("forage") or {}).get("origin") or {})
+    expected_grade = _node_runtime_deps_grade(
+        skip_result=report.get("already_solvable") or {},
+        uncovered=report.get("uncovered") or {},
+        grown=report.get("grown") or {},
+        scenarios=scenarios,
+        origin=origin,
+        honesty=report.get("honesty") or {},
+    )
+    recorded_grade = dict(report.get("grade") or {})
+    grade_ok = recorded_grade == expected_grade and bool(recorded_grade.get("ok"))
+    winner_ok = (report.get("grown") or {}).get("winner_slug") == NODE_RUNTIME_DEPS_WINNER_SLUG
+    live_proof = prove_absorbed_capability(NODE_RUNTIME_DEPS_WINNER_SLUG)
+    live_ok = bool(live_proof.get("ok"))
+    kind_ok = report.get("kind") == "capability_application_node_runtime_deps_growth_plane"
+    overlay_ok = ((report.get("grown") or {}).get("forage") or {}).get("fixture_overlay") is False
+    deps_ok = NODE_RUNTIME_DEPS_DEP_NAME in _runtime_dep_names(
+        ((report.get("grown") or {}).get("forage") or {}).get("runtime_deps")
+    )
+    origin_ok = origin.get("kind") == "npm-live" and not _source_is_stewardship(origin)
+    ok = (
+        digest_ok
+        and catalog_ok
+        and grade_ok
+        and winner_ok
+        and live_ok
+        and kind_ok
+        and overlay_ok
+        and origin_ok
+        and deps_ok
+    )
+    return {
+        "ok": ok,
+        "digest_ok": digest_ok,
+        "catalog_ok": catalog_ok,
+        "grade_ok": grade_ok,
+        "winner_ok": winner_ok,
+        "live_ok": live_ok,
+        "kind_ok": kind_ok,
+        "overlay_ok": overlay_ok,
+        "origin_ok": origin_ok,
+        "deps_ok": deps_ok,
+    }
+
+
+def builtin_application_node_runtime_deps_growth_plane_proof() -> dict[str, Any]:
+    """Registered proof: import-unclosed npm tarballs grow after package.json deps close."""
+
+    catalog = load_node_runtime_deps_apply_catalog()
+    scenarios = _node_runtime_deps_scenario_grades(catalog)
+    with tempfile.TemporaryDirectory(prefix="blackhole-application-node-runtime-deps-proof-") as tmp:
+        report_dir = Path(tmp) / "report"
+        plane = run_application_node_runtime_deps_growth_plane(report_dir)
+        verification = (
+            verify_application_node_runtime_deps_growth_plane(report_dir) if plane.get("ok") else {"ok": False}
+        )
+        tampered_rejected = False
+        if plane.get("ok"):
+            report_path = report_dir / "plane-report.json"
+            tampered = json.loads(report_path.read_text(encoding="utf-8"))
+            tampered["grade"]["grow_winner_is_snake_case"] = False
+            report_path.write_text(json.dumps(tampered, indent=2, sort_keys=True), encoding="utf-8")
+            tampered_rejected = not verify_application_node_runtime_deps_growth_plane(report_dir)["ok"]
+
+    verdicts = {
+        "already_solvable_skips_forage": bool((plane.get("grade") or {}).get("already_solvable_skips_forage")),
+        "uncovered_stays_unsolved": bool((plane.get("grade") or {}).get("uncovered_stays_unsolved")),
+        "trend_npm_decoy_wins": bool(scenarios["trend_npm_decoy_wins"]),
+        "lying_catalog_picks_npm_decoy": bool(scenarios["lying_catalog_picks_npm_decoy"]),
+        "grow_winner_is_snake_case": bool((plane.get("grade") or {}).get("grow_winner_is_snake_case")),
+        "npm_decoy_probed": bool(scenarios["npm_decoy_probed"]),
+        "npm_decoy_not_no_source": bool(scenarios["npm_decoy_not_no_source"]),
+        "catalog_provides_ignored": bool(scenarios["catalog_provides_ignored"]),
+        "unclosed_without_deps": bool(scenarios["unclosed_without_deps"]),
+        "winner_runtime_deps_closed": bool((plane.get("grade") or {}).get("winner_runtime_deps_closed")),
+        "extra_paths_vendored": bool((plane.get("grade") or {}).get("extra_paths_vendored")),
+        "winner_origin_live": bool((plane.get("grade") or {}).get("winner_origin_live")),
+        "winner_source_not_stewardship": bool((plane.get("grade") or {}).get("winner_source_not_stewardship")),
+        "registries_npm_and_pypi": bool(scenarios["registries_npm_and_pypi"]),
+        "query_from_goal": bool(scenarios["query_from_goal"]),
+        "network_unused": bool(scenarios["network_unused"]),
+        "plane_ok": bool(plane.get("ok")),
+        "verify_ok": bool(verification.get("ok")),
+        "tampered_rejected": tampered_rejected,
+        "forage_ok": bool((plane.get("grade") or {}).get("forage_ok")),
+        "grew": bool((plane.get("grade") or {}).get("grew")),
+        "unplannable_before": bool((plane.get("grade") or {}).get("unplannable_before")),
+        "grown_plan_solved": bool((plane.get("grade") or {}).get("grown_plan_solved")),
+        "ablation_unplannable": bool((plane.get("grade") or {}).get("ablation_unplannable")),
+        "no_separate_plane_invocation": bool((plane.get("grade") or {}).get("no_separate_plane_invocation")),
+    }
+    return {
+        "ok": all(verdicts.values()),
+        **verdicts,
+        "winner": plane.get("winner") or "",
+        "query": plane.get("query") or "",
+        "registries": plane.get("registries") or [],
+        "origin": plane.get("origin") or {},
+        "runtime_deps": plane.get("runtime_deps") or [],
+        "action": "application_node_runtime_deps_growth_plane",
+        "used_skill_route_discovery": False,
+    }
+
+
+def application_node_runtime_deps_growth_plane_proof_command() -> str:
+    return (
+        'uv run python -c "from blackhole_agent.capability_application_growth import '
+        "builtin_application_node_runtime_deps_growth_plane_proof; "
+        "r=builtin_application_node_runtime_deps_growth_plane_proof(); "
+        "assert r['ok'] and r.get('action')=='application_node_runtime_deps_growth_plane' "
+        "and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') "
+        "and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') "
+        "and r.get('grow_winner_is_snake_case') and r.get('npm_decoy_probed') "
+        "and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') "
+        "and r.get('unclosed_without_deps') and r.get('winner_runtime_deps_closed') "
+        "and r.get('extra_paths_vendored') and r.get('winner_origin_live') "
+        "and r.get('winner_source_not_stewardship') and r.get('registries_npm_and_pypi') "
+        "and r.get('query_from_goal') and r.get('network_unused') "
+        "and r.get('plane_ok') and r.get('verify_ok') and r.get('tampered_rejected') "
+        "and r.get('forage_ok') and r.get('grew') and r.get('unplannable_before') "
+        "and r.get('grown_plan_solved') and r.get('ablation_unplannable') "
+        "and r.get('no_separate_plane_invocation') "
+        "and not r.get('used_skill_route_discovery')\""
+    )
+
+
+def register_application_node_runtime_deps_growth_plane_capability(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+    """Register (idempotently) and prove the node runtime-deps application-growth plane."""
+
+    ledger_path = default_ledger_path(repo_root)
+    ledger = load_ledger(ledger_path)
+    dependencies = tuple(
+        dependency
+        for dependency in (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "capability.foraging-plane",
+            "capability.forage-target-plane",
+            "capability.forage-growth-plane",
+            "capability.application-runtime-deps-growth-plane",
+            "capability.application-live-fetch-growth-plane",
+            "capability.application-growth-plane",
+            "capability.application-plane",
+            "capability.absorption-plane",
+        )
+        if dependency in ledger.capabilities
+    )
+    capability = Capability(
+        id="capability.application-node-runtime-deps-growth-plane",
+        name="Application node runtime-deps growth plane",
+        description=(
+            "An unplannable application goal grows itself from a live-fetched "
+            "npm tarball whose import is unclosed without declared package.json "
+            "dependencies: those deps are vendored into the staged tree, a "
+            "popular npm decoy is skipped, and the covering package is foraged "
+            "so the original task becomes solvable."
+        ),
+        kind="python",
+        entry="blackhole_agent.capability_application_growth:demo_application_node_runtime_deps_growth_plane",
+        proof_command=application_node_runtime_deps_growth_plane_proof_command(),
+        dependencies=dependencies,
+        behavior_paths=(
+            "src/blackhole_agent/capability_application_growth.py",
+            "src/blackhole_agent/capability_foraging.py",
+            "src/blackhole_agent/capability_acquisition.py",
+            "src/blackhole_agent/capability_forage_growth.py",
+            "tests/fixtures/forage_node_runtime_deps_catalog.json",
+            "capabilities/absorbed-steps.json",
+            "capabilities/ledger.json",
+        ),
+        capability_delta=(
+            "Application-growth no longer skips import-unclosed npm packages: "
+            "declared package.json dependencies of a live-fetched tarball are "
+            "fetched and vendored into the staged tree, isolated introspection "
+            "without them still fails, and a covering package is foraged so "
+            "the original task becomes solvable."
+        ),
+        tags=("foraging", "plane", "application", "growth", "runtime-deps", "node"),
+    )
+    ledger = register_capability(ledger, capability, replace=True)
+    save_ledger(ledger_path, ledger)
+    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=280)
+    stamped = ledger.capabilities[capability.id]
+    disk = load_ledger(ledger_path)
+    merged = dict(disk.capabilities)
+    merged[stamped.id] = stamped
+    save_ledger(
+        ledger_path,
+        CapabilityLedger(
+            schema_version=disk.schema_version,
+            updated_at=utc_now_iso(),
+            capabilities=merged,
+        ),
+    )
+    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
+
+
+def demo_application_node_runtime_deps_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from an import-unclosed live-fetched npm tarball."""
+
+    result = run_application_node_runtime_deps_growth_plane()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "capability_id": result.get("capability_id"),
+        "query": result.get("query"),
+        "registries": result.get("registries"),
+        "origin": result.get("origin"),
+        "runtime_deps": result.get("runtime_deps"),
+        "grade": result.get("grade"),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Application-growth forage plane")
     sub = parser.add_subparsers(dest="command_name", required=True)
@@ -2494,16 +2995,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     runtime_deps_parser.add_argument("--no-forage", action="store_true", help="match only; do not forage")
 
+    node_runtime_deps_parser = sub.add_parser(
+        "node-runtime-deps-plane",
+        help="grow from an import-unclosed npm tarball by vendoring package.json deps",
+    )
+    node_runtime_deps_parser.add_argument("--no-forage", action="store_true", help="match only; do not forage")
+
     sub.add_parser("proof", help="run the registered application-growth-plane proof")
     sub.add_parser("live-proof", help="run the registered live-registry application-growth proof")
     sub.add_parser("registry-proof", help="run the registered registry-archive application-growth proof")
     sub.add_parser("live-fetch-proof", help="run the registered live-fetch application-growth proof")
     sub.add_parser("runtime-deps-proof", help="run the registered runtime-deps application-growth proof")
+    sub.add_parser("node-runtime-deps-proof", help="run the registered node runtime-deps application-growth proof")
     sub.add_parser("register", help="register and prove the plane in the live ledger")
     sub.add_parser("live-register", help="register and prove the live-registry plane")
     sub.add_parser("registry-register", help="register and prove the registry-archive plane")
     sub.add_parser("live-fetch-register", help="register and prove the live-fetch plane")
     sub.add_parser("runtime-deps-register", help="register and prove the runtime-deps plane")
+    sub.add_parser("node-runtime-deps-register", help="register and prove the node runtime-deps plane")
 
     verify_parser = sub.add_parser("verify", help="verify a sealed application-growth report")
     verify_parser.add_argument("--report-dir", type=Path, default=DEFAULT_ARTIFACT_DIR)
@@ -2519,6 +3028,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     runtime_deps_verify = sub.add_parser("runtime-deps-verify", help="verify a sealed runtime-deps growth report")
     runtime_deps_verify.add_argument("--report-dir", type=Path, default=DEFAULT_RUNTIME_DEPS_ARTIFACT_DIR)
+
+    node_runtime_deps_verify = sub.add_parser(
+        "node-runtime-deps-verify", help="verify a sealed node runtime-deps growth report"
+    )
+    node_runtime_deps_verify.add_argument(
+        "--report-dir", type=Path, default=DEFAULT_NODE_RUNTIME_DEPS_ARTIFACT_DIR
+    )
 
     args = parser.parse_args(argv)
     if args.command_name == "grow":
@@ -2541,6 +3057,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = run_application_live_fetch_growth_plane(forage=not args.no_forage)
     elif args.command_name == "runtime-deps-plane":
         result = run_application_runtime_deps_growth_plane(forage=not args.no_forage)
+    elif args.command_name == "node-runtime-deps-plane":
+        result = run_application_node_runtime_deps_growth_plane(forage=not args.no_forage)
     elif args.command_name == "proof":
         result = builtin_application_growth_plane_proof()
     elif args.command_name == "live-proof":
@@ -2551,6 +3069,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = builtin_application_live_fetch_growth_plane_proof()
     elif args.command_name == "runtime-deps-proof":
         result = builtin_application_runtime_deps_growth_plane_proof()
+    elif args.command_name == "node-runtime-deps-proof":
+        result = builtin_application_node_runtime_deps_growth_plane_proof()
     elif args.command_name == "register":
         result = register_application_growth_plane_capability()
     elif args.command_name == "live-register":
@@ -2561,6 +3081,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = register_application_live_fetch_growth_plane_capability()
     elif args.command_name == "runtime-deps-register":
         result = register_application_runtime_deps_growth_plane_capability()
+    elif args.command_name == "node-runtime-deps-register":
+        result = register_application_node_runtime_deps_growth_plane_capability()
     elif args.command_name == "live-verify":
         result = verify_application_live_growth_plane(args.report_dir)
     elif args.command_name == "registry-verify":
@@ -2569,6 +3091,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = verify_application_live_fetch_growth_plane(args.report_dir)
     elif args.command_name == "runtime-deps-verify":
         result = verify_application_runtime_deps_growth_plane(args.report_dir)
+    elif args.command_name == "node-runtime-deps-verify":
+        result = verify_application_node_runtime_deps_growth_plane(args.report_dir)
     else:
         result = verify_application_growth_plane(args.report_dir)
     print(json.dumps(result, indent=2, sort_keys=True, default=str))

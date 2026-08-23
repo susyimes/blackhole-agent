@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "snake_case_output": "hello_world"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "snake_case_output": "blackhole_unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "snake_case_output": "mi_xe_d_ca_se"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "snake_case_output": ""
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "snake-case",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "snake-case",
+    "registry": "npm",
+    "sha256": "c8b34aec2959e6abbbd0ad280091bff584a13514fec1eb78bfe8b1290ca866cc",
+    "source": "artifacts/capability-foraging/downloads/snake-case-4.0.0.tgz",
+    "url": "",
+    "version": "4.0.0"
+  },
+  "provides": [
+    "snake_case_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "snake-case",
+  "version": "4.0.0"
+}
