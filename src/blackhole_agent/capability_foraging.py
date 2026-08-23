@@ -34,6 +34,9 @@ inputs. This module removes that last human input — **foraging**:
   ``package.subpackage.submodule.Class.method`` /
   ``dev.helpers.File.exists`` (class statics that are not a
   one-level ``package.submodule.Class.method``), Python nested-namespace class
+  statics three submodule levels down such as
+  ``package.subpackage.subpackage.submodule.Class.method`` (class statics that
+  are not a two-level ``package.subpackage.submodule.Class.method``), Python nested-namespace class
   instance methods such as ``package.submodule.Class(opts).method``
   (constructed nested classes that are not a top-level
   ``Class(opts).method``), and Python nested-namespace class
@@ -344,8 +347,11 @@ def _consider(name, target, flags, skip_self=False):
         or flags.get("python_nested_namespace_class_instance")
         or flags.get("python_deep_nested_namespace_class_static")
         or flags.get("python_deep_nested_namespace_class_instance")
+        or flags.get("python_triple_nested_namespace_class_static")
+        or flags.get("python_triple_nested_namespace_class_instance")
         or flags.get("python_nested_namespace_function")
         or flags.get("python_deep_nested_namespace_function")
+        or flags.get("python_triple_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
@@ -386,7 +392,12 @@ def _instance_method_names(cls, instance):
             if inspect.isfunction(value):
                 names.add(name)
     if instance is not None:
-        for name, value in getattr(instance, "__dict__", {}).items():
+        try:
+            owned = getattr(instance, "__dict__", None) or {}
+            items = list(owned.items())
+        except Exception:
+            items = []
+        for name, value in items:
             if name.startswith("_") or inspect.isclass(value) or not callable(value):
                 continue
             names.add(name)
@@ -420,11 +431,12 @@ def _defined_on(target, prefix):
     return (not owner) or owner == expected
 
 
-def _consider_class(prefix, target, nested=False, deep=False):
+def _consider_class(prefix, target, nested=False, deep=False, triple=False):
     static_flags = {
-        "python_class_static": (not nested) and (not deep),
-        "python_nested_namespace_class_static": nested and (not deep),
-        "python_deep_nested_namespace_class_static": bool(deep),
+        "python_class_static": (not nested) and (not deep) and (not triple),
+        "python_nested_namespace_class_static": nested and (not deep) and (not triple),
+        "python_deep_nested_namespace_class_static": bool(deep) and (not triple),
+        "python_triple_nested_namespace_class_static": bool(triple),
     }
     for attr in sorted(_static_method_names(target)):
         fn = getattr(target, attr, None)
@@ -433,9 +445,10 @@ def _consider_class(prefix, target, nested=False, deep=False):
     if instance is None:
         return
     flags = {
-        "python_class_instance": (not nested) and (not deep),
-        "python_nested_namespace_class_instance": nested and (not deep),
-        "python_deep_nested_namespace_class_instance": bool(deep),
+        "python_class_instance": (not nested) and (not deep) and (not triple),
+        "python_nested_namespace_class_instance": nested and (not deep) and (not triple),
+        "python_deep_nested_namespace_class_instance": bool(deep) and (not triple),
+        "python_triple_nested_namespace_class_instance": bool(triple),
         "constructor_requires_args": bool(requires_args),
     }
     for attr in sorted(_instance_method_names(target, instance)):
@@ -514,6 +527,7 @@ for name, target in sorted(submodules.items()):
     for child_name, child in sorted(_child_modules(target, name).items()):
         deep_submodules[f"{name}.{child_name}"] = child
 
+triple_submodules = {}
 for prefix, target in sorted(deep_submodules.items()):
     for nested_name in sorted(dir(target)):
         if nested_name.startswith("_"):
@@ -527,11 +541,36 @@ for prefix, target in sorted(deep_submodules.items()):
                     {
                         "python_nested_namespace_function": False,
                         "python_deep_nested_namespace_function": True,
+                        "python_triple_nested_namespace_function": False,
                     },
                 )
             continue
         if inspect.isclass(nested_target):
             _consider_class(f"{prefix}.{nested_name}", nested_target, nested=True, deep=True)
+    for child_name, child in sorted(_child_modules(target, prefix).items()):
+        triple_submodules[f"{prefix}.{child_name}"] = child
+
+for prefix, target in sorted(triple_submodules.items()):
+    for nested_name in sorted(dir(target)):
+        if nested_name.startswith("_"):
+            continue
+        nested_target = getattr(target, nested_name, None)
+        if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
+            if _defined_on(nested_target, prefix):
+                _consider(
+                    f"{prefix}.{nested_name}",
+                    nested_target,
+                    {
+                        "python_nested_namespace_function": False,
+                        "python_deep_nested_namespace_function": False,
+                        "python_triple_nested_namespace_function": True,
+                    },
+                )
+            continue
+        if inspect.isclass(nested_target) and _defined_on(nested_target, prefix):
+            _consider_class(
+                f"{prefix}.{nested_name}", nested_target, nested=True, triple=True
+            )
 
 print(json.dumps({"ok": True, "candidates": candidates}))
 '''
@@ -1347,6 +1386,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("python_class_static")
         or item.get("python_nested_namespace_class_static")
         or item.get("python_deep_nested_namespace_class_static")
+        or item.get("python_triple_nested_namespace_class_static")
     )
 
 
@@ -1362,6 +1402,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or bool(item.get("python_class_instance"))
         or bool(item.get("python_nested_namespace_class_instance"))
         or bool(item.get("python_deep_nested_namespace_class_instance"))
+        or bool(item.get("python_triple_nested_namespace_class_instance"))
     )
 
 
@@ -1462,9 +1503,13 @@ def infer_acquisition_spec(
         introspection["candidates"],
         key=lambda item: (
             0
-            if _is_class_static_candidate(item)
-            and not item.get("python_deep_nested_namespace_class_static")
+            if item.get("default_export_class_static")
+            or item.get("named_export_class_static")
+            or item.get("nested_namespace_class_static")
+            or item.get("python_class_static")
             else 1,
+            0 if item.get("python_triple_nested_namespace_class_static") else 1,
+            0 if item.get("python_nested_namespace_class_static") else 1,
             0 if _is_named_class_instance_candidate(item) else 1,
             0 if item.get("python_class_instance") else 1,
             0 if item.get("python_nested_namespace_class_instance") else 1,
@@ -1557,11 +1602,20 @@ def infer_acquisition_spec(
                 "python_deep_nested_namespace_class_instance": bool(
                     candidate.get("python_deep_nested_namespace_class_instance")
                 ),
+                "python_triple_nested_namespace_class_static": bool(
+                    candidate.get("python_triple_nested_namespace_class_static")
+                ),
+                "python_triple_nested_namespace_class_instance": bool(
+                    candidate.get("python_triple_nested_namespace_class_instance")
+                ),
                 "python_nested_namespace_function": bool(
                     candidate.get("python_nested_namespace_function")
                 ),
                 "python_deep_nested_namespace_function": bool(
                     candidate.get("python_deep_nested_namespace_function")
+                ),
+                "python_triple_nested_namespace_function": bool(
+                    candidate.get("python_triple_nested_namespace_function")
                 ),
             }
             break
@@ -1619,11 +1673,20 @@ def infer_acquisition_spec(
         "python_deep_nested_namespace_class_instance": bool(
             collected[0].get("python_deep_nested_namespace_class_instance")
         ),
+        "python_triple_nested_namespace_class_static": bool(
+            collected[0].get("python_triple_nested_namespace_class_static")
+        ),
+        "python_triple_nested_namespace_class_instance": bool(
+            collected[0].get("python_triple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             collected[0].get("python_nested_namespace_function")
         ),
         "python_deep_nested_namespace_function": bool(
             collected[0].get("python_deep_nested_namespace_function")
+        ),
+        "python_triple_nested_namespace_function": bool(
+            collected[0].get("python_triple_nested_namespace_function")
         ),
     }
     inferred = {

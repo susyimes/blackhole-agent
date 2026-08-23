@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+
+# $Id: rst2odt.py 9768 2024-06-15 12:08:27Z milde $
+# Author: Dave Kuhlman <dkuhlman@rexx.com>
+# Copyright: This module has been placed in the public domain.
+
+"""
+A front end to the Docutils Publisher, producing OpenOffice documents.
+"""
+
+try:
+    import locale
+    locale.setlocale(locale.LC_ALL, '')
+except Exception:
+    pass
+
+from docutils.core import publish_cmdline, default_description
+from docutils.writers.odf_odt import Writer, Reader
+
+
+description = ('Generates OpenDocument/OpenOffice/ODF documents from '
+               'standalone reStructuredText sources.  ' + default_description)
+
+
+writer = Writer()
+reader = Reader()
+output = publish_cmdline(reader=reader, writer=writer, description=description)

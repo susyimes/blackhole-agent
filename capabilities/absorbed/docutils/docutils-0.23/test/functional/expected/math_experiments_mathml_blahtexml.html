@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="generator" content="Docutils 0.23: https://docutils.sourceforge.io/" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Math Conversion Tests</title>
+<link rel="stylesheet" href="../../../docutils/writers/html5_polyglot/minimal.css" type="text/css" />
+<link rel="stylesheet" href="../../../docutils/writers/html5_polyglot/plain.css" type="text/css" />
+</head>
+<body>
+<main id="math-conversion-tests">
+<h1 class="title">Math Conversion Tests</h1>
+
+<section id="math-alphabet-mathvariant">
+<h2>Math alphabet / Mathvariant</h2>
+<p>TeX's <em>math alphabet</em> macros change font features of (some) letters and
+digits. Non-alphanumerical symbols, function names, and mathematical text
+are left unchanged.</p>
+<dl class="field-list simple">
+<dt>default<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi>V</mi>
+    <mi>R</mi>
+  </msub>
+  <mi>x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn>3</mn>
+  <mi mathvariant="normal">Γ</mi>
+  <mo lspace="1.000em">∀</mo>
+  <mi>x</mi>
+  <mo>∈</mo>
+  <mi mathvariant="double-struck">R</mi>
+</mrow>
+</math></p>
+</dd>
+<dt>mathrm<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi mathvariant="normal">V</mi>
+    <mi mathvariant="normal">R</mi>
+  </msub>
+  <mi mathvariant="normal">x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn>3</mn>
+  <mi mathvariant="normal">Γ</mi>
+  <mo lspace="1.000em">∀</mo>
+  <mi mathvariant="normal">x</mi>
+  <mo>∈</mo>
+  <mi mathvariant="double-struck">R</mi>
+</mrow>
+</math></p>
+</dd>
+<dt>mathbf<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi mathvariant="bold">V</mi>
+    <mi mathvariant="bold">R</mi>
+  </msub>
+  <mi mathvariant="bold">x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn mathvariant="bold">3</mn>
+  <mi mathvariant="bold">Γ</mi>
+  <mo lspace="1.000em">∀</mo>
+  <mi mathvariant="bold">x</mi>
+  <mo>∈</mo>
+  <mi mathvariant="double-struck">R</mi>
+</mrow>
+</math></p>
+</dd>
+<dt>mathit<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi>V</mi>
+    <mi>R</mi>
+  </msub>
+  <mi>x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn mathvariant="italic">3</mn>
+  <mi>Γ</mi>
+  <mo lspace="1.000em">∀</mo>
+  <mi>x</mi>
+  <mo>∈</mo>
+  <mi mathvariant="double-struck">R</mi>
+</mrow>
+</math></p>
+</dd>
+<dt>mathbfit<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathbfit{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 21)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\mathbfit&quot;</p>
+</aside>
+</dd>
+<dt>mathbb<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathbb{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 23)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">The symbol &quot;x&quot; is not available in the font &quot;bb&quot;</p>
+</aside>
+</dd>
+<dt>mathcal<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathcal{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 25)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">The symbol &quot;x&quot; is not available in the font &quot;cal&quot;</p>
+</aside>
+</dd>
+<dt>mathscr<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathscr{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 27)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\mathscr&quot;</p>
+</aside>
+</dd>
+<dt>mathfrak<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathfrak{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 29)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">The symbol &quot;\Gamma&quot; is not available in the font &quot;frak&quot;</p>
+</aside>
+</dd>
+<dt>mathsf<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi mathvariant="sans-serif">V</mi>
+    <mi mathvariant="sans-serif">R</mi>
+  </msub>
+  <mi mathvariant="sans-serif">x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn mathvariant="sans-serif">3</mn>
+  <mi mathvariant="sans-serif">Γ</mi>
+  <mo lspace="1.000em">∀</mo>
+  <mi mathvariant="sans-serif">x</mi>
+  <mo>∈</mo>
+  <mi mathvariant="double-struck">R</mi>
+</mrow>
+</math></p>
+</dd>
+<dt>mathsfit<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathsfit{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 33)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\mathsfit&quot;</p>
+</aside>
+</dd>
+<dt>mathsfbfit<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathsfbfit{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 35)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\mathsfbfit&quot;</p>
+</aside>
+</dd>
+<dt>mathbfsfit<span class="colon">:</span></dt>
+<dd><p><span class="math problematic">\mathbfsfit{V_R x \pm \cos(\alpha_\text{out}) \approx 3 \Gamma
+\quad \forall x \in \mathbb{R}}</span></p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 37)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\mathbfsfit&quot;</p>
+</aside>
+</dd>
+<dt>mathtt<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi mathvariant="monospace">V</mi>
+    <mi mathvariant="monospace">R</mi>
+  </msub>
+  <mi mathvariant="monospace">x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn mathvariant="monospace">3</mn>
+  <mi mathvariant="monospace">Γ</mi>
+  <mo lspace="1.000em">∀</mo>
+  <mi mathvariant="monospace">x</mi>
+  <mo>∈</mo>
+  <mi mathvariant="double-struck">R</mi>
+</mrow>
+</math></p>
+</dd>
+</dl>
+<p>MathML 4 defines the <em>mathvariant</em> <a class="reference external" href="https://www.w3.org/TR/mathml4/#presm_commatt">style attribute</a>, in MathML core,
+characters from the <a class="reference external" href="http://www.unicode.org/charts/PDF/U1EE00.pdf">Mathematical Alphanumeric Symbols</a> Unicode block
+are used.</p>
+<p>The mathvariants <em>bold-script</em>, <em>bold-fraktur</em>, and <em>sans-bold</em> are
+rarely used. They are currently not supported by Docutils's native MathML
+output. In LaTeX, <span class="docutils literal">\mathbfscr</span> and <span class="docutils literal">\mathbffrac</span> is supported by the
+<a class="reference external" href="https://www.ctan.org/pkg/mathalpha">mathalpha</a> package.</p>
+<p>Bold variants of any symbol can be achieved in combination with the
+<span class="docutils literal">\boldsymbol</span> command, e.g.</p>
+<dl class="field-list simple">
+<dt>bold-fraktur<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi mathvariant="bold-fraktur">V</mi>
+    <mi mathvariant="bold-fraktur">R</mi>
+  </msub>
+  <mi mathvariant="bold-fraktur">x</mi>
+</mrow>
+</math></p>
+</dd>
+</dl>
+<p>Note, that <span class="docutils literal">\boldsymbol</span> emboldens also non-alphanumerical symbols.</p>
+<section id="complex-example">
+<h3>Complex Example</h3>
+<p>From the <a class="reference external" href="https://www.ctan.org/pkg/baskervaldx">baskervaldx</a> package documentation:</p>
+<dl>
+<dt>Simplest form of the <em>Central Limit Theorem</em>:</dt>
+<dd><p>Let <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msub>
+    <mi>X</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <msub>
+    <mi>X</mi>
+    <mn>2</mn>
+  </msub>
+  <mo>,</mo>
+  <mo>⋯</mo>
+</mrow>
+</math> be a sequence of iid random variables with mean <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mn>0</mn>
+</math>
+and variance <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mn>1</mn>
+</math> on a probability space <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mo stretchy="false">(</mo>
+  <mi mathvariant="normal">Ω</mi>
+  <mo>,</mo>
+  <mi mathvariant="script">F</mi>
+  <mo>,</mo>
+  <mi mathvariant="double-struck">P</mi>
+  <mo stretchy="false">)</mo>
+</mrow>
+</math>.
+Then</p>
+<pre class="math problematic">
+\mathbb{P}\left(\frac{X_1+\cdots+X_n}{\sqrt{n}} \le y\right)
+\to\mathfrak{N}(y)
+\coloneq \int_{-\infty}^y
+  \frac{\mathrm{e}^{-t^2/2}}{\sqrt{2\mathrm{\pi}}}\, \mathrm{d}t
+\quad\mbox{as $n\to\infty$,}
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 69)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\coloneq&quot;</p>
+</aside>
+<p>or, equivalently, letting <span class="math problematic">S_n\coloneq\sum_1^n X_k</span>,</p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 75)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\coloneq&quot;</p>
+</aside>
+<pre class="math problematic">
+\mathbb{E} f\left(S_n/\sqrt{n}\right)
+\to \int_{-\infty}^\infty f(t)
+  \frac{\mathrm{e}^{-t^2/2}}{\sqrt{2\mathrm{\pi}}}\, \mathrm{d}t
+\quad\mbox{as $n\to\infty$,
+  for every $f\in\mathrm{b} \mathcal{C}(\mathbb{R})$.}
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 77)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">The command &quot;$&quot; is illegal in text mode (perhaps you intended to use &quot;\$&quot; instead?)</p>
+</aside>
+</dd>
+</dl>
+</section>
+</section>
+<section id="inferred-mrow-s-in-mathml">
+<h2>Inferred &lt;mrow&gt;s in MathML</h2>
+<p>The elements &lt;msqrt&gt;, &lt;mstyle&gt;, &lt;merror&gt;, &lt;mpadded&gt;, &lt;mphantom&gt;, &lt;menclose&gt;,
+&lt;mtd&gt;, &lt;mscarry&gt;, and &lt;math&gt; treat their contents as a single inferred mrow
+formed from all their children.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<mrow>
+  <mi>a</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>2</mn>
+  </msqrt>
+  <mo>+</mo>
+  <mi>x</mi>
+  <mo rspace="1.167em">,</mo>
+  <mi>b</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>1</mn>
+    <mo>+</mo>
+    <msup>
+      <mi>x</mi>
+      <mn>2</mn>
+    </msup>
+  </msqrt>
+  <mo rspace="1.167em">,</mo>
+  <mi>c</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mfrac>
+      <mrow>
+        <mi>sin</mi>
+        <mo stretchy="false">(</mo>
+        <mi>x</mi>
+        <mo stretchy="false">)</mo>
+      </mrow>
+      <mn>23</mn>
+    </mfrac>
+  </msqrt>
+  <mo>,</mo>
+</mrow>
+</math>
+</div>
+<p>inline: <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mi>a</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>2</mn>
+  </msqrt>
+  <mo>+</mo>
+  <mi>x</mi>
+  <mo>,</mo>
+  <mi>b</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>1</mn>
+    <mo>+</mo>
+    <msup>
+      <mi>x</mi>
+      <mn>2</mn>
+    </msup>
+  </msqrt>
+  <mo>,</mo>
+  <mi>c</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mfrac>
+      <mrow>
+        <mi>sin</mi>
+        <mo stretchy="false">(</mo>
+        <mi>x</mi>
+        <mo stretchy="false">)</mo>
+      </mrow>
+      <mn>23</mn>
+    </mfrac>
+  </msqrt>
+</mrow>
+</math>.</p>
+</section>
+<section id="scripts-and-limits">
+<h2>Scripts and Limits</h2>
+<p>Accents should be nearer to the base:
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mover>
+    <mi>a</mi>
+    <mo accent="true">¯</mo>
+  </mover>
+  <mover>
+    <mi>a</mi>
+    <mo stretchy="true" accent="true">¯</mo>
+  </mover>
+  <mo>,</mo>
+  <mover>
+    <mi>l</mi>
+    <mo accent="true">¯</mo>
+  </mover>
+  <mover>
+    <mi>l</mi>
+    <mo stretchy="true" accent="true">¯</mo>
+  </mover>
+  <mo>,</mo>
+  <mover>
+    <mi>i</mi>
+    <mo accent="true">¯</mo>
+  </mover>
+  <mover>
+    <mi>i</mi>
+    <mo stretchy="true" accent="true">¯</mo>
+  </mover>
+</mrow>
+</math>,
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+<mover>
+  <mi>r</mi>
+  <mo stretchy="true" accent="true">⃗</mo>
+</mover>
+</math> <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mover>
+  <mi>r</mi>
+  <mo stretchy="true" accent="true">→</mo>
+</mover>
+</math>.</p>
+<p>Sub- and superscript may be given in any order:
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msubsup>
+    <mi>x</mi>
+    <mi>i</mi>
+    <mi>j</mi>
+  </msubsup>
+  <mo>=</mo>
+  <msubsup>
+    <mi>x</mi>
+    <mi>i</mi>
+    <mi>j</mi>
+  </msubsup>
+</mrow>
+</math> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <msubsup>
+    <mo stretchy="false">∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </msubsup>
+  <mo>=</mo>
+  <msubsup>
+    <mo stretchy="false">∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </msubsup>
+</mrow>
+</math>.</p>
+<p>Double exponent: <math xmlns="http://www.w3.org/1998/Math/MathML">
+<msup>
+  <mi>x</mi>
+  <msup>
+    <mn>10</mn>
+    <mn>4</mn>
+  </msup>
+</msup>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+<msub>
+  <mi>r</mi>
+  <msub>
+    <mi>T</mi>
+    <mi>in</mi>
+  </msub>
+</msub>
+</math> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+<msubsup>
+  <mi>x</mi>
+  <mi>i</mi>
+  <msup>
+    <mi>n</mi>
+    <mn>2</mn>
+  </msup>
+</msubsup>
+</math>.</p>
+</section>
+<section id="nested-groups">
+<h2>Nested groups</h2>
+<p>tex-token returns &quot;{&quot; for nested groups:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<mtext>das ist ein toller text (unescaped { and } is ignored by LaTeX)</mtext>
+</math>
+</div>
+</section>
+<section id="big-delimiters-and-symbols">
+<h2>Big delimiters and symbols</h2>
+<p>Compare automatic sizing with fixed sizes:</p>
+<!-- math:  \left( \frac{\frac1x}{\frac{1}{n}}\right) &= \Biggl(\text{Bigg}\Biggr)\\ -->
+<pre class="math problematic">
+\left( 3                          \right)
+\left( f(x)                       \right)
+\left( \bar x                     \right)
+\left( \overline x                \right)
+\left( n_i                        \right) &amp;= () \\
+\left( \underline x               \right) &amp;= \bigl(\text{big}\bigr)\\
+\left( 3^2                        \right)
+\left( \sqrt{3}                   \right)
+\left( \sqrt{3^2}                 \right)
+\left( \sum                       \right)
+\left( \bigotimes                 \right)
+\left( \prod                      \right) &amp;= \Bigl(\text{Big}\Bigr)\\
+\left( \frac{3  }{2}              \right)
+\left( \frac{3^2}{2^4}            \right)
+\binom{3  }{2}
+\begin{pmatrix} a &amp; b \\ c &amp; d \end{pmatrix}
+\left( \frac{1}{\sqrt 2}          \right)
+\left( \int                       \right)
+\left( \int_0                     \right)
+\left( \int^1                     \right)
+\left( \int_0^1                   \right) &amp;= \biggl(\text{bigg}\biggr)\\
+\left( \frac{\sqrt 2}{2}          \right)
+\left( \sum_0                     \right)
+\left( \sum^1                     \right)
+\left( \sum_0^1                   \right)
+\left( \frac{\frac1x}{\frac{1}{n}}\right) &amp;= \Biggl(\text{Bigg}\Biggr)\\
+\left( \intop_0                   \right)
+\left( \intop^1                   \right)
+\left( \intop_0^1                 \right)
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 127)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\intop&quot;</p>
+</aside>
+<p>And in text:</p>
+<dl class="field-list simple">
+<dt><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mo stretchy="false">(</mo>
+  <mo stretchy="false">)</mo>
+</mrow>
+</math><span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mn>3</mn>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mi>f</mi>
+      <mo stretchy="false">(</mo>
+      <mi>x</mi>
+      <mo stretchy="false">)</mo>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mover>
+        <mi>x</mi>
+        <mo accent="true">¯</mo>
+      </mover>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mover>
+        <mi>x</mi>
+        <mo stretchy="true" accent="true">¯</mo>
+      </mover>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msub>
+        <mi>n</mi>
+        <mi>i</mi>
+      </msub>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mo stretchy="false">∑</mo>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msub>
+        <mo stretchy="false">∑</mo>
+        <mn>0</mn>
+      </msub>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mo stretchy="false">∏</mo>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+</mrow>
+</math></p>
+</dd>
+<dt><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mo stretchy="true" minsize="1.2em" maxsize="1.2em">(</mo>
+  <mtext>big</mtext>
+  <mo stretchy="true" minsize="1.2em" maxsize="1.2em">)</mo>
+</mrow>
+</math><span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <munder>
+        <mi>x</mi>
+        <mo stretchy="true" accent="true">¯</mo>
+      </munder>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msup>
+        <mn>3</mn>
+        <mn>2</mn>
+      </msup>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mfrac linethickness="0">
+        <mn>3</mn>
+        <mn>2</mn>
+      </mfrac>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mstyle scriptlevel="1">
+        <mtable>
+          <mtr>
+            <mtd>
+              <mi>a</mi>
+            </mtd>
+            <mtd>
+              <mi>b</mi>
+            </mtd>
+          </mtr>
+          <mtr>
+            <mtd>
+              <mi>c</mi>
+            </mtd>
+            <mtd>
+              <mi>d</mi>
+            </mtd>
+          </mtr>
+        </mtable>
+      </mstyle>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mo stretchy="false">⨂</mo>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+</mrow>
+</math></p>
+</dd>
+<dt><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mo stretchy="true" minsize="1.8em" maxsize="1.8em">(</mo>
+  <mtext>Big</mtext>
+  <mo stretchy="true" minsize="1.8em" maxsize="1.8em">)</mo>
+</mrow>
+</math><span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+<mrow>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msqrt>
+        <mn>3</mn>
+      </msqrt>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msqrt>
+        <msup>
+          <mn>3</mn>
+          <mn>2</mn>
+        </msup>
+      </msqrt>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mfrac>
+        <mn>3</mn>
+        <mn>2</mn>
+      </mfrac>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mfrac>
+        <msup>
+          <mn>3</mn>
+          <mn>2</mn>
+        </msup>
+        <msup>
+          <mn>2</mn>
+          <mn>4</mn>
+        </msup>
+      </mfrac>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mfrac>
+        <msqrt>
+          <mn>2</mn>
+        </msqrt>
+        <mn>2</mn>
+      </mfrac>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mo stretchy="false">∫</mo>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msub>
+        <mo stretchy="false">∫</mo>
+        <mn>0</mn>
+      </msub>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msup>
+        <mo stretchy="false">∫</mo>
+        <mn>1</mn>
+      </msup>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msubsup>
+        <mo stretchy="false">∫</mo>
+        <mn>0</mn>
+        <mn>1</mn>
+      </msubsup>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msup>
+        <mo stretchy="false">∑</mo>
+        <mn>1</mn>
+      </msup>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <msubsup>
+        <mo stretchy="false">∑</mo>
+        <mn>0</mn>
+        <mn>1</mn>
+      </msubsup>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mspace width="0.167em"/>
+  <mrow>
+    <mo stretchy="true">(</mo>
+    <mrow>
+      <mfrac>
+        <mfrac>
+          <mn>1</mn>
+          <mi>x</mi>
+        </mfrac>
+        <mfrac>
+          <mn>1</mn>
+          <mi>n</mi>
+        </mfrac>
+      </mfrac>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+</mrow>
+</math></p>
+</dd>
+</dl>
+<p>Test <span class="docutils literal">\left</span>, <span class="docutils literal">\right</span>, and the  bigl/bigr, … size commands
+with all extensible delimiters.</p>
+<p>pairing:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<mrow>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">(</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">)</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">(</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">)</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">(</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">)</mo>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">[</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">]</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">[</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">]</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">[</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">]</mo>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">{</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">}</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">{</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">}</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">{</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">}</mo>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">〈</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">〉</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">〈</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">〉</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">〈</mo>
+  <mi>b</mi>
+  <mo stretchy="true" minsize="3em" maxsize="3em">〉</mo>
+</mrow>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<mrow>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">⌈</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">⌉</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">⌈</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">⌉</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">⌈</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">⌉</mo>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">⌊</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">⌋</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">⌊</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">⌋</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">⌊</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">⌋</mo>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">|</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">|</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">|</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">|</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">|</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">|</mo>
+  <mrow>
+    <mrow>
+      <mo>∥</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">∥</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">∥</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">∥</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">∥</mo>
+  <mi>b</mi>
+  <mo stretchy="true" minsize="3em" maxsize="3em">∥</mo>
+</mrow>
+</math>
+</div>
+<pre class="math problematic">
+\left.\lgroup b \right\rgroup \ \bigl\lgroup b \Bigr\rgroup \ \biggl\lgroup b \Biggr\rgroup
+\quad
+\left.\lmoustache b \right\rmoustache \ \bigl\lmoustache b \Bigr\rmoustache \ \biggl\lmoustache b \Biggr\rmoustache
+\quad
+\left./           b \right\backslash  \ \bigl/           b \Bigr\backslash  \ \biggl/           b \Biggr\backslash
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 199)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\lgroup&quot;</p>
+</aside>
+<p>non-pairing:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+<mrow>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">|</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">|</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">|</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">|</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">|</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">|</mo>
+  <mrow>
+    <mrow>
+      <mo stretchy="false">|</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">|</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">|</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">|</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">|</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">|</mo>
+  <mrow>
+    <mrow>
+      <mo>∥</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">∥</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">∥</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">∥</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">∥</mo>
+  <mi>b</mi>
+  <mo rspace="1.167em" stretchy="true" minsize="3em" maxsize="3em">∥</mo>
+  <mrow>
+    <mrow>
+      <mo>∥</mo>
+      <mi>b</mi>
+    </mrow>
+    <mo stretchy="true">∥</mo>
+  </mrow>
+  <mo lspace="0.500em" stretchy="true" minsize="1.2em" maxsize="1.2em">∥</mo>
+  <mi>b</mi>
+  <mo rspace="0.333em" stretchy="true" minsize="1.8em" maxsize="1.8em">∥</mo>
+  <mo lspace="0" stretchy="true" minsize="2.4em" maxsize="2.4em">∥</mo>
+  <mi>b</mi>
+  <mo stretchy="true" minsize="3em" maxsize="3em">∥</mo>
+</mrow>
+</math>
+</div>
+<pre class="math problematic">
+\left.\arrowvert b \right\arrowvert \ \bigl\arrowvert b \Bigr\arrowvert \ \biggl\arrowvert b \Biggr\arrowvert
+\quad
+\left.\Arrowvert b \right\Arrowvert \ \bigl\Arrowvert b \Bigr\Arrowvert \ \biggl\Arrowvert b \Biggr\Arrowvert
+\quad
+\left.\bracevert b \right\bracevert \ \bigl\bracevert b \Bigr\bracevert \ \biggl\bracevert b \Biggr\bracevert
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 224)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\arrowvert&quot;</p>
+</aside>
+<p>Variable-sized operators:</p>
+<p>Inline: <span class="math problematic">\int\ \iint\ \iiint\ \iiiint\ \idotsint \oint\ \smallint\
+\sum\ \prod\ \coprod\ \bigwedge\ \bigvee\ \bigcap\ \bigcup\ \biguplus\
+\bigsqcup\ \bigodot\ \bigoplus\ \bigotimes</span> and Display:</p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 241)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\idotsint&quot;</p>
+</aside>
+<pre class="math problematic">
+\int\ \iint\ \iiint\ \iiiint\ \idotsint\ \oint\ \smallint\
+\sum\ \prod\ \coprod\ \bigwedge\ \bigvee\ \bigcap\ \bigcup\
+\biguplus\ \bigsqcup\ \bigodot\ \bigoplus\ \bigotimes
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 245)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\idotsint&quot;</p>
+</aside>
+<pre class="math problematic">
+\int_1 f\ \intop_1 f\ \iint_1 f\ \smallint_1 f\ \sum_1\
+\prod_1\ \bigwedge_1\ \bigcap_1\ \biguplus_1\ \bigodot_1\ \int^N\
+\intop^N\ \iiiint^N\ \oint^N\ \smallint^N\ \sum^N\ \coprod^N\
+\bigvee^N\ \bigcup^N\ \bigsqcup^N\ \bigotimes^N
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 249)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\intop&quot;</p>
+</aside>
+<pre class="math problematic">
+\int_1^N\ \intop_1^N\ \iint_1^N\ \iiint_1^N\ \iiiint_1^N\
+\idotsint_1^N\ \oint_1^N\ \smallint_1^N\ \sum_1^N\ \prod_1^N\
+\coprod_1^N\ \bigwedge_1^N\ \bigvee_1^N\ \bigcap_1^N\ \bigcup_1^N
+\ \biguplus_1^N\ \bigsqcup_1^N\ \bigodot_1^N\ \bigoplus_1^N\
+\bigotimes_1^N
+</pre>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 254)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\intop&quot;</p>
+</aside>
+</section>
+<section id="text">
+<h2>Text</h2>
+<p>The text may contain non-ASCII characters: <math xmlns="http://www.w3.org/1998/Math/MathML">
+<msub>
+  <mi>n</mi>
+  <mtext>Stoß</mtext>
+</msub>
+</math>.</p>
+<p>Some text-mode LaTeX commands are supported with <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a> &quot;html&quot;.
+In other output formats, use literal Unicode: <math xmlns="http://www.w3.org/1998/Math/MathML">
+<mtext>ç é è ë ê ñ ů ž ©</mtext>
+</math>
+to get the result of the accent macros
+<span class="math problematic">\text{\c{c} \'e \`e \&quot;e \^e \~n \r{u} \v{z} \textcircled{c}}</span>.</p>
+<aside class="system-message">
+<p class="system-message-title">System Message: WARNING/2 (<span class="docutils literal">../../functional/input/data/math_experiments.rst</span>, line 266)</p>
+<p>TeX to MathML converter `blahtexml` failed:</p>
+<p class="pre-wrap">Unrecognised command &quot;\c&quot;</p>
+</aside>
+</section>
+</main>
+</body>
+</html>

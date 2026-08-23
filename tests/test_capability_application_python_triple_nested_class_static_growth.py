@@ -1,0 +1,142 @@
+"""Tests for growing unplannable goals from three-level nested-namespace Python class-static sdists."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from blackhole_agent.capability_application import (
+    build_application_registry,
+    plan_application_task,
+    run_application_task,
+)
+from blackhole_agent.capability_application_growth import (
+    APPLY_ABSORBED_SLUGS,
+    PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GOAL_KEY,
+    PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GROW_TASK,
+    PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_NPM_DECOY_SLUG,
+    PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_CAPABILITY_ID,
+    PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_SLUG,
+    REPO_ROOT,
+    builtin_application_python_triple_nested_namespace_class_static_growth_plane_proof,
+    grow_application_task,
+    load_python_triple_nested_namespace_class_static_apply_catalog,
+    run_application_python_triple_nested_namespace_class_static_growth_plane,
+    verify_application_python_triple_nested_namespace_class_static_growth_plane,
+)
+from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
+from blackhole_agent.capability_forage_growth import match_forage_goal, strip_declared_provides
+from blackhole_agent.capability_forage_targets import forage_request_for, query_from_goal, rank_catalog
+from blackhole_agent.kernel_leftover import leftover_marker_ids
+
+
+def test_python_triple_nested_namespace_class_static_catalog_is_live_fetched_sdist() -> None:
+    catalog = load_python_triple_nested_namespace_class_static_apply_catalog()
+    assert catalog["query"] == query_from_goal(PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GROW_TASK.goal)
+    assert catalog["network_used"] is False
+    assert "npm" in catalog["registries"] and "pypi" in catalog["registries"]
+    assert not any(item.get("source") or item.get("replay_source") for item in catalog["items"])
+    winner = next(
+        item
+        for item in catalog["items"]
+        if item["slug"] == PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_SLUG
+    )
+    request = forage_request_for(winner, live_fetch=True)
+    assert request["origin"]["kind"] == "pypi-live"
+    assert Path(request["source"]).is_file()
+
+
+def test_python_triple_nested_namespace_class_static_match_selects_docutils() -> None:
+    catalog = load_python_triple_nested_namespace_class_static_apply_catalog()
+    absorbed = sorted(APPLY_ABSORBED_SLUGS)
+    trend = rank_catalog(strip_declared_provides(catalog["items"]), absorbed=absorbed)
+    assert trend["winner"]["slug"] == PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_NPM_DECOY_SLUG
+    matched = match_forage_goal(
+        (PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GOAL_KEY,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        live_fetch=True,
+    )
+    assert matched["ok"], matched
+    assert matched["winner"]["slug"] == PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_SLUG
+    covering = matched["covering"] or {}
+    assert PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GOAL_KEY in covering["inferred_provides"]
+    assert covering.get("python_triple_nested_namespace_class_static") is True
+    assert covering.get("python_deep_nested_namespace_class_static") is False
+    assert covering.get("python_nested_namespace_class_static") is False
+    assert covering.get("python_deep_nested_namespace_function") is False
+    assert covering.get("python_nested_namespace_function") is False
+    assert covering.get("python_deep_nested_namespace_class_instance") is False
+    assert covering.get("python_nested_namespace_class_instance") is False
+    assert covering.get("python_class_static") is False
+    assert covering.get("python_class_instance") is False
+    assert covering.get("named_export_class") is False
+    assert covering.get("default_export") is False
+    assert covering.get("default_export_class") is False
+    assert covering.get("default_export_object") is False
+
+
+def test_grow_from_python_triple_nested_namespace_class_static_catalog_forages_docutils() -> None:
+    catalog = load_python_triple_nested_namespace_class_static_apply_catalog()
+    result = grow_application_task(
+        PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GROW_TASK,
+        catalog=catalog,
+        forage=True,
+        hide_before=[PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_CAPABILITY_ID],
+        live_fetch=True,
+    )
+    assert result["ok"], result
+    assert result["grew"] is True
+    assert result["winner_slug"] == PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_SLUG
+    assert (result.get("forage") or {}).get("origin", {}).get("kind") == "pypi-live"
+
+
+def test_python_triple_nested_namespace_class_static_plane_grows_and_rejects_tamper(
+    tmp_path: Path,
+) -> None:
+    report_dir = tmp_path / "report"
+    plane = run_application_python_triple_nested_namespace_class_static_growth_plane(report_dir)
+    assert plane["ok"], plane
+    assert plane["winner"] == PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_SLUG
+    assert plane["grade"]["python_triple_nested_namespace_class_static_selected"]
+    assert plane["grade"]["winner_is_python_triple_nested_namespace_class_static"]
+    assert plane["grade"]["winner_is_not_python_deep_nested_namespace_class_static"]
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    hidden = build_application_registry(
+        ledger,
+        hide=[PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_WINNER_CAPABILITY_ID],
+        include_synthesized=True,
+        include_absorbed=True,
+    )
+    assert plan_application_task(PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GROW_TASK, hidden) is None
+    grown = build_application_registry(ledger, include_synthesized=True, include_absorbed=True)
+    solved = run_application_task(PYTHON_TRIPLE_NESTED_NAMESPACE_CLASS_STATIC_GROW_TASK, grown)
+    assert solved["ok"], solved
+    verification = verify_application_python_triple_nested_namespace_class_static_growth_plane(report_dir)
+    assert verification["ok"], verification
+    report_path = report_dir / "plane-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["grade"]["grow_winner_is_docutils"] = False
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
+    assert not verify_application_python_triple_nested_namespace_class_static_growth_plane(report_dir)["ok"]
+
+
+def test_builtin_application_python_triple_nested_namespace_class_static_growth_plane_proof() -> None:
+    result = builtin_application_python_triple_nested_namespace_class_static_growth_plane_proof()
+    assert result["ok"], result
+    assert result["action"] == "application_python_triple_nested_namespace_class_static_growth_plane"
+    assert result["grow_winner_is_docutils"]
+    assert result["python_triple_nested_namespace_class_static_selected"]
+    assert result["winner_is_python_triple_nested_namespace_class_static"]
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class statics "
+        "three submodule levels down so sdists whose API is "
+        "package.subpackage.subpackage.submodule.Class.method rather than a "
+        "two-level package.subpackage.submodule.Class.method can be foraged "
+        "the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-triple-nested-static-growth-plane",
+    )
+    assert result["used_skill_route_discovery"] is False

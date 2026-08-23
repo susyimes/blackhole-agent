@@ -1,0 +1,6030 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="generator" content="Docutils 0.23: https://docutils.sourceforge.io/" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LaTeX syntax for mathematics</title>
+<link rel="stylesheet" href="../../../docutils/writers/html5_polyglot/minimal.css" type="text/css" />
+<link rel="stylesheet" href="../../../docutils/writers/html5_polyglot/responsive.css" type="text/css" />
+</head>
+<body class="with-toc">
+<header>
+<p><a class="reference external" href="https://docutils.sourceforge.io">Docutils</a> | <a class="reference external" href="../../index.html">Overview</a> | <a class="reference external" href="../../index.html#project-fundamentals">About</a> | <a class="reference external" href="../../index.html#user">Users</a> | <a class="reference external" href="../../index.html#ref">Reference</a> | <a class="reference external" href="../../index.html#howto">Developers</a></p>
+</header>
+<main id="latex-syntax-for-mathematics">
+<h1 class="title">LaTeX syntax for mathematics</h1>
+
+<div class="topic abstract" role="doc-abstract">
+<p class="topic-title">Abstract</p>
+<p>Docutils supports mathematical content with a <a class="reference external" href="https://docutils.sourceforge.io/docs/ref/rst/directives.html#math">&quot;math&quot;
+directive</a> and <a class="reference external" href="https://docutils.sourceforge.io/docs/ref/rst/roles.html#math">role</a>. The input format is <em>LaTeX math
+syntax</em><a class="brackets" href="#math-syntax" id="footnote-reference-1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> with support for literal Unicode symbols.</p>
+</div>
+<!-- Minimal menu bar for inclusion in documentation sources
+in ``docutils/docs/*/`` sub-sub-diretories.
+
+Attention: this is not a standalone document. -->
+<nav class="contents" id="contents" role="doc-toc">
+<p class="topic-title"><a class="reference internal" href="#top">Contents</a></p>
+<ul class="auto-toc simple">
+<li><p><a class="reference internal" href="#inline-formulas-and-displayed-equations" id="toc-entry-1"><span class="sectnum">1 </span>Inline formulas and displayed equations</a></p></li>
+<li><p><a class="reference internal" href="#mathematical-symbols" id="toc-entry-2"><span class="sectnum">2 </span>Mathematical symbols</a></p>
+<ul class="auto-toc">
+<li><p><a class="reference internal" href="#accents-and-embellishments" id="toc-entry-3"><span class="sectnum">2.1 </span>Accents and embellishments</a></p></li>
+<li><p><a class="reference internal" href="#binary-operators" id="toc-entry-4"><span class="sectnum">2.2 </span>Binary operators</a></p></li>
+<li><p><a class="reference internal" href="#extensible-delimiters" id="toc-entry-5"><span class="sectnum">2.3 </span>Extensible delimiters</a></p>
+<ul class="auto-toc">
+<li><p><a class="reference internal" href="#pairing-delimiters" id="toc-entry-6"><span class="sectnum">2.3.1 </span>Pairing delimiters</a></p></li>
+<li><p><a class="reference internal" href="#nonpairing-delimiters" id="toc-entry-7"><span class="sectnum">2.3.2 </span>Nonpairing delimiters</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#extensible-vertical-arrows" id="toc-entry-8"><span class="sectnum">2.4 </span>Extensible vertical arrows</a></p></li>
+<li><p><a class="reference internal" href="#functions-named-operators" id="toc-entry-9"><span class="sectnum">2.5 </span>Functions (named operators)</a></p></li>
+<li><p><a class="reference internal" href="#greek-letters" id="toc-entry-10"><span class="sectnum">2.6 </span>Greek letters</a></p></li>
+<li><p><a class="reference internal" href="#letterlike-symbols" id="toc-entry-11"><span class="sectnum">2.7 </span>Letterlike symbols</a></p></li>
+<li><p><a class="reference internal" href="#math-alphabets" id="toc-entry-12"><span class="sectnum">2.8 </span>Math alphabets</a></p></li>
+<li><p><a class="reference internal" href="#miscellaneous-symbols" id="toc-entry-13"><span class="sectnum">2.9 </span>Miscellaneous symbols</a></p></li>
+<li><p><a class="reference internal" href="#punctuation" id="toc-entry-14"><span class="sectnum">2.10 </span>Punctuation</a></p></li>
+<li><p><a class="reference internal" href="#relation-symbols" id="toc-entry-15"><span class="sectnum">2.11 </span>Relation symbols</a></p>
+<ul class="auto-toc">
+<li><p><a class="reference internal" href="#arrows" id="toc-entry-16"><span class="sectnum">2.11.1 </span>Arrows</a></p></li>
+<li><p><a class="reference internal" href="#comparison" id="toc-entry-17"><span class="sectnum">2.11.2 </span>Comparison</a></p></li>
+<li><p><a class="reference internal" href="#miscellaneous-relations" id="toc-entry-18"><span class="sectnum">2.11.3 </span>Miscellaneous relations</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#variable-sized-operators" id="toc-entry-19"><span class="sectnum">2.12 </span>Variable-sized operators</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#notations" id="toc-entry-20"><span class="sectnum">3 </span>Notations</a></p>
+<ul class="auto-toc">
+<li><p><a class="reference internal" href="#top-and-bottom-embellishments" id="toc-entry-21"><span class="sectnum">3.1 </span>Top and bottom embellishments</a></p></li>
+<li><p><a class="reference internal" href="#extensible-arrows" id="toc-entry-22"><span class="sectnum">3.2 </span>Extensible arrows</a></p></li>
+<li><p><a class="reference internal" href="#affixing-symbols-to-other-symbols" id="toc-entry-23"><span class="sectnum">3.3 </span>Affixing symbols to other symbols</a></p></li>
+<li><p><a class="reference internal" href="#matrices" id="toc-entry-24"><span class="sectnum">3.4 </span>Matrices</a></p></li>
+<li><p><a class="reference internal" href="#spacing-commands" id="toc-entry-25"><span class="sectnum">3.5 </span>Spacing commands</a></p></li>
+<li><p><a class="reference internal" href="#modular-arithmetic-and-modulo-operation" id="toc-entry-26"><span class="sectnum">3.6 </span>Modular arithmetic and modulo operation</a></p></li>
+<li><p><a class="reference internal" href="#roots" id="toc-entry-27"><span class="sectnum">3.7 </span>Roots</a></p></li>
+<li><p><a class="reference internal" href="#boxed-formulas" id="toc-entry-28"><span class="sectnum">3.8 </span>Boxed formulas</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#fractions-and-related-constructions" id="toc-entry-29"><span class="sectnum">4 </span>Fractions and related constructions</a></p></li>
+<li><p><a class="reference internal" href="#delimiter-sizes" id="toc-entry-30"><span class="sectnum">5 </span>Delimiter sizes</a></p></li>
+<li><p><a class="reference internal" href="#text" id="toc-entry-31"><span class="sectnum">6 </span>Text</a></p></li>
+<li><p><a class="reference internal" href="#integrals-and-sums" id="toc-entry-32"><span class="sectnum">7 </span>Integrals and sums</a></p>
+<ul class="auto-toc">
+<li><p><a class="reference internal" href="#altering-the-placement-of-limits" id="toc-entry-33"><span class="sectnum">7.1 </span>Altering the placement of limits</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#changing-the-size-of-elements-in-a-formula" id="toc-entry-34"><span class="sectnum">8 </span>Changing the size of elements in a formula</a></p></li>
+</ul>
+</nav>
+<section id="inline-formulas-and-displayed-equations">
+<h2><a class="toc-backref" href="#toc-entry-1" role="doc-backlink"><span class="sectnum">1 </span>Inline formulas and displayed equations</a></h2>
+<p>The <strong>math role</strong> can be used for inline mathematical expressions:
+<span class="docutils literal"><span class="pre">:math:`\psi(r)</span> = <span class="pre">\exp(-2r)`</span></span> will produce <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ψ</mi>
+  <mo stretchy="false">(</mo>
+  <mi>r</mi>
+  <mo stretchy="false">)</mo>
+  <mo>=</mo>
+  <mi>exp</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mo form="prefix">−</mo>
+  <mn>2</mn>
+  <mi>r</mi>
+  <mo stretchy="false">)</mo>
+</math>.
+Inside the backtics you can write anything you would write between dollar
+signs in a LaTeX document.  <a class="brackets" href="#math-syntax" id="footnote-reference-2" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p>
+<aside class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you put <span class="docutils literal">.. <span class="pre">default-role::</span> math</span> at the top of your
+document, you can write <span class="docutils literal">`x^2`</span> instead of the longer
+version: <span class="docutils literal"><span class="pre">:math:`x^2`</span></span>.  You can also introduce an
+abbreviation like this <span class="docutils literal">.. role:: m(math)</span>.  That will allow
+you to write <span class="docutils literal"><span class="pre">:m:`x^2`</span></span> or <span class="docutils literal"><span class="pre">`x^2`:m:</span></span>.</p>
+</aside>
+<p>The <strong>math directive</strong> is used for displayed equations. It corresponds to
+an <span class="docutils literal">equation*</span> or <span class="docutils literal">align*</span> environment in a LaTeX document. If you
+write:</p>
+<pre class="literal-block">.. math:: \psi(r) = e^{-2r}</pre>
+<p>you will get:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>ψ</mi>
+  <mo stretchy="false">(</mo>
+  <mi>r</mi>
+  <mo stretchy="false">)</mo>
+  <mo>=</mo>
+  <msup>
+    <mi>e</mi>
+    <mrow>
+      <mo>−</mo>
+      <mn>2</mn>
+      <mi>r</mi>
+    </mrow>
+  </msup>
+</math>
+</div>
+<p>A more complex example is the definition of the <a class="reference internal" href="#fourier-transform">Fourier transform</a>:</p>
+<pre class="literal-block">.. math::
+   :name: Fourier transform
+
+   (\mathcal{F}f)(y)
+    = \frac{1}{\sqrt{2\pi}^{\ n}}
+      \int_{\mathbb{R}^n} f(x)\,
+      e^{-\mathrm{i} y \cdot x} \,\mathrm{d} x.</pre>
+<p>which is rendered as:</p>
+<div id="fourier-transform">
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mo stretchy="false">(</mo>
+  <mi>ℱ</mi>
+  <mi>f</mi>
+  <mo stretchy="false">)</mo>
+  <mo stretchy="false">(</mo>
+  <mi>y</mi>
+  <mo stretchy="false">)</mo>
+  <mo>=</mo>
+  <mfrac>
+    <mn>1</mn>
+    <msup>
+      <msqrt>
+        <mn>2</mn>
+        <mi>π</mi>
+      </msqrt>
+      <mrow>
+        <mspace width="0.25em"></mspace>
+        <mi>n</mi>
+      </mrow>
+    </msup>
+  </mfrac>
+  <msub>
+    <mo>∫</mo>
+    <msup>
+      <mi>ℝ</mi>
+      <mi>n</mi>
+    </msup>
+  </msub>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mspace width="0.1667em"></mspace>
+  <msup>
+    <mi>e</mi>
+    <mrow>
+      <mo>−</mo>
+      <mi mathvariant="normal">i</mi>
+      <mi>y</mi>
+      <mo>⋅</mo>
+      <mi>x</mi>
+    </mrow>
+  </msup>
+  <mspace width="0.1667em"></mspace>
+  <mi mathvariant="normal">d</mi>
+  <mi>x</mi>
+  <mo>.</mo>
+</math>
+</div>
+<p>The <span class="docutils literal">:name:</span> option puts a label on the equation that can be
+linked to by <a class="reference external" href="../ref/rst/restructuredtext.html#hyperlink-references">hyperlink references</a>.</p>
+<p>Displayed equations can use <span class="docutils literal">\\</span> and <span class="docutils literal">&amp;</span> for line shifts and alignments:</p>
+<pre class="literal-block">.. math::
+
+ a &amp;= (x + y)^2         &amp;  b &amp;= (x - y)^2 \\
+   &amp;= x^2 + 2xy + y^2   &amp;    &amp;= x^2 - 2xy + y^2</pre>
+<p>LaTeX output will wrap it in an <span class="docutils literal">align*</span> environment.
+The result is:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mtable class="ams-align" displaystyle="true">
+    <mtr>
+      <mtd>
+        <mi>a</mi>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mo stretchy="false">(</mo>
+        <mi>x</mi>
+        <mo>+</mo>
+        <mi>y</mi>
+        <msup>
+          <mo stretchy="false">)</mo>
+          <mn>2</mn>
+        </msup>
+      </mtd>
+      <mtd>
+        <mi>b</mi>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mo stretchy="false">(</mo>
+        <mi>x</mi>
+        <mo>−</mo>
+        <mi>y</mi>
+        <msup>
+          <mo stretchy="false">)</mo>
+          <mn>2</mn>
+        </msup>
+      </mtd>
+    </mtr>
+    <mtr>
+      <mtd></mtd>
+      <mtd>
+        <mo>=</mo>
+        <msup>
+          <mi>x</mi>
+          <mn>2</mn>
+        </msup>
+        <mo>+</mo>
+        <mn>2</mn>
+        <mi>x</mi>
+        <mi>y</mi>
+        <mo>+</mo>
+        <msup>
+          <mi>y</mi>
+          <mn>2</mn>
+        </msup>
+      </mtd>
+      <mtd></mtd>
+      <mtd>
+        <mo>=</mo>
+        <msup>
+          <mi>x</mi>
+          <mn>2</mn>
+        </msup>
+        <mo>−</mo>
+        <mn>2</mn>
+        <mi>x</mi>
+        <mi>y</mi>
+        <mo>+</mo>
+        <msup>
+          <mi>y</mi>
+          <mn>2</mn>
+        </msup>
+      </mtd>
+    </mtr>
+  </mtable>
+</math>
+</div>
+<p>The <span class="docutils literal">aligned</span> environment can be used as a component in a containing
+expression. E.g.,</p>
+<pre class="literal-block">.. math::
+  \left.
+    \begin{aligned}
+      B' &amp; = -\partial\times E,         \\
+      E' &amp; = \partial\times B - 4\pi j,
+    \end{aligned}
+  \right\}
+  \qquad \text{Maxwell’s equations}</pre>
+<p>results in</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mtable class="ams-align">
+      <mtr>
+        <mtd>
+          <mi>B</mi>
+          <mo>'</mo>
+        </mtd>
+        <mtd>
+          <mo>=</mo>
+          <mo form="prefix">−</mo>
+          <mi>∂</mi>
+          <mo>×</mo>
+          <mi>E</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>E</mi>
+          <mo>'</mo>
+        </mtd>
+        <mtd>
+          <mo>=</mo>
+          <mi>∂</mi>
+          <mo>×</mo>
+          <mi>B</mi>
+          <mo>−</mo>
+          <mn>4</mn>
+          <mi>π</mi>
+          <mi>j</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mspace width="0.2778em"></mspace>
+    <mo>}</mo>
+  </mrow>
+  <mspace width="2em"></mspace>
+  <mtext>Maxwell’s equations.</mtext>
+</math>
+</div>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="math-syntax" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#footnote-reference-1">1</a>,<a role="doc-backlink" href="#footnote-reference-2">2</a>)</span>
+<p>The supported LaTeX commands include AMS extensions
+(see, e.g., the <a class="reference external" href="https://mirrors.ctan.org/info/short-math-guide/short-math-guide.pdf">Short Math Guide</a>). Some of the shown symbols
+require the &quot;amssymb&quot; <a class="reference external" href="../../user/latex.html#latex-document-classes-and-packages">LaTeX package</a> (or another package providing
+the AMS symbol macros) when exported with the &quot;latex&quot; writer.</p>
+<p>The support is limited to a subset of <em>LaTeX math</em> by the conversion
+required for many output formats.  For HTML, the <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a>
+configuration setting (or the corresponding <span class="docutils literal"><span class="pre">--math-output</span></span> command
+line option) selects between alternative output formats with different
+subsets of supported elements. If a writer does not support math
+typesetting, the content is inserted verbatim.</p>
+</aside>
+</aside>
+</section>
+<section id="mathematical-symbols">
+<h2><a class="toc-backref" href="#toc-entry-2" role="doc-backlink"><span class="sectnum">2 </span>Mathematical symbols</a></h2>
+<p>The following tables are adapted from the first edition of
+&quot;The LaTeX Companion&quot; (Goossens, Mittelbach, Samarin) and the
+AMS <a class="reference external" href="https://mirrors.ctan.org/info/short-math-guide/short-math-guide.pdf">Short Math Guide</a>.</p>
+<section id="accents-and-embellishments">
+<h3><a class="toc-backref" href="#toc-entry-3" role="doc-backlink"><span class="sectnum">2.1 </span>Accents and embellishments</a></h3>
+<p>The &quot;narrow&quot; accents are intended for a single-letter base.</p>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false">´</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\acute{x}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>t</mi>
+    <mo stretchy="false">˙</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\dot{t}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false">`</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\grave{x}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false" scriptlevel="+1">→</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\vec{x}</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>v</mi>
+    <mo stretchy="false">ˉ</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\bar{v}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>t</mi>
+    <mo stretchy="false">¨</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\ddot{t}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false">ˆ</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\hat{x}</span></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false">˘</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\breve{x}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>t</mi>
+    <mo stretchy="false">˙˙˙</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\dddot{t}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false">˚</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\mathring{x}</span></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>x</mi>
+    <mo stretchy="false">ˇ</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\check{x}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>t</mi>
+    <mo stretchy="false">˙˙˙˙</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\ddddot{t}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>n</mi>
+    <mo stretchy="false">~</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\tilde{n}</span></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>When adding an accent to an i or j in math, dotless variants can be
+obtained with <span class="docutils literal">\imath</span> and <span class="docutils literal">\jmath</span>: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>ı</mi>
+    <mo stretchy="false">ˆ</mo>
+  </mover>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>ȷ</mi>
+    <mo stretchy="false" scriptlevel="+1">→</mo>
+  </mover>
+</math>.</p>
+<p>For embellishments that span multiple symbols, use:</p>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">~</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\widetilde{gbi}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">^</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\widehat{gbi}</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">_</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\overline{gbi}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo>_</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\underline{gbi}</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">⏞</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\overbrace{gbi}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo>⏟</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\underbrace{gbi}</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">←</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\overleftarrow{gbi}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo>←</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\underleftarrow{gbi}</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">→</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\overrightarrow{gbi}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo>→</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\underrightarrow{gbi}</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo accent="true">↔</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\overleftrightarrow{gbi}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mrow>
+      <mi>g</mi>
+      <mi>b</mi>
+      <mi>i</mi>
+    </mrow>
+    <mo>↔</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\underleftrightarrow{gbi}</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="binary-operators">
+<h3><a class="toc-backref" href="#toc-entry-4" role="doc-backlink"><span class="sectnum">2.2 </span>Binary operators</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>*</mo>
+</math></p></td>
+<td><p><span class="docutils literal">*</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊛</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circledast</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ominus</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>+</mo>
+</math></p></td>
+<td><p><span class="docutils literal">+</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊚</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circledcirc</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊕</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\oplus</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>−</mo>
+</math></p></td>
+<td><p><span class="docutils literal">-</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊝</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circleddash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊘</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\oslash</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∶</mo>
+</math></p></td>
+<td><p><span class="docutils literal">:</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∪</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\cup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊗</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\otimes</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋒</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Cap</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋎</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\curlyvee</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>±</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\pm</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋓</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Cup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋏</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\curlywedge</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋌</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightthreetimes</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⨿</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\amalg</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>†</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dagger</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋊</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rtimes</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∗</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ast</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>‡</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ddagger</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⧵</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\setminus</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>◯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\bigcirc</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋄</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\diamond</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\smallsetminus</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>▽</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\bigtriangledown</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>÷</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\div</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊓</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sqcap</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>△</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\bigtriangleup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋇</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\divideontimes</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊔</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sqcup</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊡</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\boxdot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∔</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dotplus</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋆</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\star</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊟</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\boxminus</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⩞</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\doublebarwedge</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>×</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\times</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊞</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\boxplus</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋗</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gtrdot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>◃</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\triangleleft</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊠</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\boxtimes</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊺</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\intercal</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>▹</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\triangleright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>•</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\bullet</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftthreetimes</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊎</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\uplus</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∩</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\cap</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lessdot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∨</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vee</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋅</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\cdot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋉</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ltimes</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊻</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\veebar</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⬝</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\centerdot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∓</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\mp</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∧</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\wedge</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∘</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circ</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊙</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\odot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≀</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\wr</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="extensible-delimiters">
+<h3><a class="toc-backref" href="#toc-entry-5" role="doc-backlink"><span class="sectnum">2.3 </span>Extensible delimiters</a></h3>
+<p>Unless you indicate otherwise, delimiters in math formulas remain at the
+standard size regardless of the height of the enclosed material. To get
+adaptable sizes, use <span class="docutils literal">\left</span> and <span class="docutils literal">\right</span> prefixes, for example
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>g</mi>
+  <mo stretchy="false">(</mo>
+  <mi>A</mi>
+  <mo>,</mo>
+  <mi>B</mi>
+  <mo>,</mo>
+  <mi>Y</mi>
+  <mo stretchy="false">)</mo>
+  <mo>=</mo>
+  <mi>f</mi>
+  <mrow>
+    <mo>(</mo>
+    <mi>A</mi>
+    <mo>,</mo>
+    <mi>B</mi>
+    <mo>,</mo>
+    <mi>X</mi>
+    <mo>=</mo>
+    <msup>
+      <mi>h</mi>
+      <mrow>
+        <mo stretchy="false">[</mo>
+        <mi>X</mi>
+        <mo stretchy="false">]</mo>
+      </mrow>
+    </msup>
+    <mo stretchy="false">(</mo>
+    <mi>Y</mi>
+    <mo stretchy="false">)</mo>
+    <mo>)</mo>
+  </mrow>
+</math> or</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msub>
+    <mi>a</mi>
+    <mi>n</mi>
+  </msub>
+  <mo>=</mo>
+  <msup>
+    <mrow>
+      <mo>(</mo>
+      <mfrac>
+        <mn>1</mn>
+        <mn>2</mn>
+      </mfrac>
+      <mo>)</mo>
+    </mrow>
+    <mi>n</mi>
+  </msup>
+</math>
+</div>
+<p>Use <span class="docutils literal">.</span> for &quot;empty&quot; delimiters:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>A</mi>
+  <mo>=</mo>
+  <msubsup>
+    <mrow>
+      <mfrac>
+        <mn>1</mn>
+        <mrow>
+          <mn>1</mn>
+          <mo>−</mo>
+          <mi>n</mi>
+        </mrow>
+      </mfrac>
+      <mspace width="0.1667em"></mspace>
+      <mo>|</mo>
+    </mrow>
+    <mrow>
+      <mi>n</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mi>∞</mi>
+  </msubsup>
+</math>
+</div>
+<p>See also the commands for fixed <a class="reference internal" href="#delimiter-sizes">delimiter sizes</a> below.</p>
+<p>The following symbols extend when used with <span class="docutils literal">\left</span> and <span class="docutils literal">\right</span>:</p>
+<section id="pairing-delimiters">
+<h4><a class="toc-backref" href="#toc-entry-6" role="doc-backlink"><span class="sectnum">2.3.1 </span>Pairing delimiters</a></h4>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+<td><p><span class="docutils literal">( )</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟨</mo>
+  <mo>⟩</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\langle \rangle</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">[</mo>
+  <mo stretchy="false">]</mo>
+</math></p></td>
+<td><p><span class="docutils literal">[ ]</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⌈</mo>
+  <mo>⌉</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lceil \rceil</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>{</mo>
+  <mo>}</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\{ \}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⌊</mo>
+  <mo>⌋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lfloor \rfloor</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo class="mathopen">|</mo>
+  <mo>|</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lvert \rvert</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟮</mo>
+  <mo>⟯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lgroup \rgroup</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo class="mathopen">‖</mo>
+  <mo>‖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lVert \rVert</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⎰</mi>
+  <mi>⎱</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\lmoustache \rmoustache</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="nonpairing-delimiters">
+<h4><a class="toc-backref" href="#toc-entry-7" role="doc-backlink"><span class="sectnum">2.3.2 </span>Nonpairing delimiters</a></h4>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">|</mo>
+</math></p></td>
+<td><p><span class="docutils literal">|</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>|</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vert</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⏐</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\arrowvert</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>‖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\|</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>‖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Vert</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>‖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Arrowvert</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">/</mo>
+</math></p></td>
+<td><p><span class="docutils literal">/</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>\</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\backslash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⎪</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\bracevert</span></p></td>
+</tr>
+</tbody>
+</table>
+<p>The use of <span class="docutils literal">|</span> and <span class="docutils literal">\|</span> for pairs of vertical bars may produce
+incorrect spacing, e.g., <span class="docutils literal"><span class="pre">|k|=|-k|</span></span> produces <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">|</mo>
+  <mi>k</mi>
+  <mo stretchy="false">|</mo>
+  <mo>=</mo>
+  <mo stretchy="false">|</mo>
+  <mo>−</mo>
+  <mi>k</mi>
+  <mo stretchy="false">|</mo>
+</math> and
+<span class="docutils literal">|\sin(x)|</span> produces <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">|</mo>
+  <mi>sin</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mo stretchy="false">|</mo>
+</math>. The pairing delimiters, e.g.
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo class="mathopen">|</mo>
+  <mo form="prefix">−</mo>
+  <mi>k</mi>
+  <mo>|</mo>
+</math> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo class="mathopen">|</mo>
+  <mi>sin</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mo>|</mo>
+</math>, prevent this problem.</p>
+</section>
+</section>
+<section id="extensible-vertical-arrows">
+<h3><a class="toc-backref" href="#toc-entry-8" role="doc-backlink"><span class="sectnum">2.4 </span>Extensible vertical arrows</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↑</mo>
+</math>     <span class="docutils literal">\uparrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇑</mo>
+</math>     <span class="docutils literal">\Uparrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↓</mo>
+</math>   <span class="docutils literal">\downarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇓</mo>
+</math>   <span class="docutils literal">\Downarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↕</mo>
+</math> <span class="docutils literal">\updownarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇕</mo>
+</math> <span class="docutils literal">\Updownarrow</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="functions-named-operators">
+<h3><a class="toc-backref" href="#toc-entry-9" role="doc-backlink"><span class="sectnum">2.5 </span>Functions (named operators)</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>arccos</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\arccos</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>gcd</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\gcd</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>Pr</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Pr</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>arcsin</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\arcsin</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>hom</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\hom</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>proj lim</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\projlim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>arctan</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\arctan</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>inf</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\inf</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>sec</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\sec</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>arg</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\arg</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>inj lim</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\injlim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>sin</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\sin</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>cos</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\cos</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ker</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\ker</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>sinh</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\sinh</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>cosh</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\cosh</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>lg</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\lg</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>sup</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sup</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>cot</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\cot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>lim</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>tan</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\tan</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>coth</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\coth</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>lim inf</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\liminf</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>tanh</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\tanh</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>csc</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\csc</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>lim sup</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\limsup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mi>lim</mi>
+    <mo>¯</mo>
+  </mover>
+</math></p></td>
+<td><p><span class="docutils literal">\varlimsup</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>deg</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\deg</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ln</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\ln</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mi>lim</mi>
+    <mo>_</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\varliminf</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>det</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\det</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>log</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\log</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mi>lim</mi>
+    <mo>←</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\varprojlim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>dim</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\dim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>max</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\max</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mi>lim</mi>
+    <mo>→</mo>
+  </munder>
+</math></p></td>
+<td><p><span class="docutils literal">\varinjlim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>exp</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\exp</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>min</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\min</span></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Named operators outside the above list can be typeset with
+<span class="docutils literal">\operatorname{name}</span>, e.g.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi mathvariant="normal">sgn</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mo form="prefix">−</mo>
+  <mn>3</mn>
+  <mo stretchy="false">)</mo>
+  <mo>=</mo>
+  <mo form="prefix">−</mo>
+  <mn>1</mn>
+  <mo>.</mo>
+</math>
+</div>
+<!-- TODO: \operatorname* for function name with limits. -->
+<p>The <span class="docutils literal">\DeclareMathOperator</span> command can only be used in the
+<a class="reference external" href="latex.html#latex-preamble">LaTeX preamble</a>.</p>
+</section>
+<section id="greek-letters">
+<h3><a class="toc-backref" href="#toc-entry-10" role="doc-backlink"><span class="sectnum">2.6 </span>Greek letters</a></h3>
+<p>Greek letters that have Latin look-alikes are rarely used in math
+formulas and not supported by LaTeX.</p>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Γ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Gamma</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>α</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\alpha</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>μ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\mu</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ω</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\omega</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Δ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Delta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>β</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\beta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ν</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\nu</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϝ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\digamma</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Λ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Lambda</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>γ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\gamma</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ξ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\xi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ε</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\varepsilon</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Φ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Phi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>δ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\delta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>π</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\pi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϰ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\varkappa</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Π</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Pi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϵ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\epsilon</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ρ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\rho</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>φ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\varphi</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Ψ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Psi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ζ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\zeta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>σ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\sigma</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϖ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\varpi</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Σ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Sigma</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>η</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\eta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>τ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\tau</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϱ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\varrho</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Θ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Theta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>θ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\theta</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>υ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\upsilon</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ς</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\varsigma</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Υ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Upsilon</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ι</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\iota</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϕ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\phi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ϑ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\vartheta</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Ξ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Xi</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>κ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\kappa</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>χ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\chi</span></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi class="capital-greek">Ω</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Omega</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>λ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\lambda</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ψ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\psi</span></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>In LaTeX, the default font for capital Greek letters is upright/roman.
+<em>Italic</em> capital Greek letters can be obtained by loading a <a class="reference external" href="https://mirrors.ctan.org/macros/latex/contrib/isomath/isomath.html#table-2">package
+providing the &quot;ISO&quot; math style</a>. They are used by default in MathML.</p>
+<p>Individual Greek italic capitals can also be achieved preceding the
+letter name with <span class="docutils literal">var</span> like <span class="docutils literal">\varPhi</span>:
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>𝛤</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛥</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛬</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛷</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛱</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛹</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛴</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛩</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛶</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛯</mi>
+  <mspace width="0.25em"></mspace>
+  <mi>𝛺</mi>
+</math></p>
+</section>
+<section id="letterlike-symbols">
+<h3><a class="toc-backref" href="#toc-entry-11" role="doc-backlink"><span class="sectnum">2.7 </span>Letterlike symbols</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∀</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\forall</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℵ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\aleph</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℏ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\hbar</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℓ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\ell</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∁</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\complement</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℶ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\beth</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℏ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\hslash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>℘</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\wp</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∃</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\exists</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℷ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\gimel</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℑ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Im</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℜ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Re</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>Ⅎ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Finv</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℸ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\daleth</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ı</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\imath</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>Ⓡ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\circledR</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⅁</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Game</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∂</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\partial</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ȷ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\jmath</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>Ⓢ</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\circledS</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>℧</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\mho</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ð</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\eth</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>𝕜</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\Bbbk</span></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="math-alphabets">
+<span id="math-alphabet"></span><h3><a class="toc-backref" href="#toc-entry-12" role="doc-backlink"><span class="sectnum">2.8 </span>Math alphabets</a></h3>
+<p>The TeX <em>math alphabet</em> macros are intended for mathematical variables
+where style variations are important semantically.
+They style letters and numbers with a combination of font attributes
+(shape, weight, family) --- non-alphanumerical symbols, function names,
+and mathematical text are left unchanged.</p>
+<p>MathML uses the <em>mathvariant</em> <a class="reference external" href="https://www.w3.org/TR/mathml4/#presm_commatt">style attribute</a> or pre-styled characters
+from the <a class="reference external" href="https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols">Mathematical Alphanumeric Symbols</a> Unicode block.</p>
+<table>
+<thead>
+<tr><th class="head"><p>command</p></th>
+<th class="head"><p>example</p></th>
+<th class="head"><p>result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr><td><p><span class="docutils literal">\mathrm</span></p></td>
+<td><p><span class="docutils literal">s_\mathrm{out}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>s</mi>
+    <mi>out</mi>
+  </msub>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathbf</span></p></td>
+<td><p><span class="docutils literal"><span class="pre">\mathbf{r}^2=x^2+y^2</span></span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msup>
+    <mi>𝐫</mi>
+    <mn>2</mn>
+  </msup>
+  <mo>=</mo>
+  <msup>
+    <mi>x</mi>
+    <mn>2</mn>
+  </msup>
+  <mo>+</mo>
+  <msup>
+    <mi>y</mi>
+    <mn>2</mn>
+  </msup>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathit</span></p></td>
+<td><p><span class="docutils literal"><span class="pre">\mathit{\sin\Gamma}</span></span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>sin</mi>
+    <mo>&ApplyFunction;</mo>
+    <mi class="capital-greek">𝛤</mi>
+  </mrow>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathcal</span></p></td>
+<td><p><span class="docutils literal">\mathcal{F}f(x)</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>ℱ</mi>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathbb</span></p></td>
+<td><p><span class="docutils literal">\mathbb{R \subset C}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>ℝ</mi>
+    <mo>⊂</mo>
+    <mi>ℂ</mi>
+  </mrow>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathfrak</span></p></td>
+<td><p><span class="docutils literal">\mathfrak{a+b}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝔞</mi>
+    <mo>+</mo>
+    <mi>𝔟</mi>
+  </mrow>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathsf</span></p></td>
+<td><p><span class="docutils literal">\mathsf x</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>𝗑</mi>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mathtt</span></p></td>
+<td><p><span class="docutils literal">\mathtt{0.12}</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>𝟶.𝟷𝟸</mn>
+</math></p></td>
+</tr>
+</tbody>
+</table>
+<p>The set of characters in a given &quot;math alphabet&quot; varies.
+LaTeX may produce garbage for unsupported characters.
+Additional math alphabets are defined in LaTeX packages, e.g.,</p>
+<ul class="simple">
+<li><p><span class="docutils literal">\mathbfit</span> from <a class="reference external" href="https://www.ctan.org/pkg/isomath">isomath</a> allows vector symbols in line with the
+International Standard <a class="citation-reference" href="#iso-80000-2" id="citation-reference-1" role="doc-biblioref">[ISO-80000-2]</a>.
+E.g., <span class="docutils literal"><span class="pre">\mathbfit{r}^2=x^2+y^2</span></span> becomes <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msup>
+    <mi>𝒓</mi>
+    <mn>2</mn>
+  </msup>
+  <mo>=</mo>
+  <msup>
+    <mi>x</mi>
+    <mn>2</mn>
+  </msup>
+  <mo>+</mo>
+  <msup>
+    <mi>y</mi>
+    <mn>2</mn>
+  </msup>
+</math>.</p></li>
+<li><p>Several packages, e.g. <a class="reference external" href="https://www.ctan.org/pkg/mathrsfs">mathrsfs</a>, define <span class="docutils literal">\mathscr</span> that selects a
+differently shaped &quot;script&quot; alphabet.</p></li>
+</ul>
+<p>The listing below shows the characters supported by Unicode and
+Docutils with <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a> MathML. <a class="brackets" href="#italic-digits" id="footnote-reference-3" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a></p>
+<dl class="simple">
+<dt>default:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>A</mi>
+    <mi>B</mi>
+    <mi>C</mi>
+    <mi>D</mi>
+    <mi>E</mi>
+    <mi>F</mi>
+    <mi>G</mi>
+    <mi>H</mi>
+    <mi>I</mi>
+    <mi>J</mi>
+    <mi>K</mi>
+    <mi>L</mi>
+    <mi>M</mi>
+    <mi>N</mi>
+    <mi>O</mi>
+    <mi>P</mi>
+    <mi>Q</mi>
+    <mi>R</mi>
+    <mi>S</mi>
+    <mi>T</mi>
+    <mi>U</mi>
+    <mi>V</mi>
+    <mi>W</mi>
+    <mi>X</mi>
+    <mi>Y</mi>
+    <mi>Z</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>a</mi>
+    <mi>b</mi>
+    <mi>c</mi>
+    <mi>d</mi>
+    <mi>e</mi>
+    <mi>f</mi>
+    <mi>g</mi>
+    <mi>h</mi>
+    <mi>i</mi>
+    <mi>j</mi>
+    <mi>k</mi>
+    <mi>l</mi>
+    <mi>m</mi>
+    <mi>n</mi>
+    <mi>o</mi>
+    <mi>p</mi>
+    <mi>q</mi>
+    <mi>r</mi>
+    <mi>s</mi>
+    <mi>t</mi>
+    <mi>u</mi>
+    <mi>v</mi>
+    <mi>w</mi>
+    <mi>x</mi>
+    <mi>y</mi>
+    <mi>z</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>ı</mi>
+    <mi>ȷ</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek">Γ</mi>
+    <mi class="capital-greek">Δ</mi>
+    <mi class="capital-greek">Θ</mi>
+    <mi class="capital-greek">Λ</mi>
+    <mi class="capital-greek">Ξ</mi>
+    <mi class="capital-greek">Π</mi>
+    <mi class="capital-greek">Σ</mi>
+    <mi class="capital-greek">Υ</mi>
+    <mi class="capital-greek">Φ</mi>
+    <mi class="capital-greek">Ψ</mi>
+    <mi class="capital-greek">Ω</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>α</mi>
+    <mi>β</mi>
+    <mi>γ</mi>
+    <mi>δ</mi>
+    <mi>ε</mi>
+    <mi>ζ</mi>
+    <mi>η</mi>
+    <mi>θ</mi>
+    <mi>ι</mi>
+    <mi>κ</mi>
+    <mi>λ</mi>
+    <mi>μ</mi>
+    <mi>ν</mi>
+    <mi>ξ</mi>
+    <mi>π</mi>
+    <mi>ρ</mi>
+    <mi>ς</mi>
+    <mi>σ</mi>
+    <mi>τ</mi>
+    <mi>υ</mi>
+    <mi>φ</mi>
+    <mi>χ</mi>
+    <mi>ψ</mi>
+    <mi>ω</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>ϵ</mi>
+    <mi>ϑ</mi>
+    <mi>ϕ</mi>
+    <mi>ϰ</mi>
+    <mi>ϱ</mi>
+    <mi>ϖ</mi>
+    <mi>Ϝ</mi>
+    <mi>ϝ</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>∂</mi>
+    <mi>∇</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>0123456789</mn>
+</math></p>
+</dd>
+<dt>mathrm:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi mathvariant="normal">A</mi>
+    <mi mathvariant="normal">B</mi>
+    <mi mathvariant="normal">C</mi>
+    <mi mathvariant="normal">D</mi>
+    <mi mathvariant="normal">E</mi>
+    <mi mathvariant="normal">F</mi>
+    <mi mathvariant="normal">G</mi>
+    <mi mathvariant="normal">H</mi>
+    <mi mathvariant="normal">I</mi>
+    <mi mathvariant="normal">J</mi>
+    <mi mathvariant="normal">K</mi>
+    <mi mathvariant="normal">L</mi>
+    <mi mathvariant="normal">M</mi>
+    <mi mathvariant="normal">N</mi>
+    <mi mathvariant="normal">O</mi>
+    <mi mathvariant="normal">P</mi>
+    <mi mathvariant="normal">Q</mi>
+    <mi mathvariant="normal">R</mi>
+    <mi mathvariant="normal">S</mi>
+    <mi mathvariant="normal">T</mi>
+    <mi mathvariant="normal">U</mi>
+    <mi mathvariant="normal">V</mi>
+    <mi mathvariant="normal">W</mi>
+    <mi mathvariant="normal">X</mi>
+    <mi mathvariant="normal">Y</mi>
+    <mi mathvariant="normal">Z</mi>
+    <mspace width="0.25em"></mspace>
+    <mi mathvariant="normal">a</mi>
+    <mi mathvariant="normal">b</mi>
+    <mi mathvariant="normal">c</mi>
+    <mi mathvariant="normal">d</mi>
+    <mi mathvariant="normal">e</mi>
+    <mi mathvariant="normal">f</mi>
+    <mi mathvariant="normal">g</mi>
+    <mi mathvariant="normal">h</mi>
+    <mi mathvariant="normal">i</mi>
+    <mi mathvariant="normal">j</mi>
+    <mi mathvariant="normal">k</mi>
+    <mi mathvariant="normal">l</mi>
+    <mi mathvariant="normal">m</mi>
+    <mi mathvariant="normal">n</mi>
+    <mi mathvariant="normal">o</mi>
+    <mi mathvariant="normal">p</mi>
+    <mi mathvariant="normal">q</mi>
+    <mi mathvariant="normal">r</mi>
+    <mi mathvariant="normal">s</mi>
+    <mi mathvariant="normal">t</mi>
+    <mi mathvariant="normal">u</mi>
+    <mi mathvariant="normal">v</mi>
+    <mi mathvariant="normal">w</mi>
+    <mi mathvariant="normal">x</mi>
+    <mi mathvariant="normal">y</mi>
+    <mi mathvariant="normal">z</mi>
+    <mspace width="0.25em"></mspace>
+    <mi mathvariant="normal">ı</mi>
+    <mi mathvariant="normal">ȷ</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek" mathvariant="normal">Γ</mi>
+    <mi class="capital-greek" mathvariant="normal">Δ</mi>
+    <mi class="capital-greek" mathvariant="normal">Θ</mi>
+    <mi class="capital-greek" mathvariant="normal">Λ</mi>
+    <mi class="capital-greek" mathvariant="normal">Ξ</mi>
+    <mi class="capital-greek" mathvariant="normal">Π</mi>
+    <mi class="capital-greek" mathvariant="normal">Σ</mi>
+    <mi class="capital-greek" mathvariant="normal">Υ</mi>
+    <mi class="capital-greek" mathvariant="normal">Φ</mi>
+    <mi class="capital-greek" mathvariant="normal">Ψ</mi>
+    <mi class="capital-greek" mathvariant="normal">Ω</mi>
+    <mspace width="0.25em"></mspace>
+    <mi mathvariant="normal">α</mi>
+    <mi mathvariant="normal">β</mi>
+    <mi mathvariant="normal">γ</mi>
+    <mi mathvariant="normal">δ</mi>
+    <mi mathvariant="normal">ε</mi>
+    <mi mathvariant="normal">ζ</mi>
+    <mi mathvariant="normal">η</mi>
+    <mi mathvariant="normal">θ</mi>
+    <mi mathvariant="normal">ι</mi>
+    <mi mathvariant="normal">κ</mi>
+    <mi mathvariant="normal">λ</mi>
+    <mi mathvariant="normal">μ</mi>
+    <mi mathvariant="normal">ν</mi>
+    <mi mathvariant="normal">ξ</mi>
+    <mi mathvariant="normal">π</mi>
+    <mi mathvariant="normal">ρ</mi>
+    <mi mathvariant="normal">ς</mi>
+    <mi mathvariant="normal">σ</mi>
+    <mi mathvariant="normal">τ</mi>
+    <mi mathvariant="normal">υ</mi>
+    <mi mathvariant="normal">φ</mi>
+    <mi mathvariant="normal">χ</mi>
+    <mi mathvariant="normal">ψ</mi>
+    <mi mathvariant="normal">ω</mi>
+    <mspace width="0.25em"></mspace>
+    <mi mathvariant="normal">ϵ</mi>
+    <mi mathvariant="normal">ϑ</mi>
+    <mi mathvariant="normal">ϕ</mi>
+    <mi mathvariant="normal">ϰ</mi>
+    <mi mathvariant="normal">ϱ</mi>
+    <mi mathvariant="normal">ϖ</mi>
+    <mi mathvariant="normal">Ϝ</mi>
+    <mi mathvariant="normal">ϝ</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>∂</mi>
+    <mi>∇</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>0123456789</mn>
+</math></p>
+</dd>
+<dt>mathbf:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝐀</mi>
+    <mi>𝐁</mi>
+    <mi>𝐂</mi>
+    <mi>𝐃</mi>
+    <mi>𝐄</mi>
+    <mi>𝐅</mi>
+    <mi>𝐆</mi>
+    <mi>𝐇</mi>
+    <mi>𝐈</mi>
+    <mi>𝐉</mi>
+    <mi>𝐊</mi>
+    <mi>𝐋</mi>
+    <mi>𝐌</mi>
+    <mi>𝐍</mi>
+    <mi>𝐎</mi>
+    <mi>𝐏</mi>
+    <mi>𝐐</mi>
+    <mi>𝐑</mi>
+    <mi>𝐒</mi>
+    <mi>𝐓</mi>
+    <mi>𝐔</mi>
+    <mi>𝐕</mi>
+    <mi>𝐖</mi>
+    <mi>𝐗</mi>
+    <mi>𝐘</mi>
+    <mi>𝐙</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝐚</mi>
+    <mi>𝐛</mi>
+    <mi>𝐜</mi>
+    <mi>𝐝</mi>
+    <mi>𝐞</mi>
+    <mi>𝐟</mi>
+    <mi>𝐠</mi>
+    <mi>𝐡</mi>
+    <mi>𝐢</mi>
+    <mi>𝐣</mi>
+    <mi>𝐤</mi>
+    <mi>𝐥</mi>
+    <mi>𝐦</mi>
+    <mi>𝐧</mi>
+    <mi>𝐨</mi>
+    <mi>𝐩</mi>
+    <mi>𝐪</mi>
+    <mi>𝐫</mi>
+    <mi>𝐬</mi>
+    <mi>𝐭</mi>
+    <mi>𝐮</mi>
+    <mi>𝐯</mi>
+    <mi>𝐰</mi>
+    <mi>𝐱</mi>
+    <mi>𝐲</mi>
+    <mi>𝐳</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek">𝚪</mi>
+    <mi class="capital-greek">𝚫</mi>
+    <mi class="capital-greek">𝚯</mi>
+    <mi class="capital-greek">𝚲</mi>
+    <mi class="capital-greek">𝚵</mi>
+    <mi class="capital-greek">𝚷</mi>
+    <mi class="capital-greek">𝚺</mi>
+    <mi class="capital-greek">𝚼</mi>
+    <mi class="capital-greek">𝚽</mi>
+    <mi class="capital-greek">𝚿</mi>
+    <mi class="capital-greek">𝛀</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝛂</mi>
+    <mi>𝛃</mi>
+    <mi>𝛄</mi>
+    <mi>𝛅</mi>
+    <mi>𝛆</mi>
+    <mi>𝛇</mi>
+    <mi>𝛈</mi>
+    <mi>𝛉</mi>
+    <mi>𝛊</mi>
+    <mi>𝛋</mi>
+    <mi>𝛌</mi>
+    <mi>𝛍</mi>
+    <mi>𝛎</mi>
+    <mi>𝛏</mi>
+    <mi>𝛑</mi>
+    <mi>𝛒</mi>
+    <mi>𝛓</mi>
+    <mi>𝛔</mi>
+    <mi>𝛕</mi>
+    <mi>𝛖</mi>
+    <mi>𝛗</mi>
+    <mi>𝛘</mi>
+    <mi>𝛙</mi>
+    <mi>𝛚</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝛜</mi>
+    <mi>𝛝</mi>
+    <mi>𝛟</mi>
+    <mi>𝛞</mi>
+    <mi>𝛠</mi>
+    <mi>𝛡</mi>
+    <mi>𝟊</mi>
+    <mi>𝟋</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝛛</mi>
+    <mi>𝛁</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗</mn>
+</math></p>
+</dd>
+<dt>mathit:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝐴</mi>
+    <mi>𝐵</mi>
+    <mi>𝐶</mi>
+    <mi>𝐷</mi>
+    <mi>𝐸</mi>
+    <mi>𝐹</mi>
+    <mi>𝐺</mi>
+    <mi>𝐻</mi>
+    <mi>𝐼</mi>
+    <mi>𝐽</mi>
+    <mi>𝐾</mi>
+    <mi>𝐿</mi>
+    <mi>𝑀</mi>
+    <mi>𝑁</mi>
+    <mi>𝑂</mi>
+    <mi>𝑃</mi>
+    <mi>𝑄</mi>
+    <mi>𝑅</mi>
+    <mi>𝑆</mi>
+    <mi>𝑇</mi>
+    <mi>𝑈</mi>
+    <mi>𝑉</mi>
+    <mi>𝑊</mi>
+    <mi>𝑋</mi>
+    <mi>𝑌</mi>
+    <mi>𝑍</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝑎</mi>
+    <mi>𝑏</mi>
+    <mi>𝑐</mi>
+    <mi>𝑑</mi>
+    <mi>𝑒</mi>
+    <mi>𝑓</mi>
+    <mi>𝑔</mi>
+    <mi>ℎ</mi>
+    <mi>𝑖</mi>
+    <mi>𝑗</mi>
+    <mi>𝑘</mi>
+    <mi>𝑙</mi>
+    <mi>𝑚</mi>
+    <mi>𝑛</mi>
+    <mi>𝑜</mi>
+    <mi>𝑝</mi>
+    <mi>𝑞</mi>
+    <mi>𝑟</mi>
+    <mi>𝑠</mi>
+    <mi>𝑡</mi>
+    <mi>𝑢</mi>
+    <mi>𝑣</mi>
+    <mi>𝑤</mi>
+    <mi>𝑥</mi>
+    <mi>𝑦</mi>
+    <mi>𝑧</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝚤</mi>
+    <mi>𝚥</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek">𝛤</mi>
+    <mi class="capital-greek">𝛥</mi>
+    <mi class="capital-greek">𝛩</mi>
+    <mi class="capital-greek">𝛬</mi>
+    <mi class="capital-greek">𝛯</mi>
+    <mi class="capital-greek">𝛱</mi>
+    <mi class="capital-greek">𝛴</mi>
+    <mi class="capital-greek">𝛶</mi>
+    <mi class="capital-greek">𝛷</mi>
+    <mi class="capital-greek">𝛹</mi>
+    <mi class="capital-greek">𝛺</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝛼</mi>
+    <mi>𝛽</mi>
+    <mi>𝛾</mi>
+    <mi>𝛿</mi>
+    <mi>𝜀</mi>
+    <mi>𝜁</mi>
+    <mi>𝜂</mi>
+    <mi>𝜃</mi>
+    <mi>𝜄</mi>
+    <mi>𝜅</mi>
+    <mi>𝜆</mi>
+    <mi>𝜇</mi>
+    <mi>𝜈</mi>
+    <mi>𝜉</mi>
+    <mi>𝜋</mi>
+    <mi>𝜌</mi>
+    <mi>𝜍</mi>
+    <mi>𝜎</mi>
+    <mi>𝜏</mi>
+    <mi>𝜐</mi>
+    <mi>𝜑</mi>
+    <mi>𝜒</mi>
+    <mi>𝜓</mi>
+    <mi>𝜔</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝜖</mi>
+    <mi>𝜗</mi>
+    <mi>𝜙</mi>
+    <mi>ϰ</mi>
+    <mi>𝜚</mi>
+    <mi>𝜛</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝜕</mi>
+    <mi>𝛻</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>0123456789</mn>
+</math> <a class="brackets" href="#italic-digits" id="footnote-reference-4" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a></p>
+</dd>
+<dt>mathbfit:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝑨</mi>
+    <mi>𝑩</mi>
+    <mi>𝑪</mi>
+    <mi>𝑫</mi>
+    <mi>𝑬</mi>
+    <mi>𝑭</mi>
+    <mi>𝑮</mi>
+    <mi>𝑯</mi>
+    <mi>𝑰</mi>
+    <mi>𝑱</mi>
+    <mi>𝑲</mi>
+    <mi>𝑳</mi>
+    <mi>𝑴</mi>
+    <mi>𝑵</mi>
+    <mi>𝑶</mi>
+    <mi>𝑷</mi>
+    <mi>𝑸</mi>
+    <mi>𝑹</mi>
+    <mi>𝑺</mi>
+    <mi>𝑻</mi>
+    <mi>𝑼</mi>
+    <mi>𝑽</mi>
+    <mi>𝑾</mi>
+    <mi>𝑿</mi>
+    <mi>𝒀</mi>
+    <mi>𝒁</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝒂</mi>
+    <mi>𝒃</mi>
+    <mi>𝒄</mi>
+    <mi>𝒅</mi>
+    <mi>𝒆</mi>
+    <mi>𝒇</mi>
+    <mi>𝒈</mi>
+    <mi>𝒉</mi>
+    <mi>𝒊</mi>
+    <mi>𝒋</mi>
+    <mi>𝒌</mi>
+    <mi>𝒍</mi>
+    <mi>𝒎</mi>
+    <mi>𝒏</mi>
+    <mi>𝒐</mi>
+    <mi>𝒑</mi>
+    <mi>𝒒</mi>
+    <mi>𝒓</mi>
+    <mi>𝒔</mi>
+    <mi>𝒕</mi>
+    <mi>𝒖</mi>
+    <mi>𝒗</mi>
+    <mi>𝒘</mi>
+    <mi>𝒙</mi>
+    <mi>𝒚</mi>
+    <mi>𝒛</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek">𝜞</mi>
+    <mi class="capital-greek">𝜟</mi>
+    <mi class="capital-greek">𝜣</mi>
+    <mi class="capital-greek">𝜦</mi>
+    <mi class="capital-greek">𝜩</mi>
+    <mi class="capital-greek">𝜫</mi>
+    <mi class="capital-greek">𝜮</mi>
+    <mi class="capital-greek">𝜰</mi>
+    <mi class="capital-greek">𝜱</mi>
+    <mi class="capital-greek">𝜳</mi>
+    <mi class="capital-greek">𝜴</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝜶</mi>
+    <mi>𝜷</mi>
+    <mi>𝜸</mi>
+    <mi>𝜹</mi>
+    <mi>𝜺</mi>
+    <mi>𝜻</mi>
+    <mi>𝜼</mi>
+    <mi>𝜽</mi>
+    <mi>𝜾</mi>
+    <mi>𝜿</mi>
+    <mi>𝝀</mi>
+    <mi>𝝁</mi>
+    <mi>𝝂</mi>
+    <mi>𝝃</mi>
+    <mi>𝝅</mi>
+    <mi>𝝆</mi>
+    <mi>𝝇</mi>
+    <mi>𝝈</mi>
+    <mi>𝝉</mi>
+    <mi>𝝊</mi>
+    <mi>𝝋</mi>
+    <mi>𝝌</mi>
+    <mi>𝝍</mi>
+    <mi>𝝎</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝝐</mi>
+    <mi>𝝑</mi>
+    <mi>𝝓</mi>
+    <mi>𝝒</mi>
+    <mi>𝝔</mi>
+    <mi>𝝕</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝝏</mi>
+    <mi>𝜵</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathcal:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝒜</mi>
+    <mi>ℬ</mi>
+    <mi>𝒞</mi>
+    <mi>𝒟</mi>
+    <mi>ℰ</mi>
+    <mi>ℱ</mi>
+    <mi>𝒢</mi>
+    <mi>ℋ</mi>
+    <mi>ℐ</mi>
+    <mi>𝒥</mi>
+    <mi>𝒦</mi>
+    <mi>ℒ</mi>
+    <mi>ℳ</mi>
+    <mi>𝒩</mi>
+    <mi>𝒪</mi>
+    <mi>𝒫</mi>
+    <mi>𝒬</mi>
+    <mi>ℛ</mi>
+    <mi>𝒮</mi>
+    <mi>𝒯</mi>
+    <mi>𝒰</mi>
+    <mi>𝒱</mi>
+    <mi>𝒲</mi>
+    <mi>𝒳</mi>
+    <mi>𝒴</mi>
+    <mi>𝒵</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝒶</mi>
+    <mi>𝒷</mi>
+    <mi>𝒸</mi>
+    <mi>𝒹</mi>
+    <mi>ℯ</mi>
+    <mi>𝒻</mi>
+    <mi>ℊ</mi>
+    <mi>𝒽</mi>
+    <mi>𝒾</mi>
+    <mi>𝒿</mi>
+    <mi>𝓀</mi>
+    <mi>𝓁</mi>
+    <mi>𝓂</mi>
+    <mi>𝓃</mi>
+    <mi>ℴ</mi>
+    <mi>𝓅</mi>
+    <mi>𝓆</mi>
+    <mi>𝓇</mi>
+    <mi>𝓈</mi>
+    <mi>𝓉</mi>
+    <mi>𝓊</mi>
+    <mi>𝓋</mi>
+    <mi>𝓌</mi>
+    <mi>𝓍</mi>
+    <mi>𝓎</mi>
+    <mi>𝓏</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathscr:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow class="mathscr">
+    <mi>𝒜</mi>
+    <mi>ℬ</mi>
+    <mi>𝒞</mi>
+    <mi>𝒟</mi>
+    <mi>ℰ</mi>
+    <mi>ℱ</mi>
+    <mi>𝒢</mi>
+    <mi>ℋ</mi>
+    <mi>ℐ</mi>
+    <mi>𝒥</mi>
+    <mi>𝒦</mi>
+    <mi>ℒ</mi>
+    <mi>ℳ</mi>
+    <mi>𝒩</mi>
+    <mi>𝒪</mi>
+    <mi>𝒫</mi>
+    <mi>𝒬</mi>
+    <mi>ℛ</mi>
+    <mi>𝒮</mi>
+    <mi>𝒯</mi>
+    <mi>𝒰</mi>
+    <mi>𝒱</mi>
+    <mi>𝒲</mi>
+    <mi>𝒳</mi>
+    <mi>𝒴</mi>
+    <mi>𝒵</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝒶</mi>
+    <mi>𝒷</mi>
+    <mi>𝒸</mi>
+    <mi>𝒹</mi>
+    <mi>ℯ</mi>
+    <mi>𝒻</mi>
+    <mi>ℊ</mi>
+    <mi>𝒽</mi>
+    <mi>𝒾</mi>
+    <mi>𝒿</mi>
+    <mi>𝓀</mi>
+    <mi>𝓁</mi>
+    <mi>𝓂</mi>
+    <mi>𝓃</mi>
+    <mi>ℴ</mi>
+    <mi>𝓅</mi>
+    <mi>𝓆</mi>
+    <mi>𝓇</mi>
+    <mi>𝓈</mi>
+    <mi>𝓉</mi>
+    <mi>𝓊</mi>
+    <mi>𝓋</mi>
+    <mi>𝓌</mi>
+    <mi>𝓍</mi>
+    <mi>𝓎</mi>
+    <mi>𝓏</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathbb:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝔸</mi>
+    <mi>𝔹</mi>
+    <mi>ℂ</mi>
+    <mi>𝔻</mi>
+    <mi>𝔼</mi>
+    <mi>𝔽</mi>
+    <mi>𝔾</mi>
+    <mi>ℍ</mi>
+    <mi>𝕀</mi>
+    <mi>𝕁</mi>
+    <mi>𝕂</mi>
+    <mi>𝕃</mi>
+    <mi>𝕄</mi>
+    <mi>ℕ</mi>
+    <mi>𝕆</mi>
+    <mi>ℙ</mi>
+    <mi>ℚ</mi>
+    <mi>ℝ</mi>
+    <mi>𝕊</mi>
+    <mi>𝕋</mi>
+    <mi>𝕌</mi>
+    <mi>𝕍</mi>
+    <mi>𝕎</mi>
+    <mi>𝕏</mi>
+    <mi>𝕐</mi>
+    <mi>ℤ</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝕒</mi>
+    <mi>𝕓</mi>
+    <mi>𝕔</mi>
+    <mi>𝕕</mi>
+    <mi>𝕖</mi>
+    <mi>𝕗</mi>
+    <mi>𝕘</mi>
+    <mi>𝕙</mi>
+    <mi>𝕚</mi>
+    <mi>𝕛</mi>
+    <mi>𝕜</mi>
+    <mi>𝕝</mi>
+    <mi>𝕞</mi>
+    <mi>𝕟</mi>
+    <mi>𝕠</mi>
+    <mi>𝕡</mi>
+    <mi>𝕢</mi>
+    <mi>𝕣</mi>
+    <mi>𝕤</mi>
+    <mi>𝕥</mi>
+    <mi>𝕦</mi>
+    <mi>𝕧</mi>
+    <mi>𝕨</mi>
+    <mi>𝕩</mi>
+    <mi>𝕪</mi>
+    <mi>𝕫</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek">ℾ</mi>
+    <mi class="capital-greek">ℿ</mi>
+    <mi class="capital-greek">⅀</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>ℽ</mi>
+    <mi>ℼ</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡</mn>
+</math></p>
+</dd>
+<dt>mathfrak:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝔄</mi>
+    <mi>𝔅</mi>
+    <mi>ℭ</mi>
+    <mi>𝔇</mi>
+    <mi>𝔈</mi>
+    <mi>𝔉</mi>
+    <mi>𝔊</mi>
+    <mi>ℌ</mi>
+    <mi>ℑ</mi>
+    <mi>𝔍</mi>
+    <mi>𝔎</mi>
+    <mi>𝔏</mi>
+    <mi>𝔐</mi>
+    <mi>𝔑</mi>
+    <mi>𝔒</mi>
+    <mi>𝔓</mi>
+    <mi>𝔔</mi>
+    <mi>ℜ</mi>
+    <mi>𝔖</mi>
+    <mi>𝔗</mi>
+    <mi>𝔘</mi>
+    <mi>𝔙</mi>
+    <mi>𝔚</mi>
+    <mi>𝔛</mi>
+    <mi>𝔜</mi>
+    <mi>ℨ</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝔞</mi>
+    <mi>𝔟</mi>
+    <mi>𝔠</mi>
+    <mi>𝔡</mi>
+    <mi>𝔢</mi>
+    <mi>𝔣</mi>
+    <mi>𝔤</mi>
+    <mi>𝔥</mi>
+    <mi>𝔦</mi>
+    <mi>𝔧</mi>
+    <mi>𝔨</mi>
+    <mi>𝔩</mi>
+    <mi>𝔪</mi>
+    <mi>𝔫</mi>
+    <mi>𝔬</mi>
+    <mi>𝔭</mi>
+    <mi>𝔮</mi>
+    <mi>𝔯</mi>
+    <mi>𝔰</mi>
+    <mi>𝔱</mi>
+    <mi>𝔲</mi>
+    <mi>𝔳</mi>
+    <mi>𝔴</mi>
+    <mi>𝔵</mi>
+    <mi>𝔶</mi>
+    <mi>𝔷</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathsf:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝖠</mi>
+    <mi>𝖡</mi>
+    <mi>𝖢</mi>
+    <mi>𝖣</mi>
+    <mi>𝖤</mi>
+    <mi>𝖥</mi>
+    <mi>𝖦</mi>
+    <mi>𝖧</mi>
+    <mi>𝖨</mi>
+    <mi>𝖩</mi>
+    <mi>𝖪</mi>
+    <mi>𝖫</mi>
+    <mi>𝖬</mi>
+    <mi>𝖭</mi>
+    <mi>𝖮</mi>
+    <mi>𝖯</mi>
+    <mi>𝖰</mi>
+    <mi>𝖱</mi>
+    <mi>𝖲</mi>
+    <mi>𝖳</mi>
+    <mi>𝖴</mi>
+    <mi>𝖵</mi>
+    <mi>𝖶</mi>
+    <mi>𝖷</mi>
+    <mi>𝖸</mi>
+    <mi>𝖹</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝖺</mi>
+    <mi>𝖻</mi>
+    <mi>𝖼</mi>
+    <mi>𝖽</mi>
+    <mi>𝖾</mi>
+    <mi>𝖿</mi>
+    <mi>𝗀</mi>
+    <mi>𝗁</mi>
+    <mi>𝗂</mi>
+    <mi>𝗃</mi>
+    <mi>𝗄</mi>
+    <mi>𝗅</mi>
+    <mi>𝗆</mi>
+    <mi>𝗇</mi>
+    <mi>𝗈</mi>
+    <mi>𝗉</mi>
+    <mi>𝗊</mi>
+    <mi>𝗋</mi>
+    <mi>𝗌</mi>
+    <mi>𝗍</mi>
+    <mi>𝗎</mi>
+    <mi>𝗏</mi>
+    <mi>𝗐</mi>
+    <mi>𝗑</mi>
+    <mi>𝗒</mi>
+    <mi>𝗓</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫</mn>
+</math></p>
+</dd>
+<dt>mathsfit:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝘈</mi>
+    <mi>𝘉</mi>
+    <mi>𝘊</mi>
+    <mi>𝘋</mi>
+    <mi>𝘌</mi>
+    <mi>𝘍</mi>
+    <mi>𝘎</mi>
+    <mi>𝘏</mi>
+    <mi>𝘐</mi>
+    <mi>𝘑</mi>
+    <mi>𝘒</mi>
+    <mi>𝘓</mi>
+    <mi>𝘔</mi>
+    <mi>𝘕</mi>
+    <mi>𝘖</mi>
+    <mi>𝘗</mi>
+    <mi>𝘘</mi>
+    <mi>𝘙</mi>
+    <mi>𝘚</mi>
+    <mi>𝘛</mi>
+    <mi>𝘜</mi>
+    <mi>𝘝</mi>
+    <mi>𝘞</mi>
+    <mi>𝘟</mi>
+    <mi>𝘠</mi>
+    <mi>𝘡</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝘢</mi>
+    <mi>𝘣</mi>
+    <mi>𝘤</mi>
+    <mi>𝘥</mi>
+    <mi>𝘦</mi>
+    <mi>𝘧</mi>
+    <mi>𝘨</mi>
+    <mi>𝘩</mi>
+    <mi>𝘪</mi>
+    <mi>𝘫</mi>
+    <mi>𝘬</mi>
+    <mi>𝘭</mi>
+    <mi>𝘮</mi>
+    <mi>𝘯</mi>
+    <mi>𝘰</mi>
+    <mi>𝘱</mi>
+    <mi>𝘲</mi>
+    <mi>𝘳</mi>
+    <mi>𝘴</mi>
+    <mi>𝘵</mi>
+    <mi>𝘶</mi>
+    <mi>𝘷</mi>
+    <mi>𝘸</mi>
+    <mi>𝘹</mi>
+    <mi>𝘺</mi>
+    <mi>𝘻</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathsfbfit:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝘼</mi>
+    <mi>𝘽</mi>
+    <mi>𝘾</mi>
+    <mi>𝘿</mi>
+    <mi>𝙀</mi>
+    <mi>𝙁</mi>
+    <mi>𝙂</mi>
+    <mi>𝙃</mi>
+    <mi>𝙄</mi>
+    <mi>𝙅</mi>
+    <mi>𝙆</mi>
+    <mi>𝙇</mi>
+    <mi>𝙈</mi>
+    <mi>𝙉</mi>
+    <mi>𝙊</mi>
+    <mi>𝙋</mi>
+    <mi>𝙌</mi>
+    <mi>𝙍</mi>
+    <mi>𝙎</mi>
+    <mi>𝙏</mi>
+    <mi>𝙐</mi>
+    <mi>𝙑</mi>
+    <mi>𝙒</mi>
+    <mi>𝙓</mi>
+    <mi>𝙔</mi>
+    <mi>𝙕</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝙖</mi>
+    <mi>𝙗</mi>
+    <mi>𝙘</mi>
+    <mi>𝙙</mi>
+    <mi>𝙚</mi>
+    <mi>𝙛</mi>
+    <mi>𝙜</mi>
+    <mi>𝙝</mi>
+    <mi>𝙞</mi>
+    <mi>𝙟</mi>
+    <mi>𝙠</mi>
+    <mi>𝙡</mi>
+    <mi>𝙢</mi>
+    <mi>𝙣</mi>
+    <mi>𝙤</mi>
+    <mi>𝙥</mi>
+    <mi>𝙦</mi>
+    <mi>𝙧</mi>
+    <mi>𝙨</mi>
+    <mi>𝙩</mi>
+    <mi>𝙪</mi>
+    <mi>𝙫</mi>
+    <mi>𝙬</mi>
+    <mi>𝙭</mi>
+    <mi>𝙮</mi>
+    <mi>𝙯</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi class="capital-greek">𝞒</mi>
+    <mi class="capital-greek">𝞓</mi>
+    <mi class="capital-greek">𝞗</mi>
+    <mi class="capital-greek">𝞚</mi>
+    <mi class="capital-greek">𝞝</mi>
+    <mi class="capital-greek">𝞟</mi>
+    <mi class="capital-greek">𝞢</mi>
+    <mi class="capital-greek">𝞤</mi>
+    <mi class="capital-greek">𝞥</mi>
+    <mi class="capital-greek">𝞧</mi>
+    <mi class="capital-greek">𝞨</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝞪</mi>
+    <mi>𝞫</mi>
+    <mi>𝞬</mi>
+    <mi>𝞭</mi>
+    <mi>𝞮</mi>
+    <mi>𝞯</mi>
+    <mi>𝞰</mi>
+    <mi>𝞱</mi>
+    <mi>𝞲</mi>
+    <mi>𝞳</mi>
+    <mi>𝞴</mi>
+    <mi>𝞵</mi>
+    <mi>𝞶</mi>
+    <mi>𝞷</mi>
+    <mi>𝞹</mi>
+    <mi>𝞺</mi>
+    <mi>𝞻</mi>
+    <mi>𝞼</mi>
+    <mi>𝞽</mi>
+    <mi>𝞾</mi>
+    <mi>𝞿</mi>
+    <mi>𝟀</mi>
+    <mi>𝟁</mi>
+    <mi>𝟂</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝟄</mi>
+    <mi>𝟅</mi>
+    <mi>𝟇</mi>
+    <mi>𝟆</mi>
+    <mi>𝟈</mi>
+    <mi>𝟉</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝟃</mi>
+    <mi>𝞩</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathtt:</dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mi>𝙰</mi>
+    <mi>𝙱</mi>
+    <mi>𝙲</mi>
+    <mi>𝙳</mi>
+    <mi>𝙴</mi>
+    <mi>𝙵</mi>
+    <mi>𝙶</mi>
+    <mi>𝙷</mi>
+    <mi>𝙸</mi>
+    <mi>𝙹</mi>
+    <mi>𝙺</mi>
+    <mi>𝙻</mi>
+    <mi>𝙼</mi>
+    <mi>𝙽</mi>
+    <mi>𝙾</mi>
+    <mi>𝙿</mi>
+    <mi>𝚀</mi>
+    <mi>𝚁</mi>
+    <mi>𝚂</mi>
+    <mi>𝚃</mi>
+    <mi>𝚄</mi>
+    <mi>𝚅</mi>
+    <mi>𝚆</mi>
+    <mi>𝚇</mi>
+    <mi>𝚈</mi>
+    <mi>𝚉</mi>
+    <mspace width="0.25em"></mspace>
+    <mi>𝚊</mi>
+    <mi>𝚋</mi>
+    <mi>𝚌</mi>
+    <mi>𝚍</mi>
+    <mi>𝚎</mi>
+    <mi>𝚏</mi>
+    <mi>𝚐</mi>
+    <mi>𝚑</mi>
+    <mi>𝚒</mi>
+    <mi>𝚓</mi>
+    <mi>𝚔</mi>
+    <mi>𝚕</mi>
+    <mi>𝚖</mi>
+    <mi>𝚗</mi>
+    <mi>𝚘</mi>
+    <mi>𝚙</mi>
+    <mi>𝚚</mi>
+    <mi>𝚛</mi>
+    <mi>𝚜</mi>
+    <mi>𝚝</mi>
+    <mi>𝚞</mi>
+    <mi>𝚟</mi>
+    <mi>𝚠</mi>
+    <mi>𝚡</mi>
+    <mi>𝚢</mi>
+    <mi>𝚣</mi>
+  </mrow>
+</math>
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿</mn>
+</math></p>
+</dd>
+</dl>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="italic-digits" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#footnote-reference-3">1</a>,<a role="doc-backlink" href="#footnote-reference-4">2</a>)</span>
+<p>Italic digits are not defined in Unicode
+but work in LaTeX.</p>
+</aside>
+</aside>
+<p>In contrast to the <em>math alphabet</em> selectors, <span class="docutils literal">\boldsymbol</span> only
+changes the <em>font weight</em>. It can be used to get a bold version of
+any mathematical symbol:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msub>
+    <mi>V</mi>
+    <mi>i</mi>
+  </msub>
+  <mi>x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mi>α</mi>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn>3</mn>
+  <mi class="capital-greek">Γ</mi>
+  <mspace width="1em"></mspace>
+  <mi>∀</mi>
+  <mi>x</mi>
+  <mo>∈</mo>
+  <mi>ℝ</mi>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow class="boldsymbol">
+    <mrow>
+      <msub>
+        <mi>V</mi>
+        <mi>i</mi>
+      </msub>
+      <mi>x</mi>
+      <mo>±</mo>
+      <mi>cos</mi>
+      <mo>&ApplyFunction;</mo>
+      <mo stretchy="false">(</mo>
+      <mi>α</mi>
+      <mo stretchy="false">)</mo>
+      <mo>≈</mo>
+      <mn>3</mn>
+      <mi class="capital-greek">Γ</mi>
+      <mspace width="1em"></mspace>
+      <mi>∀</mi>
+      <mi>x</mi>
+      <mo>∈</mo>
+      <mi>ℝ</mi>
+    </mrow>
+  </mrow>
+</math>
+</div>
+<p>It is usually ill-advised to apply <span class="docutils literal">\boldsymbol</span> to more than one symbol
+at a time.</p>
+</section>
+<section id="miscellaneous-symbols">
+<h3><a class="toc-backref" href="#toc-entry-13" role="doc-backlink"><span class="sectnum">2.9 </span>Miscellaneous symbols</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>#</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\#</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♣</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\clubsuit</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>¬</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\neg</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>&amp;</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\&amp;</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♢</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\diamondsuit</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∄</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\nexists</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∠</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\angle</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∅</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\emptyset</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>′</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\prime</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>‵</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\backprime</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∃</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\exists</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♯</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\sharp</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>★</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\bigstar</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♭</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\flat</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♠</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\spadesuit</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⧫</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\blacklozenge</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∀</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\forall</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∢</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\sphericalangle</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>◼</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\blacksquare</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♡</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\heartsuit</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>◻</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\square</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>▴</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\blacktriangle</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∞</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\infty</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>√</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\surd</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>▾</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\blacktriangledown</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>◊</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\lozenge</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⊤</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\top</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⊥</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\bot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∡</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\measuredangle</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>△</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\triangle</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⟍</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\diagdown</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>∇</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\nabla</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>▽</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\triangledown</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⟋</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\diagup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>♮</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\natural</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⌀</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\varnothing</span></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="punctuation">
+<h3><a class="toc-backref" href="#toc-entry-14" role="doc-backlink"><span class="sectnum">2.10 </span>Punctuation</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>.</mo>
+</math></p></td>
+<td><p><span class="docutils literal">.</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>!</mo>
+</math></p></td>
+<td><p><span class="docutils literal">!</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋮</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vdots</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">/</mo>
+</math></p></td>
+<td><p><span class="docutils literal">/</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>?</mo>
+</math></p></td>
+<td><p><span class="docutils literal">?</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dotsb</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">|</mo>
+</math></p></td>
+<td><p><span class="docutils literal">|</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo form="postfix" lspace="0" rspace="0.28em">:</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\colon</span> <a class="brackets" href="#footnote-1" id="footnote-reference-5" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>…</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dotsc</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>'</mo>
+</math></p></td>
+<td><p><span class="docutils literal">'</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>⋯</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\cdots</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dotsi</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>;</mo>
+</math></p></td>
+<td><p><span class="docutils literal">;</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋱</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ddots</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dotsm</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∶</mo>
+</math></p></td>
+<td><p><span class="docutils literal">:</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>…</mi>
+</math></p></td>
+<td><p><span class="docutils literal">\ldots</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>…</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dotso</span></p></td>
+</tr>
+</tbody>
+</table>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="footnote-1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-5">3</a><span class="fn-bracket">]</span></span>
+<p>Punctuation (not ratio):
+Compare spacing in <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>a</mi>
+  <mo form="postfix" lspace="0" rspace="0.28em">:</mo>
+  <mi>b</mi>
+  <mo>→</mo>
+  <mi>c</mi>
+</math> to <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>a</mi>
+  <mo>∶</mo>
+  <mi>b</mi>
+  <mo>=</mo>
+  <mi>c</mi>
+</math>.</p>
+</aside>
+</aside>
+</section>
+<section id="relation-symbols">
+<h3><a class="toc-backref" href="#toc-entry-15" role="doc-backlink"><span class="sectnum">2.11 </span>Relation symbols</a></h3>
+<section id="arrows">
+<h4><a class="toc-backref" href="#toc-entry-16" role="doc-backlink"><span class="sectnum">2.11.1 </span>Arrows</a></h4>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↺</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circlearrowleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↻</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circlearrowright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↶</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\curvearrowleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↷</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\curvearrowright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↩</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\hookleftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↪</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\hookrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>←</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>→</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇐</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Leftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇒</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Rightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↢</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftarrowtail</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↣</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightarrowtail</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↽</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftharpoondown</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇁</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightharpoondown</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↼</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftharpoonup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇀</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightharpoonup</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇇</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftleftarrows</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇉</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightrightarrows</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↔</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftrightarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇔</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Leftrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇆</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftrightarrows</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇄</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightleftarrows</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftrightharpoons</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇌</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightleftharpoons</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↭</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leftrightsquigarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇝</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\rightsquigarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇚</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Lleftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇛</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Rrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟵</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\longleftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟶</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\longrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Longleftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟹</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Longrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟷</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\longleftrightarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟺</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Longleftrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↫</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\looparrowleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↬</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\looparrowright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↰</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Lsh</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↱</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Rsh</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↦</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\mapsto</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟼</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\longmapsto</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\multimap</span></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↚</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nleftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↛</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇍</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nLeftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇏</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nRightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↮</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nleftrightarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇎</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nLeftrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nwarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↗</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nearrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↙</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\swarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↘</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\searrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↞</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\twoheadleftarrow</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↠</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\twoheadrightarrow</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↿</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\upharpoonleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↾</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\upharpoonright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇃</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\downharpoonleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇂</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\downharpoonright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\upuparrows</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⇊</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\downdownarrows</span></p></td>
+</tr>
+</tbody>
+</table>
+<p>Synonyms: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>←</mo>
+</math> <span class="docutils literal">\gets</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>→</mo>
+</math> <span class="docutils literal">\to</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>↾</mo>
+</math> <span class="docutils literal">\restriction</span>.</p>
+</section>
+<section id="comparison">
+<h4><a class="toc-backref" href="#toc-entry-17" role="doc-backlink"><span class="sectnum">2.11.2 </span>Comparison</a></h4>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>&lt;</mo>
+</math></p></td>
+<td><p><span class="docutils literal">&lt;</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≥</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\geq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≪</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ll</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≺</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\prec</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>=</mo>
+</math></p></td>
+<td><p><span class="docutils literal">=</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≧</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\geqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋘</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lll</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪷</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\precapprox</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>&gt;</mo>
+</math></p></td>
+<td><p><span class="docutils literal">&gt;</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⩾</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\geqslant</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪉</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lnapprox</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≼</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\preccurlyeq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\approx</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≫</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gg</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪇</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lneq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\preceq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≊</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\approxeq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋙</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ggg</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≨</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lneqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪹</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\precnapprox</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≍</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\asymp</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪊</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gnapprox</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋦</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lnsim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪵</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\precneqq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∽</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\backsim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gneq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≇</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ncong</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋨</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\precnsim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋍</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\backsimeq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≩</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gneqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≠</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\neq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≾</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\precsim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≏</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\bumpeq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋧</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gnsim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≱</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ngeq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≓</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\risingdotseq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≎</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Bumpeq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪆</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gtrapprox</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≧̸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ngeqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∼</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≗</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\circeq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋛</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gtreqless</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⩾̸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ngeqslant</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≃</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\simeq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≅</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\cong</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪌</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gtreqqless</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ngtr</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≻</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succ</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋞</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\curlyeqprec</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≷</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gtrless</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≰</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nleq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succapprox</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋟</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\curlyeqsucc</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≳</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\gtrsim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≦̸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nleqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≽</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succcurlyeq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≐</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\doteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≤</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⩽̸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nleqslant</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪰</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succeq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≑</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\doteqdot</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≦</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≮</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nless</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪺</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succnapprox</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\eqcirc</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⩽</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\leqslant</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊀</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nprec</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪶</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succneqq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≂</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\eqsim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪅</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lessapprox</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋠</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\npreceq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋩</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succnsim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪖</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\eqslantgtr</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋚</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lesseqgtr</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≁</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsim</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≿</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\succsim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪕</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\eqslantless</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⪋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lesseqqgtr</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊁</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsucc</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo style="font-weight: bold">≈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\thickapprox</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≡</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\equiv</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≶</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lessgtr</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋡</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsucceq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo style="font-weight: bold">∼</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\thicksim</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≒</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\fallingdotseq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≲</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\lesssim</span></p></td>
+<td></td>
+<td></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≜</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\triangleq</span></p></td>
+</tr>
+</tbody>
+</table>
+<p>The commands <span class="docutils literal">\lvertneqq</span> and <span class="docutils literal">\gvertneqq</span> are not supported
+with MathML output, as there is no corresponding Unicode character.</p>
+<p>Synonyms: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≠</mo>
+</math> <span class="docutils literal">\ne</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≤</mo>
+</math> <span class="docutils literal">\le</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≥</mo>
+</math> <span class="docutils literal">\ge</span>,
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≑</mo>
+</math> <span class="docutils literal">\Doteq</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋘</mo>
+</math> <span class="docutils literal">\llless</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋙</mo>
+</math> <span class="docutils literal">\gggtr</span>.</p>
+<p>Symbols can be negated prepending <span class="docutils literal">\not</span>, e.g.
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≠</mo>
+</math> <span class="docutils literal">\not=</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≢</mo>
+</math> <span class="docutils literal">\not\equiv</span>,
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≹</mo>
+</math> <span class="docutils literal">\not\gtrless</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≸</mo>
+</math> <span class="docutils literal">\not\lessgtr</span>.</p>
+</section>
+<section id="miscellaneous-relations">
+<h4><a class="toc-backref" href="#toc-entry-18" role="doc-backlink"><span class="sectnum">2.11.3 </span>Miscellaneous relations</a></h4>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∍</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\backepsilon</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋬</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ntrianglelefteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊆</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\subseteq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∵</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\because</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋫</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ntriangleright</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⫅</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\subseteqq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>≬</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\between</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋭</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ntrianglerighteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊊</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\subsetneq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>◂</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\blacktriangleleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊬</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nvdash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⫋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\subsetneqq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>▸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\blacktriangleright</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊮</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nVdash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊃</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\supset</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\bowtie</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊭</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nvDash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋑</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Supset</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊣</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\dashv</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊯</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nVDash</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊇</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\supseteq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⌢</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\frown</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∥</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\parallel</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⫆</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\supseteqq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\in</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⟂</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\perp</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\supsetneq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∣</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\mid</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋔</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\pitchfork</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⫌</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\supsetneqq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊧</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\models</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∝</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\propto</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∴</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\therefore</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∋</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ni</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">∣</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\shortmid</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊴</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\trianglelefteq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∤</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nmid</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">∥</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\shortparallel</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊵</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\trianglerighteq</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∉</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\notin</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">⌢</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\smallfrown</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∝</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\varpropto</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∦</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nparallel</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">⌣</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\smallsmile</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>▵</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vartriangle</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">∤</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nshortmid</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⌣</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\smile</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊲</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vartriangleleft</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">∦</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nshortparallel</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊏</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sqsubset</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊳</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vartriangleright</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊈</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsubseteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊑</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sqsubseteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊢</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vdash</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⫅̸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsubseteqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊐</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sqsupset</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊩</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Vdash</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊉</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsupseteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊒</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\sqsupseteq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊨</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\vDash</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⫆̸</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\nsupseteqq</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊂</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\subset</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⊪</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Vvdash</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋪</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\ntriangleleft</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋐</mo>
+</math></p></td>
+<td><p><span class="docutils literal">\Subset</span></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Synonyms: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∋</mo>
+</math> <span class="docutils literal">\owns</span>.</p>
+<p>Symbols can be negated prepending <span class="docutils literal">\not</span>, e.g.
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∉</mo>
+</math> <span class="docutils literal">\not\in</span>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∌</mo>
+</math> <span class="docutils literal">\not\ni</span>.</p>
+<p>The commands <span class="docutils literal">\varsubsetneq</span>, <span class="docutils literal">\varsubsetneqq</span>, <span class="docutils literal">\varsupsetneq</span>,
+and <span class="docutils literal">\varsupsetneqq</span> are not supported with MathML output as there is no
+corresponding Unicode character.</p>
+</section>
+</section>
+<section id="variable-sized-operators">
+<h3><a class="toc-backref" href="#toc-entry-19" role="doc-backlink"><span class="sectnum">2.12 </span>Variable-sized operators</a></h3>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∑</mo>
+</math>      <span class="docutils literal">\sum</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∏</mo>
+</math>     <span class="docutils literal">\prod</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋂</mo>
+</math>   <span class="docutils literal">\bigcap</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⨀</mo>
+</math>   <span class="docutils literal">\bigodot</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∫</mo>
+</math>      <span class="docutils literal">\int</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∐</mo>
+</math>   <span class="docutils literal">\coprod</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋃</mo>
+</math>   <span class="docutils literal">\bigcup</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⨁</mo>
+</math>  <span class="docutils literal">\bigoplus</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∮</mo>
+</math>     <span class="docutils literal">\oint</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋀</mo>
+</math> <span class="docutils literal">\bigwedge</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⨄</mo>
+</math> <span class="docutils literal">\biguplus</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⨂</mo>
+</math> <span class="docutils literal">\bigotimes</span></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo mathsize="75%">∫</mo>
+</math> <span class="docutils literal">\smallint</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⋁</mo>
+</math>   <span class="docutils literal">\bigvee</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>⨆</mo>
+</math> <span class="docutils literal">\bigsqcup</span></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Larger symbols are used in displayed formulas, sum-like symbols have
+indices above/below the symbol:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>=</mo>
+      <mn>1</mn>
+    </mrow>
+    <mi>N</mi>
+  </munderover>
+  <msub>
+    <mi>a</mi>
+    <mi>n</mi>
+  </msub>
+  <mspace width="2em"></mspace>
+  <msubsup>
+    <mo>∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </msubsup>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mspace width="0.1667em"></mspace>
+  <mi>d</mi>
+  <mi>x</mi>
+  <mspace width="2em"></mspace>
+  <munderover>
+    <mo movablelimits="true">∏</mo>
+    <mrow>
+      <mi>i</mi>
+      <mo>=</mo>
+      <mn>1</mn>
+    </mrow>
+    <mn>10</mn>
+  </munderover>
+  <msub>
+    <mi>b</mi>
+    <mi>i</mi>
+  </msub>
+  <mi>…</mi>
+</math>
+</div>
+</section>
+</section>
+<section id="notations">
+<h2><a class="toc-backref" href="#toc-entry-20" role="doc-backlink"><span class="sectnum">3 </span>Notations</a></h2>
+<section id="top-and-bottom-embellishments">
+<h3><a class="toc-backref" href="#toc-entry-21" role="doc-backlink"><span class="sectnum">3.1 </span>Top and bottom embellishments</a></h3>
+<p>See <a class="reference internal" href="#accents-and-embellishments">Accents and embellishments</a>.</p>
+</section>
+<section id="extensible-arrows">
+<h3><a class="toc-backref" href="#toc-entry-22" role="doc-backlink"><span class="sectnum">3.2 </span>Extensible arrows</a></h3>
+<p>xleftarrow and xrightarrow produce arrows that extend automatically to
+accommodate unusually wide subscripts or superscripts. These commands
+take one optional argument (the subscript) and one mandatory argument
+(the superscript, possibly empty):</p>
+<pre class="literal-block">A \xleftarrow{n+\mu-1} B \xrightarrow[T]{n\pm i-1} C</pre>
+<p>results in</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>A</mi>
+  <mover>
+    <mo>⟵</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>+</mo>
+      <mi>μ</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mover>
+  <mi>B</mi>
+  <munderover>
+    <mo>⟶</mo>
+    <mi>T</mi>
+    <mrow>
+      <mi>n</mi>
+      <mo>±</mo>
+      <mi>i</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </munderover>
+  <mi>C</mi>
+</math>
+</div>
+</section>
+<section id="affixing-symbols-to-other-symbols">
+<h3><a class="toc-backref" href="#toc-entry-23" role="doc-backlink"><span class="sectnum">3.3 </span>Affixing symbols to other symbols</a></h3>
+<p>In addition to the standard <a class="reference internal" href="#accents-and-embellishments">accents and embellishments</a>, other symbols
+can be placed above or below a base symbol with the <span class="docutils literal">\overset</span> and
+<span class="docutils literal">\underset</span> commands. The symbol is set in &quot;scriptstyle&quot; (smaller font
+size). For example, writing <span class="docutils literal"><span class="pre">\overset{*}{X}</span></span> becomes <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover>
+    <mi>X</mi>
+    <mo>*</mo>
+  </mover>
+</math>
+and <span class="docutils literal"><span class="pre">\underset{+}{M}</span></span> becomes <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mi>M</mi>
+    <mo>+</mo>
+  </munder>
+</math>.</p>
+</section>
+<section id="matrices">
+<h3><a class="toc-backref" href="#toc-entry-24" role="doc-backlink"><span class="sectnum">3.4 </span>Matrices</a></h3>
+<p>The <span class="docutils literal">matrix</span> and <span class="docutils literal">cases</span> environments can also contain <span class="docutils literal">\\</span> and
+<span class="docutils literal">&amp;</span>:</p>
+<pre class="literal-block">.. math::
+   \left ( \begin{matrix} a &amp; b \\ c &amp; d \end{matrix}\right)</pre>
+<p>Result:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo>(</mo>
+    <mtable>
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo>)</mo>
+  </mrow>
+</math>
+</div>
+<p>The environments <span class="docutils literal">pmatrix</span>, <span class="docutils literal">bmatrix</span>, <span class="docutils literal">Bmatrix</span>, <span class="docutils literal">vmatrix</span>, and
+<span class="docutils literal">Vmatrix</span> have (respectively) ( ), [ ], { }, | |, and <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>‖</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>‖</mo>
+</math>
+delimiters built in, e.g.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo>(</mo>
+    <mtable>
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo>)</mo>
+  </mrow>
+  <mspace width="2em"></mspace>
+  <mrow>
+    <mo>[</mo>
+    <mtable>
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo>]</mo>
+  </mrow>
+  <mspace width="2em"></mspace>
+  <mrow>
+    <mo>‖</mo>
+    <mtable>
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo>‖</mo>
+  </mrow>
+</math>
+</div>
+<p>To produce a small matrix suitable for use in text, there is a
+<span class="docutils literal">smallmatrix</span> environment
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mtable rowspacing="0.02em" columnspacing="0.333em" scriptlevel="1">
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+  </mrow>
+</math>
+that comes closer to fitting within a single text line than a normal
+matrix.</p>
+<p>For piecewise function definitions there is a <span class="docutils literal">cases</span> environment:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>sgn</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mo>=</mo>
+  <mrow>
+    <mo rspace="0.17em">{</mo>
+    <mtable columnalign="left" class="cases">
+      <mtr>
+        <mtd>
+          <mo>−</mo>
+          <mn>1</mn>
+        </mtd>
+        <mtd>
+          <mi>x</mi>
+          <mo>&lt;</mo>
+          <mn>0</mn>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mphantom>
+            <mo>−</mo>
+          </mphantom>
+          <mn>1</mn>
+        </mtd>
+        <mtd>
+          <mi>x</mi>
+          <mo>&gt;</mo>
+          <mn>0</mn>
+        </mtd>
+      </mtr>
+    </mtable>
+  </mrow>
+</math>
+</div>
+</section>
+<section id="spacing-commands">
+<h3><a class="toc-backref" href="#toc-entry-25" role="doc-backlink"><span class="sectnum">3.5 </span>Spacing commands</a></h3>
+<p>Horizontal spacing of elements can be controlled with the following
+commands:</p>
+<table>
+<tbody>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="2em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td></td>
+<td><p><span class="docutils literal">3\qquad 4</span></p></td>
+<td><p>= 2em</p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="1em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td></td>
+<td><p><span class="docutils literal">3\quad 4</span></p></td>
+<td><p>= 1em</p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mo> </mo>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal">3~4</span></p></td>
+<td><p><span class="docutils literal">3\nobreakspace 4</span></p></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="0.25em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal">3\ 4</span></p></td>
+<td></td>
+<td><p>escaped space</p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="0.2778em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal"><span class="pre">3\;4</span></span></p></td>
+<td><p><span class="docutils literal">3\thickspace 4</span></p></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="0.2222em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal"><span class="pre">3\:4</span></span></p></td>
+<td><p><span class="docutils literal">3\medspace 4</span></p></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="0.1667em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal"><span class="pre">3\,4</span></span></p></td>
+<td><p><span class="docutils literal">3\thinspace 4</span></p></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal">3  4</span></p></td>
+<td></td>
+<td><p>regular space <a class="brackets" href="#footnote-2" id="footnote-reference-6" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="-0.1667em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td><p><span class="docutils literal"><span class="pre">3\!4</span></span></p></td>
+<td><p><span class="docutils literal">3\negthinspace 4</span></p></td>
+<td><p>negative space <a class="brackets" href="#footnote-3" id="footnote-reference-7" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a></p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="-0.2222em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td></td>
+<td><p><span class="docutils literal">3\negmedspace 4</span></p></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="-0.2778em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td></td>
+<td><p><span class="docutils literal">3\negthickspace 4</span></p></td>
+<td></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="1ex"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td></td>
+<td><p><span class="docutils literal">3\hspace{1ex}4</span></p></td>
+<td><p>custom length</p></td>
+</tr>
+<tr><td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>3</mn>
+  <mspace width="1.1111111111111112em"></mspace>
+  <mn>4</mn>
+</math></p></td>
+<td></td>
+<td><p><span class="docutils literal">3\mspace{20mu}4</span></p></td>
+<td><p>custom length <a class="brackets" href="#footnote-4" id="footnote-reference-8" role="doc-noteref"><span class="fn-bracket">[</span>6<span class="fn-bracket">]</span></a></p></td>
+</tr>
+</tbody>
+</table>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="footnote-2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-6">4</a><span class="fn-bracket">]</span></span>
+<p>Whitespace characters are ignored in LaTeX math mode.</p>
+</aside>
+<aside class="footnote brackets" id="footnote-3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-7">5</a><span class="fn-bracket">]</span></span>
+<p>Negative spacing does not work with MathML (last tested in Firefox 115).</p>
+</aside>
+<aside class="footnote brackets" id="footnote-4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-8">6</a><span class="fn-bracket">]</span></span>
+<p>In LaTeX, the unit must be 'mu' (1 mu = 1/18em).</p>
+</aside>
+</aside>
+<p>There are also three commands that leave a space equal to the height and
+width of its argument. For example <span class="docutils literal">\phantom{XXX}</span> results in space as
+wide and high as three X’s:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mfrac>
+    <mrow>
+      <mphantom>
+        <mi>X</mi>
+        <mi>X</mi>
+        <mi>X</mi>
+      </mphantom>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>X</mi>
+      <mi>X</mi>
+      <mi>X</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>
+</div>
+<p>The commands <span class="docutils literal">\hphantom</span> and <span class="docutils literal">\vphantom</span> insert space with the
+width or height of the argument. They are not supported with <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a>
+MathML.</p>
+</section>
+<section id="modular-arithmetic-and-modulo-operation">
+<h3><a class="toc-backref" href="#toc-entry-26" role="doc-backlink"><span class="sectnum">3.6 </span>Modular arithmetic and modulo operation</a></h3>
+<p>The commands <span class="docutils literal">\bmod</span>, <span class="docutils literal">\pmod</span>, <span class="docutils literal">\mod</span>, and <span class="docutils literal">\pod</span> deal with the
+special spacing conventions of the “mod” notation. <a class="brackets" href="#footnote-5" id="footnote-reference-9" role="doc-noteref"><span class="fn-bracket">[</span>7<span class="fn-bracket">]</span></a></p>
+<table>
+<thead>
+<tr><th class="head"><p>command</p></th>
+<th class="head"><p>example</p></th>
+<th class="head"><p>result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr><td><p><span class="docutils literal">\bmod</span></p></td>
+<td><p><span class="docutils literal">\gcd(n,m \bmod n)</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>gcd</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mi>n</mi>
+  <mo>,</mo>
+  <mi>m</mi>
+  <mo lspace="0.278em" rspace="0.278em">mod</mo>
+  <mi>n</mi>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\pmod</span></p></td>
+<td><p><span class="docutils literal">x\equiv y \pmod b</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>x</mi>
+  <mo>≡</mo>
+  <mi>y</mi>
+  <mspace width="0.444em"></mspace>
+  <mo stretchy="false">(</mo>
+  <mi>mod</mi>
+  <mspace width="0.333em"></mspace>
+  <mi>b</mi>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\mod</span></p></td>
+<td><p><span class="docutils literal">x\equiv y \mod c</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>x</mi>
+  <mo>≡</mo>
+  <mi>y</mi>
+  <mspace width="0.667em"></mspace>
+  <mi>mod</mi>
+  <mspace width="0.333em"></mspace>
+  <mi>c</mi>
+</math></p></td>
+</tr>
+<tr><td><p><span class="docutils literal">\pod</span></p></td>
+<td><p><span class="docutils literal">x\equiv y \pod d</span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>x</mi>
+  <mo>≡</mo>
+  <mi>y</mi>
+  <mspace width="0.444em"></mspace>
+  <mo stretchy="false">(</mo>
+  <mi>d</mi>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+</tr>
+<tr><td><!--  -->
+</td>
+<td><p><span class="docutils literal"><span class="pre">\operatorname{mod}(m,n)</span></span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi mathvariant="normal">mod</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <mi>m</mi>
+  <mo>,</mo>
+  <mi>n</mi>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+</tr>
+</tbody>
+</table>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="footnote-5" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-9">7</a><span class="fn-bracket">]</span></span>
+<p>Currently <a class="reference external" href="https://sourceforge.net/p/docutils/feature-requests/93/">not supported</a> by the &quot;HTML&quot; <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a> option
+of the HTML writer.</p>
+</aside>
+</aside>
+</section>
+<section id="roots">
+<h3><a class="toc-backref" href="#toc-entry-27" role="doc-backlink"><span class="sectnum">3.7 </span>Roots</a></h3>
+<table>
+<thead>
+<tr><th class="head"><p>command</p></th>
+<th class="head"><p>example</p></th>
+<th class="head"><p>result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr><td><p><span class="docutils literal">\sqrt</span></p></td>
+<td><p><span class="docutils literal"><span class="pre">\sqrt{x^2-1}</span></span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msqrt>
+    <msup>
+      <mi>x</mi>
+      <mn>2</mn>
+    </msup>
+    <mo>−</mo>
+    <mn>1</mn>
+  </msqrt>
+</math></p></td>
+</tr>
+<tr><td><!--  -->
+</td>
+<td><p><span class="docutils literal"><span class="pre">\sqrt[3n]{x^2-1}</span></span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mroot>
+    <mrow>
+      <msup>
+        <mi>x</mi>
+        <mn>2</mn>
+      </msup>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mn>3</mn>
+      <mi>n</mi>
+    </mrow>
+  </mroot>
+</math></p></td>
+</tr>
+<tr><td><!--  -->
+</td>
+<td><p><span class="docutils literal"><span class="pre">\sqrt\frac{1}{2}</span></span></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msqrt>
+    <mfrac>
+      <mn>1</mn>
+      <mn>2</mn>
+    </mfrac>
+  </msqrt>
+</math></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="boxed-formulas">
+<h3><a class="toc-backref" href="#toc-entry-28" role="doc-backlink"><span class="sectnum">3.8 </span>Boxed formulas</a></h3>
+<p>The command <span class="docutils literal">\boxed</span> puts a box around its argument:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <menclose notation="box" class="boxed">
+    <mi>η</mi>
+    <mo>≤</mo>
+    <mi>C</mi>
+    <mo stretchy="false">(</mo>
+    <mi>δ</mi>
+    <mo stretchy="false">(</mo>
+    <mi>η</mi>
+    <mo stretchy="false">)</mo>
+    <mo>+</mo>
+    <msub>
+      <mi class="capital-greek">Λ</mi>
+      <mi>M</mi>
+    </msub>
+    <mo stretchy="false">(</mo>
+    <mn>0</mn>
+    <mo>,</mo>
+    <mi>δ</mi>
+    <mo stretchy="false">)</mo>
+    <mo stretchy="false">)</mo>
+  </menclose>
+</math>
+</div>
+</section>
+</section>
+<section id="fractions-and-related-constructions">
+<h2><a class="toc-backref" href="#toc-entry-29" role="doc-backlink"><span class="sectnum">4 </span>Fractions and related constructions</a></h2>
+<p>The <span class="docutils literal">\frac</span> command takes two ar guments, numerator and denominator,
+and typesets them in normal fraction form. For example, <span class="docutils literal">U = <span class="pre">\frac{R}{I}</span></span>
+produces <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>U</mi>
+  <mo>=</mo>
+  <mfrac>
+    <mi>R</mi>
+    <mi>I</mi>
+  </mfrac>
+</math>. Use <span class="docutils literal">\dfrac</span> or <span class="docutils literal">\tfrac</span> to
+force text style and display style respectively.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mfrac>
+    <mrow>
+      <mi>x</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+  <mspace width="1em"></mspace>
+  <mfrac displaystyle="true" scriptlevel="0">
+    <mrow>
+      <mi>x</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+  <mspace width="1em"></mspace>
+  <mfrac displaystyle="false" scriptlevel="0">
+    <mrow>
+      <mi>x</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>
+</div>
+<p>and in text: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mfrac>
+    <mrow>
+      <mi>x</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mfrac displaystyle="true" scriptlevel="0">
+    <mrow>
+      <mi>x</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mfrac displaystyle="false" scriptlevel="0">
+    <mrow>
+      <mi>x</mi>
+      <mo>+</mo>
+      <mn>1</mn>
+    </mrow>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>.</p>
+<p>For binomial expressions such as <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow class="binom">
+    <mo>(</mo>
+    <mfrac linethickness="0">
+      <mi>n</mi>
+      <mi>k</mi>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+</math>,
+there are <span class="docutils literal">\binom</span>, <span class="docutils literal">\dbinom</span> and <span class="docutils literal">\tbinom</span> commands:</p>
+<pre class="literal-block">2^k-\binom{k}{1}2^{k-1}+\binom{k}{2}2^{k-2}</pre>
+<p>prints</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msup>
+    <mn>2</mn>
+    <mi>k</mi>
+  </msup>
+  <mo>−</mo>
+  <mrow class="binom">
+    <mo>(</mo>
+    <mfrac linethickness="0">
+      <mi>k</mi>
+      <mn>1</mn>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+  <msup>
+    <mn>2</mn>
+    <mrow>
+      <mi>k</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </msup>
+  <mo>+</mo>
+  <mrow class="binom">
+    <mo>(</mo>
+    <mfrac linethickness="0">
+      <mi>k</mi>
+      <mn>2</mn>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+  <msup>
+    <mn>2</mn>
+    <mrow>
+      <mi>k</mi>
+      <mo>−</mo>
+      <mn>2</mn>
+    </mrow>
+  </msup>
+</math>
+</div>
+<p>The <span class="docutils literal">\cfrac</span> command for continued fractions uses displaystyle and
+padding for sub-fractions:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mfrac>
+    <mi>π</mi>
+    <mn>4</mn>
+  </mfrac>
+  <mo>=</mo>
+  <mn>1</mn>
+  <mo>+</mo>
+  <mfrac displaystyle="true" scriptlevel="0" class="cfrac">
+    <msup>
+      <mn>1</mn>
+      <mn>2</mn>
+    </msup>
+    <mrow>
+      <mn>2</mn>
+      <mo>+</mo>
+      <mfrac displaystyle="true" scriptlevel="0" class="cfrac">
+        <msup>
+          <mn>3</mn>
+          <mn>2</mn>
+        </msup>
+        <mrow>
+          <mn>2</mn>
+          <mo>+</mo>
+          <mfrac displaystyle="true" scriptlevel="0" class="cfrac">
+            <msup>
+              <mn>5</mn>
+              <mn>2</mn>
+            </msup>
+            <mrow>
+              <mn>2</mn>
+              <mo>+</mo>
+              <mfrac displaystyle="true" scriptlevel="0" class="cfrac">
+                <msup>
+                  <mn>7</mn>
+                  <mn>2</mn>
+                </msup>
+                <mrow>
+                  <mn>2</mn>
+                  <mo>+</mo>
+                  <mi>⋯</mi>
+                </mrow>
+              </mfrac>
+            </mrow>
+          </mfrac>
+        </mrow>
+      </mfrac>
+    </mrow>
+  </mfrac>
+  <mspace width="2em"></mspace>
+  <mtext>vs.</mtext>
+  <mspace width="2em"></mspace>
+  <mfrac>
+    <mi>π</mi>
+    <mn>4</mn>
+  </mfrac>
+  <mo>=</mo>
+  <mn>1</mn>
+  <mo>+</mo>
+  <mfrac>
+    <msup>
+      <mn>1</mn>
+      <mn>2</mn>
+    </msup>
+    <mrow>
+      <mn>2</mn>
+      <mo>+</mo>
+      <mfrac>
+        <msup>
+          <mn>3</mn>
+          <mn>2</mn>
+        </msup>
+        <mrow>
+          <mn>2</mn>
+          <mo>+</mo>
+          <mfrac>
+            <msup>
+              <mn>5</mn>
+              <mn>2</mn>
+            </msup>
+            <mrow>
+              <mn>2</mn>
+              <mo>+</mo>
+              <mfrac>
+                <msup>
+                  <mn>7</mn>
+                  <mn>2</mn>
+                </msup>
+                <mrow>
+                  <mn>2</mn>
+                  <mo>+</mo>
+                  <mi>⋯</mi>
+                </mrow>
+              </mfrac>
+            </mrow>
+          </mfrac>
+        </mrow>
+      </mfrac>
+    </mrow>
+  </mfrac>
+</math>
+</div>
+<p>The optional argument <span class="docutils literal">[l]</span> or <span class="docutils literal">[r]</span> for left or right placement of
+the numerator is <a class="reference external" href="https://github.com/w3c/mathml/issues/30">not supported by MathML Core</a>:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mfrac displaystyle="true" scriptlevel="0" class="cfrac numalign-left" numalign="left">
+    <mi>x</mi>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+  <mspace width="1em"></mspace>
+  <mfrac displaystyle="true" scriptlevel="0" class="cfrac">
+    <mi>x</mi>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+  <mspace width="1em"></mspace>
+  <mfrac displaystyle="true" scriptlevel="0" class="cfrac numalign-right" numalign="right">
+    <mi>x</mi>
+    <mrow>
+      <mi>x</mi>
+      <mo>−</mo>
+      <mn>1</mn>
+    </mrow>
+  </mfrac>
+</math>
+</div>
+</section>
+<section id="delimiter-sizes">
+<h2><a class="toc-backref" href="#toc-entry-30" role="doc-backlink"><span class="sectnum">5 </span>Delimiter sizes</a></h2>
+<p>Besides the automatic scaling of <a class="reference internal" href="#extensible-delimiters">extensible delimiters</a> with <span class="docutils literal">\left</span>
+and <span class="docutils literal">\right</span>, there are four commands to manually select delimiters of
+fixed size:</p>
+<table>
+<tbody>
+<tr><td><p>Sizing</p></td>
+<td><p>no</p></td>
+<td><p><span class="docutils literal">\left</span></p></td>
+<td><p><span class="docutils literal">\bigl</span></p></td>
+<td><p><span class="docutils literal">\Bigl</span></p></td>
+<td><p><span class="docutils literal">\biggl</span></p></td>
+<td><p><span class="docutils literal">\Biggl</span></p></td>
+</tr>
+<tr><td><p>command</p></td>
+<td></td>
+<td><p><span class="docutils literal">\right</span></p></td>
+<td><p><span class="docutils literal">\bigr</span></p></td>
+<td><p><span class="docutils literal">\Bigr</span></p></td>
+<td><p><span class="docutils literal">\biggr</span></p></td>
+<td><p><span class="docutils literal">\Biggr</span></p></td>
+</tr>
+<tr><td><p>Result</p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <mo stretchy="false">(</mo>
+  <mi>b</mi>
+  <mo stretchy="false">)</mo>
+  <mo stretchy="false">(</mo>
+  <mfrac>
+    <mi>c</mi>
+    <mi>d</mi>
+  </mfrac>
+  <mo stretchy="false">)</mo>
+</math></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <mrow>
+    <mo>(</mo>
+    <mi>b</mi>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mfrac>
+      <mi>c</mi>
+      <mi>d</mi>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+</math></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mi>b</mi>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+  </mrow>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mfrac>
+      <mi>c</mi>
+      <mi>d</mi>
+    </mfrac>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+  </mrow>
+</math></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <mrow>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">(</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">)</mo>
+  </mrow>
+  <mrow>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">(</mo>
+    <mfrac>
+      <mi>c</mi>
+      <mi>d</mi>
+    </mfrac>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">)</mo>
+  </mrow>
+</math></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">(</mo>
+    <mi>b</mi>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">)</mo>
+  </mrow>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">(</mo>
+    <mfrac>
+      <mi>c</mi>
+      <mi>d</mi>
+    </mfrac>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">)</mo>
+  </mrow>
+</math></p></td>
+<td><p><math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <mrow>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">(</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">)</mo>
+  </mrow>
+  <mrow>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">(</mo>
+    <mfrac>
+      <mi>c</mi>
+      <mi>d</mi>
+    </mfrac>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">)</mo>
+  </mrow>
+</math></p></td>
+</tr>
+</tbody>
+</table>
+<p>There are two or three situations where the delimiter size is commonly
+adjusted using these commands:</p>
+<p>The first kind of adjustment is done for cumulative operators with
+limits, such as summation signs. With <span class="docutils literal">\left</span> and <span class="docutils literal">\right</span> the
+delimiters usually turn out larger than necessary, and using the <span class="docutils literal">Big</span>
+or <span class="docutils literal">bigg</span> sizes instead gives better results:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msup>
+    <mrow>
+      <mo>[</mo>
+      <munder>
+        <mo movablelimits="true">∑</mo>
+        <mi>i</mi>
+      </munder>
+      <msub>
+        <mi>a</mi>
+        <mi>i</mi>
+      </msub>
+      <msup>
+        <mrow>
+          <mo>|</mo>
+          <munder>
+            <mo movablelimits="true">∑</mo>
+            <mi>j</mi>
+          </munder>
+          <msub>
+            <mi>x</mi>
+            <mrow>
+              <mi>i</mi>
+              <mi>j</mi>
+            </mrow>
+          </msub>
+          <mo>|</mo>
+        </mrow>
+        <mi>p</mi>
+      </msup>
+      <mo>]</mo>
+    </mrow>
+    <mrow>
+      <mn>1</mn>
+      <mo stretchy="false">/</mo>
+      <mi>p</mi>
+    </mrow>
+  </msup>
+  <mtext> versus </mtext>
+  <msup>
+    <mrow>
+      <mo maxsize="2.047em" minsize="2.047em" symmetric="true">[</mo>
+      <munder>
+        <mo movablelimits="true">∑</mo>
+        <mi>i</mi>
+      </munder>
+      <msub>
+        <mi>a</mi>
+        <mi>i</mi>
+      </msub>
+      <msup>
+        <mrow>
+          <mo maxsize="1.623em" minsize="1.623em" symmetric="true">|</mo>
+          <munder>
+            <mo movablelimits="true">∑</mo>
+            <mi>j</mi>
+          </munder>
+          <msub>
+            <mi>x</mi>
+            <mrow>
+              <mi>i</mi>
+              <mi>j</mi>
+            </mrow>
+          </msub>
+          <mo maxsize="1.623em" minsize="1.623em" symmetric="true">|</mo>
+        </mrow>
+        <mi>p</mi>
+      </msup>
+      <mo maxsize="2.047em" minsize="2.047em" symmetric="true">]</mo>
+    </mrow>
+    <mrow>
+      <mn>1</mn>
+      <mo stretchy="false">/</mo>
+      <mi>p</mi>
+    </mrow>
+  </msup>
+</math>
+</div>
+<p>The second kind of situation is clustered pairs of delimiters, where
+left and right make them all the same size (because that is adequate to
+cover the encompassed material), but what you really want is to make some
+of the delimiters slightly larger to make the nesting easier to see.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo>(</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>1</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>1</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>−</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>2</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>2</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>2</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>1</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>+</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>1</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>2</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>)</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mtext>versus</mtext>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>1</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>1</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>−</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>2</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>2</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+  </mrow>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>2</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>1</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>+</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>a</mi>
+      <mn>1</mn>
+    </msub>
+    <msub>
+      <mi>b</mi>
+      <mn>2</mn>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+  </mrow>
+</math>
+</div>
+<p>The third kind of situation is a slightly oversize object in running
+text, such as <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo>|</mo>
+    <mfrac>
+      <mrow>
+        <mi>b</mi>
+        <mo>'</mo>
+      </mrow>
+      <mrow>
+        <mi>d</mi>
+        <mo>'</mo>
+      </mrow>
+    </mfrac>
+    <mo>|</mo>
+  </mrow>
+</math> where the delimiters produced
+by <span class="docutils literal">\left</span> and <span class="docutils literal">\right</span> cause too much line spreading. <a class="brackets" href="#footnote-6" id="footnote-reference-10" role="doc-noteref"><span class="fn-bracket">[</span>8<span class="fn-bracket">]</span></a> In that case
+<span class="docutils literal">\bigl</span> and <span class="docutils literal">\bigr</span> can be used to produce delimiters that are larger
+than the base size but still able to fit within the normal line spacing:
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">|</mo>
+    <mfrac>
+      <mrow>
+        <mi>b</mi>
+        <mo>'</mo>
+      </mrow>
+      <mrow>
+        <mi>d</mi>
+        <mo>'</mo>
+      </mrow>
+    </mfrac>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">|</mo>
+  </mrow>
+</math>.</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="footnote-6" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-10">8</a><span class="fn-bracket">]</span></span>
+<p>With MathML, an example would be parentheses
+around a <span class="docutils literal">smallmatrix</span> environment
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo>(</mo>
+    <mtable rowspacing="0.02em" columnspacing="0.333em" scriptlevel="1">
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo>)</mo>
+  </mrow>
+</math>
+vs. <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">(</mo>
+    <mtable rowspacing="0.02em" columnspacing="0.333em" scriptlevel="1">
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">)</mo>
+  </mrow>
+</math>.</p>
+</aside>
+</aside>
+</section>
+<section id="text">
+<h2><a class="toc-backref" href="#toc-entry-31" role="doc-backlink"><span class="sectnum">6 </span>Text</a></h2>
+<p>The main use of the command <span class="docutils literal">\text</span> is for words or phrases in a
+display. It is similar to <span class="docutils literal">\mbox</span> in its effects but, unlike <span class="docutils literal">\mbox</span>,
+automatically produces subscript-size text if used in a subscript,
+<span class="docutils literal"><span class="pre">k_{\text{B}}T</span></span> becomes <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>k</mi>
+    <mtext>B</mtext>
+  </msub>
+  <mi>T</mi>
+</math>.</p>
+<p>Whitespace is kept inside the argument:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msub>
+    <mi>f</mi>
+    <mrow>
+      <mo stretchy="false">[</mo>
+      <msub>
+        <mi>x</mi>
+        <mrow>
+          <mi>i</mi>
+          <mo>−</mo>
+          <mn>1</mn>
+        </mrow>
+      </msub>
+      <mo>,</mo>
+      <msub>
+        <mi>x</mi>
+        <mi>i</mi>
+      </msub>
+      <mo stretchy="false">]</mo>
+    </mrow>
+  </msub>
+  <mtext> is monotonic for </mtext>
+  <mi>i</mi>
+  <mo>=</mo>
+  <mn>1</mn>
+  <mo>,</mo>
+  <mspace width="0.1667em"></mspace>
+  <mi>…</mi>
+  <mo>,</mo>
+  <mspace width="0.1667em"></mspace>
+  <mi>c</mi>
+  <mo>+</mo>
+  <mn>1</mn>
+</math>
+</div>
+<p>The text may contain math commands wrapped in <span class="docutils literal">$</span> signs, e.g.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mo stretchy="false">(</mo>
+  <mo form="prefix">−</mo>
+  <mn>1</mn>
+  <msup>
+    <mo stretchy="false">)</mo>
+    <msub>
+      <mi>n</mi>
+      <mi>i</mi>
+    </msub>
+  </msup>
+  <mo>=</mo>
+  <mrow>
+    <mo rspace="0.17em">{</mo>
+    <mtable columnalign="left" class="cases">
+      <mtr>
+        <mtd>
+          <mo>−</mo>
+          <mn>1</mn>
+          <mspace width="1em"></mspace>
+          <mtext>if </mtext>
+          <msub>
+            <mi>n</mi>
+            <mi>i</mi>
+          </msub>
+          <mtext> is odd,</mtext>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mo>+</mo>
+          <mn>1</mn>
+          <mspace width="1em"></mspace>
+          <mtext>if </mtext>
+          <msub>
+            <mi>n</mi>
+            <mi>i</mi>
+          </msub>
+          <mtext> is even.</mtext>
+        </mtd>
+      </mtr>
+    </mtable>
+  </mrow>
+</math>
+</div>
+<!-- TODO ignore {}, handle text-mode commands -->
+</section>
+<section id="integrals-and-sums">
+<h2><a class="toc-backref" href="#toc-entry-32" role="doc-backlink"><span class="sectnum">7 </span>Integrals and sums</a></h2>
+<p>The limits on integrals, sums, and similar symbols are placed either to
+the side of or above and below the base symbol, depending on convention
+and context. In inline formulas and fractions, the limits on sums, and
+similar symbols like</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <munder>
+    <mo movablelimits="true">lim</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>→</mo>
+      <mi>∞</mi>
+    </mrow>
+  </munder>
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mn>1</mn>
+    <mi>n</mi>
+  </munderover>
+  <mfrac>
+    <mn>1</mn>
+    <mi>n</mi>
+  </mfrac>
+</math>
+</div>
+<p>move to index positions: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mo movablelimits="true">lim</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>→</mo>
+      <mi>∞</mi>
+    </mrow>
+  </munder>
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mn>1</mn>
+    <mi>n</mi>
+  </munderover>
+  <mfrac>
+    <mn>1</mn>
+    <mi>n</mi>
+  </mfrac>
+</math>.</p>
+<section id="altering-the-placement-of-limits">
+<h3><a class="toc-backref" href="#toc-entry-33" role="doc-backlink"><span class="sectnum">7.1 </span>Altering the placement of limits</a></h3>
+<p>The commands <span class="docutils literal">\intop</span> and <span class="docutils literal">\ointop</span> produce integral signs with
+limits as in sums and similar: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munderover>
+    <mo movablelimits="true">∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </munderover>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mo movablelimits="true">∮</mo>
+    <mi>c</mi>
+  </munder>
+</math> and</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <munderover>
+    <mo movablelimits="true">∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </munderover>
+  <mspace width="1em"></mspace>
+  <munder>
+    <mo movablelimits="true">∮</mo>
+    <mi>c</mi>
+  </munder>
+  <mspace width="1em"></mspace>
+  <mtext>vs.</mtext>
+  <mspace width="1em"></mspace>
+  <msubsup>
+    <mo>∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </msubsup>
+  <mspace width="1em"></mspace>
+  <msub>
+    <mo>∮</mo>
+    <mi>c</mi>
+  </msub>
+</math>
+</div>
+<p>The commands <span class="docutils literal">\limits</span> and <span class="docutils literal">\nolimits</span> override the default placement
+of the limits for any operator; <span class="docutils literal">\displaylimits</span> forces standard
+positioning as for the sum command. They should follow immediately after
+the operator to which they apply.</p>
+<p>Compare the same term with default positions, <span class="docutils literal">\limits</span>, and
+<span class="docutils literal">\nolimits</span> in inline and display mode: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mo movablelimits="true">lim</mo>
+    <mrow>
+      <mi>x</mi>
+      <mo>→</mo>
+      <mn>0</mn>
+    </mrow>
+  </munder>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+</math>,
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munder>
+    <mo movablelimits="false">lim</mo>
+    <mrow>
+      <mi>x</mi>
+      <mo>→</mo>
+      <mn>0</mn>
+    </mrow>
+  </munder>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mo movablelimits="true">lim</mo>
+    <mrow>
+      <mi>x</mi>
+      <mo>→</mo>
+      <mn>0</mn>
+    </mrow>
+  </msub>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+</math>, vs.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <munder>
+    <mo movablelimits="true">lim</mo>
+    <mrow>
+      <mi>x</mi>
+      <mo>→</mo>
+      <mn>0</mn>
+    </mrow>
+  </munder>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mo>,</mo>
+  <mspace width="1em"></mspace>
+  <munder>
+    <mo movablelimits="false">lim</mo>
+    <mrow>
+      <mi>x</mi>
+      <mo>→</mo>
+      <mn>0</mn>
+    </mrow>
+  </munder>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mspace width="1em"></mspace>
+  <msub>
+    <mo movablelimits="true">lim</mo>
+    <mrow>
+      <mi>x</mi>
+      <mo>→</mo>
+      <mn>0</mn>
+    </mrow>
+  </msub>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>x</mi>
+  <mo stretchy="false">)</mo>
+  <mo>.</mo>
+</math>
+</div>
+<!-- TODO: \substack -->
+<!-- TODO: \sideset -->
+</section>
+</section>
+<section id="changing-the-size-of-elements-in-a-formula">
+<h2><a class="toc-backref" href="#toc-entry-34" role="doc-backlink"><span class="sectnum">8 </span>Changing the size of elements in a formula</a></h2>
+<p>The declarations <a class="brackets" href="#footnote-7" id="footnote-reference-11" role="doc-noteref"><span class="fn-bracket">[</span>9<span class="fn-bracket">]</span></a> <span class="docutils literal">\displaystyle</span>, <span class="docutils literal">\textstyle</span>,
+<span class="docutils literal">\scriptstyle</span>, and <span class="docutils literal">\scriptscriptstyle</span>, select a symbol size and
+spacing that would be applied in display math, inline
+math, first-order subscript, or second-order subscript, respectively
+even when the current context would normally yield some other size.</p>
+<p>For example <span class="docutils literal"><span class="pre">:math:`\displaystyle</span> <span class="pre">\sum_{n=0}^\infty</span> <span class="pre">\frac{1}{n}`</span></span> is printed as <math xmlns="http://www.w3.org/1998/Math/MathML" displaystyle="true" scriptlevel="0">
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mi>∞</mi>
+  </munderover>
+  <mfrac>
+    <mn>1</mn>
+    <mi>n</mi>
+  </mfrac>
+</math>
+rather than <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mrow>
+      <mi>n</mi>
+      <mo>=</mo>
+      <mn>0</mn>
+    </mrow>
+    <mi>∞</mi>
+  </munderover>
+  <mfrac>
+    <mn>1</mn>
+    <mi>n</mi>
+  </mfrac>
+</math> and</p>
+<pre class="literal-block">\frac{\scriptstyle\sum_{n &gt; 0} z^n}
+{\displaystyle\prod_{1\leq k\leq n} (1-q^k)}</pre>
+<p>yields</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mfrac>
+    <mrow displaystyle="false" scriptlevel="1">
+      <munder>
+        <mo movablelimits="true">∑</mo>
+        <mrow>
+          <mi>n</mi>
+          <mo>&gt;</mo>
+          <mn>0</mn>
+        </mrow>
+      </munder>
+      <msup>
+        <mi>z</mi>
+        <mi>n</mi>
+      </msup>
+    </mrow>
+    <mrow displaystyle="true" scriptlevel="0">
+      <munder>
+        <mo movablelimits="true">∏</mo>
+        <mrow>
+          <mn>1</mn>
+          <mo>≤</mo>
+          <mi>k</mi>
+          <mo>≤</mo>
+          <mi>n</mi>
+        </mrow>
+      </munder>
+      <mo stretchy="false">(</mo>
+      <mn>1</mn>
+      <mo>−</mo>
+      <msup>
+        <mi>q</mi>
+        <mi>k</mi>
+      </msup>
+      <mo stretchy="false">)</mo>
+    </mrow>
+  </mfrac>
+  <mtext> instead of the default </mtext>
+  <mfrac>
+    <mrow>
+      <munder>
+        <mo movablelimits="true">∑</mo>
+        <mrow>
+          <mi>n</mi>
+          <mo>&gt;</mo>
+          <mn>0</mn>
+        </mrow>
+      </munder>
+      <msup>
+        <mi>z</mi>
+        <mi>n</mi>
+      </msup>
+    </mrow>
+    <mrow>
+      <munder>
+        <mo movablelimits="true">∏</mo>
+        <mrow>
+          <mn>1</mn>
+          <mo>≤</mo>
+          <mi>k</mi>
+          <mo>≤</mo>
+          <mi>n</mi>
+        </mrow>
+      </munder>
+      <mo stretchy="false">(</mo>
+      <mn>1</mn>
+      <mo>−</mo>
+      <msup>
+        <mi>q</mi>
+        <mi>k</mi>
+      </msup>
+      <mo stretchy="false">)</mo>
+    </mrow>
+  </mfrac>
+  <mo>.</mo>
+</math>
+</div>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="footnote-7" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#footnote-reference-11">9</a><span class="fn-bracket">]</span></span>
+<p>&quot;Declarations&quot; are commands that affect processing of the current
+&quot;group&quot;. In particular, notice where the braces fall that delimit the
+effect of the command: Right: <span class="docutils literal">{\displaystyle <span class="pre">...}</span></span> Wrong:
+<span class="docutils literal"><span class="pre">\displaystyle{...}</span></span>.</p>
+<p>With <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a> MathML, the declaration must be the first element
+after the opening bracket.</p>
+</aside>
+</aside>
+<div role="list" class="citation-list">
+<div class="citation" id="iso-80000-2" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#citation-reference-1">ISO-80000-2</a><span class="fn-bracket">]</span></span>
+<p><cite>Quantities and units – Part 2: Mathematical signs
+and symbols to be used in the natural sciences and technology</cite>:
+<a class="reference external" href="http://www.iso.org/iso/iso_catalogue/catalogue_tc/catalogue_detail.htm?csnumber=31887">http://www.iso.org/iso/iso_catalogue/catalogue_tc/catalogue_detail.htm?csnumber=31887</a>.</p>
+</div>
+</div>
+</section>
+</main>
+</body>
+</html>

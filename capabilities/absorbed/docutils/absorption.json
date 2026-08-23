@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "utils_math_math2html_cloner_clone_output": ""
+      },
+      "input": {
+        "original": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "utils_math_math2html_cloner_clone_output": ""
+      },
+      "input": {
+        "original": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "utils_math_math2html_cloner_clone_output": ""
+      },
+      "input": {
+        "original": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "utils_math_math2html_cloner_clone_output": ""
+      },
+      "input": {
+        "original": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "docutils",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "docutils",
+    "registry": "pypi",
+    "sha256": "746f5060322511280a1e50eb76846ed6bf2342984b2ac04dc42caa1a8d78799e",
+    "source": "artifacts/capability-foraging/downloads/docutils-0.23.tar.gz",
+    "url": "",
+    "version": "0.23"
+  },
+  "provides": [
+    "utils_math_math2html_cloner_clone_output"
+  ],
+  "requires": [
+    "original"
+  ],
+  "schema_version": 1,
+  "slug": "docutils",
+  "version": "0.23"
+}

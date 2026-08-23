@@ -195,11 +195,20 @@ def probe_candidate(
         "python_deep_nested_namespace_class_instance": bool(
             (inference.get("record") or {}).get("python_deep_nested_namespace_class_instance")
         ),
+        "python_triple_nested_namespace_class_static": bool(
+            (inference.get("record") or {}).get("python_triple_nested_namespace_class_static")
+        ),
+        "python_triple_nested_namespace_class_instance": bool(
+            (inference.get("record") or {}).get("python_triple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_nested_namespace_function")
         ),
         "python_deep_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_deep_nested_namespace_function")
+        ),
+        "python_triple_nested_namespace_function": bool(
+            (inference.get("record") or {}).get("python_triple_nested_namespace_function")
         ),
     }
 

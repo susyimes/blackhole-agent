@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="generator" content="Docutils 0.23: https://docutils.sourceforge.io/" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Math Conversion Tests</title>
+<link rel="stylesheet" href="../../../docutils/writers/html5_polyglot/minimal.css" type="text/css" />
+<link rel="stylesheet" href="../../../docutils/writers/html5_polyglot/plain.css" type="text/css" />
+</head>
+<body>
+<main id="math-conversion-tests">
+<h1 class="title">Math Conversion Tests</h1>
+
+<section id="math-alphabet-mathvariant">
+<h2>Math alphabet / Mathvariant</h2>
+<p>TeX's <em>math alphabet</em> macros change font features of (some) letters and
+digits. Non-alphanumerical symbols, function names, and mathematical text
+are left unchanged.</p>
+<dl class="field-list simple">
+<dt>default<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>V</mi>
+    <mi>R</mi>
+  </msub>
+  <mi>x</mi>
+  <mo>±</mo>
+  <mi>cos</mi>
+  <mo>&ApplyFunction;</mo>
+  <mo stretchy="false">(</mo>
+  <msub>
+    <mi>α</mi>
+    <mtext>out</mtext>
+  </msub>
+  <mo stretchy="false">)</mo>
+  <mo>≈</mo>
+  <mn>3</mn>
+  <mi class="capital-greek">Γ</mi>
+  <mspace width="1em"></mspace>
+  <mi>∀</mi>
+  <mi>x</mi>
+  <mo>∈</mo>
+  <mi>ℝ</mi>
+</math></p>
+</dd>
+<dt>mathrm<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi mathvariant="normal">V</mi>
+      <mi mathvariant="normal">R</mi>
+    </msub>
+    <mi mathvariant="normal">x</mi>
+    <mo>±</mo>
+    <mi mathvariant="normal">cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi mathvariant="normal">α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek" mathvariant="normal">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi mathvariant="normal">x</mi>
+    <mo>∈</mo>
+    <mi mathvariant="normal">ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathbf<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝐕</mi>
+      <mi>𝐑</mi>
+    </msub>
+    <mi>𝐱</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>𝛂</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>𝟑</mn>
+    <mi class="capital-greek">𝚪</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝐱</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathit<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝑉</mi>
+      <mi>𝑅</mi>
+    </msub>
+    <mi>𝑥</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>𝛼</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">𝛤</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝑥</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathbfit<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝑽</mi>
+      <mi>𝑹</mi>
+    </msub>
+    <mi>𝒙</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>𝜶</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">𝜞</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝒙</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathbb<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝕍</mi>
+      <mi>ℝ</mi>
+    </msub>
+    <mi>𝕩</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>𝟛</mn>
+    <mi class="capital-greek">ℾ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝕩</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathcal<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝒱</mi>
+      <mi>ℛ</mi>
+    </msub>
+    <mi>𝓍</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝓍</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathscr<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow class="mathscr">
+    <msub>
+      <mi>𝒱</mi>
+      <mi>ℛ</mi>
+    </msub>
+    <mi>𝓍</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝓍</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathfrak<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝔙</mi>
+      <mi>ℜ</mi>
+    </msub>
+    <mi>𝔵</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝔵</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathsf<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝖵</mi>
+      <mi>𝖱</mi>
+    </msub>
+    <mi>𝗑</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>𝟥</mn>
+    <mi class="capital-greek">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝗑</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathsfit<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝘝</mi>
+      <mi>𝘙</mi>
+    </msub>
+    <mi>𝘹</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝘹</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathsfbfit<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝙑</mi>
+      <mi>𝙍</mi>
+    </msub>
+    <mi>𝙭</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>𝞪</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">𝞒</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝙭</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathbfsfit<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝙑</mi>
+      <mi>𝙍</mi>
+    </msub>
+    <mi>𝙭</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>𝞪</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>3</mn>
+    <mi class="capital-greek">𝞒</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝙭</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+<dt>mathtt<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <msub>
+      <mi>𝚅</mi>
+      <mi>𝚁</mi>
+    </msub>
+    <mi>𝚡</mi>
+    <mo>±</mo>
+    <mi>cos</mi>
+    <mo>&ApplyFunction;</mo>
+    <mo stretchy="false">(</mo>
+    <msub>
+      <mi>α</mi>
+      <mtext>out</mtext>
+    </msub>
+    <mo stretchy="false">)</mo>
+    <mo>≈</mo>
+    <mn>𝟹</mn>
+    <mi class="capital-greek">Γ</mi>
+    <mspace width="1em"></mspace>
+    <mi>∀</mi>
+    <mi>𝚡</mi>
+    <mo>∈</mo>
+    <mi>ℝ</mi>
+  </mrow>
+</math></p>
+</dd>
+</dl>
+<p>MathML 4 defines the <em>mathvariant</em> <a class="reference external" href="https://www.w3.org/TR/mathml4/#presm_commatt">style attribute</a>, in MathML core,
+characters from the <a class="reference external" href="http://www.unicode.org/charts/PDF/U1EE00.pdf">Mathematical Alphanumeric Symbols</a> Unicode block
+are used.</p>
+<p>The mathvariants <em>bold-script</em>, <em>bold-fraktur</em>, and <em>sans-bold</em> are
+rarely used. They are currently not supported by Docutils's native MathML
+output. In LaTeX, <span class="docutils literal">\mathbfscr</span> and <span class="docutils literal">\mathbffrac</span> is supported by the
+<a class="reference external" href="https://www.ctan.org/pkg/mathalpha">mathalpha</a> package.</p>
+<p>Bold variants of any symbol can be achieved in combination with the
+<span class="docutils literal">\boldsymbol</span> command, e.g.</p>
+<dl class="field-list simple">
+<dt>bold-fraktur<span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow class="boldsymbol">
+    <mrow>
+      <msub>
+        <mi>𝔙</mi>
+        <mi>ℜ</mi>
+      </msub>
+      <mi>𝔵</mi>
+    </mrow>
+  </mrow>
+</math></p>
+</dd>
+</dl>
+<p>Note, that <span class="docutils literal">\boldsymbol</span> emboldens also non-alphanumerical symbols.</p>
+<section id="complex-example">
+<h3>Complex Example</h3>
+<p>From the <a class="reference external" href="https://www.ctan.org/pkg/baskervaldx">baskervaldx</a> package documentation:</p>
+<dl>
+<dt>Simplest form of the <em>Central Limit Theorem</em>:</dt>
+<dd><p>Let <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>X</mi>
+    <mn>1</mn>
+  </msub>
+  <mo>,</mo>
+  <msub>
+    <mi>X</mi>
+    <mn>2</mn>
+  </msub>
+  <mo>,</mo>
+  <mi>⋯</mi>
+</math> be a sequence of iid random variables with mean <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>0</mn>
+</math>
+and variance <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mn>1</mn>
+</math> on a probability space <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <mi class="capital-greek">Ω</mi>
+  <mo>,</mo>
+  <mi>ℱ</mi>
+  <mo>,</mo>
+  <mi>ℙ</mi>
+  <mo stretchy="false">)</mo>
+</math>.
+Then</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>ℙ</mi>
+  <mrow>
+    <mo>(</mo>
+    <mfrac>
+      <mrow>
+        <msub>
+          <mi>X</mi>
+          <mn>1</mn>
+        </msub>
+        <mo>+</mo>
+        <mi>⋯</mi>
+        <mo>+</mo>
+        <msub>
+          <mi>X</mi>
+          <mi>n</mi>
+        </msub>
+      </mrow>
+      <msqrt>
+        <mi>n</mi>
+      </msqrt>
+    </mfrac>
+    <mo>≤</mo>
+    <mi>y</mi>
+    <mo>)</mo>
+  </mrow>
+  <mo>→</mo>
+  <mi>𝔑</mi>
+  <mo stretchy="false">(</mo>
+  <mi>y</mi>
+  <mo stretchy="false">)</mo>
+  <mo>≔</mo>
+  <msubsup>
+    <mo>∫</mo>
+    <mrow>
+      <mo>−</mo>
+      <mi>∞</mi>
+    </mrow>
+    <mi>y</mi>
+  </msubsup>
+  <mfrac>
+    <msup>
+      <mi mathvariant="normal">e</mi>
+      <mrow>
+        <mo>−</mo>
+        <msup>
+          <mi>t</mi>
+          <mn>2</mn>
+        </msup>
+        <mo stretchy="false">/</mo>
+        <mn>2</mn>
+      </mrow>
+    </msup>
+    <msqrt>
+      <mn>2</mn>
+      <mi mathvariant="normal">π</mi>
+    </msqrt>
+  </mfrac>
+  <mspace width="0.1667em"></mspace>
+  <mi mathvariant="normal">d</mi>
+  <mi>t</mi>
+  <mspace width="1em"></mspace>
+  <mtext>as </mtext>
+  <mi>n</mi>
+  <mo>→</mo>
+  <mi>∞</mi>
+  <mtext>,</mtext>
+</math>
+</div>
+<p>or, equivalently, letting <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>S</mi>
+    <mi>n</mi>
+  </msub>
+  <mo>≔</mo>
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mn>1</mn>
+    <mi>n</mi>
+  </munderover>
+  <msub>
+    <mi>X</mi>
+    <mi>k</mi>
+  </msub>
+</math>,</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>𝔼</mi>
+  <mi>f</mi>
+  <mrow>
+    <mo>(</mo>
+    <msub>
+      <mi>S</mi>
+      <mi>n</mi>
+    </msub>
+    <mo stretchy="false">/</mo>
+    <msqrt>
+      <mi>n</mi>
+    </msqrt>
+    <mo>)</mo>
+  </mrow>
+  <mo>→</mo>
+  <msubsup>
+    <mo>∫</mo>
+    <mrow>
+      <mo>−</mo>
+      <mi>∞</mi>
+    </mrow>
+    <mi>∞</mi>
+  </msubsup>
+  <mi>f</mi>
+  <mo stretchy="false">(</mo>
+  <mi>t</mi>
+  <mo stretchy="false">)</mo>
+  <mfrac>
+    <msup>
+      <mi mathvariant="normal">e</mi>
+      <mrow>
+        <mo>−</mo>
+        <msup>
+          <mi>t</mi>
+          <mn>2</mn>
+        </msup>
+        <mo stretchy="false">/</mo>
+        <mn>2</mn>
+      </mrow>
+    </msup>
+    <msqrt>
+      <mn>2</mn>
+      <mi mathvariant="normal">π</mi>
+    </msqrt>
+  </mfrac>
+  <mspace width="0.1667em"></mspace>
+  <mi mathvariant="normal">d</mi>
+  <mi>t</mi>
+  <mspace width="1em"></mspace>
+  <mtext>as </mtext>
+  <mi>n</mi>
+  <mo>→</mo>
+  <mi>∞</mi>
+  <mtext>,
+  for every </mtext>
+  <mi>f</mi>
+  <mo>∈</mo>
+  <mi mathvariant="normal">b</mi>
+  <mi>𝒞</mi>
+  <mo stretchy="false">(</mo>
+  <mi>ℝ</mi>
+  <mo stretchy="false">)</mo>
+  <mtext>.</mtext>
+</math>
+</div>
+</dd>
+</dl>
+</section>
+</section>
+<section id="inferred-mrow-s-in-mathml">
+<h2>Inferred &lt;mrow&gt;s in MathML</h2>
+<p>The elements &lt;msqrt&gt;, &lt;mstyle&gt;, &lt;merror&gt;, &lt;mpadded&gt;, &lt;mphantom&gt;, &lt;menclose&gt;,
+&lt;mtd&gt;, &lt;mscarry&gt;, and &lt;math&gt; treat their contents as a single inferred mrow
+formed from all their children.</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mi>a</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>2</mn>
+  </msqrt>
+  <mo>+</mo>
+  <mi>x</mi>
+  <mo>,</mo>
+  <mspace width="1em"></mspace>
+  <mi>b</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>1</mn>
+    <mo>+</mo>
+    <msup>
+      <mi>x</mi>
+      <mn>2</mn>
+    </msup>
+  </msqrt>
+  <mo>,</mo>
+  <mspace width="1em"></mspace>
+  <mi>c</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mfrac>
+      <mrow>
+        <mi>sin</mi>
+        <mo>&ApplyFunction;</mo>
+        <mo stretchy="false">(</mo>
+        <mi>x</mi>
+        <mo stretchy="false">)</mo>
+      </mrow>
+      <mn>23</mn>
+    </mfrac>
+  </msqrt>
+  <mo>,</mo>
+</math>
+</div>
+<p>inline: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mi>a</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>2</mn>
+  </msqrt>
+  <mo>+</mo>
+  <mi>x</mi>
+  <mo>,</mo>
+  <mi>b</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mn>1</mn>
+    <mo>+</mo>
+    <msup>
+      <mi>x</mi>
+      <mn>2</mn>
+    </msup>
+  </msqrt>
+  <mo>,</mo>
+  <mi>c</mi>
+  <mo>=</mo>
+  <msqrt>
+    <mfrac>
+      <mrow>
+        <mi>sin</mi>
+        <mo>&ApplyFunction;</mo>
+        <mo stretchy="false">(</mo>
+        <mi>x</mi>
+        <mo stretchy="false">)</mo>
+      </mrow>
+      <mn>23</mn>
+    </mfrac>
+  </msqrt>
+</math>.</p>
+</section>
+<section id="scripts-and-limits">
+<h2>Scripts and Limits</h2>
+<p>Accents should be nearer to the base:
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>a</mi>
+    <mo stretchy="false">ˉ</mo>
+  </mover>
+  <mover accent="false">
+    <mi>a</mi>
+    <mo accent="true">_</mo>
+  </mover>
+  <mo>,</mo>
+  <mover accent="true">
+    <mi>l</mi>
+    <mo stretchy="false">ˉ</mo>
+  </mover>
+  <mover accent="false">
+    <mi>l</mi>
+    <mo accent="true">_</mo>
+  </mover>
+  <mo>,</mo>
+  <mover accent="true">
+    <mi>i</mi>
+    <mo stretchy="false">ˉ</mo>
+  </mover>
+  <mover accent="false">
+    <mi>i</mi>
+    <mo accent="true">_</mo>
+  </mover>
+</math>,
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="true">
+    <mi>r</mi>
+    <mo stretchy="false" scriptlevel="+1">→</mo>
+  </mover>
+</math> <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mover accent="false">
+    <mi>r</mi>
+    <mo accent="true">→</mo>
+  </mover>
+</math>.</p>
+<p>Sub- and superscript may be given in any order:
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msubsup>
+    <mi>x</mi>
+    <mi>i</mi>
+    <mi>j</mi>
+  </msubsup>
+  <mo>=</mo>
+  <msubsup>
+    <mi>x</mi>
+    <mi>i</mi>
+    <mi>j</mi>
+  </msubsup>
+</math> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msubsup>
+    <mo>∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </msubsup>
+  <mo>=</mo>
+  <msubsup>
+    <mo>∫</mo>
+    <mn>0</mn>
+    <mn>1</mn>
+  </msubsup>
+</math>.</p>
+<p>Double exponent: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msup>
+    <mi>x</mi>
+    <msup>
+      <mn>10</mn>
+      <mn>4</mn>
+    </msup>
+  </msup>
+</math>, <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>r</mi>
+    <msub>
+      <mi>T</mi>
+      <mi>in</mi>
+    </msub>
+  </msub>
+</math> and <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msubsup>
+    <mi>x</mi>
+    <mi>i</mi>
+    <msup>
+      <mi>n</mi>
+      <mn>2</mn>
+    </msup>
+  </msubsup>
+</math>.</p>
+</section>
+<section id="nested-groups">
+<h2>Nested groups</h2>
+<p>tex-token returns &quot;{&quot; for nested groups:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mtext>das ist ein  {toller} text (unescaped \{ and \} is
+ignored by LaTeX)</mtext>
+</math>
+</div>
+</section>
+<section id="big-delimiters-and-symbols">
+<h2>Big delimiters and symbols</h2>
+<p>Compare automatic sizing with fixed sizes:</p>
+<!-- math:  \left( \frac{\frac1x}{\frac{1}{n}}\right) &= \Biggl(\text{Bigg}\Biggr)\\ -->
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mtable class="ams-align" displaystyle="true">
+    <mtr>
+      <mtd>
+        <mrow>
+          <mo>(</mo>
+          <mn>3</mn>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mi>f</mi>
+          <mo stretchy="false">(</mo>
+          <mi>x</mi>
+          <mo stretchy="false">)</mo>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mover accent="true">
+            <mi>x</mi>
+            <mo stretchy="false">ˉ</mo>
+          </mover>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mover accent="false">
+            <mi>x</mi>
+            <mo accent="true">_</mo>
+          </mover>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <msub>
+            <mi>n</mi>
+            <mi>i</mi>
+          </msub>
+          <mo>)</mo>
+        </mrow>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mo stretchy="false">(</mo>
+        <mo stretchy="false">)</mo>
+      </mtd>
+    </mtr>
+    <mtr>
+      <mtd>
+        <mrow>
+          <mo>(</mo>
+          <munder>
+            <mi>x</mi>
+            <mo>_</mo>
+          </munder>
+          <mo>)</mo>
+        </mrow>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mrow>
+          <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+          <mtext>big</mtext>
+          <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+        </mrow>
+      </mtd>
+    </mtr>
+    <mtr>
+      <mtd>
+        <mrow>
+          <mo>(</mo>
+          <msup>
+            <mn>3</mn>
+            <mn>2</mn>
+          </msup>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <msqrt>
+            <mn>3</mn>
+          </msqrt>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <msqrt>
+            <msup>
+              <mn>3</mn>
+              <mn>2</mn>
+            </msup>
+          </msqrt>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mo>∑</mo>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mo>⨂</mo>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mo>∏</mo>
+          <mo>)</mo>
+        </mrow>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mrow>
+          <mo maxsize="1.623em" minsize="1.623em" symmetric="true">(</mo>
+          <mtext>Big</mtext>
+          <mo maxsize="1.623em" minsize="1.623em" symmetric="true">)</mo>
+        </mrow>
+      </mtd>
+    </mtr>
+    <mtr>
+      <mtd>
+        <mrow>
+          <mo>(</mo>
+          <mfrac>
+            <mn>3</mn>
+            <mn>2</mn>
+          </mfrac>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mfrac>
+            <msup>
+              <mn>3</mn>
+              <mn>2</mn>
+            </msup>
+            <msup>
+              <mn>2</mn>
+              <mn>4</mn>
+            </msup>
+          </mfrac>
+          <mo>)</mo>
+        </mrow>
+        <mrow class="binom">
+          <mo>(</mo>
+          <mfrac linethickness="0">
+            <mn>3</mn>
+            <mn>2</mn>
+          </mfrac>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mtable>
+            <mtr>
+              <mtd>
+                <mi>a</mi>
+              </mtd>
+              <mtd>
+                <mi>b</mi>
+              </mtd>
+            </mtr>
+            <mtr>
+              <mtd>
+                <mi>c</mi>
+              </mtd>
+              <mtd>
+                <mi>d</mi>
+              </mtd>
+            </mtr>
+          </mtable>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mfrac>
+            <mn>1</mn>
+            <msqrt>
+              <mn>2</mn>
+            </msqrt>
+          </mfrac>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mo>∫</mo>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <msub>
+            <mo>∫</mo>
+            <mn>0</mn>
+          </msub>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <msup>
+            <mo>∫</mo>
+            <mn>1</mn>
+          </msup>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <msubsup>
+            <mo>∫</mo>
+            <mn>0</mn>
+            <mn>1</mn>
+          </msubsup>
+          <mo>)</mo>
+        </mrow>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mrow>
+          <mo maxsize="2.047em" minsize="2.047em" symmetric="true">(</mo>
+          <mtext>bigg</mtext>
+          <mo maxsize="2.047em" minsize="2.047em" symmetric="true">)</mo>
+        </mrow>
+      </mtd>
+    </mtr>
+    <mtr>
+      <mtd>
+        <mrow>
+          <mo>(</mo>
+          <mfrac>
+            <msqrt>
+              <mn>2</mn>
+            </msqrt>
+            <mn>2</mn>
+          </mfrac>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <munder>
+            <mo movablelimits="true">∑</mo>
+            <mn>0</mn>
+          </munder>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mover>
+            <mo movablelimits="true">∑</mo>
+            <mn>1</mn>
+          </mover>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <munderover>
+            <mo movablelimits="true">∑</mo>
+            <mn>0</mn>
+            <mn>1</mn>
+          </munderover>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mfrac>
+            <mfrac>
+              <mn>1</mn>
+              <mi>x</mi>
+            </mfrac>
+            <mfrac>
+              <mn>1</mn>
+              <mi>n</mi>
+            </mfrac>
+          </mfrac>
+          <mo>)</mo>
+        </mrow>
+      </mtd>
+      <mtd>
+        <mo>=</mo>
+        <mrow>
+          <mo maxsize="2.470em" minsize="2.470em" symmetric="true">(</mo>
+          <mtext>Bigg</mtext>
+          <mo maxsize="2.470em" minsize="2.470em" symmetric="true">)</mo>
+        </mrow>
+      </mtd>
+    </mtr>
+    <mtr>
+      <mtd>
+        <mrow>
+          <mo>(</mo>
+          <munder>
+            <mo movablelimits="true">∫</mo>
+            <mn>0</mn>
+          </munder>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <mover>
+            <mo movablelimits="true">∫</mo>
+            <mn>1</mn>
+          </mover>
+          <mo>)</mo>
+        </mrow>
+        <mrow>
+          <mo>(</mo>
+          <munderover>
+            <mo movablelimits="true">∫</mo>
+            <mn>0</mn>
+            <mn>1</mn>
+          </munderover>
+          <mo>)</mo>
+        </mrow>
+      </mtd>
+    </mtr>
+  </mtable>
+</math>
+</div>
+<p>And in text:</p>
+<dl class="field-list simple">
+<dt><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo stretchy="false">(</mo>
+  <mo stretchy="false">)</mo>
+</math><span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo>(</mo>
+    <mn>3</mn>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mi>f</mi>
+    <mo stretchy="false">(</mo>
+    <mi>x</mi>
+    <mo stretchy="false">)</mo>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mover accent="true">
+      <mi>x</mi>
+      <mo stretchy="false">ˉ</mo>
+    </mover>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mover accent="false">
+      <mi>x</mi>
+      <mo accent="true">_</mo>
+    </mover>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <msub>
+      <mi>n</mi>
+      <mi>i</mi>
+    </msub>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mo>∑</mo>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <munder>
+      <mo movablelimits="true">∑</mo>
+      <mn>0</mn>
+    </munder>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mo>∏</mo>
+    <mo>)</mo>
+  </mrow>
+</math></p>
+</dd>
+<dt><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mtext>big</mtext>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">)</mo>
+  </mrow>
+</math><span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo>(</mo>
+    <munder>
+      <mi>x</mi>
+      <mo>_</mo>
+    </munder>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <msup>
+      <mn>3</mn>
+      <mn>2</mn>
+    </msup>
+    <mo>)</mo>
+  </mrow>
+  <mrow class="binom">
+    <mo>(</mo>
+    <mfrac linethickness="0">
+      <mn>3</mn>
+      <mn>2</mn>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mtable rowspacing="0.02em" columnspacing="0.333em" scriptlevel="1">
+      <mtr>
+        <mtd>
+          <mi>a</mi>
+        </mtd>
+        <mtd>
+          <mi>b</mi>
+        </mtd>
+      </mtr>
+      <mtr>
+        <mtd>
+          <mi>c</mi>
+        </mtd>
+        <mtd>
+          <mi>d</mi>
+        </mtd>
+      </mtr>
+    </mtable>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mo>⨂</mo>
+    <mo>)</mo>
+  </mrow>
+</math></p>
+</dd>
+<dt><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">(</mo>
+    <mtext>Big</mtext>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">)</mo>
+  </mrow>
+</math><span class="colon">:</span></dt>
+<dd><p><math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mrow>
+    <mo>(</mo>
+    <msqrt>
+      <mn>3</mn>
+    </msqrt>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <msqrt>
+      <msup>
+        <mn>3</mn>
+        <mn>2</mn>
+      </msup>
+    </msqrt>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mfrac>
+      <mn>3</mn>
+      <mn>2</mn>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mfrac>
+      <msup>
+        <mn>3</mn>
+        <mn>2</mn>
+      </msup>
+      <msup>
+        <mn>2</mn>
+        <mn>4</mn>
+      </msup>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mfrac>
+      <msqrt>
+        <mn>2</mn>
+      </msqrt>
+      <mn>2</mn>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mo>∫</mo>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <msub>
+      <mo>∫</mo>
+      <mn>0</mn>
+    </msub>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <msup>
+      <mo>∫</mo>
+      <mn>1</mn>
+    </msup>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <msubsup>
+      <mo>∫</mo>
+      <mn>0</mn>
+      <mn>1</mn>
+    </msubsup>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mover>
+      <mo movablelimits="true">∑</mo>
+      <mn>1</mn>
+    </mover>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <munderover>
+      <mo movablelimits="true">∑</mo>
+      <mn>0</mn>
+      <mn>1</mn>
+    </munderover>
+    <mo>)</mo>
+  </mrow>
+  <mrow>
+    <mo>(</mo>
+    <mfrac>
+      <mfrac>
+        <mn>1</mn>
+        <mi>x</mi>
+      </mfrac>
+      <mfrac>
+        <mn>1</mn>
+        <mi>n</mi>
+      </mfrac>
+    </mfrac>
+    <mo>)</mo>
+  </mrow>
+</math></p>
+</dd>
+</dl>
+<p>Test <span class="docutils literal">\left</span>, <span class="docutils literal">\right</span>, and the  bigl/bigr, … size commands
+with all extensible delimiters.</p>
+<p>pairing:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo stretchy="false">(</mo>
+    <mi>b</mi>
+    <mo>)</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">(</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">)</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">(</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">)</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo stretchy="false">[</mo>
+    <mi>b</mi>
+    <mo>]</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">[</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">]</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">[</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">]</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>{</mo>
+    <mi>b</mi>
+    <mo>}</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">{</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">}</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">{</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">}</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>⟨</mo>
+    <mi>b</mi>
+    <mo>⟩</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⟨</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⟩</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⟨</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⟩</mo>
+  </mrow>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo>⌈</mo>
+    <mi>b</mi>
+    <mo>⌉</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⌈</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⌉</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⌈</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⌉</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>⌊</mo>
+    <mi>b</mi>
+    <mo>⌋</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⌊</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⌋</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⌊</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⌋</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo class="mathopen">|</mo>
+    <mi>b</mi>
+    <mo>|</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">|</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">|</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">|</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">|</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo class="mathopen">‖</mo>
+    <mi>b</mi>
+    <mo>‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">‖</mo>
+  </mrow>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo>⟮</mo>
+    <mi>b</mi>
+    <mo>⟯</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⟮</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⟯</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⟮</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⟯</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mi>⎰</mi>
+    <mi>b</mi>
+    <mo>⎱</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⎰</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⎱</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⎰</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⎱</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo stretchy="false">/</mo>
+    <mi>b</mi>
+    <mo>\</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">/</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">\</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">/</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">\</mo>
+  </mrow>
+</math>
+</div>
+<p>non-pairing:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mo stretchy="false">|</mo>
+    <mi>b</mi>
+    <mo>|</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">|</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">|</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">|</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">|</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>|</mo>
+    <mi>b</mi>
+    <mo>|</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">|</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">|</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">|</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">|</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>‖</mo>
+    <mi>b</mi>
+    <mo>‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">‖</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>‖</mo>
+    <mi>b</mi>
+    <mo>‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">‖</mo>
+  </mrow>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mrow>
+    <mi>⏐</mi>
+    <mi>b</mi>
+    <mo>⏐</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⏐</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⏐</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⏐</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⏐</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mo>‖</mo>
+    <mi>b</mi>
+    <mo>‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">‖</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">‖</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">‖</mo>
+  </mrow>
+  <mspace width="1em"></mspace>
+  <mrow>
+    <mi>⎪</mi>
+    <mi>b</mi>
+    <mo>⎪</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="1.2em" minsize="1.2em" symmetric="true">⎪</mo>
+    <mi>b</mi>
+    <mo maxsize="1.623em" minsize="1.623em" symmetric="true">⎪</mo>
+  </mrow>
+  <mspace width="0.25em"></mspace>
+  <mrow>
+    <mo maxsize="2.047em" minsize="2.047em" symmetric="true">⎪</mo>
+    <mi>b</mi>
+    <mo maxsize="2.470em" minsize="2.470em" symmetric="true">⎪</mo>
+  </mrow>
+</math>
+</div>
+<p>Variable-sized operators:</p>
+<p>Inline: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mo>∫</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∬</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∭</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨌</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∫</mo>
+  <mo>⋯</mo>
+  <mo>∫</mo>
+  <mo>∮</mo>
+  <mspace width="0.25em"></mspace>
+  <mo mathsize="75%">∫</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∑</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∏</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∐</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋀</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋁</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋂</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋃</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨄</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨆</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨀</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨁</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨂</mo>
+</math> and Display:</p>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <mo>∫</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∬</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∭</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨌</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∫</mo>
+  <mo>⋯</mo>
+  <mo>∫</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∮</mo>
+  <mspace width="0.25em"></mspace>
+  <mo mathsize="75%">∫</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∑</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∏</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>∐</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋀</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋁</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋂</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⋃</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨄</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨆</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨀</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨁</mo>
+  <mspace width="0.25em"></mspace>
+  <mo>⨂</mo>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msub>
+    <mo>∫</mo>
+    <mn>1</mn>
+  </msub>
+  <mi>f</mi>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">∫</mo>
+    <mn>1</mn>
+  </munder>
+  <mi>f</mi>
+  <mspace width="0.25em"></mspace>
+  <msub>
+    <mo>∬</mo>
+    <mn>1</mn>
+  </msub>
+  <mi>f</mi>
+  <mspace width="0.25em"></mspace>
+  <msub>
+    <mo mathsize="75%">∫</mo>
+    <mn>1</mn>
+  </msub>
+  <mi>f</mi>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">∑</mo>
+    <mn>1</mn>
+  </munder>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">∏</mo>
+    <mn>1</mn>
+  </munder>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">⋀</mo>
+    <mn>1</mn>
+  </munder>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">⋂</mo>
+    <mn>1</mn>
+  </munder>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">⨄</mo>
+    <mn>1</mn>
+  </munder>
+  <mspace width="0.25em"></mspace>
+  <munder>
+    <mo movablelimits="true">⨀</mo>
+    <mn>1</mn>
+  </munder>
+  <mspace width="0.25em"></mspace>
+  <msup>
+    <mo>∫</mo>
+    <mi>N</mi>
+  </msup>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">∫</mo>
+    <mi>N</mi>
+  </mover>
+  <mspace width="0.25em"></mspace>
+  <msup>
+    <mo>⨌</mo>
+    <mi>N</mi>
+  </msup>
+  <mspace width="0.25em"></mspace>
+  <msup>
+    <mo>∮</mo>
+    <mi>N</mi>
+  </msup>
+  <mspace width="0.25em"></mspace>
+  <msup>
+    <mo mathsize="75%">∫</mo>
+    <mi>N</mi>
+  </msup>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">∑</mo>
+    <mi>N</mi>
+  </mover>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">∐</mo>
+    <mi>N</mi>
+  </mover>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">⋁</mo>
+    <mi>N</mi>
+  </mover>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">⋃</mo>
+    <mi>N</mi>
+  </mover>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">⨆</mo>
+    <mi>N</mi>
+  </mover>
+  <mspace width="0.25em"></mspace>
+  <mover>
+    <mo movablelimits="true">⨂</mo>
+    <mi>N</mi>
+  </mover>
+</math>
+</div>
+<div>
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block">
+  <msubsup>
+    <mo>∫</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">∫</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <msubsup>
+    <mo>∬</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <msubsup>
+    <mo>∭</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <msubsup>
+    <mo>⨌</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <mo>∫</mo>
+  <mo>⋯</mo>
+  <msubsup>
+    <mo>∫</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <msubsup>
+    <mo>∮</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <msubsup>
+    <mo mathsize="75%">∫</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </msubsup>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">∑</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">∏</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">∐</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⋀</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⋁</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⋂</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⋃</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⨄</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⨆</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⨀</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⨁</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+  <mspace width="0.25em"></mspace>
+  <munderover>
+    <mo movablelimits="true">⨂</mo>
+    <mn>1</mn>
+    <mi>N</mi>
+  </munderover>
+</math>
+</div>
+</section>
+<section id="text">
+<h2>Text</h2>
+<p>The text may contain non-ASCII characters: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <msub>
+    <mi>n</mi>
+    <mtext>Stoß</mtext>
+  </msub>
+</math>.</p>
+<p>Some text-mode LaTeX commands are supported with <a class="reference external" href="https://docutils.sourceforge.io/docs/user/config.html#math-output">math_output</a> &quot;html&quot;.
+In other output formats, use literal Unicode: <math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mtext>ç é è ë ê ñ ů ž ©</mtext>
+</math>
+to get the result of the accent macros
+<math xmlns="http://www.w3.org/1998/Math/MathML">
+  <mtext>\c{c} \'e \`e \"e \^e \~n \r{u} \v{z} \textcircled{c}</mtext>
+</math>.</p>
+</section>
+</main>
+</body>
+</html>

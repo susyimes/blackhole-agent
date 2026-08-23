@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-docutils",
+  "generated_at": "2026-08-23T16:39:58.663509Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-docutils"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "docutils",
+    "registry": "pypi",
+    "sha256": "746f5060322511280a1e50eb76846ed6bf2342984b2ac04dc42caa1a8d78799e",
+    "source": "artifacts/capability-foraging/downloads/docutils-0.23.tar.gz",
+    "url": "",
+    "version": "0.23"
+  },
+  "record_digest": "50cd2f3d66d2c0dc68586a12e20b15d6cc4b8e783b451a35540a826f5c2cf1f9",
+  "report_digest": "ea67198b69fb168b5af8762e79a19bda3f2ca42bd31910d25b4fa457d26cd44d",
+  "schema_version": 1,
+  "slug": "docutils",
+  "task": {
+    "goal": [
+      "utils_math_math2html_cloner_clone_output"
+    ],
+    "id": "absorbed-docutils",
+    "initial_state": {
+      "original": "Hello World"
+    },
+    "oracle": {
+      "utils_math_math2html_cloner_clone_output": ""
+    }
+  },
+  "vendored_tree_digest": "7989f33be45c052e96ef28b12478953d01c61b6d7ca1df7ba25e7ab7137b4c42",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

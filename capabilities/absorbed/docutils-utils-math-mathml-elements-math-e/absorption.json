@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "utils_math_mathml_elements_math_element_a_str_output": "Hello World"
+      },
+      "input": {
+        "v": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "utils_math_mathml_elements_math_element_a_str_output": "blackhole unbound"
+      },
+      "input": {
+        "v": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "utils_math_mathml_elements_math_element_a_str_output": "MiXeD CaSe"
+      },
+      "input": {
+        "v": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "utils_math_mathml_elements_math_element_a_str_output": ""
+      },
+      "input": {
+        "v": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "docutils (utils.math.mathml_elements.MathElement.a_str)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "docutils",
+    "registry": "pypi",
+    "sha256": "746f5060322511280a1e50eb76846ed6bf2342984b2ac04dc42caa1a8d78799e",
+    "source": "artifacts/capability-foraging/downloads/docutils-0.23.tar.gz",
+    "url": "",
+    "version": "0.23"
+  },
+  "provides": [
+    "utils_math_mathml_elements_math_element_a_str_output"
+  ],
+  "requires": [
+    "v"
+  ],
+  "schema_version": 1,
+  "slug": "docutils-utils-math-mathml-elements-math-e",
+  "version": "0.23"
+}

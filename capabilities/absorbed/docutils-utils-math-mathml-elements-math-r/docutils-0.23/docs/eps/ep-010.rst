@@ -1,0 +1,296 @@
+.. include:: header.rst
+
+=====================================================
+EP 10 — Public API and Backwards Compatibility Policy
+=====================================================
+
+:Authors: Günter Milde, Adam Turner
+:Discussions-To: https://sourceforge.net/p/docutils/feature-requests/89/
+:Status: Active
+:Type: Process
+:Created: 2025-04-22
+:Docutils-Version: 0.23
+:Resolution: `2026-04-09
+  <https://sourceforge.net/p/docutils/feature-requests/89/#a268>`__
+
+:Abstract:
+  This document defines the public API provided by the
+  Docutils project and its backwards compatibility policy.
+
+.. contents::
+
+
+Motivation
+==========
+
+.. Clearly explain why the existing specification is inadequate to
+   address the problem that the proposal solves.
+
+Docutils has a large user base and is used in production at several
+places (Python documentation, Linux kernel documentation, CMake
+documentation, readthedocs, ...). OTOH, Docutils has a version number
+below 1.0 (widely seen as an indicator of "beta" status of a project).
+
+The current `Docutils Project Policies`_ section on `version
+identification`_ concentrates on the formal definition of the version
+specifier but leaves open what consists a "major change in the design
+or API".
+
+The current `backwards compatibility policy`_ is a stub referencing
+:PEP:`387`.
+
+
+Rationale
+=========
+
+.. Describe why particular design decisions were made.
+
+Clearly defining how we will balance evolution with stability is
+important to both users and project developers.
+
+People affected by changes in Docutils include:
+
+.. class:: description
+
+Authors
+  writing or maintaining reStructuredText documents.
+
+End-Users
+  of the `Docutils front-end tools`_ (optionally with 3rd-party
+  drop-in extensions) or alternative tools using Docutils either as a
+  library (Sphinx_, …) or via the command line interface
+  (build systems, Makefiles, scripts in other languages).
+
+Developers
+  i.e. authors and maintainers of
+
+  - projects that use Docutils as a library (Sphinx_, rsted_, Leo_,
+    Pelican_, ebookmaker_, MyST_, readthedocs_, rinohtype_, …),
+  - drop-in components (pycmark_, rst2pdf_, rst2beamer_, …),
+  - alternative front-end tools,
+  - custom stylesheets (CSS style sheets, LaTeX styles, ODT styles),
+    or
+  - re-implementations of the `reStructuredText Markup Specification`_,
+    e.g. Pandoc_ or Text-Restructured_ (prest).
+
+A person may belong to more than one of these categories.
+
+.. _Sphinx: https://www.sphinx-doc.org/
+.. _rsted: https://github.com/anru/rsted
+.. _Leo: https://leo-editor.github.io/leo-editor/
+.. _Pelican: https://docs.getpelican.com/en/latest/
+.. _MyST: https://myst-parser.readthedocs.io/
+.. _readthedocs: https://readthedocs.org/
+.. _pycmark: https://github.com/pycmark/pycmark
+.. _rst2pdf: https://rst2pdf.org/
+.. _rst2beamer: https://docutils.sourceforge.io/sandbox/rst2beamer/
+.. _rinohtype: https://pypi.org/project/rinohtype/
+.. _ebookmaker: https://pypi.org/project/ebookmaker/
+.. _PanDoc: https://pandoc.org/
+.. _Text-Restructured: https://metacpan.org/dist/Text-Restructured
+
+
+.. _specification:
+
+Public API
+==========
+
+.. Describe the syntax and semantics of any new feature.
+
+Docutils' public API includes:
+
+* the `reStructuredText Markup Specification` [restructuredtext]_,
+
+* the `Docutils Document Model` [doctree]_ [docutils.dtd]_,
+
+* names and behaviour of the `Front End Tools`
+  ("console_scripts" entry points) [tools]_,
+
+* the core ``docutils`` Python package API:
+
+  - the "publisher" interface for programmatic use [publisher]_,
+  - the runtime settings [settings]_,
+  - component interfaces as defined by the abstract base classes
+    `docutils.readers.Reader`, `docutils.parsers.Parser`,
+    `docutils.writer.Writer`, and `docutils.transform.Transform`,
+
+* behaviour and names of *documented Python objects*,
+
+* *output templates* and *style sheets* provided with the writers,
+
+  .. template.txt, default.tex, titlepage.tex, xelatex.tex
+  .. html4css1.css, minimal.css, docutils.sty (LaTeX), styles.odt
+
+* the interface to custom stylesheets -- elements, macros and classes
+  used by writers to represent Doctree_ nodes in the output format.
+
+Exemptions:
+
+* Python objects, stylesheets, and templates can "opt-out" of
+  the public API with a docstring noting that the object is
+  |provisional|_ or *internal*.
+* All **undocumented** objects should be assumed to be internal. [#]_
+
+.. tip::
+
+   To find out if an object from the *docutils* package is safe to use,
+   look up its docstring and the docstring of its parent(s). [*]_
+
+   If there is no documentation or the documentation says *provisional* or
+   *internal*, the name, behaviour, and existence of the object is not
+   guaranteed to be stable.
+
+   Code relying on non-public objects should be made robust using
+   public alternatives. If there is a no such alternative or the
+   required change would be a problem, `contact the Docutils
+   developers`__ or file a `feature request`_.
+
+   .. [*] `Attribute docstrings`_ are not shown by pydoc_.
+      To find out whether attributes have a docstring, check the source.
+
+   __ https://docutils.sourceforge.io/docs/user/mailing-lists.html
+   .. _feature request: https://sourceforge.net/p/docutils/feature-requests/
+   .. _attribute docstrings:
+      https://peps.python.org/pep-0258/#attribute-docstrings
+   .. _pydoc: https://docs.python.org/3/library/pydoc.html
+
+.. [#] Cf. `Backwards Compatibility Rules`_ in :PEP:`387` and
+       `Public and Internal Interfaces`_ in :PEP:`8`.
+
+
+.. |provisional| replace:: *provisional*
+
+
+Backwards Compatibility
+=======================
+
+.. Describe potential impact and severity on pre-existing code.
+
+Beginning with version 1.0, Docutils will follow the rules of
+`Semantic Versioning`_. All incompatible changes to the public APIs
+require increasing the `major` part of the `version specifier`_.
+Backwards compatible changes can be done in `minor` releases.
+
+
+Security Implications
+=====================
+
+If required, critical bug fixes may change the public API without advance
+warning.
+
+
+Rejected Ideas
+==============
+
+.. Why certain ideas that were brought while discussing this proposal were not
+   ultimately pursued.
+
+Use type annotations as an indication of status in the public API.
+
+- There is no known precedence for this approach.
+- Type annotations may be helpful also for non-public code.
+
+Use Calendar Versioning (CalVer).
+
+- Would be a break from current versioning without clear advantages.
+
+Allow breaking API changes in *minor* versions after prior announcement
+and a deprecation period.
+
+- Breaks the principle of least surprise.
+
+Mark all internal objects with a prefix underscore.
+
+- May needlessly break applications using internal objects.
+
+Use the ``__all__`` attribute to declare modules, classes, and
+functions that form the public API.
+
+- This may be done later to improve "pydoc_" output, but should not hold
+  up the declaration of a Backwards Compatibility Policy.
+
+
+Open Issues
+===========
+
+.. Any points that are still being decided/discussed.
+
+* Differentiate between "core API" and "extended API"?
+
+  There are many objects that were not intended for public use but are
+  still used by downstream projects.
+
+  Before the switch to semantic versioning, the `Docutils Project Policies`_
+  contained the lines:
+
+    When Docutils reaches version 1.0, the major APIs will be considered
+    frozen.
+
+    The major number [...] may be incremented later if there is a major
+    change in the design or API.
+
+* Define a minimum deprecation time similar to DocBook?
+
+    A "major" release […] may contain backward-incompatible changes if:
+
+    * the change was announced in the release notes for the previous
+      version (major or minor) and
+    * the change was announced in a release that occurred at least six
+      months previously.
+
+    By these rules, the technical committee can announce, in 5.1,
+    for example, plans to make a backward-incompatible change in 6.0.
+    Then, in 6.0, if it’s been at least six months since 5.1 was
+    released, they can make that change.
+
+    --- https://tdg.docbook.org/tdg/5.1/ch01.html#bwcompat
+
+* Generate API documentation with Sphinx?
+
+  - nicely format rST docstrings
+  - include attribute docstrings (ignored by pydoc_).
+
+  .. _pydoc: https://docs.python.org/3/library/pydoc.html
+
+
+References
+==========
+
+.. A collection of URLs used as references through the proposal.
+
+
+.. [doctree]      `The Docutils Document Tree <../ref/doctree.html>`_
+.. [docutils.dtd] `Docutils Generic DTD <../ref/docutils.dtd>`_
+.. [publisher]    `The Docutils Publisher <../api/publisher.html>`_
+.. [tools]        `Docutils Front-End Tools <../user/tools.html>`_
+.. [restructuredtext] `reStructuredText Markup Specification
+                      <../ref/rst/restructuredtext.html>`_
+.. [settings]     `Docutils Runtime Settings <../api/runtime-settings.html>`_
+.. [transforms]   `Docutils Transforms <../api/transforms.html>`_
+
+.. _API Reference Material for Client-Developers:
+    ../index.html#api-reference-material-for-client-developers
+.. _Docutils Design Specification: ../peps/pep-0258.html
+.. _Docutils Project Policies: ../dev/policies.html
+.. _version specifier:
+.. _version identification:
+    ../dev/policies.html#version-identification
+.. _backwards compatibility policy:
+    ../dev/policies.html#backwards-compatibility-policy
+.. _HISTORY: ../docutils/HISTORY.html
+.. _RELEASE-NOTES: ../docutils/RELEASE-NOTES.html
+
+.. _`Backwards Compatibility Rules`:
+    https://peps.python.org/pep-0387/#backwards-compatibility-rules
+.. _`Public and Internal Interfaces`:
+    https://peps.python.org/pep-0008/#public-and-internal-interfaces
+.. _provisional: https://docs.python.org/3/glossary.html#term-provisional-API
+
+.. _Semantic Versioning: https://semver.org/
+
+
+Copyright
+=========
+
+This document is placed in the public domain or under the
+CC0-1.0-Universal license, whichever is more permissive.
