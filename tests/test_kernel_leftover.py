@@ -306,6 +306,26 @@ def test_python_deep_nested_namespace_function_leftover_marks_growth_plane():
     ) == ("capability.application-python-nested-function-growth-plane",)
 
 
+def test_python_deep_nested_namespace_class_static_leftover_marks_growth_plane():
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class statics "
+        "two submodule levels down so sdists whose API is "
+        "package.subpackage.submodule.Class.method rather than a "
+        "two-level module function can be foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-deep-nested-static-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "package.subpackage.submodule.Class.method" in leftover_next_step(prefixed)
+    assert leftover_marker_ids(
+        "Optional later work is reflecting Python nested-namespace class statics "
+        "so sdists whose API is package.submodule.Class.method rather than a "
+        "top-level Class.method can be foraged the same way."
+    ) == ("capability.application-python-nested-class-static-growth-plane",)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

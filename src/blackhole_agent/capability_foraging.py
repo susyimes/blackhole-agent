@@ -30,6 +30,10 @@ inputs. This module removes that last human input — **foraging**:
   class statics such as ``package.submodule.Class.method`` /
   ``api.String.from_raw`` (class statics on a submodule that is not a
   top-level ``Class.method``), Python nested-namespace class
+  statics two submodule levels down such as
+  ``package.subpackage.submodule.Class.method`` /
+  ``dev.helpers.File.exists`` (class statics that are not a
+  one-level ``package.submodule.Class.method``), Python nested-namespace class
   instance methods such as ``package.submodule.Class(opts).method``
   (constructed nested classes that are not a top-level
   ``Class(opts).method``), and Python nested-namespace class

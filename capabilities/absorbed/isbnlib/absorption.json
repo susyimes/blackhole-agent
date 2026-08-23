@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "dev_helpers_file_exists_output": false
+      },
+      "input": {
+        "path": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "dev_helpers_file_exists_output": false
+      },
+      "input": {
+        "path": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "dev_helpers_file_exists_output": false
+      },
+      "input": {
+        "path": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "dev_helpers_file_exists_output": false
+      },
+      "input": {
+        "path": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "isbnlib",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "isbnlib",
+    "registry": "pypi",
+    "sha256": "96f90864c77b01f55fa11e5bfca9fd909501d9842f3bc710d4eab85195d90539",
+    "source": "artifacts/capability-foraging/downloads/isbnlib-3.10.14.tar.gz",
+    "url": "",
+    "version": "3.10.14"
+  },
+  "provides": [
+    "dev_helpers_file_exists_output"
+  ],
+  "requires": [
+    "path"
+  ],
+  "schema_version": 1,
+  "slug": "isbnlib",
+  "version": "3.10.14"
+}

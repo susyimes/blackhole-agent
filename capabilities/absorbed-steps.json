@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T14:22:20.067378Z",
+  "absorbed_at": "2026-08-23T15:15:16.636853Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1233,6 +1233,195 @@
       "slug": "ip-address-address6-is-valid",
       "vendored_tree_digest": "d7686c06aa82679cb9b777b002c17c49ca0748ff34d3e181aeac043f69544362",
       "version": "10.5.0"
+    },
+    {
+      "capability_id": "capability.absorbed-isbnlib",
+      "cases": [
+        {
+          "expect": {
+            "dev_helpers_file_exists_output": false
+          },
+          "input": {
+            "path": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_exists_output": false
+          },
+          "input": {
+            "path": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_exists_output": false
+          },
+          "input": {
+            "path": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_exists_output": false
+          },
+          "input": {
+            "path": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "isbnlib",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "isbnlib",
+        "registry": "pypi",
+        "sha256": "96f90864c77b01f55fa11e5bfca9fd909501d9842f3bc710d4eab85195d90539",
+        "source": "artifacts/capability-foraging/downloads/isbnlib-3.10.14.tar.gz",
+        "url": "",
+        "version": "3.10.14"
+      },
+      "provides": [
+        "dev_helpers_file_exists_output"
+      ],
+      "record_digest": "09d5d7c03624eaade39e80d053c894ed9b5ecac556c015ea5e56e7a87021c39f",
+      "requires": [
+        "path"
+      ],
+      "schema_version": 1,
+      "slug": "isbnlib",
+      "vendored_tree_digest": "efb8d0d1b335cd7d94eb052520643167cafe001b03d912f74ec2eb10930184bf",
+      "version": "3.10.14"
+    },
+    {
+      "capability_id": "capability.absorbed-isbnlib-dev-helpers-file-isfile",
+      "cases": [
+        {
+          "expect": {
+            "dev_helpers_file_isfile_output": false
+          },
+          "input": {
+            "path": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_isfile_output": false
+          },
+          "input": {
+            "path": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_isfile_output": false
+          },
+          "input": {
+            "path": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_isfile_output": false
+          },
+          "input": {
+            "path": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "isbnlib (dev.helpers.File.isfile)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "isbnlib",
+        "registry": "pypi",
+        "sha256": "96f90864c77b01f55fa11e5bfca9fd909501d9842f3bc710d4eab85195d90539",
+        "source": "artifacts/capability-foraging/downloads/isbnlib-3.10.14.tar.gz",
+        "url": "",
+        "version": "3.10.14"
+      },
+      "provides": [
+        "dev_helpers_file_isfile_output"
+      ],
+      "record_digest": "2199139f93c573adc111f3ac918c5db616d9da4f5240fdc579ce09bc31afd436",
+      "requires": [
+        "path"
+      ],
+      "schema_version": 1,
+      "slug": "isbnlib-dev-helpers-file-isfile",
+      "vendored_tree_digest": "4583a27062bbfe6c9d991bc7ef15708d3a963b69209d04a7571d9f9d486a9e45",
+      "version": "3.10.14"
+    },
+    {
+      "capability_id": "capability.absorbed-isbnlib-dev-helpers-file-mkwinsafe",
+      "cases": [
+        {
+          "expect": {
+            "dev_helpers_file_mkwinsafe_output": "Hello World"
+          },
+          "input": {
+            "name": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_mkwinsafe_output": "blackhole unbound"
+          },
+          "input": {
+            "name": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_mkwinsafe_output": "MiXeD CaSe"
+          },
+          "input": {
+            "name": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "dev_helpers_file_mkwinsafe_output": ""
+          },
+          "input": {
+            "name": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "isbnlib (dev.helpers.File.mkwinsafe)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "isbnlib",
+        "registry": "pypi",
+        "sha256": "96f90864c77b01f55fa11e5bfca9fd909501d9842f3bc710d4eab85195d90539",
+        "source": "artifacts/capability-foraging/downloads/isbnlib-3.10.14.tar.gz",
+        "url": "",
+        "version": "3.10.14"
+      },
+      "provides": [
+        "dev_helpers_file_mkwinsafe_output"
+      ],
+      "record_digest": "07901046e2acec294028955e63bcf60ea92df314d50bc953077a5db62048af34",
+      "requires": [
+        "name"
+      ],
+      "schema_version": 1,
+      "slug": "isbnlib-dev-helpers-file-mkwinsafe",
+      "vendored_tree_digest": "9a6fc184425b9387c881f286d81f698a18677b999763251f82f218be7ec6a459",
+      "version": "3.10.14"
     },
     {
       "capability_id": "capability.absorbed-json-indenter",
@@ -3877,5 +4066,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "25c5337745b3dfef827f1cf6d1b474c9d3cd2ccfb866b5faab92e666f69a4154"
+  "steps_digest": "48e1bf699de19cc04363335a034ff4614c7c272157864b2c1ad2b38752d61419"
 }

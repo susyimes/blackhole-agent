@@ -1156,6 +1156,58 @@ def test_python_introspection_skips_reexported_deep_nested_function(tmp_path: Pa
     assert result["spec"].callable_name == "codec.text.shout"
 
 
+def test_python_introspection_reflects_deep_nested_namespace_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns"
+    subpkg = ns / "codec"
+    subpkg.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    (subpkg / "__init__.py").write_text("", encoding="utf-8")
+    (subpkg / "text.py").write_text(
+        "class Codec:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Codec cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def encode(text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.text.Codec.encode" in names
+    assert "text.Codec.encode" not in names
+    assert "Codec.encode" not in names
+    encoded = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] == "codec.text.Codec.encode"
+    )
+    assert encoded["python_deep_nested_namespace_class_static"] is True
+    assert encoded.get("python_nested_namespace_class_static") is not True
+    assert encoded.get("python_class_static") is not True
+    assert encoded.get("python_class_instance") is not True
+    assert encoded.get("python_deep_nested_namespace_function") is not True
+    result = infer_acquisition_spec(
+        slug="forage-ns-deep-codec",
+        name="forage-ns-deep-codec",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.Codec.encode"
+    assert result["record"]["python_deep_nested_namespace_class_static"] is True
+    assert result["record"]["python_nested_namespace_class_static"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_deep_nested_namespace_function"] is False
+    assert result["spec"].callable_name == "codec.text.Codec.encode"
+
+
 def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     ns = pkg / "forage_ns"
@@ -1340,6 +1392,37 @@ def test_python_nested_namespace_function_sdist_forages_packaging(tmp_path: Path
     assert result["record"]["default_export"] is False
     assert result["spec"].provides == "utils_canonicalize_name_output"
     assert result["spec"].callable_name == "utils.canonicalize_name"
+
+
+def test_python_deep_nested_namespace_class_static_sdist_forages_isbnlib(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "isbnlib", "slug": "isbnlib", "registry": "pypi", "version": "3.10.14"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="isbnlib",
+        name="isbnlib",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="isbnlib",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "dev.helpers.File.exists"
+    assert result["record"]["python_deep_nested_namespace_class_static"] is True
+    assert result["record"]["python_nested_namespace_class_static"] is False
+    assert result["record"]["python_deep_nested_namespace_function"] is False
+    assert result["record"]["python_nested_namespace_function"] is False
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"].get("python_nested_namespace_class_instance") is not True
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "dev_helpers_file_exists_output"
+    assert result["spec"].callable_name == "dev.helpers.File.exists"
 
 
 def test_python_deep_nested_namespace_function_sdist_forages_python_stdnum(tmp_path: Path) -> None:

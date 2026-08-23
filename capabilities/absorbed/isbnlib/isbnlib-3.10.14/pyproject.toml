@@ -1,0 +1,75 @@
+[tool.poetry]
+name = "isbnlib"
+version = "3.10.14"
+description = "library to validate, clean, transform, hyphenate and get metadata for ISBN strings"
+authors = ["xlcnd <xlcnd@outlook.com>"]
+license = "LGPLv3"
+readme = "README.rst"
+repository = "https://github.com/xlcnd/isbnlib"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+twine = "^4.0.1"
+
+[tool.poetry.dev-dependencies]
+bandit = "^1.7"
+coverage = "^5.5"
+flake8 = "^3.9"
+isort = "^5.8"
+pytest = "^6.2"
+pytest-cov = "^3.0"
+pylint = "^2.7"
+radon = "^4.5"
+yapf = "^0.31"
+
+[tool.poetry.urls]
+issues = "https://github.com/xlcnd/isbnlib/issues"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.github
+    | \.hg
+    | \.mypy_cache
+    | \.tasks
+    | \.tox
+    | \.venv
+    | \.vscode
+    | _build
+    | buck-out
+    | build
+    | dist
+    | docs
+    | LAB
+  )/
+  | foo.py           # also separately exclude a file named foo.py in
+                     # the root of the project
+)
+'''
+
+[tool.pytest.ini_options]
+addopts = "--cov-config=setup.cfg"
+testpaths = [
+    "isbnlib/test",
+]
+markers = [
+    "network: tests requiring network connection",
+]
+
+[coverage.run]
+branch = true
+omit = '*/.virtualenvs/dev38/*,isbnlib/test/*'
+
+[coverage.report]
+show_missing = true
+skip_covered = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
