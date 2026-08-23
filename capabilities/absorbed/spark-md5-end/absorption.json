@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "end_output": "\u00d4\u001d\u008c\u00d9\u008f\u0000\u00b2\u0004\u00e9\u0080\t\u0098\u00ec\u00f8B~"
+      },
+      "input": {
+        "arg0": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "end_output": "\u00d4\u001d\u008c\u00d9\u008f\u0000\u00b2\u0004\u00e9\u0080\t\u0098\u00ec\u00f8B~"
+      },
+      "input": {
+        "arg0": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "end_output": "\u00d4\u001d\u008c\u00d9\u008f\u0000\u00b2\u0004\u00e9\u0080\t\u0098\u00ec\u00f8B~"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "end_output": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "input": {
+        "arg0": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "spark-md5 (end)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "spark-md5",
+    "registry": "npm",
+    "sha256": "a9934737094fc9479f73e9fbe651b1f93da7d1af8f0f126dee028d62b92ae360",
+    "source": "artifacts/capability-foraging/downloads/spark-md5-3.0.2.tgz",
+    "url": "",
+    "version": "3.0.2"
+  },
+  "provides": [
+    "end_output"
+  ],
+  "requires": [
+    "arg0"
+  ],
+  "schema_version": 1,
+  "slug": "spark-md5-end",
+  "version": "3.0.2"
+}

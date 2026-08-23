@@ -252,6 +252,13 @@ try {{
       target = fallback;
     }} else if (
       typeof fallback === "function" &&
+      Object.prototype.hasOwnProperty.call(fallback, CONFIG.callable_name) &&
+      typeof fallback[CONFIG.callable_name] === "function"
+    ) {{
+      const method = fallback[CONFIG.callable_name];
+      target = (...args) => method.apply(fallback, args);
+    }} else if (
+      typeof fallback === "function" &&
       fallback.prototype &&
       typeof fallback.prototype[CONFIG.callable_name] === "function"
     ) {{

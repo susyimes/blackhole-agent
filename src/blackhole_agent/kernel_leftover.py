@@ -162,6 +162,9 @@ _MARKERS = (
     ("default-exported classes", "capability.application-node-default-export-class-growth-plane"),
     ("constructable API", "capability.application-node-default-export-class-growth-plane"),
     ("default export is a constructable", "capability.application-node-default-export-class-growth-plane"),
+    ("class static methods", "capability.application-node-class-static-growth-plane"),
+    ("class.method rather than", "capability.application-node-class-static-growth-plane"),
+    ("new class().method", "capability.application-node-class-static-growth-plane"),
 )
 
 

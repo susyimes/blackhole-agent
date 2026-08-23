@@ -161,6 +161,9 @@ def probe_candidate(
         "default_export": bool((inference.get("record") or {}).get("default_export")),
         "default_export_object": bool((inference.get("record") or {}).get("default_export_object")),
         "default_export_class": bool((inference.get("record") or {}).get("default_export_class")),
+        "default_export_class_static": bool(
+            (inference.get("record") or {}).get("default_export_class_static")
+        ),
     }
 
 

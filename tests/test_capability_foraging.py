@@ -239,6 +239,41 @@ def test_node_introspection_reflects_default_export_class(tmp_path: Path) -> Non
     assert shout["default_export"] is True
     assert shout["default_export_object"] is False
     assert shout["default_export_class"] is True
+    assert shout["default_export_class_static"] is False
+
+
+def test_node_introspection_reflects_default_export_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-static","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "export default class Hasher {\n"
+        "  static hash(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('hash expects a string');\n"
+        "    return text.toLowerCase() + '!';\n"
+        "  }\n"
+        "  digest(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('digest expects a string');\n"
+        "    return text.toUpperCase();\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    skipped = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert skipped["ok"], skipped
+    assert skipped["candidates"] == []
+    reflected = introspect_node_module(pkg, "index.mjs")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "hash" in names
+    hashed = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "hash")
+    assert hashed["default_export"] is True
+    assert hashed["default_export_object"] is False
+    assert hashed["default_export_class"] is False
+    assert hashed["default_export_class_static"] is True
+    digest = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "digest")
+    assert digest["default_export_class"] is True
+    assert digest["default_export_class_static"] is False
 
 
 def test_default_export_only_npm_tarball_closes_runtime_deps(tmp_path: Path) -> None:
@@ -401,9 +436,51 @@ def test_default_export_class_npm_tarball_closes_runtime_deps(tmp_path: Path) ->
     assert closed["record"]["default_export"] is True
     assert closed["record"]["default_export_object"] is False
     assert closed["record"]["default_export_class"] is True
+    assert closed["record"].get("default_export_class_static") is False
     assert closed["spec"].provides == "render_output"
     assert any(item.get("name") == "argparse" for item in closed["record"]["runtime_deps"])
     assert closed["spec"].extra_paths
+
+
+def test_default_export_class_static_npm_tarball_forages_spark_md5(tmp_path: Path) -> None:
+    from blackhole_agent.capability_acquisition import stage_acquisition_source
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "spark-md5", "slug": "spark-md5", "registry": "npm", "version": "3.0.2"}
+    )
+    assert fetched and fetched["ok"], fetched
+    source = Path(str(fetched["path"]))
+    staged = tmp_path / "staged"
+    stage_acquisition_source(source, staged)
+    named_only = infer_acquisition_spec(
+        slug="spark-md5",
+        name="spark-md5",
+        source=source,
+        staging_root=tmp_path / "named",
+        hint="spark-md5",
+        runtime="node",
+        close_deps=True,
+        include_default=False,
+    )
+    assert not named_only["ok"]
+    assert named_only.get("stage") == "select"
+    closed = infer_acquisition_spec(
+        slug="spark-md5",
+        name="spark-md5",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="spark-md5",
+        runtime="node",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "hash"
+    assert closed["record"]["default_export"] is True
+    assert closed["record"]["default_export_object"] is False
+    assert closed["record"]["default_export_class"] is False
+    assert closed["record"]["default_export_class_static"] is True
+    assert closed["spec"].provides == "hash_output"
 
 
 def test_inference_recovers_complete_spec(tmp_path: Path) -> None:

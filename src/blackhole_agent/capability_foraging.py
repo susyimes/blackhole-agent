@@ -15,8 +15,10 @@ inputs. This module removes that last human input — **foraging**:
 - candidate callables are enumerated by sandboxed introspection — a
   subprocess imports the package (CPython or Node) and reflects its
   exported functions, including a Node default export when that is a
-  single function *or* a namespace object of functions — filtered to
-  JSON-scalar signatures, and ordered deterministically;
+  single function, a namespace object of functions, a constructable
+  with instance methods, or a class whose callable API is static
+  ``Class.method`` — filtered to JSON-scalar signatures, and ordered
+  deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
   samples for int/float/bool), split into selection and held-out probes; no
@@ -428,7 +430,7 @@ import path from "node:path";
 
 const entry = process.argv[2];
 const includeDefault = process.argv[3] !== "0";
-function consider(name, target, isDefault, isDefaultObject, isDefaultClass, candidates, seen) {
+function consider(name, target, isDefault, isDefaultObject, isDefaultClass, isDefaultClassStatic, candidates, seen) {
   if (typeof target !== "function" || !name || name.startsWith("_") || seen.has(name)) {
     return;
   }
@@ -453,6 +455,7 @@ function consider(name, target, isDefault, isDefaultObject, isDefaultClass, cand
     default_export: Boolean(isDefault),
     default_export_object: Boolean(isDefaultObject),
     default_export_class: Boolean(isDefaultClass),
+    default_export_class_static: Boolean(isDefaultClassStatic),
   });
 }
 function objectKeys(value) {
@@ -476,21 +479,24 @@ try {
       typeof def.name === "string" && /^[A-Za-z][A-Za-z0-9]{2,}$/.test(def.name)
         ? def.name
         : "default";
-    consider(inferred, def, true, false, false, candidates, seen);
+    consider(inferred, def, true, false, false, false, candidates, seen);
+    for (const name of objectKeys(def)) {
+      consider(name, def[name], true, false, false, true, candidates, seen);
+    }
     for (const name of objectKeys(def.prototype)) {
-      consider(name, def.prototype[name], true, false, true, candidates, seen);
+      consider(name, def.prototype[name], true, false, true, false, candidates, seen);
     }
   }
   if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
     for (const name of objectKeys(def)) {
-      consider(name, def[name], true, true, false, candidates, seen);
+      consider(name, def[name], true, true, false, false, candidates, seen);
     }
   }
   for (const name of Object.keys(mod).sort()) {
     if (name === "default") {
       continue;
     }
-    consider(name, mod[name], false, false, false, candidates, seen);
+    consider(name, mod[name], false, false, false, false, candidates, seen);
   }
   process.stdout.write(JSON.stringify({ ok: true, candidates }));
 } catch (err) {
@@ -1041,6 +1047,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("default_export_class_static") else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1090,7 +1097,7 @@ def infer_acquisition_spec(
                     f"held-out probe failed in domain {domain['domain']!r}: {held_out['error']}"
                 )
                 break
-            if candidate.get("default_export_class"):
+            if candidate.get("default_export_class") or candidate.get("default_export_class_static"):
                 fragments = [result.get("fragment") or {} for result in selection_results]
                 fragments.append(held_out.get("fragment") or {})
                 values = [frag.get(spec.provides) for frag in fragments]
@@ -1103,6 +1110,7 @@ def infer_acquisition_spec(
                 "default_export": bool(candidate.get("default_export")),
                 "default_export_object": bool(candidate.get("default_export_object")),
                 "default_export_class": bool(candidate.get("default_export_class")),
+                "default_export_class_static": bool(candidate.get("default_export_class_static")),
             }
             break
         if winner is not None:
@@ -1137,6 +1145,7 @@ def infer_acquisition_spec(
         "default_export": bool(collected[0].get("default_export")),
         "default_export_object": bool(collected[0].get("default_export_object")),
         "default_export_class": bool(collected[0].get("default_export_class")),
+        "default_export_class_static": bool(collected[0].get("default_export_class_static")),
     }
     return {
         "ok": True,

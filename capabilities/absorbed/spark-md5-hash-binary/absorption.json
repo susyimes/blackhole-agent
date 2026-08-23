@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "hash_binary_output": "\u00b1\n\u008d\u00b1d\u00e0uA\u0005\u00b7\u00a9\u009b\u00e7.?\u00e5"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "hash_binary_output": "H:\u00b4w\u00b5\u009f\u00d4\t{\u009a N\tu\u00ea\u001d"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "hash_binary_output": "B=g\u00e5r\u00beJ\u00a8.8\fX\u008b\u001c\u00a2\u00ba"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "hash_binary_output": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "spark-md5 (hashBinary)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "spark-md5",
+    "registry": "npm",
+    "sha256": "a9934737094fc9479f73e9fbe651b1f93da7d1af8f0f126dee028d62b92ae360",
+    "source": "artifacts/capability-foraging/downloads/spark-md5-3.0.2.tgz",
+    "url": "",
+    "version": "3.0.2"
+  },
+  "provides": [
+    "hash_binary_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "spark-md5-hash-binary",
+  "version": "3.0.2"
+}

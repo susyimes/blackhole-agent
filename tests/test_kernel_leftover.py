@@ -134,6 +134,20 @@ def test_node_default_export_class_leftover_marks_application_node_default_expor
     assert "default-exported classes" in leftover_next_step(prefixed)
 
 
+def test_node_class_static_leftover_marks_application_node_class_static_growth_plane():
+    leftover = (
+        "Optional later work is reflecting Node class static methods so packages "
+        "whose callable API is Class.method rather than new Class().method can be "
+        "foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-node-class-static-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "class static methods" in leftover_next_step(prefixed)
+
+
 def test_live_fetch_leftover_marks_application_live_fetch_growth_plane():
     leftover = (
         "Optional later work is live-fetch probing of registry hits that have no "

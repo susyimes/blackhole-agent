@@ -1,0 +1,49 @@
+{
+  "capability_id": "capability.absorbed-spark-md5",
+  "generated_at": "2026-08-23T04:43:04.975664Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-spark-md5"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "spark-md5",
+    "registry": "npm",
+    "sha256": "a9934737094fc9479f73e9fbe651b1f93da7d1af8f0f126dee028d62b92ae360",
+    "source": "artifacts/capability-foraging/downloads/spark-md5-3.0.2.tgz",
+    "url": "",
+    "version": "3.0.2"
+  },
+  "record_digest": "c341337aa9d6bdd17c30375910cd37b87420095b536b7e61f9592432b7f1aab0",
+  "report_digest": "6cb9d4a3fa1e1996aaf7e4233db66c2b1ae86f59bab17a96f567016dc914ef35",
+  "schema_version": 1,
+  "slug": "spark-md5",
+  "task": {
+    "goal": [
+      "hash_output"
+    ],
+    "id": "absorbed-spark-md5",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "hash_output": "±\n±dàuA\u0005·©ç.?å"
+    }
+  },
+  "vendored_tree_digest": "c429d47b894fe69ae9e6131ffa9b974d18f23cb0f1fa3f54db262b84c573a574",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}
