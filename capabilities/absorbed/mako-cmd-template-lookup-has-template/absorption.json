@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "cmd_template_lookup_has_template_output": false
+      },
+      "input": {
+        "uri": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "cmd_template_lookup_has_template_output": false
+      },
+      "input": {
+        "uri": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "cmd_template_lookup_has_template_output": false
+      },
+      "input": {
+        "uri": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "cmd_template_lookup_has_template_output": false
+      },
+      "input": {
+        "uri": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "mako (cmd.TemplateLookup.has_template)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "mako",
+    "registry": "pypi",
+    "sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
+    "source": "artifacts/capability-foraging/downloads/mako-1.4.1.tar.gz",
+    "url": "",
+    "version": "1.4.1"
+  },
+  "provides": [
+    "cmd_template_lookup_has_template_output"
+  ],
+  "requires": [
+    "uri"
+  ],
+  "schema_version": 1,
+  "slug": "mako-cmd-template-lookup-has-template",
+  "version": "1.4.1"
+}

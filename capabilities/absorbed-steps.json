@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T09:51:46.226937Z",
+  "absorbed_at": "2026-08-23T10:45:52.897263Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1085,6 +1085,195 @@
       "slug": "json-indenter",
       "vendored_tree_digest": "1389efb860be96eff7b3333ed62e6c49c05b425b06ef032f7fc6ab8b8be6e580",
       "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-mako",
+      "cases": [
+        {
+          "expect": {
+            "cmd_template_has_def_output": false
+          },
+          "input": {
+            "name": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "cmd_template_has_def_output": false
+          },
+          "input": {
+            "name": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "cmd_template_has_def_output": false
+          },
+          "input": {
+            "name": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "cmd_template_has_def_output": false
+          },
+          "input": {
+            "name": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "mako",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "mako",
+        "registry": "pypi",
+        "sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
+        "source": "artifacts/capability-foraging/downloads/mako-1.4.1.tar.gz",
+        "url": "",
+        "version": "1.4.1"
+      },
+      "provides": [
+        "cmd_template_has_def_output"
+      ],
+      "record_digest": "4f92cb037959727cf0e826426e9f38311a3ba4314e526cd5ac361660c15370eb",
+      "requires": [
+        "name"
+      ],
+      "schema_version": 1,
+      "slug": "mako",
+      "vendored_tree_digest": "54e7117a7e6560069c9dab9201a9360cbdf63dbb2367f0c516bafd9a12c92af5",
+      "version": "1.4.1"
+    },
+    {
+      "capability_id": "capability.absorbed-mako-cmd-template-lookup-has-template",
+      "cases": [
+        {
+          "expect": {
+            "cmd_template_lookup_has_template_output": false
+          },
+          "input": {
+            "uri": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "cmd_template_lookup_has_template_output": false
+          },
+          "input": {
+            "uri": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "cmd_template_lookup_has_template_output": false
+          },
+          "input": {
+            "uri": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "cmd_template_lookup_has_template_output": false
+          },
+          "input": {
+            "uri": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "mako (cmd.TemplateLookup.has_template)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "mako",
+        "registry": "pypi",
+        "sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
+        "source": "artifacts/capability-foraging/downloads/mako-1.4.1.tar.gz",
+        "url": "",
+        "version": "1.4.1"
+      },
+      "provides": [
+        "cmd_template_lookup_has_template_output"
+      ],
+      "record_digest": "6c33988a38218088404d4d91c62ac3a6016dbc04e6087fd70ebb16efeaeab1f8",
+      "requires": [
+        "uri"
+      ],
+      "schema_version": 1,
+      "slug": "mako-cmd-template-lookup-has-template",
+      "vendored_tree_digest": "af66aaecb97a0e04b5cd564b62b6f884f25e196a0d3492a45e7f490deef30ced",
+      "version": "1.4.1"
+    },
+    {
+      "capability_id": "capability.absorbed-mako-lookup-template-has-def",
+      "cases": [
+        {
+          "expect": {
+            "lookup_template_has_def_output": false
+          },
+          "input": {
+            "name": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "lookup_template_has_def_output": false
+          },
+          "input": {
+            "name": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "lookup_template_has_def_output": false
+          },
+          "input": {
+            "name": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "lookup_template_has_def_output": false
+          },
+          "input": {
+            "name": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "mako (lookup.Template.has_def)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "mako",
+        "registry": "pypi",
+        "sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
+        "source": "artifacts/capability-foraging/downloads/mako-1.4.1.tar.gz",
+        "url": "",
+        "version": "1.4.1"
+      },
+      "provides": [
+        "lookup_template_has_def_output"
+      ],
+      "record_digest": "adb1735057bb148c021409d335edefe8b0e6b2424a9f3671627bcdd4e0305177",
+      "requires": [
+        "name"
+      ],
+      "schema_version": 1,
+      "slug": "mako-lookup-template-has-def",
+      "vendored_tree_digest": "a5006d3bf9dd3e136037815455862ff7fc1b76d01ee5d0aa6ca8020665b0fe7c",
+      "version": "1.4.1"
     },
     {
       "capability_id": "capability.absorbed-markdown-foraged",
@@ -3121,5 +3310,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "a3b3f4202393df84bb8a6592fb30c82910eb337f1ce682893d104ad650ceb821"
+  "steps_digest": "4cbf42758e3587c76ad2989c955213a492d69916f1c902bf3d9cc3b14cdd2c00"
 }

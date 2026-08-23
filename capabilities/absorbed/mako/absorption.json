@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "cmd_template_has_def_output": false
+      },
+      "input": {
+        "name": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "cmd_template_has_def_output": false
+      },
+      "input": {
+        "name": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "cmd_template_has_def_output": false
+      },
+      "input": {
+        "name": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "cmd_template_has_def_output": false
+      },
+      "input": {
+        "name": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "mako",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "mako",
+    "registry": "pypi",
+    "sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
+    "source": "artifacts/capability-foraging/downloads/mako-1.4.1.tar.gz",
+    "url": "",
+    "version": "1.4.1"
+  },
+  "provides": [
+    "cmd_template_has_def_output"
+  ],
+  "requires": [
+    "name"
+  ],
+  "schema_version": 1,
+  "slug": "mako",
+  "version": "1.4.1"
+}

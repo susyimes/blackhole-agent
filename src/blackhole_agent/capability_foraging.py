@@ -26,10 +26,13 @@ inputs. This module removes that last human input — **foraging**:
   exist only on the instance after construction), Python class
   static methods such as ``Class.method`` / ``HTMLRenderer.escape_html``
   (``@staticmethod`` / ``@classmethod`` called on the class, including
-  when the constructor cannot be satisfied), and Python nested-namespace
+  when the constructor cannot be satisfied), Python nested-namespace
   class statics such as ``package.submodule.Class.method`` /
   ``api.String.from_raw`` (class statics on a submodule that is not a
-  top-level ``Class.method``) — filtered to
+  top-level ``Class.method``), and Python nested-namespace class
+  instance methods such as ``package.submodule.Class(opts).method``
+  (constructed nested classes that are not a top-level
+  ``Class(opts).method``) — filtered to
   JSON-scalar signatures, and ordered deterministically;
 - probe inputs are derived from a fixed, task-independent sample vocabulary
   (plain text, TOML, JSON, and markdown string domains; fixed scalar
@@ -323,6 +326,7 @@ def _consider(name, target, flags, skip_self=False):
         or flags.get("python_class_instance")
         or flags.get("python_class_static")
         or flags.get("python_nested_namespace_class_static")
+        or flags.get("python_nested_namespace_class_instance")
     ):
         return
     if not _owner_ok(target):
@@ -396,13 +400,12 @@ def _consider_class(prefix, target, nested=False):
     for attr in sorted(_static_method_names(target)):
         fn = getattr(target, attr, None)
         _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
-    if nested:
-        return
     instance, requires_args = _construct_instance(target)
     if instance is None:
         return
     flags = {
-        "python_class_instance": True,
+        "python_class_instance": not nested,
+        "python_nested_namespace_class_instance": nested,
         "constructor_requires_args": bool(requires_args),
     }
     for attr in sorted(_instance_method_names(target, instance)):
@@ -1269,6 +1272,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or _is_named_class_instance_candidate(item)
         or _is_class_static_candidate(item)
         or bool(item.get("python_class_instance"))
+        or bool(item.get("python_nested_namespace_class_instance"))
     )
 
 
@@ -1346,7 +1350,12 @@ def infer_acquisition_spec(
         key=lambda item: (
             0 if _is_class_static_candidate(item) else 1,
             0 if _is_named_class_instance_candidate(item) else 1,
-            0 if not item.get("python_class_instance") else 1,
+            0
+            if not (
+                item.get("python_class_instance") or item.get("python_nested_namespace_class_instance")
+            )
+            else 1,
+            0 if not item.get("python_nested_namespace_class_instance") else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1420,6 +1429,9 @@ def infer_acquisition_spec(
                 "python_nested_namespace_class_static": bool(
                     candidate.get("python_nested_namespace_class_static")
                 ),
+                "python_nested_namespace_class_instance": bool(
+                    candidate.get("python_nested_namespace_class_instance")
+                ),
             }
             break
         if winner is not None:
@@ -1464,6 +1476,9 @@ def infer_acquisition_spec(
         "python_class_static": bool(collected[0].get("python_class_static")),
         "python_nested_namespace_class_static": bool(
             collected[0].get("python_nested_namespace_class_static")
+        ),
+        "python_nested_namespace_class_instance": bool(
+            collected[0].get("python_nested_namespace_class_instance")
         ),
     }
     return {

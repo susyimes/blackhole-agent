@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-mako",
+  "generated_at": "2026-08-23T10:52:51.445513Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-mako"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "mako",
+    "registry": "pypi",
+    "sha256": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27",
+    "source": "artifacts/capability-foraging/downloads/mako-1.4.1.tar.gz",
+    "url": "",
+    "version": "1.4.1"
+  },
+  "record_digest": "4f92cb037959727cf0e826426e9f38311a3ba4314e526cd5ac361660c15370eb",
+  "report_digest": "c60924e7be55f08d43baa2b4a9190a3d2a562b353aca9fd149acc12d43a2d1b0",
+  "schema_version": 1,
+  "slug": "mako",
+  "task": {
+    "goal": [
+      "cmd_template_has_def_output"
+    ],
+    "id": "absorbed-mako",
+    "initial_state": {
+      "name": "Hello World"
+    },
+    "oracle": {
+      "cmd_template_has_def_output": false
+    }
+  },
+  "vendored_tree_digest": "54e7117a7e6560069c9dab9201a9360cbdf63dbb2367f0c516bafd9a12c92af5",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

@@ -887,6 +887,53 @@ def test_python_introspection_reflects_class_static_without_construct(tmp_path: 
     assert result["spec"].callable_name in {"Hasher.hash", "Hasher.encode"}
 
 
+def test_python_introspection_reflects_nested_namespace_class_instance(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns"
+    ns.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    (ns / "parser.py").write_text(
+        "class Parser:\n"
+        "    def __init__(self, opts):\n"
+        "        if opts is None:\n"
+        "            raise TypeError('Parser options required')\n"
+        "        self.opts = opts\n"
+        "    def loads(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('loads expects a string')\n"
+        "        return text.lower()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "parser.Parser.loads" in names
+    assert "Parser.loads" not in names
+    parsed = next(
+        candidate for candidate in reflected["candidates"] if candidate["name"] == "parser.Parser.loads"
+    )
+    assert parsed["python_nested_namespace_class_instance"] is True
+    assert parsed.get("python_class_instance") is not True
+    assert parsed.get("python_class_static") is not True
+    assert parsed.get("python_nested_namespace_class_static") is not True
+    assert parsed["constructor_requires_args"] is True
+    result = infer_acquisition_spec(
+        slug="forage-ns-parser",
+        name="forage-ns-parser",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "parser.Parser.loads"
+    assert result["record"]["python_nested_namespace_class_instance"] is True
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"]["python_nested_namespace_class_static"] is False
+    assert result["spec"].callable_name == "parser.Parser.loads"
+
+
 def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     ns = pkg / "forage_ns"
@@ -982,6 +1029,35 @@ def test_python_nested_namespace_class_static_sdist_forages_tomlkit(tmp_path: Pa
     assert result["record"]["default_export"] is False
     assert result["spec"].provides == "api_string_from_raw_output"
     assert result["spec"].callable_name == "api.String.from_raw"
+
+
+def test_python_nested_namespace_class_instance_sdist_forages_mako(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "mako", "slug": "mako", "registry": "pypi", "version": "1.4.1"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="mako",
+        name="mako",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="mako",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "cmd.Template.has_def"
+    assert result["record"]["python_nested_namespace_class_instance"] is True
+    assert result["record"]["python_class_instance"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["record"].get("python_nested_namespace_class_static") is not True
+    assert result["record"]["constructor_requires_args"] is True
+    assert result["record"]["named_export_class"] is False
+    assert result["record"]["default_export"] is False
+    assert result["spec"].provides == "cmd_template_has_def_output"
+    assert result["spec"].callable_name == "cmd.Template.has_def"
 
 
 def test_python_class_instance_sdist_forages_markdown_it_py(tmp_path: Path) -> None:
