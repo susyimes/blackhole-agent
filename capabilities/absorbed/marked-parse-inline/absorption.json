@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "parse_inline_output": "Hello World"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "parse_inline_output": "blackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "parse_inline_output": "MiXeD CaSe"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "parse_inline_output": ""
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "marked (parseInline)",
+  "origin": {
+    "kind": "npm-tarball",
+    "name": "marked",
+    "registry": "npm",
+    "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+    "version": "18.0.7"
+  },
+  "provides": [
+    "parse_inline_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "marked-parse-inline",
+  "version": "18.0.7"
+}

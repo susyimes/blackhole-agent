@@ -23,6 +23,12 @@ shape). Live npm/pypi search is an optional refresh of that payload, never
 the registered proof. ``refresh_registry_catalog`` merges both registries
 and accepts a frozen replay so application-growth can forage from a
 live-shaped catalog without networking.
+
+Catalog hits with no ``source`` / ``replay_source`` are not skipped when a
+published npm tarball or PyPI sdist is already on disk as a registry replay:
+``forage_request_for`` materializes that archive (origin is the registry
+artifact, never a fixture overlay) so probing can infer provides and
+application-growth can forage a covering registry package.
 """
 
 from __future__ import annotations
@@ -70,6 +76,13 @@ DEFAULT_LIVE_CATALOG = REPO_ROOT / "tests" / "fixtures" / "forage_live_catalog.j
 WINNER_SLUG = "forage-pick"
 GOAL_OVERRIDE_SLUG = "js-shouter"
 _GOAL_QUERY_SUFFIXES = ("_output", "_html", "_json", "_text", "_result")
+# Published registry archives already in the tree. Catalog entries that name
+# these packages do not need a fixture overlay or a replay_source field.
+REGISTRY_REPLAY_ARCHIVES: dict[tuple[str, str, str], str] = {
+    ("npm", "marked", "18.0.7"): "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+    ("pypi", "markdown", "3.10.3"): "stewardship/markdown-3.10.3/markdown-3.10.3.tar.gz",
+    ("pypi", "tomli", "2.4.1"): "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz",
+}
 
 # Frozen absorbed set for hermetic ranking so absorbing the winner cannot
 # change the sealed grade on a later proof run.
@@ -234,6 +247,25 @@ def rank_catalog(
     }
 
 
+def registry_replay_archive(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT) -> Path | None:
+    """Return a published npm/PyPI archive for a catalog hit, if one is on disk.
+
+    This is not a fixture overlay: the path is the registry artifact itself.
+    Hits without a matching archive keep their registry identity so a live
+    fetch can still run.
+    """
+
+    normalized = _normalize_entry(entry)
+    registry = (normalized["registry"] or "").strip().lower()
+    name = (normalized["name"] or "").strip().lower()
+    version = (normalized["version"] or "").strip()
+    relative = REGISTRY_REPLAY_ARCHIVES.get((registry, name, version))
+    if not relative:
+        return None
+    path = repo_root / relative
+    return path if path.is_file() else None
+
+
 def forage_request_for(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     """Build a :func:`forage_package` request from a ranked catalog entry."""
 
@@ -251,7 +283,23 @@ def forage_request_for(entry: Mapping[str, Any], *, repo_root: Path = REPO_ROOT)
         request["source"] = path
         request["origin"] = {"kind": "fixture", "source": source}
     else:
-        request["registry"] = normalized["registry"] or "pypi"
+        archive = registry_replay_archive(normalized, repo_root=repo_root)
+        if archive is not None:
+            try:
+                rel = archive.resolve().relative_to(repo_root.resolve()).as_posix()
+            except ValueError:
+                rel = archive.as_posix()
+            kind = "npm-tarball" if normalized["registry"] == "npm" else "pypi-sdist"
+            request["source"] = archive
+            request["origin"] = {
+                "kind": kind,
+                "registry": normalized["registry"],
+                "name": normalized["name"],
+                "version": normalized["version"],
+                "source": rel,
+            }
+        else:
+            request["registry"] = normalized["registry"] or "pypi"
     if normalized["runtime"]:
         request["runtime"] = normalized["runtime"]
     if normalized["version"]:

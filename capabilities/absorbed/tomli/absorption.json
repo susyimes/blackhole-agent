@@ -1,0 +1,71 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "loads_output": {
+          "title": "blackhole"
+        }
+      },
+      "input": {
+        "s": "title = \"blackhole\"\n"
+      }
+    },
+    {
+      "expect": {
+        "loads_output": {
+          "tool": {
+            "unbound": {
+              "enabled": true
+            }
+          }
+        }
+      },
+      "input": {
+        "s": "[tool.unbound]\nenabled = true\n"
+      }
+    },
+    {
+      "expect": {
+        "loads_output": {
+          "values": [
+            1,
+            2,
+            3
+          ]
+        }
+      },
+      "input": {
+        "s": "values = [1, 2, 3]\n"
+      }
+    },
+    {
+      "expect": {
+        "loads_output": {}
+      },
+      "input": {
+        "s": "# comment only\n"
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "tomli",
+  "origin": {
+    "kind": "pypi-sdist",
+    "name": "tomli",
+    "registry": "pypi",
+    "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz",
+    "version": "2.4.1"
+  },
+  "provides": [
+    "loads_output"
+  ],
+  "requires": [
+    "s"
+  ],
+  "schema_version": 1,
+  "slug": "tomli",
+  "version": "2.4.1"
+}

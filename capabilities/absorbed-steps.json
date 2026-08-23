@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-22T22:51:06.228691Z",
+  "absorbed_at": "2026-08-23T00:00:38.351145Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -567,6 +567,201 @@
       "version": "3.10.3"
     },
     {
+      "capability_id": "capability.absorbed-marked",
+      "cases": [
+        {
+          "expect": {
+            "marked_output": "<p>Hello World</p>\n"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "marked_output": "<p>blackhole unbound</p>\n"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "marked_output": "<p>MiXeD CaSe</p>\n"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "marked_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "marked",
+      "origin": {
+        "kind": "npm-tarball",
+        "name": "marked",
+        "registry": "npm",
+        "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+        "version": "18.0.7"
+      },
+      "provides": [
+        "marked_output"
+      ],
+      "record_digest": "fc750546b5ef9dbd72e0bb48a8688aa805f65fe557bc501e8c0bd347c9660f99",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "marked",
+      "vendored_tree_digest": "10336d3a55035bfb627824a4d7058ba39138c77ee93c6f8a227933ab3bcd8d78",
+      "version": "18.0.7"
+    },
+    {
+      "capability_id": "capability.absorbed-marked-parse",
+      "cases": [
+        {
+          "expect": {
+            "parse_output": "<p>Hello World</p>\n"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "parse_output": "<p>blackhole unbound</p>\n"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "parse_output": "<p>MiXeD CaSe</p>\n"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "parse_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "marked (parse)",
+      "origin": {
+        "kind": "npm-tarball",
+        "name": "marked",
+        "registry": "npm",
+        "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+        "version": "18.0.7"
+      },
+      "provides": [
+        "parse_output"
+      ],
+      "record_digest": "bfc1686d882a7d16850537fba8b435cf11b0b7c416ca7e1ae61103dae912b472",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "marked-parse",
+      "vendored_tree_digest": "ad8c7c1aced58b0cfed85475ff486b770cd84b32c6c03be8baf7d384f3117d52",
+      "version": "18.0.7"
+    },
+    {
+      "capability_id": "capability.absorbed-marked-parse-inline",
+      "cases": [
+        {
+          "expect": {
+            "parse_inline_output": "Hello World"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "parse_inline_output": "blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "parse_inline_output": "MiXeD CaSe"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "parse_inline_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "marked (parseInline)",
+      "origin": {
+        "kind": "npm-tarball",
+        "name": "marked",
+        "registry": "npm",
+        "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+        "version": "18.0.7"
+      },
+      "provides": [
+        "parse_inline_output"
+      ],
+      "record_digest": "fa7147adb2b47cdde41a9acc273de62cbb8b4f345984d8face54e3b82291e33b",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "marked-parse-inline",
+      "vendored_tree_digest": "06f4f8f8a9c7a772cfbfa9a92495079175bfca535adfd892fcf9b240bf53f691",
+      "version": "18.0.7"
+    },
+    {
       "capability_id": "capability.absorbed-marked-renderer",
       "cases": [
         {
@@ -765,6 +960,80 @@
       "version": "1.0.0"
     },
     {
+      "capability_id": "capability.absorbed-tomli",
+      "cases": [
+        {
+          "expect": {
+            "loads_output": {
+              "title": "blackhole"
+            }
+          },
+          "input": {
+            "s": "title = \"blackhole\"\n"
+          }
+        },
+        {
+          "expect": {
+            "loads_output": {
+              "tool": {
+                "unbound": {
+                  "enabled": true
+                }
+              }
+            }
+          },
+          "input": {
+            "s": "[tool.unbound]\nenabled = true\n"
+          }
+        },
+        {
+          "expect": {
+            "loads_output": {
+              "values": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "input": {
+            "s": "values = [1, 2, 3]\n"
+          }
+        },
+        {
+          "expect": {
+            "loads_output": {}
+          },
+          "input": {
+            "s": "# comment only\n"
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "tomli",
+      "origin": {
+        "kind": "pypi-sdist",
+        "name": "tomli",
+        "registry": "pypi",
+        "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz",
+        "version": "2.4.1"
+      },
+      "provides": [
+        "loads_output"
+      ],
+      "record_digest": "877d5d63a97dfc53dfd687c805f8db13def23a819ca6ebbbfa5f2709af107a95",
+      "requires": [
+        "s"
+      ],
+      "schema_version": 1,
+      "slug": "tomli",
+      "vendored_tree_digest": "ee74b1a228ba659cd7e921bd3b639f9ac83691c7e0b87c8033dd7adaf520c301",
+      "version": "2.4.1"
+    },
+    {
       "capability_id": "capability.absorbed-tomli-foraged",
       "cases": [
         {
@@ -899,5 +1168,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "b0f5e2b50953e747f2af37ce5107cea75d8f84237cbaaafaeb22ae545fdacbba"
+  "steps_digest": "124f7c0cd9d1fb9ab2d22ae9fbae3ca73afa615af8de3b592c2c675cdb1887e9"
 }

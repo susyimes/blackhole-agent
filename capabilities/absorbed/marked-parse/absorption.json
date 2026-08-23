@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "parse_output": "<p>Hello World</p>\n"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "parse_output": "<p>blackhole unbound</p>\n"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "parse_output": "<p>MiXeD CaSe</p>\n"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "parse_output": ""
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "marked (parse)",
+  "origin": {
+    "kind": "npm-tarball",
+    "name": "marked",
+    "registry": "npm",
+    "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+    "version": "18.0.7"
+  },
+  "provides": [
+    "parse_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "marked-parse",
+  "version": "18.0.7"
+}

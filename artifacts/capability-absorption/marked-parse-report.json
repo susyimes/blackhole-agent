@@ -1,0 +1,46 @@
+{
+  "capability_id": "capability.absorbed-marked-parse",
+  "generated_at": "2026-08-23T00:12:37.592083Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-marked-parse"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "npm-tarball",
+    "name": "marked",
+    "registry": "npm",
+    "source": "stewardship/marked-18.0.7/marked-18.0.7.tgz",
+    "version": "18.0.7"
+  },
+  "record_digest": "bfc1686d882a7d16850537fba8b435cf11b0b7c416ca7e1ae61103dae912b472",
+  "report_digest": "a0737ff840cb5881949a85de901acf9fb27aa71497b41a9f5f9bf4e860c103b2",
+  "schema_version": 1,
+  "slug": "marked-parse",
+  "task": {
+    "goal": [
+      "parse_output"
+    ],
+    "id": "absorbed-marked-parse",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "parse_output": "<p>Hello World</p>\n"
+    }
+  },
+  "vendored_tree_digest": "ad8c7c1aced58b0cfed85475ff486b770cd84b32c6c03be8baf7d384f3117d52",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

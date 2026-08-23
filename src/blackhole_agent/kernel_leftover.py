@@ -139,6 +139,9 @@ _MARKERS = (
     ("live-registry catalog refresh", "capability.application-live-growth-plane"),
     ("live npm/pypi search", "capability.application-live-growth-plane"),
     ("instead of a frozen catalog", "capability.application-live-growth-plane"),
+    ("no replay_source", "capability.application-registry-growth-plane"),
+    ("without a fixture overlay", "capability.application-registry-growth-plane"),
+    ("covering registry package", "capability.application-registry-growth-plane"),
 )
 
 

@@ -1,0 +1,55 @@
+{
+  "kind": "forage_registry_catalog",
+  "query": "marked",
+  "schema_version": 1,
+  "items": [
+    {
+      "name": "tomli",
+      "slug": "tomli",
+      "registry": "pypi",
+      "downloads": 20000000,
+      "recent_downloads": 500000,
+      "keywords": ["toml", "marked"],
+      "provides": ["marked_output"],
+      "viable": true,
+      "runtime": "python",
+      "version": "2.4.1",
+      "hint": "tomli"
+    },
+    {
+      "name": "inflection",
+      "slug": "inflection",
+      "registry": "pypi",
+      "downloads": 5000000,
+      "recent_downloads": 80000,
+      "keywords": ["text", "inflection"],
+      "provides": ["camelize_output"],
+      "viable": true,
+      "runtime": "python"
+    },
+    {
+      "name": "forage-empty (no viable candidate fixture)",
+      "slug": "forage-empty",
+      "registry": "pypi",
+      "downloads": 9000000,
+      "recent_downloads": 120000,
+      "keywords": ["text"],
+      "provides": [],
+      "viable": false,
+      "runtime": "python"
+    },
+    {
+      "name": "marked",
+      "slug": "marked",
+      "registry": "npm",
+      "downloads": 400,
+      "recent_downloads": 20,
+      "keywords": ["markdown", "marked"],
+      "provides": [],
+      "viable": true,
+      "runtime": "node",
+      "version": "18.0.7",
+      "hint": "marked"
+    }
+  ]
+}

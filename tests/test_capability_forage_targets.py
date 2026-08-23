@@ -12,10 +12,12 @@ from blackhole_agent.capability_forage_targets import (
     REPO_ROOT,
     WINNER_SLUG,
     builtin_forage_target_plane_proof,
+    forage_request_for,
     load_catalog,
     query_from_goal,
     rank_catalog,
     refresh_registry_catalog,
+    registry_replay_archive,
     run_forage_target_plane,
     select_forage_target,
     verify_forage_target_plane,
@@ -103,6 +105,27 @@ def test_refresh_replay_is_npm_and_pypi_without_network() -> None:
     assert rotate["source"] == ""
     assert rotate["replay_source"]
     assert rotate["registry"] == "pypi"
+
+
+def test_registry_replay_materializes_published_archive_without_replay_source() -> None:
+    tomli = {
+        "name": "tomli",
+        "slug": "tomli",
+        "registry": "pypi",
+        "version": "2.4.1",
+        "runtime": "python",
+    }
+    archive = registry_replay_archive(tomli)
+    assert archive is not None and archive.is_file()
+    request = forage_request_for(tomli)
+    assert request["origin"]["kind"] == "pypi-sdist"
+    assert Path(request["source"]) == archive
+    assert "registry" not in request
+    left_pad = {"name": "left-pad", "slug": "left-pad", "registry": "npm", "version": "1.3.0", "runtime": "node"}
+    assert registry_replay_archive(left_pad) is None
+    live = forage_request_for(left_pad)
+    assert live["registry"] == "npm"
+    assert "source" not in live
 
 
 def test_builtin_forage_target_plane_proof() -> None:

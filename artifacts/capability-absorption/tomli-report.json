@@ -1,0 +1,47 @@
+{
+  "capability_id": "capability.absorbed-tomli",
+  "generated_at": "2026-08-22T23:58:38.928328Z",
+  "grade": {
+    "ok": false,
+    "verdict_count": 6,
+    "verdicts_passed": 4
+  },
+  "grown_plan": [
+    "capability.absorbed-tomli"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "kind": "pypi-sdist",
+    "name": "tomli",
+    "registry": "pypi",
+    "source": "stewardship/tomli-2.4.1/tomli-2.4.1.tar.gz",
+    "version": "2.4.1"
+  },
+  "record_digest": "877d5d63a97dfc53dfd687c805f8db13def23a819ca6ebbbfa5f2709af107a95",
+  "report_digest": "92f68704928e4dd9c97f46c71948276ad511e6d0ee20c13b1269860336f90297",
+  "schema_version": 1,
+  "slug": "tomli",
+  "task": {
+    "goal": [
+      "loads_output"
+    ],
+    "id": "absorbed-tomli",
+    "initial_state": {
+      "s": "title = \"blackhole\"\n"
+    },
+    "oracle": {
+      "loads_output": {
+        "title": "blackhole"
+      }
+    }
+  },
+  "vendored_tree_digest": "ee74b1a228ba659cd7e921bd3b639f9ac83691c7e0b87c8033dd7adaf520c301",
+  "verdicts": {
+    "ablation_unplannable": false,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": false
+  }
+}

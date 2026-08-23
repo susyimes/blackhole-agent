@@ -61,6 +61,18 @@ def test_live_catalog_leftover_marks_application_live_growth_plane():
     assert "live-registry catalog refresh" in leftover_next_step(prefixed)
 
 
+def test_registry_overlay_leftover_marks_application_registry_growth_plane():
+    leftover = (
+        "Optional later work is probing live npm/pypi hits that have no "
+        "replay_source so application-growth can forage a covering registry "
+        "package without a fixture overlay."
+    )
+    assert "capability.application-registry-growth-plane" in leftover_marker_ids(leftover)
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "no replay_source" in leftover_next_step(prefixed)
+
+
 def test_harvested_leftover_text_is_still_detected():
     leftover = leftover_next_step(HARVESTED_MISSION_PLANE_LEFTOVER)
     assert "mission-plane" in leftover
