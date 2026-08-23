@@ -184,6 +184,7 @@ def test_node_introspection_reflects_default_export(tmp_path: Path) -> None:
     assert names == ["shout"]
     assert reflected["candidates"][0]["default_export"] is True
     assert reflected["candidates"][0]["default_export_object"] is False
+    assert reflected["candidates"][0]["default_export_class"] is False
 
 
 def test_node_introspection_reflects_default_export_object(tmp_path: Path) -> None:
@@ -211,6 +212,33 @@ def test_node_introspection_reflects_default_export_object(tmp_path: Path) -> No
     assert names == ["shout", "whisper"]
     assert all(candidate["default_export"] for candidate in reflected["candidates"])
     assert all(candidate["default_export_object"] for candidate in reflected["candidates"])
+    assert all(not candidate["default_export_class"] for candidate in reflected["candidates"])
+
+
+def test_node_introspection_reflects_default_export_class(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "package.json").write_text('{"name":"forage-js-class","type":"module"}\n', encoding="utf-8")
+    (pkg / "index.mjs").write_text(
+        "export default class Shouter {\n"
+        "  shout(text) {\n"
+        "    if (typeof text !== 'string') throw new TypeError('shout expects a string');\n"
+        "    return text.toUpperCase() + '!';\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    skipped = introspect_node_module(pkg, "index.mjs", include_default=False)
+    assert skipped["ok"], skipped
+    assert skipped["candidates"] == []
+    reflected = introspect_node_module(pkg, "index.mjs")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "shout" in names
+    shout = next(candidate for candidate in reflected["candidates"] if candidate["name"] == "shout")
+    assert shout["default_export"] is True
+    assert shout["default_export_object"] is False
+    assert shout["default_export_class"] is True
 
 
 def test_default_export_only_npm_tarball_closes_runtime_deps(tmp_path: Path) -> None:
@@ -262,6 +290,7 @@ def test_default_export_only_npm_tarball_closes_runtime_deps(tmp_path: Path) -> 
     assert closed["record"]["winner"] == "humanizeString"
     assert closed["record"]["default_export"] is True
     assert closed["record"]["default_export_object"] is False
+    assert closed["record"]["default_export_class"] is False
     assert closed["spec"].provides == "humanize_string_output"
     assert any(item.get("name") == "decamelize" for item in closed["record"]["runtime_deps"])
     assert closed["spec"].extra_paths
@@ -316,8 +345,64 @@ def test_default_export_object_npm_tarball_closes_runtime_deps(tmp_path: Path) -
     assert closed["record"]["winner"] == "extract"
     assert closed["record"]["default_export"] is True
     assert closed["record"]["default_export_object"] is True
+    assert closed["record"]["default_export_class"] is False
     assert closed["spec"].provides == "extract_output"
     assert any(item.get("name") == "decode-uri-component" for item in closed["record"]["runtime_deps"])
+    assert closed["spec"].extra_paths
+
+
+def test_default_export_class_npm_tarball_closes_runtime_deps(tmp_path: Path) -> None:
+    from blackhole_agent.capability_acquisition import stage_acquisition_source
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "markdown-it", "slug": "markdown-it", "registry": "npm", "version": "14.1.0"}
+    )
+    assert fetched and fetched["ok"], fetched
+    source = Path(str(fetched["path"]))
+    staged = tmp_path / "staged"
+    stage_acquisition_source(source, staged)
+    requires = parse_node_runtime_requires(staged)
+    assert any(name.lower() == "argparse" for name in requires)
+    opened = infer_acquisition_spec(
+        slug="markdown-it",
+        name="markdown-it",
+        source=source,
+        staging_root=tmp_path / "open",
+        hint="markdown-it",
+        runtime="node",
+        close_deps=False,
+    )
+    assert not opened["ok"]
+    assert "import failed" in str(opened.get("error") or "")
+    named_only = infer_acquisition_spec(
+        slug="markdown-it",
+        name="markdown-it",
+        source=source,
+        staging_root=tmp_path / "named",
+        hint="markdown-it",
+        runtime="node",
+        close_deps=True,
+        include_default=False,
+    )
+    assert not named_only["ok"]
+    assert named_only.get("stage") == "select"
+    closed = infer_acquisition_spec(
+        slug="markdown-it",
+        name="markdown-it",
+        source=source,
+        staging_root=tmp_path / "closed",
+        hint="markdown-it",
+        runtime="node",
+        close_deps=True,
+    )
+    assert closed["ok"], closed
+    assert closed["record"]["winner"] == "render"
+    assert closed["record"]["default_export"] is True
+    assert closed["record"]["default_export_object"] is False
+    assert closed["record"]["default_export_class"] is True
+    assert closed["spec"].provides == "render_output"
+    assert any(item.get("name") == "argparse" for item in closed["record"]["runtime_deps"])
     assert closed["spec"].extra_paths
 
 

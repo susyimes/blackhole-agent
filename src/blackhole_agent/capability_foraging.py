@@ -428,7 +428,7 @@ import path from "node:path";
 
 const entry = process.argv[2];
 const includeDefault = process.argv[3] !== "0";
-function consider(name, target, isDefault, isDefaultObject, candidates, seen) {
+function consider(name, target, isDefault, isDefaultObject, isDefaultClass, candidates, seen) {
   if (typeof target !== "function" || !name || name.startsWith("_") || seen.has(name)) {
     return;
   }
@@ -452,6 +452,7 @@ function consider(name, target, isDefault, isDefaultObject, candidates, seen) {
     doc: "",
     default_export: Boolean(isDefault),
     default_export_object: Boolean(isDefaultObject),
+    default_export_class: Boolean(isDefaultClass),
   });
 }
 function objectKeys(value) {
@@ -475,18 +476,21 @@ try {
       typeof def.name === "string" && /^[A-Za-z][A-Za-z0-9]{2,}$/.test(def.name)
         ? def.name
         : "default";
-    consider(inferred, def, true, false, candidates, seen);
+    consider(inferred, def, true, false, false, candidates, seen);
+    for (const name of objectKeys(def.prototype)) {
+      consider(name, def.prototype[name], true, false, true, candidates, seen);
+    }
   }
   if (includeDefault && def && typeof def === "object" && !Array.isArray(def)) {
     for (const name of objectKeys(def)) {
-      consider(name, def[name], true, true, candidates, seen);
+      consider(name, def[name], true, true, false, candidates, seen);
     }
   }
   for (const name of Object.keys(mod).sort()) {
     if (name === "default") {
       continue;
     }
-    consider(name, mod[name], false, false, candidates, seen);
+    consider(name, mod[name], false, false, false, candidates, seen);
   }
   process.stdout.write(JSON.stringify({ ok: true, candidates }));
 } catch (err) {
@@ -1086,11 +1090,19 @@ def infer_acquisition_spec(
                     f"held-out probe failed in domain {domain['domain']!r}: {held_out['error']}"
                 )
                 break
+            if candidate.get("default_export_class"):
+                fragments = [result.get("fragment") or {} for result in selection_results]
+                fragments.append(held_out.get("fragment") or {})
+                values = [frag.get(spec.provides) for frag in fragments]
+                if any(not isinstance(value, (str, int, float, bool)) for value in values):
+                    rejected[candidate_name] = "class method did not return a JSON scalar"
+                    continue
             winner = {
                 "spec": spec.validate(),
                 "domain": str(domain["domain"]),
                 "default_export": bool(candidate.get("default_export")),
                 "default_export_object": bool(candidate.get("default_export_object")),
+                "default_export_class": bool(candidate.get("default_export_class")),
             }
             break
         if winner is not None:
@@ -1124,6 +1136,7 @@ def infer_acquisition_spec(
         "extra_paths": list(extra_paths),
         "default_export": bool(collected[0].get("default_export")),
         "default_export_object": bool(collected[0].get("default_export_object")),
+        "default_export_class": bool(collected[0].get("default_export_class")),
     }
     return {
         "ok": True,

@@ -1,0 +1,49 @@
+{
+  "capability_id": "capability.absorbed-markdown-it-render-inline",
+  "generated_at": "2026-08-23T03:51:33.742347Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-markdown-it-render-inline"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "markdown-it",
+    "registry": "npm",
+    "sha256": "7c4fab4d4d39fe98206a7fbbed4b1e3578f2b70b6b69d309413e33eec140e19f",
+    "source": "artifacts/capability-foraging/downloads/markdown-it-14.1.0.tgz",
+    "url": "",
+    "version": "14.1.0"
+  },
+  "record_digest": "d3c77cc860951e11c08e39527d9d665c043071f61f00037de7e9a570024c4246",
+  "report_digest": "70532d3130002d93a5bec0c7857cba47f80971704d170c926245a6366fa30755",
+  "schema_version": 1,
+  "slug": "markdown-it-render-inline",
+  "task": {
+    "goal": [
+      "render_inline_output"
+    ],
+    "id": "absorbed-markdown-it-render-inline",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "render_inline_output": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "266b89e1e7de06528ef3957fc8603e948d11ceb9d5c7e88fd2c5b12195a4f5ec",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

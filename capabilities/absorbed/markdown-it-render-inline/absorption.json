@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "render_inline_output": "Hello World"
+      },
+      "input": {
+        "arg0": "Hello World",
+        "arg1": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "render_inline_output": "blackhole unbound"
+      },
+      "input": {
+        "arg0": "blackhole unbound",
+        "arg1": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "render_inline_output": "MiXeD CaSe"
+      },
+      "input": {
+        "arg0": "MiXeD CaSe",
+        "arg1": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "render_inline_output": ""
+      },
+      "input": {
+        "arg0": "",
+        "arg1": ""
+      }
+    }
+  ],
+  "command": [
+    "node",
+    "acquisition_adapter.mjs"
+  ],
+  "name": "markdown-it (renderInline)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "markdown-it",
+    "registry": "npm",
+    "sha256": "7c4fab4d4d39fe98206a7fbbed4b1e3578f2b70b6b69d309413e33eec140e19f",
+    "source": "artifacts/capability-foraging/downloads/markdown-it-14.1.0.tgz",
+    "url": "",
+    "version": "14.1.0"
+  },
+  "provides": [
+    "render_inline_output"
+  ],
+  "requires": [
+    "arg0",
+    "arg1"
+  ],
+  "schema_version": 1,
+  "slug": "markdown-it-render-inline",
+  "version": "14.1.0"
+}

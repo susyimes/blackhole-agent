@@ -159,6 +159,9 @@ _MARKERS = (
     ("default-exported objects", "capability.application-node-default-export-object-growth-plane"),
     ("namespace of functions", "capability.application-node-default-export-object-growth-plane"),
     ("default export is a namespace", "capability.application-node-default-export-object-growth-plane"),
+    ("default-exported classes", "capability.application-node-default-export-class-growth-plane"),
+    ("constructable API", "capability.application-node-default-export-class-growth-plane"),
+    ("default export is a constructable", "capability.application-node-default-export-class-growth-plane"),
 )
 
 

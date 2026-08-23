@@ -250,6 +250,13 @@ try {{
       (CONFIG.callable_name === "default" || fallback.name === CONFIG.callable_name)
     ) {{
       target = fallback;
+    }} else if (
+      typeof fallback === "function" &&
+      fallback.prototype &&
+      typeof fallback.prototype[CONFIG.callable_name] === "function"
+    ) {{
+      const method = fallback.prototype[CONFIG.callable_name];
+      target = (...args) => method.apply(new fallback(), args);
     }} else if (fallback && typeof fallback === "object") {{
       const nested = fallback[CONFIG.callable_name];
       if (typeof nested === "function") {{

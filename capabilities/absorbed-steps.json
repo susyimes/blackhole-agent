@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-23T03:07:35.341086Z",
+  "absorbed_at": "2026-08-23T03:49:00.932740Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -628,6 +628,142 @@
       "slug": "markdown-foraged",
       "vendored_tree_digest": "983a3563df4293b22c2b99d5dfd7501814838c3e4c9cecceaef456d89dbbc207",
       "version": "3.10.3"
+    },
+    {
+      "capability_id": "capability.absorbed-markdown-it",
+      "cases": [
+        {
+          "expect": {
+            "render_output": "<p>Hello World</p>\n"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "render_output": "<p>blackhole unbound</p>\n"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "render_output": "<p>MiXeD CaSe</p>\n"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "render_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "markdown-it",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "markdown-it",
+        "registry": "npm",
+        "sha256": "7c4fab4d4d39fe98206a7fbbed4b1e3578f2b70b6b69d309413e33eec140e19f",
+        "source": "artifacts/capability-foraging/downloads/markdown-it-14.1.0.tgz",
+        "url": "",
+        "version": "14.1.0"
+      },
+      "provides": [
+        "render_output"
+      ],
+      "record_digest": "0b1b8fefdaf0ae2f63503c5ce0bf75073156ecf2f92e37e11e8694812c434360",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "markdown-it",
+      "vendored_tree_digest": "e9d0addd45ba04c354c289fc2183325e5623e5cb1dc84a185fc901900240b600",
+      "version": "14.1.0"
+    },
+    {
+      "capability_id": "capability.absorbed-markdown-it-render-inline",
+      "cases": [
+        {
+          "expect": {
+            "render_inline_output": "Hello World"
+          },
+          "input": {
+            "arg0": "Hello World",
+            "arg1": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "render_inline_output": "blackhole unbound"
+          },
+          "input": {
+            "arg0": "blackhole unbound",
+            "arg1": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "render_inline_output": "MiXeD CaSe"
+          },
+          "input": {
+            "arg0": "MiXeD CaSe",
+            "arg1": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "render_inline_output": ""
+          },
+          "input": {
+            "arg0": "",
+            "arg1": ""
+          }
+        }
+      ],
+      "command": [
+        "node",
+        "acquisition_adapter.mjs"
+      ],
+      "name": "markdown-it (renderInline)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "npm-live",
+        "name": "markdown-it",
+        "registry": "npm",
+        "sha256": "7c4fab4d4d39fe98206a7fbbed4b1e3578f2b70b6b69d309413e33eec140e19f",
+        "source": "artifacts/capability-foraging/downloads/markdown-it-14.1.0.tgz",
+        "url": "",
+        "version": "14.1.0"
+      },
+      "provides": [
+        "render_inline_output"
+      ],
+      "record_digest": "d3c77cc860951e11c08e39527d9d665c043071f61f00037de7e9a570024c4246",
+      "requires": [
+        "arg0",
+        "arg1"
+      ],
+      "schema_version": 1,
+      "slug": "markdown-it-render-inline",
+      "vendored_tree_digest": "266b89e1e7de06528ef3957fc8603e948d11ceb9d5c7e88fd2c5b12195a4f5ec",
+      "version": "14.1.0"
     },
     {
       "capability_id": "capability.absorbed-marked",
@@ -1705,5 +1841,5 @@
       "version": "2.4.1"
     }
   ],
-  "steps_digest": "fcbdba1ae8c91b565860474f4732e3b67eb7bda00c48f8028c6fd66588ac934c"
+  "steps_digest": "9b79f0b0f022ccc976282912e5bb8db45ff222ed7f053d6d7601191a60263137"
 }

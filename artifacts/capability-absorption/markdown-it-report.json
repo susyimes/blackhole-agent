@@ -1,0 +1,49 @@
+{
+  "capability_id": "capability.absorbed-markdown-it",
+  "generated_at": "2026-08-23T03:51:25.648851Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-markdown-it"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "npm-live",
+    "name": "markdown-it",
+    "registry": "npm",
+    "sha256": "7c4fab4d4d39fe98206a7fbbed4b1e3578f2b70b6b69d309413e33eec140e19f",
+    "source": "artifacts/capability-foraging/downloads/markdown-it-14.1.0.tgz",
+    "url": "",
+    "version": "14.1.0"
+  },
+  "record_digest": "0b1b8fefdaf0ae2f63503c5ce0bf75073156ecf2f92e37e11e8694812c434360",
+  "report_digest": "b195ba6db747b3aee7091e225a7dcf17880a89871ed28394c41a3f59752a96f9",
+  "schema_version": 1,
+  "slug": "markdown-it",
+  "task": {
+    "goal": [
+      "render_output"
+    ],
+    "id": "absorbed-markdown-it",
+    "initial_state": {
+      "arg0": "Hello World",
+      "arg1": "Hello World"
+    },
+    "oracle": {
+      "render_output": "<p>Hello World</p>\n"
+    }
+  },
+  "vendored_tree_digest": "e9d0addd45ba04c354c289fc2183325e5623e5cb1dc84a185fc901900240b600",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}
