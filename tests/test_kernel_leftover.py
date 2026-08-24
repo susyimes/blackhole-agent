@@ -3,9 +3,11 @@ from blackhole_agent.kernel_health import LOCAL_KERNEL
 from blackhole_agent.kernel_leftover import (
     HARVESTED_MISSION_PLANE_LEFTOVER,
     builtin_kernel_leftover_proof,
+    leftover_claim_consumed,
     leftover_is_open,
     leftover_marker_ids,
     leftover_phrase_overlap,
+    leftover_satisfied_by,
 )
 from blackhole_agent.kernel_salvage import HARVESTED_GROK_402, classify_run_artifact
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
@@ -349,12 +351,15 @@ def test_python_triple_nested_namespace_class_static_leftover_marks_growth_plane
 
 
 def test_python_sextuple_nested_namespace_class_static_leftover_marks_growth_plane():
+    from pathlib import Path
+
     leftover = (
         "Optional later work is reflecting Python nested-namespace class statics "
         "six submodule levels down so sdists whose covering API is a six-level "
         "nested Class.method static rather than a five-level nested Class.method "
         "static can be foraged the same way."
     )
+    root = Path(".").resolve()
     assert leftover_marker_ids(leftover) == (
         "capability.application-python-sext-nested-static-growth-plane",
     )
@@ -367,6 +372,10 @@ def test_python_sextuple_nested_namespace_class_static_leftover_marks_growth_pla
         "cwd-independent JSON scalar, rather than an inherited path validator, can "
         "be foraged the same way."
     ) == ("capability.application-python-quint-nested-static-growth-plane",)
+    reason = leftover_satisfied_by(leftover, root)
+    assert reason.startswith("ledger:capability.application-python-sext-nested-static-growth-plane")
+    assert leftover_is_open(leftover, root) is False
+    assert leftover_claim_consumed(root, leftover) is True
 
 
 def test_python_quintuple_nested_namespace_class_static_leftover_marks_growth_plane():

@@ -17,6 +17,8 @@ This module:
   contract so 402-local ticks can complete them
 - consumes a leftover-bound campaign after local finality so the next
   genesis cannot reopen it
+- stamps a durable leftover-claim when a proved ledger marker already
+  closes the leftover, so 402-local campaigns do not re-bind it
 """
 
 from __future__ import annotations
@@ -384,12 +386,20 @@ def leftover_satisfied_by(
     if not leftover:
         return "empty"
     if leftover_claim_consumed(root, leftover):
-        return "claim_consumed"
+        claim = (load_leftover_claims(root).get("claims") or {}).get(leftover_claim_id(leftover)) or {}
+        return str(claim.get("satisfied_by") or "claim_consumed")
     live_ledger = ledger if ledger is not None else _load_repo_ledger(root)
     markers = leftover_marker_ids(leftover)
     for capability_id in markers:
         if _ledger_proves(live_ledger, capability_id):
-            return f"ledger:{capability_id}"
+            reason = f"ledger:{capability_id}"
+            consume_leftover(
+                root,
+                leftover,
+                satisfied_by=reason,
+                source_mission_id=source_mission_id,
+            )
+            return reason
     if markers:
         return ""
     skip = str(source_mission_id or "").strip()
@@ -581,9 +591,11 @@ def builtin_kernel_leftover_proof() -> dict[str, Any]:
         save_ledger(path, ledger)
         fuel = harvest_experience(root, limit=5)
         reason = leftover_satisfied_by(HARVESTED_MISSION_PLANE_LEFTOVER, root, source_mission_id="prior-leftover")
+        stamped = leftover_claim_consumed(root, HARVESTED_MISSION_PLANE_LEFTOVER)
     checks["proved_marker_consumes_harvested_leftover"] = (
         not any(item.class_id == LEFTOVER_CLASS for item in fuel.candidates)
         and reason.startswith("ledger:capability.kernel-mission-plane")
+        and stamped
     )
 
     with tempfile.TemporaryDirectory(prefix="kernel-leftover-later-") as tmp:
