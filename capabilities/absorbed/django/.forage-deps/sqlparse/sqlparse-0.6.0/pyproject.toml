@@ -1,0 +1,117 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sqlparse"
+description = "A non-validating SQL parser."
+authors = [{name = "Andi Albrecht", email = "albrecht.andi@gmail.com"}]
+readme = "README.md"
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Database",
+    "Topic :: Software Development",
+ ]
+requires-python = ">=3.10"
+
+[project.urls]
+Home = "https://github.com/andialbrecht/sqlparse"
+Documentation = "https://sqlparse.readthedocs.io/"
+"Release Notes" = "https://sqlparse.readthedocs.io/en/latest/changes.html"
+Source = "https://github.com/andialbrecht/sqlparse"
+Tracker = "https://github.com/andialbrecht/sqlparse/issues"
+
+[project.scripts]
+sqlformat = "sqlparse.__main__:main"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+]
+doc = [
+    "sphinx",
+    "furo",
+]
+
+[tool.hatch.version]
+path = "sqlparse/__init__.py"
+
+[tool.coverage.run]
+source_pkgs = ["sqlparse", "tests"]
+branch = true
+parallel = true
+omit = [
+    "sqlparse/__main__.py",
+]
+
+[tool.coverage.paths]
+sqlparse = ["sqlparse"]
+tests = ["tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "no cov",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+[dependency-groups]
+dev = [
+    "pytest",
+    "coverage",
+    "ruff",
+    "build",
+    "sphinx",
+    "furo",
+    "hatch>=1.18.0",
+]
+
+[tool.ruff]
+target-version = "py310"
+exclude = [
+    "dist",
+    "docs",
+    "tests",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes
+    "W",    # pycodestyle warnings
+    "C90",  # mccabe complexity
+    "B",    # flake8-bugbear (bugs/design issues)
+    "I",    # isort (import sorting)
+    "UP",   # pyupgrade (modern python syntax)
+    "SIM",  # flake8-simplify (simpler code)
+    "RUF",  # Ruff-specific rules
+]
+ignore = [
+    "RUF001",  # Ambiguous unicode character (acute accent is used intentionally for quoting)
+    "RUF012",  # Mutable default value for class attribute (used for SQL matching patterns)
+    "B904",    # raise ... from ... (not required for simple custom exceptions)
+    "E501",    # Line too long (managed by formatting choices rather than strict rules)
+    "SIM108",  # Use ternary operator instead of if-else block (traditional if-else is preferred for readability)
+    "RUF005",  # Consider iterable unpacking instead of concatenation
+    "RUF059",  # Unused unpacked variables (retains standard unpacking signatures)
+    "SIM102",  # Nested if statements (sometimes preferred for logic separation)
+    "SIM115",  # Use a context manager for opening files (CLI streams are opened dynamically)
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 31
+
+

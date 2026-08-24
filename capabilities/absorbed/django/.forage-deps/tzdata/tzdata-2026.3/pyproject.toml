@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=40.8.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.check-wheel-contents]
+# The wheel contains duplicate files.
+# This is by design, see https://github.com/eggert/tz/blob/main/backward
+# Let's ignore the warning:
+ignore = ["W002"]
+
+[tool.isort]
+atomic=true
+force_grid_wrap=0
+include_trailing_comma=true
+known_first_party=["tzdata"]
+extra_standard_library=["zoneinfo"]
+known_third_party=["click", "parver", "pytest", "requests"]
+multi_line_output=3
+use_parentheses=true

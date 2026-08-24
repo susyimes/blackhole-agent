@@ -641,31 +641,37 @@ def absorb_external_capability(
         return {"ok": False, "stage": "preflight", "slug": slug, "preflight": preflight}
 
     vendored_dir = durable_write_path(repo_root / "capabilities" / "absorbed" / slug)
+    vendored: dict[str, Any] | None = None
     if vendored_dir.exists():
-        shutil.rmtree(vendored_dir)
-    shutil.copytree(
-        source_path,
-        vendored_dir,
-        ignore=shutil.ignore_patterns(
-            ".git",
-            ".hg",
-            ".svn",
-            "__pycache__",
-            "*.pyc",
-            ".pytest_cache",
-            ".ruff_cache",
-            ".mypy_cache",
-            ".tox",
-            ".nox",
-            ".venv",
-            "node_modules",
-            "*.egg-info",
-            "*.dist-info",
-        ),
-    )
-    vendored = run_absorption_cases(vendored_dir, manifest)
-    if not vendored["ok"]:
-        return {"ok": False, "stage": "vendored-cases", "slug": slug, "vendored": vendored}
+        existing = run_absorption_cases(vendored_dir, manifest)
+        if existing["ok"]:
+            vendored = existing
+        else:
+            shutil.rmtree(vendored_dir)
+    if vendored is None:
+        shutil.copytree(
+            source_path,
+            vendored_dir,
+            ignore=shutil.ignore_patterns(
+                ".git",
+                ".hg",
+                ".svn",
+                "__pycache__",
+                "*.pyc",
+                ".pytest_cache",
+                ".ruff_cache",
+                ".mypy_cache",
+                ".tox",
+                ".nox",
+                ".venv",
+                "node_modules",
+                "*.egg-info",
+                "*.dist-info",
+            ),
+        )
+        vendored = run_absorption_cases(vendored_dir, manifest)
+        if not vendored["ok"]:
+            return {"ok": False, "stage": "vendored-cases", "slug": slug, "vendored": vendored}
     vendored_tree_digest = tree_digest(vendored_dir)
 
     record = absorbed_step_record(manifest, vendored_tree_digest, origin=origin)

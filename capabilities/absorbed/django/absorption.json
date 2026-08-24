@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "Hello World"
+      },
+      "input": {
+        "value": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "blackhole unbound"
+      },
+      "input": {
+        "value": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "MiXeD CaSe"
+      },
+      "input": {
+        "value": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "contrib_humanize_templatetags_humanize_natural_time_formatter_st": ""
+      },
+      "input": {
+        "value": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "django",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "django",
+    "registry": "pypi",
+    "sha256": "86a2aacd59b817e4d6ac2ebfe22356c58f66f7b24e503f71b7c2fead677ee48b",
+    "source": "artifacts/capability-foraging/downloads/django-6.1.tar.gz",
+    "url": "",
+    "version": "6.1"
+  },
+  "provides": [
+    "contrib_humanize_templatetags_humanize_natural_time_formatter_st"
+  ],
+  "requires": [
+    "value"
+  ],
+  "schema_version": 1,
+  "slug": "django",
+  "version": "6.1"
+}

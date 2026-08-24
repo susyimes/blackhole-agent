@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-django",
+  "generated_at": "2026-08-24T03:27:01.076306Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-django"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "django",
+    "registry": "pypi",
+    "sha256": "86a2aacd59b817e4d6ac2ebfe22356c58f66f7b24e503f71b7c2fead677ee48b",
+    "source": "artifacts/capability-foraging/downloads/django-6.1.tar.gz",
+    "url": "",
+    "version": "6.1"
+  },
+  "record_digest": "b59536d38bc06f1cf4d26efb151a9a329e7d412157348fce64cff864b9d6104c",
+  "report_digest": "9c0bc637ee65224f5f1f490cbfdfeb08cc6a0ec2d131aa405e3f5de8d253ac17",
+  "schema_version": 1,
+  "slug": "django",
+  "task": {
+    "goal": [
+      "contrib_humanize_templatetags_humanize_natural_time_formatter_st"
+    ],
+    "id": "absorbed-django",
+    "initial_state": {
+      "value": "Hello World"
+    },
+    "oracle": {
+      "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "Hello World"
+    }
+  },
+  "vendored_tree_digest": "efed4cd1491c5916fa2dc6df9719e4075997a31d5e42e8eb70b77f1027a10fe6",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

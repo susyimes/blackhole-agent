@@ -1,0 +1,5 @@
+pyenchant
+Sphinx>=4.5.0
+sphinxcontrib-spelling
+blacken-docs
+sphinx-lint

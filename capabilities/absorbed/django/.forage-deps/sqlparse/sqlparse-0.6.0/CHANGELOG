@@ -1,0 +1,821 @@
+Release 0.6.0 (Aug 13, 2026)
+----------------------------
+
+Notable Changes
+
+* Drop support for Python 3.8 and 3.9. Python 3.10+ is now required.
+* IMPORTANT: Fixes a potential denial of service attack (DOS) in the lexer,
+  which consumed CPU quadratically on statements containing many unclosed
+  dollar-quoted literals or multiline comments (CVE-2026-59893). See the
+  security advisory for details:
+  https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-prg7-hcfm-mfcr
+  The vulnerability was discovered by EQSTLab, min8282 and 7thpark.
+  Thanks for reporting!
+* IMPORTANT: Fixes a potential denial of service attack (DOS) when grouping
+  deeply nested or very wide statements. Building a token group re-read the
+  whole group on every step, so a small statement could keep a worker busy
+  for a long time (CVE-2026-54284, pr848 by alhudz and tonghuaroot).
+* IMPORTANT: Fixes a potential denial of service attack (DOS) in
+  `format(sql, reindent=True)`, which consumed CPU quadratically on long
+  lists of tuples. See the security advisory for details:
+  https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-cfqr-cjx5-5jcm
+* IMPORTANT: Fixes a potential denial of service attack (DOS) on statements
+  that consist only of comments (CVE-2026-71491). See the security advisory
+  for details:
+  https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-f2ff-p2ww-7p4p
+  The vulnerability was discovered by @sanktjodel. Thanks for reporting!
+* IMPORTANT: Backslashes are now escaped in the `python` and `php` output
+  formats. Without escaping, SQL containing a backslash could break out of
+  the generated string literal (CVE-2026-59894). See the security advisory
+  for details:
+  https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-3496-9g83-7v6x
+  The vulnerability was discovered by @7thParkk. Thanks for reporting!
+
+Enhancements
+
+* Modernize type annotations in top-level API functions using PEP 585 and
+  PEP 604 syntax.
+* `END FOR` and `END CASE` are now recognized as keywords.
+
+Bug Fixes
+
+* Statement splitting was rewritten on a stack-based architecture. This fixes
+  splitting of statements with nested BEGIN ... END blocks (issue845).
+* Fix function grouping being skipped in `CREATE TABLE ... AS SELECT`
+  statements when the `as` keyword is lowercase (pr867 by Osamaali313).
+* Recognize `ROW_FORMAT` as a keyword so that `ALTER TABLE ... ROW_FORMAT=...`
+  no longer merges the table name and the option into a single identifier
+  (issue773, pr860 by apoorvdarshan).
+* Recognize `MATERIALIZED` as a keyword so it is parsed and formatted
+  consistently in `CREATE MATERIALIZED VIEW` statements (issue752, pr854 by
+  gaoflow).
+* Fix `get_real_name` for names with more than two dotted parts (issue332,
+  pr865 by chuenchen309).
+* Keep a keyword such as `BETWEEN` from being reclassified as an identifier
+  when it is followed by a float literal written without a leading zero, so
+  that `x BETWEEN .03 AND .06` parses its bounds as numbers (issue601, pr868
+  by deepakganesh78).
+* Fix a late-binding closure bug in `TokenList.token_not_matching`.
+
+Other
+
+* Migrate project dependencies and environment management from `pixi` to `uv`.
+* Replace `flake8` with `ruff` for code checking and linting.
+* The README is now written in Markdown and the documentation uses an
+  updated theme.
+
+
+Release 0.5.5 (Dec 19, 2025)
+----------------------------
+
+Bug Fixes
+
+* Fix DoS protection to raise SQLParseError instead of silently returning None
+  when grouping limits are exceeded (issue827).
+* Fix splitting of BEGIN TRANSACTION statements (issue826).
+
+
+Release 0.5.4 (Nov 28, 2025)
+----------------------------
+
+Enhancements
+
+* Add support for Python 3.14.
+* Add type annotations to top-level API functions and include py.typed marker
+  for PEP 561 compliance, enabling type checking with mypy and other tools
+  (issue756).
+* Add pre-commit hook support. sqlparse can now be used as a pre-commit hook
+  to automatically format SQL files. The CLI now supports multiple files and
+  an `--in-place` flag for in-place editing (issue537).
+* Add `ATTACH` and `DETACH` to PostgreSQL keywords (pr808).
+* Add `INTERSECT` to close keywords in WHERE clause (pr820).
+* Support `REGEXP BINARY` comparison operator (pr817).
+
+Bug Fixes
+
+* Add additional protection against denial of service attacks when parsing
+  very large lists of tuples. This enhances the existing recursion protections
+  with configurable limits for token processing to prevent DoS through
+  algorithmic complexity attacks. The new limits (MAX_GROUPING_DEPTH=100,
+  MAX_GROUPING_TOKENS=10000) can be adjusted or disabled (by setting to None)
+  if needed for legitimate large SQL statements.
+* Remove shebang from cli.py and remove executable flag (pr818).
+* Fix strip_comments not removing all comments when input contains only
+  comments (issue801, pr803 by stropysh).
+* Fix splitting statements with IF EXISTS/IF NOT EXISTS inside BEGIN...END
+  blocks (issue812).
+* Fix splitting on semicolons inside BEGIN...END blocks (issue809).
+
+
+Release 0.5.3 (Dez 10, 2024)
+----------------------------
+
+Bug Fixes
+
+* This version introduces a more generalized handling of potential denial of
+  service attack (DOS) due to recursion errors for deeply nested statements.
+  Brought up and fixed by @living180. Thanks a lot!
+
+
+Release 0.5.2 (Nov 14, 2024)
+----------------------------
+
+Bug Fixes
+
+* EXTENSION is now recognized as a keyword (issue785).
+* SQL hints are not removed when removing comments (issue262, by skryzh).
+
+
+Release 0.5.1 (Jul 15, 2024)
+----------------------------
+
+Enhancements
+
+* New "compact" option for formatter. If set, the formatter tries to produce
+  a more compact output by avoiding some line breaks (issue783).
+
+Bug Fixes
+
+* The strip comments filter was a bit greedy and removed too much
+  whitespace (issue772).
+  Note: In some cases you might want to add `strip_whitespace=True` where you
+  previously used just `strip_comments=True`. `strip_comments` did some of the
+  work that `strip_whitespace` should do.
+* Fix error when splitting statements that contain multiple CASE clauses
+  within a BEGIN block (issue784).
+* Fix whitespace removal with nested expressions (issue782).
+* Fix parsing and formatting of ORDER clauses containing NULLS FIRST or
+  NULLS LAST (issue532).
+
+
+Release 0.5.0 (Apr 13, 2024)
+----------------------------
+
+Notable Changes
+
+* Drop support for Python 3.5, 3.6, and 3.7.
+* Python 3.12 is now supported (pr725, by hugovk).
+* IMPORTANT: Fixes a potential denial of service attack (DOS) due to recursion
+  error for deeply nested statements. Instead of recursion error a generic
+  SQLParseError is raised. See the security advisory for details:
+  https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-2m57-hf25-phgg
+  The vulnerability was discovered by @uriyay-jfrog. Thanks for reporting!
+
+Enhancements
+
+* Splitting statements now allows to remove the semicolon at the end.
+  Some database backends love statements without semicolon (issue742).
+* Support TypedLiterals in get_parameters (pr749, by Khrol).
+* Improve splitting of Transact SQL when using GO keyword (issue762).
+* Support for some JSON operators (issue682).
+* Improve formatting of statements containing JSON operators (issue542).
+* Support for BigQuery and Snowflake keywords (pr699, by griffatrasgo).
+* Support parsing of OVER clause (issue701, pr768 by r33s3n6).
+
+Bug Fixes
+
+* Ignore dunder attributes when creating Tokens (issue672).
+* Allow operators to precede dollar-quoted strings (issue763).
+* Fix parsing of nested order clauses (issue745, pr746 by john-bodley).
+* Thread-safe initialization of Lexer class (issue730).
+* Classify TRUNCATE as DDL and GRANT/REVOKE as DCL keywords (based on pr719
+  by josuc1, thanks for bringing this up!).
+* Fix parsing of PRIMARY KEY (issue740).
+
+Other
+
+* Optimize performance of matching function (pr799, by admachainz).
+
+
+Release 0.4.4 (Apr 18, 2023)
+----------------------------
+
+Notable Changes
+
+* IMPORTANT: This release fixes a security vulnerability in the
+  parser where a regular expression vulnerable to ReDOS (Regular
+  Expression Denial of Service) was used. See the security advisory
+  for details: https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-rrm6-wvj7-cwh2
+  The vulnerability was discovered by @erik-krogh from GitHub
+  Security Lab (GHSL). Thanks for reporting!
+
+Bug Fixes
+
+* Revert a change from 0.4.0 that changed IN to be a comparison (issue694).
+  The primary expectation is that IN is treated as a keyword and not as a
+  comparison operator. That also follows the definition of reserved keywords
+  for the major SQL syntax definitions.
+* Fix regular expressions for string parsing.
+
+Other
+
+* sqlparse now uses pyproject.toml instead of setup.cfg (issue685).
+
+
+Release 0.4.3 (Sep 23, 2022)
+----------------------------
+
+Enhancements
+
+* Add support for DIV operator (pr664, by chezou).
+* Add support for additional SPARK keywords (pr643, by mrmasterplan).
+* Avoid tokens copy (pr622, by living180).
+* Add REGEXP as a comparision (pr647, by PeterSandwich).
+* Add DISTINCTROW keyword for MS Access (issue677).
+* Improve parsing of CREATE TABLE AS SELECT (pr662, by chezou).
+
+Bug Fixes
+
+* Fix spelling of INDICATOR keyword (pr653, by ptld).
+* Fix formatting error in EXTRACT function (issue562, issue670, pr676, by ecederstrand).
+* Fix bad parsing of create table statements that use lower case (issue217, pr642, by mrmasterplan).
+* Handle backtick as valid quote char (issue628, pr629, by codenamelxl).
+* Allow any unicode character as valid identifier name (issue641).
+
+Other
+
+* Update github actions to test on Python 3.10 as well (pr661, by cclaus).
+
+
+Release 0.4.2 (Sep 10, 2021)
+----------------------------
+
+Notable Changes
+
+* IMPORTANT: This release fixes a security vulnerability in the
+  strip comments filter. In this filter a regular expression that was
+  vulnerable to ReDOS (Regular Expression Denial of Service) was
+  used. See the security advisory for details: https://github.com/andialbrecht/sqlparse/security/advisories/GHSA-p5w8-wqhj-9hhf
+  The vulnerability was discovered by @erik-krogh and @yoff from
+  GitHub Security Lab (GHSL). Thanks for reporting!
+
+Enhancements
+
+* Add ELSIF as keyword (issue584).
+* Add CONFLICT and ON_ERROR_STOP keywords (pr595, by j-martin).
+
+Bug Fixes
+
+* Fix parsing of backticks (issue588).
+* Fix parsing of scientific number (issue399).
+
+
+Release 0.4.1 (Oct 08, 2020)
+----------------------------
+
+Bug Fixes
+
+* Just removed a debug print statement, sorry...
+
+
+Release 0.4.0 (Oct 07, 2020)
+----------------------------
+
+Notable Changes
+
+* Remove support for end-of-life Python 2.7 and 3.4. Python 3.5+ is now
+  required.
+* Remaining strings that only consist of whitespaces are not treated as
+  statements anymore. Code that ignored the last element from
+  sqlparse.split() should be updated accordingly since that function
+  now doesn't return an empty string as the last element in some
+  cases (issue496).
+
+Enhancements
+
+* Add WINDOW keyword (pr579 by ali-tny).
+* Add RLIKE keyword (pr582 by wjones1).
+
+Bug Fixes
+
+* Improved parsing of IN(...) statements (issue566, pr567 by hurcy).
+* Preserve line breaks when removing comments (issue484).
+* Fix parsing error when using square bracket notation (issue583).
+* Fix splitting when using DECLARE ... HANDLER (issue581).
+* Fix splitting of statements using CASE ... WHEN (issue580).
+* Improve formatting of type casts in parentheses.
+* Stabilize formatting of invalid SQL statements.
+
+
+Release 0.3.1 (Feb 29, 2020)
+----------------------------
+
+Enhancements
+
+* Add HQL keywords (pr475, by matwalk).
+* Add support for time zone casts (issue489).
+* Enhance formatting of AS keyword (issue507, by john-bodley).
+* Stabilize grouping engine when parsing invalid SQL statements.
+
+Bug Fixes
+
+* Fix splitting of SQL with multiple statements inside
+  parentheses (issue485, pr486 by win39).
+* Correctly identify NULLS FIRST / NULLS LAST as keywords (issue487).
+* Fix splitting of SQL statements that contain dollar signs in
+  identifiers (issue491).
+* Remove support for parsing double slash comments introduced in
+  0.3.0 (issue456) as it had some side-effects with other dialects and
+  doesn't seem to be widely used (issue476).
+* Restrict detection of alias names to objects that actually could
+  have an alias (issue455, adopted some parts of pr509 by john-bodley).
+* Fix parsing of date/time literals (issue438, by vashek).
+* Fix initialization of TokenList (issue499, pr505 by john-bodley).
+* Fix parsing of LIKE (issue493, pr525 by dbczumar).
+* Improve parsing of identifiers (pr527 by liulk).
+
+
+Release 0.3.0 (Mar 11, 2019)
+----------------------------
+
+Notable Changes
+
+* Remove support for Python 3.3.
+
+Enhancements
+
+* New formatting option "--indent_after_first" (pr345, by johshoff).
+* New formatting option "--indent_columns" (pr393, by digitalarbeiter).
+* Add UPSERT keyword (issue408).
+* Strip multiple whitespace within parentheses (issue473, by john-bodley).
+* Support double slash (//) comments (issue456, by theianrobertson).
+* Support for Calcite temporal keywords (pr468, by john-bodley).
+
+Bug Fixes
+
+* Fix occasional IndexError (pr390, by circld, issue313).
+* Fix incorrect splitting of strings containing new lines (pr396, by fredyw).
+* Fix reindent issue for parenthesis (issue427, by fredyw).
+* Fix from( parsing issue (issue446, by fredyw)	.
+* Fix for get_real_name() to return correct name (issue369, by fredyw).
+* Wrap function params when wrap_after is set (pr398, by soloman1124).
+* Fix parsing of "WHEN name" clauses (pr418, by andrew deryabin).
+* Add missing EXPLAIN keyword (issue421).
+* Fix issue with strip_comments causing a syntax error (issue425, by fredyw).
+* Fix formatting on INSERT which caused staircase effect on values (issue329,
+  by fredyw).
+* Avoid formatting of psql commands (issue469).
+
+Internal Changes
+
+* Unify handling of GROUP BY/ORDER BY (pr457, by john-bodley).
+* Remove unnecessary compat shim for bytes (pr453, by jdufresne).
+
+
+Release 0.2.4 (Sep 27, 2017)
+----------------------------
+
+Enhancements
+
+* Add more keywords for MySQL table options (pr328, pr333, by phdru).
+* Add more PL/pgSQL keywords (pr357, by Demetrio92).
+* Improve parsing of floats (pr330, by atronah).
+
+Bug Fixes
+
+* Fix parsing of MySQL table names starting with digits (issue337).
+* Fix detection of identifiers using comparisons (issue327).
+* Fix parsing of UNION ALL after WHERE (issue349).
+* Fix handling of semicolon in assignments (issue359, issue358).
+
+
+
+Release 0.2.3 (Mar 02, 2017)
+----------------------------
+
+Enhancements
+
+* New command line option "--encoding" (by twang2218, pr317).
+* Support CONCURRENTLY keyword (issue322, by rowanseymour).
+
+Bug Fixes
+
+* Fix some edge-cases when parsing invalid SQL statements.
+* Fix indentation of LIMIT (by romainr, issue320).
+* Fix parsing of INTO keyword (issue324).
+
+Internal Changes
+
+* Several improvements regarding encodings.
+
+
+Release 0.2.2 (Oct 22, 2016)
+----------------------------
+
+Enhancements
+
+* Add comma_first option: When splitting list "comma first" notation
+  is used (issue141).
+
+Bug Fixes
+
+* Fix parsing of incomplete AS (issue284, by vmuriart).
+* Fix parsing of Oracle names containing dollars (issue291).
+* Fix parsing of UNION ALL (issue294).
+* Fix grouping of identifiers containing typecasts (issue297).
+* Add Changelog to sdist again (issue302).
+
+Internal Changes
+
+* `is_whitespace` and `is_group` changed into properties
+
+
+Release 0.2.1 (Aug 13, 2016)
+----------------------------
+
+Notable Changes
+
+* PostgreSQL: Function bodys are parsed as literal string. Previously
+  sqlparse assumed that all function bodys are parsable psql
+  strings (see issue277).
+
+Bug Fixes
+
+* Fix a regression to parse streams again (issue273, reported and
+  test case by gmccreight).
+* Improve Python 2/3 compatibility when using parsestream (issue190,
+  by phdru).
+* Improve splitting of PostgreSQL functions (issue277).
+
+
+Release 0.2.0 (Jul 20, 2016)
+----------------------------
+
+IMPORTANT: The supported Python versions have changed with this release.
+sqlparse 0.2.x supports Python 2.7 and Python >= 3.3.
+
+Thanks to the many contributors for writing bug reports and working
+on pull requests who made this version possible!
+
+Internal Changes
+
+* sqlparse.SQLParseError was removed from top-level module and moved to
+  sqlparse.exceptions.
+* sqlparse.sql.Token.to_unicode was removed.
+* The signature of a filter's process method has changed from
+  process(stack, stream) -> to process(stream). Stack was never used at
+  all.
+* Lots of code cleanups and modernization (thanks esp. to vmuriart!).
+* Improved grouping performance. (sjoerdjob)
+
+Enhancements
+
+* Support WHILE loops (issue215, by shenlongxing).
+* Better support for CTEs (issue217, by Andrew Tipton).
+* Recognize USING as a keyword more consistently (issue236, by koljonen).
+* Improve alignment of columns (issue207, issue235, by vmuriat).
+* Add wrap_after option for better alignment when formatting
+  lists (issue248, by Dennis Taylor).
+* Add reindent-aligned option for alternate formatting (Adam Greenhall)
+* Improved grouping of operations (issue211, by vmuriat).
+
+Bug Fixes
+
+* Leading whitespaces are now removed when format() is called with
+  strip_whitespace=True (issue213, by shenlongxing).
+* Fix typo in keywords list (issue229, by cbeloni).
+* Fix parsing of functions in comparisons (issue230, by saaj).
+* Fix grouping of identifiers (issue233).
+* Fix parsing of CREATE TABLE statements (issue242, by Tenghuan).
+* Minor bug fixes (issue101).
+* Improve formatting of CASE WHEN constructs (issue164, by vmuriat).
+
+
+Release 0.1.19 (Mar 07, 2016)
+-----------------------------
+
+Bug Fixes
+
+* Fix IndexError when statement contains WITH clauses (issue205).
+
+
+Release 0.1.18 (Oct 25, 2015)
+-----------------------------
+
+Bug Fixes
+
+* Remove universal wheel support, added in 0.1.17 by mistake.
+
+
+Release 0.1.17 (Oct 24, 2015)
+-----------------------------
+
+Enhancements
+
+* Speed up parsing of large SQL statements (pull request: issue201, fixes the
+  following issues: issue199, issue135, issue62, issue41, by Ryan Wooden).
+
+Bug Fixes
+
+* Fix another splitter bug regarding DECLARE (issue194).
+
+Misc
+
+* Packages on PyPI are signed from now on.
+
+
+Release 0.1.16 (Jul 26, 2015)
+-----------------------------
+
+Bug Fixes
+
+* Fix a regression in get_alias() introduced in 0.1.15 (issue185).
+* Fix a bug in the splitter regarding DECLARE (issue193).
+* sqlformat command line tool doesn't duplicate newlines anymore (issue191).
+* Don't mix up MySQL comments starting with hash and MSSQL
+  temp tables (issue192).
+* Statement.get_type() now ignores comments at the beginning of
+  a statement (issue186).
+
+
+Release 0.1.15 (Apr 15, 2015)
+-----------------------------
+
+Bug Fixes
+
+* Fix a regression for identifiers with square bracktes
+  notation (issue153, by darikg).
+* Add missing SQL types (issue154, issue155, issue156, by jukebox).
+* Fix parsing of multi-line comments (issue172, by JacekPliszka).
+* Fix parsing of escaped backslashes (issue174, by caseyching).
+* Fix parsing of identifiers starting with underscore (issue175).
+* Fix misinterpretation of IN keyword (issue183).
+
+Enhancements
+
+* Improve formatting of HAVING statements.
+* Improve parsing of inline comments (issue163).
+* Group comments to parent object (issue128, issue160).
+* Add double precision builtin (issue169, by darikg).
+* Add support for square bracket array indexing (issue170, issue176,
+  issue177 by darikg).
+* Improve grouping of aliased elements (issue167, by darikg).
+* Support comments starting with '#' character (issue178).
+
+
+Release 0.1.14 (Nov 30, 2014)
+-----------------------------
+
+Bug Fixes
+
+* Floats in UPDATE statements are now handled correctly (issue145).
+* Properly handle string literals in comparisons (issue148, change proposed
+  by aadis).
+* Fix indentation when using tabs (issue146).
+
+Enhancements
+
+* Improved formatting in list when newlines precede commas (issue140).
+
+
+Release 0.1.13 (Oct 09, 2014)
+-----------------------------
+
+Bug Fixes
+
+* Fix a regression in handling of NULL keywords introduced in 0.1.12.
+
+
+Release 0.1.12 (Sep 20, 2014)
+-----------------------------
+
+Bug Fixes
+
+* Fix handling of NULL keywords in aliased identifiers.
+* Fix SerializerUnicode to split unquoted newlines (issue131, by Michael Schuller).
+* Fix handling of modulo operators without spaces (by gavinwahl).
+
+Enhancements
+
+* Improve parsing of identifier lists containing placeholders.
+* Speed up query parsing of unquoted lines (by Michael Schuller).
+
+
+Release 0.1.11 (Feb 07, 2014)
+-----------------------------
+
+Bug Fixes
+
+* Fix incorrect parsing of string literals containing line breaks (issue118).
+* Fix typo in keywords, add MERGE, COLLECT keywords (issue122/124,
+  by Cristian Orellana).
+* Improve parsing of string literals in columns.
+* Fix parsing and formatting of statements containing EXCEPT keyword.
+* Fix Function.get_parameters() (issue126/127, by spigwitmer).
+
+Enhancements
+
+* Classify DML keywords (issue116, by Victor Hahn).
+* Add missing FOREACH keyword.
+* Grouping of BEGIN/END blocks.
+
+Other
+
+* Python 2.5 isn't automatically tested anymore, neither Travis nor Tox
+  still support it out of the box.
+
+
+Release 0.1.10 (Nov 02, 2013)
+-----------------------------
+
+Bug Fixes
+
+* Removed buffered reading again, it obviously causes wrong parsing in some rare
+  cases (issue114).
+* Fix regression in setup.py introduced 10 months ago (issue115).
+
+Enhancements
+
+* Improved support for JOINs, by Alexander Beedie.
+
+
+Release 0.1.9 (Sep 28, 2013)
+----------------------------
+
+Bug Fixes
+
+* Fix an regression introduced in 0.1.5 where sqlparse didn't properly
+  distinguished between single and double quoted strings when tagging
+  identifier (issue111).
+
+Enhancements
+
+* New option to truncate long string literals when formatting.
+* Scientific numbers are pares correctly (issue107).
+* Support for arithmetic expressions (issue109, issue106; by prudhvi).
+
+
+Release 0.1.8 (Jun 29, 2013)
+----------------------------
+
+Bug Fixes
+
+* Whitespaces within certain keywords are now allowed (issue97, patch proposed
+  by xcombelle).
+
+Enhancements
+
+* Improve parsing of assignments in UPDATE statements (issue90).
+* Add STRAIGHT_JOIN statement (by Yago Riveiro).
+* Function.get_parameters() now returns the parameter if only one parameter is
+  given (issue94, by wayne.wuw).
+* sqlparse.split() now removes leading and trailing whitespaces from split
+  statements.
+* Add USE as keyword token (by mulos).
+* Improve parsing of PEP249-style placeholders (issue103).
+
+
+Release 0.1.7 (Apr 06, 2013)
+----------------------------
+
+Bug Fixes
+
+* Fix Python 3 compatibility of sqlformat script (by Pi Delport).
+* Fix parsing of SQL statements that contain binary data (by Alexey
+  Malyshev).
+* Fix a bug where keywords were identified as aliased identifiers in
+  invalid SQL statements.
+* Fix parsing of identifier lists where identifiers are keywords too
+  (issue10).
+
+Enhancements
+
+* Top-level API functions now accept encoding keyword to parse
+  statements in certain encodings more reliable (issue20).
+* Improve parsing speed when SQL contains CLOBs or BLOBs (issue86).
+* Improve formatting of ORDER BY clauses (issue89).
+* Formatter now tries to detect runaway indentations caused by
+  parsing errors or invalid SQL statements. When re-indenting such
+  statements the formatter flips back to column 0 before going crazy.
+
+Other
+
+* Documentation updates.
+
+
+Release 0.1.6 (Jan 01, 2013)
+----------------------------
+
+sqlparse is now compatible with Python 3 without any patches. The
+Python 3 version is generated during install by 2to3. You'll need
+distribute to install sqlparse for Python 3.
+
+Bug Fixes
+
+* Fix parsing error with dollar-quoted procedure bodies (issue83).
+
+Other
+
+* Documentation updates.
+* Test suite now uses tox and pytest.
+* py3k fixes (by vthriller).
+* py3k fixes in setup.py (by Florian Bauer).
+* setup.py now requires distribute (by Florian Bauer).
+
+
+Release 0.1.5 (Nov 13, 2012)
+----------------------------
+
+Bug Fixes
+
+* Improve handling of quoted identifiers (issue78).
+* Improve grouping and formatting of identifiers with operators (issue53).
+* Improve grouping and formatting of concatenated strings (issue53).
+* Improve handling of varchar() (by Mike Amy).
+* Clean up handling of various SQL elements.
+* Switch to pytest and clean up tests.
+* Several minor fixes.
+
+Other
+
+* Deprecate sqlparse.SQLParseError. Please use
+  sqlparse.exceptions.SQLParseError instead.
+* Add caching to speed up processing.
+* Add experimental filters for token processing.
+* Add sqlformat.parsestream (by quest).
+
+
+Release 0.1.4 (Apr 20, 2012)
+----------------------------
+
+Bug Fixes
+
+* Avoid "stair case" effects when identifiers, functions,
+  placeholders or keywords are mixed in identifier lists (issue45,
+  issue49, issue52) and when asterisks are used as operators
+  (issue58).
+* Make keyword detection more restrict (issue47).
+* Improve handling of CASE statements (issue46).
+* Fix statement splitting when parsing recursive statements (issue57,
+  thanks to piranna).
+* Fix for negative numbers (issue56, thanks to kevinjqiu).
+* Pretty format comments in identifier lists (issue59).
+* Several minor bug fixes and improvements.
+
+
+Release 0.1.3 (Jul 29, 2011)
+----------------------------
+
+Bug Fixes
+
+* Improve parsing of floats (thanks to Kris).
+* When formatting a statement a space before LIMIT was removed (issue35).
+* Fix strip_comments flag (issue38, reported by ooberm...@gmail.com).
+* Avoid parsing names as keywords (issue39, reported by djo...@taket.org).
+* Make sure identifier lists in subselects are grouped (issue40,
+  reported by djo...@taket.org).
+* Split statements with IF as functions correctly (issue33 and
+  issue29, reported by charles....@unige.ch).
+* Relax detection of keywords, esp. when used as function names
+  (issue36, nyuhu...@gmail.com).
+* Don't treat single characters as keywords (issue32).
+* Improve parsing of stand-alone comments (issue26).
+* Detection of placeholders in paramterized queries (issue22,
+  reported by Glyph Lefkowitz).
+* Add parsing of MS Access column names with braces (issue27,
+  reported by frankz...@gmail.com).
+
+Other
+
+* Replace Django by Flask in App Engine frontend (issue11).
+
+
+Release 0.1.2 (Nov 23, 2010)
+----------------------------
+
+Bug Fixes
+
+* Fixed incorrect detection of keyword fragments embed in names (issue7,
+  reported and initial patch by andyboyko).
+* Stricter detection of identifier aliases (issue8, reported by estama).
+* WHERE grouping consumed closing parenthesis (issue9, reported by estama).
+* Fixed an issue with trailing whitespaces (reported by Kris).
+* Better detection of escaped single quotes (issue13, reported by
+  Martin Brochhaus, patch by bluemaro with test case by Dan Carley).
+* Ignore identifier in double-quotes when changing cases (issue 21).
+* Lots of minor fixes targeting encoding, indentation, statement
+  parsing and more (issues 12, 14, 15, 16, 18, 19).
+* Code cleanup with a pinch of refactoring.
+
+
+Release 0.1.1 (May 6, 2009)
+---------------------------
+
+Bug Fixes
+
+* Lexers preserves original line breaks (issue1).
+* Improved identifier parsing: backtick quotes, wildcards, T-SQL variables
+  prefixed with @.
+* Improved parsing of identifier lists (issue2).
+* Recursive recognition of AS (issue4) and CASE.
+* Improved support for UPDATE statements.
+
+Other
+
+* Code cleanup and better test coverage.
+
+
+Release 0.1.0 (Apr 8, 2009)
+---------------------------
+
+Initial release.

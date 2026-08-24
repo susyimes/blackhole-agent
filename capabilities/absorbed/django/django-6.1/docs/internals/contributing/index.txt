@@ -1,0 +1,130 @@
+======================
+Contributing to Django
+======================
+
+Django is a community that lives on its volunteers. As it keeps growing, we
+always need more people to help others. You can contribute in many ways, either
+on the framework itself or in the wider ecosystem.
+
+Communication channels
+======================
+
+We're passionate about helping Django users make the jump to contributing
+members of the community. Communication is key - working on Django is being
+part of a conversation. Join it, to become familiar with what we're doing and
+how we talk about it. You'll be able to form relationships with more
+experienced contributors who are there to help guide you towards success.
+
+Join the Django community
+-------------------------
+
+There are several ways you can help the Django community and others to maintain
+a great ecosystem to work in:
+
+* Join the `Django Forum`_. This forum is a place for discussing the Django
+  framework and applications and projects that use it. This is also a good
+  place to ask and answer any questions related to installing, using, or
+  contributing to Django.
+
+* Join the `Django Discord server`_ to discuss and answer questions. By
+  explaining Django to other users, you're going to learn a lot about the
+  framework yourself.
+
+* Blog about Django. We syndicate all the Django blogs we know about on
+  the `community page`_; if you'd like to see your blog on that page you
+  can `register it here`_.
+
+* Contribute to open-source Django projects, write some documentation, or
+  release your own code as an open-source pluggable application. The
+  ecosystem of pluggable applications is a big strength of Django, help us
+  build it!
+
+.. _community page: https://www.djangoproject.com/community/
+.. _Django Discord server: https://chat.djangoproject.com
+.. _Django Forum: https://forum.djangoproject.com/
+.. _register it here: https://www.djangoproject.com/community/add/blogs/
+
+Getting started
+===============
+
+Django encourages and welcomes new contributors, and makes an effort to help
+them become experienced, confident contributors to Open Source Software (OSS).
+Our documentation contains guidance for first-time contributors, including:
+
+.. toctree::
+   :maxdepth: 1
+
+   An overview of the contributing process and what's involved. <new-contributors>
+   If you're at a contribution sprint, start here. <sprint-quickstart>
+
+Work on the Django framework
+============================
+
+If you enjoy working *with* Django, wait until you start working *on* it.
+Really, **anyone** can do something to improve Django, which will improve the
+experience of lots of people!
+
+The work on Django itself falls into three major areas:
+
+Contributing code
+-----------------
+
+Fix a bug, or add a new feature. You can make a pull request and see **your
+code** in the next version of Django.
+
+.. toctree::
+   :maxdepth: 2
+
+   writing-code/index
+
+Contributing documentation
+--------------------------
+
+Django's documentation is one of its key strengths. It's informative and
+thorough. You can help to improve the documentation and keep it relevant as the
+framework evolves.
+
+.. toctree::
+   :maxdepth: 2
+
+   writing-documentation
+
+Localizing Django
+-----------------
+
+Django is translated into over 100 languages - There's even some translation
+for Klingon?! The i18n team is always looking for translators to help maintain
+and increase language reach.
+
+.. toctree::
+   :maxdepth: 2
+
+   localizing
+
+Other ways of contributing
+==========================
+
+Explore additional avenues of contributing to Django beyond coding. Django's
+`ticket tracker`_ is the central hub for managing issues, improvements, and
+contributions to Django. It's a valuable resource where you can report bugs you
+encounter or assist in triaging existing tickets to ensure a smooth development
+workflow.
+
+Django also has a :ref:`process for suggesting ideas <requesting-features>`
+where you can join the community in discussing ideas for new features. Beyond
+the Django codebase, there's a `vibrant ecosystem`_ that is maintained by the
+community that you can contribute to.
+
+Explore the ways you can make a difference below, and join us in making Django
+better for everyone.
+
+.. toctree::
+   :maxdepth: 2
+
+   bugs-and-features
+   triaging-tickets
+
+.. _ticket tracker: https://code.djangoproject.com/
+.. _vibrant ecosystem: https://www.djangoproject.com/community/ecosystem/
+
+We're looking forward to working with you. Welcome aboard!

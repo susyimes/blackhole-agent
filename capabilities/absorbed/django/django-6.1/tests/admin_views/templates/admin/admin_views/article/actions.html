@@ -1,0 +1,6 @@
+{% extends "admin/actions.html" %}
+{% load i18n %}
+
+{% block actions-submit %}
+<button type="submit" class="button override-actions" name="index" value="{{ action_index|default:0 }}">{% translate "Run" %}</button>
+{% endblock %}

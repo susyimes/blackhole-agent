@@ -1,0 +1,816 @@
+=====================
+How to release Django
+=====================
+
+This document explains how to release Django.
+
+**Please, keep these instructions up-to-date if you make changes!** The point
+here is to be descriptive, not prescriptive, so feel free to streamline or
+otherwise make changes, but **update this document accordingly!**
+
+Overview
+========
+
+There are three types of releases that you might need to make:
+
+* Security releases: disclosing and fixing a vulnerability. This'll
+  generally involve two or three simultaneous releases -- e.g.
+  3.2.x, 4.0.x, and, depending on timing, perhaps a 4.1.x.
+
+* Regular version releases: either a final release (e.g. 4.1) or a
+  bugfix update (e.g. 4.1.1).
+
+* Pre-releases: e.g. 4.2 alpha, beta, or rc.
+
+The short version of the steps involved is:
+
+#. If this is a security release, pre-notify the security distribution list
+   one week before the actual release.
+
+#. Proofread the release notes, looking for organization and writing errors.
+   Draft a blog post and email announcement.
+
+#. Update version numbers and create the release artifacts.
+
+#. Create the new ``Release`` in the admin on ``djangoproject.com``.
+
+   #. Set the proper date but ensure the flag ``is_active`` is disabled.
+   #. Upload the artifacts (tarball, wheel, and checksums).
+
+#. Verify package(s) signatures, check if they can be installed, and ensure
+   minimal functionality.
+
+#. Upload the new version(s) to PyPI.
+
+#. Enable the ``is_active`` flag for each release in the admin on
+   ``djangoproject.com``.
+
+#. Post the blog entry and send out the email announcements.
+
+#. Update version numbers post-release in stable branch(es).
+
+#. Add stub release notes for the next patch release in ``main`` and backport.
+
+There are a lot of details, so please read on.
+
+.. _checklist-generator:
+
+.. admonition:: Use the checklists app
+
+   To generate a checklist compiling the tasks described below as relevant to
+   the specific release(s) you are issuing, use the checklists app in the
+   `project admin <https://www.djangoproject.com/admin/checklists/>`__. This
+   populates a lot of boilerplate you will need for announcements, CVE
+   publication, and hashes for commit messages. By using this app for preparing
+   security issue metadata, your peer releasers can check your entries and
+   consult them again in the future. See `example checklist
+   <https://www.djangoproject.com/checklists/release/5.2.4/>`__.
+
+Prerequisites
+=============
+
+You'll need a few things before getting started. If this is your first release,
+you'll need to coordinate with another releaser to get all these things lined
+up, and write to the Ops mailing list requesting the required access and
+permissions.
+
+* A Unix environment with these tools installed (in alphabetical order):
+
+  * bash (version 4.0+)
+  * git
+  * GPG
+  * make
+  * man
+  * hashing tools (typically ``md5sum``, ``sha1sum``, and ``sha256sum`` on
+    Linux, or ``md5`` and ``shasum`` on macOS)
+  * python
+
+* A GPG key pair. Securely store the private part, and protect it with a
+  passphrase. The public part needs to be uploaded to your GitHub account.
+
+  .. admonition:: More than one GPG key
+
+    If the key you want to use is not your default signing key, you'll need to
+    add ``-u you@example.com`` to every GPG signing command shown below, where
+    ``you@example.com`` is the email address associated with the key you want
+    to use.
+
+* A clean Python virtual environment (Python 3.10+, pip 26.1+) to build
+  artifacts.
+
+* Access to `Django's project on PyPI <https://pypi.org/project/Django/>`__ to
+  upload binaries, ideally with extra permissions to `yank a release
+  <https://pypi.org/help/#yanked>`__ if necessary. Ensure your PyPI account
+  only uses WebAuthn-based authentication factors, not TOTP (one-time codes).
+  Create an API token following the `official documentation
+  <https://pypi.org/help/#apitoken>`__, and set up your ``$HOME/.pypirc`` file
+  like this:
+
+  .. code-block:: ini
+     :caption: ``~/.pypirc``
+
+     [distutils]
+       index-servers =
+         pypi
+         django
+
+     [pypi]
+       username = __token__
+       password = # User-scoped or project-scoped token, to set as the default.
+
+     [django]
+       repository = https://upload.pypi.org/legacy/
+       username = __token__
+       password = # A project token.
+
+* Access to `Django's project on Transifex
+  <https://app.transifex.com/django/django/>`__, with a Manager role. Generate
+  an API Token in the `user setting section
+  <https://app.transifex.com/user/settings/api/>`__ and set up your
+  ``$HOME/.transifexrc`` file like this:
+
+  .. code-block:: ini
+     :caption: ``~/.transifexrc``
+
+     [https://www.transifex.com]
+       rest_hostname = https://rest.api.transifex.com
+       token = # API token
+
+* Access to the Django admin on ``djangoproject.com`` as a "Site maintainer".
+
+* Access to create a post in the `Django Forum - Announcements category
+  <https://forum.djangoproject.com/c/announcements/7>`__ and to send emails to
+  the `django-announce <https://groups.google.com/g/django-announce/>`__
+  mailing list.
+
+* Access to the ``django-security`` repo in GitHub. Among other things, this
+  provides access to the pre-notification distribution list (needed for
+  security release preparation tasks).
+
+* Access to the Django project on `Read the Docs
+  <https://readthedocs.org/projects/django/>`__.
+
+Pre-release tasks
+=================
+
+A few items need to be taken care of before even beginning the release process.
+This stuff starts about a week before the release; most of it can be done
+any time leading up to the actual release.
+
+10 (or more) days before a security release
+-------------------------------------------
+
+#. Reserve one `CVE ID <https://www.cve.org/About/Overview/>`__ per security
+   issue as follows. (Or, if you lack CNA credentials, email
+   ``cna@djangoproject.com`` with a request.)
+
+   * Enable virtual environment with :pypi:`cvelib` installed.
+
+   * Export user information:
+
+     .. code-block:: shell
+
+       $ export CVE_USER=<user-email>@djangoproject.com CVE_ORG=DSF
+
+   * Reserve:
+
+     .. code-block:: shell
+
+       $ cve --interactive reserve <quantity>
+
+#. Generate the relevant (private) patch(es) using ``git format-patch``, one
+   for the ``main`` branch and one for each stable branch being patched.
+
+A week before a security release
+--------------------------------
+
+#. Send out pre-notification exactly **one week** before the security release.
+   The template for that email and a list of the recipients are in the private
+   ``django-security`` GitHub wiki. BCC the pre-notification recipients, and be
+   sure to include the relevant CVE IDs. Attach all the relevant patches
+   (targeting ``main`` and the stable branches), and sign the email text with
+   the key you'll use for the release, with a command like:
+
+   .. code-block:: shell
+
+      $ gpg --clearsign --digest-algo SHA256 prenotification-email.txt
+
+#. :ref:`Notify django-announce <security-disclosure>` of the upcoming
+   security release with a general message such as:
+
+   .. code-block:: text
+
+    Notice of upcoming Django security releases (3.2.24, 4.2.10 and 5.0.2)
+
+    Django versions 5.0.2, 4.2.10, and 3.2.24 will be released on Tuesday,
+    February 6th, 2024 around 1500 UTC. They will fix one security defect
+    with severity "moderate".
+
+    For details of severity levels, see:
+    https://docs.djangoproject.com/en/dev/internals/security/#how-django-discloses-security-issues
+
+#. Prepare issue metadata:
+   * Severity
+   * Short description
+   * Reporter
+   * Remediator
+   * Reported at
+   * Confirmed at (usually date CVE reserved)
+   * CWE Problem Type
+   * CAPEC Impact Type
+   * CVSS (4.0) Score & Vector
+
+A few days before any release
+-----------------------------
+
+#. As the release approaches, watch Trac to make sure no release blockers are
+   left for the upcoming release. Under exceptional circumstances, such as to
+   meet a pre-determined security release date, a release could still go ahead
+   with an open release blocker. The releaser is trusted with the decision to
+   release with an open release blocker or to postpone the release date of a
+   non-security release if required.
+
+#. Check with the other mergers to make sure they don't have any uncommitted
+   changes for the release.
+
+#. Proofread the release notes, including looking at the online version to
+   :ref:`catch any broken links <documentation-link-check>` or reST errors, and
+   make sure the release notes contain the correct date.
+
+#. Double-check that the release notes mention deprecation timelines
+   for any APIs noted as deprecated, and that they mention any changes
+   in Python version support.
+
+#. Double-check that the release notes index has a link to the notes
+   for the new release; this will be in ``docs/releases/index.txt``.
+
+#. If this is a :term:`feature release`, ensure translations from Transifex
+   have been integrated.
+
+   In addition to having a configured Transifex account, ensure that the `tx
+   CLI <https://developers.transifex.com/docs/cli>`__ is available in your
+   ``PATH``. You can then fetch all translations since a given date by running:
+
+   .. code-block:: shell
+
+        $ python scripts/manage_translations.py fetch -v 1 --since=<some date>
+
+   To determine a good value for ``--since``, check the date of the most recent
+   commit with wording similar to ``Updated translations from Transifex`` and
+   use a date a few days prior.
+
+   This command takes some time to run. When done, carefully inspect the output
+   for potential errors and/or warnings. If there are some, you will need to
+   debug and resolve them on a case by case basis.
+
+   The recently fetched translations need some manual adjusting. First of all,
+   the ``PO-Revision-Date`` values must be manually bumped to be later than
+   ``POT-Creation-Date``. You can use a command similar to this to bulk update
+   all the ``.po`` files (compare the diff against the relevant stable branch):
+
+   .. code-block:: shell
+
+        $ git diff --name-only stable/5.0.x | grep "\.po"  | xargs sed -ri "s/PO-Revision-Date: [0-9\-]+ /PO-Revision-Date: $(date -I) /g"
+
+   Lastly, commit the changed/added files (both ``.po`` and ``.mo``) and create
+   a new PR targeting the stable branch of the corresponding release (example
+   `PR updating translations for 4.2
+   <https://github.com/django/django/pull/16715>`__).
+
+   Once merged, forward port the changes into ``main`` (:commit:`example commit
+   <cb27e5b9c0703fb0edd70b2138e3e53a78c9551d>`).
+
+#. :ref:`Update the django-admin manual page <django-admin-manpage>`:
+
+   .. code-block:: shell
+
+        $ cd docs
+        $ make man
+        $ man _build/man/django-admin.1  # do a quick sanity check
+        $ cp _build/man/django-admin.1 man/django-admin.1
+
+   and then commit the changed man page.
+
+#. If this is the "dot zero" release of a new series, create a new branch from
+   the current stable branch in the `django-docs-translations
+   <https://github.com/django/django-docs-translations>`__ repository. For
+   example, when releasing Django 4.2:
+
+   .. code-block:: shell
+
+    $ git checkout -b stable/4.2.x origin/stable/4.1.x
+    $ git push origin stable/4.2.x:stable/4.2.x
+
+#. Write the announcement blog post for the release. You can enter it into the
+   admin at any time and mark it as inactive. Here are a few examples: `example
+   security release announcement`__, `example regular release announcement`__,
+   `example pre-release announcement`__.
+
+__ https://www.djangoproject.com/weblog/2013/feb/19/security/
+__ https://www.djangoproject.com/weblog/2012/mar/23/14/
+__ https://www.djangoproject.com/weblog/2012/nov/27/15-beta-1/
+
+A few days before a feature freeze
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In preparation for the alpha release, the directory
+``/home/www/www/media/releases/A.B`` must be created on the djangoproject
+server.
+
+Before the feature freeze, a branch targeting ``main`` must be created to
+prepare for the next feature release. It should be reviewed and approved a few
+days before the freeze, allowing it to be merged after the stable branch is
+cut. The following items should be addressed in this branch:
+
+#. Update the ``VERSION`` tuple in ``django/__init__.py``, incrementing to the
+   next expected release (:commit:`example commit
+   <96700c7b378c592f0b1732302c22af2fd2c87fc6>`).
+
+#. Create a stub release note for the next feature release. Use the stub from
+   the previous feature release or copy the contents from the current version
+   and delete most of the contents leaving only the headings
+   (:commit:`example commit <9b5ad4056ccf9ff7ea548f72d28eb66c1b4f84cc>`).
+
+#. Remove ``.. versionadded::`` and ``.. versionchanged::`` annotations in the
+   documentation from two releases ago, as well as any remaining older
+   annotations. For example, in Django 5.1, notes for 4.2 will be removed
+   (:commit:`example commit <9edb7833b89e811eefd94974fb987f4605b0c0d7>`).
+
+#. Remove features that have reached the end of their deprecation cycle,
+   including their docs and the ``.. deprecated::`` annotation. Each removal
+   should be done in a separate commit for clarity. In the commit message, add
+   a ``Refs #XXXXX --`` prefix linking to the original ticket where the
+   deprecation began if possible. Make sure this gets noted in the removed
+   features section in the release notes (:commit:`example commit
+   <f2d9c76aa7096ef3eed675b9eb824858f9dd81e5>`).
+
+#. Advance the deprecation warnings (:commit:`example commit
+   <0c0bda7f79a2de89a55cfcc8e60467d6588f406f>`).
+
+#. Increase the default PBKDF2 iterations in
+   ``django.contrib.auth.hashers.PBKDF2PasswordHasher`` by about 20%
+   (pick a round number). Run the tests, and update the 3 failing
+   hasher tests with the new values. Make sure this gets noted in the
+   release notes (:commit:`example commit
+   <7288866da4dddf3705148c703421858ec19cdb78>`).
+
+Concrete examples for past feature release bootstrap branches: `5.2 bootstrap
+<https://github.com/django/django/pull/18127>`__, `5.1 bootstrap
+<https://github.com/django/django/pull/17246>`__, `5.0 bootstrap
+<https://github.com/django/django/pull/16432>`__.
+
+Feature freeze tasks
+====================
+
+#. Remove empty sections from the release notes (:commit:`example commit
+   <9e6e58bad237a80ddd5e3ab8b834cecdaad8455e>`).
+
+#. Build the release notes locally and read them. Make any necessary change
+   to improve flow or fix grammar (:commit:`example commit
+   <435bdab93889dae01e71c79598edab10627cc1f9>`).
+
+#. Create a new stable branch from ``main``. Be sure to fetch and update
+   ``upstream`` to latest. For example, when feature freezing Django 5.2:
+
+   .. code-block:: shell
+
+    $ git fetch upstream
+    $ git checkout -b stable/5.2.x upstream/main
+    $ git push upstream -u stable/5.2.x:stable/5.2.x
+
+   At the same time, update the ``django_next_version`` variable in
+   ``docs/conf.py`` on the stable release branch to point to the new
+   development version. For example, when creating ``stable/5.2.x``, set
+   ``django_next_version`` to ``'6.0'`` on the new stable branch
+   (:commit:`example commit <1eb62e5b622ef7fd6e0123d8bbf6662d893d5d08>`).
+
+#. Create ``Release`` entries for the next version in the `admin`__ on
+   ``djangoproject.com``. Add one for each milestone (alpha, beta, rc, and
+   final), leaving *is active* unset to mark them as unreleased. Set target
+   dates per the agreed schedule, and set the LTS flag if applicable. The
+   ``X.Y`` roadmap page will be available at ``/download/X.Y/roadmap/``.
+
+   For example, when creating ``stable/5.2.x``, add ``Release`` entries for
+   ``6.0a1``, ``6.0b1``, ``6.0rc1``, and ``6.0``. The ``6.0`` roadmap can be
+   then reviewed at https://www.djangoproject.com/download/6.0/roadmap/.
+
+   __ https://www.djangoproject.com/admin/releases/release/add/
+
+#. Go to the `Add document release page in the admin`__, create a new
+   ``DocumentRelease`` object for the English language for the newly created
+   ``Release`` object. Do not mark this as default.
+
+   __ https://www.djangoproject.com/admin/docs/documentrelease/add/
+
+#. Add the new branch to `Read the Docs
+   <https://readthedocs.org/projects/django/>`__. Since the automatically
+   generated version names ("stable-A.B.x") differ from the version names used
+   in Read the Docs ("A.B.x"), update the Read the Docs config for the version
+   to point to the slug ``A.B.x`` and set it as active. `See more details
+   <https://github.com/readthedocs/readthedocs.org/issues/12483>`__.
+
+#. `Create a PR on PyPI proposing the new Trove classifier
+   <https://github.com/pypa/trove-classifiers/pulls?q=is%3Apr+django+trove+classifier>`__.
+   For example ``Framework :: Django :: 5.2``.
+
+#. Update the current branch under active development and add pre-release
+   branch in the `Django release process
+   <https://code.djangoproject.com/#Djangoreleaseprocess>`__ on Trac.
+
+#. Update the ``docs/fixtures/doc_releases.json`` JSON fixture for
+   djangoproject.com, so people without access to the production DB can still
+   run an up-to-date copy of the docs site
+   (`example PR <https://github.com/django/djangoproject.com/pull/1446>`__).
+   This will be merged after the final release.
+
+Actually rolling the release
+============================
+
+OK, this is the fun part, where we actually push out a release! If you're
+issuing **multiple releases**, repeat these steps for each release.
+
+#. Check `Jenkins`__ is green for the version(s) you're putting out. You
+   probably shouldn't issue a release until it's green, and you should make
+   sure that the latest green run includes the changes that you are releasing.
+
+   __ https://djangoci.com
+
+#. Cleanup the release notes for this release. Make these changes in ``main``
+   and backport to all branches where the release notes for a particular
+   version are located.
+
+   #. For a feature release, remove the ``UNDER DEVELOPMENT`` header at the top
+      of the release notes, remove the ``Expected`` prefix and update the
+      release date, if necessary (:commit:`example commit
+      <1994a2643881a9e3f9fa8d3e0794c1a9933a1831>`).
+
+   #. For a patch release, remove the ``Expected`` prefix and update the
+      release date for all releases, if necessary (:commit:`example commit
+      <34a503162fe222033a1cd3249bccad014fcd1d20>`).
+
+#. Regenerate a fresh, dedicated virtual environment for the release tools
+   using a cooldown:
+
+   .. code-block:: shell
+
+        $ python -m pip install build twine --uploaded-prior-to=P7D
+
+#. A release always begins from a release branch, so you should make sure
+   you're on an up-to-date stable branch. For example:
+
+   .. code-block:: shell
+
+        $ git checkout stable/4.1.x
+        $ git pull
+
+#. If this is a security release, merge the appropriate patches from
+   ``django-security``. Rebase these patches as necessary to make each one a
+   plain commit on the release branch rather than a merge commit. To ensure
+   this, merge them with the ``--ff-only`` flag; for example:
+
+   .. code-block:: shell
+
+        $ git checkout stable/4.1.x
+        $ git merge --ff-only security/4.1.x
+
+   (This assumes ``security/4.1.x`` is a branch in the ``django-security`` repo
+   containing the necessary security patches for the next release in the 4.1
+   series.)
+
+   If git refuses to merge with ``--ff-only``, switch to the security-patch
+   branch and rebase it on the branch you are about to merge it into (``git
+   checkout security/4.1.x; git rebase stable/4.1.x``) and then switch back and
+   do the merge. Make sure the commit message for each security fix explains
+   that the commit is a security fix and that an announcement will follow
+   (:commit:`example security commit <bf39978a53f117ca02e9a0c78b76664a41a54745>`).
+
+#. Update the version number in ``django/__init__.py`` for the release.
+   Please see `notes on setting the VERSION tuple`_ below for details
+   on ``VERSION`` (:commit:`example commit
+   <2719a7f8c161233f45d34b624a9df9392c86cc1b>`).
+
+   #. If this is a pre-release package also update the "Development Status"
+      trove classifier in ``pyproject.toml`` to reflect this. An ``rc``
+      pre-release should not change the trove classifier (:commit:`example
+      commit for alpha release <759921c8e9ad151932fc913ab429fef0a6112ef8>`,
+      :commit:`example commit for beta release
+      <25fec8940b24107e21314ab6616e18ce8dec1c1c>`).
+
+   #. Otherwise, make sure the classifier is set to
+      ``Development Status :: 5 - Production/Stable``.
+
+Building the artifacts
+----------------------
+
+.. admonition:: Optionally use helper scripts
+
+    You can streamline some of the steps below using helper scripts from the
+    ``scripts`` folder:
+
+    * Release script example run:
+
+    .. code-block:: shell
+
+        $ PGP_KEY_ID=<key-id> PGP_KEY_URL=<key-url> DEST_FOLDER=~/releases scripts/do_django_release.py
+
+    * Verify the release (after artifacts were uploaded):
+
+    .. code-block:: shell
+
+        $ VERSION=5.2.1 scripts/verify_release.sh
+
+#. Tag the release using ``git tag``. For example:
+
+   .. code-block:: shell
+
+        $ git tag --sign --message="Tag 4.1.1" 4.1.1
+
+   You can check your work running ``git tag --verify <tag>``.
+
+#. Make sure you have an absolutely clean tree by running ``git clean -dfx``.
+
+#. Run ``python -m build`` to generate the release packages. This will create
+   the release artifacts (tarball and wheel) in a ``dist/`` directory.
+
+#. Generate the hashes of the release packages:
+
+   .. code-block:: shell
+
+        $ cd dist
+        $ md5sum *
+        $ sha1sum *
+        $ sha256sum *
+
+#. Create a "checksums" file, ``Django-<<VERSION>>.checksum.txt`` containing
+   the hashes and release information. Start with this template and insert the
+   correct version, date, GPG key ID (from
+   ``gpg --list-keys --keyid-format LONG``), release manager's GitHub username,
+   release URL, and checksums:
+
+   .. code-block:: text
+
+    This file contains MD5, SHA1, and SHA256 checksums for the source-code
+    tarball and wheel files of Django <<VERSION>>, released <<DATE>>.
+
+    To use this file, you will need a working install of PGP or other
+    compatible public-key encryption software. You will also need to have
+    the Django release manager's public key in your keyring. This key has
+    the ID ``XXXXXXXXXXXXXXXX`` and can be imported from GitHub, for example,
+    if using the open-source GNU Privacy Guard implementation of PGP:
+
+        curl https://github.com/<<RELEASE MANAGER GITHUB USERNAME>>.gpg | gpg --import -
+
+    Once the key is imported, verify this file:
+
+        gpg --verify <<THIS FILENAME>>
+
+    Once you have verified this file, you can use normal MD5, SHA1, or SHA256
+    checksumming applications to generate the checksums of the Django
+    package and compare them to the checksums listed below.
+
+    Release packages
+    ================
+
+    https://www.djangoproject.com/download/<<VERSION>>/tarball/
+    https://www.djangoproject.com/download/<<VERSION>>/wheel/
+
+    MD5 checksums
+    =============
+
+    <<MD5SUM>>  <<RELEASE TAR.GZ FILENAME>>
+    <<MD5SUM>>  <<RELEASE WHL FILENAME>>
+
+    SHA1 checksums
+    ==============
+
+    <<SHA1SUM>>  <<RELEASE TAR.GZ FILENAME>>
+    <<SHA1SUM>>  <<RELEASE WHL FILENAME>>
+
+    SHA256 checksums
+    ================
+
+    <<SHA256SUM>>  <<RELEASE TAR.GZ FILENAME>>
+    <<SHA256SUM>>  <<RELEASE WHL FILENAME>>
+
+#. Sign the checksum file (``gpg --clearsign --digest-algo SHA256
+   Django-<version>.checksum.txt``). This generates a signed document,
+   ``Django-<version>.checksum.txt.asc`` which you can then verify using ``gpg
+   --verify Django-<version>.checksum.txt.asc``.
+
+Making the release(s) available to the public
+=============================================
+
+Now you're ready to actually put the release out there. To do this:
+
+#. Create a new ``Release`` entry in the `djangoproject.com's admin
+   <https://www.djangoproject.com/admin/releases/release/add/>`__. If this is a
+   security release, this should be done 15 minutes before the announced
+   release time, no sooner:
+
+   Version
+     Must match the version number as defined in the tarball
+     (``django-<version>.tar.gz``). For example: "5.2", "4.1.1", or "4.2rc1".
+
+   Is active
+     Set to False until the release is fully published (last step).
+
+   LTS
+     Enable if the release is part of an :abbr:`LTS (Long Term Support)`
+     branch.
+
+   Dates
+     Set the release date to today. This release will not be published until
+     ``is_active`` is enabled.
+
+   Artifacts
+     Upload the tarball (``django-<version>.tar.gz``), wheel
+     (``django-<version>-py3-none-any.whl``), and checksum
+     (``django-<version>.checksum.txt.asc``) files created earlier.
+
+#. Test that the release packages install correctly using ``pip``. Here's one
+   simple method (this just tests that the binaries are available, that they
+   install correctly, and that migrations and the development server start, but
+   it'll catch silly mistakes):
+   https://code.djangoproject.com/wiki/ReleaseTestNewVersion.
+
+#. Run the `confirm-release`__ build on Jenkins to verify the checksum file(s)
+   (e.g. use ``4.2rc1`` for
+   https://media.djangoproject.com/pgp/Django-4.2rc1.checksum.txt).
+
+   __ https://djangoci.com/job/confirm-release/
+
+#. Generate a new token for this release on PyPI, and store it in ``.pypirc``
+   as shown above.
+
+#. Upload the release packages to PyPI:
+
+   .. code-block:: shell
+
+       $ twine upload --repository django dist/*
+
+#. On PyPI, revoke the token you just created.
+
+#. Update the newly created ``Release`` in the admin in ``djangoproject.com``
+   and enable the ``is_active`` flag.
+
+#. Push your work and the new tag:
+
+   .. code-block:: shell
+
+        $ git push
+        $ git push --tags
+
+#. Make the blog post announcing the release live.
+
+#. For a new version release (e.g. 4.1, 4.2), update the default stable version
+   of the docs by flipping the ``is_default`` flag to ``True`` on the
+   appropriate ``DocumentRelease`` object in the ``docs.djangoproject.com``
+   database (this will automatically flip it to ``False`` for all
+   others); you can do this using the site's admin.
+
+   Create new ``DocumentRelease`` objects for each language that has an entry
+   for the previous release. Update djangoproject.com's `robots.docs.txt`__
+   file by copying the result generated from running the command
+   ``manage_translations.py robots_txt`` in the current stable branch from the
+   `django-docs-translations repository`__. For example, when releasing Django
+   4.2:
+
+   .. code-block:: shell
+
+        $ git checkout stable/4.2.x
+        $ git pull
+        $ python manage_translations.py robots_txt
+
+   __ https://github.com/django/djangoproject.com/blob/main/djangoproject/static/robots.docs.txt
+   __ https://github.com/django/django-docs-translations
+
+#. Post the release announcement to the |django-announce| mailing list and the
+   Django Forum. This should include a link to the announcement blog post.
+
+#. If this is a security release, publish the CVE metadata. (The
+   :ref:`checklist app<checklist-generator>` generates JSON for this.):
+
+   .. code-block:: shell
+
+        $ cve publish <cve-number> --cve-json-file <path-to-file>
+
+#. If this is a security release, send a separate email to
+   ``oss-security@lists.openwall.com``. Provide "Django" plus the CVE IDs in
+   the subject line. The message body should include the vulnerability details,
+   for example, the announcement blog post text. Include a link to the
+   announcement blog post.
+
+Post-release
+============
+
+You're almost done! All that's left to do now is:
+
+#. If this is not a pre-release, update the ``VERSION`` tuple in
+   ``django/__init__.py`` again, incrementing to whatever the next expected
+   release will be. For example, after releasing 4.1.1, update ``VERSION`` to
+   ``VERSION = (4, 1, 2, 'alpha', 0)`` (:commit:`example commit
+   <a4d19953d46247ee1992b3427fe652e941524272>`).
+
+#. If this was an alpha release:
+
+   #. Add the feature release version in `Trac's versions list
+      <https://code.djangoproject.com/admin/ticket/versions>`__.
+
+   #. Create a new security branch from the freshly cut stable branch. Be sure
+      to fetch and update ``upstream`` to latest. For example, after the 5.2
+      alpha release:
+
+      .. code-block:: shell
+
+        $ git fetch upstream
+        $ git checkout -b security/5.2.x upstream/stable/5.2.x
+        $ git push origin -u security/5.2.x:security/5.2.x
+
+#. If this was a final release:
+
+   #. Update the ``default_version`` setting in the code.djangoproject.com's
+      ``trac.ini`` file (`example PR
+      <https://github.com/django/code.djangoproject.com/pull/268>`__).
+
+   #. Update the current stable branch and remove the pre-release branch in the
+      `Django release process
+      <https://code.djangoproject.com/#Djangoreleaseprocess>`__ on Trac.
+
+   #. Update djangoproject.com's download page (`example PR
+      <https://github.com/django/djangoproject.com/pull/1444>`__).
+
+   #. Process the older versions that will reach End-Of-Mainstream and/or
+      End-Of-Life support when this final release is published:
+
+      #. Ensure that the EOL versions are mentioned in the blog post. See
+         `example announcement
+         <https://www.djangoproject.com/weblog/2025/apr/02/django-52-released/>`__.
+
+      #. Create a tag for the EOL stable branch and delete the stable branch.
+         Inspect and use the ``scripts/archive_eol_stable_branches.py`` helper.
+
+#. If this was a security release, update :doc:`/releases/security` with
+   details of the issues addressed.
+
+#. If this was a pre-release, the translation catalogs need to be updated:
+
+   #. Make a new branch from the recently released stable branch:
+
+      .. code-block:: shell
+
+         $ git checkout stable/A.B.x
+         $ git checkout -b update-translations-catalog-A.B.x
+
+   #. Ensure that the release's dedicated virtual environment is enabled and
+      run the following:
+
+      .. code-block:: shell
+
+         $ cd django
+         $ django-admin makemessages -l en --domain=django
+         processing locale en
+         $ django-admin makemessages -l en --domain=djangojs
+         processing locale en
+
+   #. Make a pull request against the corresponding stable branch and merge
+      once approved.
+
+   #. Forward port the updated source translations to the ``main`` branch
+      (:commit:`example commit <aed303aff57ac990894b6354af001b0e8ea55f71>`).
+
+#. If this was an ``alpha`` pre-release, coordinate with the maintainer of
+   :pypi:`asgiref` to determine when to raise the minimum version before the
+   final release. For the backport, add an upper bound on the next major
+   version (example commits:
+   :commit:`main <df35cf578f99522dd1ba864d513be95d47bab7a5>`,
+   :commit:`backport <e5d2664908164d51d2daa46e375da8b6a93def03>`).
+
+#. If this was an ``rc`` pre-release, call for translations for the upcoming
+   release in the `Django Forum - Internationalization category
+   <https://forum.djangoproject.com/c/internals/i18n/14>`__.
+
+Notes on setting the VERSION tuple
+==================================
+
+Django's version reporting is controlled by the ``VERSION`` tuple in
+``django/__init__.py``. This is a five-element tuple, whose elements
+are:
+
+#. Major version.
+#. Minor version.
+#. Micro version.
+#. Status -- can be one of "alpha", "beta", "rc" or "final".
+#. Series number, for alpha/beta/RC packages which run in sequence
+   (allowing, for example, "beta 1", "beta 2", etc.).
+
+For a final release, the status is always "final" and the series
+number is always 0. A series number of 0 with an "alpha" status will
+be reported as "pre-alpha".
+
+Some examples:
+
+* ``(4, 1, 1, "final", 0)`` → "4.1.1"
+
+* ``(4, 2, 0, "alpha", 0)`` → "4.2 pre-alpha"
+
+* ``(4, 2, 0, "beta", 1)`` → "4.2 beta 1"

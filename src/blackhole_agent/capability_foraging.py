@@ -37,6 +37,10 @@ inputs. This module removes that last human input — **foraging**:
   statics three submodule levels down such as
   ``package.subpackage.subpackage.submodule.Class.method`` (class statics that
   are not a two-level ``package.subpackage.submodule.Class.method``), Python nested-namespace class
+  statics four submodule levels down such as
+  ``package.subpackage.subpackage.subpackage.submodule.Class.method`` (class
+  statics that are not a three-level
+  ``package.subpackage.subpackage.submodule.Class.method``), Python nested-namespace class
   instance methods such as ``package.submodule.Class(opts).method``
   (constructed nested classes that are not a top-level
   ``Class(opts).method``), and Python nested-namespace class
@@ -104,6 +108,7 @@ from urllib.parse import quote
 from blackhole_agent.capability_absorption import (
     _STATE_KEY_PATTERN,
     _digest,
+    capability_id_for_slug,
     prove_absorbed_capability,
 )
 from blackhole_agent.capability_acquisition import (
@@ -292,6 +297,25 @@ except Exception as exc:  # noqa: BLE001 - reported, never raised through
     print(json.dumps({"ok": False, "error": f"import failed: {exc}"}))
     raise SystemExit(0)
 
+bootstrapped = False
+try:
+    conf = importlib.import_module(import_name + ".conf")
+    settings = getattr(conf, "settings", None)
+    if settings is not None and not getattr(settings, "configured", True):
+        configure = getattr(settings, "configure", None)
+        if callable(configure):
+            configure()
+            bootstrapped = True
+except Exception:
+    pass
+if bootstrapped:
+    try:
+        setup = getattr(module, "setup", None)
+        if callable(setup):
+            setup()
+    except Exception:
+        pass
+
 EMPTY = inspect.Parameter.empty
 candidates = []
 seen = set()
@@ -310,7 +334,7 @@ def _owner_ok(target):
 def _params_of(target, skip_self=False):
     try:
         signature = inspect.signature(target)
-    except (TypeError, ValueError):
+    except Exception:
         return None
     params = []
     for index, param in enumerate(signature.parameters.values()):
@@ -332,10 +356,22 @@ def _params_of(target, skip_self=False):
 
 
 def _consider(name, target, flags, skip_self=False):
+    try:
+        return _consider_inner(name, target, flags, skip_self=skip_self)
+    except Exception:
+        return
+
+
+def _consider_inner(name, target, flags, skip_self=False):
     leaf = str(name or "").split(".")[-1]
     if not leaf or leaf.startswith("_") or name in seen:
         return
-    if inspect.isclass(target) or not callable(target):
+    try:
+        is_cls = inspect.isclass(target)
+        is_callable = callable(target)
+    except Exception:
+        return
+    if is_cls or not is_callable:
         return
     if not (
         inspect.isfunction(target)
@@ -349,9 +385,12 @@ def _consider(name, target, flags, skip_self=False):
         or flags.get("python_deep_nested_namespace_class_instance")
         or flags.get("python_triple_nested_namespace_class_static")
         or flags.get("python_triple_nested_namespace_class_instance")
+        or flags.get("python_quadruple_nested_namespace_class_static")
+        or flags.get("python_quadruple_nested_namespace_class_instance")
         or flags.get("python_nested_namespace_function")
         or flags.get("python_deep_nested_namespace_function")
         or flags.get("python_triple_nested_namespace_function")
+        or flags.get("python_quadruple_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
@@ -406,10 +445,18 @@ def _instance_method_names(cls, instance):
 
 def _static_method_names(cls):
     names = set()
-    for klass in inspect.getmro(cls):
+    try:
+        mro = inspect.getmro(cls)
+    except Exception:
+        return names
+    for klass in mro:
         if klass is object:
             continue
-        for name, value in klass.__dict__.items():
+        try:
+            items = list(klass.__dict__.items())
+        except Exception:
+            continue
+        for name, value in items:
             if name.startswith("_"):
                 continue
             if isinstance(value, (staticmethod, classmethod)):
@@ -418,42 +465,88 @@ def _static_method_names(cls):
 
 
 def _module_ok(target):
-    owner = getattr(target, "__name__", "") or ""
+    try:
+        owner = getattr(target, "__name__", "") or ""
+    except Exception:
+        return False
     return owner == import_name or owner.startswith(import_name + ".")
 
 
 def _defined_on(target, prefix):
-    owner = getattr(target, "__module__", "") or ""
-    func = getattr(target, "__func__", None)
-    if func is not None:
-        owner = getattr(func, "__module__", owner) or owner
+    try:
+        owner = getattr(target, "__module__", "") or ""
+        func = getattr(target, "__func__", None)
+        if func is not None:
+            owner = getattr(func, "__module__", owner) or owner
+    except Exception:
+        return False
     expected = import_name if not prefix else import_name + "." + prefix
     return (not owner) or owner == expected
 
 
-def _consider_class(prefix, target, nested=False, deep=False, triple=False):
-    static_flags = {
-        "python_class_static": (not nested) and (not deep) and (not triple),
-        "python_nested_namespace_class_static": nested and (not deep) and (not triple),
-        "python_deep_nested_namespace_class_static": bool(deep) and (not triple),
-        "python_triple_nested_namespace_class_static": bool(triple),
-    }
-    for attr in sorted(_static_method_names(target)):
-        fn = getattr(target, attr, None)
-        _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
-    instance, requires_args = _construct_instance(target)
-    if instance is None:
+def _safe_dir(target):
+    try:
+        return sorted(dir(target))
+    except Exception:
+        return []
+
+
+def _safe_getattr(target, name, default=None):
+    try:
+        return getattr(target, name, default)
+    except Exception:
+        return default
+
+
+def _safe_is_function(target):
+    try:
+        return inspect.isfunction(target) or inspect.isbuiltin(target)
+    except Exception:
+        return False
+
+
+def _safe_is_class(target):
+    try:
+        return inspect.isclass(target)
+    except Exception:
+        return False
+
+
+def _safe_is_module(target):
+    try:
+        return inspect.ismodule(target)
+    except Exception:
+        return False
+
+
+def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False):
+    try:
+        static_flags = {
+            "python_class_static": (not nested) and (not deep) and (not triple) and (not quadruple),
+            "python_nested_namespace_class_static": nested and (not deep) and (not triple) and (not quadruple),
+            "python_deep_nested_namespace_class_static": bool(deep) and (not triple) and (not quadruple),
+            "python_triple_nested_namespace_class_static": bool(triple) and (not quadruple),
+            "python_quadruple_nested_namespace_class_static": bool(quadruple),
+        }
+        for attr in sorted(_static_method_names(target)):
+            fn = _safe_getattr(target, attr, None)
+            _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
+        instance, requires_args = _construct_instance(target)
+        if instance is None:
+            return
+        flags = {
+            "python_class_instance": (not nested) and (not deep) and (not triple) and (not quadruple),
+            "python_nested_namespace_class_instance": nested and (not deep) and (not triple) and (not quadruple),
+            "python_deep_nested_namespace_class_instance": bool(deep) and (not triple) and (not quadruple),
+            "python_triple_nested_namespace_class_instance": bool(triple) and (not quadruple),
+            "python_quadruple_nested_namespace_class_instance": bool(quadruple),
+            "constructor_requires_args": bool(requires_args),
+        }
+        for attr in sorted(_instance_method_names(target, instance)):
+            fn = _safe_getattr(instance, attr, None)
+            _consider(f"{prefix}.{attr}", fn, flags, skip_self=False)
+    except Exception:
         return
-    flags = {
-        "python_class_instance": (not nested) and (not deep) and (not triple),
-        "python_nested_namespace_class_instance": nested and (not deep) and (not triple),
-        "python_deep_nested_namespace_class_instance": bool(deep) and (not triple),
-        "python_triple_nested_namespace_class_instance": bool(triple),
-        "constructor_requires_args": bool(requires_args),
-    }
-    for attr in sorted(_instance_method_names(target, instance)):
-        fn = getattr(instance, attr, None)
-        _consider(f"{prefix}.{attr}", fn, flags, skip_self=False)
 
 
 _SKIP_SHORT = {"test", "tests", "testing", "conftest"}
@@ -461,15 +554,23 @@ _SKIP_SHORT = {"test", "tests", "testing", "conftest"}
 
 def _child_modules(parent, prefix):
     found = {}
-    for name in sorted(dir(parent)):
+    for name in _safe_dir(parent):
         if name.startswith("_") or name in _SKIP_SHORT:
             continue
-        target = getattr(parent, name, None)
-        if inspect.ismodule(target) and _module_ok(target):
+        target = _safe_getattr(parent, name, None)
+        if _safe_is_module(target) and _module_ok(target):
             found[name] = target
-    if hasattr(parent, "__path__"):
+    try:
+        has_path = hasattr(parent, "__path__")
+    except Exception:
+        has_path = False
+    if has_path:
         parent_import = import_name if not prefix else import_name + "." + prefix
-        for _finder, modname, _ispkg in pkgutil.iter_modules(parent.__path__, parent_import + "."):
+        try:
+            children = list(pkgutil.iter_modules(parent.__path__, parent_import + "."))
+        except Exception:
+            children = []
+        for _finder, modname, _ispkg in children:
             short = modname.rsplit(".", 1)[-1]
             if short.startswith("_") or short in found or short in _SKIP_SHORT:
                 continue
@@ -481,22 +582,30 @@ def _child_modules(parent, prefix):
 
 
 submodules = {}
-for name in sorted(dir(module)):
+for name in _safe_dir(module):
     if name.startswith("_"):
         continue
-    target = getattr(module, name, None)
-    if inspect.isfunction(target) or inspect.isbuiltin(target):
+    target = _safe_getattr(module, name, None)
+    if _safe_is_function(target):
         _consider(name, target, {})
         continue
-    if inspect.ismodule(target) and _module_ok(target):
+    if _safe_is_module(target) and _module_ok(target):
         submodules[name] = target
         continue
-    if not inspect.isclass(target):
+    if not _safe_is_class(target):
         continue
     _consider_class(name, target, nested=False)
 
-if hasattr(module, "__path__"):
-    for _finder, modname, _ispkg in pkgutil.iter_modules(module.__path__, import_name + "."):
+try:
+    module_has_path = hasattr(module, "__path__")
+except Exception:
+    module_has_path = False
+if module_has_path:
+    try:
+        top_children = list(pkgutil.iter_modules(module.__path__, import_name + "."))
+    except Exception:
+        top_children = []
+    for _finder, modname, _ispkg in top_children:
         short = modname.rsplit(".", 1)[-1]
         if short.startswith("_") or short in submodules or short in _SKIP_SHORT:
             continue
@@ -507,11 +616,11 @@ if hasattr(module, "__path__"):
 
 deep_submodules = {}
 for name, target in sorted(submodules.items()):
-    for nested_name in sorted(dir(target)):
+    for nested_name in _safe_dir(target):
         if nested_name.startswith("_"):
             continue
-        nested_target = getattr(target, nested_name, None)
-        if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
+        nested_target = _safe_getattr(target, nested_name, None)
+        if _safe_is_function(nested_target):
             if _defined_on(nested_target, name):
                 _consider(
                     f"{name}.{nested_name}",
@@ -522,18 +631,19 @@ for name, target in sorted(submodules.items()):
                     },
                 )
             continue
-        if inspect.isclass(nested_target):
+        if _safe_is_class(nested_target):
             _consider_class(f"{name}.{nested_name}", nested_target, nested=True, deep=False)
     for child_name, child in sorted(_child_modules(target, name).items()):
         deep_submodules[f"{name}.{child_name}"] = child
 
 triple_submodules = {}
+quadruple_submodules = {}
 for prefix, target in sorted(deep_submodules.items()):
-    for nested_name in sorted(dir(target)):
+    for nested_name in _safe_dir(target):
         if nested_name.startswith("_"):
             continue
-        nested_target = getattr(target, nested_name, None)
-        if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
+        nested_target = _safe_getattr(target, nested_name, None)
+        if _safe_is_function(nested_target):
             if _defined_on(nested_target, prefix):
                 _consider(
                     f"{prefix}.{nested_name}",
@@ -545,17 +655,17 @@ for prefix, target in sorted(deep_submodules.items()):
                     },
                 )
             continue
-        if inspect.isclass(nested_target):
+        if _safe_is_class(nested_target):
             _consider_class(f"{prefix}.{nested_name}", nested_target, nested=True, deep=True)
     for child_name, child in sorted(_child_modules(target, prefix).items()):
         triple_submodules[f"{prefix}.{child_name}"] = child
 
 for prefix, target in sorted(triple_submodules.items()):
-    for nested_name in sorted(dir(target)):
+    for nested_name in _safe_dir(target):
         if nested_name.startswith("_"):
             continue
-        nested_target = getattr(target, nested_name, None)
-        if inspect.isfunction(nested_target) or inspect.isbuiltin(nested_target):
+        nested_target = _safe_getattr(target, nested_name, None)
+        if _safe_is_function(nested_target):
             if _defined_on(nested_target, prefix):
                 _consider(
                     f"{prefix}.{nested_name}",
@@ -564,12 +674,38 @@ for prefix, target in sorted(triple_submodules.items()):
                         "python_nested_namespace_function": False,
                         "python_deep_nested_namespace_function": False,
                         "python_triple_nested_namespace_function": True,
+                        "python_quadruple_nested_namespace_function": False,
                     },
                 )
             continue
-        if inspect.isclass(nested_target) and _defined_on(nested_target, prefix):
+        if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
             _consider_class(
                 f"{prefix}.{nested_name}", nested_target, nested=True, triple=True
+            )
+    for child_name, child in sorted(_child_modules(target, prefix).items()):
+        quadruple_submodules[f"{prefix}.{child_name}"] = child
+
+for prefix, target in sorted(quadruple_submodules.items()):
+    for nested_name in _safe_dir(target):
+        if nested_name.startswith("_"):
+            continue
+        nested_target = _safe_getattr(target, nested_name, None)
+        if _safe_is_function(nested_target):
+            if _defined_on(nested_target, prefix):
+                _consider(
+                    f"{prefix}.{nested_name}",
+                    nested_target,
+                    {
+                        "python_nested_namespace_function": False,
+                        "python_deep_nested_namespace_function": False,
+                        "python_triple_nested_namespace_function": False,
+                        "python_quadruple_nested_namespace_function": True,
+                    },
+                )
+            continue
+        if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
+            _consider_class(
+                f"{prefix}.{nested_name}", nested_target, nested=True, quadruple=True
             )
 
 print(json.dumps({"ok": True, "candidates": candidates}))
@@ -580,7 +716,7 @@ def introspect_module(
     staged_dir: Path,
     import_name: str,
     path_root: str,
-    timeout: int = 60,
+    timeout: int = 180,
     extra_paths: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Reflect one module's public functions in an isolated subprocess."""
@@ -1002,12 +1138,13 @@ def _snake_key(value: str) -> str:
 
 
 def _provides_key(callable_name: str, requires: Sequence[str]) -> str:
-    base = f"{_snake_key(callable_name)}_output"
+    base = f"{_snake_key(callable_name)}_output"[:64].rstrip("_")
     if not _STATE_KEY_PATTERN.match(base):
         base = "foraged_output"
-    while base in set(requires):
-        base = f"{base}_value"
-    return base[:64]
+    occupied = set(requires)
+    while base in occupied:
+        base = f"{base}_value"[:64].rstrip("_")
+    return base
 
 
 # ---------------------------------------------------------------------------
@@ -1088,6 +1225,9 @@ def _parse_setup_cfg_requires(text: str) -> list[str]:
             continue
         if in_install:
             if not stripped:
+                in_install = False
+                continue
+            if re.match(r"^[A-Za-z_][\w-]*\s*=", stripped):
                 in_install = False
                 continue
             _add_requirement_names(names, seen, [_requirement_name(stripped)])
@@ -1387,6 +1527,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("python_nested_namespace_class_static")
         or item.get("python_deep_nested_namespace_class_static")
         or item.get("python_triple_nested_namespace_class_static")
+        or item.get("python_quadruple_nested_namespace_class_static")
     )
 
 
@@ -1403,6 +1544,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or bool(item.get("python_nested_namespace_class_instance"))
         or bool(item.get("python_deep_nested_namespace_class_instance"))
         or bool(item.get("python_triple_nested_namespace_class_instance"))
+        or bool(item.get("python_quadruple_nested_namespace_class_instance"))
     )
 
 
@@ -1502,6 +1644,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("python_quadruple_nested_namespace_class_static") else 1,
             0
             if item.get("default_export_class_static")
             or item.get("named_export_class_static")
@@ -1608,6 +1751,12 @@ def infer_acquisition_spec(
                 "python_triple_nested_namespace_class_instance": bool(
                     candidate.get("python_triple_nested_namespace_class_instance")
                 ),
+                "python_quadruple_nested_namespace_class_static": bool(
+                    candidate.get("python_quadruple_nested_namespace_class_static")
+                ),
+                "python_quadruple_nested_namespace_class_instance": bool(
+                    candidate.get("python_quadruple_nested_namespace_class_instance")
+                ),
                 "python_nested_namespace_function": bool(
                     candidate.get("python_nested_namespace_function")
                 ),
@@ -1616,6 +1765,9 @@ def infer_acquisition_spec(
                 ),
                 "python_triple_nested_namespace_function": bool(
                     candidate.get("python_triple_nested_namespace_function")
+                ),
+                "python_quadruple_nested_namespace_function": bool(
+                    candidate.get("python_quadruple_nested_namespace_function")
                 ),
             }
             break
@@ -1679,6 +1831,12 @@ def infer_acquisition_spec(
         "python_triple_nested_namespace_class_instance": bool(
             collected[0].get("python_triple_nested_namespace_class_instance")
         ),
+        "python_quadruple_nested_namespace_class_static": bool(
+            collected[0].get("python_quadruple_nested_namespace_class_static")
+        ),
+        "python_quadruple_nested_namespace_class_instance": bool(
+            collected[0].get("python_quadruple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             collected[0].get("python_nested_namespace_function")
         ),
@@ -1687,6 +1845,9 @@ def infer_acquisition_spec(
         ),
         "python_triple_nested_namespace_function": bool(
             collected[0].get("python_triple_nested_namespace_function")
+        ),
+        "python_quadruple_nested_namespace_function": bool(
+            collected[0].get("python_quadruple_nested_namespace_function")
         ),
     }
     inferred = {
@@ -1882,20 +2043,31 @@ def forage_package(
     specs = [inference["spec"], *list(inference.get("bundle_specs") or [])]
     acquisitions: list[dict[str, Any]] = []
     for index, spec in enumerate(specs):
-        try:
-            acquisition = acquire_capability(
-                spec,
-                repo_root=repo_root,
-                output_dir=output_dir,
-                scenario=index == 0,
-            )
-        except (ValueError, OSError) as exc:
+        already = prove_absorbed_capability(spec.slug)
+        if already.get("ok"):
             acquisition = {
-                "ok": False,
-                "stage": "acquire",
-                "error": str(exc),
-                "capability_id": "",
+                "ok": True,
+                "stage": "proved",
+                "slug": spec.slug,
+                "capability_id": capability_id_for_slug(spec.slug),
+                "derived_case_count": 0,
+                "proof_exit_code": 0,
             }
+        else:
+            try:
+                acquisition = acquire_capability(
+                    spec,
+                    repo_root=repo_root,
+                    output_dir=output_dir,
+                    scenario=index == 0,
+                )
+            except (ValueError, OSError) as exc:
+                acquisition = {
+                    "ok": False,
+                    "stage": "acquire",
+                    "error": str(exc),
+                    "capability_id": "",
+                }
         acquisitions.append(
             {
                 "ok": bool(acquisition.get("ok")),

@@ -1,5 +1,5 @@
 {
   "ok": true,
-  "report": "docutils-report.json",
-  "report_digest": "ea67198b69fb168b5af8762e79a19bda3f2ca42bd31910d25b4fa457d26cd44d"
+  "report": "django-report.json",
+  "report_digest": "9c0bc637ee65224f5f1f490cbfdfeb08cc6a0ec2d131aa405e3f5de8d253ac17"
 }

@@ -201,6 +201,12 @@ def probe_candidate(
         "python_triple_nested_namespace_class_instance": bool(
             (inference.get("record") or {}).get("python_triple_nested_namespace_class_instance")
         ),
+        "python_quadruple_nested_namespace_class_static": bool(
+            (inference.get("record") or {}).get("python_quadruple_nested_namespace_class_static")
+        ),
+        "python_quadruple_nested_namespace_class_instance": bool(
+            (inference.get("record") or {}).get("python_quadruple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_nested_namespace_function")
         ),
@@ -209,6 +215,9 @@ def probe_candidate(
         ),
         "python_triple_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_triple_nested_namespace_function")
+        ),
+        "python_quadruple_nested_namespace_function": bool(
+            (inference.get("record") or {}).get("python_quadruple_nested_namespace_function")
         ),
     }
 

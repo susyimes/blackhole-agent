@@ -1,0 +1,248 @@
+======================================
+Reporting bugs and requesting features
+======================================
+
+.. Important::
+
+    Please report security issues **only** to
+    ``security@djangoproject.com``. This is a private list only open to
+    long-time, highly trusted Django developers, and its archives are
+    not public. For further details, please see :doc:`our security
+    policies </internals/security>`.
+
+.. _reporting-bugs:
+
+Reporting bugs
+==============
+
+Before reporting a bug on the `ticket tracker
+<https://code.djangoproject.com/>`_ consider these points:
+
+* Check that someone hasn't already filed the bug report by `searching`_ or
+  running `custom queries`_ in the ticket tracker.
+
+* Don't use the ticket system to ask support questions. Use the `Django Forum`_
+  or the `Django Discord server`_ for that.
+
+* Don't reopen issues that have been marked "wontfix" without finding consensus
+  to do so on the `Django Forum`_.
+
+* Don't reopen issues that have been marked "needsnewfeatureprocess" without
+  shepherding an issue through the `new feature ideas`_ GitHub project.
+
+* Don't use the ticket tracker for lengthy discussions, because they're
+  likely to get lost. If a particular ticket is controversial, please move the
+  discussion to the `Django Forum`_.
+
+Well-written bug reports are *incredibly* helpful. However, there's a certain
+amount of overhead involved in working with any bug tracking system so your
+help in keeping our ticket tracker as useful as possible is appreciated. In
+particular:
+
+* **Do** read the :doc:`FAQ </faq/index>` to see if your issue might
+  be a well-known question.
+
+* **Do** ask on `Django Forum`_ or the `Django Discord server`_ *first* if
+  you're not sure if what you're seeing is a bug.
+
+* **Do** write complete, reproducible, specific bug reports. You must
+  include a clear, concise description of the problem, and a set of
+  instructions for replicating it. Add as much debug information as you can:
+  code snippets, test cases, exception backtraces, screenshots, etc. A nice
+  small test case is the best way to report a bug, as it gives us a
+  helpful way to confirm the bug quickly.
+
+* **Don't** post to `Django Forum`_ only to announce that you have filed a
+  bug report. All the tickets are mailed to another list, |django-updates|,
+  which is tracked by developers and interested community members; we see them
+  as they are filed.
+
+To understand the lifecycle of your ticket once you have created it, refer to
+:ref:`triage-workflow`.
+
+Reporting user interface bugs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If your bug impacts anything visual in nature, there are a few additional
+guidelines to follow:
+
+* Include screenshots in your ticket which are the visual equivalent of a
+  minimal test case. Show off the issue, not the crazy customizations
+  you've made to your browser.
+
+* If the issue is difficult to show off using a still image, consider
+  capturing a *brief* screencast. If your software permits it, capture only
+  the relevant area of the screen.
+
+* If you're offering a patch that changes the look or behavior of Django's
+  UI, you **must** attach before *and* after screenshots/screencasts.
+  Tickets lacking these are difficult for triagers to assess quickly.
+
+* Screenshots don't absolve you of other good reporting practices. Make sure
+  to include URLs, code snippets, and step-by-step instructions on how to
+  reproduce the behavior visible in the screenshots.
+
+* Make sure to set the UI/UX flag on the ticket so interested parties can
+  find your ticket.
+
+* If the issue relates to accessibility, please link to the relevant
+  :ref:`accessibility standard <accessibility-standards>` if applicable.
+
+.. _requesting-features:
+
+Requesting features
+===================
+
+We're always trying to make Django better, and your feature requests are a key
+part of that. Here are some tips on how to make a request most effectively:
+
+* Evaluate whether the feature idea requires changes in Django's core. If your
+  idea can be developed as an independent application or module — for
+  instance, you want to support another database engine — we'll probably
+  suggest that you develop it independently. Then, if your project gathers
+  sufficient community support, we may consider it for inclusion in Django.
+
+* Propose the feature in the `new feature ideas`_ GitHub project (not in the
+  ticket tracker) by creating a new item in the **Idea** column. This is where
+  the community and the :ref:`Steering Council <steering-council>` evaluate new
+  ideas for the Django ecosystem. This step is especially important for large
+  or complex proposals. We prefer to discuss any significant changes to
+  Django's core before any development begins. In some cases, a feature may be
+  better suited as a third-party package, where it can evolve independently of
+  Django's release cycle.
+
+* Describe clearly and concisely what the missing feature is and how you'd
+  like to see it implemented. Include example code (non-functional is OK)
+  if possible.
+
+* Explain *why* you'd like the feature. Explaining a minimal use case will help
+  others understand where it fits in, and if there are already other ways of
+  achieving the same thing.
+
+See also: :ref:`documenting-new-features`.
+
+Requesting performance optimizations
+====================================
+
+Reports of a performance regression, or suggested performance optimizations,
+should provide benchmarks and commands for the ticket triager to reproduce.
+
+See the :ref:`django-asv-benchmarks` for more details of Django's existing
+benchmarks.
+
+.. _how-we-make-decisions:
+
+How we make decisions
+=====================
+
+Whenever possible, we aim for rough consensus. Emoji reactions are used on
+issues within the `new feature ideas`_ GitHub project to track community
+feedback. The following meanings are assigned to each reaction:
+
+* 👍: I support this feature and would use it
+* 👎: I oppose this feature or believe it would cause issues for me or Django
+* 😕: I have no strong opinion on this feature
+* 🎉: This feature seems like a straightforward and beneficial addition
+
+The :ref:`Steering Council <steering-council>` will regularly review the ideas
+in the project, moving those with community support through the following
+stages:
+
+* Idea
+* Approved - Idea refinement - Team creation
+* In progress
+* Working solution - Review - Feedback
+* Needs maintainer (Django only)
+* Done
+
+Occasionally, discussions on feature ideas or the direction of Django may take
+place on the Django Forum. These discussions may include informal votes, which
+follow the voting style invented by Apache and used on Python itself, where
+votes are given as +1, +0, -0, or -1.
+Roughly translated, these votes mean:
+
+* +1: "I love the idea and I'm strongly committed to it."
+
+* +0: "Sounds OK to me."
+
+* -0: "I'm not thrilled, but I won't stand in the way."
+
+* -1: "I strongly disagree and would be very unhappy to see the idea turn
+  into reality."
+
+Although these votes are informal, they'll be taken very seriously. After a
+suitable voting period, if an obvious consensus arises we'll follow the votes.
+
+.. _testing-pre-releases:
+
+How to test pre-release versions of Django
+==========================================
+
+Testing pre-releases is a great way to contribute to Django. Early testers
+help catch bugs before the final release, ensuring a smoother upgrade
+experience for everyone.
+
+Prerequisites
+~~~~~~~~~~~~~
+
+Before testing a pre-release, it is important that your project is running
+smoothly on the latest stable release of Django. That way, any regressions can
+be attributed to the pre-release. See the :doc:`/howto/upgrade-version` guide
+for instructions on getting up to date.
+
+To ensure your project is ready, you should also:
+
+* **Read the release notes:** Review the :doc:`/releases/index` for the
+  upcoming version to learn about upgrade paths for deprecated features or
+  about minor backward-incompatible changes.
+* **Resolve deprecation warnings:** Run your tests with deprecation warnings
+  enabled to become aware of required follow-up actions:
+
+  .. code-block:: console
+
+      $ python -Wa manage.py test
+
+Testing your project
+~~~~~~~~~~~~~~~~~~~~
+
+You can install the latest pre-release using ``pip``:
+
+.. code-block:: console
+
+    $ python -m pip install --pre Django
+
+Once installed, run your project's test suite. Rather than just checking
+if tests pass, try the following:
+
+* **Check dependency support:** Determine whether major dependencies support
+  the new version by checking Django version classifiers on PyPI.
+  Since those projects also value early bug reports, don't let a lack
+  of support prevent you from testing.
+* **Monitor performance:** You can run your tests with the :option:`test
+  --durations` flag to identify potential performance regressions.
+* **Automate tests in CI:** Consider running your Continuous Integration (CI)
+  pipeline with the pre-release version.
+* **Test manually:** While automated tests are great, manually testing your
+  application's main workflows is an important part of verifying compatibility
+  with a new release.
+
+Reporting issues
+~~~~~~~~~~~~~~~~
+
+If you discover a bug, please report it via the `Django issue tracker
+<https://code.djangoproject.com/>`_ so it can be fixed before the final
+release. When creating the ticket, be sure to set the Django version field to
+the exact pre-release version you are testing.
+
+If you suspect a regression, it's helpful to report the specific commit that
+caused it. See :ref:`bisecting-a-regression` for instructions.
+
+You can also discuss any issues or share feedback in the `Pre-releases
+<https://forum.djangoproject.com/c/announcements/prereleases/32>`_ category
+on the `Django Forum`_.
+
+.. _searching: https://code.djangoproject.com/search
+.. _custom queries: https://code.djangoproject.com/query
+.. _Django Forum: https://forum.djangoproject.com/
+.. _Django Discord server: https://chat.djangoproject.com
+.. _new feature ideas: https://github.com/orgs/django/projects/24/

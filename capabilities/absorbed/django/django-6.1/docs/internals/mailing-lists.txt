@@ -1,0 +1,106 @@
+=======================
+Mailing lists and Forum
+=======================
+
+.. Important::
+
+    Please report security issues **only** to
+    ``security@djangoproject.com``. This is a private list only open to
+    long-time, highly trusted Django developers, and its archives are
+    not public. For further details, please see :doc:`our security
+    policies </internals/security>`.
+
+Django Forum
+============
+
+Django has an `official Forum`_ where you can input and ask questions.
+
+There are several categories of discussion including:
+
+* `Using Django`_: to ask any question regarding the installation, usage, or
+  debugging of Django.
+* `Internals`_: for discussion of the development of Django itself.
+
+.. note::
+
+    Before asking a question about how to contribute, read
+    :doc:`/internals/contributing/index`. Many frequently asked questions are
+    answered there.
+
+.. _official Forum: https://forum.djangoproject.com
+.. _Internals: https://forum.djangoproject.com/c/internals/5
+.. _Using Django: https://forum.djangoproject.com/c/users/6
+
+In addition, Django has several official mailing lists on Google Groups that
+are open to anyone.
+
+.. _django-announce-mailing-list:
+
+``django-announce``
+===================
+
+A (very) low-traffic list for announcing :ref:`upcoming security releases
+<security-disclosure>`, new releases of Django, and security advisories.
+
+* `django-announce mailing archive`_
+* `django-announce subscription email address`_
+* `django-announce posting email`_
+
+.. _django-announce mailing archive: https://groups.google.com/g/django-announce
+.. _django-announce subscription email address: mailto:django-announce+subscribe@googlegroups.com
+.. _django-announce posting email: mailto:django-announce@googlegroups.com
+
+.. _django-updates-mailing-list:
+
+``django-updates``
+==================
+
+All the ticket updates are mailed automatically to this list, which is tracked
+by developers and interested community members.
+
+* `django-updates mailing archive`_
+* `django-updates subscription email address`_
+* `django-updates posting email`_
+
+.. _django-updates mailing archive: https://groups.google.com/g/django-updates
+.. _django-updates subscription email address: mailto:django-updates+subscribe@googlegroups.com
+.. _django-updates posting email: mailto:django-updates@googlegroups.com
+
+Archived mailing lists
+======================
+
+The following mailing lists are archived and no longer active. These are still
+available as a historical resource.
+
+.. _django-users-mailing-list:
+
+``django-users``
+----------------
+
+.. note::
+
+    The `Using Django`_ category of the `official Forum`_ is now the preferred
+    venue for asking usage questions.
+
+This was used for questions regarding the installation, usage, or debugging of
+Django projects.
+
+* `django-users mailing archive`_
+
+.. _django-users mailing archive: https://groups.google.com/g/django-users
+
+.. _django-developers-mailing-list:
+
+``django-developers``
+---------------------
+
+.. note::
+
+    The `Internals`_ category of the `official Forum`_ is now the preferred
+    venue for discussing the development of Django.
+
+This was used for discussions about the development of Django itself.
+
+* `django-developers mailing archive`_
+
+.. _django-developers mailing archive: https://groups.google.com/g/django-developers

@@ -1,8 +1,71 @@
 {
-  "absorbed_at": "2026-08-23T16:36:59.269548Z",
+  "absorbed_at": "2026-08-24T03:09:26.581404Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-django",
+      "cases": [
+        {
+          "expect": {
+            "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "Hello World"
+          },
+          "input": {
+            "value": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "blackhole unbound"
+          },
+          "input": {
+            "value": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "contrib_humanize_templatetags_humanize_natural_time_formatter_st": "MiXeD CaSe"
+          },
+          "input": {
+            "value": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "contrib_humanize_templatetags_humanize_natural_time_formatter_st": ""
+          },
+          "input": {
+            "value": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "django",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "django",
+        "registry": "pypi",
+        "sha256": "86a2aacd59b817e4d6ac2ebfe22356c58f66f7b24e503f71b7c2fead677ee48b",
+        "source": "artifacts/capability-foraging/downloads/django-6.1.tar.gz",
+        "url": "",
+        "version": "6.1"
+      },
+      "provides": [
+        "contrib_humanize_templatetags_humanize_natural_time_formatter_st"
+      ],
+      "record_digest": "b59536d38bc06f1cf4d26efb151a9a329e7d412157348fce64cff864b9d6104c",
+      "requires": [
+        "value"
+      ],
+      "schema_version": 1,
+      "slug": "django",
+      "vendored_tree_digest": "efed4cd1491c5916fa2dc6df9719e4075997a31d5e42e8eb70b77f1027a10fe6",
+      "version": "6.1"
+    },
     {
       "capability_id": "capability.absorbed-docutils",
       "cases": [
@@ -4255,5 +4318,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "69a0f17c17f920a130eb9e90f8521eeda448aab5e012be6db3300e9429534c70"
+  "steps_digest": "cc6c263a20c5db200378a3131c8f4c8397e156ce0318dedec3cb7901b3dc04e2"
 }

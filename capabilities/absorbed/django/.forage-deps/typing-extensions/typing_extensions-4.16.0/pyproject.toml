@@ -1,0 +1,135 @@
+# Build system requirements.
+[build-system]
+requires = ["flit_core >=3.11,<4"]
+build-backend = "flit_core.buildapi"
+
+# Project metadata
+[project]
+name = "typing_extensions"
+version = "4.16.0"
+description = "Backported and Experimental Type Hints for Python 3.9+"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "PSF-2.0"
+license-files = ["LICENSE"]
+keywords = [
+    "annotations",
+    "backport",
+    "checker",
+    "checking",
+    "function",
+    "hinting",
+    "hints",
+    "type",
+    "typechecking",
+    "typehinting",
+    "typehints",
+    "typing",
+]
+# Classifiers list: https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development",
+]
+
+[project.urls]
+Home = "https://github.com/python/typing_extensions"
+Repository = "https://github.com/python/typing_extensions"
+Changes = "https://github.com/python/typing_extensions/blob/main/CHANGELOG.md"
+Documentation = "https://typing-extensions.readthedocs.io/"
+"Bug Tracker" = "https://github.com/python/typing_extensions/issues"
+"Q & A" = "https://github.com/python/typing/discussions"
+
+# Project metadata -- authors. Flit stores this as a list of dicts, so it can't
+# be inline above.
+[[project.authors]]
+name = "Guido van Rossum, Jukka Lehtosalo, Łukasz Langa, Michael Lee"
+email = "levkivskyi@gmail.com"
+
+[tool.flit.sdist]
+include = ["CHANGELOG.md", "README.md", "tox.ini", "*/*test*.py"]
+exclude = []
+
+[tool.ruff]
+line-length = 90
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "ISC001",
+    "PGH004",
+    "RUF",
+    "SIM201",
+    "SIM202",
+    "UP",
+    "W",
+]
+
+ignore = [
+    # Ignore various "modernization" rules that tell you off for importing/using
+    # deprecated things from the typing module, etc.
+    "UP006",
+    "UP007",
+    "UP013",
+    "UP014",
+    "UP019",
+    "UP035",
+    "UP045",  # X | None instead of Optional[X]
+    # Not relevant here
+    "RUF012",  # Use ClassVar for mutables
+    "RUF022",  # Unsorted __all__
+    "RUF023",  # Unsorted __slots__
+    "B903",  # Use dataclass / namedtuple
+    "RUF031",  # parentheses for tuples in subscripts
+    # Ruff doesn't understand the globals() assignment; we test __all__
+    # directly in test_all_names_in___all__.
+    "F822",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"!src/typing_extensions.py" = [
+    "B018",
+    "B024",
+    "C4",
+    "E302",
+    "E306",
+    "E501",
+    "E701",
+    # Harmful for tests if applied.
+    "RUF036",  # None not at end of Union
+    "RUF041",  # nested Literal
+]
+
+[tool.ruff.lint.isort]
+extra-standard-library = ["tomllib"]
+known-first-party = ["typing_extensions", "_typed_dict_test_helper"]
+
+[tool.coverage.report]
+fail_under = 96
+precision = 2
+show_missing = true
+# Omit files that are created in temporary directories during tests.
+# If not explicitly omitted they will result in warnings in the report.
+omit = ["inspect*", "ann*"]
+ignore_errors = true
+exclude_also = [
+    # Exclude placeholder function and class bodies.
+    '^\s*((async )?def|class) .*:\n\s*(pass|raise NotImplementedError)',
+]
