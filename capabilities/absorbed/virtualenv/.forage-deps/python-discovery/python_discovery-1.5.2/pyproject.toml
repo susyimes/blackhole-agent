@@ -1,0 +1,229 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs>=0.5",
+  "hatchling>=1.27; python_version<'3.10'",
+  "hatchling>=1.28; python_version>='3.10'",
+]
+
+[project]
+name = "python-discovery"
+description = "Python interpreter discovery"
+readme = "README.md"
+keywords = [
+  "discovery",
+  "interpreter",
+  "python",
+]
+license.file = "LICENSE"
+maintainers = [
+  { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
+]
+requires-python = ">=3.8"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Utilities",
+]
+dynamic = [
+  "version",
+]
+dependencies = [
+  "filelock>=3.15.4",
+]
+urls.Changelog = "https://github.com/tox-dev/python-discovery/releases"
+urls.Documentation = "https://python-discovery.readthedocs.io"
+urls.Homepage = "https://github.com/tox-dev/python-discovery"
+urls.Source = "https://github.com/tox-dev/python-discovery"
+urls.Tracker = "https://github.com/tox-dev/python-discovery/issues"
+
+[dependency-groups]
+test = [
+  "covdefaults>=2.3",
+  "coverage>=7.5.4",
+  "pytest>=8.3.5",
+  "pytest-mock>=3.14",
+  "setuptools>=75.1",
+  "vermin>=1.6",
+]
+docs = [
+  "furo>=2025.12.19",
+  "sphinx>=9.1",
+  "sphinx-autodoc-typehints>=3.6.3",
+  "sphinxcontrib-mermaid>=2",
+  "sphinxcontrib-towncrier>=0.4",
+  "towncrier>=25.8",
+]
+release = [
+  "gitpython>=3.1.46",
+  "packaging>=26",
+  "pre-commit>=4.5.1",
+  "towncrier>=25.8",
+]
+
+[tool.hatch]
+version.source = "vcs"
+
+[tool.ruff]
+line-length = 120
+format.preview = true
+format.docstring-code-line-length = 100
+format.docstring-code-format = true
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "CPY",                                       # No copyright statements
+  "docstring-missing-exception",               # `raises` is not documented in docstring
+  "docstring-missing-returns",                 # `return` is not documented in docstring
+  "docstring-missing-yields",                  # `yield` is not documented in docstring
+  "hardcoded-bind-all-interfaces",             # Possible binding to all interface
+  "incorrect-blank-line-before-class",         # `one-blank-line-before-class` and `no-blank-line-before-class` are incompatible
+  "missing-trailing-comma",                    # Conflict with formatter
+  "multi-line-summary-first-line",             # `multi-line-summary-first-line` and `multi-line-summary-second-line` are incompatible
+  "single-line-implicit-string-concatenation", # Conflict with formatter
+]
+lint.per-file-ignores."docs/**/*.py" = [
+  "implicit-namespace-package", # no __init__.py in docs directory
+]
+lint.per-file-ignores."src/python_discovery/_discovery.py" = [
+  "PTH", # shim resolution uses string-based os.path for consistency with env variables
+]
+lint.per-file-ignores."src/python_discovery/_py_info.py" = [
+  "PTH", # string-based os.path kept for parity with the interrogation script data
+]
+lint.per-file-ignores."src/python_discovery/_py_info_collect.py" = [
+  "ANN",                              # file must parse on Python 2.7 for the version gate: no annotations
+  "missing-required-import",          # `from __future__ import annotations` is a SyntaxError below 3.7
+  "module-import-not-at-top-of-file", # the version gate must run before importing sysconfig, absent on 3.0/3.1
+  "PTH",                              # must use os.path — file runs as subprocess script with only stdlib
+  "UP",                               # pyupgrade pushes syntax newer than the 2.7 parse floor, e.g. f-strings
+]
+lint.per-file-ignores."src/python_discovery/_windows/_pep514.py" = [
+  "PTH", # os.path.exists is monkeypatched in tests; pathlib.Path.exists bypasses the mock
+]
+lint.per-file-ignores."tasks/**/*.py" = [
+  "D",                                    # release helper scripts, not API
+  "implicit-namespace-package",           # no __init__.py in tasks directory
+  "subprocess-without-shell-equals-true", # `subprocess` call: argv built from trusted inputs (version, gh CLI)
+  "suspicious-subprocess-import",         # subprocess import (release tooling)
+]
+lint.per-file-ignores."tests/**/*.py" = [
+  "assert",                               # asserts allowed in tests
+  "D",                                    # don't care about documentation in tests
+  "FBT",                                  # don't care about booleans as positional arguments in tests
+  "implicit-namespace-package",           # no implicit namespace
+  "import-outside-top-level",             # imports inside test functions (conditional on mocking)
+  "import-private-name",                  # private imports needed to test internal APIs
+  "magic-value-comparison",               # Magic value used in comparison
+  "private-member-access",                # private member access needed to test internals
+  "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
+  "suspicious-subprocess-import",         # subprocess import
+  "too-many-arguments",                   # too many arguments (pytest fixtures)
+  "too-many-positional-arguments",        # too many positional arguments (pytest fixtures)
+]
+lint.per-file-ignores."tests/windows/winreg_mock_values.py" = [
+  "undefined-name", # undefined name (winreg available only on Windows)
+]
+lint.isort = { known-first-party = [
+  "python_discovery",
+], required-imports = [
+  "from __future__ import annotations",
+] }
+lint.preview = true
+
+[tool.codespell]
+builtin = "clear,usage,en-GB_to_en-US"
+write-changes = true
+count = true
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
+
+[tool.ty]
+src.exclude = [ "tests/windows/winreg_mock_values.py" ]
+
+[[tool.ty.overrides]]
+include = [
+  "src/python_discovery/_py_info.py",
+  "src/python_discovery/_py_info_collect.py",
+  "src/python_discovery/_py_spec.py",
+]
+rules.unused-ignore-comment = "ignore"
+rules.invalid-argument-type = "ignore"
+rules.invalid-return-type = "ignore"
+rules.no-matching-overload = "ignore"
+
+[[tool.ty.overrides]]
+include = [ "tests/**/*.py" ]
+rules.unused-ignore-comment = "ignore"
+rules.invalid-argument-type = "ignore"
+rules.no-matching-overload = "ignore"
+rules.unresolved-attribute = "ignore"
+
+[tool.pytest]
+ini_options.markers = [ "graalpy" ]
+
+[tool.coverage]
+run.branch = true
+run.dynamic_context = "test_function"
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
+run.source = [
+  "python_discovery",
+  "tests",
+]
+paths.source = [
+  "src",
+  ".tox*/*/lib/python*/site-packages",
+  ".tox*/pypy*/site-packages",
+  ".tox*\\*\\Lib\\site-packages",
+  "*/src",
+  "*\\src",
+]
+report.fail_under = 100
+report.omit = [
+  "src/python_discovery/_windows/*",
+  "tests/windows/*",
+]
+report.partial_branches = [
+  "assert any\\(",
+]
+report.show_missing = true
+html.show_contexts = true
+html.skip_covered = false
+
+[tool.towncrier]
+name = "python-discovery"
+directory = "docs/changelog"
+filename = "docs/changelog.rst"
+template = "docs/changelog/template.jinja2"
+title_format = false
+issue_format = ":issue:`{issue}`"
+type = [
+  { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
+  { directory = "deprecation", name = "Deprecations (removal in next major release)", showcontent = true },
+  { directory = "feature", name = "Features", showcontent = true },
+  { directory = "bugfix", name = "Bug fixes", showcontent = true },
+  { directory = "doc", name = "Improved documentation", showcontent = true },
+  { directory = "packaging", name = "Packaging updates and notes for downstreams", showcontent = true },
+  { directory = "contrib", name = "Contributor-facing changes", showcontent = true },
+  { directory = "misc", name = "Miscellaneous internal changes", showcontent = true },
+]

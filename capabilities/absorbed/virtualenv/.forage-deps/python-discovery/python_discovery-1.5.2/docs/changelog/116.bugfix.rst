@@ -1,0 +1,4 @@
+Restore discovery of Python 3.6 and 3.7 interpreters: the interrogation script had grown 3.8-only syntax and is now
+kept to Python 3.6. Candidates below 3.6 log one warning naming the version found instead of two debug-level query
+attempts, and the verdict is cached so they are queried only once; an absolute-path spec for one raises
+``RuntimeError`` with the same message - by :user:`gaborbernat`.

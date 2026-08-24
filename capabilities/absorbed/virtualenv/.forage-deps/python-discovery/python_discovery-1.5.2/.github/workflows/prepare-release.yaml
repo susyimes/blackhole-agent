@@ -1,0 +1,91 @@
+name: Prepare Release
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        options:
+          - auto
+          - major
+          - minor
+          - patch
+        default: auto
+permissions:
+  contents: read
+env:
+  FORCE_COLOR: 1
+jobs:
+  prepare-release:
+    runs-on: ubuntu-24.04
+    environment: release-auth
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+          persist-credentials: true
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure git
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+      - name: Calculate next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          current=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "Current version: $current"
+
+          IFS='.' read -r major minor patch <<< "$current"
+
+          bump_type="$BUMP"
+          if [ "$bump_type" = "auto" ]; then
+            feature_count=$(find docs/changelog -name "*.feature.rst" 2>/dev/null | wc -l)
+            breaking_count=$(find docs/changelog -name "*.breaking.rst" 2>/dev/null | wc -l)
+            if [ "$breaking_count" -gt 0 ]; then
+              bump_type="major"
+              echo "Auto-detected: major bump (found $breaking_count breaking changelog(s))"
+            elif [ "$feature_count" -gt 0 ]; then
+              bump_type="minor"
+              echo "Auto-detected: minor bump (found $feature_count feature changelog(s))"
+            else
+              bump_type="patch"
+              echo "Auto-detected: patch bump (no feature changelogs)"
+            fi
+          fi
+
+          case "$bump_type" in
+            major)
+              next="$((major + 1)).0.0"
+              ;;
+            minor)
+              next="$major.$((minor + 1)).0"
+              ;;
+            patch)
+              next="$major.$minor.$((patch + 1))"
+              ;;
+          esac
+
+          echo "Next version: $next"
+          echo "version=$next" >> $GITHUB_OUTPUT
+      - name: Install tox
+        run: uv tool install --python-preference only-managed --python 3.14 tox@latest --with tox-uv
+      - name: Run release process
+        run: tox run -e release -- ${STEPS_VERSION_OUTPUTS_VERSION}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          STEPS_VERSION_OUTPUTS_VERSION: ${{ steps.version.outputs.version }}
+      - name: Display completion message
+        run: echo "Release ${STEPS_VERSION_OUTPUTS_VERSION} prepared and pushed successfully!"
+        env:
+          STEPS_VERSION_OUTPUTS_VERSION: ${{ steps.version.outputs.version }}

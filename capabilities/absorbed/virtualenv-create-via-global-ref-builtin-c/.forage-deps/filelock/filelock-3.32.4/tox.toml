@@ -1,0 +1,204 @@
+requires = [ "tox>=4.52" ]
+env_list = [
+  "3.15",
+  "3.14",
+  "3.13",
+  "3.12",
+  "3.11",
+  "3.10",
+  "3.14t",
+  "3.15t",
+  "coverage",
+  "docs",
+  "fix",
+  "pkg_meta",
+  "type"
+]
+skip_missing_interpreters = true
+
+[env_run_base]
+description = "run the tests with pytest under {env_name}"
+package = "wheel"
+wheel_build_env = ".pkg"
+dependency_groups = [ "test" ]
+pass_env = [ "PYTEST_*", "SSL_CERT_FILE" ]
+set_env.COVERAGE_FILE = { replace = "env", name = "COVERAGE_FILE", default = "{work_dir}{/}.coverage.{env_name}" }
+# tasks holds the coverage_pragmas plugin, which coverage imports by name in this process and in the subprocesses it
+# patches, so it has to resolve from the environment rather than from pytest's sys.path.
+set_env.PYTHONPATH = "{tox_root}{/}tasks"
+# No --cov-context: coverage refuses its sys.monitoring core when contexts are configured, because that core does not
+# implement them, but pytest-cov switches contexts behind that guard. The unsupported pair silently drops lines the
+# suite ran, and it cost BaseAsyncFileLock.__del__'s no-loop path a flaky 99.98% on the 3.14 jobs.
+commands = [
+  [
+    "pytest",
+    "--durations",
+    "10",
+    "--junitxml",
+    "{env_tmp_dir}{/}junit.xml",
+    { replace = "posargs", default = [
+      "--no-cov-on-fail",
+      "--cov",
+      "{env_site_packages_dir}{/}filelock",
+      "--cov",
+      "{tox_root}{/}tests",
+      "--cov-config",
+      "{tox_root}{/}pyproject.toml",
+      "--cov-report",
+      "term-missing:skip-covered",
+      "--cov-report",
+      "html:{env_tmp_dir}{/}htmlcov",
+      "--cov-report",
+      "xml:{env_tmp_dir}{/}coverage.xml",
+    ], extend = true },
+    "tests",
+  ],
+  { replace = "posargs", default = [
+    [
+      "diff-cover",
+      "--compare-branch",
+      { replace = "env", name = "DIFF_AGAINST", default = "origin/main" },
+      "{env_tmp_dir}{/}coverage.xml",
+    ],
+  ], extend = true },
+]
+
+[env.coverage]
+description = "combine coverage files and generate diff (against DIFF_AGAINST defaulting to origin/main)"
+skip_install = true
+dependency_groups = [ "coverage" ]
+parallel_show_output = true
+pass_env = [
+  { replace = "ref", of = [
+    "env_run_base",
+    "pass_env",
+  ], extend = true },
+  "DIFF_AGAINST",
+]
+set_env.COVERAGE_FILE = { replace = "env", name = "COVERAGE_FILE", default = "{work_dir}{/}.coverage" }
+# Exclusions are applied when the report is rendered, so the reporting env needs the plugin too.
+set_env.PYTHONPATH = "{tox_root}{/}tasks"
+commands = [
+  [ "coverage", "combine" ],
+  [ "coverage", "report", "--skip-covered", "--show-missing" ],
+  [ "coverage", "xml", "-o", "{env_tmp_dir}{/}coverage.xml" ],
+  [ "coverage", "html", "-d", "{work_dir}{/}htmlcov" ],
+  [
+    "diff-cover",
+    "--compare-branch",
+    { replace = "env", name = "DIFF_AGAINST", default = "origin/main" },
+    "{env_tmp_dir}{/}coverage.xml",
+  ],
+]
+depends = [ "3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t" ]
+
+[env.docs]
+description = "build documentation"
+dependency_groups = [ "docs" ]
+commands = [
+  [
+    "sphinx-build",
+    "-d",
+    "{env_tmp_dir}{/}docs_tree",
+    "docs",
+    "{env:READTHEDOCS_OUTPUT:{work_dir}{/}docs_out}/html",
+    "--color",
+    "-b",
+    "html",
+    { replace = "posargs", default = [], extend = true },
+    "-W",
+  ],
+  [
+    "python",
+    "-c",
+    'print(r"documentation available under file://{work_dir}{/}docs_out{/}html{/}index.html")',
+  ],
+]
+
+[env.fix]
+description = "format the code base to adhere to our styles, and complain about what we cannot do automatically"
+skip_install = true
+dependency_groups = [ "fix" ]
+pass_env = [
+  { replace = "ref", of = [
+    "env_run_base",
+    "pass_env",
+  ], extend = true },
+  "DISABLE_PRE_COMMIT_UV_PATCH",
+  "PROGRAMDATA",
+]
+commands = [ [ "pre-commit", "run", "--all-files", "--show-diff-on-failure", { replace = "posargs", extend = true } ] ]
+
+[env.pkg_meta]
+description = "check that the long description is valid"
+skip_install = true
+dependency_groups = [ "pkg_meta" ]
+commands = [
+  [
+    "uv",
+    "build",
+    "--sdist",
+    "--wheel",
+    "--out-dir",
+    "{env_tmp_dir}",
+    ".",
+  ],
+  [
+    "twine",
+    "check",
+    "{env_tmp_dir}{/}*",
+  ],
+  [
+    "check-wheel-contents",
+    "--no-config",
+    "{env_tmp_dir}",
+  ],
+]
+
+[env.type]
+description = "run type check on code base"
+dependency_groups = [ "type" ]
+commands = [ [ "ty", "check", "--output-format", "concise", "--error-on-warning", "." ] ]
+
+[env.bench]
+description = "measure the performance matrix and print it as a report (a baseline, not a gate)"
+package = "wheel"
+wheel_build_env = ".pkg"
+commands = [ [ "python", "tasks{/}benchmark.py" ] ]
+
+[env.dev]
+description = "dev environment with all deps at {envdir}"
+package = "editable"
+dependency_groups = [ "dev" ]
+commands = [ [ "uv", "pip", "list", "--format=columns" ], [ "python", "-c", 'print(r"{env_python}")' ] ]
+
+[env.release]
+description = "build the changelog from the news fragments for the given version, e.g. tox r -e release -- 3.30.0"
+skip_install = true
+dependency_groups = [ "release" ]
+commands = [ [ "towncrier", "build", "--yes", "--version", "{posargs}" ] ]
+
+[env."3.14"]
+# Set COVERAGE_FILE again: overriding set_env here drops the value inherited from env_run_base, and without it
+# coverage writes .coverage in the repo root instead of {work_dir}/.coverage.3.14, so the CI rename cannot find it.
+set_env.COVERAGE_FILE = { replace = "env", name = "COVERAGE_FILE", default = "{work_dir}{/}.coverage.{env_name}" }
+set_env.FILELOCK_OLD_CLIENT_PATH = "{env_tmp_dir}{/}filelock-3.20.0"
+set_env.PYTHONPATH = "{tox_root}{/}tasks"
+commands_pre = [
+  [
+    "uv",
+    "pip",
+    "install",
+    "--target",
+    "{env_tmp_dir}{/}filelock-3.20.0",
+    "--no-deps",
+    "--reinstall",
+    "filelock==3.20.0",
+  ],
+]
+
+# tox invents an env on the fly only for a py or pypy factor, so GraalPy has to be declared to be selectable at all. It
+# stays out of env_list because, like PyPy, it is a CI-only check that runs unmeasured and feeds no coverage data: the
+# 100% gate remains CPython's. Its job is to keep the capability probes the suite gates on honest on a second runtime.
+[env."graalpy3.11"]
+description = "run the tests with pytest under {env_name}, unmeasured"

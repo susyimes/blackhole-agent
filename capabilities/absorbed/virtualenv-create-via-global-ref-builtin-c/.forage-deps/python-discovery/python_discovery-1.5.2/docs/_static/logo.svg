@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+  <!-- Magnifying glass (Python blue) -->
+  <circle cx="10.5" cy="10.5" r="6.5" stroke="#3776AB" stroke-width="2"></circle>
+  <path d="M15.7 15.7L21 21" stroke="#3776AB" stroke-width="2"></path>
+
+  <!-- "<>" (Python yellow) -->
+  <path d="M9.3 8.9L7.7 10.5L9.3 12.1" stroke="#FFD43B" stroke-width="2"></path>
+  <path d="M11.7 8.9L13.3 10.5L11.7 12.1" stroke="#FFD43B" stroke-width="2"></path>
+
+</svg>

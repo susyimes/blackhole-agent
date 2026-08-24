@@ -1,0 +1,9 @@
+*.pyc
+*.egg-info
+/dist
+/.tox
+/src/platformdirs/version.py
+/report
+/docs/build
+/.coverage
+/.coverage.*

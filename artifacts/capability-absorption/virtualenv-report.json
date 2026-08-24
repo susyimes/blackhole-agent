@@ -1,0 +1,46 @@
+{
+  "capability_id": "capability.absorbed-virtualenv",
+  "generated_at": "2026-08-24T10:48:17.215314Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-virtualenv"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "virtualenv",
+    "registry": "pypi",
+    "sha256": "c9d960c95fa458171e58222a5ccab7465298e4b6559977865e627c4719f1e825",
+    "source": "artifacts/capability-foraging/downloads/virtualenv-21.7.4.tar.gz",
+    "url": "",
+    "version": "21.7.4"
+  },
+  "record_digest": "db6ed5bbda3bedb6b2dd4cbbeefa09aedb9e7631422bb5c9197ca92500a214f6",
+  "report_digest": "2b40fbe929e5e0cbd12222d3030c882a6fc309bf05f4cff374e74afcf9b60d39",
+  "schema_version": 1,
+  "slug": "virtualenv",
+  "task": {
+    "goal": [
+      "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou"
+    ],
+    "id": "absorbed-virtualenv",
+    "initial_state": {},
+    "oracle": {
+      "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou": "python"
+    }
+  },
+  "vendored_tree_digest": "88493ed8f6f5747930e181a3cecc7570853eeb1ddaff16f195dc6cad16ed25a1",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

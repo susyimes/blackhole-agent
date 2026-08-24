@@ -1,0 +1,198 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs>=0.5",
+  "hatchling>=1.29",
+]
+
+[project]
+name = "platformdirs"
+description = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
+readme = "README.md"
+keywords = [
+  "appdirs",
+  "application",
+  "cache",
+  "directory",
+  "log",
+  "user",
+]
+license = "MIT"
+maintainers = [
+  { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
+  { name = "Julian Berman", email = "Julian@GrayVines.com" },
+  { name = "Ofek Lev", email = "oss@ofek.dev" },
+  { name = "Ronny Pfannschmidt", email = "opensource@ronnypfannschmidt.de" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dynamic = [
+  "version",
+]
+urls.Changelog = "https://platformdirs.readthedocs.io/en/latest/changelog.html"
+urls.Documentation = "https://platformdirs.readthedocs.io"
+urls.Homepage = "https://github.com/tox-dev/platformdirs"
+urls.Source = "https://github.com/tox-dev/platformdirs"
+urls.Tracker = "https://github.com/tox-dev/platformdirs/issues"
+
+[dependency-groups]
+dev = [
+  { include-group = "coverage" },
+  { include-group = "docs" },
+  { include-group = "fix" },
+  { include-group = "pkg-meta" },
+  { include-group = "test" },
+  { include-group = "type" },
+]
+test = [
+  "appdirs==1.4.4",
+  "covdefaults>=2.3",
+  "diff-cover>=10.2",
+  "pytest>=9.0.2",
+  "pytest-cov>=7",
+  "pytest-mock>=3.15.1",
+]
+type = [
+  "ty>=0.0.19",
+  { include-group = "release" },
+  { include-group = "test" },
+]
+docs = [
+  "furo>=2025.12.19",
+  "proselint>=0.16",
+  "sphinx>=9.1",
+  "sphinx-autodoc-typehints>=3.9.2",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.7",
+  "sphinx-llm>=0.4.1",
+  "sphinx-sitemap>=2.9",
+  "sphinxcontrib-mermaid>=2",
+  "sphinxcontrib-towncrier>=0.5.0a0",
+  "sphinxext-opengraph>=0.13",
+  "towncrier>=24.8",
+]
+coverage = [
+  "covdefaults>=2.3",
+  "coverage[toml]>=7.13.4",
+  "diff-cover>=10.2",
+]
+fix = [
+  "pre-commit-uv>=4.2.1",
+]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.10.7",
+]
+release = [
+  "towncrier>=24.8",
+]
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/platformdirs/version.py"
+build.targets.sdist.include = [
+  "/src",
+  "/tests",
+  "/tox.toml",
+]
+
+[tool.ruff]
+line-length = 120
+format.preview = true
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "COM812", # conflict
+  "CPY",    # no copyright notices
+  "D203",   # `one-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible
+  "D205",   # 1 blank line required between summary line and description
+  "D213",   # `multi-line-summary-second-line` (D213) conflicts with docstrfmt which uses D212 style
+  "D301",   # Use `r"""` if any backslashes in a docstring
+  "D401",   # The first line of docstring should be in imperative mood
+  "DOC",    # no support for restructuredtext
+  "E501",   # line length handled by ruff format (code) and docstrfmt (docstrings)
+  "RUF067", # `__init__` module should only contain docstrings and re-exports
+  "S104",   # Possible binding to all interfaces
+]
+lint.per-file-ignores."tests/**/*.py" = [
+  "D",       # don't care about documentation in tests
+  "FBT",     # don't care about booleans as positional arguments in tests
+  "INP001",  # no implicit namespace
+  "PLC2701", # Private name import
+  "PLR0917", # Too many positional arguments
+  "PLR2004", # Magic value used in comparison, consider replacing with a constant variable
+  "S101",    # asserts allowed in tests
+  "S603",    # `subprocess` call: check for execution of untrusted input
+]
+lint.isort = { known-first-party = [
+  "platformdirs",
+  "tests",
+], required-imports = [
+  "from __future__ import annotations",
+] }
+lint.preview = true
+
+[tool.codespell]
+builtin = "clear,usage,en-GB_to_en-US"
+count = true
+quiet-level = 3
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
+
+[tool.ty]
+environment.python-version = "3.14"
+
+[tool.coverage]
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
+paths.other = [
+  ".",
+  "*/platformdirs",
+  "*\\platformdirs",
+]
+paths.source = [
+  "src",
+  ".tox/*/lib/*/site-packages",
+  ".tox\\*\\Lib\\site-packages",
+  "**/src",
+  "**\\src",
+]
+report.fail_under = 76
+html.show_contexts = true
+html.skip_covered = false
+
+[tool.towncrier]
+name = "platformdirs"
+directory = "docs/changelog"
+filename = "docs/changelog.rst"
+template = "docs/changelog/template.jinja2"
+title_format = false
+issue_format = ":pr:`{issue}`"
+type = [
+  { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
+  { directory = "feature", name = "Features", showcontent = true },
+  { directory = "bugfix", name = "Bug fixes", showcontent = true },
+  { directory = "doc", name = "Improved documentation", showcontent = true },
+  { directory = "packaging", name = "Packaging updates", showcontent = true },
+]

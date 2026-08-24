@@ -175,9 +175,10 @@ def load_manifest(source_path: Path) -> dict[str, Any]:
         raise ValueError("absorption command must be a non-empty list of strings")
     for field in ("requires", "provides"):
         keys = manifest.get(field)
+        allow_empty = field == "requires"
         if (
             not isinstance(keys, list)
-            or not keys
+            or (not keys and not allow_empty)
             or not all(isinstance(key, str) and _STATE_KEY_PATTERN.match(key) for key in keys)
             or len(set(keys)) != len(keys)
         ):

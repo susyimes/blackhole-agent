@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-24T09:37:32.038212Z",
+  "absorbed_at": "2026-08-24T10:48:09.147343Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -4442,7 +4442,60 @@
       "slug": "tomlkit-parser-string-from-raw",
       "vendored_tree_digest": "d0cf21e7cc218b400b0dc51648bf667ab4a51ff784b69db8cdfd2f573b0da807",
       "version": "0.15.1"
+    },
+    {
+      "capability_id": "capability.absorbed-virtualenv",
+      "cases": [
+        {
+          "expect": {
+            "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou": "python"
+          },
+          "input": {}
+        },
+        {
+          "expect": {
+            "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou": "python"
+          },
+          "input": {}
+        },
+        {
+          "expect": {
+            "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou": "python"
+          },
+          "input": {}
+        },
+        {
+          "expect": {
+            "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou": "python"
+          },
+          "input": {}
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "virtualenv",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "virtualenv",
+        "registry": "pypi",
+        "sha256": "c9d960c95fa458171e58222a5ccab7465298e4b6559977865e627c4719f1e825",
+        "source": "artifacts/capability-foraging/downloads/virtualenv-21.7.4.tar.gz",
+        "url": "",
+        "version": "21.7.4"
+      },
+      "provides": [
+        "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou"
+      ],
+      "record_digest": "db6ed5bbda3bedb6b2dd4cbbeefa09aedb9e7631422bb5c9197ca92500a214f6",
+      "requires": [],
+      "schema_version": 1,
+      "slug": "virtualenv",
+      "vendored_tree_digest": "88493ed8f6f5747930e181a3cecc7570853eeb1ddaff16f195dc6cad16ed25a1",
+      "version": "21.7.4"
     }
   ],
-  "steps_digest": "5d3612a2acd885c53c8b881123eca867965c377901375bf530c3a2505d5d51cd"
+  "steps_digest": "2c85011b51e1394837dea07ffb9b8ae11d675911d18670e33486625ac57d076f"
 }

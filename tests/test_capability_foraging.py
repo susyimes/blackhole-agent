@@ -1360,6 +1360,52 @@ def test_python_introspection_reflects_quintuple_nested_namespace_class_static(t
     assert result["spec"].callable_name == "codec.text.safe.inner.leaf.Codec.encode"
 
 
+def test_python_quintuple_nested_namespace_class_static_prefers_cwd_independent_scalar(
+    tmp_path: Path,
+) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns" / "codec" / "text" / "safe" / "inner"
+    ns.mkdir(parents=True)
+    (pkg / "forage_ns" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "paths.py").write_text(
+        "import os\n"
+        "class Pathy:\n"
+        "    @classmethod\n"
+        "    def validate_dest(cls, raw):\n"
+        "        return os.path.abspath(raw)\n",
+        encoding="utf-8",
+    )
+    (pkg / "forage_ns" / "codec" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf.py").write_text(
+        "from forage_ns.paths import Pathy\n"
+        "class Codec(Pathy):\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Codec cannot be constructed')\n"
+        "    @classmethod\n"
+        "    def exe_stem(cls):\n"
+        "        return 'python'\n",
+        encoding="utf-8",
+    )
+    result = infer_acquisition_spec(
+        slug="forage-ns-quintuple-cwd",
+        name="forage-ns-quintuple-cwd",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.safe.inner.leaf.Codec.exe_stem"
+    assert result["record"]["python_quintuple_nested_namespace_class_static"] is True
+    assert result["spec"].requires == ()
+    assert result["record"]["rejected"].get("codec.text.safe.inner.leaf.Codec.validate_dest") == (
+        "class method did not return a cwd-independent JSON scalar"
+    )
+
+
 def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:
     pkg = tmp_path / "pkg"
     ns = pkg / "forage_ns"
@@ -1647,6 +1693,37 @@ def test_python_quadruple_nested_namespace_class_static_sdist_forages_django(tmp
     assert result["spec"].callable_name == (
         "contrib.humanize.templatetags.humanize.NaturalTimeFormatter.string_for"
     )
+
+
+def test_python_quintuple_nested_namespace_class_static_sdist_forages_virtualenv(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "virtualenv", "slug": "virtualenv", "registry": "pypi", "version": "21.7.4"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="virtualenv",
+        name="virtualenv",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="virtualenv",
+        runtime="python",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "create.via_global_ref.builtin.cpython.common.CPython.exe_stem"
+    assert result["record"]["python_quintuple_nested_namespace_class_static"] is True
+    assert result["record"]["python_quintuple_nested_namespace_class_instance"] is False
+    assert result["record"]["python_quadruple_nested_namespace_class_static"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["spec"].requires == ()
+    assert result["spec"].provides == "create_via_global_ref_builtin_cpython_common_cpython_exe_stem_ou"
+    assert result["spec"].callable_name == "create.via_global_ref.builtin.cpython.common.CPython.exe_stem"
+    assert result["record"]["rejected"].get(
+        "create.via_global_ref.builtin.cpython.common.CPython.validate_dest"
+    ) == "class method did not return a cwd-independent JSON scalar"
 
 
 def test_python_deep_nested_namespace_function_sdist_forages_python_stdnum(tmp_path: Path) -> None:

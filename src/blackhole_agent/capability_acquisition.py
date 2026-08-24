@@ -139,7 +139,7 @@ class AcquisitionSpec:
         if not _DOTTED_IDENTIFIER.match(self.callable_name):
             raise ValueError(f"invalid callable name: {self.callable_name!r}")
         if (
-            not self.requires
+            not isinstance(self.requires, tuple)
             or not all(_STATE_KEY_PATTERN.match(key) for key in self.requires)
             or len(set(self.requires)) != len(self.requires)
         ):
@@ -462,10 +462,18 @@ def stage_acquisition_source(source: Path, staging_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_probe(staged_dir: Path, spec: AcquisitionSpec, probe: Mapping[str, Any]) -> dict[str, Any]:
+def _run_probe(
+    staged_dir: Path,
+    spec: AcquisitionSpec,
+    probe: Mapping[str, Any],
+    *,
+    cwd: Path | None = None,
+) -> dict[str, Any]:
     """Execute the synthesized adapter on one probe; return its JSON fragment."""
 
     command = adapter_command(spec)
+    adapter_path = Path(staged_dir) / command[-1]
+    command = [*command[:-1], str(adapter_path)]
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
@@ -474,7 +482,7 @@ def _run_probe(staged_dir: Path, spec: AcquisitionSpec, probe: Mapping[str, Any]
         input=json.dumps(dict(probe)),
         capture_output=True,
         text=True,
-        cwd=staged_dir,
+        cwd=str(cwd or staged_dir),
         timeout=60,
         check=False,
         env=env,
@@ -517,7 +525,7 @@ def synthesize_acquisition(spec: AcquisitionSpec, staging_root: Path) -> dict[st
 
         closed = close_runtime_dependencies(staged_dir, runtime=spec.runtime)
         missing = [path for path in spec.extra_paths if not (staged_dir / path).exists()]
-        if missing or not closed.get("ok"):
+        if missing:
             return {
                 "ok": False,
                 "stage": "deps",

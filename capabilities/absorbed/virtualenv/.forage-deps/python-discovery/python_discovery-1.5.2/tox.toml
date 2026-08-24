@@ -1,0 +1,85 @@
+requires = ["tox>=4.38", "tox-uv>=1.29"]
+env_list = ["fix", "3.15", "3.15t", "3.14", "3.13", "3.12", "3.11", "3.10", "3.9", "3.8", "type-3.8", "type-3.14", "docs", "pkg_meta"]
+skip_missing_interpreters = true
+
+[env_run_base]
+description = "run the tests with pytest"
+package = "wheel"
+wheel_build_env = ".pkg"
+dependency_groups = ["test"]
+pass_env = ["DIFF_AGAINST", "PYTEST_*"]
+set_env.COVERAGE_FILE = "{work_dir}{/}.coverage.{env_name}"
+commands = [
+  ["coverage", "erase"],
+  [
+    "coverage",
+    "run",
+    "-m",
+    "pytest",
+    { replace = "posargs", extend = true, default = [
+      "--junitxml",
+      "{work_dir}{/}junit.{env_name}.xml",
+      "tests",
+    ] },
+  ],
+  ["coverage", "combine"],
+  ["coverage", "report"],
+  ["coverage", "html", "-d", "{env_tmp_dir}{/}htmlcov"],
+]
+
+[env.fix]
+description = "run static analysis and style check using flake8"
+skip_install = true
+deps = ["pre-commit-uv>=4.2.1"]
+pass_env = ["HOMEPATH", "PROGRAMDATA"]
+commands = [["pre-commit", "run", "--all-files", "--show-diff-on-failure"]]
+
+[env."type-3.8"]
+description = "run type check on code base (3.8)"
+deps = ["gitpython>=3.1.46", "packaging>=26", "ty==0.0.17"]
+commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.8", "."]]
+
+[env."type-3.14"]
+description = "run type check on code base (3.14)"
+deps = ["gitpython>=3.1.46", "packaging>=26", "ty==0.0.17"]
+commands = [["ty", "check", "--output-format", "concise", "--error-on-warning", "--python-version", "3.14", "."]]
+
+[env.docs]
+description = "build documentation"
+dependency_groups = ["docs"]
+commands = [
+  [
+    "sphinx-build",
+    "-d",
+    "{env_tmp_dir}{/}doctree",
+    "docs",
+    "--color",
+    "-b",
+    "html",
+    "-W",
+    { replace = "posargs", extend = true, default = ["{work_dir}{/}docs_out"] },
+  ],
+]
+
+[env.pkg_meta]
+description = "check that the long description is valid"
+skip_install = true
+deps = ["check-wheel-contents>=0.6.3", "twine>=6.2", "uv>=0.10.4"]
+commands = [
+  ["uv", "build", "--sdist", "--wheel", "--out-dir", "{env_tmp_dir}", "."],
+  ["twine", "check", "{env_tmp_dir}{/}*"],
+  ["check-wheel-contents", "--no-config", "{env_tmp_dir}"],
+]
+
+[env.release]
+description = "do a release, required posargs of the version number"
+skip_install = true
+dependency_groups = ["release"]
+pass_env = ["GH_TOKEN"]
+commands = [["python", "{tox_root}/tasks/release.py", "--version", "{posargs}"]]
+
+[env.dev]
+description = "generate a DEV environment"
+package = "editable"
+dependency_groups = ["test"]
+commands = [["uv", "pip", "tree"], ["python", "-c", "import sys; print(sys.executable)"]]

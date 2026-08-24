@@ -1,0 +1,1 @@
+Document the version floors: runs on Python 3.8+, discovers interpreters down to 3.6 - by :user:`gaborbernat`.

@@ -41,6 +41,12 @@ inputs. This module removes that last human input — **foraging**:
   ``package.subpackage.subpackage.subpackage.submodule.Class.method`` (class
   statics that are not a three-level
   ``package.subpackage.subpackage.submodule.Class.method``), Python nested-namespace class
+  statics five submodule levels down such as
+  ``package.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``
+  / ``create.via_global_ref.builtin.cpython.common.CPython.exe_stem`` (a
+  covering ``Class.method`` that returns a cwd-independent JSON scalar,
+  including a nullary class static, rather than an inherited path
+  validator such as ``CPython.validate_dest``), Python nested-namespace class
   instance methods such as ``package.submodule.Class(opts).method``
   (constructed nested classes that are not a top-level
   ``Class(opts).method``), and Python nested-namespace class
@@ -168,6 +174,21 @@ _INSTALL_REQUIRES_ASSIGN = re.compile(r"install_requires\s*=\s*\[(.*?)\]", re.DO
 _QUOTED_REQUIREMENT = re.compile(r"""['"]([^'"]+)['"]""")
 
 _SKIP_MODULE_NAMES = frozenset({"setup", "conftest", "test", "tests", "__init__"})
+_SKIP_REQUIRE_DIRS = frozenset(
+    {
+        "tests",
+        "test",
+        "testing",
+        "docs",
+        "doc",
+        "examples",
+        "example",
+        "benchmarks",
+        "benchmark",
+        "samples",
+        "fixtures",
+    }
+)
 _SCALAR_ANNOTATIONS = frozenset({"", "str", "int", "float", "bool"})
 _DEFAULT_LIVE_TARGETS = ("inflection",)
 _INFER_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
@@ -176,6 +197,14 @@ _INFER_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
 # ---------------------------------------------------------------------------
 # Fixed, task-independent probe vocabulary. No expected outputs anywhere.
 # ---------------------------------------------------------------------------
+
+_NULLARY_DOMAINS: tuple[dict[str, Any], ...] = (
+    {
+        "domain": "nullary",
+        "selection": [None, None, None],
+        "held_out": [None],
+    },
+)
 
 _STRING_DOMAINS: tuple[dict[str, Any], ...] = (
     {
@@ -1142,14 +1171,16 @@ def _required_params(candidate: Mapping[str, Any]) -> list[dict[str, Any]] | Non
         for param in params
         if param.get("required") and param.get("kind") in {"POSITIONAL_ONLY", "POSITIONAL_OR_KEYWORD"}
     ]
-    if not 1 <= len(required) <= 2:
-        return None
     for param in params:
         if param.get("required") and param.get("kind") == "KEYWORD_ONLY":
             return None
     if any(param.get("annotation") not in _SCALAR_ANNOTATIONS for param in required):
         return None
-    return required
+    if 1 <= len(required) <= 2:
+        return required
+    if len(required) == 0 and candidate.get("python_quintuple_nested_namespace_class_static"):
+        return required
+    return None
 
 
 def _derive_probes(requires: Sequence[str], domain: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -1205,7 +1236,7 @@ def _requirement_name(line: str) -> str | None:
     if not match:
         return None
     name = match.group(1)
-    if _pep_name(name) in _DEV_REQUIREMENT_NAMES:
+    if not name or name[0].isdigit() or _pep_name(name) in _DEV_REQUIREMENT_NAMES:
         return None
     return name
 
@@ -1299,7 +1330,14 @@ def parse_runtime_requires(staged_dir: Path) -> list[str]:
         if not path.is_file():
             continue
         relative = path.relative_to(staged_dir)
-        if any(part == FORAGE_DEPS_DIR or part.startswith(".") for part in relative.parts):
+        if any(
+            part == FORAGE_DEPS_DIR
+            or part.startswith(".")
+            or part.lower() in _SKIP_REQUIRE_DIRS
+            for part in relative.parts
+        ):
+            continue
+        if len(relative.parts) > 5:
             continue
         label = path.name.lower()
         try:
@@ -1701,6 +1739,11 @@ def infer_acquisition_spec(
             else 1
             if item.get("python_nested_namespace_function")
             else 2,
+            0
+            if 1
+            <= len([p for p in item.get("params") or [] if p.get("required")])
+            <= 2
+            else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1713,11 +1756,14 @@ def infer_acquisition_spec(
             rejected[candidate_name] = "signature is not a 1-2 arg JSON-scalar callable"
             continue
         requires = tuple(_snake_key(str(param["name"])) for param in required)
-        annotations = [str(param.get("annotation") or "") for param in required]
-        domains = probe_domains_for(annotations[0])
-        if len(set(annotations)) > 1 or any(probe_domains_for(a) != domains for a in annotations):
-            rejected[candidate_name] = "mixed-arity probe domains are not derivable"
-            continue
+        if required:
+            annotations = [str(param.get("annotation") or "") for param in required]
+            domains = probe_domains_for(annotations[0])
+            if len(set(annotations)) > 1 or any(probe_domains_for(a) != domains for a in annotations):
+                rejected[candidate_name] = "mixed-arity probe domains are not derivable"
+                continue
+        else:
+            domains = _NULLARY_DOMAINS
         winner: dict[str, Any] | None = None
         for domain in domains:
             probes = _derive_probes(requires, domain)
@@ -1756,6 +1802,15 @@ def infer_acquisition_spec(
                 values = [frag.get(spec.provides) for frag in fragments]
                 if any(not isinstance(value, (str, int, float, bool)) for value in values):
                     rejected[candidate_name] = "class method did not return a JSON scalar"
+                    continue
+                with tempfile.TemporaryDirectory(prefix="blackhole-forage-cwd-") as alt:
+                    shifted = _run_probe(staged_dir, spec, probes[-1], cwd=Path(alt))
+                if shifted.get("ok") and (shifted.get("fragment") or {}) != (
+                    held_out.get("fragment") or {}
+                ):
+                    rejected[candidate_name] = (
+                        "class method did not return a cwd-independent JSON scalar"
+                    )
                     continue
             winner = {
                 "spec": spec.validate(),

@@ -1,0 +1,50 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "create_via_global_ref_builtin_cpython_common_cpython_windows_exe": "python"
+      },
+      "input": {}
+    },
+    {
+      "expect": {
+        "create_via_global_ref_builtin_cpython_common_cpython_windows_exe": "python"
+      },
+      "input": {}
+    },
+    {
+      "expect": {
+        "create_via_global_ref_builtin_cpython_common_cpython_windows_exe": "python"
+      },
+      "input": {}
+    },
+    {
+      "expect": {
+        "create_via_global_ref_builtin_cpython_common_cpython_windows_exe": "python"
+      },
+      "input": {}
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "virtualenv (create.via_global_ref.builtin.cpython.common.CPythonWindows.exe_stem)",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "virtualenv",
+    "registry": "pypi",
+    "sha256": "c9d960c95fa458171e58222a5ccab7465298e4b6559977865e627c4719f1e825",
+    "source": "artifacts/capability-foraging/downloads/virtualenv-21.7.4.tar.gz",
+    "url": "",
+    "version": "21.7.4"
+  },
+  "provides": [
+    "create_via_global_ref_builtin_cpython_common_cpython_windows_exe"
+  ],
+  "requires": [],
+  "schema_version": 1,
+  "slug": "virtualenv-create-via-global-ref-builtin-c",
+  "version": "21.7.4"
+}

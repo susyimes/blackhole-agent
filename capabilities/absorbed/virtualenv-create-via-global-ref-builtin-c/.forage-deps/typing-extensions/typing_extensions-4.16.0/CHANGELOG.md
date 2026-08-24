@@ -1,0 +1,654 @@
+# Release 4.16.0 (July 2, 2025)
+
+No user-facing changes since 4.16.0rc2.
+
+# Release 4.16.0rc2 (June 25, 2026)
+
+- Avoid a `DeprecationWarning` when `deprecated` is applied to a coroutine function on
+  Python 3.14.0.
+
+# Release 4.16.0rc1 (June 24, 2026)
+
+- Make `typing_extensions.TypeAliasType`'s `__module__` attribute writable.
+  Backport of CPython PR
+  [#149172](https://github.com/python/cpython/pull/149172).
+- Fix setting of `__required_keys__` and `__optional_keys__` when inheriting
+  keys with the same name.
+- Add support for `AsyncIterator`, `io.Reader`, `io.Writer` and `os.PathLike` protocols
+  as bases for other protocols.
+- Fix incorrect behaviour on Python 3.9 and Python 3.10 that meant that
+  calling `isinstance` with `typing_extensions.Concatenate[...]` or
+  `typing_extensions.Unpack[...]` as the first argument could have a different
+  result in some situations depending on whether or not a profiling function had been
+  set using `sys.setprofile`. This affected both CPython and PyPy implementations.
+  Patch by Brian Schubert.
+- Fix `__init_subclass__()` behavior in the presence of multiple inheritance involving
+  an `@deprecated`-decorated base class. Backport of CPython PR
+  [#138210](https://github.com/python/cpython/pull/138210) by Brian Schubert.
+- Raise `TypeError` when attempting to subclass `typing_extensions.ParamSpec` on
+  Python 3.9. The `typing` implementation has always raised an error, and the
+  `typing_extensions` implementation has raised an error on Python 3.10+ since
+  `typing_extensions` v4.6.0. Patch by Brian Schubert.
+- Add the `bound`, `covariant`, `contravariant`, and `infer_variance` parameters
+  to `TypeVarTuple`.
+- Officially support the `bound`, `covariant`, `contravariant` and `infer_variance`
+  parameters to `ParamSpec`. Improve the validation of these parameters at runtime.
+- Rename `typing_extensions.Sentinel` to `typing_extensions.sentinel`, following the
+  name that has been adopted for `builtins.sentinel` on Python 3.15.
+  `typing_extensions.Sentinel` is retained as a soft-deprecated alias for backwards
+  compatibility.
+- Add support for pickling sentinels.
+- Sentinels now preserve their identity when copied or deep-copied.
+- Deprecate passing `name` as a keyword argument or `repr` as a positional argument
+  to the `sentinel` constructor.
+- The default repr of a sentinel `X = sentinel("X")` is now `X` rather than `<X>`.
+- Deprecate arbitrary attribute assignments to sentinels.
+- Deprecate subclassing sentinels.
+- Add support for Python 3.15.
+
+# Release 4.15.0 (August 25, 2025)
+
+No user-facing changes since 4.15.0rc1.
+
+# Release 4.15.0rc1 (August 18, 2025)
+
+- Add the `@typing_extensions.disjoint_base` decorator, as specified
+  in PEP 800. Patch by Jelle Zijlstra.
+- Add `typing_extensions.type_repr`, a backport of
+  [`annotationlib.type_repr`](https://docs.python.org/3.14/library/annotationlib.html#annotationlib.type_repr),
+  introduced in Python 3.14 (CPython PR [#124551](https://github.com/python/cpython/pull/124551),
+  originally by Jelle Zijlstra). Patch by Semyon Moroz.
+- Fix behavior of type params in `typing_extensions.evaluate_forward_ref`. Backport of
+  CPython PR [#137227](https://github.com/python/cpython/pull/137227) by Jelle Zijlstra.
+
+# Release 4.14.1 (July 4, 2025)
+
+- Fix usage of `typing_extensions.TypedDict` nested inside other types
+  (e.g., `typing.Type[typing_extensions.TypedDict]`). This is not allowed by the
+  type system but worked on older versions, so we maintain support.
+
+# Release 4.14.0 (June 2, 2025)
+
+Changes since 4.14.0rc1:
+
+- Remove `__or__` and `__ror__` methods from `typing_extensions.Sentinel`
+  on Python versions <3.10. PEP 604 was introduced in Python 3.10, and
+  `typing_extensions` does not generally attempt to backport PEP-604 methods
+  to prior versions.
+- Further update `typing_extensions.evaluate_forward_ref` with changes in Python 3.14.
+
+# Release 4.14.0rc1 (May 24, 2025)
+
+- Drop support for Python 3.8 (including PyPy-3.8). Patch by [Victorien Plot](https://github.com/Viicos).
+- Do not attempt to re-export names that have been removed from `typing`,
+  anticipating the removal of `typing.no_type_check_decorator` in Python 3.15.
+  Patch by Jelle Zijlstra.
+- Update `typing_extensions.Format`, `typing_extensions.evaluate_forward_ref`, and
+  `typing_extensions.TypedDict` to align
+  with changes in Python 3.14. Patches by Jelle Zijlstra.
+- Fix tests for Python 3.14 and 3.15. Patches by Jelle Zijlstra.
+
+New features:
+
+- Add support for inline typed dictionaries ([PEP 764](https://peps.python.org/pep-0764/)).
+  Patch by [Victorien Plot](https://github.com/Viicos).
+- Add `typing_extensions.Reader` and `typing_extensions.Writer`. Patch by
+  Sebastian Rittau.
+- Add support for sentinels ([PEP 661](https://peps.python.org/pep-0661/)). Patch by
+  [Victorien Plot](https://github.com/Viicos).
+
+# Release 4.13.2 (April 10, 2025)
+
+- Fix `TypeError` when taking the union of `typing_extensions.TypeAliasType` and a
+  `typing.TypeAliasType` on Python 3.12 and 3.13.
+  Patch by [Joren Hammudoglu](https://github.com/jorenham).
+- Backport from CPython PR [#132160](https://github.com/python/cpython/pull/132160)
+  to avoid having user arguments shadowed in generated `__new__` by
+  `@typing_extensions.deprecated`.
+  Patch by [Victorien Plot](https://github.com/Viicos).
+
+# Release 4.13.1 (April 3, 2025)
+
+Bugfixes:
+
+- Fix regression in 4.13.0 on Python 3.10.2 causing a `TypeError` when using `Concatenate`.
+  Patch by [Daraan](https://github.com/Daraan).
+- Fix `TypeError` when using `evaluate_forward_ref` on Python 3.10.1-2 and 3.9.8-10.
+  Patch by [Daraan](https://github.com/Daraan).
+
+# Release 4.13.0 (March 25, 2025)
+
+No user-facing changes since 4.13.0rc1.
+
+# Release 4.13.0rc1 (March 18, 2025)
+
+New features:
+
+- Add `typing_extensions.TypeForm` from PEP 747. Patch by
+  Jelle Zijlstra.
+- Add `typing_extensions.get_annotations`, a backport of
+  `inspect.get_annotations` that adds features specified
+  by PEP 649. Patches by Jelle Zijlstra and Alex Waygood.
+- Backport `evaluate_forward_ref` from CPython PR
+  [#119891](https://github.com/python/cpython/pull/119891) to evaluate `ForwardRef`s.
+  Patch by [Daraan](https://github.com/Daraan), backporting a CPython PR by Jelle Zijlstra.
+
+Bugfixes and changed features:
+
+- Update PEP 728 implementation to a newer version of the PEP. Patch by Jelle Zijlstra.
+- Copy the coroutine status of functions and methods wrapped
+  with `@typing_extensions.deprecated`. Patch by Sebastian Rittau.
+- Fix bug where `TypeAliasType` instances could be subscripted even
+  where they were not generic. Patch by [Daraan](https://github.com/Daraan).
+- Fix bug where a subscripted `TypeAliasType` instance did not have all
+  attributes of the original `TypeAliasType` instance on older Python versions.
+  Patch by [Daraan](https://github.com/Daraan) and Alex Waygood.
+- Fix bug where subscripted `TypeAliasType` instances (and some other
+  subscripted objects) had wrong parameters if they were directly
+  subscripted with an `Unpack` object.
+  Patch by [Daraan](https://github.com/Daraan).
+- Backport to Python 3.10 the ability to substitute `...` in generic `Callable`
+  aliases that have a `Concatenate` special form as their argument.
+  Patch by [Daraan](https://github.com/Daraan).
+- Extended the `Concatenate` backport for Python 3.8-3.10 to now accept
+  `Ellipsis` as an argument. Patch by [Daraan](https://github.com/Daraan).
+- Fix backport of `get_type_hints` to reflect Python 3.11+ behavior which does not add
+  `Union[..., NoneType]` to annotations that have a `None` default value anymore.
+  This fixes wrapping of `Annotated` in an unwanted `Optional` in such cases.
+  Patch by [Daraan](https://github.com/Daraan).
+- Fix error in subscription of `Unpack` aliases causing nested Unpacks
+  to not be resolved correctly. Patch by [Daraan](https://github.com/Daraan).
+- Backport CPython PR [#124795](https://github.com/python/cpython/pull/124795):
+  fix `TypeAliasType` not raising an error on non-tuple inputs for `type_params`.
+  Patch by [Daraan](https://github.com/Daraan).
+- Fix that lists and `...` could not be used for parameter expressions for `TypeAliasType`
+  instances before Python 3.11.
+  Patch by [Daraan](https://github.com/Daraan).
+- Fix error on Python 3.10 when using `typing.Concatenate` and
+  `typing_extensions.Concatenate` together. Patch by [Daraan](https://github.com/Daraan).
+- Backport of CPython PR [#109544](https://github.com/python/cpython/pull/109544)
+  to reflect Python 3.13+ behavior: A value assigned to `__total__` in the class body of a
+  `TypedDict` will be overwritten by the `total` argument of the `TypedDict` constructor.
+  Patch by [Daraan](https://github.com/Daraan), backporting a CPython PR by Jelle Zijlstra.
+- `isinstance(typing_extensions.Unpack[...], TypeVar)` now evaluates to `False` on Python 3.11
+  and newer, but remains `True` on versions before 3.11.
+  Patch by [Daraan](https://github.com/Daraan).
+
+# Release 4.12.2 (June 7, 2024)
+
+- Fix regression in v4.12.0 where specialization of certain
+  generics with an overridden `__eq__` method would raise errors.
+  Patch by Jelle Zijlstra.
+- Fix tests so they pass on 3.13.0b2
+
+# Release 4.12.1 (June 1, 2024)
+
+- Preliminary changes for compatibility with the draft implementation
+  of PEP 649 in Python 3.14. Patch by Jelle Zijlstra.
+- Fix regression in v4.12.0 where nested `Annotated` types would cause
+  `TypeError` to be raised if the nested `Annotated` type had unhashable
+  metadata. Patch by Alex Waygood.
+
+# Release 4.12.0 (May 23, 2024)
+
+This release is mostly the same as 4.12.0rc1 but fixes one more
+longstanding bug.
+
+- Fix incorrect behaviour of `typing_extensions.ParamSpec` on Python 3.8 and
+  3.9 that meant that
+  `isinstance(typing_extensions.ParamSpec("P"), typing.TypeVar)` would have a
+  different result in some situations depending on whether or not a profiling
+  function had been set using `sys.setprofile`. Patch by Alex Waygood.
+
+# Release 4.12.0rc1 (May 16, 2024)
+
+This release focuses on compatibility with the upcoming release of
+Python 3.13. Most changes are related to the implementation of type
+parameter defaults (PEP 696).
+
+Thanks to all of the people who contributed patches, especially Alex
+Waygood, who did most of the work adapting typing-extensions to the
+CPython PEP 696 implementation.
+
+Full changelog:
+
+- Improve the implementation of type parameter defaults (PEP 696)
+  - Backport the `typing.NoDefault` sentinel object from Python 3.13.
+    TypeVars, ParamSpecs and TypeVarTuples without default values now have
+    their `__default__` attribute set to this sentinel value.
+  - TypeVars, ParamSpecs and TypeVarTuples now have a `has_default()`
+    method, matching `typing.TypeVar`, `typing.ParamSpec` and
+    `typing.TypeVarTuple` on Python 3.13+.
+  - TypeVars, ParamSpecs and TypeVarTuples with `default=None` passed to
+    their constructors now have their `__default__` attribute set to `None`
+    at runtime rather than `types.NoneType`.
+  - Fix most tests for `TypeVar`, `ParamSpec` and `TypeVarTuple` on Python
+    3.13.0b1 and newer.
+  - Backport CPython PR [#118774](https://github.com/python/cpython/pull/118774),
+    allowing type parameters without default values to follow those with
+    default values in some type parameter lists. Patch by Alex Waygood,
+    backporting a CPython PR by Jelle Zijlstra.
+  - It is now disallowed to use a `TypeVar` with a default value after a
+    `TypeVarTuple` in a type parameter list. This matches the CPython
+    implementation of PEP 696 on Python 3.13+.
+  - Fix bug in PEP-696 implementation where a default value for a `ParamSpec`
+    would be cast to a tuple if a list was provided.
+    Patch by Alex Waygood.
+- Fix `Protocol` tests on Python 3.13.0a6 and newer. 3.13.0a6 adds a new
+  `__static_attributes__` attribute to all classes in Python,
+  which broke some assumptions made by the implementation of
+  `typing_extensions.Protocol`. Similarly, 3.13.0b1 adds the new
+  `__firstlineno__` attribute to all classes.
+- Fix `AttributeError` when using `typing_extensions.runtime_checkable`
+  in combination with `typing.Protocol` on Python 3.12.2 or newer.
+  Patch by Alex Waygood.
+- At runtime, `assert_never` now includes the repr of the argument
+  in the `AssertionError`. Patch by Hashem, backporting of the original
+  fix https://github.com/python/cpython/pull/91720 by Jelle Zijlstra.
+- The second and third parameters of `typing_extensions.Generator`,
+  and the second parameter of `typing_extensions.AsyncGenerator`,
+  now default to `None`. This matches the behaviour of `typing.Generator`
+  and `typing.AsyncGenerator` on Python 3.13+.
+- `typing_extensions.ContextManager` and
+  `typing_extensions.AsyncContextManager` now have an optional second
+  parameter, which defaults to `Optional[bool]`. The new parameter
+  signifies the return type of the `__(a)exit__` method, matching
+  `typing.ContextManager` and `typing.AsyncContextManager` on Python
+  3.13+.
+- Backport `types.CapsuleType` from Python 3.13.
+- Releases are now made using [Trusted Publishers](https://docs.pypi.org/trusted-publishers/)
+  improving the security of the release process. Patch by Jelle Zijlstra.
+
+# Release 4.12.0a1 and 4.12.0a2 (May 16, 2024)
+
+These releases primarily test a revised release workflow. If all goes
+well, release 4.12.0rc1 will follow soon.
+
+# Release 4.11.0 (April 5, 2024)
+
+This feature release provides improvements to various recently
+added features, most importantly type parameter defaults (PEP 696).
+
+There are no changes since 4.11.0rc1.
+
+# Release 4.11.0rc1 (March 24, 2024)
+
+- Fix tests on Python 3.13.0a5. Patch by Jelle Zijlstra.
+- Fix the runtime behavior of type parameters with defaults (PEP 696).
+  Patch by Nadir Chowdhury.
+- Fix minor discrepancy between error messages produced by `typing`
+  and `typing_extensions` on Python 3.10. Patch by Jelle Zijlstra.
+- When `include_extra=False`, `get_type_hints()` now strips `ReadOnly` from the annotation.
+
+# Release 4.10.0 (February 24, 2024)
+
+This feature release adds support for PEP 728 (TypedDict with extra
+items) and PEP 742 (``TypeIs``).
+
+There are no changes since 4.10.0rc1.
+
+# Release 4.10.0rc1 (February 17, 2024)
+
+- Add support for PEP 728, supporting the `closed` keyword argument and the
+  special `__extra_items__` key for TypedDict. Patch by Zixuan James Li.
+- Add support for PEP 742, adding `typing_extensions.TypeIs`. Patch
+  by Jelle Zijlstra.
+- Drop runtime error when a read-only `TypedDict` item overrides a mutable
+  one. Type checkers should still flag this as an error. Patch by Jelle
+  Zijlstra.
+- Speedup `issubclass()` checks against simple runtime-checkable protocols by
+  around 6% (backporting https://github.com/python/cpython/pull/112717, by Alex
+  Waygood).
+- Fix a regression in the implementation of protocols where `typing.Protocol`
+  classes that were not marked as `@runtime_checkable` would be unnecessarily
+  introspected, potentially causing exceptions to be raised if the protocol had
+  problematic members. Patch by Alex Waygood, backporting
+  https://github.com/python/cpython/pull/113401.
+
+# Release 4.9.0 (December 9, 2023)
+
+This feature release adds `typing_extensions.ReadOnly`, as specified
+by PEP 705, and makes various other improvements, especially to
+`@typing_extensions.deprecated()`.
+
+There are no changes since 4.9.0rc1.
+
+# Release 4.9.0rc1 (November 29, 2023)
+
+- Add support for PEP 705, adding `typing_extensions.ReadOnly`. Patch
+  by Jelle Zijlstra.
+- All parameters on `NewType.__call__` are now positional-only. This means that
+  the signature of `typing_extensions.NewType.__call__` now exactly matches the
+  signature of `typing.NewType.__call__`. Patch by Alex Waygood.
+- Fix bug with using `@deprecated` on a mixin class. Inheriting from a
+  deprecated class now raises a `DeprecationWarning`. Patch by Jelle Zijlstra.
+- `@deprecated` now gives a better error message if you pass a non-`str`
+  argument to the `msg` parameter. Patch by Alex Waygood.
+- `@deprecated` is now implemented as a class for better introspectability.
+  Patch by Jelle Zijlstra.
+- Exclude `__match_args__` from `Protocol` members.
+  Backport of https://github.com/python/cpython/pull/110683 by Nikita Sobolev.
+- When creating a `typing_extensions.NamedTuple` class, ensure `__set_name__`
+  is called on all objects that define `__set_name__` and exist in the values
+  of the `NamedTuple` class's class dictionary. Patch by Alex Waygood,
+  backporting https://github.com/python/cpython/pull/111876.
+- Improve the error message when trying to call `issubclass()` against a
+  `Protocol` that has non-method members. Patch by Alex Waygood (backporting
+  https://github.com/python/cpython/pull/112344, by Randolph Scholz).
+
+# Release 4.8.0 (September 17, 2023)
+
+No changes since 4.8.0rc1.
+
+# Release 4.8.0rc1 (September 7, 2023)
+
+- Add `typing_extensions.Doc`, as proposed by PEP 727. Patch by
+  Sebastián Ramírez.
+- Drop support for Python 3.7 (including PyPy-3.7). Patch by Alex Waygood.
+- Fix bug where `get_original_bases()` would return incorrect results when
+  called on a concrete subclass of a generic class. Patch by Alex Waygood
+  (backporting https://github.com/python/cpython/pull/107584, by James
+  Hilton-Balfe).
+- Fix bug where `ParamSpec(default=...)` would raise a `TypeError` on Python
+  versions <3.11. Patch by James Hilton-Balfe
+
+# Release 4.7.1 (July 2, 2023)
+
+- Fix support for `TypedDict`, `NamedTuple` and `is_protocol` on PyPy-3.7 and
+  PyPy-3.8. Patch by Alex Waygood. Note that PyPy-3.7 and PyPy-3.8 are unsupported
+  by the PyPy project. The next feature release of typing-extensions will
+  drop support for PyPy-3.7 and may also drop support for PyPy-3.8.
+
+# Release 4.7.0 (June 28, 2023)
+
+- This is expected to be the last feature release supporting Python 3.7,
+  which reaches its end of life on June 27, 2023. Version 4.8.0 will support
+  only Python 3.8.0 and up.
+- Fix bug where a `typing_extensions.Protocol` class that had one or more
+  non-callable members would raise `TypeError` when `issubclass()`
+  was called against it, even if it defined a custom `__subclasshook__`
+  method. The correct behaviour -- which has now been restored -- is not to
+  raise `TypeError` in these situations if a custom `__subclasshook__` method
+  is defined. Patch by Alex Waygood (backporting
+  https://github.com/python/cpython/pull/105976).
+
+# Release 4.7.0rc1 (June 21, 2023)
+
+- Add `typing_extensions.get_protocol_members` and
+  `typing_extensions.is_protocol` (backport of CPython PR #104878).
+  Patch by Jelle Zijlstra.
+- `typing_extensions` now re-exports all names in the standard library's
+  `typing` module, except the deprecated `ByteString`. Patch by Jelle
+  Zijlstra.
+- Due to changes in the implementation of `typing_extensions.Protocol`,
+  `typing.runtime_checkable` can now be used on `typing_extensions.Protocol`
+  (previously, users had to use `typing_extensions.runtime_checkable` if they
+  were using `typing_extensions.Protocol`).
+- Align the implementation of `TypedDict` with the implementation in the
+  standard library on Python 3.9 and higher.
+  `typing_extensions.TypedDict` is now a function instead of a class. The
+  private functions `_check_fails`, `_dict_new`, and `_typeddict_new`
+  have been removed. `is_typeddict` now returns `False` when called with
+  `TypedDict` itself as the argument. Patch by Jelle Zijlstra.
+- Declare support for Python 3.12. Patch by Jelle Zijlstra.
+- Fix tests on Python 3.13, which removes support for creating
+  `TypedDict` classes through the keyword-argument syntax. Patch by
+  Jelle Zijlstra.
+- Fix a regression introduced in v4.6.3 that meant that
+  ``issubclass(object, typing_extensions.Protocol)`` would erroneously raise
+  ``TypeError``. Patch by Alex Waygood (backporting the CPython PR
+  https://github.com/python/cpython/pull/105239).
+- Allow `Protocol` classes to inherit from `typing_extensions.Buffer` or
+  `collections.abc.Buffer`. Patch by Alex Waygood (backporting
+  https://github.com/python/cpython/pull/104827, by Jelle Zijlstra).
+- Allow classes to inherit from both `typing.Protocol` and `typing_extensions.Protocol`
+  simultaneously. Since v4.6.0, this caused `TypeError` to be raised due to a
+  metaclass conflict. Patch by Alex Waygood.
+- Backport several deprecations from CPython relating to unusual ways to
+  create `TypedDict`s and `NamedTuple`s. CPython PRs #105609 and #105780
+  by Alex Waygood; `typing_extensions` backport by Jelle Zijlstra.
+  - Creating a `NamedTuple` using the functional syntax with keyword arguments
+    (`NT = NamedTuple("NT", a=int)`) is now deprecated.
+  - Creating a `NamedTuple` with zero fields using the syntax `NT = NamedTuple("NT")`
+    or `NT = NamedTuple("NT", None)` is now deprecated.
+  - Creating a `TypedDict` with zero fields using the syntax `TD = TypedDict("TD")`
+    or `TD = TypedDict("TD", None)` is now deprecated.
+- Fix bug on Python 3.7 where a protocol `X` that had a member `a` would not be
+  considered an implicit subclass of an unrelated protocol `Y` that only has a
+  member `a`. Where the members of `X` are a superset of the members of `Y`,
+  `X` should always be considered a subclass of `Y` iff `Y` is a
+  runtime-checkable protocol that only has callable members. Patch by Alex
+  Waygood (backporting CPython PR
+  https://github.com/python/cpython/pull/105835).
+
+# Release 4.6.3 (June 1, 2023)
+
+- Fix a regression introduced in v4.6.0 in the implementation of
+  runtime-checkable protocols. The regression meant
+  that doing `class Foo(X, typing_extensions.Protocol)`, where `X` was a class that
+  had `abc.ABCMeta` as its metaclass, would then cause subsequent
+  `isinstance(1, X)` calls to erroneously raise `TypeError`. Patch by
+  Alex Waygood (backporting the CPython PR
+  https://github.com/python/cpython/pull/105152).
+- Sync the repository's LICENSE file with that of CPython.
+  `typing_extensions` is distributed under the same license as
+  CPython itself.
+- Skip a problematic test on Python 3.12.0b1. The test fails on 3.12.0b1 due to
+  a bug in CPython, which will be fixed in 3.12.0b2. The
+  `typing_extensions` test suite now passes on 3.12.0b1.
+
+# Release 4.6.2 (May 25, 2023)
+
+- Fix use of `@deprecated` on classes with `__new__` but no `__init__`.
+  Patch by Jelle Zijlstra.
+- Fix regression in version 4.6.1 where comparing a generic class against a
+  runtime-checkable protocol using `isinstance()` would cause `AttributeError`
+  to be raised if using Python 3.7.
+
+# Release 4.6.1 (May 23, 2023)
+
+- Change deprecated `@runtime` to formal API `@runtime_checkable` in the error
+  message. Patch by Xuehai Pan.
+- Fix regression in 4.6.0 where attempting to define a `Protocol` that was
+  generic over a `ParamSpec` or a `TypeVarTuple` would cause `TypeError` to be
+  raised. Patch by Alex Waygood.
+
+# Release 4.6.0 (May 22, 2023)
+
+- `typing_extensions` is now documented at
+  https://typing-extensions.readthedocs.io/en/latest/. Patch by Jelle Zijlstra.
+- Add `typing_extensions.Buffer`, a marker class for buffer types, as proposed
+  by PEP 688. Equivalent to `collections.abc.Buffer` in Python 3.12. Patch by
+  Jelle Zijlstra.
+- Backport two CPython PRs fixing various issues with `typing.Literal`:
+  https://github.com/python/cpython/pull/23294 and
+  https://github.com/python/cpython/pull/23383. Both CPython PRs were
+  originally by Yurii Karabas, and both were backported to Python >=3.9.1, but
+  no earlier. Patch by Alex Waygood.
+
+  A side effect of one of the changes is that equality comparisons of `Literal`
+  objects will now raise a `TypeError` if one of the `Literal` objects being
+  compared has a mutable parameter. (Using mutable parameters with `Literal` is
+  not supported by PEP 586 or by any major static type checkers.)
+- `Literal` is now reimplemented on all Python versions <= 3.10.0. The
+  `typing_extensions` version does not suffer from the bug that was fixed in
+  https://github.com/python/cpython/pull/29334. (The CPython bugfix was
+  backported to CPython 3.10.1 and 3.9.8, but no earlier.)
+- Backport [CPython PR 26067](https://github.com/python/cpython/pull/26067)
+  (originally by Yurii Karabas), ensuring that `isinstance()` calls on
+  protocols raise `TypeError` when the protocol is not decorated with
+  `@runtime_checkable`. Patch by Alex Waygood.
+- Backport several significant performance improvements to runtime-checkable
+  protocols that have been made in Python 3.12 (see
+  https://github.com/python/cpython/issues/74690 for details). Patch by Alex
+  Waygood.
+
+  A side effect of one of the performance improvements is that the members of
+  a runtime-checkable protocol are now considered “frozen” at runtime as soon
+  as the class has been created. Monkey-patching attributes onto a
+  runtime-checkable protocol will still work, but will have no impact on
+  `isinstance()` checks comparing objects to the protocol. See
+  ["What's New in Python 3.12"](https://docs.python.org/3.12/whatsnew/3.12.html#typing)
+  for more details.
+- `isinstance()` checks against runtime-checkable protocols now use
+  `inspect.getattr_static()` rather than `hasattr()` to lookup whether
+  attributes exist (backporting https://github.com/python/cpython/pull/103034).
+  This means that descriptors and `__getattr__` methods are no longer
+  unexpectedly evaluated during `isinstance()` checks against runtime-checkable
+  protocols. However, it may also mean that some objects which used to be
+  considered instances of a runtime-checkable protocol on older versions of
+  `typing_extensions` may no longer be considered instances of that protocol
+  using the new release, and vice versa. Most users are unlikely to be affected
+  by this change. Patch by Alex Waygood.
+- Backport the ability to define `__init__` methods on Protocol classes, a
+  change made in Python 3.11 (originally implemented in
+  https://github.com/python/cpython/pull/31628 by Adrian Garcia Badaracco).
+  Patch by Alex Waygood.
+- Speedup `isinstance(3, typing_extensions.SupportsIndex)` by >10x on Python
+  <3.12. Patch by Alex Waygood.
+- Add `typing_extensions` versions of `SupportsInt`, `SupportsFloat`,
+  `SupportsComplex`, `SupportsBytes`, `SupportsAbs` and `SupportsRound`. These
+  have the same semantics as the versions from the `typing` module, but
+  `isinstance()` checks against the `typing_extensions` versions are >10x faster
+  at runtime on Python <3.12. Patch by Alex Waygood.
+- Add `__orig_bases__` to non-generic TypedDicts, call-based TypedDicts, and
+  call-based NamedTuples. Other TypedDicts and NamedTuples already had the attribute.
+  Patch by Adrian Garcia Badaracco.
+- Add `typing_extensions.get_original_bases`, a backport of
+  [`types.get_original_bases`](https://docs.python.org/3.12/library/types.html#types.get_original_bases),
+  introduced in Python 3.12 (CPython PR
+  https://github.com/python/cpython/pull/101827, originally by James
+  Hilton-Balfe). Patch by Alex Waygood.
+
+  This function should always produce correct results when called on classes
+  constructed using features from `typing_extensions`. However, it may
+  produce incorrect results when called on some `NamedTuple` or `TypedDict`
+  classes that use `typing.{NamedTuple,TypedDict}` on Python <=3.11.
+- Constructing a call-based `TypedDict` using keyword arguments for the fields
+  now causes a `DeprecationWarning` to be emitted. This matches the behaviour
+  of `typing.TypedDict` on 3.11 and 3.12.
+- Backport the implementation of `NewType` from 3.10 (where it is implemented
+  as a class rather than a function). This allows user-defined `NewType`s to be
+  pickled. Patch by Alex Waygood.
+- Fix tests and import on Python 3.12, where `typing.TypeVar` can no longer be
+  subclassed. Patch by Jelle Zijlstra.
+- Add `typing_extensions.TypeAliasType`, a backport of `typing.TypeAliasType`
+  from PEP 695. Patch by Jelle Zijlstra.
+- Backport changes to the repr of `typing.Unpack` that were made in order to
+  implement [PEP 692](https://peps.python.org/pep-0692/) (backport of
+  https://github.com/python/cpython/pull/104048). Patch by Alex Waygood.
+
+# Release 4.5.0 (February 14, 2023)
+
+- Runtime support for PEP 702, adding `typing_extensions.deprecated`. Patch
+  by Jelle Zijlstra.
+- Add better default value for TypeVar `default` parameter, PEP 696. Enables
+  runtime check if `None` was passed as default. Patch by Marc Mueller (@cdce8p).
+- The `@typing_extensions.override` decorator now sets the `.__override__`
+  attribute. Patch by Steven Troxler.
+- Fix `get_type_hints()` on cross-module inherited `TypedDict` in 3.9 and 3.10.
+  Patch by Carl Meyer.
+- Add `frozen_default` parameter on `dataclass_transform`. Patch by Erik De Bonte.
+
+# Release 4.4.0 (October 6, 2022)
+
+- Add `typing_extensions.Any` a backport of python 3.11's Any class which is
+  subclassable at runtime. (backport from python/cpython#31841, by Shantanu
+  and Jelle Zijlstra). Patch by James Hilton-Balfe (@Gobot1234).
+- Add initial support for TypeVarLike `default` parameter, PEP 696.
+  Patch by Marc Mueller (@cdce8p).
+- Runtime support for PEP 698, adding `typing_extensions.override`. Patch by
+  Jelle Zijlstra.
+- Add the `infer_variance` parameter to `TypeVar`, as specified in PEP 695.
+  Patch by Jelle Zijlstra.
+
+# Release 4.3.0 (July 1, 2022)
+
+- Add `typing_extensions.NamedTuple`, allowing for generic `NamedTuple`s on
+  Python <3.11 (backport from python/cpython#92027, by Serhiy Storchaka). Patch
+  by Alex Waygood (@AlexWaygood).
+- Adjust `typing_extensions.TypedDict` to allow for generic `TypedDict`s on
+  Python <3.11 (backport from python/cpython#27663, by Samodya Abey). Patch by
+  Alex Waygood (@AlexWaygood).
+
+# Release 4.2.0 (April 17, 2022)
+
+- Re-export `typing.Unpack` and `typing.TypeVarTuple` on Python 3.11.
+- Add `ParamSpecArgs` and `ParamSpecKwargs` to `__all__`.
+- Improve "accepts only single type" error messages.
+- Improve the distributed package. Patch by Marc Mueller (@cdce8p).
+- Update `typing_extensions.dataclass_transform` to rename the
+  `field_descriptors` parameter to `field_specifiers` and accept
+  arbitrary keyword arguments.
+- Add `typing_extensions.get_overloads` and
+  `typing_extensions.clear_overloads`, and add registry support to
+  `typing_extensions.overload`. Backport from python/cpython#89263.
+- Add `typing_extensions.assert_type`. Backport from bpo-46480.
+- Drop support for Python 3.6. Original patch by Adam Turner (@AA-Turner).
+
+# Release 4.1.1 (February 13, 2022)
+
+- Fix importing `typing_extensions` on Python 3.7.0 and 3.7.1. Original
+  patch by Nikita Sobolev (@sobolevn).
+
+# Release 4.1.0 (February 12, 2022)
+
+- Runtime support for PEP 646, adding `typing_extensions.TypeVarTuple`
+  and `typing_extensions.Unpack`.
+- Add interaction of `Required` and `NotRequired` with `__required_keys__`,
+  `__optional_keys__` and `get_type_hints()`. Patch by David Cabot (@d-k-bo).
+- Runtime support for PEP 675 and `typing_extensions.LiteralString`.
+- Add `Never` and `assert_never`. Backport from bpo-46475.
+- `ParamSpec` args and kwargs are now equal to themselves. Backport from
+  bpo-46676. Patch by Gregory Beauregard (@GBeauregard).
+- Add `reveal_type`. Backport from bpo-46414.
+- Runtime support for PEP 681 and `typing_extensions.dataclass_transform`.
+- `Annotated` can now wrap `ClassVar` and `Final`. Backport from
+  bpo-46491. Patch by Gregory Beauregard (@GBeauregard).
+- Add missed `Required` and `NotRequired` to `__all__`. Patch by
+  Yuri Karabas (@uriyyo).
+- The `@final` decorator now sets the `__final__` attribute on the
+  decorated object to allow runtime introspection. Backport from
+  bpo-46342.
+- Add `is_typeddict`. Patch by Chris Moradi (@chrismoradi) and James
+  Hilton-Balfe (@Gobot1234).
+
+# Release 4.0.1 (November 30, 2021)
+
+- Fix broken sdist in release 4.0.0. Patch by Adam Turner (@AA-Turner).
+- Fix equality comparison for `Required` and `NotRequired`. Patch by
+  Jelle Zijlstra (@jellezijlstra).
+- Fix usage of `Self` as a type argument. Patch by Chris Wesseling
+  (@CharString) and James Hilton-Balfe (@Gobot1234).
+
+# Release 4.0.0 (November 14, 2021)
+
+- Starting with version 4.0.0, typing_extensions uses Semantic Versioning.
+  See the README for more information.
+- Dropped support for Python versions 3.5 and older, including Python 2.7.
+- Simplified backports for Python 3.6.0 and newer. Patch by Adam Turner (@AA-Turner).
+
+## Added in version 4.0.0
+
+- Runtime support for PEP 673 and `typing_extensions.Self`. Patch by
+  James Hilton-Balfe (@Gobot1234).
+- Runtime support for PEP 655 and `typing_extensions.Required` and `NotRequired`.
+  Patch by David Foster (@davidfstr).
+
+## Removed in version 4.0.0
+
+The following non-exported but non-private names have been removed as they are
+unneeded for supporting Python 3.6 and newer.
+
+- TypingMeta
+- OLD_GENERICS
+- SUBS_TREE
+- HAVE_ANNOTATED
+- HAVE_PROTOCOLS
+- V_co
+- VT_co
+
+# Previous releases
+
+Prior to release 4.0.0 we did not provide a changelog. Please check
+the Git history for details.
