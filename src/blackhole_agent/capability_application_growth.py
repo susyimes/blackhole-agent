@@ -165,6 +165,16 @@ sdist whose callable API is
 rather than a three-level
 ``package.subpackage.subpackage.submodule.Class.method`` can be foraged
 the same way.
+
+Python quintuple nested-namespace class-instance leftover:
+``run_application_python_quintuple_nested_namespace_class_instance_growth_plane``
+reflects class instance methods five submodule levels down so a live-fetched
+sdist whose callable API is
+``package.subpackage.subpackage.subpackage.subpackage.submodule.Class(opts).method`` /
+``openid.connect.core.grant_types.authorization_code.AuthorizationCodeGrant.id_token_hash``
+rather than a four-level
+``package.subpackage.subpackage.subpackage.submodule.Class.method`` can be
+foraged the same way.
 """
 
 from __future__ import annotations
@@ -328,6 +338,12 @@ DEFAULT_PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_ARTIFACT_DIR = (
 )
 DEFAULT_PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_python_quadruple_nested_namespace_class_static_catalog.json"
+)
+DEFAULT_PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-python-quintuple-nested-namespace-class-instance-growth"
+)
+DEFAULT_PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_python_quintuple_nested_namespace_class_instance_catalog.json"
 )
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
@@ -721,6 +737,32 @@ PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_GROW_TASK = ApplicationTask(
     goal=(PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_GOAL_KEY,),
     oracle={
         PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_GOAL_KEY: PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_ORACLE
+    },
+)
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_SLUG = "oauthlib"
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_NPM_DECOY_SLUG = LIVE_NPM_DECOY_SLUG
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY = (
+    "openid_connect_core_grant_types_authorization_code_authorization"
+)
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_CAPABILITY_ID = (
+    f"capability.absorbed-{PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_SLUG}"
+)
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE = "pZGm1Av0IEBKARczz7exkA"
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE = (
+    "openid.connect.core.grant_types.authorization_code.AuthorizationCodeGrant.id_token_hash"
+)
+
+PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
+    id="oauthlib-unplannable",
+    description=(
+        "Unplannable application goal grown from a live-fetched sdist "
+        "whose callable API is a Python nested-namespace class instance "
+        "method five submodule levels down."
+    ),
+    initial_state={"value": "Hello World"},
+    goal=(PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+    oracle={
+        PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
     },
 )
 
@@ -13113,6 +13155,670 @@ def demo_application_python_quadruple_nested_namespace_class_static_growth_plane
     }
 
 
+def load_python_quintuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
+    """Load the catalog whose covering sdist exposes five-level nested class instance methods."""
+
+    payload = load_catalog(DEFAULT_PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
+    payload["network_used"] = False
+    payload["replay"] = True
+    payload["live"] = False
+    payload["registries"] = sorted(
+        {
+            str(item.get("registry") or "")
+            for item in payload.get("items") or []
+            if str(item.get("registry") or "") in {"npm", "pypi"}
+        }
+    )
+    return payload
+
+
+def _python_quintuple_nested_namespace_class_instance_hide(repo_root: Path) -> tuple[str, ...]:
+    ledger = load_ledger(default_ledger_path(repo_root))
+    return (
+        (PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_CAPABILITY_ID,)
+        if PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_CAPABILITY_ID in ledger.capabilities
+        else ()
+    )
+
+
+def _python_quintuple_nested_namespace_class_instance_selected(covering: Mapping[str, Any]) -> bool:
+    callables = [str(name) for name in (covering.get("callables") or []) if str(name)]
+    winner = callables[0] if callables else ""
+    return (
+        bool(covering.get("python_quintuple_nested_namespace_class_instance"))
+        and not bool(covering.get("python_quintuple_nested_namespace_class_static"))
+        and not bool(covering.get("python_quadruple_nested_namespace_class_static"))
+        and not bool(covering.get("python_quadruple_nested_namespace_class_instance"))
+        and not bool(covering.get("python_triple_nested_namespace_class_static"))
+        and not bool(covering.get("python_deep_nested_namespace_class_static"))
+        and not bool(covering.get("python_nested_namespace_class_static"))
+        and not bool(covering.get("python_deep_nested_namespace_function"))
+        and not bool(covering.get("python_nested_namespace_function"))
+        and not bool(covering.get("python_deep_nested_namespace_class_instance"))
+        and not bool(covering.get("python_nested_namespace_class_instance"))
+        and not bool(covering.get("python_class_static"))
+        and not bool(covering.get("python_class_instance"))
+        and winner == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE
+    )
+
+
+def _python_quintuple_nested_namespace_class_instance_scenario_grades(
+    catalog: Mapping[str, Any], *, repo_root: Path = REPO_ROOT
+) -> dict[str, Any]:
+    items = list(catalog.get("items") or [])
+    absorbed = sorted(APPLY_ABSORBED_SLUGS)
+    trend = rank_catalog(strip_declared_provides(items), absorbed=absorbed)
+    lying = rank_catalog(
+        items, absorbed=absorbed, goal_keys=(PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,)
+    )
+    matched = match_forage_goal(
+        (PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    probes = list(matched.get("probes") or [])
+    npm_probe = next(
+        (
+            row
+            for row in probes
+            if row.get("slug") == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_NPM_DECOY_SLUG
+        ),
+        {},
+    )
+    winner_entry = matched.get("winner") or {}
+    origin = dict(forage_request_for(winner_entry, repo_root=repo_root, live_fetch=True).get("origin") or {})
+    overlay_fields = any(str(item.get("source") or item.get("replay_source") or "") for item in items)
+    registries = {str(item.get("registry") or "") for item in items}
+    uncovered = match_forage_goal(
+        (NO_MATCH_GOAL,),
+        catalog=catalog,
+        absorbed=absorbed,
+        forage=False,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    covering = matched.get("covering") or {}
+    return {
+        "trend_npm_decoy_wins": (trend.get("winner") or {}).get("slug")
+        == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_NPM_DECOY_SLUG,
+        "lying_catalog_picks_npm_decoy": (lying.get("winner") or {}).get("slug")
+        == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_NPM_DECOY_SLUG,
+        "match_is_oauthlib": (matched.get("winner") or {}).get("slug")
+        == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_SLUG,
+        "npm_decoy_probed": npm_probe.get("skip_reason") not in {"", None, "no_source"},
+        "npm_decoy_not_no_source": npm_probe.get("skip_reason") != "no_source",
+        "catalog_provides_ignored": bool(matched.get("ok"))
+        and (matched.get("winner") or {}).get("slug") != (lying.get("winner") or {}).get("slug"),
+        "no_replay_source_field": overlay_fields is False,
+        "winner_origin_live": origin.get("kind") in {"npm-live", "pypi-live"},
+        "winner_source_not_stewardship": bool(origin.get("source")) and not _source_is_stewardship(origin),
+        "registries_npm_and_pypi": "npm" in registries and "pypi" in registries,
+        "query_from_goal": catalog.get("query")
+        == query_from_goal(PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK.goal),
+        "network_unused": catalog.get("network_used") is False,
+        "uncovered_refused": (not uncovered["ok"]) and uncovered.get("error") == "no forage match",
+        "python_quintuple_nested_namespace_class_instance_selected": (
+            _python_quintuple_nested_namespace_class_instance_selected(covering)
+        ),
+        "winner_is_python_quintuple_nested_namespace_class_instance": bool(
+            covering.get("python_quintuple_nested_namespace_class_instance")
+        ),
+        "winner_is_not_python_triple_nested_namespace_class_static": not bool(
+            covering.get("python_triple_nested_namespace_class_static")
+        ),
+        "winner_is_not_python_deep_nested_namespace_class_static": not bool(
+            covering.get("python_deep_nested_namespace_class_static")
+        ),
+        "winner_is_not_python_nested_namespace_class_static": not bool(
+            covering.get("python_nested_namespace_class_static")
+        ),
+        "winner_is_not_python_deep_nested_namespace_function": not bool(
+            covering.get("python_deep_nested_namespace_function")
+        ),
+        "winner_is_not_python_nested_namespace_function": not bool(
+            covering.get("python_nested_namespace_function")
+        ),
+        "winner_is_not_python_deep_nested_namespace_class_instance": not bool(
+            covering.get("python_deep_nested_namespace_class_instance")
+        ),
+        "winner_is_not_python_nested_namespace_class_instance": not bool(
+            covering.get("python_nested_namespace_class_instance")
+        ),
+        "winner_is_not_python_class_static": not bool(covering.get("python_class_static")),
+        "winner_is_not_python_class_instance": not bool(covering.get("python_class_instance")),
+        "winner_is_not_named_export_class_static": not bool(covering.get("named_export_class_static")),
+        "winner_is_not_default_export": not bool(covering.get("default_export")),
+        "winner_is_not_default_export_class": not bool(covering.get("default_export_class")),
+        "winner_is_not_default_export_object": not bool(covering.get("default_export_object")),
+        "matched": {
+            "ok": bool(matched.get("ok")),
+            "winner": (matched.get("winner") or {}).get("slug") or "",
+            "origin": origin,
+            "inferred_provides": list((matched.get("covering") or {}).get("inferred_provides") or []),
+            "python_quintuple_nested_namespace_class_instance": bool(
+                covering.get("python_quintuple_nested_namespace_class_instance")
+            ),
+            "probes": [
+                {
+                    "slug": row.get("slug"),
+                    "skip_reason": row.get("skip_reason"),
+                    "covers_goal": bool(row.get("covers_goal")),
+                }
+                for row in probes
+            ],
+        },
+        "lying": {"ok": bool(lying.get("ok")), "winner": (lying.get("winner") or {}).get("slug") or ""},
+        "trend": {
+            "ok": bool(trend["ok"]),
+            "winner": (trend.get("winner") or {}).get("slug") or "",
+            "ranked_slugs": [row["slug"] for row in trend.get("ranked") or []],
+        },
+    }
+
+
+def _python_quintuple_nested_namespace_class_instance_grade(
+    *,
+    skip_result: Mapping[str, Any],
+    uncovered: Mapping[str, Any],
+    grown: Mapping[str, Any],
+    scenarios: Mapping[str, Any],
+    origin: Mapping[str, Any],
+    honesty: Mapping[str, Any],
+    separate_plane: bool | None = None,
+) -> dict[str, Any]:
+    grade = {
+        "already_solvable_skips_forage": bool(skip_result.get("ok")) and skip_result.get("grew") is False,
+        "uncovered_stays_unsolved": (not uncovered.get("ok"))
+        and uncovered.get("error") == "no forage match"
+        and uncovered.get("grew") is False,
+        "trend_npm_decoy_wins": bool(scenarios["trend_npm_decoy_wins"]),
+        "lying_catalog_picks_npm_decoy": bool(scenarios["lying_catalog_picks_npm_decoy"]),
+        "grow_winner_is_oauthlib": grown.get("winner_slug")
+        == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_SLUG,
+        "npm_decoy_probed": bool(scenarios["npm_decoy_probed"]),
+        "npm_decoy_not_no_source": bool(scenarios["npm_decoy_not_no_source"]),
+        "catalog_provides_ignored": bool(scenarios["catalog_provides_ignored"]),
+        "no_replay_source_field": bool(scenarios["no_replay_source_field"]),
+        "winner_origin_live": origin.get("kind") == "pypi-live"
+        and (grown.get("forage") or {}).get("fixture_overlay") is False,
+        "winner_source_not_stewardship": bool(origin.get("source")) and not _source_is_stewardship(origin),
+        "registries_npm_and_pypi": bool(scenarios["registries_npm_and_pypi"]),
+        "query_from_goal": bool(scenarios["query_from_goal"]),
+        "network_unused": bool(scenarios["network_unused"]),
+        "python_quintuple_nested_namespace_class_instance_selected": bool(
+            scenarios["python_quintuple_nested_namespace_class_instance_selected"]
+        ),
+        "winner_is_python_quintuple_nested_namespace_class_instance": bool(
+            scenarios["winner_is_python_quintuple_nested_namespace_class_instance"]
+        ),
+        "winner_is_not_python_triple_nested_namespace_class_static": bool(
+            scenarios["winner_is_not_python_triple_nested_namespace_class_static"]
+        ),
+        "winner_is_not_python_deep_nested_namespace_class_static": bool(
+            scenarios["winner_is_not_python_deep_nested_namespace_class_static"]
+        ),
+        "winner_is_not_python_nested_namespace_class_static": bool(
+            scenarios["winner_is_not_python_nested_namespace_class_static"]
+        ),
+        "winner_is_not_python_deep_nested_namespace_function": bool(
+            scenarios["winner_is_not_python_deep_nested_namespace_function"]
+        ),
+        "winner_is_not_python_nested_namespace_function": bool(
+            scenarios["winner_is_not_python_nested_namespace_function"]
+        ),
+        "winner_is_not_python_deep_nested_namespace_class_instance": bool(
+            scenarios["winner_is_not_python_deep_nested_namespace_class_instance"]
+        ),
+        "winner_is_not_python_nested_namespace_class_instance": bool(
+            scenarios["winner_is_not_python_nested_namespace_class_instance"]
+        ),
+        "winner_is_not_python_class_static": bool(scenarios["winner_is_not_python_class_static"]),
+        "winner_is_not_python_class_instance": bool(scenarios["winner_is_not_python_class_instance"]),
+        "winner_is_not_named_export_class_static": bool(scenarios["winner_is_not_named_export_class_static"]),
+        "winner_is_not_default_export": bool(scenarios["winner_is_not_default_export"]),
+        "winner_is_not_default_export_class": bool(scenarios["winner_is_not_default_export_class"]),
+        "winner_is_not_default_export_object": bool(scenarios["winner_is_not_default_export_object"]),
+        "forage_ok": bool((grown.get("forage") or {}).get("ok")),
+        "grew": bool(grown.get("grew")),
+        "unplannable_before": bool(honesty.get("unplannable_before")),
+        "grown_plan_solved": bool(honesty.get("grown_plan_solved")),
+        "ablation_unplannable": bool(honesty.get("ablation_unplannable")),
+        "no_separate_plane_invocation": True if separate_plane is None else bool(separate_plane),
+    }
+    grade["ok"] = all(grade.values())
+    return grade
+
+
+def run_application_python_quintuple_nested_namespace_class_instance_growth_plane(
+    output_dir: Path | None = None,
+    *,
+    repo_root: Path = REPO_ROOT,
+    forage: bool = True,
+) -> dict[str, Any]:
+    """Grow an unplannable task from a five-level nested-namespace class instance method."""
+
+    catalog = load_python_quintuple_nested_namespace_class_instance_apply_catalog()
+    scenarios = _python_quintuple_nested_namespace_class_instance_scenario_grades(catalog, repo_root=repo_root)
+    skip_result = grow_application_task(
+        ALREADY_SOLVABLE_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    uncovered = grow_application_task(
+        UNCOVERED_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    hide_before = _python_quintuple_nested_namespace_class_instance_hide(repo_root)
+    grown = grow_application_task(
+        PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
+        catalog=catalog,
+        absorbed=sorted(APPLY_ABSORBED_SLUGS),
+        forage=forage,
+        hide_before=hide_before,
+        repo_root=repo_root,
+        live_fetch=True,
+    )
+    honesty: dict[str, Any] = {
+        "ok": False,
+        "unplannable_before": False,
+        "grown_plan_solved": False,
+        "ablation_unplannable": False,
+    }
+    capability_id = str(
+        (grown.get("forage") or {}).get("capability_id")
+        or PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_CAPABILITY_ID
+    )
+    if grown.get("ok") and grown.get("grew"):
+        honesty = _honesty(
+            PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK, capability_id, repo_root=repo_root
+        )
+    origin = dict((grown.get("forage") or {}).get("origin") or {})
+    grade = _python_quintuple_nested_namespace_class_instance_grade(
+        skip_result=skip_result,
+        uncovered=uncovered,
+        grown=grown,
+        scenarios=scenarios,
+        origin=origin,
+        honesty=honesty,
+        separate_plane=skip_result.get("used_forage_growth_plane") is False
+        and grown.get("used_forage_growth_plane") is False
+        and uncovered.get("used_forage_growth_plane") is False,
+    )
+    report: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "kind": "capability_application_python_quintuple_nested_namespace_class_instance_growth_plane",
+        "generated_at": utc_now_iso(),
+        "query": catalog.get("query") or "",
+        "catalog_digest": _digest({"query": catalog.get("query"), "items": catalog.get("items")}),
+        "already_solvable": {
+            "ok": bool(skip_result.get("ok")),
+            "grew": bool(skip_result.get("grew")),
+        },
+        "uncovered": {
+            "ok": bool(uncovered.get("ok")),
+            "grew": bool(uncovered.get("grew")),
+            "error": uncovered.get("error") or "",
+        },
+        "grown": {
+            "ok": bool(grown.get("ok")),
+            "grew": bool(grown.get("grew")),
+            "plan": grown.get("plan"),
+            "winner_slug": grown.get("winner_slug") or "",
+            "forage": grown.get("forage") or {},
+        },
+        "honesty": {
+            "ok": bool(honesty.get("ok")),
+            "unplannable_before": bool(honesty.get("unplannable_before")),
+            "grown_plan_solved": bool(honesty.get("grown_plan_solved")),
+            "ablation_unplannable": bool(honesty.get("ablation_unplannable")),
+            "capability_id": honesty.get("capability_id"),
+            "plan": honesty.get("plan"),
+        },
+        "grade": grade,
+    }
+    report["report_digest"] = _report_digest(report)
+    target_dir = output_dir or DEFAULT_PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(target_dir / "plane-report.json", report)
+    return {
+        "ok": bool(grade["ok"]),
+        "report_dir": str(target_dir),
+        "winner": grown.get("winner_slug") or "",
+        "grade": grade,
+        "capability_id": (grown.get("forage") or {}).get("capability_id"),
+        "query": catalog.get("query") or "",
+        "registries": list(catalog.get("registries") or []),
+        "origin": origin,
+    }
+
+
+def verify_application_python_quintuple_nested_namespace_class_instance_growth_plane(
+    report_dir: Path, *, repo_root: Path = REPO_ROOT
+) -> dict[str, Any]:
+    """Re-match the five-level nested-namespace class-instance catalog and re-prove the winner."""
+
+    report_path = report_dir / "plane-report.json"
+    if not report_path.is_file():
+        return {"ok": False, "error": f"report not found: {report_path}"}
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    digest_ok = _report_digest(report) == report.get("report_digest")
+    catalog = load_python_quintuple_nested_namespace_class_instance_apply_catalog()
+    scenarios = _python_quintuple_nested_namespace_class_instance_scenario_grades(catalog, repo_root=repo_root)
+    catalog_ok = _digest({"query": catalog.get("query"), "items": catalog.get("items")}) == report.get(
+        "catalog_digest"
+    )
+    origin = dict(((report.get("grown") or {}).get("forage") or {}).get("origin") or {})
+    expected_grade = _python_quintuple_nested_namespace_class_instance_grade(
+        skip_result=report.get("already_solvable") or {},
+        uncovered=report.get("uncovered") or {},
+        grown=report.get("grown") or {},
+        scenarios=scenarios,
+        origin=origin,
+        honesty=report.get("honesty") or {},
+    )
+    recorded_grade = dict(report.get("grade") or {})
+    grade_ok = recorded_grade == expected_grade and bool(recorded_grade.get("ok"))
+    winner_ok = (
+        (report.get("grown") or {}).get("winner_slug")
+        == PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_SLUG
+    )
+    live_proof = prove_absorbed_capability(PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_WINNER_SLUG)
+    live_ok = bool(live_proof.get("ok"))
+    kind_ok = (
+        report.get("kind") == "capability_application_python_quintuple_nested_namespace_class_instance_growth_plane"
+    )
+    overlay_ok = ((report.get("grown") or {}).get("forage") or {}).get("fixture_overlay") is False
+    selected_ok = (
+        bool(scenarios.get("winner_is_python_quintuple_nested_namespace_class_instance"))
+        and bool(scenarios.get("winner_is_not_python_triple_nested_namespace_class_static"))
+        and bool(scenarios.get("winner_is_not_python_deep_nested_namespace_class_static"))
+        and bool(scenarios.get("winner_is_not_python_nested_namespace_class_static"))
+        and bool(scenarios.get("winner_is_not_python_deep_nested_namespace_function"))
+        and bool(scenarios.get("winner_is_not_python_nested_namespace_function"))
+        and bool(scenarios.get("winner_is_not_python_nested_namespace_class_instance"))
+        and bool(scenarios.get("winner_is_not_python_class_static"))
+        and bool(scenarios.get("winner_is_not_python_class_instance"))
+        and bool(scenarios.get("winner_is_not_default_export"))
+        and bool(scenarios.get("python_quintuple_nested_namespace_class_instance_selected"))
+    )
+    origin_ok = origin.get("kind") == "pypi-live" and not _source_is_stewardship(origin)
+    ok = (
+        digest_ok
+        and catalog_ok
+        and grade_ok
+        and winner_ok
+        and live_ok
+        and kind_ok
+        and overlay_ok
+        and selected_ok
+        and origin_ok
+    )
+    return {
+        "ok": ok,
+        "digest_ok": digest_ok,
+        "catalog_ok": catalog_ok,
+        "grade_ok": grade_ok,
+        "winner_ok": winner_ok,
+        "live_ok": live_ok,
+        "kind_ok": kind_ok,
+        "overlay_ok": overlay_ok,
+        "origin_ok": origin_ok,
+        "selected_ok": selected_ok,
+    }
+
+
+def builtin_application_python_quintuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
+    """Registered proof: five-level nested-namespace Python class instance methods forage."""
+
+    catalog = load_python_quintuple_nested_namespace_class_instance_apply_catalog()
+    scenarios = _python_quintuple_nested_namespace_class_instance_scenario_grades(catalog)
+    with tempfile.TemporaryDirectory(prefix="blackhole-python-quintuple-nested-ns-class-instance-plane-") as tmp:
+        report_dir = Path(tmp) / "report"
+        plane = run_application_python_quintuple_nested_namespace_class_instance_growth_plane(report_dir)
+        verification = (
+            verify_application_python_quintuple_nested_namespace_class_instance_growth_plane(report_dir)
+            if plane.get("ok")
+            else {"ok": False}
+        )
+        tampered_rejected = False
+        if plane.get("ok"):
+            report_path = report_dir / "plane-report.json"
+            tampered = json.loads(report_path.read_text(encoding="utf-8"))
+            tampered["grade"]["grow_winner_is_oauthlib"] = False
+            report_path.write_text(json.dumps(tampered, indent=2, sort_keys=True), encoding="utf-8")
+            tampered_rejected = not verify_application_python_quintuple_nested_namespace_class_instance_growth_plane(
+                report_dir
+            )["ok"]
+
+    verdicts = {
+        "already_solvable_skips_forage": bool((plane.get("grade") or {}).get("already_solvable_skips_forage")),
+        "uncovered_stays_unsolved": bool((plane.get("grade") or {}).get("uncovered_stays_unsolved")),
+        "trend_npm_decoy_wins": bool(scenarios["trend_npm_decoy_wins"]),
+        "lying_catalog_picks_npm_decoy": bool(scenarios["lying_catalog_picks_npm_decoy"]),
+        "grow_winner_is_oauthlib": bool((plane.get("grade") or {}).get("grow_winner_is_oauthlib")),
+        "npm_decoy_probed": bool(scenarios["npm_decoy_probed"]),
+        "npm_decoy_not_no_source": bool(scenarios["npm_decoy_not_no_source"]),
+        "catalog_provides_ignored": bool(scenarios["catalog_provides_ignored"]),
+        "python_quintuple_nested_namespace_class_instance_selected": bool(
+            scenarios["python_quintuple_nested_namespace_class_instance_selected"]
+        ),
+        "winner_is_python_quintuple_nested_namespace_class_instance": bool(
+            scenarios["winner_is_python_quintuple_nested_namespace_class_instance"]
+        ),
+        "winner_is_not_python_triple_nested_namespace_class_static": bool(
+            scenarios["winner_is_not_python_triple_nested_namespace_class_static"]
+        ),
+        "winner_is_not_python_deep_nested_namespace_class_static": bool(
+            scenarios["winner_is_not_python_deep_nested_namespace_class_static"]
+        ),
+        "winner_is_not_python_nested_namespace_class_static": bool(
+            scenarios["winner_is_not_python_nested_namespace_class_static"]
+        ),
+        "winner_is_not_python_deep_nested_namespace_function": bool(
+            scenarios["winner_is_not_python_deep_nested_namespace_function"]
+        ),
+        "winner_is_not_python_nested_namespace_function": bool(
+            scenarios["winner_is_not_python_nested_namespace_function"]
+        ),
+        "winner_is_not_python_deep_nested_namespace_class_instance": bool(
+            scenarios["winner_is_not_python_deep_nested_namespace_class_instance"]
+        ),
+        "winner_is_not_python_nested_namespace_class_instance": bool(
+            scenarios["winner_is_not_python_nested_namespace_class_instance"]
+        ),
+        "winner_is_not_python_class_static": bool(scenarios["winner_is_not_python_class_static"]),
+        "winner_is_not_python_class_instance": bool(scenarios["winner_is_not_python_class_instance"]),
+        "winner_is_not_named_export_class_static": bool(scenarios["winner_is_not_named_export_class_static"]),
+        "winner_is_not_default_export": bool(scenarios["winner_is_not_default_export"]),
+        "winner_is_not_default_export_class": bool(scenarios["winner_is_not_default_export_class"]),
+        "winner_is_not_default_export_object": bool(scenarios["winner_is_not_default_export_object"]),
+        "winner_origin_live": bool((plane.get("grade") or {}).get("winner_origin_live")),
+        "winner_source_not_stewardship": bool((plane.get("grade") or {}).get("winner_source_not_stewardship")),
+        "registries_npm_and_pypi": bool(scenarios["registries_npm_and_pypi"]),
+        "query_from_goal": bool(scenarios["query_from_goal"]),
+        "network_unused": bool(scenarios["network_unused"]),
+        "plane_ok": bool(plane.get("ok")),
+        "verify_ok": bool(verification.get("ok")),
+        "tampered_rejected": tampered_rejected,
+        "forage_ok": bool((plane.get("grade") or {}).get("forage_ok")),
+        "grew": bool((plane.get("grade") or {}).get("grew")),
+        "unplannable_before": bool((plane.get("grade") or {}).get("unplannable_before")),
+        "grown_plan_solved": bool((plane.get("grade") or {}).get("grown_plan_solved")),
+        "ablation_unplannable": bool((plane.get("grade") or {}).get("ablation_unplannable")),
+        "no_separate_plane_invocation": bool((plane.get("grade") or {}).get("no_separate_plane_invocation")),
+    }
+    return {
+        "ok": all(verdicts.values()),
+        **verdicts,
+        "winner": plane.get("winner") or "",
+        "query": plane.get("query") or "",
+        "registries": plane.get("registries") or [],
+        "origin": plane.get("origin") or {},
+        "action": "application_python_quintuple_nested_namespace_class_instance_growth_plane",
+        "used_skill_route_discovery": False,
+    }
+
+
+def application_python_quintuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
+    return (
+        'uv run python -c "from blackhole_agent.capability_application_growth import '
+        "builtin_application_python_quintuple_nested_namespace_class_instance_growth_plane_proof; "
+        "r=builtin_application_python_quintuple_nested_namespace_class_instance_growth_plane_proof(); "
+        "assert r['ok'] and r.get('action')=='application_python_quintuple_nested_namespace_class_instance_growth_plane' "
+        "and r.get('already_solvable_skips_forage') and r.get('uncovered_stays_unsolved') "
+        "and r.get('trend_npm_decoy_wins') and r.get('lying_catalog_picks_npm_decoy') "
+        "and r.get('grow_winner_is_oauthlib') and r.get('npm_decoy_probed') "
+        "and r.get('npm_decoy_not_no_source') and r.get('catalog_provides_ignored') "
+        "and r.get('python_quintuple_nested_namespace_class_instance_selected') "
+        "and r.get('winner_is_python_quintuple_nested_namespace_class_instance') "
+        "and r.get('winner_is_not_python_triple_nested_namespace_class_static') "
+        "and r.get('winner_is_not_python_deep_nested_namespace_class_static') "
+        "and r.get('winner_is_not_python_nested_namespace_class_static') "
+        "and r.get('winner_is_not_python_deep_nested_namespace_function') "
+        "and r.get('winner_is_not_python_nested_namespace_function') "
+        "and r.get('winner_is_not_python_deep_nested_namespace_class_instance') "
+        "and r.get('winner_is_not_python_nested_namespace_class_instance') "
+        "and r.get('winner_is_not_python_class_static') "
+        "and r.get('winner_is_not_python_class_instance') "
+        "and r.get('winner_is_not_named_export_class_static') "
+        "and r.get('winner_is_not_default_export') "
+        "and r.get('winner_is_not_default_export_class') "
+        "and r.get('winner_is_not_default_export_object') "
+        "and r.get('winner_origin_live') and r.get('winner_source_not_stewardship') "
+        "and r.get('registries_npm_and_pypi') and r.get('query_from_goal') "
+        "and r.get('network_unused') and r.get('plane_ok') and r.get('verify_ok') "
+        "and r.get('tampered_rejected') and r.get('forage_ok') and r.get('grew') "
+        "and r.get('unplannable_before') and r.get('grown_plan_solved') "
+        "and r.get('ablation_unplannable') and r.get('no_separate_plane_invocation') "
+        "and not r.get('used_skill_route_discovery')\""
+    )
+
+
+def register_application_python_quintuple_nested_namespace_class_instance_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    """Register (idempotently) and prove five-level nested-namespace Python class-instance growth."""
+
+    ledger_path = default_ledger_path(repo_root)
+    ledger = load_ledger(ledger_path)
+    dependencies = tuple(
+        dependency
+        for dependency in (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "capability.foraging-plane",
+            "capability.forage-target-plane",
+            "capability.forage-growth-plane",
+            "capability.application-python-quad-nested-static-growth-plane",
+            "capability.application-python-triple-nested-static-growth-plane",
+            "capability.application-python-deep-nested-static-growth-plane",
+            "capability.application-python-deep-nested-function-growth-plane",
+            "capability.application-python-nested-function-growth-plane",
+            "capability.application-python-deep-nested-instance-growth-plane",
+            "capability.application-python-nested-class-instance-growth-plane",
+            "capability.application-python-nested-class-static-growth-plane",
+            "capability.application-python-class-static-growth-plane",
+            "capability.application-python-class-instance-growth-plane",
+            "capability.application-node-named-class-instance-growth-plane",
+            "capability.application-runtime-deps-growth-plane",
+            "capability.application-live-fetch-growth-plane",
+            "capability.application-growth-plane",
+            "capability.application-plane",
+            "capability.absorption-plane",
+        )
+        if dependency in ledger.capabilities
+    )
+    capability = Capability(
+        id="capability.application-python-quint-nested-instance-growth-plane",
+        name="Application python quintuple nested-namespace class-instance growth plane",
+        description=(
+            "An unplannable application goal grows itself from a live-fetched "
+            "sdist whose callable API is a Python nested-namespace class "
+            "instance method five submodule levels down: introspection reflects "
+            "package.subpackage.subpackage.subpackage.subpackage.submodule.Class(opts).method / "
+            "openid.connect.core.grant_types.authorization_code.AuthorizationCodeGrant.id_token_hash "
+            "rather than a four-level package.subpackage.subpackage.subpackage.submodule.Class.method, "
+            "and the covering package is foraged so the original task becomes solvable."
+        ),
+        kind="python",
+        entry=(
+            "blackhole_agent.capability_application_growth:"
+            "demo_application_python_quintuple_nested_namespace_class_instance_growth_plane"
+        ),
+        proof_command=application_python_quintuple_nested_namespace_class_instance_growth_plane_proof_command(),
+        dependencies=dependencies,
+        behavior_paths=(
+            "src/blackhole_agent/capability_application_growth.py",
+            "src/blackhole_agent/capability_foraging.py",
+            "src/blackhole_agent/capability_acquisition.py",
+            "src/blackhole_agent/capability_forage_growth.py",
+            "tests/fixtures/forage_python_quintuple_nested_namespace_class_instance_catalog.json",
+            "capabilities/absorbed-steps.json",
+            "capabilities/ledger.json",
+        ),
+        capability_delta=(
+            "Application-growth no longer skips sdists whose callable API is a "
+            "Python nested-namespace class instance method five submodule levels down: "
+            "introspection reflects openid.connect.core.grant_types.authorization_code."
+            "AuthorizationCodeGrant.id_token_hash as "
+            "package.subpackage.subpackage.subpackage.subpackage.submodule.Class(opts).method rather than a "
+            "four-level package.subpackage.subpackage.subpackage.submodule.Class.method, and a covering "
+            "package is foraged so the original task becomes solvable."
+        ),
+        tags=(
+            "foraging",
+            "plane",
+            "application",
+            "growth",
+            "python",
+            "nested-namespace",
+            "class-instance",
+            "quintuple-nested",
+        ),
+    )
+    ledger = register_capability(ledger, capability, replace=True)
+    save_ledger(ledger_path, ledger)
+    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=1800)
+    stamped = ledger.capabilities[capability.id]
+    disk = load_ledger(ledger_path)
+    merged = dict(disk.capabilities)
+    merged[stamped.id] = stamped
+    save_ledger(
+        ledger_path,
+        CapabilityLedger(
+            schema_version=disk.schema_version,
+            updated_at=utc_now_iso(),
+            capabilities=merged,
+        ),
+    )
+    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
+
+
+def demo_application_python_quintuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a five-level nested-namespace class instance method."""
+
+    result = run_application_python_quintuple_nested_namespace_class_instance_growth_plane()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "capability_id": result.get("capability_id"),
+        "query": result.get("query"),
+        "registries": result.get("registries"),
+        "origin": result.get("origin"),
+        "grade": result.get("grade"),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Application-growth forage plane")
     sub = parser.add_subparsers(dest="command_name", required=True)
@@ -13278,6 +13984,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--no-forage", action="store_true", help="match only; do not forage"
     )
 
+    python_quintuple_nested_namespace_class_instance_parser = sub.add_parser(
+        "python-quintuple-nested-instance-plane",
+        help="grow from a Python sdist by constructing package.subpackage.subpackage.subpackage.subpackage.submodule.Class(opts).method",
+    )
+    python_quintuple_nested_namespace_class_instance_parser.add_argument(
+        "--no-forage", action="store_true", help="match only; do not forage"
+    )
+
     sub.add_parser("proof", help="run the registered application-growth-plane proof")
     sub.add_parser("live-proof", help="run the registered live-registry application-growth proof")
     sub.add_parser("registry-proof", help="run the registered registry-archive application-growth proof")
@@ -13351,6 +14065,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "python-quadruple-nested-class-static-proof",
         help="run the registered python quadruple nested-namespace class-static application-growth proof",
     )
+    sub.add_parser(
+        "python-quintuple-nested-instance-proof",
+        help="run the registered python quintuple nested-namespace class-instance application-growth proof",
+    )
     sub.add_parser("register", help="register and prove the plane in the live ledger")
     sub.add_parser("live-register", help="register and prove the live-registry plane")
     sub.add_parser("registry-register", help="register and prove the registry-archive plane")
@@ -13421,6 +14139,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser(
         "python-quadruple-nested-class-static-register",
         help="register and prove the python quadruple nested-namespace class-static plane",
+    )
+    sub.add_parser(
+        "python-quintuple-nested-instance-register",
+        help="register and prove the python quintuple nested-namespace class-instance plane",
     )
 
     verify_parser = sub.add_parser("verify", help="verify a sealed application-growth report")
@@ -13580,6 +14302,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--report-dir", type=Path, default=DEFAULT_PYTHON_QUADRUPLE_NESTED_NAMESPACE_CLASS_STATIC_ARTIFACT_DIR
     )
 
+    python_quintuple_nested_namespace_class_instance_verify = sub.add_parser(
+        "python-quintuple-nested-instance-verify",
+        help="verify a sealed python quintuple nested-namespace class-instance growth report",
+    )
+    python_quintuple_nested_namespace_class_instance_verify.add_argument(
+        "--report-dir", type=Path, default=DEFAULT_PYTHON_QUINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR
+    )
+
     args = parser.parse_args(argv)
     if args.command_name == "grow":
         goal = tuple(args.goal)
@@ -13647,6 +14377,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = run_application_python_quadruple_nested_namespace_class_static_growth_plane(
             forage=not args.no_forage
         )
+    elif args.command_name == "python-quintuple-nested-instance-plane":
+        result = run_application_python_quintuple_nested_namespace_class_instance_growth_plane(
+            forage=not args.no_forage
+        )
     elif args.command_name == "proof":
         result = builtin_application_growth_plane_proof()
     elif args.command_name == "live-proof":
@@ -13693,6 +14427,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = builtin_application_python_triple_nested_namespace_class_static_growth_plane_proof()
     elif args.command_name == "python-quadruple-nested-class-static-proof":
         result = builtin_application_python_quadruple_nested_namespace_class_static_growth_plane_proof()
+    elif args.command_name == "python-quintuple-nested-instance-proof":
+        result = builtin_application_python_quintuple_nested_namespace_class_instance_growth_plane_proof()
     elif args.command_name == "register":
         result = register_application_growth_plane_capability()
     elif args.command_name == "live-register":
@@ -13739,6 +14475,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = register_application_python_triple_nested_namespace_class_static_growth_plane_capability()
     elif args.command_name == "python-quadruple-nested-class-static-register":
         result = register_application_python_quadruple_nested_namespace_class_static_growth_plane_capability()
+    elif args.command_name == "python-quintuple-nested-instance-register":
+        result = register_application_python_quintuple_nested_namespace_class_instance_growth_plane_capability()
     elif args.command_name == "live-verify":
         result = verify_application_live_growth_plane(args.report_dir)
     elif args.command_name == "registry-verify":
@@ -13783,6 +14521,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = verify_application_python_triple_nested_namespace_class_static_growth_plane(args.report_dir)
     elif args.command_name == "python-quadruple-nested-class-static-verify":
         result = verify_application_python_quadruple_nested_namespace_class_static_growth_plane(args.report_dir)
+    elif args.command_name == "python-quintuple-nested-instance-verify":
+        result = verify_application_python_quintuple_nested_namespace_class_instance_growth_plane(args.report_dir)
     else:
         result = verify_application_growth_plane(args.report_dir)
     print(json.dumps(result, indent=2, sort_keys=True, default=str))

@@ -207,6 +207,12 @@ def probe_candidate(
         "python_quadruple_nested_namespace_class_instance": bool(
             (inference.get("record") or {}).get("python_quadruple_nested_namespace_class_instance")
         ),
+        "python_quintuple_nested_namespace_class_static": bool(
+            (inference.get("record") or {}).get("python_quintuple_nested_namespace_class_static")
+        ),
+        "python_quintuple_nested_namespace_class_instance": bool(
+            (inference.get("record") or {}).get("python_quintuple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_nested_namespace_function")
         ),
@@ -218,6 +224,9 @@ def probe_candidate(
         ),
         "python_quadruple_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_quadruple_nested_namespace_function")
+        ),
+        "python_quintuple_nested_namespace_function": bool(
+            (inference.get("record") or {}).get("python_quintuple_nested_namespace_function")
         ),
     }
 

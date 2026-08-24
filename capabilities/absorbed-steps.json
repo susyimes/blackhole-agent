@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-24T03:09:26.581404Z",
+  "absorbed_at": "2026-08-24T09:37:32.038212Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -2771,6 +2771,132 @@
       "version": "3.4.0"
     },
     {
+      "capability_id": "capability.absorbed-oauthlib",
+      "cases": [
+        {
+          "expect": {
+            "openid_connect_core_grant_types_authorization_code_authorization": "pZGm1Av0IEBKARczz7exkA"
+          },
+          "input": {
+            "value": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "openid_connect_core_grant_types_authorization_code_authorization": "qCHBGvQL4b_5ZsYnZbvhqA"
+          },
+          "input": {
+            "value": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "openid_connect_core_grant_types_authorization_code_authorization": "3kftWnHO9L38Fo4EX1NwJw"
+          },
+          "input": {
+            "value": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "openid_connect_core_grant_types_authorization_code_authorization": "47DEQpj8HBSa-_TImW-5JA"
+          },
+          "input": {
+            "value": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "oauthlib",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "oauthlib",
+        "registry": "pypi",
+        "sha256": "0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9",
+        "source": "artifacts/capability-foraging/downloads/oauthlib-3.3.1.tar.gz",
+        "url": "",
+        "version": "3.3.1"
+      },
+      "provides": [
+        "openid_connect_core_grant_types_authorization_code_authorization"
+      ],
+      "record_digest": "c1b118026c156fad9c038221a254a231f1ad2d757bc81f26e32537e94d844474",
+      "requires": [
+        "value"
+      ],
+      "schema_version": 1,
+      "slug": "oauthlib",
+      "vendored_tree_digest": "3b3436c5280bc94ecc434ed9d04c2c807f9d835a921dab81c6a65ea2bc90ee7e",
+      "version": "3.3.1"
+    },
+    {
+      "capability_id": "capability.absorbed-oauthlib-openid-connect-core-grant-types-b",
+      "cases": [
+        {
+          "expect": {
+            "openid_connect_core_grant_types_base_grant_type_base_id_token_ha": "pZGm1Av0IEBKARczz7exkA"
+          },
+          "input": {
+            "value": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "openid_connect_core_grant_types_base_grant_type_base_id_token_ha": "qCHBGvQL4b_5ZsYnZbvhqA"
+          },
+          "input": {
+            "value": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "openid_connect_core_grant_types_base_grant_type_base_id_token_ha": "3kftWnHO9L38Fo4EX1NwJw"
+          },
+          "input": {
+            "value": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "openid_connect_core_grant_types_base_grant_type_base_id_token_ha": "47DEQpj8HBSa-_TImW-5JA"
+          },
+          "input": {
+            "value": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "oauthlib (openid.connect.core.grant_types.base.GrantTypeBase.id_token_hash)",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "oauthlib",
+        "registry": "pypi",
+        "sha256": "0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9",
+        "source": "artifacts/capability-foraging/downloads/oauthlib-3.3.1.tar.gz",
+        "url": "",
+        "version": "3.3.1"
+      },
+      "provides": [
+        "openid_connect_core_grant_types_base_grant_type_base_id_token_ha"
+      ],
+      "record_digest": "70be978e0a1b3c231d1f572c9c14633bbd0630c1bfb459beca79ab0775bce6ee",
+      "requires": [
+        "value"
+      ],
+      "schema_version": 1,
+      "slug": "oauthlib-openid-connect-core-grant-types-b",
+      "vendored_tree_digest": "fb22e18eeda6f49a7fc3afee8614203603e9b8415e3bfa63b0bc22f43464531f",
+      "version": "3.3.1"
+    },
+    {
       "capability_id": "capability.absorbed-packaging",
       "cases": [
         {
@@ -4318,5 +4444,5 @@
       "version": "0.15.1"
     }
   ],
-  "steps_digest": "cc6c263a20c5db200378a3131c8f4c8397e156ce0318dedec3cb7901b3dc04e2"
+  "steps_digest": "5d3612a2acd885c53c8b881123eca867965c377901375bf530c3a2505d5d51cd"
 }

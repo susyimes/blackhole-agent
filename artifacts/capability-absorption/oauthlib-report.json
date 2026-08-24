@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-oauthlib",
+  "generated_at": "2026-08-24T09:37:28.736855Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-oauthlib"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "oauthlib",
+    "registry": "pypi",
+    "sha256": "0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9",
+    "source": "artifacts/capability-foraging/downloads/oauthlib-3.3.1.tar.gz",
+    "url": "",
+    "version": "3.3.1"
+  },
+  "record_digest": "c1b118026c156fad9c038221a254a231f1ad2d757bc81f26e32537e94d844474",
+  "report_digest": "0330ad199da7986cf092bc3995afa65a328dfab5d814fe016b65c9e3957f7395",
+  "schema_version": 1,
+  "slug": "oauthlib",
+  "task": {
+    "goal": [
+      "openid_connect_core_grant_types_authorization_code_authorization"
+    ],
+    "id": "absorbed-oauthlib",
+    "initial_state": {
+      "value": "Hello World"
+    },
+    "oracle": {
+      "openid_connect_core_grant_types_authorization_code_authorization": "pZGm1Av0IEBKARczz7exkA"
+    }
+  },
+  "vendored_tree_digest": "3b3436c5280bc94ecc434ed9d04c2c807f9d835a921dab81c6a65ea2bc90ee7e",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

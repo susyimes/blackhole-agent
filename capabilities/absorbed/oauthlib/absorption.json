@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "openid_connect_core_grant_types_authorization_code_authorization": "pZGm1Av0IEBKARczz7exkA"
+      },
+      "input": {
+        "value": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "openid_connect_core_grant_types_authorization_code_authorization": "qCHBGvQL4b_5ZsYnZbvhqA"
+      },
+      "input": {
+        "value": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "openid_connect_core_grant_types_authorization_code_authorization": "3kftWnHO9L38Fo4EX1NwJw"
+      },
+      "input": {
+        "value": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "openid_connect_core_grant_types_authorization_code_authorization": "47DEQpj8HBSa-_TImW-5JA"
+      },
+      "input": {
+        "value": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "oauthlib",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "oauthlib",
+    "registry": "pypi",
+    "sha256": "0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9",
+    "source": "artifacts/capability-foraging/downloads/oauthlib-3.3.1.tar.gz",
+    "url": "",
+    "version": "3.3.1"
+  },
+  "provides": [
+    "openid_connect_core_grant_types_authorization_code_authorization"
+  ],
+  "requires": [
+    "value"
+  ],
+  "schema_version": 1,
+  "slug": "oauthlib",
+  "version": "3.3.1"
+}

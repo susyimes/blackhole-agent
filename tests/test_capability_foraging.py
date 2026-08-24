@@ -1310,6 +1310,54 @@ def test_python_introspection_reflects_quadruple_nested_namespace_class_static(t
     assert result["record"]["python_nested_namespace_class_static"] is False
     assert result["record"]["python_class_static"] is False
     assert result["spec"].callable_name == "codec.text.safe.inner.Codec.encode"
+    assert result["record"].get("python_quintuple_nested_namespace_class_static") is not True
+
+
+def test_python_introspection_reflects_quintuple_nested_namespace_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns" / "codec" / "text" / "safe" / "inner"
+    ns.mkdir(parents=True)
+    (pkg / "forage_ns" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf.py").write_text(
+        "class Codec:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Codec cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def encode(text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.text.safe.inner.leaf.Codec.encode" in names
+    encoded = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] == "codec.text.safe.inner.leaf.Codec.encode"
+    )
+    assert encoded["python_quintuple_nested_namespace_class_static"] is True
+    assert encoded.get("python_quadruple_nested_namespace_class_static") is not True
+    assert encoded.get("python_triple_nested_namespace_class_static") is not True
+    result = infer_acquisition_spec(
+        slug="forage-ns-quintuple-codec",
+        name="forage-ns-quintuple-codec",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.safe.inner.leaf.Codec.encode"
+    assert result["record"]["python_quintuple_nested_namespace_class_static"] is True
+    assert result["record"]["python_quadruple_nested_namespace_class_static"] is False
+    assert result["spec"].callable_name == "codec.text.safe.inner.leaf.Codec.encode"
 
 
 def test_python_introspection_reflects_nested_namespace_class_static(tmp_path: Path) -> None:

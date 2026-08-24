@@ -387,10 +387,13 @@ def _consider_inner(name, target, flags, skip_self=False):
         or flags.get("python_triple_nested_namespace_class_instance")
         or flags.get("python_quadruple_nested_namespace_class_static")
         or flags.get("python_quadruple_nested_namespace_class_instance")
+        or flags.get("python_quintuple_nested_namespace_class_static")
+        or flags.get("python_quintuple_nested_namespace_class_instance")
         or flags.get("python_nested_namespace_function")
         or flags.get("python_deep_nested_namespace_function")
         or flags.get("python_triple_nested_namespace_function")
         or flags.get("python_quadruple_nested_namespace_function")
+        or flags.get("python_quintuple_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
@@ -519,14 +522,15 @@ def _safe_is_module(target):
         return False
 
 
-def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False):
+def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False):
     try:
         static_flags = {
-            "python_class_static": (not nested) and (not deep) and (not triple) and (not quadruple),
-            "python_nested_namespace_class_static": nested and (not deep) and (not triple) and (not quadruple),
-            "python_deep_nested_namespace_class_static": bool(deep) and (not triple) and (not quadruple),
-            "python_triple_nested_namespace_class_static": bool(triple) and (not quadruple),
-            "python_quadruple_nested_namespace_class_static": bool(quadruple),
+            "python_class_static": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple),
+            "python_nested_namespace_class_static": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple),
+            "python_deep_nested_namespace_class_static": bool(deep) and (not triple) and (not quadruple) and (not quintuple),
+            "python_triple_nested_namespace_class_static": bool(triple) and (not quadruple) and (not quintuple),
+            "python_quadruple_nested_namespace_class_static": bool(quadruple) and (not quintuple),
+            "python_quintuple_nested_namespace_class_static": bool(quintuple),
         }
         for attr in sorted(_static_method_names(target)):
             fn = _safe_getattr(target, attr, None)
@@ -535,11 +539,12 @@ def _consider_class(prefix, target, nested=False, deep=False, triple=False, quad
         if instance is None:
             return
         flags = {
-            "python_class_instance": (not nested) and (not deep) and (not triple) and (not quadruple),
-            "python_nested_namespace_class_instance": nested and (not deep) and (not triple) and (not quadruple),
-            "python_deep_nested_namespace_class_instance": bool(deep) and (not triple) and (not quadruple),
-            "python_triple_nested_namespace_class_instance": bool(triple) and (not quadruple),
-            "python_quadruple_nested_namespace_class_instance": bool(quadruple),
+            "python_class_instance": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple),
+            "python_nested_namespace_class_instance": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple),
+            "python_deep_nested_namespace_class_instance": bool(deep) and (not triple) and (not quadruple) and (not quintuple),
+            "python_triple_nested_namespace_class_instance": bool(triple) and (not quadruple) and (not quintuple),
+            "python_quadruple_nested_namespace_class_instance": bool(quadruple) and (not quintuple),
+            "python_quintuple_nested_namespace_class_instance": bool(quintuple),
             "constructor_requires_args": bool(requires_args),
         }
         for attr in sorted(_instance_method_names(target, instance)):
@@ -675,6 +680,7 @@ for prefix, target in sorted(triple_submodules.items()):
                         "python_deep_nested_namespace_function": False,
                         "python_triple_nested_namespace_function": True,
                         "python_quadruple_nested_namespace_function": False,
+                        "python_quintuple_nested_namespace_function": False,
                     },
                 )
             continue
@@ -685,6 +691,7 @@ for prefix, target in sorted(triple_submodules.items()):
     for child_name, child in sorted(_child_modules(target, prefix).items()):
         quadruple_submodules[f"{prefix}.{child_name}"] = child
 
+quintuple_submodules = {}
 for prefix, target in sorted(quadruple_submodules.items()):
     for nested_name in _safe_dir(target):
         if nested_name.startswith("_"):
@@ -700,12 +707,39 @@ for prefix, target in sorted(quadruple_submodules.items()):
                         "python_deep_nested_namespace_function": False,
                         "python_triple_nested_namespace_function": False,
                         "python_quadruple_nested_namespace_function": True,
+                        "python_quintuple_nested_namespace_function": False,
                     },
                 )
             continue
         if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
             _consider_class(
                 f"{prefix}.{nested_name}", nested_target, nested=True, quadruple=True
+            )
+    for child_name, child in sorted(_child_modules(target, prefix).items()):
+        quintuple_submodules[f"{prefix}.{child_name}"] = child
+
+for prefix, target in sorted(quintuple_submodules.items()):
+    for nested_name in _safe_dir(target):
+        if nested_name.startswith("_"):
+            continue
+        nested_target = _safe_getattr(target, nested_name, None)
+        if _safe_is_function(nested_target):
+            if _defined_on(nested_target, prefix):
+                _consider(
+                    f"{prefix}.{nested_name}",
+                    nested_target,
+                    {
+                        "python_nested_namespace_function": False,
+                        "python_deep_nested_namespace_function": False,
+                        "python_triple_nested_namespace_function": False,
+                        "python_quadruple_nested_namespace_function": False,
+                        "python_quintuple_nested_namespace_function": True,
+                    },
+                )
+            continue
+        if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
+            _consider_class(
+                f"{prefix}.{nested_name}", nested_target, nested=True, quintuple=True
             )
 
 print(json.dumps({"ok": True, "candidates": candidates}))
@@ -1528,6 +1562,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("python_deep_nested_namespace_class_static")
         or item.get("python_triple_nested_namespace_class_static")
         or item.get("python_quadruple_nested_namespace_class_static")
+        or item.get("python_quintuple_nested_namespace_class_static")
     )
 
 
@@ -1545,6 +1580,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or bool(item.get("python_deep_nested_namespace_class_instance"))
         or bool(item.get("python_triple_nested_namespace_class_instance"))
         or bool(item.get("python_quadruple_nested_namespace_class_instance"))
+        or bool(item.get("python_quintuple_nested_namespace_class_instance"))
     )
 
 
@@ -1644,6 +1680,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("python_quintuple_nested_namespace_class_static") else 1,
             0 if item.get("python_quadruple_nested_namespace_class_static") else 1,
             0
             if item.get("default_export_class_static")
@@ -1653,6 +1690,7 @@ def infer_acquisition_spec(
             else 1,
             0 if item.get("python_triple_nested_namespace_class_static") else 1,
             0 if item.get("python_nested_namespace_class_static") else 1,
+            0 if item.get("python_quintuple_nested_namespace_class_instance") else 1,
             0 if _is_named_class_instance_candidate(item) else 1,
             0 if item.get("python_class_instance") else 1,
             0 if item.get("python_nested_namespace_class_instance") else 1,
@@ -1757,6 +1795,12 @@ def infer_acquisition_spec(
                 "python_quadruple_nested_namespace_class_instance": bool(
                     candidate.get("python_quadruple_nested_namespace_class_instance")
                 ),
+                "python_quintuple_nested_namespace_class_static": bool(
+                    candidate.get("python_quintuple_nested_namespace_class_static")
+                ),
+                "python_quintuple_nested_namespace_class_instance": bool(
+                    candidate.get("python_quintuple_nested_namespace_class_instance")
+                ),
                 "python_nested_namespace_function": bool(
                     candidate.get("python_nested_namespace_function")
                 ),
@@ -1768,6 +1812,9 @@ def infer_acquisition_spec(
                 ),
                 "python_quadruple_nested_namespace_function": bool(
                     candidate.get("python_quadruple_nested_namespace_function")
+                ),
+                "python_quintuple_nested_namespace_function": bool(
+                    candidate.get("python_quintuple_nested_namespace_function")
                 ),
             }
             break
@@ -1837,6 +1884,12 @@ def infer_acquisition_spec(
         "python_quadruple_nested_namespace_class_instance": bool(
             collected[0].get("python_quadruple_nested_namespace_class_instance")
         ),
+        "python_quintuple_nested_namespace_class_static": bool(
+            collected[0].get("python_quintuple_nested_namespace_class_static")
+        ),
+        "python_quintuple_nested_namespace_class_instance": bool(
+            collected[0].get("python_quintuple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             collected[0].get("python_nested_namespace_function")
         ),
@@ -1848,6 +1901,9 @@ def infer_acquisition_spec(
         ),
         "python_quadruple_nested_namespace_function": bool(
             collected[0].get("python_quadruple_nested_namespace_function")
+        ),
+        "python_quintuple_nested_namespace_function": bool(
+            collected[0].get("python_quintuple_nested_namespace_function")
         ),
     }
     inferred = {
