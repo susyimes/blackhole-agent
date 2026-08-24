@@ -524,6 +524,35 @@
       ],
       "updated_at": "2026-08-22T23:29:12.505463Z"
     },
+    "capability.absorbed-google-ads": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_absorption.py",
+        "capabilities/absorbed-steps.json",
+        "capabilities/absorbed/google-ads/",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "External tool 'google-ads' is now a first-class invocable capability providing ['ads_googleads_v25_services_services_account_budget_proposal_serv']; goals needing it plan and execute through the application plane where they were honestly unplannable before absorption.",
+      "created_at": "2026-08-24T15:52:12.693106Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory"
+      ],
+      "description": "Absorbed from external tool 'google-ads' (pypi-live origin artifacts/capability-foraging/downloads/google_ads-31.4.0.tar.gz): provides ['ads_googleads_v25_services_services_account_budget_proposal_serv'] from ['billing_account']. Vendored under capabilities/absorbed/google-ads/ with a tree digest; the proof re-checks the persisted record digest, the vendored tree digest, and re-executes every frozen case, so a hand-edited record or tampered file fails.",
+      "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+      "id": "capability.absorbed-google-ads",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-24T15:52:27.092368Z",
+      "name": "Absorbed external capability: google-ads",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_absorption import prove_absorbed_capability; r=prove_absorbed_capability('google-ads'); assert r['ok'] and r['record_digest_match'] and r['tree_digest_match'] and r['cases_pass']\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "absorbed",
+        "external"
+      ],
+      "updated_at": "2026-08-24T15:52:27.092368Z"
+    },
     "capability.absorbed-html5lib": {
       "behavior_paths": [
         "src/blackhole_agent/capability_absorption.py",
@@ -3324,6 +3353,64 @@
       ],
       "updated_at": "2026-08-24T10:59:59.205970Z"
     },
+    "capability.application-python-sext-nested-static-growth-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_application_growth.py",
+        "src/blackhole_agent/capability_foraging.py",
+        "src/blackhole_agent/capability_acquisition.py",
+        "src/blackhole_agent/capability_forage_growth.py",
+        "tests/fixtures/forage_python_sextuple_nested_namespace_class_static_catalog.json",
+        "capabilities/absorbed-steps.json",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Application-growth no longer skips sdists whose covering Class.method is a Python nested-namespace class static six submodule levels down that returns a cwd-independent JSON scalar: introspection reflects ads.googleads.v25.services.services.account_budget_proposal_service.AccountBudgetProposalServiceClient.common_billing_account_path rather than a five-level nested Class.method static, and a covering package is foraged so the original task becomes solvable.",
+      "created_at": "2026-08-24T15:37:18.911835Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+        "capability.application-python-quint-nested-static-growth-plane",
+        "capability.application-python-quint-nested-instance-growth-plane",
+        "capability.application-python-quad-nested-static-growth-plane",
+        "capability.application-python-triple-nested-static-growth-plane",
+        "capability.application-python-deep-nested-static-growth-plane",
+        "capability.application-python-deep-nested-function-growth-plane",
+        "capability.application-python-nested-function-growth-plane",
+        "capability.application-python-deep-nested-instance-growth-plane",
+        "capability.application-python-nested-class-instance-growth-plane",
+        "capability.application-python-nested-class-static-growth-plane",
+        "capability.application-python-class-static-growth-plane",
+        "capability.application-python-class-instance-growth-plane",
+        "capability.application-node-named-class-instance-growth-plane",
+        "capability.application-runtime-deps-growth-plane",
+        "capability.application-live-fetch-growth-plane",
+        "capability.application-growth-plane",
+        "capability.application-plane"
+      ],
+      "description": "An unplannable application goal grows itself from a live-fetched sdist whose covering Class.method is a Python nested-namespace class static six submodule levels down: introspection reflects ads.googleads.v25.services.services.account_budget_proposal_service.AccountBudgetProposalServiceClient.common_billing_account_path as a cwd-independent JSON scalar rather than a five-level nested Class.method static, and the covering package is foraged so the original task becomes solvable.",
+      "entry": "blackhole_agent.capability_application_growth:demo_application_python_sextuple_nested_namespace_class_static_growth_plane",
+      "id": "capability.application-python-sext-nested-static-growth-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-24T16:02:45.728300Z",
+      "name": "Application python sextuple nested-namespace class-static growth plane",
+      "proof_command": "uv run python -m blackhole_agent.capability_application_growth python-sextuple-nested-class-static-proof",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "foraging",
+        "plane",
+        "application",
+        "growth",
+        "python",
+        "nested-namespace",
+        "class-static",
+        "sextuple-nested"
+      ],
+      "updated_at": "2026-08-24T16:02:45.728300Z"
+    },
     "capability.application-python-triple-nested-static-growth-plane": {
       "behavior_paths": [
         "src/blackhole_agent/capability_application_growth.py",
@@ -5980,5 +6067,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-08-24T13:14:48.339859Z"
+  "updated_at": "2026-08-24T16:02:45.731757Z"
 }

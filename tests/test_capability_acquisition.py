@@ -94,10 +94,43 @@ def test_stage_tarball_source(tmp_path: Path) -> None:
 
 
 def test_stage_rejects_unknown_source(tmp_path: Path) -> None:
-    bogus = tmp_path / "tool.zip"
+    bogus = tmp_path / "tool.rar"
     bogus.write_bytes(b"not a tar")
     with pytest.raises(ValueError, match="unsupported acquisition source"):
         stage_acquisition_source(bogus, tmp_path / "staged")
+    bogus_zip = tmp_path / "tool.zip"
+    bogus_zip.write_bytes(b"not a zip")
+    with pytest.raises(ValueError, match="unsupported acquisition source"):
+        stage_acquisition_source(bogus_zip, tmp_path / "staged")
+
+
+def test_stage_skips_vendored_tests_trees(tmp_path: Path) -> None:
+    import tarfile
+
+    payload = tmp_path / "payload"
+    (payload / "demo").mkdir(parents=True)
+    (payload / "demo" / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (payload / "tests").mkdir()
+    (payload / "tests" / "test_demo.py").write_text("assert True\n", encoding="utf-8")
+    archive = tmp_path / "demo-1.0.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        tar.add(payload / "demo", arcname="demo-1.0/demo")
+        tar.add(payload / "tests", arcname="demo-1.0/tests")
+    staged = tmp_path / "staged"
+    stage_acquisition_source(archive, staged)
+    assert (staged / "demo-1.0" / "demo" / "__init__.py").is_file()
+    assert not (staged / "demo-1.0" / "tests").exists()
+
+
+def test_stage_wheel_or_zip_source(tmp_path: Path) -> None:
+    import zipfile
+
+    wheel = tmp_path / "demo-1.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("demo/__init__.py", "VALUE = 1\n")
+    staged = tmp_path / "staged"
+    stage_acquisition_source(wheel, staged)
+    assert (staged / "demo" / "__init__.py").is_file()
 
 
 def test_adapter_source_is_generic_and_deterministic() -> None:

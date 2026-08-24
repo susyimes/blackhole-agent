@@ -11,6 +11,7 @@ from blackhole_agent.capability_foraging import (
     FIXTURE_NODE_EMPTY_PACKAGE,
     FIXTURE_NODE_FORAGE_PACKAGE,
     STEWARDSHIP_ROOT,
+    _wheel_compatible,
     builtin_foraging_plane_proof,
     close_runtime_dependencies,
     detect_import_root,
@@ -36,6 +37,17 @@ def test_probe_domains_are_fixed_and_split() -> None:
         assert not set(domain["selection"]) & set(domain["held_out"])
     assert probe_domains_for("int")[0]["domain"] == "int"
     assert probe_domains_for("dict") == ()
+
+
+def test_wheel_compatible_accepts_abi3_and_pure_python() -> None:
+    import sysconfig
+
+    plat = sysconfig.get_platform().replace("-", "_").replace(".", "_")
+    assert _wheel_compatible("demo-1.0-py3-none-any.whl")
+    assert _wheel_compatible(f"cryptography-50.0.0-cp39-abi3-{plat}.whl")
+    assert _wheel_compatible(f"cryptography-50.0.0-cp311-abi3-{plat}.whl")
+    assert not _wheel_compatible("cryptography-50.0.0-cp314-cp314t-otheros_99.whl")
+    assert not _wheel_compatible("cryptography-50.0.0.tar.gz")
 
 
 def test_detect_import_root_fixture(tmp_path: Path) -> None:
@@ -1358,6 +1370,184 @@ def test_python_introspection_reflects_quintuple_nested_namespace_class_static(t
     assert result["record"]["python_quintuple_nested_namespace_class_static"] is True
     assert result["record"]["python_quadruple_nested_namespace_class_static"] is False
     assert result["spec"].callable_name == "codec.text.safe.inner.leaf.Codec.encode"
+    assert result["record"].get("python_sextuple_nested_namespace_class_static") is not True
+
+
+def test_import_root_detects_pep420_namespace_packages(tmp_path: Path) -> None:
+    staged = tmp_path / "staged" / "google_ads-9.9.9"
+    ns = staged / "google" / "ads" / "googleads"
+    ns.mkdir(parents=True)
+    (ns / "__init__.py").write_text("", encoding="utf-8")
+    path_root, import_name = detect_import_root(staged.parent, "google-ads")
+    assert import_name == "google"
+    assert Path(path_root).name == "google_ads-9.9.9"
+
+
+def test_import_root_prefers_top_level_package_over_submodules(tmp_path: Path) -> None:
+    staged = tmp_path / "wheel"
+    grpc = staged / "grpc"
+    grpc.mkdir(parents=True)
+    (grpc / "__init__.py").write_text("", encoding="utf-8")
+    (grpc / "aio").mkdir()
+    (grpc / "aio" / "__init__.py").write_text("", encoding="utf-8")
+    (staged / "grpcio-1.0.dist-info").mkdir()
+    path_root, import_name = detect_import_root(staged, "grpcio")
+    assert import_name == "grpc"
+    assert path_root == "."
+
+
+def test_import_root_detects_namespace_with_only_modules(tmp_path: Path) -> None:
+    staged = tmp_path / "gap" / "googleapis_common_protos-1.0"
+    api = staged / "google" / "api"
+    api.mkdir(parents=True)
+    (api / "http_pb2.py").write_text("DESCRIPTOR = 1\n", encoding="utf-8")
+    path_root, import_name = detect_import_root(staged.parent, "googleapis-common-protos")
+    assert import_name == "google"
+    assert Path(path_root).name == "googleapis_common_protos-1.0"
+
+
+def test_python_introspection_reflects_sextuple_nested_namespace_class_static(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf"
+    ns.mkdir(parents=True)
+    (pkg / "forage_ns" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf" / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf" / "core.py").write_text(
+        "class Codec:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Codec cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def encode(text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.text.safe.inner.leaf.core.Codec.encode" in names
+    encoded = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] == "codec.text.safe.inner.leaf.core.Codec.encode"
+    )
+    assert encoded["python_sextuple_nested_namespace_class_static"] is True
+    assert encoded.get("python_quintuple_nested_namespace_class_static") is not True
+    assert encoded.get("python_quadruple_nested_namespace_class_static") is not True
+    result = infer_acquisition_spec(
+        slug="forage-ns-sextuple-codec",
+        name="forage-ns-sextuple-codec",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.safe.inner.leaf.core.Codec.encode"
+    assert result["record"]["python_sextuple_nested_namespace_class_static"] is True
+    assert result["record"]["python_quintuple_nested_namespace_class_static"] is False
+    assert result["spec"].callable_name == "codec.text.safe.inner.leaf.core.Codec.encode"
+
+
+def test_python_introspection_discovers_pep420_sextuple_and_skips_types(
+    tmp_path: Path,
+) -> None:
+    pkg = tmp_path / "pkg"
+    leaf = pkg / "google" / "ads" / "googleads" / "v9" / "services" / "core"
+    decoy = pkg / "google" / "ads" / "googleads" / "v8" / "services" / "core"
+    types_leaf = pkg / "google" / "ads" / "googleads" / "v9" / "types" / "core"
+    for folder in (leaf, decoy, types_leaf):
+        folder.mkdir(parents=True)
+    (pkg / "google" / "ads" / "googleads" / "__init__.py").write_text("", encoding="utf-8")
+    for init in (
+        leaf / "__init__.py",
+        decoy / "__init__.py",
+        types_leaf / "__init__.py",
+    ):
+        init.write_text("", encoding="utf-8")
+    leaf_source = (
+        "class Codec:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Codec cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def encode(text: str) -> str:\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n"
+    )
+    (leaf / "client.py").write_text(leaf_source, encoding="utf-8")
+    (decoy / "client.py").write_text(
+        leaf_source.replace("encode", "legacy_encode").replace("text.upper()", "'LEGACY'"),
+        encoding="utf-8",
+    )
+    (types_leaf / "client.py").write_text(
+        "class Message:\n"
+        "    @staticmethod\n"
+        "    def dump(text: str) -> str:\n"
+        "        return 'typed-' + text\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "google", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "ads.googleads.v9.services.core.client.Codec.encode" in names
+    assert "ads.googleads.v8.services.core.client.Codec.legacy_encode" not in names
+    assert not any("types" in name.split(".") for name in names)
+    encoded = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] == "ads.googleads.v9.services.core.client.Codec.encode"
+    )
+    assert encoded["python_sextuple_nested_namespace_class_static"] is True
+    assert encoded.get("returns") in {"str", "str"}
+
+
+def test_python_sextuple_prefers_annotated_scalar_return_over_mapping(
+    tmp_path: Path,
+) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf"
+    ns.mkdir(parents=True)
+    for rel in (
+        "forage_ns",
+        "forage_ns/codec",
+        "forage_ns/codec/text",
+        "forage_ns/codec/text/safe",
+        "forage_ns/codec/text/safe/inner",
+        "forage_ns/codec/text/safe/inner/leaf",
+    ):
+        (pkg / rel / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf" / "core.py").write_text(
+        "class Client:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise TypeError('Client cannot be constructed')\n"
+        "    @staticmethod\n"
+        "    def aaa_parse(path: str) -> dict:\n"
+        "        return {'path': path}\n"
+        "    @staticmethod\n"
+        "    def zzz_project_path(project: str) -> str:\n"
+        "        if not isinstance(project, str):\n"
+        "            raise TypeError('project expects a string')\n"
+        "        return 'projects/' + project\n",
+        encoding="utf-8",
+    )
+    result = infer_acquisition_spec(
+        slug="forage-ns-sextuple-path",
+        name="forage-ns-sextuple-path",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.safe.inner.leaf.core.Client.zzz_project_path"
+    assert result["record"]["python_sextuple_nested_namespace_class_static"] is True
+    assert result["spec"].callable_name == "codec.text.safe.inner.leaf.core.Client.zzz_project_path"
 
 
 def test_python_quintuple_nested_namespace_class_static_prefers_cwd_independent_scalar(
@@ -1692,6 +1882,40 @@ def test_python_quadruple_nested_namespace_class_static_sdist_forages_django(tmp
     assert result["spec"].provides == "contrib_humanize_templatetags_humanize_natural_time_formatter_st"
     assert result["spec"].callable_name == (
         "contrib.humanize.templatetags.humanize.NaturalTimeFormatter.string_for"
+    )
+
+
+def test_python_sextuple_nested_namespace_class_static_sdist_forages_google_ads(tmp_path: Path) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {"name": "google-ads", "slug": "google-ads", "registry": "pypi", "version": "31.4.0"}
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="google-ads",
+        name="google-ads",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="google-ads",
+        runtime="python",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == (
+        "ads.googleads.v25.services.services.account_budget_proposal_service."
+        "AccountBudgetProposalServiceClient.common_billing_account_path"
+    )
+    assert result["record"]["python_sextuple_nested_namespace_class_static"] is True
+    assert result["record"]["python_quintuple_nested_namespace_class_static"] is False
+    assert result["record"]["python_quadruple_nested_namespace_class_static"] is False
+    assert result["record"]["python_class_static"] is False
+    assert result["spec"].requires == ("billing_account",)
+    assert result["spec"].provides == "ads_googleads_v25_services_services_account_budget_proposal_serv"
+    assert result["spec"].callable_name == (
+        "ads.googleads.v25.services.services.account_budget_proposal_service."
+        "AccountBudgetProposalServiceClient.common_billing_account_path"
     )
 
 

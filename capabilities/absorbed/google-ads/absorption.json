@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/Hello World"
+      },
+      "input": {
+        "billing_account": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/blackhole unbound"
+      },
+      "input": {
+        "billing_account": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/MiXeD CaSe"
+      },
+      "input": {
+        "billing_account": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/"
+      },
+      "input": {
+        "billing_account": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "google-ads",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "google-ads",
+    "registry": "pypi",
+    "sha256": "038e502608afc1e88888e2e4ae367bc7a7878b5c3206910753c6a089f0b463cc",
+    "source": "artifacts/capability-foraging/downloads/google_ads-31.4.0.tar.gz",
+    "url": "",
+    "version": "31.4.0"
+  },
+  "provides": [
+    "ads_googleads_v25_services_services_account_budget_proposal_serv"
+  ],
+  "requires": [
+    "billing_account"
+  ],
+  "schema_version": 1,
+  "slug": "google-ads",
+  "version": "31.4.0"
+}

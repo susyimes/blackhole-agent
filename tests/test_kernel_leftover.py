@@ -348,6 +348,27 @@ def test_python_triple_nested_namespace_class_static_leftover_marks_growth_plane
     ) == ("capability.application-python-deep-nested-static-growth-plane",)
 
 
+def test_python_sextuple_nested_namespace_class_static_leftover_marks_growth_plane():
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class statics "
+        "six submodule levels down so sdists whose covering API is a six-level "
+        "nested Class.method static rather than a five-level nested Class.method "
+        "static can be foraged the same way."
+    )
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-sext-nested-static-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "six-level nested Class.method static" in leftover_next_step(prefixed)
+    assert leftover_marker_ids(
+        "Optional later work is reflecting Python nested-namespace class statics "
+        "five submodule levels down so sdists whose covering Class.method returns a "
+        "cwd-independent JSON scalar, rather than an inherited path validator, can "
+        "be foraged the same way."
+    ) == ("capability.application-python-quint-nested-static-growth-plane",)
+
+
 def test_python_quintuple_nested_namespace_class_static_leftover_marks_growth_plane():
     leftover = (
         "Optional later work is reflecting Python nested-namespace class statics "

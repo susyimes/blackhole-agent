@@ -103,6 +103,25 @@ _TREE_SKIP_DIRS = {
 # ``*.dist-info``) trees that ``.gitignore`` excludes from version control, so a
 # digest that covers them can never be reproduced from a clean checkout.
 _TREE_SKIP_SUFFIXES = (".egg-info", ".dist-info")
+# Sdist ``tests/`` trees are not needed to invoke the covering callable and
+# overflow Windows MAX_PATH when extra bundle leaves re-vendor a deep package.
+ABSORB_IGNORE_PATTERNS = (
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    "*.pyc",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".tox",
+    ".nox",
+    ".venv",
+    "node_modules",
+    "*.egg-info",
+    "*.dist-info",
+    "tests",
+)
 CASE_TIMEOUT_SECONDS = 30
 
 
@@ -653,22 +672,7 @@ def absorb_external_capability(
         shutil.copytree(
             source_path,
             vendored_dir,
-            ignore=shutil.ignore_patterns(
-                ".git",
-                ".hg",
-                ".svn",
-                "__pycache__",
-                "*.pyc",
-                ".pytest_cache",
-                ".ruff_cache",
-                ".mypy_cache",
-                ".tox",
-                ".nox",
-                ".venv",
-                "node_modules",
-                "*.egg-info",
-                "*.dist-info",
-            ),
+            ignore=shutil.ignore_patterns(*ABSORB_IGNORE_PATTERNS),
         )
         vendored = run_absorption_cases(vendored_dir, manifest)
         if not vendored["ok"]:

@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-google-ads",
+  "generated_at": "2026-08-24T15:54:01.672491Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-google-ads"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "google-ads",
+    "registry": "pypi",
+    "sha256": "038e502608afc1e88888e2e4ae367bc7a7878b5c3206910753c6a089f0b463cc",
+    "source": "artifacts/capability-foraging/downloads/google_ads-31.4.0.tar.gz",
+    "url": "",
+    "version": "31.4.0"
+  },
+  "record_digest": "5a93081c8ec21f9e6fdc9ad758d9d1116181c6541982ce16a80cf27021e4f4fd",
+  "report_digest": "1108d6dbe4492c2099d0f81dcfa35b7db2fdfea3bab05be6c93f8b415fd7ec99",
+  "schema_version": 1,
+  "slug": "google-ads",
+  "task": {
+    "goal": [
+      "ads_googleads_v25_services_services_account_budget_proposal_serv"
+    ],
+    "id": "absorbed-google-ads",
+    "initial_state": {
+      "billing_account": "Hello World"
+    },
+    "oracle": {
+      "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/Hello World"
+    }
+  },
+  "vendored_tree_digest": "32363b7e57dfa6082a5553276c00a71dbc9c66e6c4d5f3941a4f372d93db8bf6",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

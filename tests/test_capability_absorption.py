@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from blackhole_agent.capability_absorption import (
+    ABSORB_IGNORE_PATTERNS,
     ABSORBED_ROOT,
     FIXTURE_TOOL,
     PERSIST_PATH,
@@ -286,6 +287,20 @@ def test_tree_digest_skips_packaging_metadata(tmp_path: Path) -> None:
     dist_info.mkdir()
     (dist_info / "METADATA").write_text("Metadata-Version: 2.1\n", encoding="utf-8")
     assert tree_digest(packaged) == tree_digest(bare)
+
+
+def test_absorb_ignore_patterns_skip_vendored_test_trees(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    (source / "pkg").mkdir(parents=True)
+    (source / "pkg" / "tool.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+    deep_test = source / "tests" / "unit" / "very" / "deep" / "path"
+    deep_test.mkdir(parents=True)
+    (deep_test / "test_tool.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+    dest = tmp_path / "vendored"
+    shutil.copytree(source, dest, ignore=shutil.ignore_patterns(*ABSORB_IGNORE_PATTERNS))
+    assert (dest / "pkg" / "tool.py").is_file()
+    assert not (dest / "tests").exists()
+    assert "tests" in ABSORB_IGNORE_PATTERNS
 
 
 def _scratch_drifted_record(tmp_path: Path) -> tuple[Path, Path]:

@@ -47,6 +47,10 @@ inputs. This module removes that last human input — **foraging**:
   covering ``Class.method`` that returns a cwd-independent JSON scalar,
   including a nullary class static, rather than an inherited path
   validator such as ``CPython.validate_dest``), Python nested-namespace class
+  statics six submodule levels down such as
+  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``
+  (class statics that are not a five-level
+  ``package.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``), Python nested-namespace class
   instance methods such as ``package.submodule.Class(opts).method``
   (constructed nested classes that are not a top-level
   ``Class(opts).method``), and Python nested-namespace class
@@ -105,6 +109,7 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import urllib.request
 from pathlib import Path
@@ -124,6 +129,7 @@ from blackhole_agent.capability_acquisition import (
     _run_probe,
     acquire_capability,
     adapter_name_for,
+    os_fs_path,
     stage_acquisition_source,
     synthesize_adapter_source,
 )
@@ -190,6 +196,30 @@ _SKIP_REQUIRE_DIRS = frozenset(
     }
 )
 _SCALAR_ANNOTATIONS = frozenset({"", "str", "int", "float", "bool"})
+_NON_SCALAR_RETURN_ROOTS = frozenset(
+    {
+        "dict",
+        "list",
+        "tuple",
+        "set",
+        "frozenset",
+        "mapping",
+        "mutablemapping",
+        "sequence",
+        "iterable",
+        "bytes",
+        "bytearray",
+        "memoryview",
+        "object",
+        "type",
+        "callable",
+        "deque",
+        "defaultdict",
+        "ordereddict",
+        "counter",
+        "chainmap",
+    }
+)
 _DEFAULT_LIVE_TARGETS = ("inflection",)
 _INFER_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
 
@@ -253,12 +283,36 @@ def probe_domains_for(annotation: str) -> tuple[dict[str, Any], ...]:
 # ---------------------------------------------------------------------------
 
 
+def _is_importable_dir(entry: Path, *, depth: int = 0) -> bool:
+    """True for a regular package or a PEP 420 namespace that contains one."""
+
+    if not entry.is_dir() or entry.name.startswith((".", "_")):
+        return False
+    if not entry.name.isidentifier():
+        return False
+    if entry.name in _SKIP_MODULE_NAMES or entry.name in _SKIP_REQUIRE_DIRS:
+        return False
+    if (entry / "__init__.py").is_file():
+        return True
+    if depth >= 3:
+        return False
+    try:
+        children = list(entry.iterdir())
+    except OSError:
+        return False
+    if any(
+        child.is_file()
+        and child.suffix == ".py"
+        and child.stem.isidentifier()
+        and not child.name.startswith("_")
+        for child in children
+    ):
+        return True
+    return any(_is_importable_dir(child, depth=depth + 1) for child in children if child.is_dir())
+
+
 def _importable_names(root: Path) -> set[str]:
-    names = {
-        entry.name
-        for entry in root.iterdir()
-        if entry.is_dir() and (entry / "__init__.py").is_file()
-    }
+    names = {entry.name for entry in root.iterdir() if _is_importable_dir(entry)}
     names |= {
         entry.stem
         for entry in root.glob("*.py")
@@ -272,6 +326,12 @@ def _candidate_roots(staged_dir: Path) -> list[Path]:
     for child in sorted(
         entry for entry in staged_dir.iterdir() if entry.is_dir() and not entry.name.startswith(".")
     ):
+        if child.name.endswith((".dist-info", ".egg-info", ".data")):
+            continue
+        # Importable packages at the staging root are the import root. Scanning
+        # their internals leaks submodule names (grpc.aio) into uniqueness.
+        if _is_importable_dir(child):
+            continue
         roots.append(child)
         src = child / "src"
         if src.is_dir():
@@ -313,7 +373,9 @@ _INTROSPECT_SCRIPT = '''"""Sandboxed module reflector for capability foraging.""
 import importlib
 import inspect
 import json
+import os
 import pkgutil
+import re
 import sys
 
 root, import_name = sys.argv[1], sys.argv[2]
@@ -381,7 +443,11 @@ def _params_of(target, skip_self=False):
                 "annotation": annotation,
             }
         )
-    return params
+    returns = ""
+    if signature.return_annotation is not EMPTY:
+        raw = signature.return_annotation
+        returns = getattr(raw, "__name__", str(raw)).strip("'\\"")
+    return params, returns
 
 
 def _consider(name, target, flags, skip_self=False):
@@ -418,20 +484,29 @@ def _consider_inner(name, target, flags, skip_self=False):
         or flags.get("python_quadruple_nested_namespace_class_instance")
         or flags.get("python_quintuple_nested_namespace_class_static")
         or flags.get("python_quintuple_nested_namespace_class_instance")
+        or flags.get("python_sextuple_nested_namespace_class_static")
+        or flags.get("python_sextuple_nested_namespace_class_instance")
         or flags.get("python_nested_namespace_function")
         or flags.get("python_deep_nested_namespace_function")
         or flags.get("python_triple_nested_namespace_function")
         or flags.get("python_quadruple_nested_namespace_function")
         or flags.get("python_quintuple_nested_namespace_function")
+        or flags.get("python_sextuple_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
         return
-    params = _params_of(target, skip_self=skip_self)
-    if params is None:
+    packed = _params_of(target, skip_self=skip_self)
+    if packed is None:
         return
+    params, returns = packed
     doc = inspect.getdoc(target) or ""
-    item = {"name": name, "params": params, "doc": doc.splitlines()[0] if doc else ""}
+    item = {
+        "name": name,
+        "params": params,
+        "returns": returns,
+        "doc": doc.splitlines()[0] if doc else "",
+    }
     item.update(flags)
     seen.add(name)
     candidates.append(item)
@@ -504,7 +579,7 @@ def _module_ok(target):
     return owner == import_name or owner.startswith(import_name + ".")
 
 
-def _defined_on(target, prefix):
+def _defined_on(target, prefix, allow_nested_owner=False):
     try:
         owner = getattr(target, "__module__", "") or ""
         func = getattr(target, "__func__", None)
@@ -513,7 +588,9 @@ def _defined_on(target, prefix):
     except Exception:
         return False
     expected = import_name if not prefix else import_name + "." + prefix
-    return (not owner) or owner == expected
+    if (not owner) or owner == expected:
+        return True
+    return bool(allow_nested_owner) and owner.startswith(expected + ".")
 
 
 def _safe_dir(target):
@@ -551,15 +628,22 @@ def _safe_is_module(target):
         return False
 
 
-def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False):
+def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False, sextuple=False):
+    try:
+        class_name = getattr(target, "__name__", "") or ""
+    except Exception:
+        class_name = ""
+    if class_name.endswith(("AsyncClient", "AsyncIOClient")):
+        return
     try:
         static_flags = {
-            "python_class_static": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple),
-            "python_nested_namespace_class_static": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple),
-            "python_deep_nested_namespace_class_static": bool(deep) and (not triple) and (not quadruple) and (not quintuple),
-            "python_triple_nested_namespace_class_static": bool(triple) and (not quadruple) and (not quintuple),
-            "python_quadruple_nested_namespace_class_static": bool(quadruple) and (not quintuple),
-            "python_quintuple_nested_namespace_class_static": bool(quintuple),
+            "python_class_static": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_nested_namespace_class_static": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_deep_nested_namespace_class_static": bool(deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_triple_nested_namespace_class_static": bool(triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_quadruple_nested_namespace_class_static": bool(quadruple) and (not quintuple) and (not sextuple),
+            "python_quintuple_nested_namespace_class_static": bool(quintuple) and (not sextuple),
+            "python_sextuple_nested_namespace_class_static": bool(sextuple),
         }
         for attr in sorted(_static_method_names(target)):
             fn = _safe_getattr(target, attr, None)
@@ -568,12 +652,13 @@ def _consider_class(prefix, target, nested=False, deep=False, triple=False, quad
         if instance is None:
             return
         flags = {
-            "python_class_instance": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple),
-            "python_nested_namespace_class_instance": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple),
-            "python_deep_nested_namespace_class_instance": bool(deep) and (not triple) and (not quadruple) and (not quintuple),
-            "python_triple_nested_namespace_class_instance": bool(triple) and (not quadruple) and (not quintuple),
-            "python_quadruple_nested_namespace_class_instance": bool(quadruple) and (not quintuple),
-            "python_quintuple_nested_namespace_class_instance": bool(quintuple),
+            "python_class_instance": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_nested_namespace_class_instance": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_deep_nested_namespace_class_instance": bool(deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_triple_nested_namespace_class_instance": bool(triple) and (not quadruple) and (not quintuple) and (not sextuple),
+            "python_quadruple_nested_namespace_class_instance": bool(quadruple) and (not quintuple) and (not sextuple),
+            "python_quintuple_nested_namespace_class_instance": bool(quintuple) and (not sextuple),
+            "python_sextuple_nested_namespace_class_instance": bool(sextuple),
             "constructor_requires_args": bool(requires_args),
         }
         for attr in sorted(_instance_method_names(target, instance)):
@@ -583,7 +668,54 @@ def _consider_class(prefix, target, nested=False, deep=False, triple=False, quad
         return
 
 
-_SKIP_SHORT = {"test", "tests", "testing", "conftest"}
+_SKIP_SHORT = {
+    "test",
+    "tests",
+    "testing",
+    "conftest",
+    "transports",
+    "pagers",
+    "async_client",
+    "types",
+}
+_VERSIONED_CHILD = re.compile(r"^v[0-9][0-9_]*$")
+
+
+def _owned_paths(parent):
+    owned = []
+    try:
+        paths = list(getattr(parent, "__path__", []) or [])
+    except Exception:
+        return owned
+    try:
+        root_real = os.path.realpath(root)
+    except OSError:
+        return owned
+    for base in paths:
+        try:
+            real = os.path.realpath(base)
+            if os.path.commonpath([root_real, real]) == root_real:
+                owned.append(base)
+        except Exception:
+            continue
+    return owned
+
+
+def _keep_latest_versioned(names):
+    versioned = [name for name in names if _VERSIONED_CHILD.match(name)]
+    if len(versioned) < 2:
+        return names
+    latest = max(versioned, key=lambda name: tuple(int(part) for part in name[1:].split("_") if part.isdigit()))
+    drop = set(versioned) - {latest}
+    return [name for name in names if name not in drop]
+
+
+def _limit_named_fanout(names, suffix="_service", keep=8):
+    matching = [name for name in names if name.endswith(suffix)]
+    if len(matching) <= keep:
+        return names
+    keep_set = set(matching[:keep])
+    return [name for name in names if name not in matching or name in keep_set]
 
 
 def _child_modules(parent, prefix):
@@ -594,14 +726,11 @@ def _child_modules(parent, prefix):
         target = _safe_getattr(parent, name, None)
         if _safe_is_module(target) and _module_ok(target):
             found[name] = target
-    try:
-        has_path = hasattr(parent, "__path__")
-    except Exception:
-        has_path = False
-    if has_path:
-        parent_import = import_name if not prefix else import_name + "." + prefix
+    parent_import = import_name if not prefix else import_name + "." + prefix
+    owned = _owned_paths(parent)
+    if owned:
         try:
-            children = list(pkgutil.iter_modules(parent.__path__, parent_import + "."))
+            children = list(pkgutil.iter_modules(owned, parent_import + "."))
         except Exception:
             children = []
         for _finder, modname, _ispkg in children:
@@ -612,7 +741,28 @@ def _child_modules(parent, prefix):
                 found[short] = importlib.import_module(modname)
             except Exception:
                 continue
-    return found
+        for base in owned:
+            try:
+                entries = os.listdir(base)
+            except OSError:
+                continue
+            for short in entries:
+                if (
+                    short.startswith("_")
+                    or short in found
+                    or short in _SKIP_SHORT
+                    or not short.isidentifier()
+                ):
+                    continue
+                child_path = os.path.join(base, short)
+                if not os.path.isdir(child_path):
+                    continue
+                try:
+                    found[short] = importlib.import_module(parent_import + "." + short)
+                except Exception:
+                    continue
+    kept = _limit_named_fanout(_keep_latest_versioned(sorted(found)))
+    return {name: found[name] for name in kept}
 
 
 submodules = {}
@@ -636,7 +786,7 @@ except Exception:
     module_has_path = False
 if module_has_path:
     try:
-        top_children = list(pkgutil.iter_modules(module.__path__, import_name + "."))
+        top_children = list(pkgutil.iter_modules(_owned_paths(module) or module.__path__, import_name + "."))
     except Exception:
         top_children = []
     for _finder, modname, _ispkg in top_children:
@@ -647,6 +797,9 @@ if module_has_path:
             submodules[short] = importlib.import_module(modname)
         except Exception:
             continue
+for name, target in _child_modules(module, "").items():
+    if name not in submodules:
+        submodules[name] = target
 
 deep_submodules = {}
 for name, target in sorted(submodules.items()):
@@ -710,6 +863,7 @@ for prefix, target in sorted(triple_submodules.items()):
                         "python_triple_nested_namespace_function": True,
                         "python_quadruple_nested_namespace_function": False,
                         "python_quintuple_nested_namespace_function": False,
+                        "python_sextuple_nested_namespace_function": False,
                     },
                 )
             continue
@@ -737,6 +891,7 @@ for prefix, target in sorted(quadruple_submodules.items()):
                         "python_triple_nested_namespace_function": False,
                         "python_quadruple_nested_namespace_function": True,
                         "python_quintuple_nested_namespace_function": False,
+                        "python_sextuple_nested_namespace_function": False,
                     },
                 )
             continue
@@ -747,6 +902,7 @@ for prefix, target in sorted(quadruple_submodules.items()):
     for child_name, child in sorted(_child_modules(target, prefix).items()):
         quintuple_submodules[f"{prefix}.{child_name}"] = child
 
+sextuple_submodules = {}
 for prefix, target in sorted(quintuple_submodules.items()):
     for nested_name in _safe_dir(target):
         if nested_name.startswith("_"):
@@ -763,12 +919,42 @@ for prefix, target in sorted(quintuple_submodules.items()):
                         "python_triple_nested_namespace_function": False,
                         "python_quadruple_nested_namespace_function": False,
                         "python_quintuple_nested_namespace_function": True,
+                        "python_sextuple_nested_namespace_function": False,
                     },
                 )
             continue
         if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
             _consider_class(
                 f"{prefix}.{nested_name}", nested_target, nested=True, quintuple=True
+            )
+    for child_name, child in sorted(_child_modules(target, prefix).items()):
+        sextuple_submodules[f"{prefix}.{child_name}"] = child
+
+for prefix, target in sorted(sextuple_submodules.items()):
+    for nested_name in _safe_dir(target):
+        if nested_name.startswith("_"):
+            continue
+        nested_target = _safe_getattr(target, nested_name, None)
+        if _safe_is_function(nested_target):
+            if _defined_on(nested_target, prefix):
+                _consider(
+                    f"{prefix}.{nested_name}",
+                    nested_target,
+                    {
+                        "python_nested_namespace_function": False,
+                        "python_deep_nested_namespace_function": False,
+                        "python_triple_nested_namespace_function": False,
+                        "python_quadruple_nested_namespace_function": False,
+                        "python_quintuple_nested_namespace_function": False,
+                        "python_sextuple_nested_namespace_function": True,
+                    },
+                )
+            continue
+        if _safe_is_class(nested_target) and _defined_on(
+            nested_target, prefix, allow_nested_owner=True
+        ):
+            _consider_class(
+                f"{prefix}.{nested_name}", nested_target, nested=True, sextuple=True
             )
 
 print(json.dumps({"ok": True, "candidates": candidates}))
@@ -779,7 +965,7 @@ def introspect_module(
     staged_dir: Path,
     import_name: str,
     path_root: str,
-    timeout: int = 180,
+    timeout: int = 300,
     extra_paths: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Reflect one module's public functions in an isolated subprocess."""
@@ -1162,9 +1348,33 @@ def introspect_node_module(
 # ---------------------------------------------------------------------------
 
 
+def _return_root(annotation: str) -> str:
+    raw = str(annotation or "").strip().strip("'\"")
+    if not raw:
+        return ""
+    raw = raw.replace("typing.", "").replace("collections.abc.", "")
+    base = re.split(r"[\[,]", raw, maxsplit=1)[0].strip()
+    return base.rsplit(".", 1)[-1].lower()
+
+
+def _json_scalar_return(candidate: Mapping[str, Any]) -> bool | None:
+    """True when annotated as a JSON scalar, False when a container, else unknown."""
+
+    root = _return_root(str(candidate.get("returns") or ""))
+    if not root:
+        return None
+    if root in {"str", "int", "float", "bool"}:
+        return True
+    if root in _NON_SCALAR_RETURN_ROOTS:
+        return False
+    return None
+
+
 def _required_params(candidate: Mapping[str, Any]) -> list[dict[str, Any]] | None:
     """Return the required positional params, or ``None`` when unfit."""
 
+    if _json_scalar_return(candidate) is False:
+        return None
     params = candidate.get("params") or []
     required = [
         param
@@ -1390,17 +1600,68 @@ def parse_node_runtime_requires(staged_dir: Path) -> list[str]:
     return names
 
 
+def _archive_matches_project(path: Path, prefix: str) -> bool:
+    """True when ``prefix-1.2.3.ext`` is that project, not ``prefix-other-1.2``."""
+
+    name = path.name
+    if not name.lower().startswith(prefix.lower() + "-"):
+        return False
+    rest = name[len(prefix) + 1 :]
+    return bool(rest) and rest[0].isdigit()
+
+
 def _cached_pypi_archive(name: str, dest: Path) -> Path | None:
     prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
     matches: list[Path] = []
     for prefix in prefixes:
         matches.extend(dest.glob(f"{prefix}-*.tar.gz"))
         matches.extend(dest.glob(f"{prefix}-*.zip"))
-    files = [path for path in matches if path.is_file()]
+    files = [path for path in matches if path.is_file() and any(_archive_matches_project(path, prefix) for prefix in prefixes)]
     if not files:
         return None
     files.sort(key=lambda path: path.name)
     return files[-1]
+
+
+def _cached_pypi_wheel(name: str, dest: Path) -> Path | None:
+    prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
+    matches: list[Path] = []
+    for prefix in prefixes:
+        matches.extend(dest.glob(f"{prefix}-*.whl"))
+    files = [
+        path
+        for path in matches
+        if path.is_file()
+        and _wheel_compatible(path.name)
+        and any(_archive_matches_project(path, prefix) for prefix in prefixes)
+    ]
+    if not files:
+        return None
+    files.sort(key=lambda path: path.name)
+    return files[-1]
+
+
+def _wheel_compatible(filename: str) -> bool:
+    """True when a wheel filename can import on this interpreter."""
+
+    name = filename.lower()
+    if not name.endswith(".whl"):
+        return False
+    impl = f"cp{sys.version_info.major}{sys.version_info.minor}"
+    plat = sysconfig.get_platform().replace("-", "_").replace(".", "_").lower()
+    if "py3-none-any" in name or "py2.py3-none-any" in name:
+        return True
+    if plat not in name.replace("-", "_"):
+        return False
+    if impl in name:
+        return True
+    if "abi3" not in name:
+        return False
+    match = re.search(r"cp(\d)(\d+)", name)
+    if not match:
+        return False
+    minimum = (int(match.group(1)), int(match.group(2)))
+    return (sys.version_info.major, sys.version_info.minor) >= minimum
 
 
 def _cached_npm_archive(name: str, dest: Path) -> Path | None:
@@ -1455,22 +1716,36 @@ def _close_python_runtime_dependencies(
         if not pep or pep in seen or depth > max(0, int(max_depth)):
             continue
         seen.add(pep)
-        cached = _cached_pypi_archive(name, download_dir)
-        archive: Path | None = cached
+        archive: Path | None = None
         version = ""
-        cache_hit = cached is not None
-        if archive is None:
-            fetched = fetch_pypi_sdist(name, None, dest_dir=download_dir)
-            if not fetched.get("ok"):
-                errors.append(str(fetched.get("error") or f"fetch failed: {name}"))
-                continue
-            archive = Path(str(fetched["path"]))
-            version = str(fetched.get("version") or "")
+        cache_hit = False
+        wheel = _cached_pypi_wheel(name, download_dir)
+        if wheel is not None:
+            archive = wheel
+            version = _archive_version(wheel)
+            cache_hit = True
         else:
-            version = _archive_version(archive)
+            fetched_wheel = fetch_pypi_wheel(name, dest_dir=download_dir)
+            if fetched_wheel.get("ok"):
+                archive = Path(str(fetched_wheel["path"]))
+                version = str(fetched_wheel.get("version") or "")
+        if archive is None:
+            cached = _cached_pypi_archive(name, download_dir)
+            if cached is not None:
+                archive = cached
+                version = _archive_version(cached)
+                cache_hit = True
+            else:
+                fetched = fetch_pypi_sdist(name, None, dest_dir=download_dir)
+                if fetched.get("ok"):
+                    archive = Path(str(fetched["path"]))
+                    version = str(fetched.get("version") or "")
+                else:
+                    errors.append(str(fetched.get("error") or f"fetch failed: {name}"))
+                    continue
         dep_root = staged_dir / FORAGE_DEPS_DIR / pep
         if dep_root.exists():
-            shutil.rmtree(dep_root)
+            shutil.rmtree(os_fs_path(dep_root), ignore_errors=True)
         try:
             stage_acquisition_source(archive, dep_root)
             path_root, _import_name = detect_import_root(dep_root, hint=name)
@@ -1601,6 +1876,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("python_triple_nested_namespace_class_static")
         or item.get("python_quadruple_nested_namespace_class_static")
         or item.get("python_quintuple_nested_namespace_class_static")
+        or item.get("python_sextuple_nested_namespace_class_static")
     )
 
 
@@ -1619,6 +1895,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or bool(item.get("python_triple_nested_namespace_class_instance"))
         or bool(item.get("python_quadruple_nested_namespace_class_instance"))
         or bool(item.get("python_quintuple_nested_namespace_class_instance"))
+        or bool(item.get("python_sextuple_nested_namespace_class_instance"))
     )
 
 
@@ -1679,7 +1956,7 @@ def infer_acquisition_spec(
 
     staged_dir = staging_root / slug
     if staged_dir.exists():
-        shutil.rmtree(staged_dir)
+        shutil.rmtree(os_fs_path(staged_dir), ignore_errors=True)
     try:
         stage_acquisition_source(source, staged_dir)
     except (ValueError, OSError) as exc:
@@ -1718,6 +1995,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("python_sextuple_nested_namespace_class_static") else 1,
             0 if item.get("python_quintuple_nested_namespace_class_static") else 1,
             0 if item.get("python_quadruple_nested_namespace_class_static") else 1,
             0
@@ -1744,6 +2022,7 @@ def infer_acquisition_spec(
             <= len([p for p in item.get("params") or [] if p.get("required")])
             <= 2
             else 1,
+            0 if _json_scalar_return(item) else 1,
             len([p for p in item.get("params") or [] if p.get("required")]),
             str(item.get("name")),
         ),
@@ -1856,6 +2135,12 @@ def infer_acquisition_spec(
                 "python_quintuple_nested_namespace_class_instance": bool(
                     candidate.get("python_quintuple_nested_namespace_class_instance")
                 ),
+                "python_sextuple_nested_namespace_class_static": bool(
+                    candidate.get("python_sextuple_nested_namespace_class_static")
+                ),
+                "python_sextuple_nested_namespace_class_instance": bool(
+                    candidate.get("python_sextuple_nested_namespace_class_instance")
+                ),
                 "python_nested_namespace_function": bool(
                     candidate.get("python_nested_namespace_function")
                 ),
@@ -1870,6 +2155,9 @@ def infer_acquisition_spec(
                 ),
                 "python_quintuple_nested_namespace_function": bool(
                     candidate.get("python_quintuple_nested_namespace_function")
+                ),
+                "python_sextuple_nested_namespace_function": bool(
+                    candidate.get("python_sextuple_nested_namespace_function")
                 ),
             }
             break
@@ -1945,6 +2233,12 @@ def infer_acquisition_spec(
         "python_quintuple_nested_namespace_class_instance": bool(
             collected[0].get("python_quintuple_nested_namespace_class_instance")
         ),
+        "python_sextuple_nested_namespace_class_static": bool(
+            collected[0].get("python_sextuple_nested_namespace_class_static")
+        ),
+        "python_sextuple_nested_namespace_class_instance": bool(
+            collected[0].get("python_sextuple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             collected[0].get("python_nested_namespace_function")
         ),
@@ -1959,6 +2253,9 @@ def infer_acquisition_spec(
         ),
         "python_quintuple_nested_namespace_function": bool(
             collected[0].get("python_quintuple_nested_namespace_function")
+        ),
+        "python_sextuple_nested_namespace_function": bool(
+            collected[0].get("python_sextuple_nested_namespace_function")
         ),
     }
     inferred = {
@@ -2004,6 +2301,74 @@ def fetch_pypi_sdist(
             payload = response.read()
     except OSError as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"sdist download failed: {exc}"}
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if expected_sha256 and actual_sha256 != expected_sha256:
+        return {
+            "ok": False,
+            "stage": "fetch",
+            "name": name,
+            "error": f"sha256 mismatch: expected {expected_sha256}, got {actual_sha256}",
+        }
+    dest.write_bytes(payload)
+    return {
+        "ok": True,
+        "name": name,
+        "version": resolved,
+        "path": str(dest),
+        "sha256": actual_sha256,
+        "url": url,
+    }
+
+
+def fetch_pypi_wheel(
+    name: str,
+    version: str | None = None,
+    dest_dir: Path = DEFAULT_DOWNLOAD_DIR,
+    timeout: int = 60,
+) -> dict[str, Any]:
+    """Download one importable wheel for this interpreter from PyPI."""
+
+    api = f"https://pypi.org/pypi/{name}/json" if not version else f"https://pypi.org/pypi/{name}/{version}/json"
+    try:
+        with urllib.request.urlopen(api, timeout=timeout) as response:
+            meta = json.loads(response.read().decode("utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"ok": False, "stage": "fetch", "name": name, "error": f"pypi metadata failed: {exc}"}
+    resolved = str(meta.get("info", {}).get("version") or "")
+    wheels = [
+        item
+        for item in meta.get("urls") or []
+        if item.get("packagetype") == "bdist_wheel"
+        and _wheel_compatible(str(Path(str(item.get("url") or "")).name))
+    ]
+    wheels.sort(
+        key=lambda item: (
+            0 if "none-any" in str(item.get("filename") or item.get("url") or "").lower() else 1,
+            str(item.get("filename") or ""),
+        )
+    )
+    if not wheels:
+        return {"ok": False, "stage": "fetch", "name": name, "error": "registry release ships no compatible wheel"}
+    chosen = wheels[0]
+    url = str(chosen["url"])
+    expected_sha256 = str((chosen.get("digests") or {}).get("sha256") or "")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / Path(url.split("?")[0]).name
+    if dest.is_file() and dest.stat().st_size > 0:
+        return {
+            "ok": True,
+            "name": name,
+            "version": resolved,
+            "path": str(dest),
+            "sha256": expected_sha256,
+            "url": url,
+            "cache_hit": True,
+        }
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            payload = response.read()
+    except OSError as exc:
+        return {"ok": False, "stage": "fetch", "name": name, "error": f"wheel download failed: {exc}"}
     actual_sha256 = hashlib.sha256(payload).hexdigest()
     if expected_sha256 and actual_sha256 != expected_sha256:
         return {

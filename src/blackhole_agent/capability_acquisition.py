@@ -42,6 +42,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -437,6 +438,71 @@ def synthesize_adapter_source(spec: AcquisitionSpec) -> str:
 # ---------------------------------------------------------------------------
 
 
+_STAGE_SKIP_PARTS = frozenset({"tests", "test", "testing"})
+
+
+def os_fs_path(path: Path | str) -> str:
+    """Absolute filesystem path, with a Windows long-path prefix when needed."""
+
+    text = os.path.abspath(os.fspath(path))
+    if os.name != "nt" or text.startswith("\\\\?\\"):
+        return text
+    if text.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + text[2:]
+    return "\\\\?\\" + text
+
+
+def _stage_skip_member(name: str) -> bool:
+    return any(part in _STAGE_SKIP_PARTS for part in name.replace("\\", "/").split("/"))
+
+
+def _safe_stage_target(staging_dir: Path, name: str) -> Path | None:
+    rel = name.replace("\\", "/").lstrip("/")
+    if not rel:
+        return None
+    parts = Path(rel)
+    if parts.is_absolute() or ".." in parts.parts:
+        return None
+    return staging_dir.joinpath(*parts.parts)
+
+
+def _extract_tar(source: Path, staging_dir: Path) -> None:
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(source) as archive:
+        for member in archive.getmembers():
+            if _stage_skip_member(member.name) or not (member.isfile() or member.isdir()):
+                continue
+            target = _safe_stage_target(staging_dir, member.name)
+            if target is None:
+                continue
+            if member.isdir():
+                os.makedirs(os_fs_path(target), exist_ok=True)
+                continue
+            os.makedirs(os_fs_path(target.parent), exist_ok=True)
+            extracted = archive.extractfile(member)
+            if extracted is None:
+                continue
+            with extracted, open(os_fs_path(target), "wb") as handle:
+                shutil.copyfileobj(extracted, handle)
+
+
+def _extract_zip(source: Path, staging_dir: Path) -> None:
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(source) as archive:
+        for name in archive.namelist():
+            if _stage_skip_member(name):
+                continue
+            target = _safe_stage_target(staging_dir, name)
+            if target is None:
+                continue
+            if name.endswith("/"):
+                os.makedirs(os_fs_path(target), exist_ok=True)
+                continue
+            os.makedirs(os_fs_path(target.parent), exist_ok=True)
+            with archive.open(name) as extracted, open(os_fs_path(target), "wb") as handle:
+                shutil.copyfileobj(extracted, handle)
+
+
 def stage_acquisition_source(source: Path, staging_dir: Path) -> None:
     """Materialize the package source into ``staging_dir`` (no manifest needed)."""
 
@@ -445,16 +511,25 @@ def stage_acquisition_source(source: Path, staging_dir: Path) -> None:
         for entry in sorted(source.iterdir()):
             target = staging_dir / entry.name
             if entry.is_dir():
-                shutil.copytree(entry, target)
+                shutil.copytree(
+                    os_fs_path(entry),
+                    os_fs_path(target),
+                    ignore=shutil.ignore_patterns(*sorted(_STAGE_SKIP_PARTS)),
+                )
             else:
-                shutil.copy2(entry, target)
+                shutil.copy2(os_fs_path(entry), os_fs_path(target))
         return
     name = source.name.lower()
     if name.endswith((".tar.gz", ".tgz")):
-        with tarfile.open(source) as archive:
-            archive.extractall(staging_dir, filter="data")
+        _extract_tar(source, staging_dir)
         return
-    raise ValueError(f"unsupported acquisition source (directory or .tar.gz/.tgz): {source}")
+    if name.endswith((".whl", ".zip")):
+        try:
+            _extract_zip(source, staging_dir)
+        except zipfile.BadZipFile as exc:
+            raise ValueError(f"unsupported acquisition source (directory, .tar.gz/.tgz, or .whl/.zip): {source}") from exc
+        return
+    raise ValueError(f"unsupported acquisition source (directory, .tar.gz/.tgz, or .whl/.zip): {source}")
 
 
 # ---------------------------------------------------------------------------

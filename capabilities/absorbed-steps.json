@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-08-24T10:48:09.147343Z",
+  "absorbed_at": "2026-08-24T15:52:12.685340Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -1046,6 +1046,69 @@
       "slug": "forage-rotate",
       "vendored_tree_digest": "55f6b2d1485bbcf88f4561550d0064d4d4f1872f8de03bce76657f46d89a532c",
       "version": ""
+    },
+    {
+      "capability_id": "capability.absorbed-google-ads",
+      "cases": [
+        {
+          "expect": {
+            "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/Hello World"
+          },
+          "input": {
+            "billing_account": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/blackhole unbound"
+          },
+          "input": {
+            "billing_account": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/MiXeD CaSe"
+          },
+          "input": {
+            "billing_account": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "ads_googleads_v25_services_services_account_budget_proposal_serv": "billingAccounts/"
+          },
+          "input": {
+            "billing_account": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "google-ads",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "google-ads",
+        "registry": "pypi",
+        "sha256": "038e502608afc1e88888e2e4ae367bc7a7878b5c3206910753c6a089f0b463cc",
+        "source": "artifacts/capability-foraging/downloads/google_ads-31.4.0.tar.gz",
+        "url": "",
+        "version": "31.4.0"
+      },
+      "provides": [
+        "ads_googleads_v25_services_services_account_budget_proposal_serv"
+      ],
+      "record_digest": "5a93081c8ec21f9e6fdc9ad758d9d1116181c6541982ce16a80cf27021e4f4fd",
+      "requires": [
+        "billing_account"
+      ],
+      "schema_version": 1,
+      "slug": "google-ads",
+      "vendored_tree_digest": "32363b7e57dfa6082a5553276c00a71dbc9c66e6c4d5f3941a4f372d93db8bf6",
+      "version": "31.4.0"
     },
     {
       "capability_id": "capability.absorbed-html5lib",
@@ -4497,5 +4560,5 @@
       "version": "21.7.4"
     }
   ],
-  "steps_digest": "2c85011b51e1394837dea07ffb9b8ae11d675911d18670e33486625ac57d076f"
+  "steps_digest": "dbe5685fe554595adfe88cd0e3e1cdda424860339a071d9dd3a4b43ac40d23c9"
 }
