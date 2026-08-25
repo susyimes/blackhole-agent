@@ -283,6 +283,13 @@ constructs a class eighteen submodule levels down so a live-fetched sdist whose
 covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
 rather than a seventeen-level nested ``Class().method`` instance can be foraged
 the same way.
+
+Python novemdecuple nested-namespace class-instance leftover:
+``run_application_python_novemdecuple_nested_namespace_class_instance_growth_plane``
+constructs a class nineteen submodule levels down so a live-fetched sdist whose
+covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
+rather than an eighteen-level nested ``Class().method`` instance can be foraged
+the same way.
 """
 
 from __future__ import annotations
@@ -542,6 +549,12 @@ DEFAULT_PYTHON_OCTODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
 )
 DEFAULT_PYTHON_OCTODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_python_octodecuple_nested_namespace_class_instance_catalog.json"
+)
+DEFAULT_PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-python-novemdecuple-nested-namespace-class-instance-growth"
+)
+DEFAULT_PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_python_novemdecuple_nested_namespace_class_instance_catalog.json"
 )
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
@@ -1283,6 +1296,26 @@ PYTHON_OCTODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
     goal=(PYTHON_OCTODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
     oracle={
         PYTHON_OCTODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_OCTODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
+    },
+)
+PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY = (
+    "codec_text_safe_inner_leaf_more_core_unit_cell_atom_quark_gluon_lepton_photon_boson_fermion_hadron_meson_baryon_codec_encode_output"
+)
+PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE = (
+    "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.Codec.encode"
+)
+PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE = "HELLO WORLD"
+PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
+    id="novemdecuple-nested-instance-unplannable",
+    description=(
+        "Unplannable application goal grown from a sdist whose covering API "
+        "is a Python nested-namespace class instance method nineteen submodule "
+        "levels down rather than an eighteen-level nested Class().method instance."
+    ),
+    initial_state={"text": "Hello World"},
+    goal=(PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+    oracle={
+        PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
     },
 )
 
@@ -16346,6 +16379,7 @@ _SYNTHETIC_NESTED_INSTANCE_LATINS: tuple[str, ...] = (
     "sexdecuple",
     "septendecuple",
     "octodecuple",
+    "novemdecuple",
 )
 
 
@@ -18068,6 +18102,123 @@ def demo_application_python_octodecuple_nested_namespace_class_instance_growth_p
     """Entry surface: grow from an eighteen-level nested-namespace class instance method."""
 
     result = replay_application_python_octodecuple_nested_namespace_class_instance_growth_plane_proof()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "query": result.get("query"),
+        "action": result.get("action"),
+    }
+
+
+def load_python_novemdecuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
+    return _load_replay_apply_catalog(DEFAULT_PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
+
+
+def replay_application_python_novemdecuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
+    """Fast registered proof: nineteen-level Class().method instance still forages."""
+
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "nineteen submodule levels down so sdists whose covering API is a nineteen-level nested "
+        "Class().method instance rather than an eighteen-level nested Class().method instance "
+        "can be foraged the same way."
+    )
+    return _replay_synthetic_nested_codec_instance_proof(
+        capability_id="capability.application-python-novem-nested-instance-growth-plane",
+        leftover=leftover,
+        modules=(
+            "codec",
+            "text",
+            "safe",
+            "inner",
+            "leaf",
+            "more",
+            "core",
+            "unit",
+            "cell",
+            "atom",
+            "quark",
+            "gluon",
+            "lepton",
+            "photon",
+            "boson",
+            "fermion",
+            "hadron",
+            "meson",
+            "baryon",
+        ),
+        slug="forage-ns-novemdecuple-codec-instance",
+        catalog=load_python_novemdecuple_nested_namespace_class_instance_apply_catalog(),
+        grow_task=PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
+        winner=PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
+        selected_flag="python_novemdecuple_nested_namespace_class_instance",
+        prior_instance_flag="python_octodecuple_nested_namespace_class_instance",
+        static_flag="python_novemdecuple_nested_namespace_class_static",
+        action="application_python_novemdecuple_nested_namespace_class_instance_growth_plane",
+    )
+
+
+def application_python_novemdecuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
+    return (
+        "uv run python -m blackhole_agent.capability_application_growth "
+        "python-novemdecuple-nested-instance-proof"
+    )
+
+
+def register_application_python_novemdecuple_nested_namespace_class_instance_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    return _register_synthetic_nested_codec_instance_capability(
+        capability_id="capability.application-python-novem-nested-instance-growth-plane",
+        name="Application python novemdecuple nested-namespace class-instance growth plane",
+        description=(
+            "An unplannable application goal grows itself from a sdist whose covering "
+            "Class().method is a Python nested-namespace class instance nineteen submodule "
+            "levels down: introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.Codec.encode "
+            "as a constructable instance rather than an eighteen-level nested Class().method "
+            "instance, and extra bundle leaves extract to a short cache dir so Windows "
+            "MAX_PATH does not fail the forage."
+        ),
+        entry=(
+            "blackhole_agent.capability_application_growth:"
+            "demo_application_python_novemdecuple_nested_namespace_class_instance_growth_plane"
+        ),
+        proof_command=application_python_novemdecuple_nested_namespace_class_instance_growth_plane_proof_command(),
+        catalog_path="tests/fixtures/forage_python_novemdecuple_nested_namespace_class_instance_catalog.json",
+        capability_delta=(
+            "Application-growth no longer skips sdists whose covering Class().method "
+            "is a Python nested-namespace class instance nineteen submodule levels down: "
+            "introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.Codec.encode "
+            "rather than an eighteen-level nested Class().method instance, and extra bundle "
+            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
+            "not fail extra bundle leaves."
+        ),
+        tag="novemdecuple-nested",
+        extra_dependencies=(
+            "capability.application-python-octod-nested-instance-growth-plane",
+            "capability.application-python-septd-nested-instance-growth-plane",
+            "capability.application-python-sexde-nested-instance-growth-plane",
+            "capability.application-python-quind-nested-instance-growth-plane",
+            "capability.application-python-quatt-nested-instance-growth-plane",
+            "capability.application-python-trede-nested-instance-growth-plane",
+            "capability.application-python-dodec-nested-instance-growth-plane",
+            "capability.application-python-undec-nested-instance-growth-plane",
+            "capability.application-python-deca-nested-instance-growth-plane",
+            "capability.application-python-nona-nested-instance-growth-plane",
+            "capability.application-python-oct-nested-instance-growth-plane",
+            "capability.application-python-sept-nested-instance-growth-plane",
+            "capability.application-python-sext-nested-instance-growth-plane",
+        ),
+        repo_root=repo_root,
+    )
+
+
+def demo_application_python_novemdecuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a nineteen-level nested-namespace class instance method."""
+
+    result = replay_application_python_novemdecuple_nested_namespace_class_instance_growth_plane_proof()
     return {
         "ok": bool(result["ok"]),
         "winner": result.get("winner"),
