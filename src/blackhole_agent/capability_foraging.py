@@ -58,12 +58,16 @@ inputs. This module removes that last human input — **foraging**:
   ``package.subpackage.submodule.Class(opts).method`` (constructed
   classes that are not a one-level ``package.submodule.Class(opts).method``),
   Python nested-namespace class instance methods five submodule levels
-  down, and Python nested-namespace class instance methods six submodule
+  down, Python nested-namespace class instance methods six submodule
   levels down such as
   ``package.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
   / ``providers.amazon.aws.executors.batch.utils.BatchJobCollection.failure_count_by_id``
   (constructable instance methods that are not a six-level
-  ``Class.method`` static),
+  ``Class.method`` static), and Python nested-namespace class instance
+  methods seven submodule levels down such as
+  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
+  (constructable instance methods that are not a six-level nested
+  ``Class().method`` instance),
   and Python nested-submodule functions such as
   ``package.submodule.func`` / ``package.subpackage.submodule.func``
   (module-level callables exported only on a nested submodule, not a
@@ -134,6 +138,7 @@ from blackhole_agent.capability_acquisition import (
     STEWARDSHIP_ROOT,
     AcquisitionSpec,
     RUNTIMES,
+    _STAGE_SKIP_PARTS,
     _run_probe,
     acquire_capability,
     adapter_name_for,
@@ -552,12 +557,15 @@ def _consider_inner(name, target, flags, skip_self=False):
         or flags.get("python_quintuple_nested_namespace_class_instance")
         or flags.get("python_sextuple_nested_namespace_class_static")
         or flags.get("python_sextuple_nested_namespace_class_instance")
+        or flags.get("python_septuple_nested_namespace_class_static")
+        or flags.get("python_septuple_nested_namespace_class_instance")
         or flags.get("python_nested_namespace_function")
         or flags.get("python_deep_nested_namespace_function")
         or flags.get("python_triple_nested_namespace_function")
         or flags.get("python_quadruple_nested_namespace_function")
         or flags.get("python_quintuple_nested_namespace_function")
         or flags.get("python_sextuple_nested_namespace_function")
+        or flags.get("python_septuple_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
@@ -717,39 +725,37 @@ def _safe_is_module(target):
         return False
 
 
-def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False, sextuple=False):
+def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False, sextuple=False, septuple=False):
     try:
         class_name = getattr(target, "__name__", "") or ""
     except Exception:
         class_name = ""
     if class_name.endswith(("AsyncClient", "AsyncIOClient")):
         return
+    depth = (
+        7 if septuple else 6 if sextuple else 5 if quintuple else 4 if quadruple
+        else 3 if triple else 2 if deep else 1 if nested else 0
+    )
+    kind_keys = (
+        "python_class_{kind}",
+        "python_nested_namespace_class_{kind}",
+        "python_deep_nested_namespace_class_{kind}",
+        "python_triple_nested_namespace_class_{kind}",
+        "python_quadruple_nested_namespace_class_{kind}",
+        "python_quintuple_nested_namespace_class_{kind}",
+        "python_sextuple_nested_namespace_class_{kind}",
+        "python_septuple_nested_namespace_class_{kind}",
+    )
     try:
-        static_flags = {
-            "python_class_static": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_nested_namespace_class_static": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_deep_nested_namespace_class_static": bool(deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_triple_nested_namespace_class_static": bool(triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_quadruple_nested_namespace_class_static": bool(quadruple) and (not quintuple) and (not sextuple),
-            "python_quintuple_nested_namespace_class_static": bool(quintuple) and (not sextuple),
-            "python_sextuple_nested_namespace_class_static": bool(sextuple),
-        }
+        static_flags = {key.format(kind="static"): (index == depth) for index, key in enumerate(kind_keys)}
         for attr in sorted(_static_method_names(target)):
             fn = _safe_getattr(target, attr, None)
             _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
         instance, requires_args = _construct_instance(target)
         if instance is None:
             return
-        flags = {
-            "python_class_instance": (not nested) and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_nested_namespace_class_instance": nested and (not deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_deep_nested_namespace_class_instance": bool(deep) and (not triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_triple_nested_namespace_class_instance": bool(triple) and (not quadruple) and (not quintuple) and (not sextuple),
-            "python_quadruple_nested_namespace_class_instance": bool(quadruple) and (not quintuple) and (not sextuple),
-            "python_quintuple_nested_namespace_class_instance": bool(quintuple) and (not sextuple),
-            "python_sextuple_nested_namespace_class_instance": bool(sextuple),
-            "constructor_requires_args": bool(requires_args),
-        }
+        flags = {key.format(kind="instance"): (index == depth) for index, key in enumerate(kind_keys)}
+        flags["constructor_requires_args"] = bool(requires_args)
         for attr in sorted(_instance_method_names(target, instance)):
             fn = _safe_getattr(instance, attr, None)
             _consider(f"{prefix}.{attr}", fn, flags, skip_self=False)
@@ -919,161 +925,51 @@ for name, target in _child_modules(module, "").items():
     if name not in submodules:
         submodules[name] = target
 
-deep_submodules = {}
-for name, target in sorted(submodules.items()):
-    for nested_name in _safe_dir(target):
-        if nested_name.startswith("_"):
-            continue
-        nested_target = _safe_getattr(target, nested_name, None)
-        if _safe_is_function(nested_target):
-            if _defined_on(nested_target, name):
-                _consider(
-                    f"{name}.{nested_name}",
-                    nested_target,
-                    {
-                        "python_nested_namespace_function": True,
-                        "python_deep_nested_namespace_function": False,
-                    },
-                )
-            continue
-        if _safe_is_class(nested_target):
-            _consider_class(f"{name}.{nested_name}", nested_target, nested=True, deep=False)
-    for child_name, child in sorted(_child_modules(target, name).items()):
-        deep_submodules[f"{name}.{child_name}"] = child
-
-triple_submodules = {}
-quadruple_submodules = {}
-for prefix, target in sorted(deep_submodules.items()):
-    for nested_name in _safe_dir(target):
-        if nested_name.startswith("_"):
-            continue
-        nested_target = _safe_getattr(target, nested_name, None)
-        if _safe_is_function(nested_target):
-            if _defined_on(nested_target, prefix):
-                _consider(
-                    f"{prefix}.{nested_name}",
-                    nested_target,
-                    {
-                        "python_nested_namespace_function": False,
-                        "python_deep_nested_namespace_function": True,
-                        "python_triple_nested_namespace_function": False,
-                    },
-                )
-            continue
-        if _safe_is_class(nested_target):
-            _consider_class(f"{prefix}.{nested_name}", nested_target, nested=True, deep=True)
-    for child_name, child in sorted(_child_modules(target, prefix).items()):
-        triple_submodules[f"{prefix}.{child_name}"] = child
-
-for prefix, target in sorted(triple_submodules.items()):
-    for nested_name in _safe_dir(target):
-        if nested_name.startswith("_"):
-            continue
-        nested_target = _safe_getattr(target, nested_name, None)
-        if _safe_is_function(nested_target):
-            if _defined_on(nested_target, prefix):
-                _consider(
-                    f"{prefix}.{nested_name}",
-                    nested_target,
-                    {
-                        "python_nested_namespace_function": False,
-                        "python_deep_nested_namespace_function": False,
-                        "python_triple_nested_namespace_function": True,
-                        "python_quadruple_nested_namespace_function": False,
-                        "python_quintuple_nested_namespace_function": False,
-                        "python_sextuple_nested_namespace_function": False,
-                    },
-                )
-            continue
-        if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
-            _consider_class(
-                f"{prefix}.{nested_name}", nested_target, nested=True, triple=True
-            )
-    for child_name, child in sorted(_child_modules(target, prefix).items()):
-        quadruple_submodules[f"{prefix}.{child_name}"] = child
-
-quintuple_submodules = {}
-for prefix, target in sorted(quadruple_submodules.items()):
-    for nested_name in _safe_dir(target):
-        if nested_name.startswith("_"):
-            continue
-        nested_target = _safe_getattr(target, nested_name, None)
-        if _safe_is_function(nested_target):
-            if _defined_on(nested_target, prefix):
-                _consider(
-                    f"{prefix}.{nested_name}",
-                    nested_target,
-                    {
-                        "python_nested_namespace_function": False,
-                        "python_deep_nested_namespace_function": False,
-                        "python_triple_nested_namespace_function": False,
-                        "python_quadruple_nested_namespace_function": True,
-                        "python_quintuple_nested_namespace_function": False,
-                        "python_sextuple_nested_namespace_function": False,
-                    },
-                )
-            continue
-        if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
-            _consider_class(
-                f"{prefix}.{nested_name}", nested_target, nested=True, quadruple=True
-            )
-    for child_name, child in sorted(_child_modules(target, prefix).items()):
-        quintuple_submodules[f"{prefix}.{child_name}"] = child
-
-sextuple_submodules = {}
-for prefix, target in sorted(quintuple_submodules.items()):
-    for nested_name in _safe_dir(target):
-        if nested_name.startswith("_"):
-            continue
-        nested_target = _safe_getattr(target, nested_name, None)
-        if _safe_is_function(nested_target):
-            if _defined_on(nested_target, prefix):
-                _consider(
-                    f"{prefix}.{nested_name}",
-                    nested_target,
-                    {
-                        "python_nested_namespace_function": False,
-                        "python_deep_nested_namespace_function": False,
-                        "python_triple_nested_namespace_function": False,
-                        "python_quadruple_nested_namespace_function": False,
-                        "python_quintuple_nested_namespace_function": True,
-                        "python_sextuple_nested_namespace_function": False,
-                    },
-                )
-            continue
-        if _safe_is_class(nested_target) and _defined_on(nested_target, prefix):
-            _consider_class(
-                f"{prefix}.{nested_name}", nested_target, nested=True, quintuple=True
-            )
-    for child_name, child in sorted(_child_modules(target, prefix).items()):
-        sextuple_submodules[f"{prefix}.{child_name}"] = child
-
-for prefix, target in sorted(sextuple_submodules.items()):
-    for nested_name in _safe_dir(target):
-        if nested_name.startswith("_"):
-            continue
-        nested_target = _safe_getattr(target, nested_name, None)
-        if _safe_is_function(nested_target):
-            if _defined_on(nested_target, prefix):
-                _consider(
-                    f"{prefix}.{nested_name}",
-                    nested_target,
-                    {
-                        "python_nested_namespace_function": False,
-                        "python_deep_nested_namespace_function": False,
-                        "python_triple_nested_namespace_function": False,
-                        "python_quadruple_nested_namespace_function": False,
-                        "python_quintuple_nested_namespace_function": False,
-                        "python_sextuple_nested_namespace_function": True,
-                    },
-                )
-            continue
-        if _safe_is_class(nested_target) and _defined_on(
-            nested_target, prefix, allow_nested_owner=True
-        ):
-            _consider_class(
-                f"{prefix}.{nested_name}", nested_target, nested=True, sextuple=True
-            )
+_FUNC_KEYS = (
+    "python_nested_namespace_function",
+    "python_deep_nested_namespace_function",
+    "python_triple_nested_namespace_function",
+    "python_quadruple_nested_namespace_function",
+    "python_quintuple_nested_namespace_function",
+    "python_sextuple_nested_namespace_function",
+    "python_septuple_nested_namespace_function",
+)
+_CLASS_KW = (
+    {"nested": True},
+    {"nested": True, "deep": True},
+    {"nested": True, "triple": True},
+    {"nested": True, "quadruple": True},
+    {"nested": True, "quintuple": True},
+    {"nested": True, "sextuple": True},
+    {"nested": True, "septuple": True},
+)
+level = submodules
+for depth in range(1, 8):
+    nxt = {}
+    func_flags = {key: (index == depth - 1) for index, key in enumerate(_FUNC_KEYS)}
+    class_kw = _CLASS_KW[depth - 1]
+    need_defined = depth >= 3
+    allow_nested = depth >= 6
+    for prefix, target in sorted(level.items()):
+        for nested_name in _safe_dir(target):
+            if nested_name.startswith("_"):
+                continue
+            nested_target = _safe_getattr(target, nested_name, None)
+            if _safe_is_function(nested_target):
+                if _defined_on(nested_target, prefix):
+                    _consider(f"{prefix}.{nested_name}", nested_target, func_flags)
+                continue
+            if not _safe_is_class(nested_target):
+                continue
+            if need_defined and not _defined_on(
+                nested_target, prefix, allow_nested_owner=allow_nested
+            ):
+                continue
+            _consider_class(f"{prefix}.{nested_name}", nested_target, **class_kw)
+        if depth < 7:
+            for child_name, child in sorted(_child_modules(target, prefix).items()):
+                nxt[f"{prefix}.{child_name}"] = child
+    level = nxt
 
 print(json.dumps({"ok": True, "candidates": candidates}))
 '''
@@ -1870,8 +1766,13 @@ def _archive_version(archive: Path) -> str:
 
 
 def _extracted_cache_dir(pep: str, version: str, archive: Path) -> Path:
-    del version
-    return EXTRACT_CACHE_DIR / pep / archive.name
+    """Short extract dir: never embed a ``.whl`` filename (Windows MAX_PATH)."""
+
+    token = re.sub(r"[^a-z0-9._-]+", "-", str(version or archive.stem).lower()).strip("-")
+    if not token or token.endswith(".whl") or ".whl" in token:
+        token = re.sub(r"[^a-z0-9._-]+", "-", archive.stem.lower()).strip("-")
+        token = token.replace(".whl", "").strip("-._")
+    return EXTRACT_CACHE_DIR / pep / (token[:40] or "pkg")
 
 
 def _detach_dep_dest(path: Path) -> None:
@@ -1913,7 +1814,11 @@ def _link_extracted_dep(src: Path, dest: Path) -> None:
         return
     except OSError:
         pass
-    shutil.copytree(os_fs_path(src), os_fs_path(dest))
+    shutil.copytree(
+        os_fs_path(src),
+        os_fs_path(dest),
+        ignore=shutil.ignore_patterns(*sorted(_STAGE_SKIP_PARTS)),
+    )
 
 
 def _close_python_runtime_dependencies(
@@ -2108,6 +2013,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("python_quadruple_nested_namespace_class_static")
         or item.get("python_quintuple_nested_namespace_class_static")
         or item.get("python_sextuple_nested_namespace_class_static")
+        or item.get("python_septuple_nested_namespace_class_static")
     )
 
 
@@ -2127,6 +2033,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or bool(item.get("python_quadruple_nested_namespace_class_instance"))
         or bool(item.get("python_quintuple_nested_namespace_class_instance"))
         or bool(item.get("python_sextuple_nested_namespace_class_instance"))
+        or bool(item.get("python_septuple_nested_namespace_class_instance"))
     )
 
 
@@ -2226,6 +2133,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("python_septuple_nested_namespace_class_static") else 1,
             0 if item.get("python_sextuple_nested_namespace_class_static") else 1,
             0 if item.get("python_quintuple_nested_namespace_class_static") else 1,
             0 if item.get("python_quadruple_nested_namespace_class_static") else 1,
@@ -2237,6 +2145,7 @@ def infer_acquisition_spec(
             else 1,
             0 if item.get("python_triple_nested_namespace_class_static") else 1,
             0 if item.get("python_nested_namespace_class_static") else 1,
+            0 if item.get("python_septuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_sextuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_quintuple_nested_namespace_class_instance") else 1,
             0 if _is_named_class_instance_candidate(item) else 1,
@@ -2378,6 +2287,12 @@ def infer_acquisition_spec(
                 "python_sextuple_nested_namespace_class_instance": bool(
                     candidate.get("python_sextuple_nested_namespace_class_instance")
                 ),
+                "python_septuple_nested_namespace_class_static": bool(
+                    candidate.get("python_septuple_nested_namespace_class_static")
+                ),
+                "python_septuple_nested_namespace_class_instance": bool(
+                    candidate.get("python_septuple_nested_namespace_class_instance")
+                ),
                 "python_nested_namespace_function": bool(
                     candidate.get("python_nested_namespace_function")
                 ),
@@ -2395,6 +2310,9 @@ def infer_acquisition_spec(
                 ),
                 "python_sextuple_nested_namespace_function": bool(
                     candidate.get("python_sextuple_nested_namespace_function")
+                ),
+                "python_septuple_nested_namespace_function": bool(
+                    candidate.get("python_septuple_nested_namespace_function")
                 ),
             }
             break
@@ -2476,6 +2394,12 @@ def infer_acquisition_spec(
         "python_sextuple_nested_namespace_class_instance": bool(
             collected[0].get("python_sextuple_nested_namespace_class_instance")
         ),
+        "python_septuple_nested_namespace_class_static": bool(
+            collected[0].get("python_septuple_nested_namespace_class_static")
+        ),
+        "python_septuple_nested_namespace_class_instance": bool(
+            collected[0].get("python_septuple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             collected[0].get("python_nested_namespace_function")
         ),
@@ -2493,6 +2417,9 @@ def infer_acquisition_spec(
         ),
         "python_sextuple_nested_namespace_function": bool(
             collected[0].get("python_sextuple_nested_namespace_function")
+        ),
+        "python_septuple_nested_namespace_function": bool(
+            collected[0].get("python_septuple_nested_namespace_function")
         ),
     }
     inferred = {

@@ -46,7 +46,12 @@ def test_extracted_dep_cache_is_reused(tmp_path: Path) -> None:
 
     archive = tmp_path / "cache-demo-1.0-py3-none-any.whl"
     cache = _extracted_cache_dir("cache-demo", "1.0", archive)
-    assert cache == EXTRACT_CACHE_DIR / "cache-demo" / archive.name
+    assert cache == EXTRACT_CACHE_DIR / "cache-demo" / "1.0"
+    assert ".whl" not in cache.name
+    long_wheel = tmp_path / "apache_airflow_providers_common_compat-1.18.0-py3-none-any.whl"
+    short = _extracted_cache_dir("apache-airflow-providers-common-compat", "1.18.0", long_wheel)
+    assert short == EXTRACT_CACHE_DIR / "apache-airflow-providers-common-compat" / "1.18.0"
+    assert ".whl" not in str(short)
     src = tmp_path / "extracted"
     src.mkdir()
     (src / "demo.py").write_text("x = 1\n", encoding="utf-8")
