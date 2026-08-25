@@ -33,6 +33,7 @@ from blackhole_agent.kernel_resume import (
     consume_resumed_campaign,
     hydrate_mission_from_campaign,
 )
+from blackhole_agent.milestone_commit import ensure_git_longpaths, stage_milestone_paths
 from blackhole_agent.pattern_register import (
     ingest_unbound_turn,
     maybe_resolve_from_goal,
@@ -856,6 +857,7 @@ def create_mission(
             raise
         worktree_setup_recovered = True
     base_head = git_head(workspace, command_runner=command_runner)
+    ensure_git_longpaths(workspace, command_runner=command_runner)
     root = mission_root(repo_path, output_dir)
     mission_dir = root / "missions" / mission_id
     state_path = mission_dir / "state.json"
@@ -1576,11 +1578,17 @@ def commit_milestone(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> str:
-    """Commit pending mission changes; preserve an agent-authored commit when already clean."""
+    """Commit pending mission changes; preserve an agent-authored commit when already clean.
 
+    Stage porcelain-listed paths instead of ``git add -A``. Walking the whole
+    tree is the recurring ``milestone_rejected`` class: Git for Windows dies
+    on unreadable long-path forage scratch and aborts a proved increment.
+    """
+
+    ensure_git_longpaths(workspace, command_runner=command_runner)
     status = status_changed_paths(workspace, command_runner=command_runner)
     if status:
-        run_command(["git", "add", "-A"], cwd=workspace, command_runner=command_runner)
+        stage_milestone_paths(workspace, status, command_runner=command_runner)
         staged = run_command(
             ["git", "diff", "--cached", "--quiet"],
             cwd=workspace,

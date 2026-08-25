@@ -53,8 +53,15 @@ PATTERN_CLASSES: dict[str, dict[str, str]] = {
     },
     "milestone_rejected": {
         "name": "Milestone rejected",
-        "root_cause": "The controller refused a claimed milestone.",
-        "structural_fix": "Change the work so milestones demonstrate a behavior path with reproducible validation.",
+        "root_cause": (
+            "The controller refused a claimed milestone, including git add -A "
+            "dying on unreadable or long-path scratch while staging."
+        ),
+        "structural_fix": (
+            "Stage porcelain-listed paths with core.longpaths enabled; never "
+            "walk the whole working tree with git add -A. Unreadable forage "
+            "scratch must not reject a proved behavior increment."
+        ),
     },
     "paperwork_milestone": {
         "name": "Paperwork-only milestone",
@@ -290,6 +297,17 @@ def required_pattern_mission(repo_path: Path, register: PatternRegister | None =
 
     live = register if register is not None else load_register(repo_path)
     pending = forced_classes(live)
+    if pending:
+        try:
+            from blackhole_agent.kernel_class_closure import class_is_closed
+
+            pending = [
+                entry
+                for entry in pending
+                if not class_is_closed(entry.class_id, Path(repo_path))
+            ]
+        except Exception:  # noqa: BLE001 - missing closer table must not hide open classes
+            pass
     if not pending:
         return None
     entry = pending[0]

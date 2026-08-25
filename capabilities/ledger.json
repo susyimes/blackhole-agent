@@ -4775,6 +4775,41 @@
       ],
       "updated_at": "2026-08-17T13:50:00.000000Z"
     },
+    "capability.milestone-commit-resilience": {
+      "behavior_paths": [
+        "src/blackhole_agent/milestone_commit.py",
+        "src/blackhole_agent/unbound.py",
+        "src/blackhole_agent/pattern_register.py",
+        "src/blackhole_agent/kernel_class_closure.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Proved Unbound milestones no longer die on git add -A walking unreadable long-path scratch. Staging uses porcelain paths with core.longpaths; a later extract is not fixed by deleting the last airflow instance.",
+      "created_at": "2026-08-25T04:40:00.000000Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.kernel-class-closure"
+      ],
+      "description": "Stop rejecting proved Unbound milestones because Git cannot walk unreadable or long-path forage scratch. Stage porcelain-listed paths with core.longpaths enabled; never require deleting the last extract as an instance patch.",
+      "entry": "blackhole_agent.milestone_commit:builtin_milestone_commit_resilience_proof",
+      "id": "capability.milestone-commit-resilience",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-08-25T04:40:00.000000Z",
+      "name": "Milestone commit resilience",
+      "proof_command": "uv run python -c \"from blackhole_agent.milestone_commit import builtin_milestone_commit_resilience_proof; r=builtin_milestone_commit_resilience_proof(); assert r['ok'] and r.get('action')=='milestone_commit_resilience' and r.get('passed_count',0) >= 8 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260825T042805Z-058c7b2f",
+      "tags": [
+        "unbound",
+        "milestone",
+        "resilience",
+        "class-closure",
+        "git"
+      ],
+      "updated_at": "2026-08-25T04:40:00.000000Z"
+    },
     "capability.mission-plane": {
       "behavior_paths": [
         "src/blackhole_agent/capability_compounder.py",

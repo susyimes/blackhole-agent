@@ -109,6 +109,21 @@ def test_classify_unbound_turn_maps_paperwork_and_kernel_errors():
     assert paperwork[0]["class_id"] == "paperwork_milestone"
     assert kernel[0]["class_id"] == "kernel_turn_failed"
 
+    longpath = classify_unbound_turn(
+        {
+            "iteration": 288,
+            "milestone_gate": {
+                "requested": True,
+                "accepted": False,
+                "reasons": [
+                    "milestone commit failed: git add -A failed: warning: could not "
+                    "open directory 'artifacts/tmp-infer-airflow-amazon/': Filename too long"
+                ],
+            },
+        }
+    )
+    assert longpath[0]["class_id"] == "milestone_rejected"
+
 
 def test_ingest_and_forced_mission_persist(tmp_path):
     ingest_supervisor_pass(

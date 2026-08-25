@@ -64,6 +64,9 @@ CLASS_CLOSURE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
         "capability.kernel-circuit-breaker",
         "capability.local-capability-kernel",
     ),
+    "milestone_rejected": (
+        "capability.milestone-commit-resilience",
+    ),
 }
 
 
@@ -219,6 +222,9 @@ def builtin_kernel_class_closure_proof() -> dict[str, Any]:
     checks["harvested_text_is_leftover"] = bool(leftover_next_step(HARVESTED_MISSION_PLANE_LEFTOVER))
     required = class_closure_ids(KERNEL_TURN_FAILED)
     checks["requires_salvage_breaker_local"] = required == CLASS_CLOSURE_REQUIREMENTS[KERNEL_TURN_FAILED]
+    checks["closes_milestone_rejected"] = class_closure_ids("milestone_rejected") == (
+        "capability.milestone-commit-resilience",
+    )
 
     class _State:
         def __init__(self, repo: Path, *, goal: str = "", done_when: str = "") -> None:
