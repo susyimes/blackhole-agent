@@ -164,7 +164,7 @@ from blackhole_agent.capability_compounder import (
 
 SCHEMA_VERSION = 1
 
-# Depth 0 is a top-level Class.method; depth 15 is a quindecuple nested Class().method.
+# Depth 0 is a top-level Class.method; depth 16 is a sexdecuple nested Class().method.
 PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_class",
     "python_nested_namespace_class",
@@ -182,6 +182,7 @@ PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_tredecuple_nested_namespace_class",
     "python_quattuordecuple_nested_namespace_class",
     "python_quindecuple_nested_namespace_class",
+    "python_sexdecuple_nested_namespace_class",
 )
 PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_nested_namespace_function",
@@ -199,6 +200,7 @@ PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_tredecuple_nested_namespace_function",
     "python_quattuordecuple_nested_namespace_function",
     "python_quindecuple_nested_namespace_function",
+    "python_sexdecuple_nested_namespace_function",
 )
 
 
@@ -215,6 +217,15 @@ def python_nested_depth_flags(item: Mapping[str, Any]) -> dict[str, bool]:
     """Copy nested-namespace depth flags off an introspected candidate or record."""
 
     return {name: bool(item.get(name)) for name in python_nested_depth_flag_names()}
+
+
+def _prefer_deeper_nested_class(item: Mapping[str, Any], kind: str, *, start: int) -> tuple[int, ...]:
+    """Rank deeper nested Class.method kinds first. ``start`` skips shallow prefixes."""
+
+    return tuple(
+        0 if item.get(f"{prefix}_{kind}") else 1
+        for prefix in reversed(PYTHON_NESTED_CLASS_DEPTH_PREFIXES[start:])
+    )
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -777,6 +788,7 @@ _CLASS_KIND_PREFIXES = (
     "python_tredecuple_nested_namespace_class",
     "python_quattuordecuple_nested_namespace_class",
     "python_quindecuple_nested_namespace_class",
+    "python_sexdecuple_nested_namespace_class",
 )
 
 
@@ -983,6 +995,7 @@ _FUNC_KEYS = (
     "python_tredecuple_nested_namespace_function",
     "python_quattuordecuple_nested_namespace_function",
     "python_quindecuple_nested_namespace_function",
+    "python_sexdecuple_nested_namespace_function",
 )
 level = submodules
 max_depth = len(_CLASS_KIND_PREFIXES) - 1
@@ -2160,18 +2173,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
-            0 if item.get("python_quindecuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_quattuordecuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_tredecuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_duodecuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_undecuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_decuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_nonuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_octuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_septuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_sextuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_quintuple_nested_namespace_class_static") else 1,
-            0 if item.get("python_quadruple_nested_namespace_class_static") else 1,
+            *_prefer_deeper_nested_class(item, "static", start=4),
             0
             if item.get("default_export_class_static")
             or item.get("named_export_class_static")
@@ -2180,17 +2182,7 @@ def infer_acquisition_spec(
             else 1,
             0 if item.get("python_triple_nested_namespace_class_static") else 1,
             0 if item.get("python_nested_namespace_class_static") else 1,
-            0 if item.get("python_quindecuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_quattuordecuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_tredecuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_duodecuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_undecuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_decuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_nonuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_octuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_septuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_sextuple_nested_namespace_class_instance") else 1,
-            0 if item.get("python_quintuple_nested_namespace_class_instance") else 1,
+            *_prefer_deeper_nested_class(item, "instance", start=5),
             0 if _is_named_class_instance_candidate(item) else 1,
             0 if item.get("python_class_instance") else 1,
             0 if item.get("python_nested_namespace_class_instance") else 1,
