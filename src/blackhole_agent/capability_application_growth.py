@@ -290,6 +290,13 @@ constructs a class nineteen submodule levels down so a live-fetched sdist whose
 covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
 rather than an eighteen-level nested ``Class().method`` instance can be foraged
 the same way.
+
+Python vigintuple nested-namespace class-instance leftover:
+``run_application_python_vigintuple_nested_namespace_class_instance_growth_plane``
+constructs a class twenty submodule levels down so a live-fetched sdist whose
+covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
+rather than a nineteen-level nested ``Class().method`` instance can be foraged
+the same way.
 """
 
 from __future__ import annotations
@@ -555,6 +562,12 @@ DEFAULT_PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
 )
 DEFAULT_PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_python_novemdecuple_nested_namespace_class_instance_catalog.json"
+)
+DEFAULT_PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-python-vigintuple-nested-namespace-class-instance-growth"
+)
+DEFAULT_PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_python_vigintuple_nested_namespace_class_instance_catalog.json"
 )
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
@@ -1316,6 +1329,26 @@ PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
     goal=(PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
     oracle={
         PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_NOVEMDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
+    },
+)
+PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY = (
+    "codec_text_safe_inner_leaf_more_core_unit_cell_atom_quark_gluon_lepton_photon_boson_fermion_hadron_meson_baryon_neutrino_codec_encode_output"
+)
+PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE = (
+    "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.neutrino.Codec.encode"
+)
+PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE = "HELLO WORLD"
+PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
+    id="vigintuple-nested-instance-unplannable",
+    description=(
+        "Unplannable application goal grown from a sdist whose covering API "
+        "is a Python nested-namespace class instance method twenty submodule "
+        "levels down rather than a nineteen-level nested Class().method instance."
+    ),
+    initial_state={"text": "Hello World"},
+    goal=(PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+    oracle={
+        PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
     },
 )
 
@@ -16380,6 +16413,7 @@ _SYNTHETIC_NESTED_INSTANCE_LATINS: tuple[str, ...] = (
     "septendecuple",
     "octodecuple",
     "novemdecuple",
+    "vigintuple",
 )
 
 
@@ -18219,6 +18253,125 @@ def demo_application_python_novemdecuple_nested_namespace_class_instance_growth_
     """Entry surface: grow from a nineteen-level nested-namespace class instance method."""
 
     result = replay_application_python_novemdecuple_nested_namespace_class_instance_growth_plane_proof()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "query": result.get("query"),
+        "action": result.get("action"),
+    }
+
+
+def load_python_vigintuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
+    return _load_replay_apply_catalog(DEFAULT_PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
+
+
+def replay_application_python_vigintuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
+    """Fast registered proof: twenty-level Class().method instance still forages."""
+
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "twenty submodule levels down so sdists whose covering API is a twenty-level nested "
+        "Class().method instance rather than a nineteen-level nested Class().method instance "
+        "can be foraged the same way."
+    )
+    return _replay_synthetic_nested_codec_instance_proof(
+        capability_id="capability.application-python-vigi-nested-instance-growth-plane",
+        leftover=leftover,
+        modules=(
+            "codec",
+            "text",
+            "safe",
+            "inner",
+            "leaf",
+            "more",
+            "core",
+            "unit",
+            "cell",
+            "atom",
+            "quark",
+            "gluon",
+            "lepton",
+            "photon",
+            "boson",
+            "fermion",
+            "hadron",
+            "meson",
+            "baryon",
+            "neutrino",
+        ),
+        slug="forage-ns-vigintuple-codec-instance",
+        catalog=load_python_vigintuple_nested_namespace_class_instance_apply_catalog(),
+        grow_task=PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
+        winner=PYTHON_VIGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
+        selected_flag="python_vigintuple_nested_namespace_class_instance",
+        prior_instance_flag="python_novemdecuple_nested_namespace_class_instance",
+        static_flag="python_vigintuple_nested_namespace_class_static",
+        action="application_python_vigintuple_nested_namespace_class_instance_growth_plane",
+    )
+
+
+def application_python_vigintuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
+    return (
+        "uv run python -m blackhole_agent.capability_application_growth "
+        "python-vigintuple-nested-instance-proof"
+    )
+
+
+def register_application_python_vigintuple_nested_namespace_class_instance_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    return _register_synthetic_nested_codec_instance_capability(
+        capability_id="capability.application-python-vigi-nested-instance-growth-plane",
+        name="Application python vigintuple nested-namespace class-instance growth plane",
+        description=(
+            "An unplannable application goal grows itself from a sdist whose covering "
+            "Class().method is a Python nested-namespace class instance twenty submodule "
+            "levels down: introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.neutrino.Codec.encode "
+            "as a constructable instance rather than a nineteen-level nested Class().method "
+            "instance, and extra bundle leaves extract to a short cache dir so Windows "
+            "MAX_PATH does not fail the forage."
+        ),
+        entry=(
+            "blackhole_agent.capability_application_growth:"
+            "demo_application_python_vigintuple_nested_namespace_class_instance_growth_plane"
+        ),
+        proof_command=application_python_vigintuple_nested_namespace_class_instance_growth_plane_proof_command(),
+        catalog_path="tests/fixtures/forage_python_vigintuple_nested_namespace_class_instance_catalog.json",
+        capability_delta=(
+            "Application-growth no longer skips sdists whose covering Class().method "
+            "is a Python nested-namespace class instance twenty submodule levels down: "
+            "introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.neutrino.Codec.encode "
+            "rather than a nineteen-level nested Class().method instance, and extra bundle "
+            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
+            "not fail extra bundle leaves."
+        ),
+        tag="vigintuple-nested",
+        extra_dependencies=(
+            "capability.application-python-novem-nested-instance-growth-plane",
+            "capability.application-python-octod-nested-instance-growth-plane",
+            "capability.application-python-septd-nested-instance-growth-plane",
+            "capability.application-python-sexde-nested-instance-growth-plane",
+            "capability.application-python-quind-nested-instance-growth-plane",
+            "capability.application-python-quatt-nested-instance-growth-plane",
+            "capability.application-python-trede-nested-instance-growth-plane",
+            "capability.application-python-dodec-nested-instance-growth-plane",
+            "capability.application-python-undec-nested-instance-growth-plane",
+            "capability.application-python-deca-nested-instance-growth-plane",
+            "capability.application-python-nona-nested-instance-growth-plane",
+            "capability.application-python-oct-nested-instance-growth-plane",
+            "capability.application-python-sept-nested-instance-growth-plane",
+            "capability.application-python-sext-nested-instance-growth-plane",
+        ),
+        repo_root=repo_root,
+    )
+
+
+def demo_application_python_vigintuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a twenty-level nested-namespace class instance method."""
+
+    result = replay_application_python_vigintuple_nested_namespace_class_instance_growth_plane_proof()
     return {
         "ok": bool(result["ok"]),
         "winner": result.get("winner"),
