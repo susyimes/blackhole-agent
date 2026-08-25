@@ -233,6 +233,12 @@ def probe_candidate(
         "python_octuple_nested_namespace_class_static": bool(
             (inference.get("record") or {}).get("python_octuple_nested_namespace_class_static")
         ),
+        "python_nonuple_nested_namespace_class_instance": bool(
+            (inference.get("record") or {}).get("python_nonuple_nested_namespace_class_instance")
+        ),
+        "python_nonuple_nested_namespace_class_static": bool(
+            (inference.get("record") or {}).get("python_nonuple_nested_namespace_class_static")
+        ),
         "python_quintuple_nested_namespace_class_instance": bool(
             (inference.get("record") or {}).get("python_quintuple_nested_namespace_class_instance")
         ),
@@ -259,6 +265,9 @@ def probe_candidate(
         ),
         "python_octuple_nested_namespace_function": bool(
             (inference.get("record") or {}).get("python_octuple_nested_namespace_function")
+        ),
+        "python_nonuple_nested_namespace_function": bool(
+            (inference.get("record") or {}).get("python_nonuple_nested_namespace_function")
         ),
     }
 
