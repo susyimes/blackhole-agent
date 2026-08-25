@@ -248,6 +248,13 @@ constructs a class thirteen submodule levels down so a live-fetched sdist whose
 covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
 rather than a twelve-level nested ``Class().method`` instance can be foraged
 the same way.
+
+Python quattuordecuple nested-namespace class-instance leftover:
+``run_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane``
+constructs a class fourteen submodule levels down so a live-fetched sdist whose
+covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
+rather than a thirteen-level nested ``Class().method`` instance can be foraged
+the same way.
 """
 
 from __future__ import annotations
@@ -477,6 +484,12 @@ DEFAULT_PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
 )
 DEFAULT_PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_python_tredecuple_nested_namespace_class_instance_catalog.json"
+)
+DEFAULT_PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-python-quattuordecuple-nested-namespace-class-instance-growth"
+)
+DEFAULT_PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_python_quattuordecuple_nested_namespace_class_instance_catalog.json"
 )
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
@@ -1118,6 +1131,26 @@ PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
     goal=(PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
     oracle={
         PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
+    },
+)
+PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY = (
+    "codec_text_safe_inner_leaf_more_core_unit_cell_atom_quark_gluon_lepton_photon_codec_encode_output"
+)
+PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE = (
+    "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.Codec.encode"
+)
+PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE = "HELLO WORLD"
+PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
+    id="quattuordecuple-nested-instance-unplannable",
+    description=(
+        "Unplannable application goal grown from a sdist whose covering API "
+        "is a Python nested-namespace class instance method fourteen submodule "
+        "levels down rather than a thirteen-level nested Class().method instance."
+    ),
+    initial_state={"text": "Hello World"},
+    goal=(PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+    oracle={
+        PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
     },
 )
 
@@ -15508,6 +15541,8 @@ def _python_sextuple_nested_namespace_class_instance_selected(covering: Mapping[
     winner = callables[0] if callables else ""
     return (
         bool(covering.get("python_sextuple_nested_namespace_class_instance"))
+        and not bool(covering.get("python_quattuordecuple_nested_namespace_class_instance"))
+        and not bool(covering.get("python_quattuordecuple_nested_namespace_class_static"))
         and not bool(covering.get("python_tredecuple_nested_namespace_class_instance"))
         and not bool(covering.get("python_tredecuple_nested_namespace_class_static"))
         and not bool(covering.get("python_duodecuple_nested_namespace_class_instance"))
@@ -17477,6 +17512,199 @@ def demo_application_python_tredecuple_nested_namespace_class_instance_growth_pl
     }
 
 
+def load_python_quattuordecuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
+    payload = load_catalog(DEFAULT_PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
+    payload["network_used"] = False
+    payload["replay"] = True
+    payload["live"] = False
+    payload["registries"] = sorted(
+        {
+            str(item.get("registry") or "")
+            for item in payload.get("items") or []
+            if str(item.get("registry") or "") in {"npm", "pypi"}
+        }
+    )
+    return payload
+
+
+def replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
+    """Fast registered proof: fourteen-level Class().method instance still forages."""
+
+    from blackhole_agent.capability_foraging import _extracted_cache_dir
+    from blackhole_agent.kernel_leftover import leftover_marker_ids
+
+    capability_id = "capability.application-python-quatt-nested-instance-growth-plane"
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "fourteen submodule levels down so sdists whose covering API is a fourteen-level nested "
+        "Class().method instance rather than a thirteen-level nested Class().method instance "
+        "can be foraged the same way."
+    )
+    inferred = _infer_synthetic_nested_codec(
+        (
+            "codec",
+            "text",
+            "safe",
+            "inner",
+            "leaf",
+            "more",
+            "core",
+            "unit",
+            "cell",
+            "atom",
+            "quark",
+            "gluon",
+            "lepton",
+            "photon",
+        ),
+        "forage-ns-quattuordecuple-codec-instance",
+    )
+    record = inferred.get("record") or {}
+    wheel = Path("apache_airflow_providers_common_compat-1.18.0-py3-none-any.whl")
+    cache = _extracted_cache_dir("apache-airflow-providers-common-compat", "1.18.0", wheel)
+    catalog = load_python_quattuordecuple_nested_namespace_class_instance_apply_catalog()
+    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    stamped = ledger.capabilities.get(capability_id)
+    verdicts = {
+        "capability_exists": stamped is not None,
+        "catalog_query": catalog.get("query")
+        == query_from_goal(PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK.goal),
+        "infer_ok": bool(inferred.get("ok")),
+        "python_quattuordecuple_nested_namespace_class_instance_selected": bool(
+            record.get("python_quattuordecuple_nested_namespace_class_instance")
+        )
+        and record.get("winner") == PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
+        "winner_is_not_python_tredecuple_nested_namespace_class_instance": not bool(
+            record.get("python_tredecuple_nested_namespace_class_instance")
+        ),
+        "winner_is_not_python_quattuordecuple_nested_namespace_class_static": not bool(
+            record.get("python_quattuordecuple_nested_namespace_class_static")
+        ),
+        "extra_leaf_cache_skips_wheel_filename": ".whl" not in str(cache),
+        "leftover_marks_plane": leftover_marker_ids(leftover) == (capability_id,),
+        "used_skill_route_discovery": False,
+    }
+    ok = all(value is True for key, value in verdicts.items() if key != "used_skill_route_discovery")
+    return {
+        "ok": ok,
+        **verdicts,
+        "winner": record.get("winner") or "",
+        "query": catalog.get("query") or "",
+        "action": "application_python_quattuordecuple_nested_namespace_class_instance_growth_plane",
+        "used_skill_route_discovery": False,
+    }
+
+
+def application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
+    return (
+        "uv run python -m blackhole_agent.capability_application_growth "
+        "python-quattuordecuple-nested-instance-proof"
+    )
+
+
+def register_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    ledger_path = default_ledger_path(repo_root)
+    ledger = load_ledger(ledger_path)
+    dependencies = tuple(
+        dependency
+        for dependency in (
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "capability.foraging-plane",
+            "capability.forage-target-plane",
+            "capability.forage-growth-plane",
+            "capability.application-python-trede-nested-instance-growth-plane",
+            "capability.application-python-dodec-nested-instance-growth-plane",
+            "capability.application-python-undec-nested-instance-growth-plane",
+            "capability.application-python-deca-nested-instance-growth-plane",
+            "capability.application-python-nona-nested-instance-growth-plane",
+            "capability.application-python-oct-nested-instance-growth-plane",
+            "capability.application-python-sept-nested-instance-growth-plane",
+            "capability.application-python-sext-nested-instance-growth-plane",
+            "capability.application-growth-plane",
+            "capability.application-plane",
+        )
+        if dependency in ledger.capabilities
+    )
+    capability = Capability(
+        id="capability.application-python-quatt-nested-instance-growth-plane",
+        name="Application python quattuordecuple nested-namespace class-instance growth plane",
+        description=(
+            "An unplannable application goal grows itself from a sdist whose covering "
+            "Class().method is a Python nested-namespace class instance fourteen submodule "
+            "levels down: introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.Codec.encode as a "
+            "constructable instance rather than a thirteen-level nested Class().method instance, "
+            "and extra bundle leaves extract to a short cache dir so Windows MAX_PATH does "
+            "not fail the forage."
+        ),
+        kind="python",
+        entry=(
+            "blackhole_agent.capability_application_growth:"
+            "demo_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane"
+        ),
+        proof_command=application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof_command(),
+        dependencies=dependencies,
+        behavior_paths=(
+            "src/blackhole_agent/capability_application_growth.py",
+            "src/blackhole_agent/capability_foraging.py",
+            "src/blackhole_agent/capability_acquisition.py",
+            "src/blackhole_agent/capability_forage_growth.py",
+            "tests/fixtures/forage_python_quattuordecuple_nested_namespace_class_instance_catalog.json",
+            "capabilities/ledger.json",
+        ),
+        capability_delta=(
+            "Application-growth no longer skips sdists whose covering Class().method "
+            "is a Python nested-namespace class instance fourteen submodule levels down: "
+            "introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.Codec.encode "
+            "rather than a thirteen-level nested Class().method instance, and extra bundle "
+            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
+            "not fail extra bundle leaves."
+        ),
+        tags=(
+            "foraging",
+            "plane",
+            "application",
+            "growth",
+            "python",
+            "nested-namespace",
+            "class-instance",
+            "quattuordecuple-nested",
+        ),
+    )
+    ledger = register_capability(ledger, capability, replace=True)
+    save_ledger(ledger_path, ledger)
+    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
+    stamped = ledger.capabilities[capability.id]
+    disk = load_ledger(ledger_path)
+    merged = dict(disk.capabilities)
+    merged[stamped.id] = stamped
+    save_ledger(
+        ledger_path,
+        CapabilityLedger(
+            schema_version=disk.schema_version,
+            updated_at=utc_now_iso(),
+            capabilities=merged,
+        ),
+    )
+    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
+
+
+def demo_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a fourteen-level nested-namespace class instance method."""
+
+    result = replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "query": result.get("query"),
+        "action": result.get("action"),
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Application-growth forage plane")
     sub = parser.add_subparsers(dest="command_name", required=True)
@@ -17730,6 +17958,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--no-forage", action="store_true", help="match only; do not forage"
     )
 
+    python_quattuordecuple_nested_namespace_class_instance_parser = sub.add_parser(
+        "python-quattuordecuple-nested-instance-plane",
+        help="grow from a Python sdist by constructing a fourteen-level nested Class().method instance",
+    )
+    python_quattuordecuple_nested_namespace_class_instance_parser.add_argument(
+        "--no-forage", action="store_true", help="match only; do not forage"
+    )
+
     sub.add_parser("proof", help="run the registered application-growth-plane proof")
     sub.add_parser("live-proof", help="run the registered live-registry application-growth proof")
     sub.add_parser("registry-proof", help="run the registered registry-archive application-growth proof")
@@ -17847,6 +18083,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "python-tredecuple-nested-instance-proof",
         help="run the registered python tredecuple nested-namespace class-instance application-growth proof",
     )
+    sub.add_parser(
+        "python-quattuordecuple-nested-instance-proof",
+        help="run the registered python quattuordecuple nested-namespace class-instance application-growth proof",
+    )
     sub.add_parser("register", help="register and prove the plane in the live ledger")
     sub.add_parser("live-register", help="register and prove the live-registry plane")
     sub.add_parser("registry-register", help="register and prove the registry-archive plane")
@@ -17961,6 +18201,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub.add_parser(
         "python-tredecuple-nested-instance-register",
         help="register and prove the python tredecuple nested-namespace class-instance plane",
+    )
+    sub.add_parser(
+        "python-quattuordecuple-nested-instance-register",
+        help="register and prove the python quattuordecuple nested-namespace class-instance plane",
     )
 
     verify_parser = sub.add_parser("verify", help="verify a sealed application-growth report")
@@ -18208,6 +18452,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--report-dir", type=Path, default=DEFAULT_PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR
     )
 
+    python_quattuordecuple_nested_namespace_class_instance_verify = sub.add_parser(
+        "python-quattuordecuple-nested-instance-verify",
+        help="verify a sealed python quattuordecuple nested-namespace class-instance growth report",
+    )
+    python_quattuordecuple_nested_namespace_class_instance_verify.add_argument(
+        "--report-dir", type=Path, default=DEFAULT_PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR
+    )
+
     args = parser.parse_args(argv)
     if args.command_name == "grow":
         goal = tuple(args.goal)
@@ -18305,6 +18557,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = replay_application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof()
     elif args.command_name == "python-tredecuple-nested-instance-plane":
         result = replay_application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof()
+    elif args.command_name == "python-quattuordecuple-nested-instance-plane":
+        result = replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof()
     elif args.command_name == "proof":
         result = builtin_application_growth_plane_proof()
     elif args.command_name == "live-proof":
@@ -18373,6 +18627,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = replay_application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof()
     elif args.command_name == "python-tredecuple-nested-instance-proof":
         result = replay_application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof()
+    elif args.command_name == "python-quattuordecuple-nested-instance-proof":
+        result = replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof()
     elif args.command_name == "register":
         result = register_application_growth_plane_capability()
     elif args.command_name == "live-register":
@@ -18441,6 +18697,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = register_application_python_duodecuple_nested_namespace_class_instance_growth_plane_capability()
     elif args.command_name == "python-tredecuple-nested-instance-register":
         result = register_application_python_tredecuple_nested_namespace_class_instance_growth_plane_capability()
+    elif args.command_name == "python-quattuordecuple-nested-instance-register":
+        result = register_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_capability()
     elif args.command_name == "live-verify":
         result = verify_application_live_growth_plane(args.report_dir)
     elif args.command_name == "registry-verify":
@@ -18507,6 +18765,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = replay_application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof()
     elif args.command_name == "python-tredecuple-nested-instance-verify":
         result = replay_application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof()
+    elif args.command_name == "python-quattuordecuple-nested-instance-verify":
+        result = replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof()
     else:
         result = verify_application_growth_plane(args.report_dir)
     print(json.dumps(result, indent=2, sort_keys=True, default=str))
