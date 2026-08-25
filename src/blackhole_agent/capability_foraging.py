@@ -164,6 +164,59 @@ from blackhole_agent.capability_compounder import (
 
 SCHEMA_VERSION = 1
 
+# Depth 0 is a top-level Class.method; depth 15 is a quindecuple nested Class().method.
+PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
+    "python_class",
+    "python_nested_namespace_class",
+    "python_deep_nested_namespace_class",
+    "python_triple_nested_namespace_class",
+    "python_quadruple_nested_namespace_class",
+    "python_quintuple_nested_namespace_class",
+    "python_sextuple_nested_namespace_class",
+    "python_septuple_nested_namespace_class",
+    "python_octuple_nested_namespace_class",
+    "python_nonuple_nested_namespace_class",
+    "python_decuple_nested_namespace_class",
+    "python_undecuple_nested_namespace_class",
+    "python_duodecuple_nested_namespace_class",
+    "python_tredecuple_nested_namespace_class",
+    "python_quattuordecuple_nested_namespace_class",
+    "python_quindecuple_nested_namespace_class",
+)
+PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
+    "python_nested_namespace_function",
+    "python_deep_nested_namespace_function",
+    "python_triple_nested_namespace_function",
+    "python_quadruple_nested_namespace_function",
+    "python_quintuple_nested_namespace_function",
+    "python_sextuple_nested_namespace_function",
+    "python_septuple_nested_namespace_function",
+    "python_octuple_nested_namespace_function",
+    "python_nonuple_nested_namespace_function",
+    "python_decuple_nested_namespace_function",
+    "python_undecuple_nested_namespace_function",
+    "python_duodecuple_nested_namespace_function",
+    "python_tredecuple_nested_namespace_function",
+    "python_quattuordecuple_nested_namespace_function",
+    "python_quindecuple_nested_namespace_function",
+)
+
+
+def python_nested_depth_flag_names() -> tuple[str, ...]:
+    names: list[str] = []
+    for prefix in PYTHON_NESTED_CLASS_DEPTH_PREFIXES:
+        names.append(f"{prefix}_static")
+        names.append(f"{prefix}_instance")
+    names.extend(PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES)
+    return tuple(names)
+
+
+def python_nested_depth_flags(item: Mapping[str, Any]) -> dict[str, bool]:
+    """Copy nested-namespace depth flags off an introspected candidate or record."""
+
+    return {name: bool(item.get(name)) for name in python_nested_depth_flag_names()}
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-foraging"
 DEFAULT_DOWNLOAD_DIR = DEFAULT_ARTIFACT_DIR / "downloads"
@@ -547,50 +600,7 @@ def _consider_inner(name, target, flags, skip_self=False):
         inspect.isfunction(target)
         or inspect.ismethod(target)
         or inspect.isbuiltin(target)
-        or flags.get("python_class_instance")
-        or flags.get("python_class_static")
-        or flags.get("python_nested_namespace_class_static")
-        or flags.get("python_nested_namespace_class_instance")
-        or flags.get("python_deep_nested_namespace_class_static")
-        or flags.get("python_deep_nested_namespace_class_instance")
-        or flags.get("python_triple_nested_namespace_class_static")
-        or flags.get("python_triple_nested_namespace_class_instance")
-        or flags.get("python_quadruple_nested_namespace_class_static")
-        or flags.get("python_quadruple_nested_namespace_class_instance")
-        or flags.get("python_quintuple_nested_namespace_class_static")
-        or flags.get("python_quintuple_nested_namespace_class_instance")
-        or flags.get("python_sextuple_nested_namespace_class_static")
-        or flags.get("python_sextuple_nested_namespace_class_instance")
-        or flags.get("python_septuple_nested_namespace_class_static")
-        or flags.get("python_septuple_nested_namespace_class_instance")
-        or flags.get("python_octuple_nested_namespace_class_static")
-        or flags.get("python_octuple_nested_namespace_class_instance")
-        or flags.get("python_nonuple_nested_namespace_class_static")
-        or flags.get("python_nonuple_nested_namespace_class_instance")
-        or flags.get("python_decuple_nested_namespace_class_static")
-        or flags.get("python_decuple_nested_namespace_class_instance")
-        or flags.get("python_undecuple_nested_namespace_class_static")
-        or flags.get("python_undecuple_nested_namespace_class_instance")
-        or flags.get("python_duodecuple_nested_namespace_class_static")
-        or flags.get("python_duodecuple_nested_namespace_class_instance")
-        or flags.get("python_tredecuple_nested_namespace_class_static")
-        or flags.get("python_tredecuple_nested_namespace_class_instance")
-        or flags.get("python_quattuordecuple_nested_namespace_class_static")
-        or flags.get("python_quattuordecuple_nested_namespace_class_instance")
-        or flags.get("python_nested_namespace_function")
-        or flags.get("python_deep_nested_namespace_function")
-        or flags.get("python_triple_nested_namespace_function")
-        or flags.get("python_quadruple_nested_namespace_function")
-        or flags.get("python_quintuple_nested_namespace_function")
-        or flags.get("python_sextuple_nested_namespace_function")
-        or flags.get("python_septuple_nested_namespace_function")
-        or flags.get("python_octuple_nested_namespace_function")
-        or flags.get("python_nonuple_nested_namespace_function")
-        or flags.get("python_decuple_nested_namespace_function")
-        or flags.get("python_undecuple_nested_namespace_function")
-        or flags.get("python_duodecuple_nested_namespace_function")
-        or flags.get("python_tredecuple_nested_namespace_function")
-        or flags.get("python_quattuordecuple_nested_namespace_function")
+        or any(flags.values())
     ):
         return
     if not _owner_ok(target):
@@ -750,35 +760,34 @@ def _safe_is_module(target):
         return False
 
 
-def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False, sextuple=False, septuple=False, octuple=False, nonuple=False, decuple=False, undecuple=False, duodecuple=False, tredecuple=False, quattuordecuple=False):
+_CLASS_KIND_PREFIXES = (
+    "python_class",
+    "python_nested_namespace_class",
+    "python_deep_nested_namespace_class",
+    "python_triple_nested_namespace_class",
+    "python_quadruple_nested_namespace_class",
+    "python_quintuple_nested_namespace_class",
+    "python_sextuple_nested_namespace_class",
+    "python_septuple_nested_namespace_class",
+    "python_octuple_nested_namespace_class",
+    "python_nonuple_nested_namespace_class",
+    "python_decuple_nested_namespace_class",
+    "python_undecuple_nested_namespace_class",
+    "python_duodecuple_nested_namespace_class",
+    "python_tredecuple_nested_namespace_class",
+    "python_quattuordecuple_nested_namespace_class",
+    "python_quindecuple_nested_namespace_class",
+)
+
+
+def _consider_class(prefix, target, depth=0):
     try:
         class_name = getattr(target, "__name__", "") or ""
     except Exception:
         class_name = ""
     if class_name.endswith(("AsyncClient", "AsyncIOClient")):
         return
-    depth = (
-        14 if quattuordecuple else 13 if tredecuple else 12 if duodecuple else 11 if undecuple else 10 if decuple
-        else 9 if nonuple else 8 if octuple else 7 if septuple else 6 if sextuple else 5 if quintuple
-        else 4 if quadruple else 3 if triple else 2 if deep else 1 if nested else 0
-    )
-    kind_keys = (
-        "python_class_{kind}",
-        "python_nested_namespace_class_{kind}",
-        "python_deep_nested_namespace_class_{kind}",
-        "python_triple_nested_namespace_class_{kind}",
-        "python_quadruple_nested_namespace_class_{kind}",
-        "python_quintuple_nested_namespace_class_{kind}",
-        "python_sextuple_nested_namespace_class_{kind}",
-        "python_septuple_nested_namespace_class_{kind}",
-        "python_octuple_nested_namespace_class_{kind}",
-        "python_nonuple_nested_namespace_class_{kind}",
-        "python_decuple_nested_namespace_class_{kind}",
-        "python_undecuple_nested_namespace_class_{kind}",
-        "python_duodecuple_nested_namespace_class_{kind}",
-        "python_tredecuple_nested_namespace_class_{kind}",
-        "python_quattuordecuple_nested_namespace_class_{kind}",
-    )
+    kind_keys = tuple(item + "_{kind}" for item in _CLASS_KIND_PREFIXES)
     try:
         static_flags = {key.format(kind="static"): (index == depth) for index, key in enumerate(kind_keys)}
         for attr in sorted(_static_method_names(target)):
@@ -973,28 +982,13 @@ _FUNC_KEYS = (
     "python_duodecuple_nested_namespace_function",
     "python_tredecuple_nested_namespace_function",
     "python_quattuordecuple_nested_namespace_function",
-)
-_CLASS_KW = (
-    {"nested": True},
-    {"nested": True, "deep": True},
-    {"nested": True, "triple": True},
-    {"nested": True, "quadruple": True},
-    {"nested": True, "quintuple": True},
-    {"nested": True, "sextuple": True},
-    {"nested": True, "septuple": True},
-    {"nested": True, "octuple": True},
-    {"nested": True, "nonuple": True},
-    {"nested": True, "decuple": True},
-    {"nested": True, "undecuple": True},
-    {"nested": True, "duodecuple": True},
-    {"nested": True, "tredecuple": True},
-    {"nested": True, "quattuordecuple": True},
+    "python_quindecuple_nested_namespace_function",
 )
 level = submodules
-for depth in range(1, 15):
+max_depth = len(_CLASS_KIND_PREFIXES) - 1
+for depth in range(1, max_depth + 1):
     nxt = {}
     func_flags = {key: (index == depth - 1) for index, key in enumerate(_FUNC_KEYS)}
-    class_kw = _CLASS_KW[depth - 1]
     need_defined = depth >= 3
     allow_nested = depth >= 6
     for prefix, target in sorted(level.items()):
@@ -1012,8 +1006,8 @@ for depth in range(1, 15):
                 nested_target, prefix, allow_nested_owner=allow_nested
             ):
                 continue
-            _consider_class(f"{prefix}.{nested_name}", nested_target, **class_kw)
-        if depth < 14:
+            _consider_class(f"{prefix}.{nested_name}", nested_target, depth=depth)
+        if depth < max_depth:
             for child_name, child in sorted(_child_modules(target, prefix).items()):
                 nxt[f"{prefix}.{child_name}"] = child
     level = nxt
@@ -2053,21 +2047,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         item.get("default_export_class_static")
         or item.get("named_export_class_static")
         or item.get("nested_namespace_class_static")
-        or item.get("python_class_static")
-        or item.get("python_nested_namespace_class_static")
-        or item.get("python_deep_nested_namespace_class_static")
-        or item.get("python_triple_nested_namespace_class_static")
-        or item.get("python_quadruple_nested_namespace_class_static")
-        or item.get("python_quintuple_nested_namespace_class_static")
-        or item.get("python_sextuple_nested_namespace_class_static")
-        or item.get("python_septuple_nested_namespace_class_static")
-        or item.get("python_octuple_nested_namespace_class_static")
-        or item.get("python_nonuple_nested_namespace_class_static")
-        or item.get("python_decuple_nested_namespace_class_static")
-        or item.get("python_undecuple_nested_namespace_class_static")
-        or item.get("python_duodecuple_nested_namespace_class_static")
-        or item.get("python_tredecuple_nested_namespace_class_static")
-        or item.get("python_quattuordecuple_nested_namespace_class_static")
+        or any(item.get(f"{prefix}_static") for prefix in PYTHON_NESTED_CLASS_DEPTH_PREFIXES)
     )
 
 
@@ -2080,21 +2060,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         bool(item.get("default_export_class"))
         or _is_named_class_instance_candidate(item)
         or _is_class_static_candidate(item)
-        or bool(item.get("python_class_instance"))
-        or bool(item.get("python_nested_namespace_class_instance"))
-        or bool(item.get("python_deep_nested_namespace_class_instance"))
-        or bool(item.get("python_triple_nested_namespace_class_instance"))
-        or bool(item.get("python_quadruple_nested_namespace_class_instance"))
-        or bool(item.get("python_quintuple_nested_namespace_class_instance"))
-        or bool(item.get("python_sextuple_nested_namespace_class_instance"))
-        or bool(item.get("python_septuple_nested_namespace_class_instance"))
-        or bool(item.get("python_octuple_nested_namespace_class_instance"))
-        or bool(item.get("python_nonuple_nested_namespace_class_instance"))
-        or bool(item.get("python_decuple_nested_namespace_class_instance"))
-        or bool(item.get("python_undecuple_nested_namespace_class_instance"))
-        or bool(item.get("python_duodecuple_nested_namespace_class_instance"))
-        or bool(item.get("python_tredecuple_nested_namespace_class_instance"))
-        or bool(item.get("python_quattuordecuple_nested_namespace_class_instance"))
+        or any(item.get(f"{prefix}_instance") for prefix in PYTHON_NESTED_CLASS_DEPTH_PREFIXES)
     )
 
 
@@ -2194,6 +2160,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("python_quindecuple_nested_namespace_class_static") else 1,
             0 if item.get("python_quattuordecuple_nested_namespace_class_static") else 1,
             0 if item.get("python_tredecuple_nested_namespace_class_static") else 1,
             0 if item.get("python_duodecuple_nested_namespace_class_static") else 1,
@@ -2213,6 +2180,7 @@ def infer_acquisition_spec(
             else 1,
             0 if item.get("python_triple_nested_namespace_class_static") else 1,
             0 if item.get("python_nested_namespace_class_static") else 1,
+            0 if item.get("python_quindecuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_quattuordecuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_tredecuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_duodecuple_nested_namespace_class_instance") else 1,
@@ -2324,134 +2292,7 @@ def infer_acquisition_spec(
                 "named_export_class": bool(candidate.get("named_export_class")),
                 "nested_namespace_class": bool(candidate.get("nested_namespace_class")),
                 "constructor_requires_args": bool(candidate.get("constructor_requires_args")),
-                "python_class_instance": bool(candidate.get("python_class_instance")),
-                "python_class_static": bool(candidate.get("python_class_static")),
-                "python_nested_namespace_class_static": bool(
-                    candidate.get("python_nested_namespace_class_static")
-                ),
-                "python_nested_namespace_class_instance": bool(
-                    candidate.get("python_nested_namespace_class_instance")
-                ),
-                "python_deep_nested_namespace_class_static": bool(
-                    candidate.get("python_deep_nested_namespace_class_static")
-                ),
-                "python_deep_nested_namespace_class_instance": bool(
-                    candidate.get("python_deep_nested_namespace_class_instance")
-                ),
-                "python_triple_nested_namespace_class_static": bool(
-                    candidate.get("python_triple_nested_namespace_class_static")
-                ),
-                "python_triple_nested_namespace_class_instance": bool(
-                    candidate.get("python_triple_nested_namespace_class_instance")
-                ),
-                "python_quadruple_nested_namespace_class_static": bool(
-                    candidate.get("python_quadruple_nested_namespace_class_static")
-                ),
-                "python_quadruple_nested_namespace_class_instance": bool(
-                    candidate.get("python_quadruple_nested_namespace_class_instance")
-                ),
-                "python_quintuple_nested_namespace_class_static": bool(
-                    candidate.get("python_quintuple_nested_namespace_class_static")
-                ),
-                "python_quintuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_quintuple_nested_namespace_class_instance")
-                ),
-                "python_sextuple_nested_namespace_class_static": bool(
-                    candidate.get("python_sextuple_nested_namespace_class_static")
-                ),
-                "python_sextuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_sextuple_nested_namespace_class_instance")
-                ),
-                "python_septuple_nested_namespace_class_static": bool(
-                    candidate.get("python_septuple_nested_namespace_class_static")
-                ),
-                "python_septuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_septuple_nested_namespace_class_instance")
-                ),
-                "python_octuple_nested_namespace_class_static": bool(
-                    candidate.get("python_octuple_nested_namespace_class_static")
-                ),
-                "python_octuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_octuple_nested_namespace_class_instance")
-                ),
-                "python_nonuple_nested_namespace_class_static": bool(
-                    candidate.get("python_nonuple_nested_namespace_class_static")
-                ),
-                "python_nonuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_nonuple_nested_namespace_class_instance")
-                ),
-                "python_decuple_nested_namespace_class_static": bool(
-                    candidate.get("python_decuple_nested_namespace_class_static")
-                ),
-                "python_decuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_decuple_nested_namespace_class_instance")
-                ),
-                "python_undecuple_nested_namespace_class_static": bool(
-                    candidate.get("python_undecuple_nested_namespace_class_static")
-                ),
-                "python_undecuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_undecuple_nested_namespace_class_instance")
-                ),
-                "python_duodecuple_nested_namespace_class_static": bool(
-                    candidate.get("python_duodecuple_nested_namespace_class_static")
-                ),
-                "python_duodecuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_duodecuple_nested_namespace_class_instance")
-                ),
-                "python_tredecuple_nested_namespace_class_static": bool(
-                    candidate.get("python_tredecuple_nested_namespace_class_static")
-                ),
-                "python_tredecuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_tredecuple_nested_namespace_class_instance")
-                ),
-                "python_quattuordecuple_nested_namespace_class_static": bool(
-                    candidate.get("python_quattuordecuple_nested_namespace_class_static")
-                ),
-                "python_quattuordecuple_nested_namespace_class_instance": bool(
-                    candidate.get("python_quattuordecuple_nested_namespace_class_instance")
-                ),
-                "python_nested_namespace_function": bool(
-                    candidate.get("python_nested_namespace_function")
-                ),
-                "python_deep_nested_namespace_function": bool(
-                    candidate.get("python_deep_nested_namespace_function")
-                ),
-                "python_triple_nested_namespace_function": bool(
-                    candidate.get("python_triple_nested_namespace_function")
-                ),
-                "python_quadruple_nested_namespace_function": bool(
-                    candidate.get("python_quadruple_nested_namespace_function")
-                ),
-                "python_quintuple_nested_namespace_function": bool(
-                    candidate.get("python_quintuple_nested_namespace_function")
-                ),
-                "python_sextuple_nested_namespace_function": bool(
-                    candidate.get("python_sextuple_nested_namespace_function")
-                ),
-                "python_septuple_nested_namespace_function": bool(
-                    candidate.get("python_septuple_nested_namespace_function")
-                ),
-                "python_octuple_nested_namespace_function": bool(
-                    candidate.get("python_octuple_nested_namespace_function")
-                ),
-                "python_nonuple_nested_namespace_function": bool(
-                    candidate.get("python_nonuple_nested_namespace_function")
-                ),
-                "python_decuple_nested_namespace_function": bool(
-                    candidate.get("python_decuple_nested_namespace_function")
-                ),
-                "python_undecuple_nested_namespace_function": bool(
-                    candidate.get("python_undecuple_nested_namespace_function")
-                ),
-                "python_duodecuple_nested_namespace_function": bool(
-                    candidate.get("python_duodecuple_nested_namespace_function")
-                ),
-                "python_tredecuple_nested_namespace_function": bool(
-                    candidate.get("python_tredecuple_nested_namespace_function")
-                ),
-                "python_quattuordecuple_nested_namespace_function": bool(
-                    candidate.get("python_quattuordecuple_nested_namespace_function")
-                ),
+                **python_nested_depth_flags(candidate),
             }
             break
         if winner is not None:
@@ -2494,134 +2335,7 @@ def infer_acquisition_spec(
         "named_export_class": bool(collected[0].get("named_export_class")),
         "nested_namespace_class": bool(collected[0].get("nested_namespace_class")),
         "constructor_requires_args": bool(collected[0].get("constructor_requires_args")),
-        "python_class_instance": bool(collected[0].get("python_class_instance")),
-        "python_class_static": bool(collected[0].get("python_class_static")),
-        "python_nested_namespace_class_static": bool(
-            collected[0].get("python_nested_namespace_class_static")
-        ),
-        "python_nested_namespace_class_instance": bool(
-            collected[0].get("python_nested_namespace_class_instance")
-        ),
-        "python_deep_nested_namespace_class_static": bool(
-            collected[0].get("python_deep_nested_namespace_class_static")
-        ),
-        "python_deep_nested_namespace_class_instance": bool(
-            collected[0].get("python_deep_nested_namespace_class_instance")
-        ),
-        "python_triple_nested_namespace_class_static": bool(
-            collected[0].get("python_triple_nested_namespace_class_static")
-        ),
-        "python_triple_nested_namespace_class_instance": bool(
-            collected[0].get("python_triple_nested_namespace_class_instance")
-        ),
-        "python_quadruple_nested_namespace_class_static": bool(
-            collected[0].get("python_quadruple_nested_namespace_class_static")
-        ),
-        "python_quadruple_nested_namespace_class_instance": bool(
-            collected[0].get("python_quadruple_nested_namespace_class_instance")
-        ),
-        "python_quintuple_nested_namespace_class_static": bool(
-            collected[0].get("python_quintuple_nested_namespace_class_static")
-        ),
-        "python_quintuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_quintuple_nested_namespace_class_instance")
-        ),
-        "python_sextuple_nested_namespace_class_static": bool(
-            collected[0].get("python_sextuple_nested_namespace_class_static")
-        ),
-        "python_sextuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_sextuple_nested_namespace_class_instance")
-        ),
-        "python_septuple_nested_namespace_class_static": bool(
-            collected[0].get("python_septuple_nested_namespace_class_static")
-        ),
-        "python_septuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_septuple_nested_namespace_class_instance")
-        ),
-        "python_octuple_nested_namespace_class_static": bool(
-            collected[0].get("python_octuple_nested_namespace_class_static")
-        ),
-        "python_octuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_octuple_nested_namespace_class_instance")
-        ),
-        "python_nonuple_nested_namespace_class_static": bool(
-            collected[0].get("python_nonuple_nested_namespace_class_static")
-        ),
-        "python_nonuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_nonuple_nested_namespace_class_instance")
-        ),
-        "python_decuple_nested_namespace_class_static": bool(
-            collected[0].get("python_decuple_nested_namespace_class_static")
-        ),
-        "python_decuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_decuple_nested_namespace_class_instance")
-        ),
-        "python_undecuple_nested_namespace_class_static": bool(
-            collected[0].get("python_undecuple_nested_namespace_class_static")
-        ),
-        "python_undecuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_undecuple_nested_namespace_class_instance")
-        ),
-        "python_duodecuple_nested_namespace_class_static": bool(
-            collected[0].get("python_duodecuple_nested_namespace_class_static")
-        ),
-        "python_duodecuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_duodecuple_nested_namespace_class_instance")
-        ),
-        "python_tredecuple_nested_namespace_class_static": bool(
-            collected[0].get("python_tredecuple_nested_namespace_class_static")
-        ),
-        "python_tredecuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_tredecuple_nested_namespace_class_instance")
-        ),
-        "python_quattuordecuple_nested_namespace_class_static": bool(
-            collected[0].get("python_quattuordecuple_nested_namespace_class_static")
-        ),
-        "python_quattuordecuple_nested_namespace_class_instance": bool(
-            collected[0].get("python_quattuordecuple_nested_namespace_class_instance")
-        ),
-        "python_nested_namespace_function": bool(
-            collected[0].get("python_nested_namespace_function")
-        ),
-        "python_deep_nested_namespace_function": bool(
-            collected[0].get("python_deep_nested_namespace_function")
-        ),
-        "python_triple_nested_namespace_function": bool(
-            collected[0].get("python_triple_nested_namespace_function")
-        ),
-        "python_quadruple_nested_namespace_function": bool(
-            collected[0].get("python_quadruple_nested_namespace_function")
-        ),
-        "python_quintuple_nested_namespace_function": bool(
-            collected[0].get("python_quintuple_nested_namespace_function")
-        ),
-        "python_sextuple_nested_namespace_function": bool(
-            collected[0].get("python_sextuple_nested_namespace_function")
-        ),
-        "python_septuple_nested_namespace_function": bool(
-            collected[0].get("python_septuple_nested_namespace_function")
-        ),
-        "python_octuple_nested_namespace_function": bool(
-            collected[0].get("python_octuple_nested_namespace_function")
-        ),
-        "python_nonuple_nested_namespace_function": bool(
-            collected[0].get("python_nonuple_nested_namespace_function")
-        ),
-        "python_decuple_nested_namespace_function": bool(
-            collected[0].get("python_decuple_nested_namespace_function")
-        ),
-        "python_undecuple_nested_namespace_function": bool(
-            collected[0].get("python_undecuple_nested_namespace_function")
-        ),
-        "python_duodecuple_nested_namespace_function": bool(
-            collected[0].get("python_duodecuple_nested_namespace_function")
-        ),
-        "python_tredecuple_nested_namespace_function": bool(
-            collected[0].get("python_tredecuple_nested_namespace_function")
-        ),
-        "python_quattuordecuple_nested_namespace_function": bool(
-            collected[0].get("python_quattuordecuple_nested_namespace_function")
-        ),
+        **python_nested_depth_flags(collected[0]),
     }
     inferred = {
         "ok": True,

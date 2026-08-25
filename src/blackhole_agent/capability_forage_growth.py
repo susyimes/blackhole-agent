@@ -63,7 +63,11 @@ from blackhole_agent.capability_forage_targets import (
     load_catalog,
     rank_catalog,
 )
-from blackhole_agent.capability_foraging import forage_package, infer_acquisition_spec
+from blackhole_agent.capability_foraging import (
+    forage_package,
+    infer_acquisition_spec,
+    python_nested_depth_flags,
+)
 
 SCHEMA_VERSION = 1
 
@@ -182,138 +186,7 @@ def probe_candidate(
         "constructor_requires_args": bool(
             (inference.get("record") or {}).get("constructor_requires_args")
         ),
-        "python_class_instance": bool(
-            (inference.get("record") or {}).get("python_class_instance")
-        ),
-        "python_class_static": bool(
-            (inference.get("record") or {}).get("python_class_static")
-        ),
-        "python_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_nested_namespace_class_static")
-        ),
-        "python_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_nested_namespace_class_instance")
-        ),
-        "python_deep_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_deep_nested_namespace_class_static")
-        ),
-        "python_deep_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_deep_nested_namespace_class_instance")
-        ),
-        "python_triple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_triple_nested_namespace_class_static")
-        ),
-        "python_triple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_triple_nested_namespace_class_instance")
-        ),
-        "python_quadruple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_quadruple_nested_namespace_class_static")
-        ),
-        "python_quadruple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_quadruple_nested_namespace_class_instance")
-        ),
-        "python_quintuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_quintuple_nested_namespace_class_static")
-        ),
-        "python_sextuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_sextuple_nested_namespace_class_static")
-        ),
-        "python_sextuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_sextuple_nested_namespace_class_instance")
-        ),
-        "python_septuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_septuple_nested_namespace_class_instance")
-        ),
-        "python_septuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_septuple_nested_namespace_class_static")
-        ),
-        "python_octuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_octuple_nested_namespace_class_instance")
-        ),
-        "python_octuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_octuple_nested_namespace_class_static")
-        ),
-        "python_nonuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_nonuple_nested_namespace_class_instance")
-        ),
-        "python_nonuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_nonuple_nested_namespace_class_static")
-        ),
-        "python_decuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_decuple_nested_namespace_class_instance")
-        ),
-        "python_decuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_decuple_nested_namespace_class_static")
-        ),
-        "python_undecuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_undecuple_nested_namespace_class_instance")
-        ),
-        "python_undecuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_undecuple_nested_namespace_class_static")
-        ),
-        "python_duodecuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_duodecuple_nested_namespace_class_instance")
-        ),
-        "python_duodecuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_duodecuple_nested_namespace_class_static")
-        ),
-        "python_tredecuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_tredecuple_nested_namespace_class_instance")
-        ),
-        "python_tredecuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_tredecuple_nested_namespace_class_static")
-        ),
-        "python_quattuordecuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_quattuordecuple_nested_namespace_class_instance")
-        ),
-        "python_quattuordecuple_nested_namespace_class_static": bool(
-            (inference.get("record") or {}).get("python_quattuordecuple_nested_namespace_class_static")
-        ),
-        "python_quintuple_nested_namespace_class_instance": bool(
-            (inference.get("record") or {}).get("python_quintuple_nested_namespace_class_instance")
-        ),
-        "python_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_nested_namespace_function")
-        ),
-        "python_deep_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_deep_nested_namespace_function")
-        ),
-        "python_triple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_triple_nested_namespace_function")
-        ),
-        "python_quadruple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_quadruple_nested_namespace_function")
-        ),
-        "python_quintuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_quintuple_nested_namespace_function")
-        ),
-        "python_sextuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_sextuple_nested_namespace_function")
-        ),
-        "python_septuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_septuple_nested_namespace_function")
-        ),
-        "python_octuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_octuple_nested_namespace_function")
-        ),
-        "python_nonuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_nonuple_nested_namespace_function")
-        ),
-        "python_decuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_decuple_nested_namespace_function")
-        ),
-        "python_undecuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_undecuple_nested_namespace_function")
-        ),
-        "python_duodecuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_duodecuple_nested_namespace_function")
-        ),
-        "python_tredecuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_tredecuple_nested_namespace_function")
-        ),
-        "python_quattuordecuple_nested_namespace_function": bool(
-            (inference.get("record") or {}).get("python_quattuordecuple_nested_namespace_function")
-        ),
+        **python_nested_depth_flags(inference.get("record") or {}),
     }
 
 
