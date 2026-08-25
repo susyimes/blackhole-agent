@@ -1,0 +1,302 @@
+#
+# Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
+#
+import decimal
+import keyword
+import warnings
+from typing import Optional, Tuple, Union
+
+import sqlalchemy.types as sqltypes
+import sqlalchemy.util as util
+from sqlalchemy.types import TypeEngine
+
+DECFLOAT_PRECISION = 38
+
+TEXT = sqltypes.VARCHAR
+CHARACTER = sqltypes.CHAR
+DEC = sqltypes.DECIMAL
+DOUBLE = sqltypes.FLOAT
+FIXED = sqltypes.DECIMAL
+NUMBER = sqltypes.DECIMAL
+BYTEINT = sqltypes.SMALLINT
+STRING = sqltypes.VARCHAR
+TINYINT = sqltypes.SMALLINT
+VARBINARY = sqltypes.BINARY
+
+
+def _process_float(value):
+    if value == float("inf"):
+        return "inf"
+    elif value == float("-inf"):
+        return "-inf"
+    elif value is not None:
+        return float(value)
+    return value
+
+
+class SnowflakeType(sqltypes.TypeEngine):
+    def _default_dialect(self):
+        # Get around circular import
+        return __import__("snowflake.sqlalchemy").sqlalchemy.dialect()
+
+
+class VARIANT(SnowflakeType):
+    __visit_name__ = "VARIANT"
+
+
+class VECTOR(SnowflakeType):
+    """
+    VECTOR supports the Snowflake vector data type (https://docs.snowflake.com/en/sql-reference/data-types-vector).
+
+    Attributes:
+        element_type (Union[str, sqltypes.Integer, sqltypes.Float]): can be either Integer or Float. It can be specified with "INT" or "FLOAT" string literals or using SQLAlchemy sqltypes.Integer and sqltypes.Float.
+        dimension (int): length of the vector (must be a positive number).
+    """
+
+    __visit_name__ = "VECTOR"
+
+    _VALID_ELEMENT_TYPES = {"INT", "FLOAT"}
+
+    def __init__(
+        self, element_type: Union[str, sqltypes.Integer, sqltypes.Float], dimension: int
+    ):
+        self.element_type = self._normalize_element_type(element_type)
+        self.dimension = self._normalize_dimension(dimension)
+        super().__init__()
+
+    def _normalize_element_type(
+        self, element_type: Union[str, sqltypes.Integer, sqltypes.Float]
+    ):
+        if not isinstance(element_type, (str, sqltypes.Integer, sqltypes.Float)):
+            raise TypeError(
+                f"VECTOR element type must be a string, SQLAlchemy INT or FLOAT type, got {type(element_type).__name__}."
+            )
+
+        normalized_element_type = ""
+        if isinstance(element_type, str):
+            normalized_element_type = element_type.strip().upper()
+            if normalized_element_type not in self._VALID_ELEMENT_TYPES:
+                raise ValueError(
+                    f"Unsupported VECTOR element type '{element_type}'. "
+                    f"Snowflake only supports {self._VALID_ELEMENT_TYPES} element types."
+                )
+        elif isinstance(element_type, (sqltypes.Integer, sqltypes.Float)):
+            normalized_element_type = self._map_sqlalchemy_type(element_type)
+
+        return normalized_element_type
+
+    @staticmethod
+    def _map_sqlalchemy_type(
+        element_type: Union[sqltypes.Integer, sqltypes.Float],
+    ) -> str:
+        if isinstance(element_type, sqltypes.Integer):
+            return "INT"
+        if isinstance(element_type, sqltypes.Float):
+            return "FLOAT"
+        raise ValueError(
+            "SQLAlchemy type must be an Integer or Float for VECTOR element."
+        )
+
+    @staticmethod
+    def _normalize_dimension(dimension: int) -> int:
+        if not isinstance(dimension, int):
+            raise TypeError(
+                f"VECTOR dimension must be an integer, got {type(dimension).__name__}."
+            )
+        if dimension <= 0:
+            raise ValueError(
+                f"VECTOR dimension must be a positive integer, got {dimension}."
+            )
+        return dimension
+
+    def __repr__(self):
+        return f"VECTOR({self.element_type}, {self.dimension})"
+
+
+class StructuredType(SnowflakeType):
+    def __init__(self, is_semi_structured: bool = False):
+        self.is_semi_structured = is_semi_structured
+        super().__init__()
+
+
+class MAP(StructuredType):
+    __visit_name__ = "MAP"
+
+    def __init__(
+        self,
+        key_type: sqltypes.TypeEngine,
+        value_type: sqltypes.TypeEngine,
+        not_null: bool = False,
+    ):
+        self.key_type = key_type
+        self.value_type = value_type
+        self.not_null = not_null
+        super().__init__()
+
+
+class OBJECT(StructuredType):
+    __visit_name__ = "OBJECT"
+
+    def __init__(self, **items_types: Union[TypeEngine, Tuple[TypeEngine, bool]]):
+        for key, value in items_types.items():
+            if not isinstance(value, tuple):
+                items_types[key] = (value, False)
+
+        self.items_types = items_types
+        self.is_semi_structured = len(items_types) == 0
+        super().__init__()
+
+    def __repr__(self):
+        dq = '"'
+        parts = []
+        for key, value in self.items_types.items():
+            bare = key.strip(dq)
+            if bare.isidentifier() and not keyword.iskeyword(bare):
+                parts.append(f"{bare}={repr(value)}")
+            else:
+                # Field names that are not valid Python identifiers (e.g. a
+                # quoted identifier containing a space) cannot be keyword
+                # arguments; render them as a dict entry so the representation
+                # stays valid Python and round-trips through Alembic autogenerate.
+                parts.append(f"**{{{bare!r}: {repr(value)}}}")
+        return "OBJECT(%s)" % ", ".join(parts)
+
+
+class ARRAY(StructuredType):
+    __visit_name__ = "SNOWFLAKE_ARRAY"
+
+    def __init__(
+        self,
+        value_type: Optional[sqltypes.TypeEngine] = None,
+        not_null: bool = False,
+    ):
+        self.value_type = value_type
+        self.not_null = not_null
+        super().__init__(is_semi_structured=value_type is None)
+
+
+class TIMESTAMP_TZ(SnowflakeType):
+    __visit_name__ = "TIMESTAMP_TZ"
+
+
+class TIMESTAMP_LTZ(SnowflakeType):
+    __visit_name__ = "TIMESTAMP_LTZ"
+
+
+class TIMESTAMP_NTZ(SnowflakeType):
+    __visit_name__ = "TIMESTAMP_NTZ"
+
+
+class GEOGRAPHY(SnowflakeType):
+    __visit_name__ = "GEOGRAPHY"
+
+
+class GEOMETRY(SnowflakeType):
+    __visit_name__ = "GEOMETRY"
+
+
+class DECFLOAT(SnowflakeType):
+    """Snowflake DECFLOAT type - decimal floating-point with 38 significant digits.
+
+    DECFLOAT supports a wider range of values than FLOAT with higher precision.
+    It can represent values with exponents from approximately -6000 to +6000.
+
+    Note: DECFLOAT has restrictions:
+    - Precision is fixed at 38 digits (cannot be customized)
+    - Cannot be stored in VARIANT, OBJECT, or ARRAY
+    - Not supported in Iceberg or Hybrid tables
+    - Does NOT support special values (inf, -inf, NaN) unlike FLOAT
+
+    Precision: The Snowflake Python connector uses Python's decimal context
+    when converting DECFLOAT to Decimal. Default context precision is 28 digits,
+    which truncates values. For full 38-digit precision, use the dialect parameter::
+
+        engine = create_engine('snowflake://...?enable_decfloat=True')
+
+    Or set manually::
+
+        import decimal
+        decimal.getcontext().prec = 38
+    """
+
+    __visit_name__ = "DECFLOAT"
+    _warned_precision = False
+
+    def result_processor(self, dialect, coltype):
+        """Check decimal context precision and warn if it may truncate DECFLOAT values."""
+        # Check if dialect has enable_decfloat configured
+        decfloat_enabled = getattr(dialect, "_enable_decfloat", False)
+
+        def process(value):
+            if value is not None and not DECFLOAT._warned_precision:
+                # Skip warning if dialect has DECFLOAT support enabled
+                if decfloat_enabled:
+                    return value
+
+                current_prec = decimal.getcontext().prec
+                if current_prec < DECFLOAT_PRECISION:
+                    warnings.warn(
+                        f"Python decimal context precision ({current_prec}) is less than "
+                        f"DECFLOAT precision ({DECFLOAT_PRECISION}). Values may be truncated. "
+                        f"Set enable_decfloat=True in connection URL or "
+                        f"decimal.getcontext().prec = {DECFLOAT_PRECISION} for full precision.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    DECFLOAT._warned_precision = True
+            return value
+
+        return process
+
+
+class _CUSTOM_Date(SnowflakeType, sqltypes.Date):
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                return f"'{value.isoformat()}'"
+
+        return process
+
+
+class _CUSTOM_DateTime(SnowflakeType, sqltypes.DateTime):
+    def __init__(self, timezone=False):
+        super().__init__(timezone=timezone)
+
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                datetime_str = value.isoformat(" ", timespec="microseconds")
+                return f"'{datetime_str}'"
+
+        return process
+
+
+class _CUSTOM_Time(SnowflakeType, sqltypes.Time):
+    """Internal Time type for the Snowflake dialect.
+
+    SQLAlchemy's ``Time(timezone=True)`` has no effect in this dialect because
+    Snowflake's TIME data type does not support time zones
+    (https://docs.snowflake.com/en/sql-reference/data-types-datetime#time).
+    The column will always be compiled to plain ``TIME`` regardless of the
+    ``timezone`` flag.  To store timestamps with time-zone information use
+    :class:`TIMESTAMP_TZ` or ``DateTime(timezone=True)`` instead.
+    """
+
+    def literal_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                time_str = value.isoformat(timespec="microseconds")
+                return f"'{time_str}'"
+
+        return process
+
+
+class _CUSTOM_Float(SnowflakeType, sqltypes.Float):
+    def bind_processor(self, dialect):
+        return _process_float
+
+
+class _CUSTOM_DECIMAL(SnowflakeType, sqltypes.DECIMAL):
+    @util.memoized_property
+    def _type_affinity(self):
+        return sqltypes.INTEGER if self.scale == 0 else sqltypes.DECIMAL

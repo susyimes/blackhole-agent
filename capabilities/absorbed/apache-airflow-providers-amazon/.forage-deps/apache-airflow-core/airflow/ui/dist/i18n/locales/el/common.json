@@ -1,0 +1,481 @@
+{
+  "admin": {
+    "Config": "Ρυθμίσεις",
+    "Connections": "Συνδέσεις",
+    "Plugins": "Πρόσθετα",
+    "Pools": "Pools",
+    "Providers": "Πάροχοι",
+    "Variables": "Μεταβλητές"
+  },
+  "allOperators": "Όλοι οι Τελεστές",
+  "allTeams": "Όλες οι Ομάδες",
+  "appearance": {
+    "appearance": "Εμφάνιση",
+    "darkMode": "Σκούρο Θέμα",
+    "lightMode": "Φωτεινό Θέμα",
+    "systemMode": "Σύμφωνα με το σύστημα"
+  },
+  "asset_one": "Οντότητα",
+  "asset_other": "Οντότητες",
+  "assetEvent_one": "Συμβάν Οντότητας",
+  "assetEvent_other": "Συμβάντα Οντοτήτων",
+  "assetInactive": {
+    "tooltip": "Η ανάντη οντότητα έχει απενεργοποιηθεί· ο προγραμματιστής αναστέλλει την αξιολόγηση κατατμήσεων μέχρι να επανενεργοποιηθεί."
+  },
+  "backfill_one": "Backfill",
+  "backfill_other": "Backfills",
+  "browse": {
+    "auditLog": "Καταγραφή Ελέγχου",
+    "deadlines": "Προθεσμίες",
+    "jobs": "Διεργασίες",
+    "requiredActions": "Απαιτούμενες Ενέργειες",
+    "xcoms": "XComs"
+  },
+  "collapseAllExtra": "Σύμπτυξη όλων των επιπλέον json",
+  "collapseDetailsPanel": "Σύμπτυξη Πίνακα Λεπτομερειών",
+  "consumingAsset": "Καταναλωτική Οντότητα",
+  "createdAssetEvent_one": "Δημιουργήθηκε Συμβάν Οντότητας",
+  "createdAssetEvent_other": "Δημιουργήθηκαν Συμβάντα Οντοτήτων",
+  "dag_one": "Dag",
+  "dag_other": "Dags",
+  "dagDetails": {
+    "catchup": "Catchup",
+    "dagRunTimeout": "Χρονικό Όριο Εκτέλεσης Dag",
+    "defaultArgs": "Προεπιλεγμένες Παράμετροι",
+    "description": "Περιγραφή",
+    "documentation": "Τεκμηρίωση Dag",
+    "fileLocation": "Τοποθεσία Αρχείου",
+    "hasTaskConcurrencyLimits": "Περιορισμοί ταυτόχρονων Εργασιών",
+    "lastExpired": "Τελευταία Λήξη",
+    "lastParseDuration": "Διάρκεια Τελευταίας Ανάλυσης",
+    "lastParsed": "Τελευταία Ανάλυση",
+    "latestDagVersion": "Τελευταία Έκδοση Dag",
+    "latestRun": "Τελευταία Εκτέλεση",
+    "maxActiveRuns": "Μέγιστες Ενεργές Εκτελέσεις",
+    "maxActiveTasks": "Μέγιστες Ενεργές Εργασίες",
+    "maxConsecutiveFailedDagRuns": "Μέγιστες Διαδοχικές Αποτυχημένες Εκτελέσεις Dag",
+    "nextRun": "Επόμενη Εκτέλεση",
+    "owner": "Ιδιοκτήτης",
+    "params": "Παράμετροι",
+    "schedule": "Πρόγραμμα",
+    "tags": "Ετικέτες",
+    "team": "Ομάδα"
+  },
+  "dagId": "Dag ID",
+  "dagRun": {
+    "conf": "Ρυθμίσεις",
+    "dagVersions": "Έκδοση(εις) Dag",
+    "dataIntervalEnd": "Τέλος Διαστήματος Δεδομένων",
+    "dataIntervalStart": "Έναρξη Διαστήματος Δεδομένων",
+    "durationStats": {
+      "mean": "Μέσος Όρος",
+      "mode": "Επικρατούσα Τιμή"
+    },
+    "expectedDuration": "Αναμενόμενη Διάρκεια",
+    "lastSchedulingDecision": "Τελευταία Απόφαση Προγραμματισμού",
+    "mappedPartitionKey": "Χαρτογραφημένο Κλειδί Κατάτμησης",
+    "partitionDate": "Ημερομηνία Κατάτμησης",
+    "partitionKey": "Κλειδί Κατάτμησης",
+    "queuedAt": "Σε Ουρά Στις",
+    "runAfter": "Εκτέλεση Μετά",
+    "runType": "Τύπος Εκτέλεσης",
+    "sourceAssetEvent": "Συμβάν Πηγής Οντότητας",
+    "triggeredBy": "Ενεργοποιήθηκε Από",
+    "triggeringUser": "Όνομα Χρήστη Ενεργοποίησης"
+  },
+  "dagRun_one": "Εκτέλεση Dag",
+  "dagRun_other": "Εκτελέσεις Dag",
+  "dagRunId": "ID Εκτέλεσης Dag",
+  "dagWarnings": "Προειδοποιήσεις/Σφάλματα Dag",
+  "defaultToGraphView": "Προεπιλογή σε γραφική προβολή",
+  "defaultToGridView": "Προεπιλογή σε πλέγμα",
+  "delete": "Διαγραφή",
+  "diff": "Διαφορές",
+  "diffCompareWith": "Σύγκριση με",
+  "diffExit": "Έξοδος από τις Διαφορές",
+  "diffSelectVersionToCompare": "Επιλέξτε έκδοση για σύγκριση",
+  "direction": "Κατεύθυνση",
+  "docs": {
+    "documentation": "Τεκμηρίωση",
+    "githubRepo": "Αποθετήριο GitHub",
+    "restApiReference": "REST API Αναφορά"
+  },
+  "download": {
+    "download": "Λήψη",
+    "hotkey": "d",
+    "tooltip": "Πατήστε {{hotkey}} για λήψη των καταγραφών"
+  },
+  "duration": "Διάρκεια",
+  "edit": "Επεξεργασία",
+  "endDate": "Ημερομηνία Λήξης",
+  "error": {
+    "back": "Πίσω",
+    "defaultMessage": "Παρουσιάστηκε απρόσμενο σφάλμα",
+    "home": "Αρχική",
+    "invalidUrl": "Η σελίδα δεν βρέθηκε. Ελέγξτε τη διεύθυνση URL και δοκιμάστε ξανά.",
+    "notFound": "Η σελίδα δεν βρέθηκε",
+    "title": "Σφάλμα"
+  },
+  "errors": {
+    "forbidden": {
+      "description": "Δεν έχετε δικαίωμα να εκτελέσετε αυτήν την ενέργεια.",
+      "title": "Άρνηση Πρόσβασης"
+    }
+  },
+  "expand": {
+    "collapse": "Σύμπτυξη",
+    "expand": "Ανάπτυξη",
+    "hotkey": "e",
+    "tooltip": "Πατήστε {{hotkey}} για εναλλαγή ανάπτυξης"
+  },
+  "expandAllExtra": "Ανάπτυξη όλων των επιπλέον json",
+  "expression": {
+    "all": "Όλα",
+    "and": "ΚΑΙ",
+    "any": "Οποιοδήποτε",
+    "or": "Ή"
+  },
+  "filter": "Φίλτρο",
+  "filters": {
+    "durationFrom": "Διάρκεια Από",
+    "durationTo": "Διάρκεια Έως",
+    "endTime": "Ώρα Λήξης",
+    "logicalDateFrom": "Λογική Ημερομηνία Από",
+    "logicalDateTo": "Λογική Ημερομηνία Έως",
+    "runAfterFrom": "Εκτέλεση Μετά Από",
+    "runAfterTo": "Εκτέλεση Μετά Έως",
+    "searchAsset": "Αναζήτηση Οντότητας",
+    "selectDateRange": "Επιλέξτε Εύρος Ημερομηνιών",
+    "startTime": "Ώρα Έναρξης"
+  },
+  "fullscreen": {
+    "tooltip": "Πατήστε {{hotkey}} για πλήρη οθόνη"
+  },
+  "generateToken": "Δημιουργία Token",
+  "key": "Κλειδί",
+  "logicalDate": "Λογική Ημερομηνία",
+  "logout": "Αποσύνδεση",
+  "logoutConfirmation": "Πρόκειται να αποσυνδεθείτε από την εφαρμογή.",
+  "mapIndex": "Δείκτης Χάρτη",
+  "modal": {
+    "add": "Προσθήκη",
+    "cancel": "Ακύρωση",
+    "confirm": "Επιβεβαίωση",
+    "delete": {
+      "button": "Διαγραφή",
+      "confirmation": "Είστε σίγουροι ότι θέλετε να διαγράψετε {{resourceName}}; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί."
+    },
+    "save": "Αποθήκευση"
+  },
+  "nav": {
+    "admin": "Διαχείριση",
+    "assets": "Οντότητες",
+    "browse": "Περιήγηση",
+    "dags": "Dags",
+    "docs": "Τεκμηρίωση",
+    "home": "Αρχική",
+    "legacyFabViews": "Παλιές Προβολές",
+    "plugins": "Πρόσθετα",
+    "security": "Ασφάλεια"
+  },
+  "noItemsFound": "Δεν βρέθηκε {{modelName}}",
+  "note": {
+    "add": "Προσθήκη σημείωσης",
+    "dagRun": "Σημείωση Εκτέλεσης Dag",
+    "edit": "Επεξεργασία σημείωσης",
+    "label": "Σημείωση",
+    "placeholder": "Προσθέστε μια σημείωση...",
+    "preview": "Προεπισκόπηση",
+    "taskInstance": "Σημείωση Εκτέλεσης Εργασίας",
+    "write": "Σύνταξη"
+  },
+  "overallStatus": "Συνολική Κατάσταση",
+  "partitionedDagRun_one": "Εκτέλεση Dag με Κατάτμηση",
+  "partitionedDagRun_other": "Εκτελέσεις Dag με Κατάτμηση",
+  "partitionedDagRunDetail": {
+    "receivedAssetEvents": "Ληφθέντα Συμβάντα Οντότητας"
+  },
+  "pendingDagRun_one": "{{count}} Εκκρεμής Εκτέλεση Dag",
+  "pendingDagRun_other": "{{count}} Εκκρεμείς Εκτελέσεις Dag",
+  "presetFilters": {
+    "deleteTitle": "Διαγραφή προκαθορισμένου φίλτρου",
+    "deleteWarning": "Τα προκαθορισμένα φίλτρα αποθηκεύονται μόνο στο παρόν πρόγραμμα περιήγησης.",
+    "duplicate": "Το προκαθορισμένο φίλτρο «{{name}}» αποθηκεύει ήδη ακριβώς αυτήν τη διαμόρφωση.",
+    "empty": "Δεν υπάρχουν προκαθορισμένα φίλτρα",
+    "info": {
+      "default": "Καρφιτσώστε ένα προκαθορισμένο φίλτρο ως προεπιλογή και θα εφαρμόζεται αυτόματα όταν φορτώνετε αυτήν τη σελίδα χωρίς ενεργά φίλτρα.",
+      "save": "Αποθηκεύστε τα τρέχοντα φίλτρα και την ταξινόμηση ως προκαθορισμένο φίλτρο με όνομα, και έπειτα επιστρέψτε σε αυτό όποτε θέλετε.",
+      "storage": "Τα προκαθορισμένα φίλτρα αποθηκεύονται στο παρόν πρόγραμμα περιήγησης."
+    },
+    "namePlaceholder": "Όνομα προκαθορισμένου φίλτρου",
+    "nothingToSave": "Δεν υπάρχει τίποτα προς αποθήκευση. Εφαρμόστε φίλτρα ή ταξινόμηση για να αποθηκεύσετε ένα προκαθορισμένο φίλτρο.",
+    "save": "Αποθήκευση",
+    "setDefault": "Ορισμός ως προεπιλογή",
+    "title": "Προκαθορισμένα Φίλτρα",
+    "unsetDefault": "Κατάργηση προεπιλογής"
+  },
+  "reset": "Επαναφορά",
+  "runId": "ID Εκτέλεσης",
+  "runTypes": {
+    "asset_materialization": "Υλοποίηση Οντότητας",
+    "asset_triggered": "Ενεργοποιήθηκε από Οντότητα",
+    "backfill": "Backfill",
+    "manual": "Χειροκίνητο",
+    "scheduled": "Προγραμματισμένο"
+  },
+  "scroll": {
+    "direction": {
+      "bottom": "κάτω",
+      "top": "πάνω"
+    },
+    "tooltip": "Πατήστε {{hotkey}} για κύλιση προς τα {{direction}}"
+  },
+  "search": {
+    "advanced": {
+      "description": "Αντιστοίχιση οπουδήποτε μέσα στην τιμή (αναζήτηση υπο-συμβολοσειράς). Είναι πιο αργή σε μεγάλες εγκαταστάσεις, επειδή δεν μπορεί να χρησιμοποιήσει το προεπιλεγμένο B-tree ευρετήριο. Για λεπτομέρειες, δείτε την ενότητα της τεκμηρίωσης για τα προσαρμοσμένα ευρετήρια μεταδεδομένων.",
+      "title": "Αντιστοίχιση οπουδήποτε"
+    }
+  },
+  "security": {
+    "actions": "Ενέργειες",
+    "permissions": "Δικαιώματα",
+    "resources": "Πόροι",
+    "roles": "Ρόλοι",
+    "users": "Χρήστες"
+  },
+  "selectLanguage": "Επιλογή Γλώσσας",
+  "selected": "Επιλεγμένα",
+  "shortcuts": {
+    "categories": {
+      "code": "Κώδικας",
+      "dagView": "Προβολή Dag",
+      "filters": "Φίλτρα",
+      "global": "Καθολικά",
+      "logs": "Καταγραφές",
+      "navigation": "Πλοήγηση",
+      "runActions": "Ενέργειες Εκτελέσεων & Εργασιών",
+      "search": "Αναζήτηση"
+    },
+    "descriptions": {
+      "clearRun": "Εκκαθάριση Εκτέλεσης Dag",
+      "clearTaskInstance": "Εκκαθάριση Εκτέλεσης Εργασίας",
+      "downloadLogs": "Λήψη καταγραφών",
+      "focusFilterSearch": "Εστιασμένη αναζήτηση με φίλτρα",
+      "focusLogSearch": "Αναζήτηση στις καταγραφές",
+      "focusSearch": "Εστιασμένη αναζήτηση",
+      "markRunFailed": "Σήμανση Εκτέλεσης Dag ως αποτυχημένης",
+      "markRunSuccess": "Σήμανση Εκτέλεσης Dag ως επιτυχημένης",
+      "markTaskFailed": "Σήμανση Εργασίας ως αποτυχημένης",
+      "markTaskGroupFailed": "Σήμανση Ομάδας Εργασιών ως αποτυχημένης",
+      "markTaskGroupSuccess": "Σήμανση Ομάδας Εργασιών ως επιτυχημένης",
+      "markTaskSuccess": "Σήμανση Εργασίας ως επιτυχημένης",
+      "navigateTasks": "Πλοήγηση στις Εργασίες",
+      "openGraphFilters": "Άνοιγμα φίλτρων γραφήματος",
+      "scrollBottom": "Κύλιση στο τέλος",
+      "scrollTop": "Κύλιση στην αρχή",
+      "searchDags": "Αναζήτηση Dags",
+      "showHelp": "Εμφάνιση Συντομεύσεων Πληκτρολογίου",
+      "toggleExpand": "Ανάπτυξη ή σύμπτυξη όλων των ομάδων",
+      "toggleFullscreen": "Εναλλαγή πλήρους οθόνης",
+      "toggleGraphGrid": "Εναλλαγή προβολής γραφήματος / πλέγματος",
+      "toggleSource": "Εναλλαγή πηγαίου",
+      "toggleTaskGroup": "Ανάπτυξη ή σύμπτυξη Ομάδας Εργασιών",
+      "toggleTimestamp": "Εναλλαγή χρονικών σημάνσεων",
+      "toggleWrap": "Εναλλαγή αναδίπλωσης"
+    },
+    "empty": "Δεν υπάρχουν διαθέσιμες συντομεύσεις πληκτρολογίου σε αυτήν τη σελίδα.",
+    "title": "Συντομεύσεις Πληκτρολογίου"
+  },
+  "showDetailsPanel": "Εμφάνιση Πίνακα Λεπτομερειών",
+  "signedInAs": "Συνδεδεμένος ως",
+  "source": {
+    "hide": "Απόκρυψη Πηγαίου Κώδικα",
+    "hotkey": "s",
+    "show": "Εμφάνιση Πηγαίου Κώδικα"
+  },
+  "sourceAssetEvent_one": "Συμβάν Πηγής Οντότητας",
+  "sourceAssetEvent_other": "Συμβάντα Πηγής Οντοτήτων",
+  "startDate": "Ημερομηνία Έναρξης",
+  "state": "Κατάσταση",
+  "states": {
+    "awaiting_input": "Αναμονή Εισόδου",
+    "deferred": "Αναβληθέν",
+    "failed": "Αποτυχία",
+    "no_status": "Χωρίς Κατάσταση",
+    "none": "Χωρίς Κατάσταση",
+    "open": "Ανοιχτό",
+    "planned": "Προγραμματισμένο",
+    "queued": "Σε Ουρά",
+    "removed": "Αφαιρέθηκε",
+    "restarting": "Επανεκκίνηση",
+    "running": "Εκτελείται",
+    "scheduled": "Προγραμματισμένο",
+    "skipped": "Παραλείφθηκε",
+    "success": "Επιτυχία",
+    "up_for_reschedule": "Προς Επαναπρογραμματισμό",
+    "up_for_retry": "Προς Επανάληψη",
+    "upstream_failed": "Αποτυχία Ανάντη"
+  },
+  "table": {
+    "completedAt": "Ολοκληρώθηκε στις",
+    "createdAt": "Δημιουργήθηκε στις",
+    "filterByTag": "Φιλτράρισμα Dags κατά ετικέτα",
+    "filterColumns": "Φιλτράρισμα στηλών πίνακα",
+    "filterReset_one": "Επαναφορά φίλτρου",
+    "filterReset_other": "Επαναφορά φίλτρων",
+    "from": "Από",
+    "maxActiveRuns": "Μέγιστες Ενεργές Εκτελέσεις",
+    "noTagsFound": "Δεν βρέθηκαν ετικέτες",
+    "noTeamsFound": "Δεν βρέθηκαν ομάδες",
+    "tagMode": {
+      "all": "Όλα",
+      "any": "Οποιοδήποτε"
+    },
+    "tagPlaceholder": "Φιλτράρισμα κατά ετικέτα",
+    "to": "Έως",
+    "updatedAt": "Ενημερώθηκε στη/στις"
+  },
+  "task": {
+    "dependsOnPast": "Εξαρτάται από παρελθοντική",
+    "documentation": "Τεκμηρίωση Εργασίας",
+    "lastInstance": "Τελευταία Εκτέλεση",
+    "operator": "Τελεστής",
+    "retries": "Επαναλήψεις",
+    "triggerRule": "Κανόνας Ενεργοποίησης",
+    "waitForDownstream": "Αναμονή για Κατάντη"
+  },
+  "task_one": "Εργασία",
+  "task_other": "Εργασίες",
+  "taskGroup": {
+    "documentation": "Τεκμηρίωση Ομάδας Εργασιών"
+  },
+  "taskGroup_one": "Ομάδα Εργασιών",
+  "taskGroup_other": "Ομάδες Εργασιών",
+  "taskId": "ID Εργασίας",
+  "taskInstance": {
+    "additionalAttributes": "Επιπλέον Ιδιότητες Εκτέλεσης Εργασίας",
+    "dagVersion": "Έκδοση Dag",
+    "executor": "Εκτελεστής",
+    "executorConfig": "Ρυθμίσεις Εκτελεστή",
+    "hostname": "Όνομα Υπολογιστή",
+    "id": "ID",
+    "maxTries": "Μέγιστες Προσπάθειες",
+    "pid": "PID",
+    "pool": "Pool",
+    "poolSlots": "Θέσεις Pool",
+    "priorityWeight": "Βάρος Προτεραιότητας",
+    "queue": "Ουρά",
+    "queuedWhen": "Σε Ουρά Στις",
+    "renderedMapIndex": "Αποδιδόμενος Δείκτης Χάρτη",
+    "scheduledWhen": "Προγραμματίστηκε Στις",
+    "trigger": "Ενεργοποίηση",
+    "triggerer": {
+      "assigned": "Ανατεθειμένος ενεργοποιητής",
+      "class": "Κλάση Ενεργοποίησης",
+      "createdAt": "Χρόνος δημιουργίας ενεργοποίησης",
+      "id": "ID Trigger",
+      "job": "Διεργασία Ενεργοποιητή",
+      "latestHeartbeat": "Τελευταίος παλμός ενεργοποιητή",
+      "title": "Πληροφορίες Ενεργοποιητή"
+    },
+    "unixname": "Όνομα Unix"
+  },
+  "taskInstance_one": "Εκτέλεση Εργασίας",
+  "taskInstance_other": "Εκτελέσεις Εργασίας",
+  "timeRange": {
+    "last12Hours": "Τελευταίες 12 Ώρες",
+    "last24Hours": "Τελευταίες 24 Ώρες",
+    "lastHour": "Τελευταία Ώρα",
+    "pastWeek": "Προηγούμενη Εβδομάδα"
+  },
+  "timestamp": {
+    "hide": "Απόκρυψη Χρονικών Σημάνσεων",
+    "hotkey": "t",
+    "show": "Εμφάνιση Χρονικών Σημάνσεων"
+  },
+  "timezone": "Ζώνη Ώρας",
+  "timezoneModal": {
+    "current-timezone": "Τρέχουσα ώρα σε",
+    "placeholder": "Επιλέξτε ζώνη ώρας",
+    "title": "Επιλογή Ζώνης Ώρας",
+    "utc": "UTC (Συντονισμένη Παγκόσμια Ώρα)"
+  },
+  "toaster": {
+    "bulkClear": {
+      "error": "Αποτυχία αιτήματος μαζικής εκκαθάρισης {{resourceName}}",
+      "success": {
+        "description": "{{count}} {{resourceName}} εκκαθαρίστηκαν με επιτυχία. Κλειδιά: {{keys}}",
+        "title": "Υποβλήθηκε αίτημα μαζικής εκκαθάρισης {{resourceName}}"
+      }
+    },
+    "bulkDelete": {
+      "error": "Αποτυχία αιτήματος μαζικής διαγραφής {{resourceName}}",
+      "success": {
+        "description": "{{count}} {{resourceName}} διαγράφηκαν με επιτυχία. Κλειδιά: {{keys}}",
+        "title": "Υποβλήθηκε αίτημα μαζικής διαγραφής {{resourceName}}"
+      }
+    },
+    "bulkUpdate": {
+      "error": "Αποτυχία αιτήματος μαζικής ενημέρωσης {{resourceName}}",
+      "success": {
+        "description": "{{count}} {{resourceName}} ενημερώθηκαν με επιτυχία. Κλειδιά: {{keys}}",
+        "title": "Υποβλήθηκε αίτημα μαζικής ενημέρωσης {{resourceName}}"
+      }
+    },
+    "create": {
+      "error": "Αποτυχία αιτήματος δημιουργίας {{resourceName}}",
+      "success": {
+        "description": "Το {{resourceName}} δημιουργήθηκε με επιτυχία.",
+        "title": "Υποβλήθηκε αίτημα δημιουργίας {{resourceName}}"
+      }
+    },
+    "delete": {
+      "error": "Αποτυχία αιτήματος διαγραφής {{resourceName}}",
+      "success": {
+        "description": "Το {{resourceName}} διαγράφηκε με επιτυχία.",
+        "title": "Υποβλήθηκε αίτημα διαγραφής {{resourceName}}"
+      }
+    },
+    "import": {
+      "error": "Αποτυχία αιτήματος εισαγωγής {{resourceName}}",
+      "success": {
+        "description": "{{count}} {{resourceName}} εισήχθησαν με επιτυχία.",
+        "title": "Υποβλήθηκε αίτημα εισαγωγής {{resourceName}}"
+      }
+    },
+    "update": {
+      "error": "Αποτυχία αιτήματος ενημέρωσης {{resourceName}}",
+      "success": {
+        "description": "Το {{resourceName}} ενημερώθηκε με επιτυχία.",
+        "title": "Υποβλήθηκε αίτημα ενημέρωσης {{resourceName}}"
+      }
+    }
+  },
+  "tokenGeneration": {
+    "apiToken": "Token API",
+    "cliToken": "Token CLI",
+    "errorDescription": "Παρουσιάστηκε σφάλμα κατά τη δημιουργία του token. Παρακαλώ δοκιμάστε ξανά.",
+    "errorTitle": "Αποτυχία Δημιουργίας Token",
+    "generate": "Δημιουργία",
+    "selectType": "Επιλέξτε τον τύπο του token προς δημιουργία.",
+    "title": "Δημιουργία Token",
+    "tokenExpiresIn": "Αυτό το token λήγει σε {{duration}}.",
+    "tokenGenerated": "Το token σας δημιουργήθηκε.",
+    "tokenShownOnce": "Αυτό το token θα εμφανιστεί μόνο μία φορά. Αντιγράψτε το τώρα."
+  },
+  "total": "Σύνολο {{state}}",
+  "triggered": "Ενεργοποιήθηκε",
+  "tryNumber": "Αριθμός Προσπάθειας",
+  "user": "Χρήστης",
+  "validation": {
+    "mustBeAtLeast": "Πρέπει να είναι τουλάχιστον {{min}}.",
+    "mustBeValidNumber": "Πρέπει να είναι έγκυρος αριθμός."
+  },
+  "value": "Τιμή",
+  "wrap": {
+    "hotkey": "w",
+    "tooltip": "Πατήστε {{hotkey}} για εναλλαγή αναδίπλωσης",
+    "unwrap": "Ξεδίπλωμα",
+    "wrap": "Αναδίπλωση"
+  }
+}

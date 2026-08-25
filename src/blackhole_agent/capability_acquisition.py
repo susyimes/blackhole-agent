@@ -177,15 +177,50 @@ Do not hand-edit: the vendored tree digest seals this file.
 """
 
 import importlib
+import importlib.util
 import inspect
 import json
+import os
 import sys
+import types
 from pathlib import Path
 
 CONFIG = {config}
 
+if not hasattr(os, "register_at_fork"):
+    os.register_at_fork = lambda *args, **kwargs: None
+
+def _ensure_abc_registry():
+    try:
+        import collections.abc as _cabc
+        for _name in ("Callable", "Iterable", "Mapping", "Sequence", "Set"):
+            _obj = getattr(_cabc, _name, None)
+            if _obj is None or hasattr(_obj, "_abc_registry"):
+                continue
+            try:
+                _obj._abc_registry = set()
+                _obj._abc_cache = set()
+            except Exception:
+                pass
+    except Exception:
+        pass
+_ensure_abc_registry()
+
+_STDLIB_SHADOW = {{
+    "typing",
+    "enum34",
+    "pathlib2",
+    "configparser",
+    "contextlib2",
+    "funcsigs",
+    "ipaddress",
+    "futures",
+    "functools32",
+}}
 _ROOT = Path(__file__).resolve().parent
 for _extra in CONFIG.get("extra_paths") or []:
+    if any(str(_part).lower() in _STDLIB_SHADOW for _part in Path(str(_extra)).parts):
+        continue
     sys.path.insert(0, str(_ROOT / _extra))
 sys.path.insert(0, str(_ROOT / CONFIG["path_root"]))
 
@@ -201,9 +236,55 @@ def _construct_instance(ctor):
     return None
 
 
+def _load_step(parent, part, imported):
+    nxt = getattr(parent, part, None)
+    if inspect.ismodule(nxt):
+        return nxt, getattr(nxt, "__name__", imported + "." + part) or imported
+    if nxt is not None:
+        return nxt, imported + "." + part
+    imported = imported + "." + part
+    try:
+        return importlib.import_module(imported), imported
+    except Exception:
+        pass
+    for base in list(getattr(parent, "__path__", []) or []):
+        child_dir = str(Path(base) / part)
+        child_py = child_dir + ".py"
+        if Path(child_dir).is_dir():
+            ns = types.ModuleType(imported)
+            ns.__path__ = [child_dir]
+            sys.modules[imported] = ns
+            return ns, imported
+        if Path(child_py).is_file():
+            spec = importlib.util.spec_from_file_location(imported, child_py)
+            if spec is None or spec.loader is None:
+                continue
+            loaded = importlib.util.module_from_spec(spec)
+            sys.modules[imported] = loaded
+            spec.loader.exec_module(loaded)
+            return loaded, imported
+    return None, imported
+
+
 def main() -> int:
     state = json.load(sys.stdin)
     module = importlib.import_module(CONFIG["import_name"])
+    if not hasattr(module, "__version__"):
+        module_file = str(getattr(module, "__file__", "") or "")
+        for extra in CONFIG.get("extra_paths") or []:
+            extra_init = _ROOT.joinpath(str(extra), *str(CONFIG["import_name"]).split("."), "__init__.py")
+            try:
+                if (not extra_init.is_file()) or str(extra_init.resolve()) == module_file:
+                    continue
+                extra_text = extra_init.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            marker = "__version__ ="
+            if marker in extra_text:
+                raw = extra_text.split(marker, 1)[1].splitlines()[0].strip().strip(chr(34) + chr(39))
+                if raw:
+                    module.__version__ = raw
+                    break
     parts = str(CONFIG["callable_name"]).split(".")
     args = [state[key] for key in CONFIG["requires"]]
     if len(parts) == 1:
@@ -212,15 +293,7 @@ def main() -> int:
         parent = module
         imported = str(CONFIG["import_name"])
         for part in parts[:-1]:
-            nxt = getattr(parent, part, None)
-            if inspect.ismodule(nxt):
-                imported = getattr(nxt, "__name__", imported + "." + part) or imported
-            elif nxt is None:
-                imported = imported + "." + part
-                try:
-                    nxt = importlib.import_module(imported)
-                except Exception:
-                    nxt = None
+            nxt, imported = _load_step(parent, part, imported)
             if nxt is None:
                 raise AttributeError(
                     "acquisition callable parent not found: " + ".".join(parts[:-1])
@@ -438,7 +511,23 @@ def synthesize_adapter_source(spec: AcquisitionSpec) -> str:
 # ---------------------------------------------------------------------------
 
 
-_STAGE_SKIP_PARTS = frozenset({"tests", "test", "testing"})
+_STAGE_SKIP_PARTS = frozenset(
+    {
+        "tests",
+        "test",
+        "testing",
+        "docs",
+        "doc",
+        "examples",
+        "example",
+        "benchmarks",
+        "benchmark",
+        "samples",
+        "fixtures",
+        "vendored-meson",
+        "subprojects",
+    }
+)
 
 
 def os_fs_path(path: Path | str) -> str:
@@ -453,7 +542,8 @@ def os_fs_path(path: Path | str) -> str:
 
 
 def _stage_skip_member(name: str) -> bool:
-    return any(part in _STAGE_SKIP_PARTS for part in name.replace("\\", "/").split("/"))
+    parts = [part.lower() for part in name.replace("\\", "/").split("/") if part]
+    return any(part in _STAGE_SKIP_PARTS or part.startswith("test") for part in parts)
 
 
 def _safe_stage_target(staging_dir: Path, name: str) -> Path | None:
@@ -548,20 +638,30 @@ def _run_probe(
 
     command = adapter_command(spec)
     adapter_path = Path(staged_dir) / command[-1]
-    command = [*command[:-1], str(adapter_path)]
+    executable = command[0]
+    if executable in {"python", "python3", "python.exe"}:
+        executable = sys.executable
+    command = [executable, str(adapter_path)]
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
-    completed = subprocess.run(
-        command,
-        input=json.dumps(dict(probe)),
-        capture_output=True,
-        text=True,
-        cwd=str(cwd or staged_dir),
-        timeout=60,
-        check=False,
-        env=env,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            input=json.dumps(dict(probe)),
+            capture_output=True,
+            text=True,
+            cwd=str(cwd or staged_dir),
+            timeout=180,
+            check=False,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stderr = ((exc.stderr or b"") if isinstance(exc.stderr, (bytes, bytearray)) else str(exc.stderr or "")).strip()
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace").strip()
+        tail = (stderr or "").splitlines()[-1] if stderr else "timed out"
+        return {"ok": False, "error": f"adapter timed out: {tail}"}
     if completed.returncode != 0:
         stderr = (completed.stderr or "").strip().splitlines()
         return {
@@ -590,7 +690,7 @@ def synthesize_acquisition(spec: AcquisitionSpec, staging_root: Path) -> dict[st
     spec.validate()
     staged_dir = staging_root / spec.slug
     if staged_dir.exists():
-        shutil.rmtree(staged_dir)
+        shutil.rmtree(os_fs_path(staged_dir), ignore_errors=True)
     try:
         stage_acquisition_source(spec.source, staged_dir)
     except (ValueError, tarfile.TarError, OSError) as exc:
@@ -686,7 +786,7 @@ def acquire_capability(
 ) -> dict[str, Any]:
     """Acquire one uncooperative package as a proved ledger capability."""
 
-    with tempfile.TemporaryDirectory(prefix=f"blackhole-acquire-{spec.slug}-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="bh-acq-", ignore_cleanup_errors=True) as tmp:
         synthesis = synthesize_acquisition(spec, Path(tmp))
         if not synthesis["ok"]:
             return synthesis

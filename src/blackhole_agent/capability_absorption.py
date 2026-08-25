@@ -662,18 +662,27 @@ def absorb_external_capability(
 
     vendored_dir = durable_write_path(repo_root / "capabilities" / "absorbed" / slug)
     vendored: dict[str, Any] | None = None
+    from blackhole_agent.capability_acquisition import os_fs_path
+
     if vendored_dir.exists():
         existing = run_absorption_cases(vendored_dir, manifest)
         if existing["ok"]:
             vendored = existing
         else:
-            shutil.rmtree(vendored_dir)
+            shutil.rmtree(os_fs_path(vendored_dir), ignore_errors=True)
     if vendored is None:
-        shutil.copytree(
-            source_path,
-            vendored_dir,
-            ignore=shutil.ignore_patterns(*ABSORB_IGNORE_PATTERNS),
-        )
+        dest = os_fs_path(vendored_dir)
+        if os.path.exists(dest):
+            shutil.rmtree(dest, ignore_errors=True)
+        try:
+            shutil.copytree(
+                os_fs_path(source_path),
+                dest,
+                ignore=shutil.ignore_patterns(*ABSORB_IGNORE_PATTERNS),
+                ignore_dangling_symlinks=True,
+            )
+        except shutil.Error as exc:
+            return {"ok": False, "stage": "vendor", "slug": slug, "error": str(exc)[:800]}
         vendored = run_absorption_cases(vendored_dir, manifest)
         if not vendored["ok"]:
             return {"ok": False, "stage": "vendored-cases", "slug": slug, "vendored": vendored}

@@ -1,0 +1,69 @@
+{
+  "alerts": {
+    "seeLessContext": "Voir moins",
+    "seeMoreContext": "Voir plus",
+    "showMoreAlerts_many": "+{{count}} alertes supplémentaires",
+    "showMoreAlerts_one": "+{{count}} alerte supplémentaire",
+    "showMoreAlerts_other": "+{{count}} alertes supplémentaires"
+  },
+  "deadlines": {
+    "pending": {
+      "empty": "Aucune échéance à venir",
+      "title": "À venir"
+    },
+    "recentlyMissed": {
+      "empty": "Aucune échéance manquée",
+      "title": "Échéances manquées"
+    },
+    "showMore": "Voir plus",
+    "title": "Échéances"
+  },
+  "deferredSlotsNotCounted": "Différées non comptées dans les slots : {{count}}",
+  "deferredSlotsNotCountedTooltip": "Les tâches différées affichées dans la barre sont comptées dans les slots des Pools. Les tâches différées affichées sous la barre proviennent de Pools qui ne comptent pas les tâches différées dans les slots.",
+  "favorite": {
+    "favoriteDags_many": "{{count}} premiers Dags favoris",
+    "favoriteDags_one": "{{count}} premier Dag favori",
+    "favoriteDags_other": "{{count}} premiers Dags favoris",
+    "noDagRuns": "Il n'y a pas encore d'exécution pour ce Dag.",
+    "noFavoriteDags": "Aucun favori pour le moment. Cliquez sur l'icône étoile à côté d'un Dag dans la liste pour l'ajouter à vos favoris."
+  },
+  "group": "Groupe",
+  "health": {
+    "dagProcessor": "Analyseur de Dag",
+    "health": "État de santé",
+    "healthy": "Sain",
+    "lastHeartbeat": "Dernier battement",
+    "metaDatabase": "Base de données Meta",
+    "scheduler": "Planificateur",
+    "status": "Statut",
+    "triggerer": "Déclencheur",
+    "unhealthy": "Non sain"
+  },
+  "history": "Historique",
+  "importErrors": {
+    "dagImportError_many": "Erreurs d'importation de Dag",
+    "dagImportError_one": "Erreur d'importation de Dag",
+    "dagImportError_other": "Erreurs d'importation de Dag",
+    "searchByFile": "Rechercher par fichier",
+    "timestamp": "Horodatage"
+  },
+  "managePools": "Gérer les pools",
+  "noAssetEvents": "Aucun événement d'actif trouvé.",
+  "poolSlots": "Emplacements de pool",
+  "sortBy": {
+    "newestFirst": "Plus récents d'abord",
+    "oldestFirst": "Plus anciens d'abord",
+    "placeholder": "Trier par"
+  },
+  "source": "Source",
+  "stats": {
+    "activeDags": "Dags actifs",
+    "failedDags": "Dags échoués",
+    "queuedDags": "Dags en attente",
+    "requiredActions": "Actions requises",
+    "runningDags": "Dags en cours d'exécution",
+    "stats": "Statistiques"
+  },
+  "uri": "URI",
+  "welcome": "Bienvenue"
+}

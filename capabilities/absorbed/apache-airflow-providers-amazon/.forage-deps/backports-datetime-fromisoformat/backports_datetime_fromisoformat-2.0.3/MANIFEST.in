@@ -1,0 +1,4 @@
+include LICENSE
+include README.rst
+include backports/datetime_fromisoformat/timezone.h
+include backports/datetime_fromisoformat/_datetimemodule.h

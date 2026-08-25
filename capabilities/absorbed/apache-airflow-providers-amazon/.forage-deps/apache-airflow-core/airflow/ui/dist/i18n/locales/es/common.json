@@ -1,0 +1,432 @@
+{
+  "admin": {
+    "Config": "Configuración",
+    "Connections": "Conexiones",
+    "Plugins": "Plugins",
+    "Pools": "Pools",
+    "Providers": "Proveedores",
+    "Variables": "Variables"
+  },
+  "allOperators": "Todos los operadores",
+  "appearance": {
+    "appearance": "Apariencia",
+    "darkMode": "Modo Oscuro",
+    "lightMode": "Modo Claro",
+    "systemMode": "Seguir Configuración del Sistema"
+  },
+  "asset_many": "Assets",
+  "asset_one": "Asset",
+  "asset_other": "Assets",
+  "assetEvent_many": "Eventos de Asset",
+  "assetEvent_one": "Evento de Asset",
+  "assetEvent_other": "Eventos de Asset",
+  "assetInactive": {
+    "tooltip": "El Asset upstream ha sido desactivado; el programador retiene la evaluación de particiones hasta que se reactive."
+  },
+  "backfill_many": "Backfills",
+  "backfill_one": "Backfill",
+  "backfill_other": "Backfills",
+  "browse": {
+    "auditLog": "Auditar Log",
+    "deadlines": "Plazos",
+    "jobs": "Trabajos",
+    "requiredActions": "Acciones Requeridas",
+    "xcoms": "XComs"
+  },
+  "collapseAllExtra": "Colapsar todos los extra json",
+  "collapseDetailsPanel": "Colapsar Detalles del Panel",
+  "consumingAsset": "Asset Consumidor",
+  "createdAssetEvent_many": "Eventos de Asset Creados",
+  "createdAssetEvent_one": "Evento de Asset Creado",
+  "createdAssetEvent_other": "Eventos de Asset Creados",
+  "dag_many": "Dags",
+  "dag_one": "Dag",
+  "dag_other": "Dags",
+  "dagDetails": {
+    "catchup": "Catchup",
+    "dagRunTimeout": "Tiempo de Ejecución del Dag",
+    "defaultArgs": "Argumentos por Defecto",
+    "description": "Descripción",
+    "documentation": "Documentación del Dag",
+    "fileLocation": "Ubicación del Archivo",
+    "hasTaskConcurrencyLimits": "Tiene límites de concurrencia de áreas",
+    "lastExpired": "Último Expirado",
+    "lastParseDuration": "Duración del último parseo",
+    "lastParsed": "Último Parseado",
+    "latestDagVersion": "Última Versión del Dag",
+    "latestRun": "Última Ejecución",
+    "maxActiveRuns": "Máximo de Ejecuciones Activas",
+    "maxActiveTasks": "Máximo de Tareas Activas",
+    "maxConsecutiveFailedDagRuns": "Máximo de Ejecuciones Fallidas Consecutivas del Dag",
+    "nextRun": "Siguiente Ejecución",
+    "owner": "Propietario",
+    "params": "Parámetros",
+    "schedule": "Programación",
+    "tags": "Etiquetas"
+  },
+  "dagId": "ID del Dag",
+  "dagRun": {
+    "conf": "Conf",
+    "dagVersions": "Versión(es) del Dag",
+    "dataIntervalEnd": "Intervalo de Datos Final",
+    "dataIntervalStart": "Intervalo de Datos Inicial",
+    "durationStats": {
+      "mean": "Media",
+      "mode": "Moda"
+    },
+    "expectedDuration": "Duración Esperada",
+    "lastSchedulingDecision": "Última Decisión de Programación",
+    "mappedPartitionKey": "Clave de Partición Mapeada",
+    "partitionKey": "Clave de Partición",
+    "queuedAt": "En Cola en",
+    "runAfter": "Ejecutar Después",
+    "runType": "Tipo de Ejecución",
+    "sourceAssetEvent": "Evento de Asset Fuente",
+    "triggeredBy": "Activado por",
+    "triggeringUser": "Nombre del Usuario que Activa"
+  },
+  "dagRun_many": "Ejecuciones del Dag",
+  "dagRun_one": "Ejecución del Dag",
+  "dagRun_other": "Ejecuciones del Dag",
+  "dagRunId": "ID de la Ejecución del Dag",
+  "dagWarnings": "Advertencias/Errores del Dag",
+  "defaultToGraphView": "Por defecto a vista gráfica",
+  "defaultToGridView": "Por defecto a vista en cuadrícula",
+  "delete": "Eliminar",
+  "diff": "Diff",
+  "diffCompareWith": "Comparar con",
+  "diffExit": "Salir de Diff",
+  "diffSelectVersionToCompare": "Seleccionar versión para comparar",
+  "direction": "Dirección",
+  "docs": {
+    "documentation": "Documentación",
+    "githubRepo": "Repositorio de GitHub",
+    "restApiReference": "Referencia de REST API"
+  },
+  "download": {
+    "download": "Descargar",
+    "hotkey": "d",
+    "tooltip": "Presiona {{hotkey}} para descargar los registros"
+  },
+  "duration": "Duración",
+  "edit": "Editar",
+  "endDate": "Fecha Final",
+  "error": {
+    "back": "Atrás",
+    "defaultMessage": "Ocurrió un error inesperado",
+    "home": "Inicio",
+    "invalidUrl": "Página No Encontrada. Verifica la URL e inténtalo de nuevo.",
+    "notFound": "Página no encontrada",
+    "title": "Error"
+  },
+  "errors": {
+    "forbidden": {
+      "description": "No tienes permiso para realizar esta acción.",
+      "title": "Acceso Denegado"
+    }
+  },
+  "expand": {
+    "collapse": "Colapsar",
+    "expand": "Expandir",
+    "hotkey": "e",
+    "tooltip": "Presiona {{hotkey}} para alternar expandir"
+  },
+  "expandAllExtra": "Expandir todos los extra json",
+  "expression": {
+    "all": "Todos",
+    "and": "Y",
+    "any": "Cualquiera",
+    "or": "O"
+  },
+  "filter": "Filtro",
+  "filters": {
+    "durationFrom": "Duración Desde",
+    "durationTo": "Duración Hasta",
+    "endTime": "Hora Final",
+    "logicalDateFrom": "Fecha Lógica Desde",
+    "logicalDateTo": "Fecha Lógica Hasta",
+    "runAfterFrom": "Ejecutar Después Desde",
+    "runAfterTo": "Ejecutar Después Hasta",
+    "searchAsset": "Buscar Asset",
+    "selectDateRange": "Seleccionar Rango de Fechas",
+    "startTime": "Hora Inicial"
+  },
+  "fullscreen": {
+    "tooltip": "Presiona {{hotkey}} para pantalla completa"
+  },
+  "generateToken": "Generar Token",
+  "key": "Clave",
+  "logicalDate": "Fecha Lógica",
+  "logout": "Cerrar Sesión",
+  "logoutConfirmation": "Estás a punto de cerrar sesión de la aplicación.",
+  "mapIndex": "Mapa de Índice",
+  "modal": {
+    "add": "Agregar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": {
+      "button": "Eliminar",
+      "confirmation": "¿Confirmas de querer eliminar {{resourceName}}? Esta acción no se puede deshacer."
+    },
+    "save": "Guardar"
+  },
+  "nav": {
+    "admin": "Administración",
+    "assets": "Assets",
+    "browse": "Navegar",
+    "dags": "Dags",
+    "docs": "Docs",
+    "home": "Inicio",
+    "legacyFabViews": "Vistas obsoletas",
+    "plugins": "Plugins",
+    "security": "Seguridad"
+  },
+  "noItemsFound": "No se encontraron {{modelName}}s",
+  "note": {
+    "add": "Agregar una nota",
+    "dagRun": "Nota de Ejecución del Dag",
+    "edit": "Editar nota",
+    "label": "Nota",
+    "placeholder": "Agregar una nota...",
+    "preview": "Vista Previa",
+    "taskInstance": "Nota de Instancia de Tarea",
+    "write": "Escribir"
+  },
+  "overallStatus": "Estado General",
+  "partitionedDagRun_many": "Ejecuciones del Dag Particionadas",
+  "partitionedDagRun_one": "Ejecución del Dag Particionada",
+  "partitionedDagRun_other": "Ejecuciones del Dag Particionadas",
+  "partitionedDagRunDetail": {
+    "receivedAssetEvents": "Eventos de Asset Recibidos"
+  },
+  "pendingDagRun_many": "{{count}} Ejecuciones del Dag Pendientes",
+  "pendingDagRun_one": "{{count}} Ejecución del Dag Pendiente",
+  "pendingDagRun_other": "{{count}} Ejecuciones del Dag Pendientes",
+  "reset": "Restablecer",
+  "runId": "ID de la ejecución",
+  "runTypes": {
+    "asset_materialization": "Materialización de Asset",
+    "asset_triggered": "Asset Activado",
+    "backfill": "Backfill",
+    "manual": "Manual",
+    "scheduled": "Programado"
+  },
+  "scroll": {
+    "direction": {
+      "bottom": "abajo",
+      "top": "arriba"
+    },
+    "tooltip": "Presiona {{hotkey}} para desplazarte a {{direction}}"
+  },
+  "search": {
+    "advanced": {
+      "description": "Coincide en cualquier parte del valor (búsqueda por subcadena). Más lento en despliegues grandes porque no puede usar el índice B-tree predeterminado. Consulta la sección de documentación sobre índices de metadata personalizados para más detalles.",
+      "title": "Coincidir en Cualquier Parte"
+    }
+  },
+  "security": {
+    "actions": "Acciones",
+    "permissions": "Permisos",
+    "resources": "Recursos",
+    "roles": "Roles",
+    "users": "Usuarios"
+  },
+  "selectLanguage": "Seleccionar Idioma",
+  "selected": "Seleccionado",
+  "showDetailsPanel": "Mostrar Panel de Detalles",
+  "signedInAs": "Sesión iniciada como",
+  "source": {
+    "hide": "Ocultar Fuente",
+    "hotkey": "s",
+    "show": "Mostrar Fuente"
+  },
+  "sourceAssetEvent_many": "Eventos de Asset Fuente",
+  "sourceAssetEvent_one": "Evento de Asset Fuente",
+  "sourceAssetEvent_other": "Eventos de Asset Fuente",
+  "startDate": "Fecha Inicial",
+  "state": "Estado",
+  "states": {
+    "awaiting_input": "Esperando Entrada",
+    "deferred": "Diferido",
+    "failed": "Fallido",
+    "no_status": "Sin Estado",
+    "none": "Sin Estado",
+    "open": "Abierto",
+    "planned": "Planificado",
+    "queued": "En Cola",
+    "removed": "Removido",
+    "restarting": "Reiniciando",
+    "running": "En Ejecución",
+    "scheduled": "Programado",
+    "skipped": "Omitido",
+    "success": "Exitoso",
+    "up_for_reschedule": "Por Reprogramar",
+    "up_for_retry": "Por Reintentar",
+    "upstream_failed": "Fallido en Upstream"
+  },
+  "table": {
+    "completedAt": "Completado en",
+    "createdAt": "Creado en",
+    "filterByTag": "Filtrar Dags por etiqueta",
+    "filterColumns": "Filtrar columnas de la tabla",
+    "filterReset_many": "Restablecer filtros",
+    "filterReset_one": "Restablecer filtro",
+    "filterReset_other": "Restablecer filtros",
+    "from": "Desde",
+    "maxActiveRuns": "Máximo de Ejecuciones Activas",
+    "noTagsFound": "No se encontraron etiquetas",
+    "tagMode": {
+      "all": "Todos",
+      "any": "Cualquiera"
+    },
+    "tagPlaceholder": "Filtrar por etiqueta",
+    "to": "Hasta",
+    "updatedAt": "Actualizado en"
+  },
+  "task": {
+    "dependsOnPast": "Depende del Pasado",
+    "documentation": "Documentación de la Tarea",
+    "lastInstance": "Última Instancia",
+    "operator": "Operador",
+    "retries": "Reintentos",
+    "triggerRule": "Regla de Activación",
+    "waitForDownstream": "Esperar Downstream"
+  },
+  "task_many": "Tareas",
+  "task_one": "Tarea",
+  "task_other": "Tareas",
+  "taskGroup": {
+    "documentation": "Documentación del Grupo de Tareas"
+  },
+  "taskGroup_many": "Grupos de Tareas",
+  "taskGroup_one": "Grupo de Tareas",
+  "taskGroup_other": "Grupos de Tareas",
+  "taskId": "ID de la Tarea",
+  "taskInstance": {
+    "additionalAttributes": "Atributos Adicionales de la Instancia de Tarea",
+    "dagVersion": "Versión del Dag",
+    "executor": "Executor",
+    "executorConfig": "Configuración del Executor",
+    "hostname": "Nombre de Host",
+    "id": "ID",
+    "maxTries": "Máximo de Intentos",
+    "pid": "PID",
+    "pool": "Pool",
+    "poolSlots": "Slots del Pool",
+    "priorityWeight": "Peso de Prioridad",
+    "queue": "Cola",
+    "queuedWhen": "En Cola en",
+    "renderedMapIndex": "Map Index Renderizado",
+    "scheduledWhen": "Programado en",
+    "trigger": "Trigger",
+    "triggerer": {
+      "assigned": "Triggerer Asignado",
+      "class": "Clase del Trigger",
+      "createdAt": "Tiempo de Creación del Trigger",
+      "id": "ID del Trigger",
+      "job": "Trabajo del Triggerer",
+      "latestHeartbeat": "Último Heartbeat del Triggerer",
+      "title": "Información del Triggerer"
+    },
+    "unixname": "Nombre de Unix"
+  },
+  "taskInstance_many": "Instancias de Tarea",
+  "taskInstance_one": "Instancia de Tarea",
+  "taskInstance_other": "Instancias de Tarea",
+  "timeRange": {
+    "last12Hours": "Últimas 12 Horas",
+    "last24Hours": "Últimas 24 Horas",
+    "lastHour": "Última Hora",
+    "pastWeek": "Semana Pasada"
+  },
+  "timestamp": {
+    "hide": "Ocultar marcas de tiempo",
+    "hotkey": "t",
+    "show": "Mostrar marcas de tiempo"
+  },
+  "timezone": "Zona Horaria",
+  "timezoneModal": {
+    "current-timezone": "Hora actual en",
+    "placeholder": "Seleccionar una zona horaria",
+    "title": "Seleccionar Zona Horaria",
+    "utc": "UTC (Tiempo Universal Coordinado)"
+  },
+  "toaster": {
+    "bulkClear": {
+      "error": "Solicitud de Limpieza Masiva de {{resourceName}} Fallida",
+      "success": {
+        "description": "{{count}} {{resourceName}} han sido limpiados exitosamente. Claves: {{keys}}",
+        "title": "Solicitud de Limpieza Masiva de {{resourceName}} Enviada"
+      }
+    },
+    "bulkDelete": {
+      "error": "Eliminar {{resourceName}} Request Fallido",
+      "success": {
+        "description": "{{count}} {{resourceName}} han sido eliminados exitosamente. Claves: {{keys}}",
+        "title": "Eliminar {{resourceName}} Request Enviado"
+      }
+    },
+    "bulkUpdate": {
+      "error": "Solicitud de Actualización Masiva de {{resourceName}} Fallida",
+      "success": {
+        "description": "{{count}} {{resourceName}} han sido actualizados exitosamente. Claves: {{keys}}",
+        "title": "Solicitud de Actualización Masiva de {{resourceName}} Enviada"
+      }
+    },
+    "create": {
+      "error": "Crear {{resourceName}} Request Fallido",
+      "success": {
+        "description": "{{resourceName}} ha sido creado exitosamente.",
+        "title": "Crear {{resourceName}} Request Enviado"
+      }
+    },
+    "delete": {
+      "error": "Eliminar {{resourceName}} Request Fallido",
+      "success": {
+        "description": "{{resourceName}} ha sido eliminado exitosamente.",
+        "title": "Eliminar {{resourceName}} Request Enviado"
+      }
+    },
+    "import": {
+      "error": "Importar {{resourceName}} Request Fallido",
+      "success": {
+        "description": "{{count}} {{resourceName}} han sido importados exitosamente.",
+        "title": "Importar {{resourceName}} Request Enviado"
+      }
+    },
+    "update": {
+      "error": "Actualizar {{resourceName}} Request Fallido",
+      "success": {
+        "description": "{{resourceName}} ha sido actualizado exitosamente.",
+        "title": "Actualizar {{resourceName}} Request Enviado"
+      }
+    }
+  },
+  "tokenGeneration": {
+    "apiToken": "Token de API",
+    "cliToken": "Token de CLI",
+    "errorDescription": "Ocurrió un error al generar el token. Inténtalo de nuevo.",
+    "errorTitle": "Generación de Token Fallida",
+    "generate": "Generar",
+    "selectType": "Selecciona el tipo de token a generar.",
+    "title": "Generar Token",
+    "tokenExpiresIn": "Este token expira en {{duration}}.",
+    "tokenGenerated": "Tu token ha sido generado.",
+    "tokenShownOnce": "Este token solo se mostrará una vez. Cópialo ahora."
+  },
+  "total": "Total {{state}}",
+  "triggered": "Activado",
+  "tryNumber": "Intento Número",
+  "user": "Usuario",
+  "validation": {
+    "mustBeAtLeast": "Debe ser al menos {{min}}.",
+    "mustBeValidNumber": "Debe ser un número válido."
+  },
+  "value": "Valor",
+  "wrap": {
+    "hotkey": "w",
+    "tooltip": "Presiona {{hotkey}} para alternar el 'envolver'",
+    "unwrap": "Desenvolver",
+    "wrap": "Envolver"
+  }
+}

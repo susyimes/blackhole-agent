@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "expect": {
+        "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+      },
+      "input": {
+        "job_id": "Hello World"
+      }
+    },
+    {
+      "expect": {
+        "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+      },
+      "input": {
+        "job_id": "blackhole unbound"
+      }
+    },
+    {
+      "expect": {
+        "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+      },
+      "input": {
+        "job_id": "MiXeD CaSe"
+      }
+    },
+    {
+      "expect": {
+        "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+      },
+      "input": {
+        "job_id": ""
+      }
+    }
+  ],
+  "command": [
+    "python",
+    "acquisition_adapter.py"
+  ],
+  "name": "apache-airflow-providers-amazon",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "apache-airflow-providers-amazon",
+    "registry": "pypi",
+    "sha256": "6e909260f53f98f66efe177518c1a807b7eac3d08dc4f1324210131a45ee8df9",
+    "source": "artifacts/capability-foraging/downloads/apache_airflow_providers_amazon-9.35.0.tar.gz",
+    "url": "",
+    "version": "9.35.0"
+  },
+  "provides": [
+    "providers_amazon_aws_executors_batch_utils_batch_job_collection"
+  ],
+  "requires": [
+    "job_id"
+  ],
+  "schema_version": 1,
+  "slug": "apache-airflow-providers-amazon",
+  "version": "9.35.0"
+}

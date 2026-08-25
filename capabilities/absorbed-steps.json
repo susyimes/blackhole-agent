@@ -1,8 +1,71 @@
 {
-  "absorbed_at": "2026-08-24T15:52:12.685340Z",
+  "absorbed_at": "2026-08-25T03:06:56.014660Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
+    {
+      "capability_id": "capability.absorbed-apache-airflow-providers-amazon",
+      "cases": [
+        {
+          "expect": {
+            "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+          },
+          "input": {
+            "job_id": "Hello World"
+          }
+        },
+        {
+          "expect": {
+            "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+          },
+          "input": {
+            "job_id": "blackhole unbound"
+          }
+        },
+        {
+          "expect": {
+            "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+          },
+          "input": {
+            "job_id": "MiXeD CaSe"
+          }
+        },
+        {
+          "expect": {
+            "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+          },
+          "input": {
+            "job_id": ""
+          }
+        }
+      ],
+      "command": [
+        "python",
+        "acquisition_adapter.py"
+      ],
+      "name": "apache-airflow-providers-amazon",
+      "origin": {
+        "cache_hit": true,
+        "kind": "pypi-live",
+        "name": "apache-airflow-providers-amazon",
+        "registry": "pypi",
+        "sha256": "6e909260f53f98f66efe177518c1a807b7eac3d08dc4f1324210131a45ee8df9",
+        "source": "artifacts/capability-foraging/downloads/apache_airflow_providers_amazon-9.35.0.tar.gz",
+        "url": "",
+        "version": "9.35.0"
+      },
+      "provides": [
+        "providers_amazon_aws_executors_batch_utils_batch_job_collection"
+      ],
+      "record_digest": "c26566e62c1b2ec34fa7d18c5dfd791f7dcfc9a4c3ab32acbb6a23ea4b3aac0a",
+      "requires": [
+        "job_id"
+      ],
+      "schema_version": 1,
+      "slug": "apache-airflow-providers-amazon",
+      "vendored_tree_digest": "ba3f7f0c6d73a9235d3bd6c31acae7ed2c4d8b33d6320aedb057237d90a24a1f",
+      "version": "9.35.0"
+    },
     {
       "capability_id": "capability.absorbed-django",
       "cases": [
@@ -4560,5 +4623,5 @@
       "version": "21.7.4"
     }
   ],
-  "steps_digest": "dbe5685fe554595adfe88cd0e3e1cdda424860339a071d9dd3a4b43ac40d23c9"
+  "steps_digest": "81adc2b66d960d53c4467b3c1f0356353a64603b8021059bf4e5c7d2faee307b"
 }

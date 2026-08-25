@@ -118,7 +118,7 @@ def probe_candidate(
             "skip_reason": "no_source",
             "error": f"forage source missing: {source}",
         }
-    with tempfile.TemporaryDirectory(prefix=f"blackhole-forage-probe-{slug}-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="bh-fp-", ignore_cleanup_errors=True) as tmp:
         inference = infer_acquisition_spec(
             slug=slug,
             name=str(request["name"]),
@@ -130,6 +130,11 @@ def probe_candidate(
             bundle=True,
         )
     if not inference.get("ok"):
+        rejected = inference.get("rejected") or {}
+        sample = "; ".join(f"{name}: {reason}" for name, reason in list(rejected.items())[:8])
+        error = str(inference.get("error") or "inference failed")
+        if sample:
+            error = f"{error} ({sample})"
         return {
             "ok": False,
             "slug": slug,
@@ -137,7 +142,7 @@ def probe_candidate(
             "callables": [],
             "covers_goal": False,
             "skip_reason": "inference_failed",
-            "error": str(inference.get("error") or "inference failed"),
+            "error": error,
         }
     specs = [inference["spec"], *list(inference.get("bundle_specs") or [])]
     provides: list[str] = []

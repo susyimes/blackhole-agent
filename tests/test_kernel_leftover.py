@@ -399,6 +399,40 @@ def test_python_quintuple_nested_namespace_class_static_leftover_marks_growth_pl
     ) == ("capability.application-python-quint-nested-instance-growth-plane",)
 
 
+def test_python_sextuple_nested_namespace_class_instance_leftover_marks_growth_plane():
+    from pathlib import Path
+
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "six submodule levels down so sdists whose covering API is a six-level nested "
+        "Class().method instance rather than a five-level nested Class().method instance "
+        "can be foraged the same way."
+    )
+    root = Path(".").resolve()
+    assert leftover_marker_ids(leftover) == (
+        "capability.application-python-sext-nested-instance-growth-plane",
+    )
+    prefixed = "None. Mission complete. " + leftover
+    assert leftover_next_step(prefixed).startswith("Optional later work")
+    assert "six-level nested Class().method instance" in leftover_next_step(prefixed)
+    assert leftover_marker_ids(
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "five submodule levels down so sdists whose API is "
+        "package.subpackage.subpackage.subpackage.subpackage.submodule.Class().method "
+        "rather than a four-level nested Class.method static can be foraged the same way."
+    ) == ("capability.application-python-quint-nested-instance-growth-plane",)
+    assert leftover_marker_ids(
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "seven submodule levels down so sdists whose covering API is a seven-level nested "
+        "Class().method instance rather than a six-level nested Class().method instance "
+        "can be foraged the same way."
+    ) == ("capability.application-python-sept-nested-instance-growth-plane",)
+    reason = leftover_satisfied_by(leftover, root)
+    assert reason.startswith("ledger:capability.application-python-sext-nested-instance-growth-plane")
+    assert leftover_is_open(leftover, root) is False
+    assert leftover_claim_consumed(root, leftover) is True
+
+
 def test_python_quintuple_nested_namespace_class_instance_leftover_marks_growth_plane():
     leftover = (
         "Optional later work is reflecting Python nested-namespace class instance methods "

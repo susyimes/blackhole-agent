@@ -1,0 +1,301 @@
+{
+    "version": 2,
+    "waiters": {
+        "replication_deprovisioned": {
+            "operation": "DescribeReplications",
+            "delay": 30,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].ProvisionData.ProvisionState",
+                    "expected": "deprovisioned",
+                    "state": "success"
+                }
+            ]
+        },
+        "replication_terminal_status": {
+            "operation": "DescribeReplications",
+            "delay": 30,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].ProvisionData.ProvisionState",
+                    "expected": "deprovisioning",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].Status",
+                    "expected": "failed",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].Status",
+                    "expected": "stopped",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].Status",
+                    "expected": "created",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].ProvisionData.ProvisionState",
+                    "expected": "deprovisioned",
+                    "state": "success"
+                }
+            ]
+        },
+        "replication_complete": {
+            "operation": "DescribeReplications",
+            "delay": 30,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].Status",
+                    "expected": "failed",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].Status",
+                    "expected": "stopped",
+                    "state": "success"
+                }
+            ]
+        },
+        "replication_config_deleted": {
+            "operation": "DescribeReplicationConfigs",
+            "delay": 5,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "error",
+                    "expected": "ResourceNotFoundFault",
+                    "state": "success",
+                    "argument": "Error.Code"
+                }
+            ]
+        },
+        "replication_stopped": {
+            "operation": "DescribeReplications",
+            "delay": 5,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "Replications[0].Status",
+                    "expected": "stopped",
+                    "state": "success"
+                }
+            ]
+        },
+        "replication_task_modified": {
+            "operation": "DescribeReplicationTasks",
+            "delay": 30,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "modifying",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "stopped",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "ready",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "failed",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "creating",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "starting",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "running",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "stopping",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "moving",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "testing",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "failed-move",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "ReplicationTasks[0].Status",
+                    "expected": "deleting",
+                    "state": "failure"
+                }
+            ]
+        },
+        "table_reload_complete": {
+            "operation": "DescribeTableStatistics",
+            "delay": 30,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Table completed",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Table is being reloaded",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Before load",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Full load",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Table cancelled",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Table does not exist",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].TableState",
+                    "expected": "Table error",
+                    "state": "failure"
+                }
+            ]
+        },
+        "table_validation_complete": {
+            "operation": "DescribeTableStatistics",
+            "delay": 30,
+            "maxAttempts": 60,
+            "acceptors": [
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Validated",
+                    "state": "success"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Pending records",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Pending validation",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Preparing table",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Pending revalidation",
+                    "state": "retry"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Mismatched records",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Suspended records",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "No primary key",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Table error",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Error",
+                    "state": "failure"
+                },
+                {
+                    "matcher": "path",
+                    "argument": "TableStatistics[0].ValidationState",
+                    "expected": "Not enabled",
+                    "state": "failure"
+                }
+            ]
+        }
+    }
+}

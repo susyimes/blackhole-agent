@@ -53,10 +53,17 @@ inputs. This module removes that last human input — **foraging**:
   ``package.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``), Python nested-namespace class
   instance methods such as ``package.submodule.Class(opts).method``
   (constructed nested classes that are not a top-level
-  ``Class(opts).method``), and Python nested-namespace class
+  ``Class(opts).method``), Python nested-namespace class
   instance methods two submodule levels down such as
   ``package.subpackage.submodule.Class(opts).method`` (constructed
   classes that are not a one-level ``package.submodule.Class(opts).method``),
+  Python nested-namespace class instance methods five submodule levels
+  down, and Python nested-namespace class instance methods six submodule
+  levels down such as
+  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
+  / ``providers.amazon.aws.executors.batch.utils.BatchJobCollection.failure_count_by_id``
+  (constructable instance methods that are not a six-level
+  ``Class.method`` static),
   and Python nested-submodule functions such as
   ``package.submodule.func`` / ``package.subpackage.submodule.func``
   (module-level callables exported only on a nested submodule, not a
@@ -105,6 +112,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -150,6 +158,7 @@ SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ARTIFACT_DIR = REPO_ROOT / "artifacts" / "capability-foraging"
 DEFAULT_DOWNLOAD_DIR = DEFAULT_ARTIFACT_DIR / "downloads"
+EXTRACT_CACHE_DIR = DEFAULT_ARTIFACT_DIR / "extracted"
 FIXTURE_FORAGE_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-lab"
 FIXTURE_EMPTY_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-empty"
 FIXTURE_NODE_FORAGE_PACKAGE = REPO_ROOT / "tests" / "fixtures" / "external_packages" / "forage-js"
@@ -173,6 +182,22 @@ _DEV_REQUIREMENT_NAMES = frozenset(
         "flit",
         "build",
         "twine",
+    }
+)
+# Py2/3 backports that shadow stdlib names when placed on sys.path. The
+# ``typing`` backport reads ``Callable._abc_registry``, which modern
+# ``collections.abc.Callable`` no longer exposes.
+_STDLIB_SHADOW_REQUIREMENT_NAMES = frozenset(
+    {
+        "typing",
+        "enum34",
+        "pathlib2",
+        "configparser",
+        "contextlib2",
+        "funcsigs",
+        "ipaddress",
+        "futures",
+        "functools32",
     }
 )
 _REQUIREMENT_NAME = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -371,15 +396,42 @@ def detect_import_root(staged_dir: Path, hint: str = "") -> tuple[str, str]:
 _INTROSPECT_SCRIPT = '''"""Sandboxed module reflector for capability foraging."""
 
 import importlib
+import importlib.util
 import inspect
 import json
 import os
 import pkgutil
 import re
 import sys
+import types
+
+if not hasattr(os, "register_at_fork"):
+    os.register_at_fork = lambda *args, **kwargs: None
 
 root, import_name = sys.argv[1], sys.argv[2]
-for extra in sys.argv[3:]:
+extras = []
+if len(sys.argv) > 3:
+    extra_arg = sys.argv[3]
+    if extra_arg.endswith(".paths") and os.path.isfile(extra_arg):
+        with open(extra_arg, encoding="utf-8") as handle:
+            extras = [line.strip() for line in handle if line.strip()]
+    else:
+        extras = [item for item in sys.argv[3:] if item]
+_STDLIB_SHADOW = {
+    "typing",
+    "enum34",
+    "pathlib2",
+    "configparser",
+    "contextlib2",
+    "funcsigs",
+    "ipaddress",
+    "futures",
+    "functools32",
+}
+for extra in extras:
+    parts = extra.replace(os.sep, "/").split("/")
+    if any(part.lower() in _STDLIB_SHADOW for part in parts if part):
+        continue
     sys.path.insert(0, extra)
 sys.path.insert(0, root)
 try:
@@ -387,6 +439,20 @@ try:
 except Exception as exc:  # noqa: BLE001 - reported, never raised through
     print(json.dumps({"ok": False, "error": f"import failed: {exc}"}))
     raise SystemExit(0)
+if not hasattr(module, "__version__"):
+    module_file = os.path.realpath(getattr(module, "__file__", "") or "")
+    for extra in extras:
+        extra_init = os.path.join(extra, *import_name.split("."), "__init__.py")
+        try:
+            if (not os.path.isfile(extra_init)) or os.path.realpath(extra_init) == module_file:
+                continue
+            extra_text = open(extra_init, encoding="utf-8").read()
+        except Exception:
+            continue
+        version_match = re.search("^__version__ *= *(\\S+)", extra_text, re.M)
+        if version_match:
+            module.__version__ = version_match.group(1).strip().strip(chr(34) + chr(39))
+            break
 
 bootstrapped = False
 try:
@@ -571,12 +637,35 @@ def _static_method_names(cls):
     return names
 
 
+def _under_root(path):
+    try:
+        real = os.path.realpath(path)
+        return os.path.commonpath([os.path.realpath(root), real]) == os.path.realpath(root)
+    except Exception:
+        return False
+
+
+def _file_owned(target):
+    paths = []
+    try:
+        filename = getattr(target, "__file__", None) or ""
+        if filename:
+            paths.append(filename)
+    except Exception:
+        pass
+    try:
+        paths.extend(getattr(target, "__path__", []) or [])
+    except Exception:
+        pass
+    return any(_under_root(path) for path in paths)
+
+
 def _module_ok(target):
     try:
         owner = getattr(target, "__name__", "") or ""
     except Exception:
         return False
-    return owner == import_name or owner.startswith(import_name + ".")
+    return (owner == import_name or owner.startswith(import_name + ".")) and _file_owned(target)
 
 
 def _defined_on(target, prefix, allow_nested_owner=False):
@@ -681,6 +770,38 @@ _SKIP_SHORT = {
 _VERSIONED_CHILD = re.compile(r"^v[0-9][0-9_]*$")
 
 
+def _load_child(modname):
+    try:
+        return importlib.import_module(modname)
+    except Exception:
+        pass
+    parent_name, _, short = modname.rpartition(".")
+    parent = sys.modules.get(parent_name)
+    bases = _owned_paths(parent) if parent is not None else []
+    for base in bases:
+        child_dir = os.path.join(base, short)
+        child_py = child_dir + ".py"
+        if os.path.isdir(child_dir):
+            ns = types.ModuleType(modname)
+            ns.__path__ = [child_dir]
+            ns.__package__ = modname
+            sys.modules[modname] = ns
+            return ns
+        if os.path.isfile(child_py):
+            spec = importlib.util.spec_from_file_location(modname, child_py)
+            if spec is None or spec.loader is None:
+                continue
+            loaded = importlib.util.module_from_spec(spec)
+            sys.modules[modname] = loaded
+            try:
+                spec.loader.exec_module(loaded)
+            except Exception:
+                sys.modules.pop(modname, None)
+                continue
+            return loaded
+    return None
+
+
 def _owned_paths(parent):
     owned = []
     try:
@@ -737,10 +858,9 @@ def _child_modules(parent, prefix):
             short = modname.rsplit(".", 1)[-1]
             if short.startswith("_") or short in found or short in _SKIP_SHORT:
                 continue
-            try:
-                found[short] = importlib.import_module(modname)
-            except Exception:
-                continue
+            loaded = _load_child(modname)
+            if loaded is not None:
+                found[short] = loaded
         for base in owned:
             try:
                 entries = os.listdir(base)
@@ -757,10 +877,9 @@ def _child_modules(parent, prefix):
                 child_path = os.path.join(base, short)
                 if not os.path.isdir(child_path):
                     continue
-                try:
-                    found[short] = importlib.import_module(parent_import + "." + short)
-                except Exception:
-                    continue
+                loaded = _load_child(parent_import + "." + short)
+                if loaded is not None:
+                    found[short] = loaded
     kept = _limit_named_fanout(_keep_latest_versioned(sorted(found)))
     return {name: found[name] for name in kept}
 
@@ -793,10 +912,9 @@ if module_has_path:
         short = modname.rsplit(".", 1)[-1]
         if short.startswith("_") or short in submodules or short in _SKIP_SHORT:
             continue
-        try:
-            submodules[short] = importlib.import_module(modname)
-        except Exception:
-            continue
+        loaded = _load_child(modname)
+        if loaded is not None:
+            submodules[short] = loaded
 for name, target in _child_modules(module, "").items():
     if name not in submodules:
         submodules[name] = target
@@ -970,15 +1088,29 @@ def introspect_module(
 ) -> dict[str, Any]:
     """Reflect one module's public functions in an isolated subprocess."""
 
-    extras = [str(staged_dir / item) for item in extra_paths if str(item).strip()]
+    staged_dir = Path(staged_dir).resolve()
+    extras = [
+        str((staged_dir / item).resolve())
+        for item in extra_paths
+        if str(item).strip() and not _extra_shadows_stdlib(str(item))
+    ]
     with tempfile.TemporaryDirectory(prefix="blackhole-forage-introspect-") as tmp:
         script = Path(tmp) / "introspect.py"
         script.write_text(_INTROSPECT_SCRIPT, encoding="utf-8")
+        extras_file = Path(tmp) / "extra.paths"
+        extras_file.write_text("\n".join(extras) + ("\n" if extras else ""), encoding="utf-8")
         completed = subprocess.run(
-            [sys.executable, "-S", str(script), str(staged_dir / path_root), import_name, *extras],
+            [
+                sys.executable,
+                "-S",
+                str(script),
+                str((staged_dir / path_root).resolve()),
+                import_name,
+                str(extras_file),
+            ],
             capture_output=True,
             text=True,
-            cwd=staged_dir,
+            cwd=str(staged_dir),
             timeout=timeout,
             check=False,
         )
@@ -1431,6 +1563,11 @@ def _pep_name(value: str) -> str:
     return re.sub(r"[-_.]+", "-", str(value or "").strip()).lower()
 
 
+def _extra_shadows_stdlib(extra: str) -> bool:
+    parts = str(extra or "").replace("\\", "/").split("/")
+    return any(_pep_name(part) in _STDLIB_SHADOW_REQUIREMENT_NAMES for part in parts if part)
+
+
 def _requirement_name(line: str) -> str | None:
     raw = str(line or "").strip()
     if not raw or raw.startswith(("#", "-", "[")):
@@ -1446,7 +1583,8 @@ def _requirement_name(line: str) -> str | None:
     if not match:
         return None
     name = match.group(1)
-    if not name or name[0].isdigit() or _pep_name(name) in _DEV_REQUIREMENT_NAMES:
+    pep = _pep_name(name)
+    if not name or name[0].isdigit() or pep in _DEV_REQUIREMENT_NAMES or pep in _STDLIB_SHADOW_REQUIREMENT_NAMES:
         return None
     return name
 
@@ -1529,6 +1667,16 @@ def _parse_setup_py_requires(text: str) -> list[str]:
     return names
 
 
+def _skip_require_dir(name: str) -> bool:
+    lowered = str(name or "").lower()
+    return (
+        name == FORAGE_DEPS_DIR
+        or str(name or "").startswith(".")
+        or lowered in _SKIP_REQUIRE_DIRS
+        or lowered.startswith("test")
+    )
+
+
 def parse_runtime_requires(staged_dir: Path) -> list[str]:
     """Declared install_requires / Requires-Dist, extras skipped."""
 
@@ -1536,36 +1684,59 @@ def parse_runtime_requires(staged_dir: Path) -> list[str]:
     seen: set[str] = set()
     if not staged_dir.is_dir():
         return names
-    for path in staged_dir.rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(staged_dir)
-        if any(
-            part == FORAGE_DEPS_DIR
-            or part.startswith(".")
-            or part.lower() in _SKIP_REQUIRE_DIRS
-            for part in relative.parts
-        ):
-            continue
-        if len(relative.parts) > 5:
-            continue
-        label = path.name.lower()
+    for root, dirs, files in os.walk(staged_dir, topdown=True, onerror=lambda _exc: None):
         try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
+            rel_root = Path(root).relative_to(staged_dir)
+        except ValueError:
+            dirs[:] = []
             continue
-        parsed: list[str] = []
-        if label == "requires.txt":
-            parsed = _parse_requires_txt(text)
-        elif label in {"pkg-info", "metadata"}:
-            parsed = _parse_requires_dist(text)
-        elif label == "setup.cfg":
-            parsed = _parse_setup_cfg_requires(text)
-        elif label == "pyproject.toml":
-            parsed = _parse_pyproject_dependencies(text)
-        elif label == "setup.py":
-            parsed = _parse_setup_py_requires(text)
-        _add_requirement_names(names, seen, parsed)
+        depth = 0 if rel_root == Path(".") else len(rel_root.parts)
+        dirs[:] = [
+            name
+            for name in dirs
+            if not _skip_require_dir(name)
+            and (
+                name.endswith((".dist-info", ".egg-info"))
+                and depth + 1 <= 3
+                or depth + 1 <= 2
+            )
+        ]
+        if depth > 3:
+            continue
+        found_meta = False
+        for filename in files:
+            path = Path(root) / filename
+            relative = path.relative_to(staged_dir)
+            if any(
+                part == FORAGE_DEPS_DIR
+                or part.startswith(".")
+                or part.lower() in _SKIP_REQUIRE_DIRS
+                for part in relative.parts
+            ):
+                continue
+            if len(relative.parts) > 3:
+                continue
+            label = path.name.lower()
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            parsed: list[str] = []
+            if label == "requires.txt":
+                parsed = _parse_requires_txt(text)
+            elif label in {"pkg-info", "metadata"}:
+                parsed = _parse_requires_dist(text)
+            elif label == "setup.cfg":
+                parsed = _parse_setup_cfg_requires(text)
+            elif label == "pyproject.toml":
+                parsed = _parse_pyproject_dependencies(text)
+            elif label == "setup.py":
+                parsed = _parse_setup_py_requires(text)
+            if parsed:
+                found_meta = True
+            _add_requirement_names(names, seen, parsed)
+        if found_meta:
+            dirs[:] = []
     return names
 
 
@@ -1698,6 +1869,53 @@ def _archive_version(archive: Path) -> str:
     return filename.rsplit("-", 1)[-1] if "-" in filename else ""
 
 
+def _extracted_cache_dir(pep: str, version: str, archive: Path) -> Path:
+    del version
+    return EXTRACT_CACHE_DIR / pep / archive.name
+
+
+def _detach_dep_dest(path: Path) -> None:
+    """Remove a staged dep dest without walking a junction into the extract cache."""
+
+    if not os.path.lexists(str(path)):
+        return
+    if os.path.islink(str(path)):
+        path.unlink()
+        return
+    if path.is_dir():
+        try:
+            os.rmdir(path)
+            return
+        except OSError:
+            shutil.rmtree(os_fs_path(path), ignore_errors=True)
+            return
+    path.unlink(missing_ok=True)
+
+
+def _link_extracted_dep(src: Path, dest: Path) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    _detach_dep_dest(dest)
+    src_abs = os.path.abspath(os.fspath(src))
+    dest_abs = os.path.abspath(os.fspath(dest))
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", dest_abs, src_abs],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if completed.returncode == 0 and os.path.lexists(dest_abs):
+            return
+    try:
+        os.symlink(src_abs, dest_abs, target_is_directory=True)
+        return
+    except OSError:
+        pass
+    shutil.copytree(os_fs_path(src), os_fs_path(dest))
+
+
 def _close_python_runtime_dependencies(
     staged_dir: Path,
     *,
@@ -1714,6 +1932,9 @@ def _close_python_runtime_dependencies(
         name, depth = pending.pop(0)
         pep = _pep_name(name)
         if not pep or pep in seen or depth > max(0, int(max_depth)):
+            continue
+        if pep in _STDLIB_SHADOW_REQUIREMENT_NAMES:
+            seen.add(pep)
             continue
         seen.add(pep)
         archive: Path | None = None
@@ -1744,26 +1965,36 @@ def _close_python_runtime_dependencies(
                     errors.append(str(fetched.get("error") or f"fetch failed: {name}"))
                     continue
         dep_root = staged_dir / FORAGE_DEPS_DIR / pep
-        if dep_root.exists():
-            shutil.rmtree(os_fs_path(dep_root), ignore_errors=True)
+        cache_root = _extracted_cache_dir(pep, version, archive)
         try:
-            stage_acquisition_source(archive, dep_root)
-            path_root, _import_name = detect_import_root(dep_root, hint=name)
+            if not cache_root.exists():
+                cache_root.parent.mkdir(parents=True, exist_ok=True)
+                stage_acquisition_source(archive, cache_root)
+            _link_extracted_dep(cache_root, dep_root)
         except (ValueError, OSError) as exc:
             errors.append(f"{name}: {exc}")
             continue
-        relative = Path(FORAGE_DEPS_DIR) / pep / path_root
-        extra = relative.as_posix() if path_root != "." else (Path(FORAGE_DEPS_DIR) / pep).as_posix()
-        extra_paths.append(extra)
-        closed.append(
-            {
-                "name": pep,
-                "requested": name,
-                "version": version,
-                "path_root": extra,
-                "cache_hit": cache_hit,
-            }
-        )
+        path_root: str | None
+        try:
+            path_root, _import_name = detect_import_root(dep_root, hint=name)
+        except ValueError:
+            # Metadata-only metapackages still declare Requires-Dist; recurse
+            # so the importable child (apache-airflow-core, etc.) is vendored.
+            path_root = None
+        if path_root is not None:
+            relative = Path(FORAGE_DEPS_DIR) / pep / path_root
+            extra = relative.as_posix() if path_root != "." else (Path(FORAGE_DEPS_DIR) / pep).as_posix()
+            if pep not in _STDLIB_SHADOW_REQUIREMENT_NAMES and not _extra_shadows_stdlib(extra):
+                extra_paths.append(extra)
+            closed.append(
+                {
+                    "name": pep,
+                    "requested": name,
+                    "version": version,
+                    "path_root": extra,
+                    "cache_hit": cache_hit,
+                }
+            )
         if depth < max(0, int(max_depth)):
             pending.extend((child, depth + 1) for child in parse_runtime_requires(dep_root))
     return {
@@ -1954,7 +2185,7 @@ def infer_acquisition_spec(
     if cached is not None:
         return cached
 
-    staged_dir = staging_root / slug
+    staged_dir = staging_root / "pkg"
     if staged_dir.exists():
         shutil.rmtree(os_fs_path(staged_dir), ignore_errors=True)
     try:
@@ -2006,6 +2237,7 @@ def infer_acquisition_spec(
             else 1,
             0 if item.get("python_triple_nested_namespace_class_static") else 1,
             0 if item.get("python_nested_namespace_class_static") else 1,
+            0 if item.get("python_sextuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_quintuple_nested_namespace_class_instance") else 1,
             0 if _is_named_class_instance_candidate(item) else 1,
             0 if item.get("python_class_instance") else 1,
@@ -2068,6 +2300,11 @@ def infer_acquisition_spec(
                 _run_probe(staged_dir, spec, probe) for probe in probes[: len(domain["selection"])]
             ]
             if not all(result["ok"] for result in selection_results):
+                failed_probe = next(result for result in selection_results if not result.get("ok"))
+                rejected[candidate_name] = (
+                    f"selection probe failed in domain {domain['domain']!r}: "
+                    f"{failed_probe.get('error') or 'unknown error'}"
+                )
                 continue
             held_out = _run_probe(staged_dir, spec, probes[-1])
             if not held_out["ok"]:
@@ -2496,7 +2733,7 @@ def forage_package(
     if source is None or not Path(str(source)).exists():
         return {"ok": False, "slug": slug, "stage": "fetch", "error": f"forage source missing: {source}"}
 
-    with tempfile.TemporaryDirectory(prefix=f"blackhole-forage-{slug}-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="bh-fg-", ignore_cleanup_errors=True) as tmp:
         inference = infer_acquisition_spec(
             slug=slug,
             name=name,

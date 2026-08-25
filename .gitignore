@@ -12,6 +12,11 @@ __pycache__/
 # regenerable campaign work trees (extracted sdists); sealed reports stay tracked
 artifacts/upstream-repair/*/work/
 
+# regenerable forage caches and scratch (wheels, extracted deps, debug trees)
+artifacts/capability-foraging/downloads/
+artifacts/capability-foraging/extracted/
+artifacts/tmp-*
+
 # live total-spine / governance nest receipts (proof & mission noise)
 artifacts/upstream-campaign/
 artifacts/upstream-fleet/

@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2023 Hynek Schlawack <hs@ox.cx>
+#
+# SPDX-License-Identifier: MIT
+
+from __future__ import annotations
+
+from . import exceptions
+from ._autowire import aautowire, autowire
+from ._core import (
+    Container,
+    RegisteredService,
+    Registry,
+    ServicePing,
+)
+
+
+__all__ = [
+    "Container",
+    "RegisteredService",
+    "Registry",
+    "ServicePing",
+    "aautowire",
+    "autowire",
+    "exceptions",
+]
+
+try:
+    from . import aiohttp
+except ImportError:
+    __all__ += ["aiohttp"]
+
+try:
+    from . import fastapi
+except ImportError:
+    __all__ += ["fastapi"]
+
+try:
+    from . import flask
+except ImportError:
+    __all__ += ["flask"]
+
+try:
+    from . import starlette
+except ImportError:
+    __all__ += ["starlette"]

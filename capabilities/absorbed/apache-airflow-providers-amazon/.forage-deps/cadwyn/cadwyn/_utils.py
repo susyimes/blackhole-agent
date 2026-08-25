@@ -1,0 +1,93 @@
+import sys
+from collections.abc import Callable
+from inspect import signature
+from typing import TYPE_CHECKING, Any, Concatenate, Generic, TypeVar, Union
+
+from pydantic._internal._decorators import DecoratedType, unwrap_wrapped_function
+from typing_extensions import ParamSpec, override
+
+Sentinel: Any = object()
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+_SourceSelf = TypeVar("_SourceSelf")
+
+
+_P_T = TypeVar("_P_T")
+_P_R = TypeVar("_P_R")
+
+if sys.version_info >= (3, 13):  # pragma: no cover
+    from inspect import iscoroutinefunction
+else:  # pragma: no cover
+    from asyncio import iscoroutinefunction  # noqa: F401
+
+
+UnionType = type(int | str) | type(Union[int, str])
+DATACLASS_SLOTS: dict[str, Any] = {"slots": True}
+DATACLASS_KW_ONLY: dict[str, Any] = {"kw_only": True}
+
+
+def get_name_of_function_wrapped_in_pydantic_validator(func: Any) -> str:
+    if hasattr(func, "wrapped"):
+        return get_name_of_function_wrapped_in_pydantic_validator(func.wrapped)
+    if hasattr(func, "__func__"):
+        return get_name_of_function_wrapped_in_pydantic_validator(func.__func__)
+    return func.__name__
+
+
+class classproperty(Generic[_P_T, _P_R]):  # noqa: N801
+    def __init__(self, func: Callable[[_P_T], _P_R]) -> None:
+        super().__init__()
+        self.func = func
+
+    def __get__(self, obj: Any, cls: _P_T) -> _P_R:
+        return self.func(cls)
+
+
+class PlainRepr(str):
+    """String class where repr doesn't include quotes"""
+
+    __slots__ = ()
+
+    @override
+    def __repr__(self) -> str:
+        return str(self)
+
+
+def same_method_definition_as_in(
+    t: Callable[Concatenate[_SourceSelf, _P], _R],
+) -> Callable[[Callable[..., _R]], Callable[Concatenate[object, _P], _R]]:
+    def decorator(f: Callable[..., _R]) -> Callable[Concatenate[object, _P], _R]:
+        f.__signature__ = signature(t)  # ty: ignore[unresolved-attribute]
+        return f
+
+    return decorator
+
+
+def fully_unwrap_decorator(
+    func: "DecoratedType[object]",
+    is_pydantic_v1_style_validator: Any,
+) -> Callable[..., object]:
+    func = unwrap_wrapped_function(func)
+    if is_pydantic_v1_style_validator and func.__closure__:
+        func = func.__closure__[0].cell_contents
+    return unwrap_wrapped_function(func)
+
+
+T = TypeVar("T", bound=type[object])
+
+if TYPE_CHECKING:
+    lenient_issubclass = issubclass
+
+else:
+
+    def lenient_issubclass(cls: type, other: Union[T, tuple[T, ...]]) -> bool:
+        try:
+            return issubclass(cls, other)
+        except TypeError:  # pragma: no cover
+            return False
+
+
+def _callable_name(call: Callable[..., object]) -> str:
+    name = getattr(call, "__name__", None)
+    return name if isinstance(name, str) else type(call).__name__

@@ -11,6 +11,8 @@ from blackhole_agent.capability_foraging import (
     FIXTURE_NODE_EMPTY_PACKAGE,
     FIXTURE_NODE_FORAGE_PACKAGE,
     STEWARDSHIP_ROOT,
+    _extra_shadows_stdlib,
+    _requirement_name,
     _wheel_compatible,
     builtin_foraging_plane_proof,
     close_runtime_dependencies,
@@ -37,6 +39,31 @@ def test_probe_domains_are_fixed_and_split() -> None:
         assert not set(domain["selection"]) & set(domain["held_out"])
     assert probe_domains_for("int")[0]["domain"] == "int"
     assert probe_domains_for("dict") == ()
+
+
+def test_extracted_dep_cache_is_reused(tmp_path: Path) -> None:
+    from blackhole_agent.capability_foraging import EXTRACT_CACHE_DIR, _extracted_cache_dir, _link_extracted_dep
+
+    archive = tmp_path / "cache-demo-1.0-py3-none-any.whl"
+    cache = _extracted_cache_dir("cache-demo", "1.0", archive)
+    assert cache == EXTRACT_CACHE_DIR / "cache-demo" / archive.name
+    src = tmp_path / "extracted"
+    src.mkdir()
+    (src / "demo.py").write_text("x = 1\n", encoding="utf-8")
+    dest = tmp_path / "staged" / ".forage-deps" / "cache-demo"
+    _link_extracted_dep(src, dest)
+    assert (dest / "demo.py").is_file()
+    _link_extracted_dep(src, dest)
+    assert (src / "demo.py").is_file()
+    assert (dest / "demo.py").is_file()
+
+
+def test_requirement_name_skips_stdlib_shadowing_backports() -> None:
+    assert _requirement_name("typing>=3.7.4") is None
+    assert _requirement_name("enum34") is None
+    assert _requirement_name("inflection>=0.3") == "inflection"
+    assert _extra_shadows_stdlib(".forage-deps/typing") is True
+    assert _extra_shadows_stdlib(".forage-deps/apache-airflow-core") is False
 
 
 def test_wheel_compatible_accepts_abi3_and_pure_python() -> None:
@@ -1454,6 +1481,143 @@ def test_python_introspection_reflects_sextuple_nested_namespace_class_static(tm
     assert result["spec"].callable_name == "codec.text.safe.inner.leaf.core.Codec.encode"
 
 
+def test_python_introspection_reflects_sextuple_nested_namespace_class_instance(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf"
+    ns.mkdir(parents=True)
+    for rel in (
+        "forage_ns",
+        "forage_ns/codec",
+        "forage_ns/codec/text",
+        "forage_ns/codec/text/safe",
+        "forage_ns/codec/text/safe/inner",
+        "forage_ns/codec/text/safe/inner/leaf",
+    ):
+        (pkg / rel / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf" / "core.py").write_text(
+        "class Codec:\n"
+        "    def encode(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(pkg, "forage_ns", ".")
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.text.safe.inner.leaf.core.Codec.encode" in names
+    encoded = next(
+        candidate
+        for candidate in reflected["candidates"]
+        if candidate["name"] == "codec.text.safe.inner.leaf.core.Codec.encode"
+    )
+    assert encoded["python_sextuple_nested_namespace_class_instance"] is True
+    assert encoded.get("python_sextuple_nested_namespace_class_static") is not True
+    assert encoded.get("python_quintuple_nested_namespace_class_instance") is not True
+    assert encoded.get("python_quintuple_nested_namespace_class_static") is not True
+    result = infer_acquisition_spec(
+        slug="forage-ns-sextuple-codec-instance",
+        name="forage-ns-sextuple-codec-instance",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.safe.inner.leaf.core.Codec.encode"
+    assert result["record"]["python_sextuple_nested_namespace_class_instance"] is True
+    assert result["record"]["python_sextuple_nested_namespace_class_static"] is False
+    assert result["record"].get("python_quintuple_nested_namespace_class_instance") is not True
+    assert result["spec"].callable_name == "codec.text.safe.inner.leaf.core.Codec.encode"
+
+
+def test_python_sextuple_nested_namespace_prefers_instance_over_shallower_instance(tmp_path: Path) -> None:
+    pkg = tmp_path / "pkg"
+    ns = pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf"
+    ns.mkdir(parents=True)
+    for rel in (
+        "forage_ns",
+        "forage_ns/codec",
+        "forage_ns/codec/text",
+        "forage_ns/codec/text/safe",
+        "forage_ns/codec/text/safe/inner",
+        "forage_ns/codec/text/safe/inner/leaf",
+    ):
+        (pkg / rel / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "forage_ns" / "codec" / "text" / "leaf.py").write_text(
+        "class Shallow:\n"
+        "    def encode(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return 'shallow-' + text\n",
+        encoding="utf-8",
+    )
+    (pkg / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf" / "core.py").write_text(
+        "class Codec:\n"
+        "    def encode(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    result = infer_acquisition_spec(
+        slug="forage-ns-sextuple-instance-over-shallow",
+        name="forage-ns-sextuple-instance-over-shallow",
+        source=pkg,
+        staging_root=tmp_path / "infer",
+        hint="forage_ns",
+        close_deps=False,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == "codec.text.safe.inner.leaf.core.Codec.encode"
+    assert result["record"]["python_sextuple_nested_namespace_class_instance"] is True
+    assert result["record"].get("python_deep_nested_namespace_class_instance") is not True
+    assert result["record"].get("python_quintuple_nested_namespace_class_instance") is not True
+
+
+def test_python_introspection_skips_merged_extra_path_modules(tmp_path: Path) -> None:
+    staged = tmp_path / "staged"
+    dist = staged / "dist"
+    ns = dist / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf"
+    ns.mkdir(parents=True)
+    extend = "from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\n"
+    (dist / "forage_ns" / "__init__.py").write_text(extend, encoding="utf-8")
+    for rel in (
+        "forage_ns/codec",
+        "forage_ns/codec/text",
+        "forage_ns/codec/text/safe",
+        "forage_ns/codec/text/safe/inner",
+        "forage_ns/codec/text/safe/inner/leaf",
+    ):
+        (dist / rel / "__init__.py").write_text("", encoding="utf-8")
+    (dist / "forage_ns" / "codec" / "text" / "safe" / "inner" / "leaf" / "core.py").write_text(
+        "class Codec:\n"
+        "    def encode(self, text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return text.upper()\n",
+        encoding="utf-8",
+    )
+    extra = staged / ".forage-deps" / "decoy"
+    steal = extra / "forage_ns" / "steal"
+    steal.mkdir(parents=True)
+    (extra / "forage_ns" / "__init__.py").write_text(extend, encoding="utf-8")
+    (steal / "__init__.py").write_text(
+        "class Steal:\n"
+        "    @staticmethod\n"
+        "    def encode(text):\n"
+        "        if not isinstance(text, str):\n"
+        "            raise TypeError('encode expects a string')\n"
+        "        return 'stolen-' + text\n",
+        encoding="utf-8",
+    )
+    reflected = introspect_module(staged, "forage_ns", "dist", extra_paths=[".forage-deps/decoy"])
+    assert reflected["ok"], reflected
+    names = [candidate["name"] for candidate in reflected["candidates"]]
+    assert "codec.text.safe.inner.leaf.core.Codec.encode" in names
+    assert "steal.Steal.encode" not in names
+
+
 def test_python_introspection_discovers_pep420_sextuple_and_skips_types(
     tmp_path: Path,
 ) -> None:
@@ -1882,6 +2046,44 @@ def test_python_quadruple_nested_namespace_class_static_sdist_forages_django(tmp
     assert result["spec"].provides == "contrib_humanize_templatetags_humanize_natural_time_formatter_st"
     assert result["spec"].callable_name == (
         "contrib.humanize.templatetags.humanize.NaturalTimeFormatter.string_for"
+    )
+
+
+def test_python_sextuple_nested_namespace_class_instance_sdist_forages_airflow_amazon(
+    tmp_path: Path,
+) -> None:
+    from blackhole_agent.capability_forage_targets import live_registry_archive
+
+    fetched = live_registry_archive(
+        {
+            "name": "apache-airflow-providers-amazon",
+            "slug": "apache-airflow-providers-amazon",
+            "registry": "pypi",
+            "version": "9.35.0",
+        }
+    )
+    assert fetched and fetched.get("ok"), fetched
+    source = Path(str(fetched["path"]))
+    result = infer_acquisition_spec(
+        slug="apache-airflow-providers-amazon",
+        name="apache-airflow-providers-amazon",
+        source=source,
+        staging_root=tmp_path / "infer",
+        hint="airflow",
+        runtime="python",
+        close_deps=True,
+    )
+    assert result["ok"], result
+    assert result["record"]["winner"] == (
+        "providers.amazon.aws.executors.batch.utils.BatchJobCollection.failure_count_by_id"
+    )
+    assert result["record"]["python_sextuple_nested_namespace_class_instance"] is True
+    assert result["record"]["python_sextuple_nested_namespace_class_static"] is False
+    assert result["record"].get("python_quintuple_nested_namespace_class_instance") is not True
+    assert result["spec"].requires == ("job_id",)
+    assert result["spec"].provides == "providers_amazon_aws_executors_batch_utils_batch_job_collection"
+    assert result["spec"].callable_name == (
+        "providers.amazon.aws.executors.batch.utils.BatchJobCollection.failure_count_by_id"
     )
 
 

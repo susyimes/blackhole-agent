@@ -1,0 +1,415 @@
+#!/usr/bin/env python
+from __future__ import annotations
+
+import base64
+import hashlib
+import logging
+import random
+import re
+import string
+from io import StringIO
+from pathlib import Path
+from typing import Any, Sequence
+
+_VALUES_CLAUSE_RE = re.compile(r"\bVALUES\s*\(", re.IGNORECASE)
+
+# Matches only the tokens that affect parser state.  Two-char tokens are
+# listed first so the alternation is greedy and consumes them whole:
+#   $$   — dollar-quote delimiter
+#   ''   — escaped single-quote inside a single-quoted string
+#   ""   — escaped double-quote inside a double-quoted string
+#   ( ) ' "  — individual state-change characters
+# Everything between tokens is skipped at C speed by the regex engine,
+# avoiding a Python-level loop over every character.
+_SQL_TOKENS_RE = re.compile(r"\$\$|''|\"\"|[()'\"]")
+
+
+def extract_values_clause(sql: str) -> str | None:
+    """Extract the VALUES clause from an INSERT SQL statement.
+
+    Uses a balanced-parentheses parser rather than a greedy regex so that
+    nested function calls (e.g. ``PARSE_JSON(%(col)s)``) and string literals
+    that contain parentheses are handled correctly.
+
+    Examples that the greedy regex gets wrong but this function handles:
+
+    * ``INSERT INTO t (raw) (SELECT PARSE_JSON(c) as raw FROM VALUES (%(raw)s))``
+      → returns ``(%(raw)s)``  (greedy regex returns ``(%(raw)s))``)
+    * ``INSERT INTO t (col) VALUES (PARSE_JSON(%(col)s))``
+      → returns ``(PARSE_JSON(%(col)s))``
+
+    Returns:
+        The VALUES clause including its outer parentheses, e.g. ``(%(col)s)``,
+        or ``None`` when no balanced VALUES clause can be found.
+    """
+    m = _VALUES_CLAUSE_RE.search(sql)
+    if not m:
+        return None
+
+    start = m.end() - 1  # position of the opening '('
+    depth = 0
+    in_single_quote = False
+    in_double_quote = False
+    in_dollar_quote = False
+
+    for tok in _SQL_TOKENS_RE.finditer(sql, start):
+        t = tok.group()
+
+        if in_dollar_quote:
+            if t == "$$":
+                in_dollar_quote = False
+        elif in_single_quote:
+            if t == "'":
+                in_single_quote = False
+            # t == "''" → escaped quote, stay in string (fall through, do nothing)
+        elif in_double_quote:
+            if t == '"':
+                in_double_quote = False
+            # t == '""' → escaped quote, stay in string (fall through, do nothing)
+        else:
+            if t == "(":
+                depth += 1
+            elif t == ")":
+                depth -= 1
+                if depth == 0:
+                    return sql[start : tok.end()]
+            elif t == "'":
+                in_single_quote = True
+            elif t == '"':
+                in_double_quote = True
+            elif t == "$$":
+                in_dollar_quote = True
+
+    return None  # unbalanced or no VALUES clause found
+
+
+COMMENT_PATTERN_RE = re.compile(r"^\s*\-\-")
+EMPTY_LINE_RE = re.compile(r"^\s*$")
+
+# Prefixes that start a single-line comment running to the end of the line.
+INLINE_COMMENT_PREFIXES = ("--", "//")
+
+_logger = logging.getLogger(__name__)
+
+
+class SQLDelimiter:
+    """Class that wraps a SQL delimiter string.
+
+    Since split_statements is a generator this mutable object will allow it change while executing.
+    """
+
+    def __str__(self) -> str:
+        return self.sql_delimiter
+
+    def __init__(self, sql_delimiter: str = ";") -> None:
+        """Initializes SQLDelimiter with a string."""
+        self.sql_delimiter = sql_delimiter
+
+
+def split_statements(
+    buf: StringIO,
+    remove_comments: bool = False,
+    delimiter: SQLDelimiter | None = None,
+):
+    """Splits a stream into SQL statements (ends with a semicolon) or commands (!...).
+
+    Args:
+        buf: Unicode data stream.
+        remove_comments: Whether or not to remove all comments (Default value = False).
+        delimiter: The delimiter string that separates SQL commands from each other.
+
+    Yields:
+        A SQL statement or a command.
+    """
+    if delimiter is None:
+        delimiter = SQLDelimiter()  # Use default delimiter if none was given.
+    in_quote = False
+    ch_quote = None
+    in_comment = False
+    in_double_dollars = False
+    previous_delimiter = None
+
+    line = buf.readline()
+    if isinstance(line, bytes):
+        raise TypeError("Input data must not be binary type.")
+
+    statement = []
+    while line != "":
+        col = 0
+        col0 = 0
+        len_line = len(line)
+        sql_delimiter = delimiter.sql_delimiter
+        if not previous_delimiter or sql_delimiter != previous_delimiter:
+            # Only (re)compile new Regexes if they should be
+            escaped_delim = re.escape(sql_delimiter)
+            # Special characters possible in the sql delimiter are '_', '/' and ';'. If a delimiter does not end, or
+            # start with a special character then look for word separation with \b regex.
+            if re.match(r"\w", sql_delimiter[0]):
+                RE_START = re.compile(rf"^[^\w$]?{escaped_delim}")
+            else:
+                RE_START = re.compile(rf"^.?{escaped_delim}")
+            if re.match(r"\w", sql_delimiter[-1]):
+                RE_END = re.compile(rf"{escaped_delim}[^\w$]?$")
+            else:
+                RE_END = re.compile(rf"{escaped_delim}.?$")
+            previous_delimiter = sql_delimiter
+        while True:
+            if col >= len_line:
+                if col0 < col:
+                    if not in_comment and not in_quote and not in_double_dollars:
+                        statement.append((line[col0:col], True))
+                        if len(statement) == 1 and statement[0][0] == "":
+                            statement = []
+                        break
+                    elif not in_comment and (in_quote or in_double_dollars):
+                        statement.append((line[col0:col], True))
+                    elif not remove_comments:
+                        statement.append((line[col0:col], False))
+                break
+            elif in_comment:
+                if line[col:].startswith("*/"):
+                    in_comment = False
+                    if not remove_comments:
+                        statement.append((line[col0 : col + 2], False))
+                    col += 2
+                    col0 = col
+                else:
+                    col += 1
+            elif in_double_dollars:
+                if line[col:].startswith("$$"):
+                    in_double_dollars = False
+                    statement.append((line[col0 : col + 2], False))
+                    col += 2
+                    col0 = col
+                else:
+                    col += 1
+            elif in_quote:
+                if (
+                    line[col] == "\\"
+                    and col < len_line - 1
+                    and line[col + 1] in (ch_quote, "\\")
+                ):
+                    col += 2
+                elif line[col] == ch_quote:
+                    if (
+                        col < len_line - 1
+                        and line[col + 1] != ch_quote
+                        or col == len_line - 1
+                    ):
+                        # exits quote
+                        in_quote = False
+                        statement.append((line[col0 : col + 1], True))
+                        col += 1
+                        col0 = col
+                    else:
+                        # escaped quote and still in quote
+                        col += 2
+                else:
+                    col += 1
+            else:
+                if line[col] in ("'", '"'):
+                    in_quote = True
+                    ch_quote = line[col]
+                    col += 1
+                elif line[col] in (" ", "\t"):
+                    statement.append((line[col0 : col + 1], True))
+                    col += 1
+                    col0 = col
+                elif line[col:].startswith(INLINE_COMMENT_PREFIXES) and not line[
+                    col0:
+                ].startswith("file://"):
+                    statement.append((line[col0:col], True))
+                    if not remove_comments:
+                        # keep the comment
+                        statement.append((line[col:], False))
+                    else:
+                        statement.append(("\n", True))
+                    col = len_line + 1
+                    col0 = col
+                elif line[col:].startswith("/*") and not line[col0:].startswith(
+                    "file://"
+                ):
+                    if not remove_comments:
+                        statement.append((line[col0 : col + 2], False))
+                    else:
+                        statement.append((line[col0:col], False))
+                    col += 2
+                    col0 = col
+                    in_comment = True
+                elif line[col:].startswith("$$"):
+                    statement.append((line[col0 : col + 2], True))
+                    col += 2
+                    col0 = col
+                    in_double_dollars = True
+                elif (
+                    RE_START.match(line[col - 1 : col + len(sql_delimiter)])
+                    if col > 0
+                    else (RE_START.match(line[col : col + len(sql_delimiter)]))
+                ) and (RE_END.match(line[col : col + len(sql_delimiter) + 1])):
+                    statement.append((line[col0:col] + ";", True))
+                    col += len(sql_delimiter)
+                    try:
+                        if line[col] == ">":
+                            col += 1
+                            statement[-1] = (statement[-1][0] + ">", statement[-1][1])
+                    except IndexError:
+                        pass
+                    if COMMENT_PATTERN_RE.match(line[col:]) or EMPTY_LINE_RE.match(
+                        line[col:]
+                    ):
+                        if not remove_comments:
+                            # keep the comment
+                            statement.append((line[col:], False))
+                        col = len_line
+                    while col < len_line and line[col] in (" ", "\t"):
+                        col += 1
+                    yield _concatenate_statements(statement)
+                    col0 = col
+                    statement = []
+                elif col == 0 and line[col] == "!":  # command
+                    if len(statement) > 0:
+                        yield _concatenate_statements(statement)
+                        statement = []
+                    yield (
+                        line.strip()[: -len(sql_delimiter)]
+                        if line.strip().endswith(sql_delimiter)
+                        else line.strip()
+                    ).strip(), False
+                    break
+                else:
+                    col += 1
+        line = buf.readline()
+
+    if len(statement) > 0:
+        yield _concatenate_statements(statement)
+
+
+def _concatenate_statements(
+    statement_list: list[tuple[str, bool]]
+) -> tuple[str, bool | None]:
+    """Concatenate statements.
+
+    Each statement should be a tuple of statement and is_put_or_get.
+
+    The is_put_or_get is set to True if the statement is PUT or GET otherwise False for valid statement.
+    None is set if the statement is empty or comment only.
+
+    Args:
+        statement_list: List of statement parts.
+
+    Returns:
+        Tuple of statements and whether they are PUT or GET.
+    """
+    valid_statement_list = []
+    is_put_or_get = None
+    for text, is_statement in statement_list:
+        valid_statement_list.append(text)
+        if is_put_or_get is None and is_statement and len(text.strip()) >= 3:
+            is_put_or_get = text[:3].upper() in ("PUT", "GET")
+    return "".join(valid_statement_list).strip(), is_put_or_get
+
+
+def construct_hostname(region: str | None, account: str) -> str:
+    """Constructs hostname from region and account."""
+
+    def _is_china_region(r: str) -> bool:
+        # This is consistent with the Go driver:
+        # https://github.com/snowflakedb/gosnowflake/blob/f20a46475dce322f3f6b97b4a72f2807571e750b/dsn.go#L535
+        return r.lower().startswith("cn-")
+
+    if region == "us-west-2":
+        region = ""
+    if region:
+        if account.find(".") > 0:
+            account = account[0 : account.find(".")]
+        top_level_domain = "cn" if _is_china_region(region) else "com"
+        host = f"{account}.{region}.snowflakecomputing.{top_level_domain}"
+    else:
+        top_level_domain = "com"
+        if account.find(".") > 0 and _is_china_region(account.split(".")[1]):
+            top_level_domain = "cn"
+        host = f"{account}.snowflakecomputing.{top_level_domain}"
+    return host
+
+
+ACCOUNT_ID_VALIDATOR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def is_valid_account_identifier(account: str) -> bool:
+    """Validate the Snowflake account identifier format.
+
+    The account identifier must be a single label (no dots or slashes) composed
+    only of ASCII letters, digits, underscores, or hyphens.
+    """
+    if not isinstance(account, str) or not account:
+        return False
+
+    if "/" in account or "\\" in account:
+        return False
+
+    return all(bool(ACCOUNT_ID_VALIDATOR_RE.fullmatch(p)) for p in account.split("."))
+
+
+def parse_account(account):
+    url_parts = account.split(".")
+    # if this condition is true, then we have some extra
+    # stuff in the account field.
+    if len(url_parts) > 1:
+        if url_parts[1] == "global":
+            # remove external ID from account
+            parsed_account = url_parts[0][0 : url_parts[0].rfind("-")]
+        else:
+            # remove region subdomain
+            parsed_account = url_parts[0]
+    else:
+        parsed_account = account
+
+    return parsed_account
+
+
+def random_string(
+    length: int = 10,
+    prefix: str = "",
+    suffix: str = "",
+    choices: Sequence[str] = string.ascii_lowercase,
+) -> str:
+    """Our convenience function to generate random string for object names.
+
+    Args:
+        length: How many random characters to choose from choices.
+        prefix: Prefix to add to random string generated.
+        suffix: Suffix to add to random string generated.
+        choices: A generator of things to choose from.
+    """
+    random_part = "".join([random.Random().choice(choices) for _ in range(length)])
+    return "".join([prefix, random_part, suffix])
+
+
+def _base64_bytes_to_str(x) -> str | None:
+    return base64.b64encode(x).decode("utf-8") if x else None
+
+
+def get_md5_for_integrity(text: str | bytes) -> bytes:
+    # MD5 should not be used for security reasons - only integrity is safe and allowed
+    if isinstance(text, str):
+        text = text.encode("utf-8")
+    # Usedforsecurity=False added to support FIPS envs as well
+    md5 = hashlib.md5(usedforsecurity=False)
+    md5.update(text)
+    return md5.digest()
+
+
+def expand_tilde(path_to_expand: Any) -> Any:
+    try:
+        path_to_expand = (
+            str(Path(path_to_expand).expanduser())
+            if isinstance(path_to_expand, str)
+            else path_to_expand
+        )
+    except Exception as e:
+        # user home could not be resolved
+        _logger.debug(
+            "User home could not be determined, not expanding tilde. Exception: %s", e
+        )
+
+    return path_to_expand

@@ -1,5 +1,5 @@
 {
   "ok": true,
-  "report": "google-ads-report.json",
-  "report_digest": "1108d6dbe4492c2099d0f81dcfa35b7db2fdfea3bab05be6c93f8b415fd7ec99"
+  "report": "apache-airflow-providers-amazon-report.json",
+  "report_digest": "64d4745e670a50d6d95656c42b845eb8af34c48ad45f74472f8565195932c3ed"
 }

@@ -1,0 +1,69 @@
+[project]
+name = "backports-datetime-fromisoformat"
+version = "2.0.3"
+authors = [{ name = "Michael Overmeyer", email = "backports@movermeyer.com" }]
+description = "Backport of Python 3.11's datetime.fromisoformat"
+readme = "README.rst"
+requires-python = ">3"
+license = { file = "LICENSE" }
+classifiers = [
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: MIT License',
+  'Operating System :: OS Independent',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3.4',
+  'Programming Language :: Python :: 3.5',
+  'Programming Language :: Python :: 3.6',
+  'Programming Language :: Python :: 3.7',
+  'Programming Language :: Python :: 3.8',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  'Topic :: Software Development :: Libraries :: Python Modules',
+]
+
+[project.urls]
+Homepage = "https://github.com/movermeyer/backports.datetime_fromisoformat"
+Documentation = "https://github.com/movermeyer/backports.datetime_fromisoformat"
+Repository = "https://github.com/movermeyer/backports.datetime_fromisoformat"
+"Bug Tracker" = "https://github.com/movermeyer/backports.datetime_fromisoformat/issues"
+Changelog = "https://github.com/movermeyer/backports.datetime_fromisoformat/CHANGELOG.md"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+build = [
+    "cp38-*",
+    "cp39-*",
+    "cp310-*",
+    "cp311-*",
+    "cp312-*",
+    "pp38-*",
+    "pp39-*",
+    "pp310-*",
+]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "universal2", "arm64"]
+environment = { MACOSX_DEPLOYMENT_TARGET="11.0" }
+skip = ["pp*"]
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+skip = ["pp*-win*", "*-win3"]
+
+[tool.pylint.'MESSAGES CONTROL']
+max-line-length = 120
+disable = "C0114, C0115, C0116, C0301"
+
+[tool.autopep8]
+max_line_length = 120
+ignore = ["E501"]
+in-place = true
+recursive = true
+aggressive = 3

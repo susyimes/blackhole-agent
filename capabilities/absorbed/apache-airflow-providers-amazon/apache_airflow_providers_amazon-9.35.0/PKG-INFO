@@ -1,0 +1,229 @@
+Metadata-Version: 2.5
+Name: apache-airflow-providers-amazon
+Version: 9.35.0
+Summary: Provider package apache-airflow-providers-amazon for Apache Airflow
+Keywords: airflow-provider,amazon,airflow,integration
+Author-email: Apache Software Foundation <dev@airflow.apache.org>
+Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Framework :: Apache Airflow
+Classifier: Framework :: Apache Airflow :: Provider
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: System :: Monitoring
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.18.0
+Requires-Dist: apache-airflow-providers-common-sql>=1.32.0
+Requires-Dist: apache-airflow-providers-http
+Requires-Dist: boto3>=1.41.0
+Requires-Dist: botocore>=1.41.0
+Requires-Dist: inflection>=0.5.1
+Requires-Dist: watchtower>=3.3.1,<4
+Requires-Dist: jsonpath_ng>=1.5.3
+Requires-Dist: redshift_connector>=2.1.3
+Requires-Dist: redshift_connector>=2.1.13; python_version >= '3.14'
+Requires-Dist: asgiref>=2.3.0; python_version < '3.14'
+Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
+Requires-Dist: PyAthena>=3.10.0
+Requires-Dist: jmespath>=0.7.0
+Requires-Dist: sagemaker-studio>=1.0.25,<1.1.0
+Requires-Dist: marshmallow>=3
+Requires-Dist: aiobotocore>=3.0.0 ; extra == "aiobotocore"
+Requires-Dist: apache-airflow-providers-apache-hive ; extra == "apache-hive"
+Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.2.0 ; extra == "cncf-kubernetes"
+Requires-Dist: apache-airflow-providers-common-messaging>=2.0.0 ; extra == "common-messaging"
+Requires-Dist: apache-airflow-providers-exasol ; extra == "exasol"
+Requires-Dist: apache-airflow-providers-fab>=2.2.0 ; extra == "fab"
+Requires-Dist: apache-airflow-providers-ftp ; extra == "ftp"
+Requires-Dist: apache-airflow-providers-google ; extra == "google"
+Requires-Dist: apache-airflow-providers-imap ; extra == "imap"
+Requires-Dist: apache-airflow-providers-microsoft-azure ; extra == "microsoft-azure"
+Requires-Dist: apache-airflow-providers-mongo ; extra == "mongo"
+Requires-Dist: apache-airflow-providers-openlineage>=2.3.0 ; extra == "openlineage"
+Requires-Dist: pandas>=2.1.2 ; extra == "pandas" and ( python_version <"3.13")
+Requires-Dist: pandas>=2.2.3 ; extra == "pandas" and ( python_version >="3.13" and python_version <"3.14")
+Requires-Dist: pandas>=2.3.3 ; extra == "pandas" and ( python_version >="3.14")
+Requires-Dist: python3-saml>=1.16.0 ; extra == "python3-saml" and ( python_version < '3.13')
+Requires-Dist: xmlsec>=1.3.14 ; extra == "python3-saml" and ( python_version < '3.13')
+Requires-Dist: lxml>=6.0.0 ; extra == "python3-saml" and ( python_version < '3.13')
+Requires-Dist: s3fs>=2023.10.0 ; extra == "s3fs"
+Requires-Dist: apache-airflow-providers-salesforce ; extra == "salesforce"
+Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
+Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
+Requires-Dist: apache-airflow-providers-standard ; extra == "standard"
+Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0
+Project-URL: Mastodon, https://fosstodon.org/@airflow
+Project-URL: Slack Chat, https://s.apache.org/airflow-slack
+Project-URL: Source Code, https://github.com/apache/airflow
+Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Provides-Extra: aiobotocore
+Provides-Extra: apache-hive
+Provides-Extra: cncf-kubernetes
+Provides-Extra: common-messaging
+Provides-Extra: exasol
+Provides-Extra: fab
+Provides-Extra: ftp
+Provides-Extra: google
+Provides-Extra: imap
+Provides-Extra: microsoft-azure
+Provides-Extra: mongo
+Provides-Extra: openlineage
+Provides-Extra: pandas
+Provides-Extra: python3-saml
+Provides-Extra: s3fs
+Provides-Extra: salesforce
+Provides-Extra: sqlalchemy
+Provides-Extra: ssh
+Provides-Extra: standard
+Import-Name: airflow.providers.amazon
+Import-Namespace: airflow
+Import-Namespace: airflow.providers
+
+
+.. Licensed to the Apache Software Foundation (ASF) under one
+   or more contributor license agreements.  See the NOTICE file
+   distributed with this work for additional information
+   regarding copyright ownership.  The ASF licenses this file
+   to you under the Apache License, Version 2.0 (the
+   "License"); you may not use this file except in compliance
+   with the License.  You may obtain a copy of the License at
+
+..   http://www.apache.org/licenses/LICENSE-2.0
+
+.. Unless required by applicable law or agreed to in writing,
+   software distributed under the License is distributed on an
+   "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+   KIND, either express or implied.  See the License for the
+   specific language governing permissions and limitations
+   under the License.
+
+.. NOTE! THIS FILE IS AUTOMATICALLY GENERATED AND WILL BE OVERWRITTEN!
+
+.. IF YOU WANT TO MODIFY TEMPLATE FOR THIS FILE, YOU SHOULD MODIFY THE TEMPLATE
+   ``PROVIDER_README_TEMPLATE.rst.jinja2`` IN the ``dev/breeze/src/airflow_breeze/templates`` DIRECTORY
+
+Package ``apache-airflow-providers-amazon``
+
+Release: ``9.35.0``
+
+
+Amazon integration (including `Amazon Web Services (AWS) <https://aws.amazon.com/>`__).
+
+
+Provider package
+----------------
+
+This is a provider package for ``amazon`` provider. All classes for this provider package
+are in ``airflow.providers.amazon`` python package.
+
+You can find package information and changelog for the provider
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0/>`_.
+
+Installation
+------------
+
+You can install this package on top of an existing Airflow installation (see ``Requirements`` below
+for the minimum Airflow version supported) via
+``pip install apache-airflow-providers-amazon``
+
+The package supports the following python versions: 3.10,3.11,3.12,3.13,3.14
+
+Requirements
+------------
+
+==========================================  ======================================
+PIP package                                 Version required
+==========================================  ======================================
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.18.0``
+``apache-airflow-providers-common-sql``     ``>=1.32.0``
+``apache-airflow-providers-http``
+``boto3``                                   ``>=1.41.0``
+``botocore``                                ``>=1.41.0``
+``inflection``                              ``>=0.5.1``
+``watchtower``                              ``>=3.3.1,<4``
+``jsonpath_ng``                             ``>=1.5.3``
+``redshift_connector``                      ``>=2.1.3``
+``redshift_connector``                      ``>=2.1.13; python_version >= "3.14"``
+``asgiref``                                 ``>=2.3.0; python_version < "3.14"``
+``asgiref``                                 ``>=3.11.1; python_version >= "3.14"``
+``PyAthena``                                ``>=3.10.0``
+``jmespath``                                ``>=0.7.0``
+``sagemaker-studio``                        ``>=1.0.25,<1.1.0``
+``marshmallow``                             ``>=3``
+==========================================  ======================================
+
+Optional cross provider package dependencies
+--------------------------------------------
+
+Those are dependencies that might be needed in order to use all the features of the package.
+You need to install the specified providers in order to use them.
+
+You can install such cross-provider dependencies when installing from PyPI. For example:
+
+.. code-block:: bash
+
+    pip install apache-airflow-providers-amazon[apache.hive]
+
+
+========================================================================================================================  ====================
+Dependent package                                                                                                         Extra
+========================================================================================================================  ====================
+`apache-airflow-providers-apache-hive <https://airflow.apache.org/docs/apache-airflow-providers-apache-hive>`_            ``apache.hive``
+`apache-airflow-providers-cncf-kubernetes <https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes>`_    ``cncf.kubernetes``
+`apache-airflow-providers-common-messaging <https://airflow.apache.org/docs/apache-airflow-providers-common-messaging>`_  ``common.messaging``
+`apache-airflow-providers-exasol <https://airflow.apache.org/docs/apache-airflow-providers-exasol>`_                      ``exasol``
+`apache-airflow-providers-ftp <https://airflow.apache.org/docs/apache-airflow-providers-ftp>`_                            ``ftp``
+`apache-airflow-providers-google <https://airflow.apache.org/docs/apache-airflow-providers-google>`_                      ``google``
+`apache-airflow-providers-imap <https://airflow.apache.org/docs/apache-airflow-providers-imap>`_                          ``imap``
+`apache-airflow-providers-microsoft-azure <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure>`_    ``microsoft.azure``
+`apache-airflow-providers-mongo <https://airflow.apache.org/docs/apache-airflow-providers-mongo>`_                        ``mongo``
+`apache-airflow-providers-openlineage <https://airflow.apache.org/docs/apache-airflow-providers-openlineage>`_            ``openlineage``
+`apache-airflow-providers-salesforce <https://airflow.apache.org/docs/apache-airflow-providers-salesforce>`_              ``salesforce``
+`apache-airflow-providers-ssh <https://airflow.apache.org/docs/apache-airflow-providers-ssh>`_                            ``ssh``
+========================================================================================================================  ====================
+
+Optional dependencies
+----------------------
+
+====================  ============================================================================================================================================================
+Extra                 Dependencies
+====================  ============================================================================================================================================================
+``aiobotocore``       ``aiobotocore>=3.0.0``
+``cncf.kubernetes``   ``apache-airflow-providers-cncf-kubernetes>=7.2.0``
+``s3fs``              ``s3fs>=2023.10.0``
+``python3-saml``      ``python3-saml>=1.16.0; python_version < '3.13'``, ``xmlsec>=1.3.14; python_version < '3.13'``, ``lxml>=6.0.0; python_version < '3.13'``
+``apache.hive``       ``apache-airflow-providers-apache-hive``
+``exasol``            ``apache-airflow-providers-exasol``
+``fab``               ``apache-airflow-providers-fab>=2.2.0``
+``ftp``               ``apache-airflow-providers-ftp``
+``google``            ``apache-airflow-providers-google``
+``imap``              ``apache-airflow-providers-imap``
+``microsoft.azure``   ``apache-airflow-providers-microsoft-azure``
+``mongo``             ``apache-airflow-providers-mongo``
+``pandas``            ``pandas>=2.1.2; python_version <"3.13"``, ``pandas>=2.2.3; python_version >="3.13" and python_version <"3.14"``, ``pandas>=2.3.3; python_version >="3.14"``
+``openlineage``       ``apache-airflow-providers-openlineage>=2.3.0``
+``salesforce``        ``apache-airflow-providers-salesforce``
+``ssh``               ``apache-airflow-providers-ssh``
+``standard``          ``apache-airflow-providers-standard``
+``common.messaging``  ``apache-airflow-providers-common-messaging>=2.0.0``
+``sqlalchemy``        ``sqlalchemy>=1.4.54``
+====================  ============================================================================================================================================================
+
+The changelog for the provider package can be found in the
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.35.0/changelog.html>`_.
+

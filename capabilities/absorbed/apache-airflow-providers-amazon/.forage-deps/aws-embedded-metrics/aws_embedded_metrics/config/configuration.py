@@ -1,0 +1,58 @@
+# Copyright 2019 Amazon.com, Inc. or its affiliates.
+# Licensed under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from importlib.metadata import version as get_version
+import logging
+from typing import Optional
+
+log = logging.getLogger(__name__)
+
+
+class Configuration:
+    def __init__(
+        self,
+        debug_logging_enabled: bool,
+        service_name: str,
+        service_type: str,
+        log_group_name: str,
+        log_stream_name: str,
+        agent_endpoint: str,
+        ec2_metadata_endpoint: str = None,
+        namespace: str = None,
+        disable_metric_extraction: bool = False,
+        environment: Optional[str] = None,
+    ):
+        self.debug_logging_enabled = debug_logging_enabled
+        self.service_name = service_name
+        self.service_type = service_type
+        self.log_group_name = log_group_name
+        self.log_stream_name = log_stream_name
+        self.agent_endpoint = agent_endpoint
+        self.ec2_metadata_endpoint = ec2_metadata_endpoint
+        self.namespace = namespace
+        self.disable_metric_extraction = disable_metric_extraction
+        self.default_flush_on_yield = Configuration._get_default_flush_on_yield()
+        self.environment = environment
+
+    @staticmethod
+    def _get_default_flush_on_yield() -> bool:
+        try:
+            pkg_version = get_version("aws-embedded-metrics")
+            major = int(pkg_version.split(".")[0])
+            return major < 4
+        except Exception as e:
+            log.warning(
+                "Unable to resolve package version for flush_on_yield default, defaulting to True. "
+                "This may impact performance for fast generators as metrics will flush on every yield. "
+                "If needed, override via @metric_scope(flush_on_yield=False). Error: %s", e)
+            return True

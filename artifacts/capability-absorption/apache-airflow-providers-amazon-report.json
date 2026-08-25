@@ -1,0 +1,48 @@
+{
+  "capability_id": "capability.absorbed-apache-airflow-providers-amazon",
+  "generated_at": "2026-08-25T03:09:05.069678Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "grown_plan": [
+    "capability.absorbed-apache-airflow-providers-amazon"
+  ],
+  "kind": "capability_absorption_scenario",
+  "origin": {
+    "cache_hit": true,
+    "kind": "pypi-live",
+    "name": "apache-airflow-providers-amazon",
+    "registry": "pypi",
+    "sha256": "6e909260f53f98f66efe177518c1a807b7eac3d08dc4f1324210131a45ee8df9",
+    "source": "artifacts/capability-foraging/downloads/apache_airflow_providers_amazon-9.35.0.tar.gz",
+    "url": "",
+    "version": "9.35.0"
+  },
+  "record_digest": "c26566e62c1b2ec34fa7d18c5dfd791f7dcfc9a4c3ab32acbb6a23ea4b3aac0a",
+  "report_digest": "64d4745e670a50d6d95656c42b845eb8af34c48ad45f74472f8565195932c3ed",
+  "schema_version": 1,
+  "slug": "apache-airflow-providers-amazon",
+  "task": {
+    "goal": [
+      "providers_amazon_aws_executors_batch_utils_batch_job_collection"
+    ],
+    "id": "absorbed-apache-airflow-providers-amazon",
+    "initial_state": {
+      "job_id": "Hello World"
+    },
+    "oracle": {
+      "providers_amazon_aws_executors_batch_utils_batch_job_collection": 0
+    }
+  },
+  "vendored_tree_digest": "ba3f7f0c6d73a9235d3bd6c31acae7ed2c4d8b33d6320aedb057237d90a24a1f",
+  "verdicts": {
+    "ablation_unplannable": true,
+    "forgery_rejected": true,
+    "grown_plan_solved": true,
+    "live_proof_ok": true,
+    "tamper_rejected": true,
+    "unplannable_before": true
+  }
+}

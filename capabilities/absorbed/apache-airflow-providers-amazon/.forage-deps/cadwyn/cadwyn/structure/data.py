@@ -1,0 +1,283 @@
+import functools
+import inspect
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import ClassVar, Union, cast
+
+from fastapi import Request, Response
+from starlette.datastructures import FormData, MutableHeaders, UploadFile
+from typing_extensions import Any, overload
+
+from cadwyn._utils import _callable_name, same_method_definition_as_in
+from cadwyn.structure.endpoints import _validate_that_strings_are_valid_http_methods
+
+
+class RequestInfo:
+    __slots__ = ("_cookies", "_form", "_query_params", "_request", "body", "headers")
+
+    def __init__(self, request: Request, body: Any) -> None:
+        super().__init__()
+        self.body = body
+        self.headers = request.headers.mutablecopy()
+        self._cookies = request.cookies
+        self._query_params = request.query_params._dict
+        self._request = request
+        if isinstance(body, FormData):
+            self._form: Union[list[tuple[str, Union[UploadFile, str]]], None] = list(body.multi_items())
+        else:
+            self._form = None
+
+    @property
+    def cookies(self) -> dict[str, str]:
+        return self._cookies
+
+    @property
+    def query_params(self) -> dict[str, str]:
+        return self._query_params
+
+    @property
+    def form(self) -> Union[list[tuple[str, Union[UploadFile, str]]], None]:
+        return self._form
+
+
+# TODO (https://github.com/zmievsa/cadwyn/issues/111): handle _response.media_type and _response.background
+class ResponseInfo:
+    __slots__ = ("_response", "body")
+
+    def __init__(self, response: Response, body: Any) -> None:
+        super().__init__()
+        self.body = body
+        self._response = response
+
+    @property
+    def status_code(self) -> int:
+        return self._response.status_code
+
+    @status_code.setter
+    def status_code(self, value: int) -> None:
+        self._response.status_code = value
+
+    @property
+    def headers(self) -> MutableHeaders:
+        return self._response.headers
+
+    @same_method_definition_as_in(Response.set_cookie)
+    def set_cookie(self, *args: Any, **kwargs: Any) -> None:
+        return self._response.set_cookie(*args, **kwargs)
+
+    @same_method_definition_as_in(Response.delete_cookie)
+    def delete_cookie(self, *args: Any, **kwargs: Any) -> None:
+        return self._response.delete_cookie(*args, **kwargs)
+
+
+@dataclass
+class _AlterDataInstruction:
+    transformer: Callable[[Any], None]
+    owner: type = field(init=False)
+    _payload_arg_name: ClassVar[str]
+
+    def __post_init__(self) -> None:
+        signature = inspect.signature(self.transformer)
+        if list(signature.parameters) != [self._payload_arg_name]:
+            raise ValueError(
+                f"Method '{_callable_name(self.transformer)}' must have only 1 parameter: {self._payload_arg_name}",
+            )
+
+        functools.update_wrapper(self, self.transformer)
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.owner = owner
+
+    def __call__(self, __request_or_response: Union[RequestInfo, ResponseInfo], /) -> None:
+        return self.transformer(__request_or_response)
+
+
+@dataclass
+class _BaseAlterBySchemaInstruction:
+    schemas: tuple[Any, ...]
+    check_usage: bool = True
+
+
+##########
+# Requests
+##########
+
+
+@dataclass
+class _BaseAlterRequestInstruction(_AlterDataInstruction):
+    _payload_arg_name = "request"
+
+
+@dataclass
+class _AlterRequestBySchemaInstruction(_BaseAlterBySchemaInstruction, _BaseAlterRequestInstruction): ...
+
+
+@dataclass
+class _AlterRequestByPathInstruction(_BaseAlterRequestInstruction):
+    path: str
+    methods: set[str]
+    repr_name: ClassVar[str] = "Request by path converter"
+
+
+@overload
+def convert_request_to_next_version_for(
+    first_schema: type,
+    /,
+    *,
+    check_usage: bool = True,
+) -> Callable[[Callable[[RequestInfo], None]], _AlterRequestBySchemaInstruction]: ...
+
+
+@overload
+def convert_request_to_next_version_for(
+    first_schema: type,
+    second_schema: type,
+    /,
+    *additional_schemas: type,
+    check_usage: bool = True,
+) -> Callable[[Callable[[RequestInfo], None]], _AlterRequestBySchemaInstruction]: ...
+
+
+@overload
+def convert_request_to_next_version_for(
+    path: str, methods: list[str], /
+) -> Callable[[Callable[[RequestInfo], None]], _AlterRequestByPathInstruction]: ...
+
+
+def convert_request_to_next_version_for(
+    schema_or_path: Union[type, str],
+    methods_or_second_schema: Union[list[str], type, None] = None,
+    /,
+    *additional_schemas: type,
+    check_usage: bool = True,
+) -> Callable[[Callable[[RequestInfo], None]], Union[_AlterRequestBySchemaInstruction, _AlterRequestByPathInstruction]]:
+    _validate_decorator_args(schema_or_path, methods_or_second_schema, additional_schemas)
+
+    def decorator(
+        transformer: Callable[[RequestInfo], None],
+    ) -> Union[_AlterRequestBySchemaInstruction, _AlterRequestByPathInstruction]:
+        if isinstance(schema_or_path, str):
+            return _AlterRequestByPathInstruction(
+                path=schema_or_path,
+                methods=set(cast("list[str]", methods_or_second_schema)),
+                transformer=transformer,
+            )
+        else:
+            if methods_or_second_schema is None:
+                schemas = (schema_or_path,)
+            else:
+                schemas = (schema_or_path, methods_or_second_schema, *additional_schemas)
+            return _AlterRequestBySchemaInstruction(
+                schemas=schemas,
+                transformer=transformer,
+                check_usage=check_usage,
+            )
+
+    return decorator
+
+
+###########
+# Responses
+###########
+
+
+@dataclass
+class _BaseAlterResponseInstruction(_AlterDataInstruction):
+    _payload_arg_name = "response"
+    migrate_http_errors: bool
+
+
+@dataclass
+class _AlterResponseBySchemaInstruction(_BaseAlterBySchemaInstruction, _BaseAlterResponseInstruction): ...
+
+
+@dataclass
+class _AlterResponseByPathInstruction(_BaseAlterResponseInstruction):
+    path: str
+    methods: set[str]
+    repr_name: ClassVar[str] = "Response by path converter"
+
+
+@overload
+def convert_response_to_previous_version_for(
+    first_schema: type,
+    /,
+    *,
+    migrate_http_errors: bool = False,
+    check_usage: bool = True,
+) -> Callable[[Callable[[ResponseInfo], None]], _AlterResponseBySchemaInstruction]: ...
+
+
+@overload
+def convert_response_to_previous_version_for(
+    first_schema: type,
+    second_schema: type,
+    /,
+    *schemas: type,
+    migrate_http_errors: bool = False,
+    check_usage: bool = True,
+) -> Callable[[Callable[[ResponseInfo], None]], _AlterResponseBySchemaInstruction]: ...
+
+
+@overload
+def convert_response_to_previous_version_for(
+    path: str,
+    methods: list[str],
+    /,
+    *,
+    migrate_http_errors: bool = False,
+) -> Callable[[Callable[[ResponseInfo], None]], _AlterResponseByPathInstruction]: ...
+
+
+def convert_response_to_previous_version_for(
+    schema_or_path: Union[type, str],
+    methods_or_second_schema: Union[list[str], type, None] = None,
+    /,
+    *additional_schemas: type,
+    migrate_http_errors: bool = False,
+    check_usage: bool = True,
+) -> Callable[
+    [Callable[[ResponseInfo], None]], Union[_AlterResponseBySchemaInstruction, _AlterResponseByPathInstruction]
+]:
+    _validate_decorator_args(schema_or_path, methods_or_second_schema, additional_schemas)
+
+    def decorator(
+        transformer: Callable[[ResponseInfo], None],
+    ) -> Union[_AlterResponseBySchemaInstruction, _AlterResponseByPathInstruction]:
+        if isinstance(schema_or_path, str):
+            # The validation above checks that methods is not None
+            return _AlterResponseByPathInstruction(
+                path=schema_or_path,
+                methods=set(cast("list[str]", methods_or_second_schema)),
+                transformer=transformer,
+                migrate_http_errors=migrate_http_errors,
+            )
+        else:
+            if methods_or_second_schema is None:
+                schemas = (schema_or_path,)
+            else:
+                schemas = (schema_or_path, methods_or_second_schema, *additional_schemas)
+            return _AlterResponseBySchemaInstruction(
+                schemas=schemas,
+                transformer=transformer,
+                migrate_http_errors=migrate_http_errors,
+                check_usage=check_usage,
+            )
+
+    return decorator
+
+
+def _validate_decorator_args(
+    schema_or_path: Union[type, str],
+    methods_or_second_schema: Union[list[str], type, None],
+    additional_schemas: tuple[type, ...],
+) -> None:
+    if isinstance(schema_or_path, str):
+        if not isinstance(methods_or_second_schema, list):
+            raise TypeError("If path was provided as a first argument, methods must be provided as a second argument")
+        _validate_that_strings_are_valid_http_methods(methods_or_second_schema)
+        if additional_schemas:
+            raise TypeError("If path was provided as a first argument, then additional schemas cannot be added")
+
+    elif methods_or_second_schema is not None and not isinstance(methods_or_second_schema, type):
+        raise TypeError("If schema was provided as a first argument, all other arguments must also be schemas")
