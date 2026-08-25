@@ -573,6 +573,8 @@ def _consider_inner(name, target, flags, skip_self=False):
         or flags.get("python_undecuple_nested_namespace_class_instance")
         or flags.get("python_duodecuple_nested_namespace_class_static")
         or flags.get("python_duodecuple_nested_namespace_class_instance")
+        or flags.get("python_tredecuple_nested_namespace_class_static")
+        or flags.get("python_tredecuple_nested_namespace_class_instance")
         or flags.get("python_nested_namespace_function")
         or flags.get("python_deep_nested_namespace_function")
         or flags.get("python_triple_nested_namespace_function")
@@ -585,6 +587,7 @@ def _consider_inner(name, target, flags, skip_self=False):
         or flags.get("python_decuple_nested_namespace_function")
         or flags.get("python_undecuple_nested_namespace_function")
         or flags.get("python_duodecuple_nested_namespace_function")
+        or flags.get("python_tredecuple_nested_namespace_function")
     ):
         return
     if not _owner_ok(target):
@@ -744,7 +747,7 @@ def _safe_is_module(target):
         return False
 
 
-def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False, sextuple=False, septuple=False, octuple=False, nonuple=False, decuple=False, undecuple=False, duodecuple=False):
+def _consider_class(prefix, target, nested=False, deep=False, triple=False, quadruple=False, quintuple=False, sextuple=False, septuple=False, octuple=False, nonuple=False, decuple=False, undecuple=False, duodecuple=False, tredecuple=False):
     try:
         class_name = getattr(target, "__name__", "") or ""
     except Exception:
@@ -752,8 +755,8 @@ def _consider_class(prefix, target, nested=False, deep=False, triple=False, quad
     if class_name.endswith(("AsyncClient", "AsyncIOClient")):
         return
     depth = (
-        12 if duodecuple else 11 if undecuple else 10 if decuple else 9 if nonuple else 8 if octuple else 7 if septuple
-        else 6 if sextuple else 5 if quintuple else 4 if quadruple else 3 if triple else 2 if deep
+        13 if tredecuple else 12 if duodecuple else 11 if undecuple else 10 if decuple else 9 if nonuple else 8 if octuple
+        else 7 if septuple else 6 if sextuple else 5 if quintuple else 4 if quadruple else 3 if triple else 2 if deep
         else 1 if nested else 0
     )
     kind_keys = (
@@ -770,6 +773,7 @@ def _consider_class(prefix, target, nested=False, deep=False, triple=False, quad
         "python_decuple_nested_namespace_class_{kind}",
         "python_undecuple_nested_namespace_class_{kind}",
         "python_duodecuple_nested_namespace_class_{kind}",
+        "python_tredecuple_nested_namespace_class_{kind}",
     )
     try:
         static_flags = {key.format(kind="static"): (index == depth) for index, key in enumerate(kind_keys)}
@@ -963,6 +967,7 @@ _FUNC_KEYS = (
     "python_decuple_nested_namespace_function",
     "python_undecuple_nested_namespace_function",
     "python_duodecuple_nested_namespace_function",
+    "python_tredecuple_nested_namespace_function",
 )
 _CLASS_KW = (
     {"nested": True},
@@ -977,9 +982,10 @@ _CLASS_KW = (
     {"nested": True, "decuple": True},
     {"nested": True, "undecuple": True},
     {"nested": True, "duodecuple": True},
+    {"nested": True, "tredecuple": True},
 )
 level = submodules
-for depth in range(1, 13):
+for depth in range(1, 14):
     nxt = {}
     func_flags = {key: (index == depth - 1) for index, key in enumerate(_FUNC_KEYS)}
     class_kw = _CLASS_KW[depth - 1]
@@ -1001,7 +1007,7 @@ for depth in range(1, 13):
             ):
                 continue
             _consider_class(f"{prefix}.{nested_name}", nested_target, **class_kw)
-        if depth < 12:
+        if depth < 13:
             for child_name, child in sorted(_child_modules(target, prefix).items()):
                 nxt[f"{prefix}.{child_name}"] = child
     level = nxt
@@ -2054,6 +2060,7 @@ def _is_class_static_candidate(item: Mapping[str, Any]) -> bool:
         or item.get("python_decuple_nested_namespace_class_static")
         or item.get("python_undecuple_nested_namespace_class_static")
         or item.get("python_duodecuple_nested_namespace_class_static")
+        or item.get("python_tredecuple_nested_namespace_class_static")
     )
 
 
@@ -2079,6 +2086,7 @@ def _is_class_method_candidate(item: Mapping[str, Any]) -> bool:
         or bool(item.get("python_decuple_nested_namespace_class_instance"))
         or bool(item.get("python_undecuple_nested_namespace_class_instance"))
         or bool(item.get("python_duodecuple_nested_namespace_class_instance"))
+        or bool(item.get("python_tredecuple_nested_namespace_class_instance"))
     )
 
 
@@ -2178,6 +2186,7 @@ def infer_acquisition_spec(
     ordered = sorted(
         introspection["candidates"],
         key=lambda item: (
+            0 if item.get("python_tredecuple_nested_namespace_class_static") else 1,
             0 if item.get("python_duodecuple_nested_namespace_class_static") else 1,
             0 if item.get("python_undecuple_nested_namespace_class_static") else 1,
             0 if item.get("python_decuple_nested_namespace_class_static") else 1,
@@ -2195,6 +2204,7 @@ def infer_acquisition_spec(
             else 1,
             0 if item.get("python_triple_nested_namespace_class_static") else 1,
             0 if item.get("python_nested_namespace_class_static") else 1,
+            0 if item.get("python_tredecuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_duodecuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_undecuple_nested_namespace_class_instance") else 1,
             0 if item.get("python_decuple_nested_namespace_class_instance") else 1,
@@ -2378,6 +2388,12 @@ def infer_acquisition_spec(
                 "python_duodecuple_nested_namespace_class_instance": bool(
                     candidate.get("python_duodecuple_nested_namespace_class_instance")
                 ),
+                "python_tredecuple_nested_namespace_class_static": bool(
+                    candidate.get("python_tredecuple_nested_namespace_class_static")
+                ),
+                "python_tredecuple_nested_namespace_class_instance": bool(
+                    candidate.get("python_tredecuple_nested_namespace_class_instance")
+                ),
                 "python_nested_namespace_function": bool(
                     candidate.get("python_nested_namespace_function")
                 ),
@@ -2413,6 +2429,9 @@ def infer_acquisition_spec(
                 ),
                 "python_duodecuple_nested_namespace_function": bool(
                     candidate.get("python_duodecuple_nested_namespace_function")
+                ),
+                "python_tredecuple_nested_namespace_function": bool(
+                    candidate.get("python_tredecuple_nested_namespace_function")
                 ),
             }
             break
@@ -2530,6 +2549,12 @@ def infer_acquisition_spec(
         "python_duodecuple_nested_namespace_class_instance": bool(
             collected[0].get("python_duodecuple_nested_namespace_class_instance")
         ),
+        "python_tredecuple_nested_namespace_class_static": bool(
+            collected[0].get("python_tredecuple_nested_namespace_class_static")
+        ),
+        "python_tredecuple_nested_namespace_class_instance": bool(
+            collected[0].get("python_tredecuple_nested_namespace_class_instance")
+        ),
         "python_nested_namespace_function": bool(
             collected[0].get("python_nested_namespace_function")
         ),
@@ -2565,6 +2590,9 @@ def infer_acquisition_spec(
         ),
         "python_duodecuple_nested_namespace_function": bool(
             collected[0].get("python_duodecuple_nested_namespace_function")
+        ),
+        "python_tredecuple_nested_namespace_function": bool(
+            collected[0].get("python_tredecuple_nested_namespace_function")
         ),
     }
     inferred = {
