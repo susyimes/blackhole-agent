@@ -24,7 +24,9 @@ from blackhole_agent.durable_state import durable_read_path, durable_write_path
 
 SCHEMA_VERSION = 1
 DEFAULT_LEDGER_RELATIVE = Path("capabilities") / "ledger.json"
-CAPABILITY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9._-]{1,63}$")
+# 128 chars: DNS-label 64-char IDs overflow at thirty-four-level nested-instance
+# growth-plane stems such as ``python-quattr-nested-instance-growth-plane``.
+CAPABILITY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9._-]{1,127}$")
 SUPPORTED_KINDS = frozenset({"command", "python"})
 
 
