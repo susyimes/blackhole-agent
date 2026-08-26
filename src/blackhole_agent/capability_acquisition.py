@@ -218,6 +218,19 @@ _STDLIB_SHADOW = {{
     "functools32",
 }}
 _ROOT = Path(__file__).resolve().parent
+
+
+def _fs_path(path):
+    text = os.path.abspath(os.fspath(path))
+    prefix = chr(92) * 2 + "?" + chr(92)
+    unc = prefix + "UNC" + chr(92)
+    if os.name != "nt" or text.startswith(prefix):
+        return text
+    if text.startswith(chr(92) * 2):
+        return unc + text[2:]
+    return prefix + text
+
+
 for _extra in CONFIG.get("extra_paths") or []:
     if any(str(_part).lower() in _STDLIB_SHADOW for _part in Path(str(_extra)).parts):
         continue
@@ -248,15 +261,15 @@ def _load_step(parent, part, imported):
     except Exception:
         pass
     for base in list(getattr(parent, "__path__", []) or []):
-        child_dir = str(Path(base) / part)
+        child_dir = os.path.join(base, part)
         child_py = child_dir + ".py"
-        if Path(child_dir).is_dir():
+        if os.path.isdir(_fs_path(child_dir)):
             ns = types.ModuleType(imported)
-            ns.__path__ = [child_dir]
+            ns.__path__ = [_fs_path(child_dir)]
             sys.modules[imported] = ns
             return ns, imported
-        if Path(child_py).is_file():
-            spec = importlib.util.spec_from_file_location(imported, child_py)
+        if os.path.isfile(_fs_path(child_py)):
+            spec = importlib.util.spec_from_file_location(imported, _fs_path(child_py))
             if spec is None or spec.loader is None:
                 continue
             loaded = importlib.util.module_from_spec(spec)

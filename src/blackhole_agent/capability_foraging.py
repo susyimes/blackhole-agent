@@ -164,7 +164,7 @@ from blackhole_agent.capability_compounder import (
 
 SCHEMA_VERSION = 1
 
-# Depth 0 is a top-level Class.method; depth 27 is a septemvigintuple nested Class().method.
+# Depth 0 is a top-level Class.method; depth 28 is an octovigintuple nested Class().method.
 PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_class",
     "python_nested_namespace_class",
@@ -194,6 +194,7 @@ PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_quinvigintuple_nested_namespace_class",
     "python_sexvigintuple_nested_namespace_class",
     "python_septemvigintuple_nested_namespace_class",
+    "python_octovigintuple_nested_namespace_class",
 )
 PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_nested_namespace_function",
@@ -223,6 +224,7 @@ PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_quinvigintuple_nested_namespace_function",
     "python_sexvigintuple_nested_namespace_function",
     "python_septemvigintuple_nested_namespace_function",
+    "python_octovigintuple_nested_namespace_function",
 )
 
 
@@ -503,6 +505,29 @@ import types
 if not hasattr(os, "register_at_fork"):
     os.register_at_fork = lambda *args, **kwargs: None
 
+
+def _fs_path(path):
+    text = os.path.abspath(path)
+    prefix = chr(92) * 2 + "?" + chr(92)
+    unc = prefix + "UNC" + chr(92)
+    if os.name != "nt" or text.startswith(prefix):
+        return text
+    if text.startswith(chr(92) * 2):
+        return unc + text[2:]
+    return prefix + text
+
+
+def _norm_fs(path):
+    text = os.path.abspath(os.path.realpath(path))
+    prefix = chr(92) * 2 + "?" + chr(92)
+    unc = prefix + "UNC" + chr(92)
+    if text.startswith(unc):
+        text = chr(92) * 2 + text[len(unc):]
+    elif text.startswith(prefix):
+        text = text[len(prefix):]
+    return os.path.normcase(text)
+
+
 root, import_name = sys.argv[1], sys.argv[2]
 extras = []
 if len(sys.argv) > 3:
@@ -715,8 +740,9 @@ def _static_method_names(cls):
 
 def _under_root(path):
     try:
-        real = os.path.realpath(path)
-        return os.path.commonpath([os.path.realpath(root), real]) == os.path.realpath(root)
+        real = _norm_fs(path)
+        base = _norm_fs(root)
+        return real == base or real.startswith(base + os.sep)
     except Exception:
         return False
 
@@ -822,6 +848,7 @@ _CLASS_KIND_PREFIXES = (
     "python_quinvigintuple_nested_namespace_class",
     "python_sexvigintuple_nested_namespace_class",
     "python_septemvigintuple_nested_namespace_class",
+    "python_octovigintuple_nested_namespace_class",
 )
 
 
@@ -874,14 +901,14 @@ def _load_child(modname):
     for base in bases:
         child_dir = os.path.join(base, short)
         child_py = child_dir + ".py"
-        if os.path.isdir(child_dir):
+        if os.path.isdir(_fs_path(child_dir)):
             ns = types.ModuleType(modname)
-            ns.__path__ = [child_dir]
+            ns.__path__ = [_fs_path(child_dir)]
             ns.__package__ = modname
             sys.modules[modname] = ns
             return ns
-        if os.path.isfile(child_py):
-            spec = importlib.util.spec_from_file_location(modname, child_py)
+        if os.path.isfile(_fs_path(child_py)):
+            spec = importlib.util.spec_from_file_location(modname, _fs_path(child_py))
             if spec is None or spec.loader is None:
                 continue
             loaded = importlib.util.module_from_spec(spec)
@@ -901,14 +928,9 @@ def _owned_paths(parent):
         paths = list(getattr(parent, "__path__", []) or [])
     except Exception:
         return owned
-    try:
-        root_real = os.path.realpath(root)
-    except OSError:
-        return owned
     for base in paths:
         try:
-            real = os.path.realpath(base)
-            if os.path.commonpath([root_real, real]) == root_real:
+            if _under_root(base):
                 owned.append(base)
         except Exception:
             continue
@@ -956,7 +978,7 @@ def _child_modules(parent, prefix):
                 found[short] = loaded
         for base in owned:
             try:
-                entries = os.listdir(base)
+                entries = os.listdir(_fs_path(base))
             except OSError:
                 continue
             for short in entries:
@@ -990,7 +1012,7 @@ for name in _safe_dir(module):
         continue
     if not _safe_is_class(target):
         continue
-    _consider_class(name, target, nested=False)
+    _consider_class(name, target, depth=0)
 
 try:
     module_has_path = hasattr(module, "__path__")
@@ -1040,6 +1062,7 @@ _FUNC_KEYS = (
     "python_quinvigintuple_nested_namespace_function",
     "python_sexvigintuple_nested_namespace_function",
     "python_septemvigintuple_nested_namespace_function",
+    "python_octovigintuple_nested_namespace_function",
 )
 level = submodules
 max_depth = len(_CLASS_KIND_PREFIXES) - 1
