@@ -164,7 +164,7 @@ from blackhole_agent.capability_compounder import (
 
 SCHEMA_VERSION = 1
 
-# Depth 0 is a top-level Class.method; depth 28 is an octovigintuple nested Class().method.
+# Depth 0 is a top-level Class.method; depth 29 is a novemvigintuple nested Class().method.
 PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_class",
     "python_nested_namespace_class",
@@ -195,6 +195,7 @@ PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_sexvigintuple_nested_namespace_class",
     "python_septemvigintuple_nested_namespace_class",
     "python_octovigintuple_nested_namespace_class",
+    "python_novemvigintuple_nested_namespace_class",
 )
 PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_nested_namespace_function",
@@ -225,6 +226,7 @@ PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_sexvigintuple_nested_namespace_function",
     "python_septemvigintuple_nested_namespace_function",
     "python_octovigintuple_nested_namespace_function",
+    "python_novemvigintuple_nested_namespace_function",
 )
 
 
@@ -849,6 +851,7 @@ _CLASS_KIND_PREFIXES = (
     "python_sexvigintuple_nested_namespace_class",
     "python_septemvigintuple_nested_namespace_class",
     "python_octovigintuple_nested_namespace_class",
+    "python_novemvigintuple_nested_namespace_class",
 )
 
 
@@ -931,7 +934,7 @@ def _owned_paths(parent):
     for base in paths:
         try:
             if _under_root(base):
-                owned.append(base)
+                owned.append(_fs_path(base))
         except Exception:
             continue
     return owned
@@ -982,15 +985,20 @@ def _child_modules(parent, prefix):
             except OSError:
                 continue
             for short in entries:
-                if (
-                    short.startswith("_")
-                    or short in found
-                    or short in _SKIP_SHORT
-                    or not short.isidentifier()
-                ):
+                if short.startswith("_") or short in _SKIP_SHORT:
+                    continue
+                if short.endswith(".py"):
+                    name = short[:-3]
+                    if name in found or not name.isidentifier():
+                        continue
+                    loaded = _load_child(parent_import + "." + name)
+                    if loaded is not None:
+                        found[name] = loaded
+                    continue
+                if short in found or not short.isidentifier():
                     continue
                 child_path = os.path.join(base, short)
-                if not os.path.isdir(child_path):
+                if not os.path.isdir(_fs_path(child_path)):
                     continue
                 loaded = _load_child(parent_import + "." + short)
                 if loaded is not None:
@@ -1063,6 +1071,7 @@ _FUNC_KEYS = (
     "python_sexvigintuple_nested_namespace_function",
     "python_septemvigintuple_nested_namespace_function",
     "python_octovigintuple_nested_namespace_function",
+    "python_novemvigintuple_nested_namespace_function",
 )
 level = submodules
 max_depth = len(_CLASS_KIND_PREFIXES) - 1
@@ -1144,22 +1153,43 @@ def _skip_node_dir(path: Path, root: Path) -> bool:
     return any(part in _NODE_SKIP_DIR_NAMES for part in path.relative_to(root).parts)
 
 
+def _shallow_fs_files(
+    staged_dir: Path,
+    *,
+    names: frozenset[str] = frozenset(),
+    suffix: str = "",
+    max_depth: int = 3,
+) -> list[Path]:
+    """Find files near the staging root without pathlib rglob (Windows MAX_PATH)."""
+
+    found: list[Path] = []
+    root_fs = os_fs_path(staged_dir)
+    try:
+        walker = os.walk(root_fs)
+    except OSError:
+        return found
+    for dirpath, dirnames, filenames in walker:
+        rel = os.path.relpath(dirpath, root_fs)
+        depth = 0 if rel in {".", os.curdir} else rel.count(os.sep) + 1
+        if depth >= max_depth:
+            dirnames.clear()
+        dirnames[:] = [name for name in dirnames if name not in _NODE_SKIP_DIR_NAMES]
+        for filename in filenames:
+            if filename in names or (suffix and filename.endswith(suffix)):
+                path = Path(dirpath) / filename
+                if os.path.isfile(os_fs_path(path)):
+                    found.append(path)
+    return found
+
+
 def detect_package_runtime(staged_dir: Path, requested: str = "") -> str:
     """Detect ``python`` or ``node`` from the staged tree, honoring a pin."""
 
     pinned = str(requested or "").strip().lower()
     if pinned in RUNTIMES:
         return pinned
-    package_json = [
-        path
-        for path in staged_dir.rglob("package.json")
-        if path.is_file() and not _skip_node_dir(path.parent, staged_dir)
-    ]
-    mjs_files = [
-        path
-        for path in staged_dir.rglob("*.mjs")
-        if path.is_file() and not _skip_node_dir(path.parent, staged_dir)
-    ]
+    package_json = _shallow_fs_files(staged_dir, names=frozenset({"package.json"}))
+    mjs_files = _shallow_fs_files(staged_dir, suffix=".mjs")
     python_names: set[str] = set()
     for root in _candidate_roots(staged_dir):
         python_names |= _importable_names(root)
