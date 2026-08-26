@@ -1,0 +1,41 @@
+{
+  "kind": "forage_python_sexagintuple_nested_namespace_class_instance_catalog",
+  "query": "codec text safe inner leaf more core unit cell atom quark gluon lepton photon boson fermion hadron meson baryon neutrino muon tau electron positron neutron proton deuteron triton helion alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma upsilon phi chi psi omega aleph beth gimel daleth he waw zayin heth encode",
+  "schema_version": 1,
+  "items": [
+    {
+      "name": "left-pad",
+      "slug": "left-pad",
+      "registry": "npm",
+      "downloads": 20000000,
+      "recent_downloads": 500000,
+      "keywords": ["text", "codec", "safe", "inner", "leaf", "more", "core", "unit", "cell", "atom", "quark", "gluon", "lepton", "photon", "boson", "fermion", "hadron", "meson", "baryon", "neutrino", "muon", "tau", "electron", "positron", "neutron", "proton", "deuteron", "triton", "helion", "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "pi", "rho", "sigma", "upsilon", "phi", "chi", "psi", "omega", "aleph", "beth", "gimel", "daleth", "he", "waw", "zayin", "heth", "encode"],
+      "provides": ["codec_text_safe_inner_leaf_more_core_unit_cell_atom_quark_gluon_lepton_photon_boson_fermion_hadron_meson_baryon_neutrino_muon_tau_electron_positron_neutron_proton_deuteron_triton_helion_alpha_beta_gamma_delta_epsilon_zeta_eta_theta_iota_kappa_lambda_mu_nu_xi_omicron_pi_rho_sigma_upsilon_phi_chi_psi_omega_aleph_beth_gimel_daleth_he_waw_zayin_heth_codec_encode_output"],
+      "viable": true,
+      "runtime": "node",
+      "version": "1.3.0"
+    },
+    {
+      "name": "inflection",
+      "slug": "inflection",
+      "registry": "pypi",
+      "downloads": 5000000,
+      "recent_downloads": 80000,
+      "keywords": ["text", "inflection"],
+      "provides": ["camelize_output"],
+      "viable": true,
+      "runtime": "python"
+    },
+    {
+      "name": "forage-empty (no viable candidate fixture)",
+      "slug": "forage-empty",
+      "registry": "pypi",
+      "downloads": 9000000,
+      "recent_downloads": 120000,
+      "keywords": ["text"],
+      "provides": [],
+      "viable": false,
+      "runtime": "python"
+    }
+  ]
+}
