@@ -479,6 +479,13 @@ constructs a class forty-six submodule levels down so a live-fetched sdist whose
 covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
 rather than a forty-five-level nested ``Class().method`` instance can be foraged
 the same way.
+
+Python septemquadragintuple nested-namespace class-instance leftover:
+``run_application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane``
+constructs a class forty-seven submodule levels down so a live-fetched sdist whose
+covering API is ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
+rather than a forty-six-level nested ``Class().method`` instance can be foraged
+the same way.
 """
 
 from __future__ import annotations
@@ -906,6 +913,12 @@ DEFAULT_PYTHON_SEXQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = 
 )
 DEFAULT_PYTHON_SEXQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_python_sexquadragintuple_nested_namespace_class_instance_catalog.json"
+)
+DEFAULT_PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-python-septemquadragintuple-nested-namespace-class-instance-growth"
+)
+DEFAULT_PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_python_septemquadragintuple_nested_namespace_class_instance_catalog.json"
 )
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
@@ -2207,6 +2220,26 @@ PYTHON_SEXQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = Application
     goal=(PYTHON_SEXQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
     oracle={
         PYTHON_SEXQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_SEXQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
+    },
+)
+PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY = (
+    "codec_text_safe_inner_leaf_more_core_unit_cell_atom_quark_gluon_lepton_photon_boson_fermion_hadron_meson_baryon_neutrino_muon_tau_electron_positron_neutron_proton_deuteron_triton_helion_alpha_beta_gamma_delta_epsilon_zeta_eta_theta_iota_kappa_lambda_mu_nu_xi_omicron_pi_rho_sigma_codec_encode_output"
+)
+PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE = (
+    "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.neutrino.muon.tau.electron.positron.neutron.proton.deuteron.triton.helion.alpha.beta.gamma.delta.epsilon.zeta.eta.theta.iota.kappa.lambda.mu.nu.xi.omicron.pi.rho.sigma.Codec.encode"
+)
+PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE = "HELLO WORLD"
+PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
+    id="septemquadragintuple-nested-instance-unplannable",
+    description=(
+        "Unplannable application goal grown from a sdist whose covering API "
+        "is a Python nested-namespace class instance method forty-seven submodule "
+        "levels down rather than a forty-six-level nested Class().method instance."
+    ),
+    initial_state={"text": "Hello World"},
+    goal=(PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+    oracle={
+        PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
     },
 )
 
@@ -17301,6 +17334,7 @@ _SYNTHETIC_NESTED_INSTANCE_LATINS: tuple[str, ...] = (
     "quattuorquadragintuple",
     "quinquadragintuple",
     "sexquadragintuple",
+    "septemquadragintuple",
 )
 
 
@@ -23055,6 +23089,179 @@ def demo_application_python_sexquadragintuple_nested_namespace_class_instance_gr
     """Entry surface: grow from a forty-six-level nested-namespace class instance method."""
 
     result = replay_application_python_sexquadragintuple_nested_namespace_class_instance_growth_plane_proof()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "query": result.get("query"),
+        "action": result.get("action"),
+    }
+
+
+def load_python_septemquadragintuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
+    return _load_replay_apply_catalog(DEFAULT_PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
+
+
+def replay_application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
+    """Fast registered proof: forty-seven-level Class().method instance still forages."""
+
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "forty-seven submodule levels down so sdists whose covering API is a forty-seven-level nested "
+        "Class().method instance rather than a forty-six-level nested Class().method instance "
+        "can be foraged the same way."
+    )
+    return _replay_synthetic_nested_codec_instance_proof(
+        capability_id="capability.application-python-septqua-nested-instance-growth-plane",
+        leftover=leftover,
+        modules=(
+            "codec",
+            "text",
+            "safe",
+            "inner",
+            "leaf",
+            "more",
+            "core",
+            "unit",
+            "cell",
+            "atom",
+            "quark",
+            "gluon",
+            "lepton",
+            "photon",
+            "boson",
+            "fermion",
+            "hadron",
+            "meson",
+            "baryon",
+            "neutrino",
+            "muon",
+            "tau",
+            "electron",
+            "positron",
+            "neutron",
+            "proton",
+            "deuteron",
+            "triton",
+            "helion",
+            "alpha",
+            "beta",
+            "gamma",
+            "delta",
+            "epsilon",
+            "zeta",
+            "eta",
+            "theta",
+            "iota",
+            "kappa",
+            "lambda",
+            "mu",
+            "nu",
+            "xi",
+            "omicron",
+            "pi",
+            "rho",
+            "sigma",
+        ),
+        slug="forage-ns-septemquadragintuple-codec-instance",
+        catalog=load_python_septemquadragintuple_nested_namespace_class_instance_apply_catalog(),
+        grow_task=PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
+        winner=PYTHON_SEPTEMQUADRAGINTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
+        selected_flag="python_septemquadragintuple_nested_namespace_class_instance",
+        prior_instance_flag="python_sexquadragintuple_nested_namespace_class_instance",
+        static_flag="python_septemquadragintuple_nested_namespace_class_static",
+        action="application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane",
+    )
+
+
+def application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
+    return (
+        "uv run python -m blackhole_agent.capability_application_growth "
+        "python-septemquadragintuple-nested-instance-proof"
+    )
+
+
+def register_application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    return _register_synthetic_nested_codec_instance_capability(
+        capability_id="capability.application-python-septqua-nested-instance-growth-plane",
+        name="Application python septemquadragintuple nested-namespace class-instance growth plane",
+        description=(
+            "An unplannable application goal grows itself from a sdist whose covering "
+            "Class().method is a Python nested-namespace class instance forty-seven submodule "
+            "levels down: introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.neutrino.muon.tau.electron.positron.neutron.proton.deuteron.triton.helion.alpha.beta.gamma.delta.epsilon.zeta.eta.theta.iota.kappa.lambda.mu.nu.xi.omicron.pi.rho.sigma.Codec.encode "
+            "as a constructable instance rather than a forty-six-level nested Class().method "
+            "instance, and extra bundle leaves extract to a short cache dir so Windows "
+            "MAX_PATH does not fail the forage."
+        ),
+        entry=(
+            "blackhole_agent.capability_application_growth:"
+            "demo_application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane"
+        ),
+        proof_command=application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane_proof_command(),
+        catalog_path="tests/fixtures/forage_python_septemquadragintuple_nested_namespace_class_instance_catalog.json",
+        capability_delta=(
+            "Application-growth no longer skips sdists whose covering Class().method "
+            "is a Python nested-namespace class instance forty-seven submodule levels down: "
+            "introspection reflects "
+            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.boson.fermion.hadron.meson.baryon.neutrino.muon.tau.electron.positron.neutron.proton.deuteron.triton.helion.alpha.beta.gamma.delta.epsilon.zeta.eta.theta.iota.kappa.lambda.mu.nu.xi.omicron.pi.rho.sigma.Codec.encode "
+            "rather than a forty-six-level nested Class().method instance, and extra bundle "
+            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
+            "not fail extra bundle leaves."
+        ),
+        tag="septemquadragintuple-nested",
+        extra_dependencies=(
+            "capability.application-python-sexqua-nested-instance-growth-plane",
+            "capability.application-python-quinqua-nested-instance-growth-plane",
+            "capability.application-python-quatqua-nested-instance-growth-plane",
+            "capability.application-python-trequa-nested-instance-growth-plane",
+            "capability.application-python-duoqua-nested-instance-growth-plane",
+            "capability.application-python-unqua-nested-instance-growth-plane",
+            "capability.application-python-quadra-nested-instance-growth-plane",
+            "capability.application-python-novtr-nested-instance-growth-plane",
+            "capability.application-python-octtr-nested-instance-growth-plane",
+            "capability.application-python-septr-nested-instance-growth-plane",
+            "capability.application-python-sextr-nested-instance-growth-plane",
+            "capability.application-python-quintr-nested-instance-growth-plane",
+            "capability.application-python-quattr-nested-instance-growth-plane",
+            "capability.application-python-tretr-nested-instance-growth-plane",
+            "capability.application-python-duotr-nested-instance-growth-plane",
+            "capability.application-python-untri-nested-instance-growth-plane",
+            "capability.application-python-trigi-nested-instance-growth-plane",
+            "capability.application-python-novvi-nested-instance-growth-plane",
+            "capability.application-python-octov-nested-instance-growth-plane",
+            "capability.application-python-septv-nested-instance-growth-plane",
+            "capability.application-python-sexvi-nested-instance-growth-plane",
+            "capability.application-python-quinv-nested-instance-growth-plane",
+            "capability.application-python-quatv-nested-instance-growth-plane",
+            "capability.application-python-trevi-nested-instance-growth-plane",
+            "capability.application-python-duovi-nested-instance-growth-plane",
+            "capability.application-python-unvig-nested-instance-growth-plane",
+            "capability.application-python-vigi-nested-instance-growth-plane",
+            "capability.application-python-novem-nested-instance-growth-plane",
+            "capability.application-python-octod-nested-instance-growth-plane",
+            "capability.application-python-septd-nested-instance-growth-plane",
+            "capability.application-python-sexde-nested-instance-growth-plane",
+            "capability.application-python-quind-nested-instance-growth-plane",
+            "capability.application-python-quatt-nested-instance-growth-plane",
+            "capability.application-python-trede-nested-instance-growth-plane",
+            "capability.application-python-dodec-nested-instance-growth-plane",
+            "capability.application-python-undec-nested-instance-growth-plane",
+            "capability.application-python-deca-nested-instance-growth-plane",
+            "capability.application-python-nona-nested-instance-growth-plane",
+            "capability.application-python-oct-nested-instance-growth-plane",
+            "capability.application-python-sept-nested-instance-growth-plane",
+            "capability.application-python-sext-nested-instance-growth-plane",
+        ),
+        repo_root=repo_root,
+    )
+
+
+def demo_application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a forty-seven-level nested-namespace class instance method."""
+
+    result = replay_application_python_septemquadragintuple_nested_namespace_class_instance_growth_plane_proof()
     return {
         "ok": bool(result["ok"]),
         "winner": result.get("winner"),
