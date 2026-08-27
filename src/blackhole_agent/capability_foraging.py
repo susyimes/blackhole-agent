@@ -164,7 +164,7 @@ from blackhole_agent.capability_compounder import (
 
 SCHEMA_VERSION = 1
 
-# Depth 0 is a top-level Class.method; depth 79 is a novemseptuagintuple nested Class().method.
+# Depth 0 is a top-level Class.method; depth 80 is an octogintuple nested Class().method.
 PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_class",
     "python_nested_namespace_class",
@@ -246,6 +246,7 @@ PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_septenseptuagintuple_nested_namespace_class",
     "python_octoseptuagintuple_nested_namespace_class",
     "python_novemseptuagintuple_nested_namespace_class",
+    "python_octogintuple_nested_namespace_class",
 )
 PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_nested_namespace_function",
@@ -327,6 +328,7 @@ PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_septenseptuagintuple_nested_namespace_function",
     "python_octoseptuagintuple_nested_namespace_function",
     "python_novemseptuagintuple_nested_namespace_function",
+    "python_octogintuple_nested_namespace_function",
 )
 
 
@@ -1002,6 +1004,7 @@ _CLASS_KIND_PREFIXES = (
     "python_septenseptuagintuple_nested_namespace_class",
     "python_octoseptuagintuple_nested_namespace_class",
     "python_novemseptuagintuple_nested_namespace_class",
+    "python_octogintuple_nested_namespace_class",
 )
 
 
@@ -1272,6 +1275,7 @@ _FUNC_KEYS = (
     "python_septenseptuagintuple_nested_namespace_function",
     "python_octoseptuagintuple_nested_namespace_function",
     "python_novemseptuagintuple_nested_namespace_function",
+    "python_octogintuple_nested_namespace_function",
 )
 level = submodules
 max_depth = len(_CLASS_KIND_PREFIXES) - 1
