@@ -793,6 +793,12 @@ def test_python_sextuple_nested_namespace_class_instance_leftover_marks_growth_p
         "Class().method instance rather than a sixty-seven-level nested Class().method instance "
         "can be foraged the same way."
     ) == ("capability.application-python-octsex-nested-instance-growth-plane",)
+    assert leftover_marker_ids(
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "sixty-nine submodule levels down so sdists whose covering API is a sixty-nine-level nested "
+        "Class().method instance rather than a sixty-eight-level nested Class().method instance "
+        "can be foraged the same way."
+    ) == ("capability.application-python-novsex-nested-instance-growth-plane",)
     reason = leftover_satisfied_by(leftover, root)
     assert reason.startswith("ledger:capability.application-python-sext-nested-instance-growth-plane")
     assert leftover_is_open(leftover, root) is False
