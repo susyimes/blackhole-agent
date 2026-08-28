@@ -184,6 +184,7 @@ _MARKERS = (
     ("python nested-namespace class statics five submodule", "capability.application-python-quint-nested-static-growth-plane"),
     ("cwd-independent json scalar", "capability.application-python-quint-nested-static-growth-plane"),
     ("rather than an inherited path validator", "capability.application-python-quint-nested-static-growth-plane"),
+    ("python nested-namespace class instance methods one hundred twenty-six submodule", "capability.application-python-sexviginticent-nested-instance-growth-plane"),
     ("python nested-namespace class instance methods one hundred twenty-five submodule", "capability.application-python-quinviginticent-nested-instance-growth-plane"),
     ("python nested-namespace class instance methods one hundred twenty-four submodule", "capability.application-python-quattuorviginticent-nested-instance-growth-plane"),
     ("python nested-namespace class instance methods one hundred twenty-three submodule", "capability.application-python-treviginticent-nested-instance-growth-plane"),
