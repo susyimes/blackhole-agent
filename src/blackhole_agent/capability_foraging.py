@@ -164,7 +164,7 @@ from blackhole_agent.capability_compounder import (
 
 SCHEMA_VERSION = 1
 
-# Depth 0 is a top-level Class.method; depth 145 is a quinquadraginticentuple nested Class().method.
+# Depth 0 is a top-level Class.method; depth 146 is a sexquadraginticentuple nested Class().method.
 PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_class",
     "python_nested_namespace_class",
@@ -312,6 +312,7 @@ PYTHON_NESTED_CLASS_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_trequadraginticentuple_nested_namespace_class",
     "python_quattuorquadraginticentuple_nested_namespace_class",
     "python_quinquadraginticentuple_nested_namespace_class",
+    "python_sexquadraginticentuple_nested_namespace_class",
 )
 PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_nested_namespace_function",
@@ -459,6 +460,7 @@ PYTHON_NESTED_FUNCTION_DEPTH_PREFIXES: tuple[str, ...] = (
     "python_trequadraginticentuple_nested_namespace_function",
     "python_quattuorquadraginticentuple_nested_namespace_function",
     "python_quinquadraginticentuple_nested_namespace_function",
+    "python_sexquadraginticentuple_nested_namespace_function",
 )
 
 
