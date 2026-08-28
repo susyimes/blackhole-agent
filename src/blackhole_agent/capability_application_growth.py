@@ -1083,6 +1083,12 @@ Python octotriginticentuple nested-namespace class-instance leftover:
 constructs a class one hundred thirty-eight submodule levels down so a live-fetched sdist whose
 covering API is a one-hundred-thirty-eight-level nested ``Class().method`` instance rather than a
 one-hundred-thirty-seven-level nested ``Class().method`` instance can be foraged the same way.
+
+Python novemtriginticentuple nested-namespace class-instance leftover:
+``run_application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane``
+constructs a class one hundred thirty-nine submodule levels down so a live-fetched sdist whose
+covering API is a one-hundred-thirty-nine-level nested ``Class().method`` instance rather than a
+one-hundred-thirty-eight-level nested ``Class().method`` instance can be foraged the same way.
 """
 
 from __future__ import annotations
@@ -2062,6 +2068,12 @@ DEFAULT_PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR
 )
 DEFAULT_PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
     REPO_ROOT / "tests" / "fixtures" / "forage_python_octotriginticentuple_nested_namespace_class_instance_catalog.json"
+)
+DEFAULT_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ARTIFACT_DIR = (
+    REPO_ROOT / "artifacts" / "capability-application-python-novemtriginticentuple-nested-namespace-class-instance-growth"
+)
+DEFAULT_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG = (
+    REPO_ROOT / "tests" / "fixtures" / "forage_python_novemtriginticentuple_nested_namespace_class_instance_catalog.json"
 )
 WINNER_SLUG = "forage-rotate"
 DECOY_SLUG = "forage-pick"
@@ -5203,6 +5215,34 @@ PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = Applicat
     goal=(PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
     oracle={
         PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
+    },
+)
+_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_MODULES = (
+    *PYTHON_OCTOTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE.removesuffix(
+        ".Codec.encode"
+    ).split("."),
+    "gu",
+)
+PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY = (
+    "_".join(_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_MODULES)
+    + "_codec_encode_output"
+)
+PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE = (
+    ".".join(_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_MODULES)
+    + ".Codec.encode"
+)
+PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE = "HELLO WORLD"
+PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK = ApplicationTask(
+    id="novemtriginticentuple-nested-instance-unplannable",
+    description=(
+        "Unplannable application goal grown from a sdist whose covering API "
+        "is a Python nested-namespace class instance method one hundred thirty-nine submodule "
+        "levels down rather than a one-hundred-thirty-eight-level nested Class().method instance."
+    ),
+    initial_state={"text": "Hello World"},
+    goal=(PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY,),
+    oracle={
+        PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GOAL_KEY: PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_ORACLE
     },
 )
 
@@ -20256,6 +20296,21 @@ def _register_synthetic_nested_codec_instance_capability(
     return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
 
 
+def _python_nested_instance_predecessor_dependencies(
+    prior_capability_id: str, repo_root: Path = REPO_ROOT
+) -> tuple[str, ...]:
+    """Inherit the predecessor plane's python nested-instance dependency chain."""
+
+    ledger = load_ledger(default_ledger_path(repo_root))
+    prior = ledger.capabilities.get(prior_capability_id)
+    inherited = tuple(
+        dep
+        for dep in (prior.dependencies if prior is not None else ())
+        if str(dep).startswith("capability.application-python-")
+    )
+    return (prior_capability_id, *inherited)
+
+
 _SYNTHETIC_NESTED_INSTANCE_LATINS: tuple[str, ...] = (
     "septuple",
     "octuple",
@@ -20389,6 +20444,7 @@ _SYNTHETIC_NESTED_INSTANCE_LATINS: tuple[str, ...] = (
     "sextriginticentuple",
     "septemtriginticentuple",
     "octotriginticentuple",
+    "novemtriginticentuple",
 )
 
 
@@ -50432,6 +50488,93 @@ def demo_application_python_octotriginticentuple_nested_namespace_class_instance
     """Entry surface: grow from a one-hundred-thirty-eight-level nested-namespace class instance method."""
 
     result = replay_application_python_octotriginticentuple_nested_namespace_class_instance_growth_plane_proof()
+    return {
+        "ok": bool(result["ok"]),
+        "winner": result.get("winner"),
+        "query": result.get("query"),
+        "action": result.get("action"),
+    }
+
+
+def load_python_novemtriginticentuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
+    return _load_replay_apply_catalog(DEFAULT_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
+
+
+def replay_application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
+    """Fast registered proof: one-hundred-thirty-nine-level Class().method instance still forages."""
+
+    leftover = (
+        "Optional later work is reflecting Python nested-namespace class instance methods "
+        "one hundred thirty-nine submodule levels down so sdists whose covering API is a one-hundred-thirty-nine-level nested "
+        "Class().method instance rather than a one-hundred-thirty-eight-level nested Class().method instance "
+        "can be foraged the same way."
+    )
+    return _replay_synthetic_nested_codec_instance_proof(
+        capability_id="capability.application-python-novemtriginticent-nested-instance-growth-plane",
+        leftover=leftover,
+        modules=_PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_MODULES,
+        slug="forage-ns-novemtriginticent-codec-instance",
+        catalog=load_python_novemtriginticentuple_nested_namespace_class_instance_apply_catalog(),
+        grow_task=PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
+        winner=PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
+        selected_flag="python_novemtriginticentuple_nested_namespace_class_instance",
+        prior_instance_flag="python_octotriginticentuple_nested_namespace_class_instance",
+        static_flag="python_novemtriginticentuple_nested_namespace_class_static",
+        action="application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane",
+    )
+
+
+def application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
+    return (
+        "uv run python -m blackhole_agent.capability_application_growth "
+        "python-novemtriginticentuple-nested-instance-proof"
+    )
+
+
+def register_application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane_capability(
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    callable_path = PYTHON_NOVEMTRIGINTICENTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE
+    return _register_synthetic_nested_codec_instance_capability(
+        capability_id="capability.application-python-novemtriginticent-nested-instance-growth-plane",
+        name="Application python novemtriginticentuple nested-namespace class-instance growth plane",
+        description=(
+            "An unplannable application goal grows itself from a sdist whose covering "
+            "Class().method is a Python nested-namespace class instance one hundred thirty-nine submodule "
+            "levels down: introspection reflects "
+            f"{callable_path} "
+            "as a constructable instance rather than a one-hundred-thirty-eight-level nested Class().method "
+            "instance, and extra bundle leaves extract to a short cache dir so Windows "
+            "MAX_PATH does not fail the forage."
+        ),
+        entry=(
+            "blackhole_agent.capability_application_growth:"
+            "demo_application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane"
+        ),
+        proof_command=application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane_proof_command(),
+        catalog_path="tests/fixtures/forage_python_novemtriginticentuple_nested_namespace_class_instance_catalog.json",
+        capability_delta=(
+            "Application-growth no longer skips sdists whose covering Class().method "
+            "is a Python nested-namespace class instance one hundred thirty-nine submodule levels down: "
+            "introspection reflects "
+            f"{callable_path} "
+            "rather than a one-hundred-thirty-eight-level nested Class().method instance, and extra bundle "
+            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
+            "not fail extra bundle leaves."
+        ),
+        tag="novemtriginticentuple-nested",
+        extra_dependencies=_python_nested_instance_predecessor_dependencies(
+            "capability.application-python-octotriginticent-nested-instance-growth-plane",
+            repo_root=repo_root,
+        ),
+        repo_root=repo_root,
+    )
+
+
+def demo_application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
+    """Entry surface: grow from a one-hundred-thirty-nine-level nested-namespace class instance method."""
+
+    result = replay_application_python_novemtriginticentuple_nested_namespace_class_instance_growth_plane_proof()
     return {
         "ok": bool(result["ok"]),
         "winner": result.get("winner"),
