@@ -14,6 +14,8 @@ This module closes that hole:
 - operator-supplied fields are never overwritten
 - recovered create/hydrate paths fill the same successor so genesis cannot
   invent forage into blocked status
+- when remaining compounding catalog rows fail selection gates, bind falls
+  through to a diversity catalog of unsaturated capability families
 """
 
 from __future__ import annotations
@@ -335,7 +337,17 @@ def bind_gate_passing_successor(
         )
         if gate.accepted:
             return goal, done_when, str(item.get("source") or "genesis_bind_catalog")
-    return "", "", ""
+    try:
+        from blackhole_agent.kernel_genesis_diversify import bind_diversity_successor
+
+        return bind_diversity_successor(
+            Path(root),
+            campaign=live_campaign,
+            lineage_ref=lineage_ref,
+            history=history,
+        )
+    except Exception:  # noqa: BLE001 - bind must still fail closed
+        return "", "", ""
 
 
 class _State:
