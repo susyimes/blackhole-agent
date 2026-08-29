@@ -3,7 +3,10 @@
 The application plane proves goals are solvable; the recovery loop heals them
 when they break. Neither answers the reliability question: *which single
 capability failure takes which goals down?* This module computes that
-directly from the live proved ledger:
+directly from the live proved ledger. Default calls stay on
+``APPLICATION_TASKS``; mixed MCP+absorbed pipelines are scored by the
+MCP fragility plane so a live hop SPOF enters blast radius without
+changing the base score.
 
 - the **impact matrix**: for every capability on the planning surface, the
   set of goals that become unplannable when that capability alone is hidden
@@ -74,18 +77,21 @@ def compute_impact_matrix(
     ledger: CapabilityLedger,
     *,
     tasks: Sequence[ApplicationTask] = APPLICATION_TASKS,
+    registry: Mapping[str, Any] | None = None,
 ) -> dict[str, list[str]]:
     """For each proved surface capability, the goals it single-handedly blocks.
 
     Pure planning only: the capability is hidden from the registry and every
     goal is re-planned. No pipeline is executed, so the matrix is cheap
-    enough for verification to recompute in full.
+    enough for verification to recompute in full. Default ``registry`` is
+    the base application surface; pass a grown mixed-pipeline registry to
+    score live MCP hops the base audit cannot see.
     """
 
-    registry = build_application_registry(ledger)
+    surface = dict(registry) if registry is not None else build_application_registry(ledger)
     matrix: dict[str, list[str]] = {}
-    for capability_id in sorted(registry):
-        reduced = {key: step for key, step in registry.items() if key != capability_id}
+    for capability_id in sorted(surface):
+        reduced = {key: step for key, step in surface.items() if key != capability_id}
         matrix[capability_id] = sorted(
             task.id for task in tasks if plan_application_task(task, reduced) is None
         )
@@ -96,6 +102,7 @@ def compute_redundancy_depth(
     ledger: CapabilityLedger,
     *,
     tasks: Sequence[ApplicationTask] = APPLICATION_TASKS,
+    registry: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """How many simultaneous failures each goal survives, with a witness.
 
@@ -105,11 +112,11 @@ def compute_redundancy_depth(
     lexicographically first killing subset is recorded as the witness — for
     a depth-1 goal that is the pair of redundant providers whose joint
     failure breaks it. Pure planning throughout; verification recomputes
-    every cell.
+    every cell. Default ``registry`` is the base application surface.
     """
 
-    registry = build_application_registry(ledger)
-    surface = sorted(registry)
+    surface_map = dict(registry) if registry is not None else build_application_registry(ledger)
+    surface = sorted(surface_map)
     depth: dict[str, dict[str, Any]] = {}
     survivors = list(tasks)
     level = 0
@@ -119,7 +126,7 @@ def compute_redundancy_depth(
         for task in survivors:
             killed_by: list[str] = []
             for subset in itertools.combinations(surface, level):
-                reduced = {cid: step for cid, step in registry.items() if cid not in subset}
+                reduced = {cid: step for cid, step in surface_map.items() if cid not in subset}
                 if plan_application_task(task, reduced) is None:
                     killed_by = sorted(subset)
                     break

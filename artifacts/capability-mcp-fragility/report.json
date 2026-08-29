@@ -1,0 +1,91 @@
+{
+  "base": {
+    "fragility_score": 0.1667,
+    "max_blast_radius": 2,
+    "robust_goals": [
+      "ledger-inventory-check"
+    ]
+  },
+  "bridge_id": "capability.mcp-bridge-text-reverser-echo-sha256",
+  "composition_id": "mcp-compose-text-reverser-echo-sha256",
+  "generated_at": "2026-08-29T17:32:04.143025Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 10,
+    "verdicts_passed": 10
+  },
+  "kind": "capability_mcp_fragility",
+  "mcp_id": "capability.mcp-echo-sha256",
+  "mcp_ids": [
+    "mcp-compose-text-reverser-echo-sha256"
+  ],
+  "mixed": {
+    "blast_radius": {
+      "capability.absorbed-text-reverser": 1,
+      "capability.mcp-bridge-text-reverser-echo-sha256": 1,
+      "capability.mcp-echo-sha256": 1
+    },
+    "depth_digest": "1c15c336eb71f12c4c0a3f0c00c8328e19b40211b5abca4c97341cbf7742614a",
+    "fragile_goals": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "fragility_score": 0.0,
+    "grade_digest": "4b98f79441caac698a2300da3732b781bf7ba7d666ed3ecd74031a42d8ffbe69",
+    "impact_matrix": {
+      "capability.absorbed-text-reverser": [
+        "mcp-compose-text-reverser-echo-sha256"
+      ],
+      "capability.mcp-bridge-text-reverser-echo-sha256": [
+        "mcp-compose-text-reverser-echo-sha256"
+      ],
+      "capability.mcp-echo-sha256": [
+        "mcp-compose-text-reverser-echo-sha256"
+      ]
+    },
+    "matrix_digest": "2710e6380cc4bbaef23db64338bbb8e7472f28673b090fc5b74dd787882f1d1f",
+    "max_blast_radius": 1,
+    "ok": true,
+    "redundancy_depth": {
+      "mcp-compose-text-reverser-echo-sha256": {
+        "depth": 0,
+        "killed_by": [
+          "capability.absorbed-text-reverser"
+        ]
+      }
+    },
+    "report_digest": "75e594d15394ce1d5ab79432cadbb27efe87f8dc13621b4c4b1f102e132ad9b1",
+    "robust_goals": [],
+    "spofs_per_goal": {
+      "mcp-compose-text-reverser-echo-sha256": [
+        "capability.absorbed-text-reverser",
+        "capability.mcp-bridge-text-reverser-echo-sha256",
+        "capability.mcp-echo-sha256"
+      ]
+    },
+    "surface_ids": [
+      "capability.absorbed-text-reverser",
+      "capability.mcp-bridge-text-reverser-echo-sha256",
+      "capability.mcp-echo-sha256"
+    ],
+    "task_ids": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ]
+  },
+  "ok": true,
+  "producer_id": "capability.absorbed-text-reverser",
+  "report_digest": "58b122c1f005d71bb842f32d4eb584a284212f6f4ec10b3e31614a99a492eabe",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "bridge_blast_named": true,
+    "bridge_is_spof": true,
+    "has_mcp_goals": true,
+    "mcp_hop_blast_named": true,
+    "mcp_hop_is_spof": true,
+    "mixed_goal_fragile": true,
+    "no_base_goal_in_mcp_audit": true,
+    "no_skill_route": true,
+    "producer_blast_named": true
+  }
+}

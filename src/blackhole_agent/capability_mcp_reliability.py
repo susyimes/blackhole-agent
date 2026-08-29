@@ -4,7 +4,8 @@ The goal watchdog, recovery loop, fragility audit, and stack-health plane
 plan only over ``APPLICATION_TASKS`` on the base registry. After a typed
 key-bridge made a live MCP tool compose with an absorbed Python leaf, that
 mixed goal was still invisible: hiding the MCP hop shipped as a healthy
-stack.
+stack. Recovery of a red MCP hop and scoring its blast radius are
+separate planes.
 
 This module closes that reliability failure without changing pre-growth
 semantics of the base planes:

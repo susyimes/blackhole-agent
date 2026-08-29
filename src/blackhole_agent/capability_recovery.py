@@ -23,7 +23,9 @@ module closes those two into one loop:
 
 Default arguments keep pre-growth semantics on ``APPLICATION_TASKS``. Pass
 absorbed composition tasks with ``include_absorbed=True`` to heal typed
-pipelines the base loop cannot see.
+pipelines the base loop cannot see. Mixed MCP+absorbed tasks use the same
+hook; the MCP recovery plane restricts the surface to pipeline members
+and heals a red MCP hop in-process.
 
 The report is digest-sealed under ``artifacts/capability-recovery/``.
 Verification is pure: it recomputes the grade from recorded task and repair

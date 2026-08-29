@@ -466,8 +466,10 @@ def build_application_registry(
     stay on the base registry so pre-growth proofs keep their exact
     semantics; the absorbed reliability plane watches absorbed composition
     goals separately, the MCP reliability plane watches mixed MCP+absorbed
-    goals so a hidden MCP hop is named drift, and the absorbed recovery
-    plane heals a red producer or consumer on the absorbed surface.
+    goals so a hidden MCP hop is named drift, the absorbed recovery plane
+    heals a red producer or consumer on the absorbed surface, the MCP
+    recovery plane heals a red MCP hop so the mixed composition re-solves,
+    and the MCP fragility plane scores that hop as a SPOF in blast radius.
     """
 
     hidden = set(hide)

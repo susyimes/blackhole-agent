@@ -1,0 +1,113 @@
+{
+  "composition_id": "mcp-compose-text-reverser-echo-sha256",
+  "generated_at": "2026-08-29T17:24:09.660673Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "healed": {
+    "blocked_capabilities": [
+      "capability.mcp-echo-sha256"
+    ],
+    "break_stamps_after": {
+      "capability.mcp-echo-sha256": 0
+    },
+    "honest_unsolved": [],
+    "ok": true,
+    "recovered": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "repair_count": 1,
+    "repair_ids": [
+      "capability.mcp-echo-sha256"
+    ],
+    "repair_verdicts": {
+      "capability.mcp-echo-sha256": "repaired"
+    },
+    "repaired_count": 1,
+    "task_ids": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "unrepairable_count": 0
+  },
+  "isolation": {
+    "blocked_capabilities": [],
+    "break_stamps_after": {
+      "capability.mcp-echo-sha256": 1
+    },
+    "honest_unsolved": [],
+    "ok": true,
+    "recovered": [],
+    "repair_count": 0,
+    "repair_ids": [],
+    "repair_verdicts": {},
+    "repaired_count": 0,
+    "task_ids": [
+      "routed-triage-record",
+      "scan-gated-activation",
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal"
+    ],
+    "unrepairable_count": 0
+  },
+  "kind": "capability_mcp_recovery",
+  "live": {
+    "blocked_capabilities": [],
+    "break_stamps_after": {},
+    "honest_unsolved": [],
+    "ok": true,
+    "recovered": [],
+    "repair_count": 0,
+    "repair_ids": [],
+    "repair_verdicts": {},
+    "repaired_count": 0,
+    "task_ids": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "unrepairable_count": 0
+  },
+  "mcp_id": "capability.mcp-echo-sha256",
+  "mcp_ids": [
+    "mcp-compose-text-reverser-echo-sha256"
+  ],
+  "ok": true,
+  "report_digest": "883fd439ebe2014ccedb2db6a36aaff627478d4d7cde8104a47b88c7353b1e78",
+  "schema_version": 1,
+  "unrepairable": {
+    "blocked_capabilities": [
+      "capability.mcp-echo-sha256"
+    ],
+    "break_stamps_after": {
+      "capability.mcp-echo-sha256": 1
+    },
+    "honest_unsolved": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "ok": false,
+    "recovered": [],
+    "repair_count": 1,
+    "repair_ids": [
+      "capability.mcp-echo-sha256"
+    ],
+    "repair_verdicts": {
+      "capability.mcp-echo-sha256": "unrepairable"
+    },
+    "repaired_count": 0,
+    "task_ids": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "unrepairable_count": 1
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "has_mcp_goals": true,
+    "live_mcp_healthy": true,
+    "mcp_hop_stale_healed": true,
+    "mcp_hop_unrepairable_honest": true,
+    "no_skill_route": true
+  }
+}
