@@ -427,7 +427,8 @@ def build_application_registry(
     capability is proved in the ledger — the grown frontier after generative
     growth. ``include_absorbed=True`` likewise folds in durably persisted
     absorbed steps (``capabilities/absorbed-steps.json``) vendored from
-    external tools. Both are opt-in so the base planes (application,
+    external tools, plus typed key-bridges whose producer and consumer are
+    both proved. Both are opt-in so the base planes (application,
     fragility, recovery, watchdog) keep their exact pre-growth semantics.
     """
 
@@ -445,9 +446,24 @@ def build_application_registry(
                 registry[capability_id] = step
     if include_absorbed:
         from blackhole_agent.capability_absorption import load_persisted_absorbed_steps
+        from blackhole_agent.capability_absorbed_composition import (
+            load_persisted_bridge_records,
+            load_persisted_bridge_steps,
+        )
 
         for capability_id, step in load_persisted_absorbed_steps().items():
             if capability_id not in hidden and _capability_proved(ledger, capability_id):
+                registry[capability_id] = step
+        bridge_records = {
+            str(item.get("bridge_id") or ""): item for item in load_persisted_bridge_records()
+        }
+        for capability_id, step in load_persisted_bridge_steps().items():
+            record = bridge_records.get(capability_id) or {}
+            producer_id = str(record.get("producer_id") or "")
+            consumer_id = str(record.get("consumer_id") or "")
+            if capability_id in hidden or producer_id in hidden or consumer_id in hidden:
+                continue
+            if _capability_proved(ledger, producer_id) and _capability_proved(ledger, consumer_id):
                 registry[capability_id] = step
     return registry
 

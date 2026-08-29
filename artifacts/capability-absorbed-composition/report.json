@@ -1,0 +1,87 @@
+{
+  "expected_plan": [
+    "capability.absorbed-text-reverser",
+    "capability.absorbed-bridge-text-reverser-snake-case",
+    "capability.absorbed-snake-case"
+  ],
+  "generated_at": "2026-08-29T12:53:03.393450Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 8,
+    "verdicts_passed": 8
+  },
+  "grown_plan": [
+    "capability.absorbed-text-reverser",
+    "capability.absorbed-bridge-text-reverser-snake-case",
+    "capability.absorbed-snake-case"
+  ],
+  "kind": "capability_absorbed_composition",
+  "minimality": [
+    {
+      "broke_outcome": true,
+      "member": "capability.absorbed-text-reverser"
+    },
+    {
+      "broke_outcome": true,
+      "member": "capability.absorbed-bridge-text-reverser-snake-case"
+    },
+    {
+      "broke_outcome": true,
+      "member": "capability.absorbed-snake-case"
+    }
+  ],
+  "ok": true,
+  "pair": {
+    "bridge_id": "capability.absorbed-bridge-text-reverser-snake-case",
+    "consumer_goal": [
+      "snake_case_output"
+    ],
+    "consumer_id": "capability.absorbed-snake-case",
+    "consumer_runtime": "node",
+    "consumer_slug": "snake-case",
+    "mapping": {
+      "reversed_text": [
+        "arg0",
+        "arg1"
+      ]
+    },
+    "producer_id": "capability.absorbed-text-reverser",
+    "producer_input": {
+      "raw_text": "absorption plane"
+    },
+    "producer_runtime": "python",
+    "producer_slug": "text-reverser",
+    "provides": [
+      "arg0",
+      "arg1"
+    ],
+    "requires": [
+      "reversed_text"
+    ]
+  },
+  "report_digest": "2f5b5ac61ad42dd17134944018d1880d74015f9a2d08f1cc2b4a05628aaddf6c",
+  "schema_version": 1,
+  "task": {
+    "goal": [
+      "snake_case_output"
+    ],
+    "id": "absorbed-compose-text-reverser-snake-case",
+    "initial_state": {
+      "raw_text": "absorption plane"
+    },
+    "oracle": {
+      "snake_case_output": "enalp_noitprosba"
+    }
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "bridge_ablation_unplannable": true,
+    "consumer_ablation_unplannable": true,
+    "cross_runtime": true,
+    "grown_plan_solved": true,
+    "minimality": true,
+    "producer_ablation_unplannable": true,
+    "reversed_broke": true,
+    "unplannable_without_bridge": true
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "bridges": [
+    {
+      "bridge_id": "capability.absorbed-bridge-text-reverser-snake-case",
+      "consumer_goal": [
+        "snake_case_output"
+      ],
+      "consumer_id": "capability.absorbed-snake-case",
+      "consumer_runtime": "node",
+      "consumer_slug": "snake-case",
+      "mapping": {
+        "reversed_text": [
+          "arg0",
+          "arg1"
+        ]
+      },
+      "producer_id": "capability.absorbed-text-reverser",
+      "producer_input": {
+        "raw_text": "absorption plane"
+      },
+      "producer_runtime": "python",
+      "producer_slug": "text-reverser",
+      "provides": [
+        "arg0",
+        "arg1"
+      ],
+      "requires": [
+        "reversed_text"
+      ]
+    }
+  ],
+  "kind": "absorbed_bridges",
+  "schema_version": 1,
+  "updated_at": "2026-08-29T12:53:03.392210Z"
+}
