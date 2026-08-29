@@ -26,7 +26,9 @@ live passes. Mixed MCP+absorbed pipelines stay off these headlines; the
 MCP stack-health plane grades them so a red hop fails that stack grade
 without changing this 5-plane contract. Absorbed composition pipelines
 stay off these headlines too; the absorbed stack-health plane grades
-them so a red producer fails that mixed absorbed stack grade.
+them so a red producer fails that mixed absorbed stack grade, and the
+absorbed stack-repair plane restores that grade after a healable
+producer.
 """
 
 from __future__ import annotations

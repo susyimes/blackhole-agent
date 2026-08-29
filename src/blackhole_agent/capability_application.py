@@ -471,8 +471,10 @@ def build_application_registry(
     recovery plane heals a red MCP hop so the mixed composition re-solves,
     the MCP fragility plane scores that hop as a SPOF in blast radius, the
     MCP stack-health plane fails the mixed stack grade when that hop is
-    red, and the absorbed stack-health plane fails the mixed absorbed
-    stack grade when a producer is red.
+    red, the MCP stack-repair plane restores that grade after a healable
+    hop, the absorbed stack-health plane fails the mixed absorbed stack
+    grade when a producer is red, and the absorbed stack-repair plane
+    restores that grade after a healable producer.
     """
 
     hidden = set(hide)

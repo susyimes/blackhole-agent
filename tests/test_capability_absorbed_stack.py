@@ -18,6 +18,7 @@ from blackhole_agent.capability_absorbed_stack import (
     run_absorbed_stack_health_plane,
     verify_absorbed_stack_health_report,
 )
+from blackhole_agent.capability_absorbed_stack_repair import ABSORBED_STACK_REPAIR_ID
 from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
 from blackhole_agent.capability_mcp_stack import MCP_STACK_ID
 from blackhole_agent.capability_stack import run_stack_health
@@ -79,6 +80,7 @@ def test_leftover_binds_absorbed_stack_health_plane() -> None:
     assert MCP_STACK_ID not in leftover_marker_ids(leftover)
     assert ABSORBED_RELIABILITY_ID not in leftover_marker_ids(leftover)
     assert ABSORBED_RECOVERY_ID not in leftover_marker_ids(leftover)
+    assert ABSORBED_STACK_REPAIR_ID not in leftover_marker_ids(leftover)
 
 
 def test_mcp_stack_leftover_stays_on_the_mcp_plane() -> None:

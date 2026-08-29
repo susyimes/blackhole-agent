@@ -1,0 +1,135 @@
+{
+  "absorbed_ids": [
+    "absorbed-compose-text-reverser-snake-case"
+  ],
+  "composition_id": "absorbed-compose-text-reverser-snake-case",
+  "generated_at": "2026-08-29T21:16:57.706911Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 7,
+    "verdicts_passed": 7
+  },
+  "healed": {
+    "application_ok": true,
+    "drifted_goals": [],
+    "health": {
+      "green_count": 4,
+      "healthy": true,
+      "plane_count": 4,
+      "planes_green": {
+        "application": true,
+        "fragility": true,
+        "recovery": true,
+        "watchdog": true
+      }
+    },
+    "repair": {
+      "capability_id": "capability.absorbed-text-reverser",
+      "honest": true,
+      "last_proof_exit_code": 0,
+      "ok": true,
+      "repair_actions": [
+        "reprove_absorbed_cases"
+      ],
+      "verdict": "repaired"
+    },
+    "repair_count": 0,
+    "unsolvable_count": 0
+  },
+  "isolation": {
+    "base_stack_ignores_red_producer": true,
+    "ok": true,
+    "repair_count": 0,
+    "repair_ids": [],
+    "stack_base_isolation": true,
+    "stack_red_producer_fails": true,
+    "task_ids": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ]
+  },
+  "kind": "capability_absorbed_stack_repair",
+  "live": {
+    "application_ok": true,
+    "drifted_goals": [],
+    "health": {
+      "green_count": 4,
+      "healthy": true,
+      "plane_count": 4,
+      "planes_green": {
+        "application": true,
+        "fragility": true,
+        "recovery": true,
+        "watchdog": true
+      }
+    },
+    "repair_count": 0,
+    "unsolvable_count": 0
+  },
+  "ok": true,
+  "producer_id": "capability.absorbed-text-reverser",
+  "red": {
+    "application_ok": false,
+    "drifted_goals": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "health": {
+      "green_count": 1,
+      "healthy": false,
+      "plane_count": 4,
+      "planes_green": {
+        "application": false,
+        "fragility": true,
+        "recovery": false,
+        "watchdog": false
+      }
+    },
+    "repair_count": 1,
+    "unsolvable_count": 1
+  },
+  "report_digest": "d12b25a8413c337dda2f033498df29af6ae86004ce1e7d38ca33dca28dc5c7f1",
+  "schema_version": 1,
+  "unrepairable": {
+    "application_ok": false,
+    "drifted_goals": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "health": {
+      "green_count": 1,
+      "healthy": false,
+      "plane_count": 4,
+      "planes_green": {
+        "application": false,
+        "fragility": true,
+        "recovery": false,
+        "watchdog": false
+      }
+    },
+    "repair": {
+      "capability_id": "capability.absorbed-text-reverser",
+      "honest": true,
+      "last_proof_exit_code": 1,
+      "ok": false,
+      "repair_actions": [
+        "detect_failing_proof"
+      ],
+      "verdict": "unrepairable"
+    },
+    "repair_count": 1,
+    "unsolvable_count": 1
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "has_absorbed_goals": true,
+    "healable_producer_restores_stack": true,
+    "live_absorbed_stack_healthy": true,
+    "no_skill_route": true,
+    "red_producer_fails_stack": true,
+    "unrepairable_producer_leaves_stack_unhealthy": true
+  }
+}

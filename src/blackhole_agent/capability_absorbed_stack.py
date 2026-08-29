@@ -18,6 +18,8 @@ semantics of the base stack:
   pipeline member needs repair;
 - stamping the live producer red makes the mixed absorbed stack grade
   fail, naming the composition goal in watchdog drift;
+- restoring that failed grade after a healable producer is the absorbed
+  stack-repair plane, not this snapshot;
 - a digest-sealed report under ``artifacts/capability-absorbed-stack/``
   whose verification recomputes every verdict from the live ledger and
   rejects tamper and misgrade.
@@ -83,7 +85,8 @@ def absorbed_recovery_snapshot(ledger) -> dict[str, Any]:
 
     Stack grade is a snapshot, not a heal. Running the recovery loop here
     would repair a red producer and hide the failure the leftover asks the
-    stack grade to report.
+    stack grade to report. Restoring the grade after a healable producer is
+    ``capability.absorbed-stack-repair-plane``.
     """
 
     red_ids: list[str] = []
