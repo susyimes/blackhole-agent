@@ -60,6 +60,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.kernel-composed-program",
         "capability.kernel-program-stack",
         "capability.kernel-program-tower",
+        "capability.kernel-program-lattice",
         "capability.milestone-commit-resilience",
         "capability.validation-replay-resilience",
         "capability.kernel-circuit-breaker",

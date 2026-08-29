@@ -137,6 +137,17 @@ PROGRAM_LATTICE_GOAL = (
     "compounding: mint a ready program lattice in-process so recovered kernels "
     "keep compounding fabrics instead of falling back to cheap inventory probes."
 )
+PROGRAM_FABRIC_ID = "capability.kernel-program-fabric"
+PROGRAM_FABRIC_DONE_WHEN = (
+    f"capability_exists:{PROGRAM_FABRIC_ID};"
+    f"capability_proved:{PROGRAM_FABRIC_ID};"
+    "no_skill_route"
+)
+PROGRAM_FABRIC_GOAL = (
+    "When unique program-lattice coverage saturates, repair stalled weave "
+    "compounding: mint a ready program fabric of lattices in-process so recovered "
+    "kernels keep compounding weaves instead of probing cheap inventory."
+)
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
     {
@@ -186,6 +197,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PROGRAM_LATTICE_GOAL,
         "done_when": PROGRAM_LATTICE_DONE_WHEN,
         "source": "genesis_bind_lattice",
+    },
+    {
+        "id": PROGRAM_FABRIC_ID,
+        "goal": PROGRAM_FABRIC_GOAL,
+        "done_when": PROGRAM_FABRIC_DONE_WHEN,
+        "source": "genesis_bind_fabric",
     },
 )
 

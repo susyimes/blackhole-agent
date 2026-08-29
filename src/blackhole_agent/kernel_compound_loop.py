@@ -46,6 +46,8 @@ from blackhole_agent.kernel_genesis_bind import (
     KERNEL_GENESIS_BIND_ID,
     PRIMITIVE_COMPOSE_GOAL,
     PRIMITIVE_COMPOSE_ID,
+    PROGRAM_LATTICE_GOAL,
+    PROGRAM_LATTICE_ID,
     PROGRAM_STACK_GOAL,
     PROGRAM_STACK_ID,
     PROGRAM_TOWER_GOAL,
@@ -168,6 +170,16 @@ def bound_to_program_tower(goal: str, done_when: str = "", bind_source: str = ""
     return "genesis_bind_tower" in str(bind_source or "")
 
 
+def bound_to_program_lattice(goal: str, done_when: str = "", bind_source: str = "") -> bool:
+    """True when genesis is already scoped to the program-lattice closer."""
+
+    if PROGRAM_LATTICE_ID in f"{goal} {done_when}":
+        return True
+    if str(goal or "").strip() == PROGRAM_LATTICE_GOAL:
+        return True
+    return "genesis_bind_lattice" in str(bind_source or "")
+
+
 def compound_loop_is_needed(
     campaign: LocalCampaign,
     ledger: CapabilityLedger,
@@ -199,8 +211,9 @@ def compound_loop_is_needed(
     program_bound = bound_to_composed_program(live_goal, live_done, source)
     stack_bound = bound_to_program_stack(live_goal, live_done, source)
     tower_bound = bound_to_program_tower(live_goal, live_done, source)
+    lattice_bound = bound_to_program_lattice(live_goal, live_done, source)
     if (
-        compose_bound or program_bound or stack_bound or tower_bound
+        compose_bound or program_bound or stack_bound or tower_bound or lattice_bound
     ) and primitive_unique_coverage_is_saturated(ledger, campaign):
         return False
     scoped = (
@@ -209,6 +222,7 @@ def compound_loop_is_needed(
         or program_bound
         or stack_bound
         or tower_bound
+        or lattice_bound
     )
     saturated = absorbed_leaves_are_saturated(campaign, ledger)
     if not scoped and not saturated:
