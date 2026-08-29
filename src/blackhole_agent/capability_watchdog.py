@@ -79,9 +79,9 @@ def run_goal_watchdog(
     over the base registry. Pass ``include_absorbed=True`` and absorbed
     composition or mixed MCP+absorbed tasks to watch typed key-bridge
     pipelines; ``hide`` removes surface members the same way planner honesty
-    does. ``registry`` overrides the built surface so a mixed MCP pipeline
-    can be watched without BFS-exhausting the whole absorbed zoo when the
-    MCP hop is hidden.
+    does. ``registry`` overrides the built surface so a mixed MCP or
+    absorbed composition pipeline can be watched without BFS-exhausting
+    the whole absorbed zoo when a hop or producer is hidden.
     """
 
     active = ledger if ledger is not None else load_ledger(default_ledger_path(REPO_ROOT))

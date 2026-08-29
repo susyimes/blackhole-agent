@@ -1,0 +1,133 @@
+{
+  "absorbed_ids": [
+    "absorbed-compose-text-reverser-snake-case"
+  ],
+  "base": {
+    "fragility_score": 0.1667,
+    "max_blast_radius": 2,
+    "recovery_ok": true,
+    "recovery_repair_count": 0,
+    "watchdog_goal_ids": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ],
+    "watchdog_ok": true
+  },
+  "composition_id": "absorbed-compose-text-reverser-snake-case",
+  "generated_at": "2026-08-29T18:32:04.337517Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "kind": "capability_absorbed_stack_health",
+  "live": {
+    "headlines": {
+      "application": {
+        "ok": true,
+        "task_count": 1,
+        "task_ids": [
+          "absorbed-compose-text-reverser-snake-case"
+        ],
+        "task_pass_count": 1,
+        "unsolvable_count": 0
+      },
+      "fragility": {
+        "blocked_goals": [
+          "absorbed-compose-text-reverser-snake-case"
+        ],
+        "fragility_score": 0.0,
+        "ok": true,
+        "producer_blast": 1,
+        "producer_is_spof": true
+      },
+      "recovery": {
+        "ok": true,
+        "red_ids": [],
+        "repair_count": 0
+      },
+      "watchdog": {
+        "drifted_goals": [],
+        "goal_count": 1,
+        "healthy_count": 1,
+        "ok": true
+      }
+    },
+    "health": {
+      "green_count": 4,
+      "healthy": true,
+      "plane_count": 4,
+      "planes_green": {
+        "application": true,
+        "fragility": true,
+        "recovery": true,
+        "watchdog": true
+      }
+    }
+  },
+  "ok": true,
+  "producer_id": "capability.absorbed-text-reverser",
+  "red": {
+    "headlines": {
+      "application": {
+        "ok": false,
+        "task_count": 1,
+        "task_ids": [
+          "absorbed-compose-text-reverser-snake-case"
+        ],
+        "task_pass_count": 0,
+        "unsolvable_count": 1
+      },
+      "fragility": {
+        "blocked_goals": [
+          "absorbed-compose-text-reverser-snake-case"
+        ],
+        "fragility_score": 0.0,
+        "ok": true,
+        "producer_blast": 1,
+        "producer_is_spof": true
+      },
+      "recovery": {
+        "ok": false,
+        "red_ids": [
+          "capability.absorbed-text-reverser"
+        ],
+        "repair_count": 1
+      },
+      "watchdog": {
+        "drifted_goals": [
+          "absorbed-compose-text-reverser-snake-case"
+        ],
+        "goal_count": 1,
+        "healthy_count": 0,
+        "ok": false
+      }
+    },
+    "health": {
+      "green_count": 1,
+      "healthy": false,
+      "plane_count": 4,
+      "planes_green": {
+        "application": false,
+        "fragility": true,
+        "recovery": false,
+        "watchdog": false
+      }
+    }
+  },
+  "report_digest": "b26f136c0ec2b5808a0292bc682d6e30c72e82bcdb1697447438373da4e4af90",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "base_stack_ignores_red_producer": true,
+    "has_absorbed_goals": true,
+    "live_absorbed_stack_healthy": true,
+    "no_skill_route": true,
+    "red_producer_fails_stack": true
+  }
+}

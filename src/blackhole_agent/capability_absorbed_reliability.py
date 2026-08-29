@@ -37,6 +37,7 @@ from blackhole_agent.capability_absorbed_composition import (
 from blackhole_agent.capability_absorption import load_persisted_absorbed_steps
 from blackhole_agent.capability_application import (
     APPLICATION_TASKS,
+    ApplicationStep,
     ApplicationTask,
     build_application_registry,
     plan_application_task,
@@ -88,6 +89,32 @@ def load_absorbed_composition_tasks() -> list[ApplicationTask]:
             continue
         tasks.append(composition_task(pair, steps))
     return tasks
+
+
+def absorbed_pipeline_ids() -> set[str]:
+    """Producer, typed key-bridge, and consumer for every persisted pair."""
+
+    members: set[str] = set()
+    for pair in load_persisted_bridge_records():
+        for key in ("producer_id", "bridge_id", "consumer_id"):
+            capability_id = str(pair.get(key) or "")
+            if capability_id:
+                members.add(capability_id)
+    return members
+
+
+def absorbed_watch_registry(ledger, *, hide: Sequence[str] = ()) -> dict[str, ApplicationStep]:
+    """Grown absorbed-pipeline surface without the rest of the absorbed zoo.
+
+    Hide-one analysis over the full absorbed registry is exponential. The
+    composition goal only needs its three pipeline members, and those still
+    come from the grown ``include_absorbed`` registry so red stamps and
+    hides stay honest.
+    """
+
+    grown = build_application_registry(ledger, include_absorbed=True, hide=hide)
+    members = absorbed_pipeline_ids()
+    return {key: step for key, step in grown.items() if key in members}
 
 
 def _watch_absorbed(

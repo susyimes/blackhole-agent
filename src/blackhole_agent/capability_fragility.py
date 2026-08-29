@@ -6,7 +6,10 @@ capability failure takes which goals down?* This module computes that
 directly from the live proved ledger. Default calls stay on
 ``APPLICATION_TASKS``; mixed MCP+absorbed pipelines are scored by the
 MCP fragility plane so a live hop SPOF enters blast radius without
-changing the base score.
+changing the base score. Absorbed composition pipelines are graded by
+the absorbed stack-health plane, which reuses hide-one on the three
+pipeline members so a producer SPOF is visible without changing the
+base score.
 
 - the **impact matrix**: for every capability on the planning surface, the
   set of goals that become unplannable when that capability alone is hidden
