@@ -215,10 +215,10 @@ def bind_local_mission(
     fill_goal = HARVESTED_KERNEL_FAILURE_GOAL
     fill_done = HARVESTED_KERNEL_FAILURE_DONE_WHEN
     fill_source = "harvested_kernel_failure"
+    tick_root = Path(
+        repo_path or getattr(state, "repo_path", "") or getattr(state, "workspace_path", "") or "."
+    )
     if live is not None:
-        tick_root = Path(
-            repo_path or getattr(state, "repo_path", "") or getattr(state, "workspace_path", "") or "."
-        )
         try:
             from blackhole_agent.kernel_class_closure import class_is_closed
 
@@ -233,14 +233,22 @@ def bind_local_mission(
         fill_done = str(live.forced.get("done_when") or fill_done)
         fill_source = "pattern-register"
     elif live and live.candidates:
-        tick_root = Path(
-            repo_path or getattr(state, "repo_path", "") or getattr(state, "workspace_path", "") or "."
-        )
         fill_goal, fill_done = mission_from_candidate(
             live.candidates[0],
             ledger=load_tick_ledger(tick_root),
         )
         fill_source = f"experience/{live.candidates[0].class_id or 'operational'}"
+    elif fill_source == "class_closed" and (not fill_goal or not fill_done):
+        try:
+            from blackhole_agent.kernel_unscoped_resume import bind_from_unscoped_campaign
+
+            scoped_goal, scoped_done, scoped_source = bind_from_unscoped_campaign(tick_root)
+            if scoped_source:
+                fill_goal = scoped_goal
+                fill_done = scoped_done
+                fill_source = scoped_source
+        except Exception:  # noqa: BLE001 - binding must still choose a mission
+            pass
 
     if not goal:
         goal = fill_goal
@@ -402,7 +410,19 @@ def _prepare_campaign(
     ledger: CapabilityLedger,
 ) -> LocalCampaign:
     same_mission = existing.mission_id == mission_id and existing.goal == binding.goal
-    campaign = existing if same_mission else LocalCampaign()
+    keep_remaining = False
+    if not same_mission:
+        try:
+            from blackhole_agent.kernel_unscoped_resume import should_preserve_campaign
+
+            keep_remaining = should_preserve_campaign(
+                existing,
+                mission_id=mission_id,
+                goal=binding.goal,
+            )
+        except Exception:  # noqa: BLE001 - campaign prepare must still bind
+            keep_remaining = False
+    campaign = existing if same_mission or keep_remaining else LocalCampaign()
     campaign.mission_id = mission_id
     campaign.goal = binding.goal
     campaign.done_when = binding.done_when

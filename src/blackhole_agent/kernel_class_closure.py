@@ -67,6 +67,9 @@ CLASS_CLOSURE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "milestone_rejected": (
         "capability.milestone-commit-resilience",
     ),
+    "mission_blocked": (
+        "capability.kernel-unscoped-resume",
+    ),
 }
 
 
@@ -224,6 +227,9 @@ def builtin_kernel_class_closure_proof() -> dict[str, Any]:
     checks["requires_salvage_breaker_local"] = required == CLASS_CLOSURE_REQUIREMENTS[KERNEL_TURN_FAILED]
     checks["closes_milestone_rejected"] = class_closure_ids("milestone_rejected") == (
         "capability.milestone-commit-resilience",
+    )
+    checks["closes_mission_blocked"] = class_closure_ids("mission_blocked") == (
+        "capability.kernel-unscoped-resume",
     )
 
     class _State:

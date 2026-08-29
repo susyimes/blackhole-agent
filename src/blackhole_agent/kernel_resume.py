@@ -56,13 +56,29 @@ def _continue_resumed_follow_ons(state: Any, durable: Path) -> None:
 def campaign_is_resumable(campaign: LocalCampaign) -> bool:
     if int(campaign.tick_count or 0) <= 0:
         return False
-    if not str(campaign.goal or "").strip() or not str(campaign.done_when or "").strip():
-        return False
     if str(campaign.consumed_at or "").strip():
         return False
     if campaign.last_contract_met is True:
         return False
-    return True
+    if str(campaign.goal or "").strip() and str(campaign.done_when or "").strip():
+        return True
+    try:
+        from blackhole_agent.kernel_unscoped_resume import campaign_has_unscoped_remaining
+
+        return campaign_has_unscoped_remaining(campaign)
+    except Exception:  # noqa: BLE001 - resume must still fail closed
+        return False
+
+
+def _scope_campaign_for_resume(campaign: LocalCampaign) -> bool:
+    """Fill empty campaign fields from remaining program steps when present."""
+
+    try:
+        from blackhole_agent.kernel_unscoped_resume import scope_unscoped_campaign
+
+        return scope_unscoped_campaign(campaign)
+    except Exception:  # noqa: BLE001 - resume must still copy existing fields
+        return bool(str(campaign.goal or "").strip() and str(campaign.done_when or "").strip())
 
 
 def bind_create_fields(
@@ -77,8 +93,11 @@ def bind_create_fields(
     if filled_goal and filled_done:
         return filled_goal, filled_done, "operator"
     campaign = load_campaign(Path(repo_path))
+    scoped = _scope_campaign_for_resume(campaign)
     if not campaign_is_resumable(campaign):
         return filled_goal, filled_done, ""
+    if scoped:
+        save_campaign(Path(repo_path), campaign)
     if not filled_goal:
         filled_goal = campaign.goal
     if not filled_done:
@@ -96,6 +115,7 @@ def hydrate_mission_from_campaign(
 
     durable = Path(repo_path) if repo_path is not None else durable_campaign_root(state)
     campaign = load_campaign(durable)
+    scoped = _scope_campaign_for_resume(campaign)
     before_goal = str(getattr(state, "goal", "") or "").strip()
     before_done = str(getattr(state, "done_when", "") or "").strip()
     if before_goal and before_done:
@@ -129,8 +149,9 @@ def hydrate_mission_from_campaign(
     if str(getattr(state, "goal", "") or "").strip() and str(getattr(state, "done_when", "") or "").strip():
         state.stage = "execution"
     mission_id = str(getattr(state, "mission_id", "") or "")
-    if persist and applied and mission_id and campaign.resumed_by_mission_id != mission_id:
-        campaign.resumed_by_mission_id = mission_id
+    if persist and (applied or scoped) and mission_id:
+        if campaign.resumed_by_mission_id != mission_id:
+            campaign.resumed_by_mission_id = mission_id
         save_campaign(durable, campaign)
     _continue_resumed_follow_ons(state, durable)
     return {
