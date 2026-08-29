@@ -34,6 +34,7 @@ from blackhole_agent.durable_state import durable_read_path
 
 from blackhole_agent.capability_application import (
     APPLICATION_TASKS,
+    ApplicationStep,
     ApplicationTask,
     build_application_registry,
     plan_member_is_sound,
@@ -70,22 +71,30 @@ def run_goal_watchdog(
     tasks: Sequence[ApplicationTask] | None = None,
     include_absorbed: bool = False,
     hide: Sequence[str] = (),
+    registry: Mapping[str, ApplicationStep] | None = None,
 ) -> dict[str, Any]:
     """Check application goals against a ledger (live by default).
 
     Default arguments preserve pre-growth semantics: only ``APPLICATION_TASKS``
     over the base registry. Pass ``include_absorbed=True`` and absorbed
-    composition tasks to watch typed key-bridge pipelines; ``hide`` removes
-    surface members the same way planner honesty does.
+    composition or mixed MCP+absorbed tasks to watch typed key-bridge
+    pipelines; ``hide`` removes surface members the same way planner honesty
+    does. ``registry`` overrides the built surface so a mixed MCP pipeline
+    can be watched without BFS-exhausting the whole absorbed zoo when the
+    MCP hop is hidden.
     """
 
     active = ledger if ledger is not None else load_ledger(default_ledger_path(REPO_ROOT))
-    registry = build_application_registry(active, hide=hide, include_absorbed=include_absorbed)
+    if registry is None:
+        surface = build_application_registry(active, hide=hide, include_absorbed=include_absorbed)
+    else:
+        hidden = set(hide)
+        surface = {key: step for key, step in registry.items() if key not in hidden}
     task_list = tuple(tasks) if tasks is not None else APPLICATION_TASKS
 
     goal_results: list[dict[str, Any]] = []
     for task in task_list:
-        result = run_application_task(task, registry)
+        result = run_application_task(task, surface)
         plan = result["plan"] or []
         goal_results.append(
             {

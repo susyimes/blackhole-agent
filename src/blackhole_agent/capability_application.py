@@ -464,9 +464,10 @@ def build_application_registry(
     proved, and live MCP application steps plus MCP key-bridges whose
     endpoints are proved. Default watchdog, recovery, and fragility calls
     stay on the base registry so pre-growth proofs keep their exact
-    semantics; the absorbed reliability plane watches the grown goals
-    separately, and the absorbed recovery plane heals a red producer or
-    consumer on that surface.
+    semantics; the absorbed reliability plane watches absorbed composition
+    goals separately, the MCP reliability plane watches mixed MCP+absorbed
+    goals so a hidden MCP hop is named drift, and the absorbed recovery
+    plane heals a red producer or consumer on the absorbed surface.
     """
 
     hidden = set(hide)

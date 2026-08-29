@@ -1,0 +1,78 @@
+{
+  "absorbed_ids": [
+    "absorbed-compose-text-reverser-snake-case"
+  ],
+  "base_goal_ids": [
+    "blocked-scan-honesty",
+    "ledger-gated-proposal",
+    "ledger-inventory-check",
+    "persona-stamped-proposal",
+    "routed-triage-record",
+    "scan-gated-activation"
+  ],
+  "bridge_spof": {
+    "mcp-compose-text-reverser-echo-sha256": true
+  },
+  "drift_by_bridge": {
+    "capability.mcp-bridge-text-reverser-echo-sha256": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ]
+  },
+  "drift_by_mcp": {
+    "capability.mcp-echo-sha256": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ]
+  },
+  "drift_by_producer": {
+    "capability.absorbed-text-reverser": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ]
+  },
+  "generated_at": "2026-08-29T16:55:27.844645Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 15,
+    "verdicts_passed": 15
+  },
+  "kind": "capability_mcp_reliability",
+  "live": {
+    "drifted_goals": [],
+    "goal_count": 1,
+    "healthy_count": 1,
+    "ok": true,
+    "plans": {
+      "mcp-compose-text-reverser-echo-sha256": [
+        "capability.absorbed-text-reverser",
+        "capability.mcp-bridge-text-reverser-echo-sha256",
+        "capability.mcp-echo-sha256"
+      ]
+    }
+  },
+  "mcp_hop_spof": {
+    "mcp-compose-text-reverser-echo-sha256": true
+  },
+  "mcp_ids": [
+    "mcp-compose-text-reverser-echo-sha256"
+  ],
+  "ok": true,
+  "report_digest": "7f157546cb189a14b3f94881eae90a4d65afac24d5f587d620ba46e3f019f6b3",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "absorbed_unaffected_by_mcp_hide": true,
+    "base_isolation": true,
+    "base_unaffected_by_mcp_hide": true,
+    "base_watchdog_healthy": true,
+    "bridge_hide_named_drift": true,
+    "bridge_is_spof": true,
+    "has_mcp_goals": true,
+    "live_mcp_healthy": true,
+    "mcp_hide_named_drift": true,
+    "mcp_hop_is_spof": true,
+    "mcp_unaffected_by_absorbed_hide": true,
+    "mcp_unaffected_by_base_hide": true,
+    "no_absorbed_goal_in_mcp_watch": true,
+    "no_base_goal_in_mcp_watch": true,
+    "producer_red_named_drift": true
+  }
+}

@@ -23,6 +23,9 @@ This plane closes that isolation:
 
 MCP tools stay fail-closed under default tool routing: the step opts the
 ``mcp`` provider in explicitly, matching live-execution policy.
+
+Mixed MCP+absorbed goals stay off the default watchdog; the MCP
+reliability plane watches them so a hidden MCP hop is named drift.
 """
 
 from __future__ import annotations
