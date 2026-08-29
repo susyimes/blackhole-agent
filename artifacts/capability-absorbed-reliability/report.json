@@ -1,0 +1,62 @@
+{
+  "absorbed_ids": [
+    "absorbed-compose-text-reverser-snake-case"
+  ],
+  "base_goal_ids": [
+    "blocked-scan-honesty",
+    "ledger-gated-proposal",
+    "ledger-inventory-check",
+    "persona-stamped-proposal",
+    "routed-triage-record",
+    "scan-gated-activation"
+  ],
+  "drift_by_bridge": {
+    "capability.absorbed-bridge-text-reverser-snake-case": [
+      "absorbed-compose-text-reverser-snake-case"
+    ]
+  },
+  "drift_by_producer": {
+    "capability.absorbed-text-reverser": [
+      "absorbed-compose-text-reverser-snake-case"
+    ]
+  },
+  "generated_at": "2026-08-29T13:25:00.971187Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 10,
+    "verdicts_passed": 10
+  },
+  "kind": "capability_absorbed_reliability",
+  "live": {
+    "drifted_goals": [],
+    "goal_count": 1,
+    "healthy_count": 1,
+    "ok": true,
+    "plans": {
+      "absorbed-compose-text-reverser-snake-case": [
+        "capability.absorbed-text-reverser",
+        "capability.absorbed-bridge-text-reverser-snake-case",
+        "capability.absorbed-snake-case"
+      ]
+    }
+  },
+  "ok": true,
+  "report_digest": "db9fad6af96b0300822268793b65a3c43253526c7e8cb8f5001f8b1293b05df1",
+  "schema_version": 1,
+  "spof": {
+    "absorbed-compose-text-reverser-snake-case": true
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "base_unaffected_by_bridge_hide": true,
+    "base_watchdog_healthy": true,
+    "bridge_hide_named_drift": true,
+    "bridge_is_spof": true,
+    "composition_unaffected_by_base_hide": true,
+    "has_absorbed_goals": true,
+    "live_absorbed_healthy": true,
+    "no_base_goal_in_absorbed_watch": true,
+    "producer_red_named_drift": true
+  }
+}

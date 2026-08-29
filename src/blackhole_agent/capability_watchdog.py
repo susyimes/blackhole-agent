@@ -34,8 +34,9 @@ from blackhole_agent.durable_state import durable_read_path
 
 from blackhole_agent.capability_application import (
     APPLICATION_TASKS,
-    _capability_proved,
+    ApplicationTask,
     build_application_registry,
+    plan_member_is_sound,
     run_application_task,
 )
 from blackhole_agent.capability_compounder import (
@@ -63,14 +64,27 @@ def _digest(payload: Any) -> str:
     return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
 
 
-def run_goal_watchdog(*, ledger: CapabilityLedger | None = None) -> dict[str, Any]:
-    """Check every application goal against a ledger (live by default)."""
+def run_goal_watchdog(
+    *,
+    ledger: CapabilityLedger | None = None,
+    tasks: Sequence[ApplicationTask] | None = None,
+    include_absorbed: bool = False,
+    hide: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Check application goals against a ledger (live by default).
+
+    Default arguments preserve pre-growth semantics: only ``APPLICATION_TASKS``
+    over the base registry. Pass ``include_absorbed=True`` and absorbed
+    composition tasks to watch typed key-bridge pipelines; ``hide`` removes
+    surface members the same way planner honesty does.
+    """
 
     active = ledger if ledger is not None else load_ledger(default_ledger_path(REPO_ROOT))
-    registry = build_application_registry(active)
+    registry = build_application_registry(active, hide=hide, include_absorbed=include_absorbed)
+    task_list = tuple(tasks) if tasks is not None else APPLICATION_TASKS
 
     goal_results: list[dict[str, Any]] = []
-    for task in APPLICATION_TASKS:
+    for task in task_list:
         result = run_application_task(task, registry)
         plan = result["plan"] or []
         goal_results.append(
@@ -80,7 +94,7 @@ def run_goal_watchdog(*, ledger: CapabilityLedger | None = None) -> dict[str, An
                 "ok": result["ok"],
                 "plan": result["plan"],
                 "plan_sound": bool(plan)
-                and all(_capability_proved(active, capability_id) for capability_id in plan),
+                and all(plan_member_is_sound(active, capability_id) for capability_id in plan),
                 "error": result["error"],
             }
         )
@@ -129,7 +143,8 @@ def verify_watchdog_report(report_dir: Path) -> dict[str, Any]:
     Verification never re-executes a goal. A report that hides drift (an
     ``ok`` flag or ``drifted_goals`` that disagree with the recorded goal
     results), a tampered digest, or a recorded plan naming a capability that
-    is not green in the live ledger fails verification.
+    is not a green ledger member and not a persisted bridge with green
+    endpoints fails verification.
     """
 
     report_path = report_dir / "report.json"
@@ -145,7 +160,7 @@ def verify_watchdog_report(report_dir: Path) -> dict[str, Any]:
     )
     report_digest = hashlib.sha256(f"watchdog:{goals_digest}".encode("utf-8")).hexdigest()
     plans_sound = all(
-        all(_capability_proved(ledger, capability_id) for capability_id in (record.get("plan") or []))
+        all(plan_member_is_sound(ledger, capability_id) for capability_id in (record.get("plan") or []))
         for record in goal_results
     )
     expected_ok = not drifted and plans_sound

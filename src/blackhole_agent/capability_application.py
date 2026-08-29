@@ -408,6 +408,29 @@ def _capability_proved(ledger: CapabilityLedger, capability_id: str) -> bool:
     return bool(capability is not None and capability.last_proof_exit_code == 0)
 
 
+def plan_member_is_sound(ledger: CapabilityLedger, capability_id: str) -> bool:
+    """A planned step is sound when it is a green ledger member or a persisted bridge.
+
+    Typed key-bridges are mapping steps persisted in ``absorbed-bridges.json``.
+    They are not always ledger citizens, but a plan that names one is still
+    sound when both endpoints are green. A forged bridge id fails.
+    """
+
+    if _capability_proved(ledger, capability_id):
+        return True
+    try:
+        from blackhole_agent.capability_absorbed_composition import load_persisted_bridge_records
+    except Exception:  # noqa: BLE001 - soundness must fail closed
+        return False
+    for record in load_persisted_bridge_records():
+        if str(record.get("bridge_id") or "") != capability_id:
+            continue
+        producer_id = str(record.get("producer_id") or "")
+        consumer_id = str(record.get("consumer_id") or "")
+        return _capability_proved(ledger, producer_id) and _capability_proved(ledger, consumer_id)
+    return False
+
+
 def build_application_registry(
     ledger: CapabilityLedger,
     *,
@@ -428,8 +451,9 @@ def build_application_registry(
     growth. ``include_absorbed=True`` likewise folds in durably persisted
     absorbed steps (``capabilities/absorbed-steps.json``) vendored from
     external tools, plus typed key-bridges whose producer and consumer are
-    both proved. Both are opt-in so the base planes (application,
-    fragility, recovery, watchdog) keep their exact pre-growth semantics.
+    both proved. Default watchdog, recovery, and fragility calls stay on the
+    base registry so pre-growth proofs keep their exact semantics; the
+    absorbed reliability plane watches the grown goals separately.
     """
 
     hidden = set(hide)
