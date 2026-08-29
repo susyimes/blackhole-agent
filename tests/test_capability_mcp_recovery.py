@@ -16,6 +16,7 @@ from blackhole_agent.capability_mcp_recovery import (
     verify_mcp_recovery_report,
 )
 from blackhole_agent.capability_mcp_reliability import MCP_RELIABILITY_ID, load_mcp_composition_tasks
+from blackhole_agent.capability_mcp_stack import MCP_STACK_ID
 from blackhole_agent.capability_recovery import BREAK_STALE_STAMP, run_recovery_loop
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 
@@ -65,6 +66,7 @@ def test_leftover_binds_mcp_recovery_plane() -> None:
     )
     assert leftover_marker_ids(leftover) == (MCP_RECOVERY_ID,)
     assert MCP_RELIABILITY_ID not in leftover_marker_ids(leftover)
+    assert MCP_STACK_ID not in leftover_marker_ids(leftover)
     assert MCP_APPLICATION_BRIDGE_ID not in leftover_marker_ids(leftover)
 
 

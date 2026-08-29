@@ -17,6 +17,7 @@ from blackhole_agent.capability_mcp_reliability import (
     verify_mcp_reliability_report,
 )
 from blackhole_agent.capability_watchdog import run_goal_watchdog
+from blackhole_agent.capability_mcp_stack import MCP_STACK_ID
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 
 
@@ -67,6 +68,7 @@ def test_leftover_binds_mcp_reliability_plane() -> None:
     )
     assert leftover_marker_ids(leftover) == (MCP_RELIABILITY_ID,)
     assert MCP_APPLICATION_BRIDGE_ID not in leftover_marker_ids(leftover)
+    assert MCP_STACK_ID not in leftover_marker_ids(leftover)
 
 
 def test_mcp_application_leftover_stays_on_the_bridge() -> None:

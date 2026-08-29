@@ -469,7 +469,9 @@ def build_application_registry(
     goals so a hidden MCP hop is named drift, the absorbed recovery plane
     heals a red producer or consumer on the absorbed surface, the MCP
     recovery plane heals a red MCP hop so the mixed composition re-solves,
-    and the MCP fragility plane scores that hop as a SPOF in blast radius.
+    the MCP fragility plane scores that hop as a SPOF in blast radius, and
+    the MCP stack-health plane fails the mixed stack grade when that hop is
+    red.
     """
 
     hidden = set(hide)

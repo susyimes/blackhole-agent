@@ -22,7 +22,9 @@ single health surface:
 
 This is deliberately a composition surface, not a sixth plane: no new
 behavior lives here beyond the honest aggregation of the planes' own
-live passes.
+live passes. Mixed MCP+absorbed pipelines stay off these headlines; the
+MCP stack-health plane grades them so a red hop fails that stack grade
+without changing this 5-plane contract.
 """
 
 from __future__ import annotations

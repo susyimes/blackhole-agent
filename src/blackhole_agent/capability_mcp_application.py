@@ -24,9 +24,11 @@ This plane closes that isolation:
 MCP tools stay fail-closed under default tool routing: the step opts the
 ``mcp`` provider in explicitly, matching live-execution policy.
 
-Mixed MCP+absorbed goals stay off the default watchdog and recovery
-loop; the MCP reliability plane watches them so a hidden MCP hop is
-named drift, and the MCP recovery plane heals a red MCP hop.
+Mixed MCP+absorbed goals stay off the default watchdog, recovery
+loop, and stack-health headlines; the MCP reliability plane watches them
+so a hidden MCP hop is named drift, the MCP recovery plane heals a red
+MCP hop, and the MCP stack-health plane fails the mixed stack grade
+when that hop is red.
 """
 
 from __future__ import annotations

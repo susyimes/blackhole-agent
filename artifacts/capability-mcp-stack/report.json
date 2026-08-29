@@ -1,0 +1,133 @@
+{
+  "base": {
+    "fragility_score": 0.1667,
+    "max_blast_radius": 2,
+    "recovery_ok": true,
+    "recovery_repair_count": 0,
+    "watchdog_goal_ids": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ],
+    "watchdog_ok": true
+  },
+  "composition_id": "mcp-compose-text-reverser-echo-sha256",
+  "generated_at": "2026-08-29T18:03:15.486040Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "kind": "capability_mcp_stack_health",
+  "live": {
+    "headlines": {
+      "application": {
+        "ok": true,
+        "task_count": 1,
+        "task_ids": [
+          "mcp-compose-text-reverser-echo-sha256"
+        ],
+        "task_pass_count": 1,
+        "unsolvable_count": 0
+      },
+      "fragility": {
+        "blocked_goals": [
+          "mcp-compose-text-reverser-echo-sha256"
+        ],
+        "fragility_score": 0.0,
+        "mcp_hop_blast": 1,
+        "mcp_hop_is_spof": true,
+        "ok": true
+      },
+      "recovery": {
+        "ok": true,
+        "red_ids": [],
+        "repair_count": 0
+      },
+      "watchdog": {
+        "drifted_goals": [],
+        "goal_count": 1,
+        "healthy_count": 1,
+        "ok": true
+      }
+    },
+    "health": {
+      "green_count": 4,
+      "healthy": true,
+      "plane_count": 4,
+      "planes_green": {
+        "application": true,
+        "fragility": true,
+        "recovery": true,
+        "watchdog": true
+      }
+    }
+  },
+  "mcp_id": "capability.mcp-echo-sha256",
+  "mcp_ids": [
+    "mcp-compose-text-reverser-echo-sha256"
+  ],
+  "ok": true,
+  "red": {
+    "headlines": {
+      "application": {
+        "ok": false,
+        "task_count": 1,
+        "task_ids": [
+          "mcp-compose-text-reverser-echo-sha256"
+        ],
+        "task_pass_count": 0,
+        "unsolvable_count": 1
+      },
+      "fragility": {
+        "blocked_goals": [
+          "mcp-compose-text-reverser-echo-sha256"
+        ],
+        "fragility_score": 0.0,
+        "mcp_hop_blast": 1,
+        "mcp_hop_is_spof": true,
+        "ok": true
+      },
+      "recovery": {
+        "ok": false,
+        "red_ids": [
+          "capability.mcp-echo-sha256"
+        ],
+        "repair_count": 1
+      },
+      "watchdog": {
+        "drifted_goals": [
+          "mcp-compose-text-reverser-echo-sha256"
+        ],
+        "goal_count": 1,
+        "healthy_count": 0,
+        "ok": false
+      }
+    },
+    "health": {
+      "green_count": 1,
+      "healthy": false,
+      "plane_count": 4,
+      "planes_green": {
+        "application": false,
+        "fragility": true,
+        "recovery": false,
+        "watchdog": false
+      }
+    }
+  },
+  "report_digest": "1ee648ac22138e35b396c24fc9f294f9e26b8a46cd250ad8bceff355331fce1e",
+  "schema_version": 1,
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "base_stack_ignores_red_hop": true,
+    "has_mcp_goals": true,
+    "live_mcp_stack_healthy": true,
+    "no_skill_route": true,
+    "red_hop_fails_stack": true
+  }
+}
