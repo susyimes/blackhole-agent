@@ -38,6 +38,7 @@ from blackhole_agent.capability_compounder import (
 )
 from blackhole_agent.kernel_compound_loop import (
     COMPOUND_LOOP_LEAF_PREFIX,
+    bound_to_program_fabric,
     bound_to_program_lattice,
     bound_to_program_tower,
     is_compound_loop_leaf_id,
@@ -200,7 +201,10 @@ def program_tower_is_needed(
     if not saturated:
         return False
     lattice_bound = bound_to_program_lattice(live_goal, live_done, source)
-    if lattice_bound and tower_unique_coverage_is_saturated(ledger, campaign):
+    fabric_bound = bound_to_program_fabric(live_goal, live_done, source)
+    if (lattice_bound or fabric_bound) and tower_unique_coverage_is_saturated(
+        ledger, campaign
+    ):
         return False
     if not scoped and not saturated:
         return False

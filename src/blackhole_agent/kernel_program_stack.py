@@ -38,6 +38,7 @@ from blackhole_agent.capability_compounder import (
 )
 from blackhole_agent.kernel_compound_loop import (
     COMPOUND_LOOP_LEAF_PREFIX,
+    bound_to_program_fabric,
     bound_to_program_lattice,
     bound_to_program_stack,
     bound_to_program_tower,
@@ -197,7 +198,8 @@ def program_stack_is_needed(
         return False
     tower_bound = bound_to_program_tower(live_goal, live_done, source)
     lattice_bound = bound_to_program_lattice(live_goal, live_done, source)
-    if (tower_bound or lattice_bound) and stack_unique_coverage_is_saturated(
+    fabric_bound = bound_to_program_fabric(live_goal, live_done, source)
+    if (tower_bound or lattice_bound or fabric_bound) and stack_unique_coverage_is_saturated(
         ledger, campaign
     ):
         return False

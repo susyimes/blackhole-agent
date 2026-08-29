@@ -590,6 +590,7 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     stack_used = False
     tower_used = False
     lattice_used = False
+    fabric_used = False
     capability_id = ""
     try:
         from blackhole_agent.kernel_consumed_growth import attach_consumed_growth_leaf
@@ -703,6 +704,22 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
             capability_id = ""
             lattice_used = False
     if not capability_id:
+        try:
+            from blackhole_agent.kernel_program_fabric import attach_program_fabric
+
+            capability_id = attach_program_fabric(
+                campaign,
+                ledger,
+                root,
+                goal=binding.goal,
+                done_when=binding.done_when,
+                bind_source=binding.source,
+            )
+            fabric_used = bool(capability_id)
+        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
+            capability_id = ""
+            fabric_used = False
+    if not capability_id:
         capability_id = _next_step(campaign)
     succession_used = False
     mission_plane_used = False
@@ -779,6 +796,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         reason = "mission_plane"
     elif succession_used:
         reason = "succession"
+    elif fabric_used:
+        reason = "program_fabric"
     elif lattice_used:
         reason = "program_lattice"
     elif tower_used:
@@ -819,6 +838,17 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         summary = (
             f"Local mission-plane executed {', '.join(passed)} after cheap "
             "local-anchor rotation and succession were exhausted."
+        )
+    elif passed and fabric_used:
+        delta = (
+            "Local program-fabric minted and proved "
+            + ", ".join(passed)
+            + " as a program fabric after unique program-lattice coverage saturated."
+        )
+        summary = (
+            f"Local program-fabric minted and proved {', '.join(passed)} "
+            "in-process so recovered kernels keep compounding weaves instead of "
+            "probing cheap inventory."
         )
     elif passed and lattice_used:
         delta = (
@@ -985,6 +1015,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.handoff["program_tower_unit"] = passed[0]
     if lattice_used and passed:
         campaign.handoff["program_lattice_unit"] = passed[0]
+    if fabric_used and passed:
+        campaign.handoff["program_fabric_unit"] = passed[0]
     if plane_ok:
         campaign.handoff["mission_plane_ok"] = True
     if finalize:
