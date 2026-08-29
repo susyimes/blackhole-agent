@@ -81,6 +81,17 @@ COMPOUND_LOOP_GOAL = (
     "stalled compounding: run a novelty-ranked growth loop in-process so recovered "
     "kernels keep expanding primitive coverage instead of blocking."
 )
+PRIMITIVE_COMPOSE_ID = "capability.kernel-primitive-compose"
+PRIMITIVE_COMPOSE_DONE_WHEN = (
+    f"capability_exists:{PRIMITIVE_COMPOSE_ID};"
+    f"capability_proved:{PRIMITIVE_COMPOSE_ID};"
+    "no_skill_route"
+)
+PRIMITIVE_COMPOSE_GOAL = (
+    "When novelty-ranked in-process primitive leaves saturate unique coverage, "
+    "repair stalled composition: promote a ready multi-primitive composition "
+    "in-process so recovered kernels keep compounding programs instead of blocking."
+)
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
     {
@@ -100,6 +111,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": COMPOUND_LOOP_GOAL,
         "done_when": COMPOUND_LOOP_DONE_WHEN,
         "source": "genesis_bind_compound",
+    },
+    {
+        "id": PRIMITIVE_COMPOSE_ID,
+        "goal": PRIMITIVE_COMPOSE_GOAL,
+        "done_when": PRIMITIVE_COMPOSE_DONE_WHEN,
+        "source": "genesis_bind_compose",
     },
 )
 

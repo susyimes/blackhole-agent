@@ -57,6 +57,12 @@ def _continue_resumed_follow_ons(state: Any, durable: Path) -> None:
         continue_resumed_consumed_growth(state, repo_path=durable)
     except Exception:  # noqa: BLE001 - resume must still return bound fields
         pass
+    try:
+        from blackhole_agent.kernel_compound_loop import continue_resumed_compound_loop
+
+        continue_resumed_compound_loop(state, repo_path=durable)
+    except Exception:  # noqa: BLE001 - resume must still return bound fields
+        pass
 
 
 def campaign_is_resumable(campaign: LocalCampaign) -> bool:
