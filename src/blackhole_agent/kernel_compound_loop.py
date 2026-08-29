@@ -101,6 +101,37 @@ def absorbed_leaves_are_saturated(campaign: LocalCampaign, ledger: CapabilityLed
     return CONSUMED_GROWTH_LEAF_ID in campaign.completed_ids
 
 
+def primitive_unique_coverage_is_saturated(
+    ledger: CapabilityLedger,
+    campaign: LocalCampaign | None = None,
+) -> bool:
+    """True when no novelty-ranked in-process primitive remains to absorb."""
+
+    _ = campaign  # coverage is a ledger property; campaign completion is orthogonal
+    ranked = rank_novel_primitive_leaves(ledger)
+    has_novel = any(
+        item.get("novel") and item.get("status") == "ready_to_absorb" for item in ranked
+    )
+    if has_novel:
+        return False
+    proved = [
+        item_id
+        for item_id, item in ledger.capabilities.items()
+        if is_compound_loop_leaf_id(item_id) and item.last_proof_exit_code == 0
+    ]
+    return len(proved) >= 2
+
+
+def bound_to_primitive_compose(goal: str, done_when: str = "", bind_source: str = "") -> bool:
+    """True when genesis is already scoped to the composition closer."""
+
+    if PRIMITIVE_COMPOSE_ID in f"{goal} {done_when}":
+        return True
+    if str(goal or "").strip() == PRIMITIVE_COMPOSE_GOAL:
+        return True
+    return "genesis_bind_compose" in str(bind_source or "")
+
+
 def compound_loop_is_needed(
     campaign: LocalCampaign,
     ledger: CapabilityLedger,
@@ -128,7 +159,10 @@ def compound_loop_is_needed(
     live_goal = str(goal or campaign.goal or "")
     live_done = str(done_when or campaign.done_when or "")
     source = str(bind_source or campaign.bound_from or "")
-    scoped = bound_to_compound_loop(live_goal, live_done, source)
+    compose_bound = bound_to_primitive_compose(live_goal, live_done, source)
+    if compose_bound and primitive_unique_coverage_is_saturated(ledger, campaign):
+        return False
+    scoped = bound_to_compound_loop(live_goal, live_done, source) or compose_bound
     saturated = absorbed_leaves_are_saturated(campaign, ledger)
     if not scoped and not saturated:
         return False

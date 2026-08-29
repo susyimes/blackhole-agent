@@ -75,6 +75,7 @@ HANDOFF_KEYS = (
     "leftover_consumed",
     "consumed_growth_leaf",
     "compound_loop_leaf",
+    "primitive_compose_unit",
 )
 
 

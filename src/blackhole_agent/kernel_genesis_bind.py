@@ -92,6 +92,17 @@ PRIMITIVE_COMPOSE_GOAL = (
     "repair stalled composition: promote a ready multi-primitive composition "
     "in-process so recovered kernels keep compounding programs instead of blocking."
 )
+COMPOSED_PROGRAM_ID = "capability.kernel-composed-program"
+COMPOSED_PROGRAM_DONE_WHEN = (
+    f"capability_exists:{COMPOSED_PROGRAM_ID};"
+    f"capability_proved:{COMPOSED_PROGRAM_ID};"
+    "no_skill_route"
+)
+COMPOSED_PROGRAM_GOAL = (
+    "When in-process multi-primitive compositions saturate unique coverage, "
+    "repair stalled program compounding: promote a ready composed program "
+    "in-process so recovered kernels keep stacking programs instead of blocking."
+)
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
     {
@@ -117,6 +128,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PRIMITIVE_COMPOSE_GOAL,
         "done_when": PRIMITIVE_COMPOSE_DONE_WHEN,
         "source": "genesis_bind_compose",
+    },
+    {
+        "id": COMPOSED_PROGRAM_ID,
+        "goal": COMPOSED_PROGRAM_GOAL,
+        "done_when": COMPOSED_PROGRAM_DONE_WHEN,
+        "source": "genesis_bind_program",
     },
 )
 

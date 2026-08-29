@@ -585,6 +585,7 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     previous_handoff = dict(campaign.handoff or {})
     growth_used = False
     compound_used = False
+    compose_used = False
     capability_id = ""
     try:
         from blackhole_agent.kernel_consumed_growth import attach_consumed_growth_leaf
@@ -617,6 +618,22 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
             capability_id = ""
             compound_used = False
+    if not capability_id:
+        try:
+            from blackhole_agent.kernel_primitive_compose import attach_primitive_composition
+
+            capability_id = attach_primitive_composition(
+                campaign,
+                ledger,
+                root,
+                goal=binding.goal,
+                done_when=binding.done_when,
+                bind_source=binding.source,
+            )
+            compose_used = bool(capability_id)
+        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
+            capability_id = ""
+            compose_used = False
     if not capability_id:
         capability_id = _next_step(campaign)
     succession_used = False
@@ -694,6 +711,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         reason = "mission_plane"
     elif succession_used:
         reason = "succession"
+    elif compose_used:
+        reason = "primitive_compose"
     elif compound_used:
         reason = "compound_loop"
     elif growth_used:
@@ -724,6 +743,17 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         summary = (
             f"Local mission-plane executed {', '.join(passed)} after cheap "
             "local-anchor rotation and succession were exhausted."
+        )
+    elif passed and compose_used:
+        delta = (
+            "Local primitive-compose promoted and proved "
+            + ", ".join(passed)
+            + " as a multi-primitive composition after unique primitive coverage saturated."
+        )
+        summary = (
+            f"Local primitive-compose promoted and proved {', '.join(passed)} "
+            "in-process so recovered kernels keep compounding programs instead of "
+            "blocking."
         )
     elif passed and compound_used:
         delta = (
@@ -825,6 +855,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.handoff["consumed_growth_leaf"] = passed[0]
     if compound_used and passed:
         campaign.handoff["compound_loop_leaf"] = passed[0]
+    if compose_used and passed:
+        campaign.handoff["primitive_compose_unit"] = passed[0]
     if plane_ok:
         campaign.handoff["mission_plane_ok"] = True
     if finalize:
