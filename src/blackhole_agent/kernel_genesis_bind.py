@@ -103,6 +103,17 @@ COMPOSED_PROGRAM_GOAL = (
     "repair stalled program compounding: promote a ready composed program "
     "in-process so recovered kernels keep stacking programs instead of blocking."
 )
+PROGRAM_STACK_ID = "capability.kernel-program-stack"
+PROGRAM_STACK_DONE_WHEN = (
+    f"capability_exists:{PROGRAM_STACK_ID};"
+    f"capability_proved:{PROGRAM_STACK_ID};"
+    "no_skill_route"
+)
+PROGRAM_STACK_GOAL = (
+    "When in-process composed programs saturate unique coverage, "
+    "repair stalled program stacking: promote a ready stacked program "
+    "in-process so recovered kernels keep compounding towers instead of blocking."
+)
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
     {
@@ -134,6 +145,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": COMPOSED_PROGRAM_GOAL,
         "done_when": COMPOSED_PROGRAM_DONE_WHEN,
         "source": "genesis_bind_program",
+    },
+    {
+        "id": PROGRAM_STACK_ID,
+        "goal": PROGRAM_STACK_GOAL,
+        "done_when": PROGRAM_STACK_DONE_WHEN,
+        "source": "genesis_bind_stack",
     },
 )
 
