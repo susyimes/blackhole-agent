@@ -114,6 +114,17 @@ PROGRAM_STACK_GOAL = (
     "repair stalled program stacking: promote a ready stacked program "
     "in-process so recovered kernels keep compounding towers instead of blocking."
 )
+PROGRAM_TOWER_ID = "capability.kernel-program-tower"
+PROGRAM_TOWER_DONE_WHEN = (
+    f"capability_exists:{PROGRAM_TOWER_ID};"
+    f"capability_proved:{PROGRAM_TOWER_ID};"
+    "no_skill_route"
+)
+PROGRAM_TOWER_GOAL = (
+    "When in-process stacked programs saturate unique coverage, "
+    "repair stalled tower compounding: promote a ready program tower "
+    "in-process so recovered kernels keep compounding lattices instead of blocking."
+)
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
     {
@@ -151,6 +162,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PROGRAM_STACK_GOAL,
         "done_when": PROGRAM_STACK_DONE_WHEN,
         "source": "genesis_bind_stack",
+    },
+    {
+        "id": PROGRAM_TOWER_ID,
+        "goal": PROGRAM_TOWER_GOAL,
+        "done_when": PROGRAM_TOWER_DONE_WHEN,
+        "source": "genesis_bind_tower",
     },
 )
 

@@ -39,6 +39,7 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.kernel_compound_loop import (
     COMPOUND_LOOP_LEAF_PREFIX,
     bound_to_composed_program,
+    bound_to_program_stack,
     is_compound_loop_leaf_id,
 )
 from blackhole_agent.kernel_consumed_growth import is_cheap_inventory_id
@@ -190,6 +191,9 @@ def composed_program_is_needed(
     saturated = composition_unique_coverage_is_saturated(ledger, campaign)
     if not saturated:
         return False
+    stack_bound = bound_to_program_stack(live_goal, live_done, source)
+    if stack_bound and program_unique_coverage_is_saturated(ledger, campaign):
+        return False
     if not scoped and not saturated:
         return False
     remaining = cheap_remaining(campaign)
@@ -262,6 +266,27 @@ def rank_ready_composed_programs(
         )
     annotate_opportunities_with_novelty(ledger, opportunities)
     return rank_growth_opportunities(opportunities)
+
+
+def program_unique_coverage_is_saturated(
+    ledger: CapabilityLedger,
+    campaign: LocalCampaign | None = None,
+) -> bool:
+    """True when no novelty-ranked composed program remains to promote."""
+
+    _ = campaign  # coverage is a ledger property; campaign completion is orthogonal
+    ranked = rank_ready_composed_programs(ledger)
+    has_novel = any(
+        item.get("novel") and item.get("status") == "ready" for item in ranked
+    )
+    if has_novel:
+        return False
+    proved = [
+        item_id
+        for item_id, item in ledger.capabilities.items()
+        if is_composed_program_id(item_id) and item.last_proof_exit_code == 0
+    ]
+    return len(proved) >= 2
 
 
 def select_composed_program(
@@ -377,6 +402,35 @@ def promote_and_prove_composed_program(
     if is_primitive_capability(proved):
         return ""
     return program_id
+
+
+def saturate_composed_programs(
+    root: Path,
+    ledger: CapabilityLedger,
+    campaign: LocalCampaign,
+) -> list[str]:
+    """Promote every remaining novel consecutive-pair composed program."""
+
+    promoted: list[str] = []
+    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    while True:
+        program_id = ""
+        for item in rank_ready_composed_programs(ledger, skip_ids=tuple(skip)):
+            candidate = str(item.get("suggested_id") or "").strip()
+            if not candidate or candidate in skip:
+                continue
+            if item.get("novel") and item.get("status") == "ready":
+                program_id = candidate
+                break
+        if not program_id:
+            return promoted
+        proved = promote_and_prove_composed_program(Path(root), ledger, program_id)
+        if not proved:
+            return promoted
+        promoted.append(proved)
+        skip.add(proved)
+        if proved not in campaign.completed_ids:
+            campaign.completed_ids.append(proved)
 
 
 def attach_composed_program(

@@ -46,6 +46,8 @@ from blackhole_agent.kernel_genesis_bind import (
     KERNEL_GENESIS_BIND_ID,
     PRIMITIVE_COMPOSE_GOAL,
     PRIMITIVE_COMPOSE_ID,
+    PROGRAM_STACK_GOAL,
+    PROGRAM_STACK_ID,
 )
 from blackhole_agent.kernel_succession import cheap_remaining
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, invoke_local_capability
@@ -144,6 +146,16 @@ def bound_to_composed_program(goal: str, done_when: str = "", bind_source: str =
     return "genesis_bind_program" in str(bind_source or "")
 
 
+def bound_to_program_stack(goal: str, done_when: str = "", bind_source: str = "") -> bool:
+    """True when genesis is already scoped to the program-stack closer."""
+
+    if PROGRAM_STACK_ID in f"{goal} {done_when}":
+        return True
+    if str(goal or "").strip() == PROGRAM_STACK_GOAL:
+        return True
+    return "genesis_bind_stack" in str(bind_source or "")
+
+
 def compound_loop_is_needed(
     campaign: LocalCampaign,
     ledger: CapabilityLedger,
@@ -173,11 +185,17 @@ def compound_loop_is_needed(
     source = str(bind_source or campaign.bound_from or "")
     compose_bound = bound_to_primitive_compose(live_goal, live_done, source)
     program_bound = bound_to_composed_program(live_goal, live_done, source)
-    if (compose_bound or program_bound) and primitive_unique_coverage_is_saturated(
-        ledger, campaign
-    ):
+    stack_bound = bound_to_program_stack(live_goal, live_done, source)
+    if (
+        compose_bound or program_bound or stack_bound
+    ) and primitive_unique_coverage_is_saturated(ledger, campaign):
         return False
-    scoped = bound_to_compound_loop(live_goal, live_done, source) or compose_bound or program_bound
+    scoped = (
+        bound_to_compound_loop(live_goal, live_done, source)
+        or compose_bound
+        or program_bound
+        or stack_bound
+    )
     saturated = absorbed_leaves_are_saturated(campaign, ledger)
     if not scoped and not saturated:
         return False

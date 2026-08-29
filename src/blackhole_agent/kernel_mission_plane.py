@@ -77,6 +77,7 @@ HANDOFF_KEYS = (
     "compound_loop_leaf",
     "primitive_compose_unit",
     "composed_program_unit",
+    "program_stack_unit",
 )
 
 
