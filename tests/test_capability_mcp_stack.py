@@ -18,6 +18,7 @@ from blackhole_agent.capability_mcp_stack import (
     run_mcp_stack_health_plane,
     verify_mcp_stack_health_report,
 )
+from blackhole_agent.capability_mcp_stack_repair import MCP_STACK_REPAIR_ID
 from blackhole_agent.capability_stack import run_stack_health
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 
@@ -79,6 +80,7 @@ def test_leftover_binds_mcp_stack_health_plane() -> None:
     assert MCP_RELIABILITY_ID not in leftover_marker_ids(leftover)
     assert MCP_RECOVERY_ID not in leftover_marker_ids(leftover)
     assert MCP_FRAGILITY_ID not in leftover_marker_ids(leftover)
+    assert MCP_STACK_REPAIR_ID not in leftover_marker_ids(leftover)
     assert MCP_APPLICATION_BRIDGE_ID not in leftover_marker_ids(leftover)
 
 
@@ -89,6 +91,7 @@ def test_recovery_leftover_stays_on_the_heal_plane() -> None:
     )
     assert leftover_marker_ids(leftover) == (MCP_RECOVERY_ID,)
     assert MCP_STACK_ID not in leftover_marker_ids(leftover)
+    assert MCP_STACK_REPAIR_ID not in leftover_marker_ids(leftover)
 
 
 def test_builtin_proof_registers_and_is_falsifiable() -> None:

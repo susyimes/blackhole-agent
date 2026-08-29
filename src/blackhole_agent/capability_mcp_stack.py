@@ -18,6 +18,8 @@ semantics of the base stack:
   member needs repair;
 - stamping the live MCP hop red makes the mixed stack grade fail, naming
   the composition goal in watchdog drift;
+- restoring that failed grade after a healable hop is the mixed
+  stack-repair plane, not this snapshot;
 - a digest-sealed report under ``artifacts/capability-mcp-stack/`` whose
   verification recomputes every verdict from the live ledger and rejects
   tamper and misgrade.
@@ -79,7 +81,8 @@ def mixed_recovery_snapshot(ledger) -> dict[str, Any]:
 
     Stack grade is a snapshot, not a heal. Running the recovery loop here
     would repair a red hop and hide the failure the leftover asks the
-    stack grade to report.
+    stack grade to report. Restoring the grade after a healable hop is
+    ``capability.mcp-stack-repair-plane``.
     """
 
     red_ids: list[str] = []

@@ -1,0 +1,135 @@
+{
+  "composition_id": "mcp-compose-text-reverser-echo-sha256",
+  "generated_at": "2026-08-29T20:49:52.970732Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 7,
+    "verdicts_passed": 7
+  },
+  "healed": {
+    "application_ok": true,
+    "drifted_goals": [],
+    "health": {
+      "green_count": 4,
+      "healthy": true,
+      "plane_count": 4,
+      "planes_green": {
+        "application": true,
+        "fragility": true,
+        "recovery": true,
+        "watchdog": true
+      }
+    },
+    "repair": {
+      "capability_id": "capability.mcp-echo-sha256",
+      "honest": true,
+      "last_proof_exit_code": 0,
+      "ok": true,
+      "repair_actions": [
+        "reprove_mcp_hop"
+      ],
+      "verdict": "repaired"
+    },
+    "repair_count": 0,
+    "unsolvable_count": 0
+  },
+  "isolation": {
+    "base_stack_ignores_red_hop": true,
+    "ok": true,
+    "repair_count": 0,
+    "repair_ids": [],
+    "stack_base_isolation": true,
+    "stack_red_hop_fails": true,
+    "task_ids": [
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal",
+      "routed-triage-record",
+      "scan-gated-activation"
+    ]
+  },
+  "kind": "capability_mcp_stack_repair",
+  "live": {
+    "application_ok": true,
+    "drifted_goals": [],
+    "health": {
+      "green_count": 4,
+      "healthy": true,
+      "plane_count": 4,
+      "planes_green": {
+        "application": true,
+        "fragility": true,
+        "recovery": true,
+        "watchdog": true
+      }
+    },
+    "repair_count": 0,
+    "unsolvable_count": 0
+  },
+  "mcp_id": "capability.mcp-echo-sha256",
+  "mcp_ids": [
+    "mcp-compose-text-reverser-echo-sha256"
+  ],
+  "ok": true,
+  "red": {
+    "application_ok": false,
+    "drifted_goals": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "health": {
+      "green_count": 1,
+      "healthy": false,
+      "plane_count": 4,
+      "planes_green": {
+        "application": false,
+        "fragility": true,
+        "recovery": false,
+        "watchdog": false
+      }
+    },
+    "repair_count": 1,
+    "unsolvable_count": 1
+  },
+  "report_digest": "86de7890f4df3acfd4845766959060dc751bc9f6823f1ce0d3b2bb780fd4df99",
+  "schema_version": 1,
+  "unrepairable": {
+    "application_ok": false,
+    "drifted_goals": [
+      "mcp-compose-text-reverser-echo-sha256"
+    ],
+    "health": {
+      "green_count": 1,
+      "healthy": false,
+      "plane_count": 4,
+      "planes_green": {
+        "application": false,
+        "fragility": true,
+        "recovery": false,
+        "watchdog": false
+      }
+    },
+    "repair": {
+      "capability_id": "capability.mcp-echo-sha256",
+      "honest": true,
+      "last_proof_exit_code": 1,
+      "ok": false,
+      "repair_actions": [
+        "detect_failing_proof"
+      ],
+      "verdict": "unrepairable"
+    },
+    "repair_count": 1,
+    "unsolvable_count": 1
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "has_mcp_goals": true,
+    "healable_hop_restores_stack": true,
+    "live_mcp_stack_healthy": true,
+    "no_skill_route": true,
+    "red_hop_fails_stack": true,
+    "unrepairable_hop_leaves_stack_unhealthy": true
+  }
+}
