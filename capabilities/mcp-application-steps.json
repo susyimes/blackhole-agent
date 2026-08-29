@@ -1,0 +1,19 @@
+{
+  "kind": "mcp_application_steps",
+  "schema_version": 1,
+  "steps": [
+    {
+      "capability_id": "capability.mcp-echo-sha256",
+      "provides": [
+        "mcp_sha256_hex"
+      ],
+      "requires": [
+        "text"
+      ],
+      "runtime": "mcp",
+      "server": "echo",
+      "tool_name": "sha256"
+    }
+  ],
+  "updated_at": "2026-08-29T16:11:39.829945Z"
+}

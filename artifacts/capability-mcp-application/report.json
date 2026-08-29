@@ -1,0 +1,92 @@
+{
+  "expected_plan": [
+    "capability.absorbed-text-reverser",
+    "capability.mcp-bridge-text-reverser-echo-sha256",
+    "capability.mcp-echo-sha256"
+  ],
+  "generated_at": "2026-08-29T16:11:39.832004Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 11,
+    "verdicts_passed": 11
+  },
+  "grown_plan": [
+    "capability.absorbed-text-reverser",
+    "capability.mcp-bridge-text-reverser-echo-sha256",
+    "capability.mcp-echo-sha256"
+  ],
+  "kind": "capability_mcp_application",
+  "minimality": [
+    {
+      "broke_outcome": true,
+      "member": "capability.absorbed-text-reverser"
+    },
+    {
+      "broke_outcome": true,
+      "member": "capability.mcp-bridge-text-reverser-echo-sha256"
+    },
+    {
+      "broke_outcome": true,
+      "member": "capability.mcp-echo-sha256"
+    }
+  ],
+  "ok": true,
+  "pair": {
+    "bridge_id": "capability.mcp-bridge-text-reverser-echo-sha256",
+    "consumer_goal": [
+      "mcp_sha256_hex"
+    ],
+    "consumer_id": "capability.mcp-echo-sha256",
+    "consumer_provide": "mcp_sha256_hex",
+    "consumer_require": "text",
+    "consumer_runtime": "mcp",
+    "consumer_server": "echo",
+    "consumer_slug": "echo-sha256",
+    "consumer_tool": "sha256",
+    "mapping": {
+      "reversed_text": [
+        "text"
+      ]
+    },
+    "producer_id": "capability.absorbed-text-reverser",
+    "producer_input": {
+      "raw_text": "absorption plane"
+    },
+    "producer_runtime": "python",
+    "producer_slug": "text-reverser",
+    "provides": [
+      "text"
+    ],
+    "requires": [
+      "reversed_text"
+    ]
+  },
+  "report_digest": "33a2fac76446678bea2556082ddf9e1252f30fd5ca030c4881ea6b248e7280ec",
+  "schema_version": 1,
+  "task": {
+    "goal": [
+      "mcp_sha256_hex"
+    ],
+    "id": "mcp-compose-text-reverser-echo-sha256",
+    "initial_state": {
+      "raw_text": "absorption plane"
+    },
+    "oracle": {
+      "mcp_sha256_hex": "5bee4f49be097d7b57205e7b189333708552c9f0a7d69a214a72a0d36b32b982"
+    }
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "bridge_ablation_unplannable": true,
+    "consumer_ablation_unplannable": true,
+    "cross_runtime": true,
+    "grown_plan_solved": true,
+    "mcp_only_unplannable": true,
+    "minimality": true,
+    "producer_ablation_unplannable": true,
+    "reversed_broke": true,
+    "skip_producer_broke": true,
+    "unplannable_without_bridge": true,
+    "unplannable_without_mcp": true
+  }
+}

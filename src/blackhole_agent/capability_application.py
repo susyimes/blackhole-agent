@@ -411,18 +411,28 @@ def _capability_proved(ledger: CapabilityLedger, capability_id: str) -> bool:
 def plan_member_is_sound(ledger: CapabilityLedger, capability_id: str) -> bool:
     """A planned step is sound when it is a green ledger member or a persisted bridge.
 
-    Typed key-bridges are mapping steps persisted in ``absorbed-bridges.json``.
-    They are not always ledger citizens, but a plan that names one is still
-    sound when both endpoints are green. A forged bridge id fails.
+    Typed key-bridges are mapping steps persisted in ``absorbed-bridges.json``
+    or ``mcp-bridges.json``. They are not always ledger citizens, but a plan
+    that names one is still sound when both endpoints are green. A forged
+    bridge id fails.
     """
 
     if _capability_proved(ledger, capability_id):
         return True
+    records: list[Mapping[str, Any]] = []
     try:
         from blackhole_agent.capability_absorbed_composition import load_persisted_bridge_records
-    except Exception:  # noqa: BLE001 - soundness must fail closed
-        return False
-    for record in load_persisted_bridge_records():
+
+        records.extend(load_persisted_bridge_records())
+    except Exception:  # noqa: BLE001 - soundness must fail closed on this surface
+        pass
+    try:
+        from blackhole_agent.capability_mcp_application import load_persisted_mcp_bridge_records
+
+        records.extend(load_persisted_mcp_bridge_records())
+    except Exception:  # noqa: BLE001 - MCP bridges are optional until the plane lands
+        pass
+    for record in records:
         if str(record.get("bridge_id") or "") != capability_id:
             continue
         producer_id = str(record.get("producer_id") or "")
@@ -450,11 +460,13 @@ def build_application_registry(
     capability is proved in the ledger — the grown frontier after generative
     growth. ``include_absorbed=True`` likewise folds in durably persisted
     absorbed steps (``capabilities/absorbed-steps.json``) vendored from
-    external tools, plus typed key-bridges whose producer and consumer are
-    both proved. Default watchdog, recovery, and fragility calls stay on the
-    base registry so pre-growth proofs keep their exact semantics; the
-    absorbed reliability plane watches the grown goals separately, and the
-    absorbed recovery plane heals a red producer or consumer on that surface.
+    external tools, typed key-bridges whose producer and consumer are both
+    proved, and live MCP application steps plus MCP key-bridges whose
+    endpoints are proved. Default watchdog, recovery, and fragility calls
+    stay on the base registry so pre-growth proofs keep their exact
+    semantics; the absorbed reliability plane watches the grown goals
+    separately, and the absorbed recovery plane heals a red producer or
+    consumer on that surface.
     """
 
     hidden = set(hide)
@@ -484,6 +496,28 @@ def build_application_registry(
         }
         for capability_id, step in load_persisted_bridge_steps().items():
             record = bridge_records.get(capability_id) or {}
+            producer_id = str(record.get("producer_id") or "")
+            consumer_id = str(record.get("consumer_id") or "")
+            if capability_id in hidden or producer_id in hidden or consumer_id in hidden:
+                continue
+            if _capability_proved(ledger, producer_id) and _capability_proved(ledger, consumer_id):
+                registry[capability_id] = step
+        try:
+            from blackhole_agent.capability_mcp_application import (
+                load_persisted_mcp_bridge_records,
+                load_persisted_mcp_bridge_steps,
+                mcp_application_steps,
+            )
+        except Exception:  # noqa: BLE001 - MCP surface is optional until registered
+            return registry
+        for capability_id, step in mcp_application_steps().items():
+            if capability_id not in hidden and _capability_proved(ledger, capability_id):
+                registry[capability_id] = step
+        mcp_bridge_records = {
+            str(item.get("bridge_id") or ""): item for item in load_persisted_mcp_bridge_records()
+        }
+        for capability_id, step in load_persisted_mcp_bridge_steps().items():
+            record = mcp_bridge_records.get(capability_id) or {}
             producer_id = str(record.get("producer_id") or "")
             consumer_id = str(record.get("consumer_id") or "")
             if capability_id in hidden or producer_id in hidden or consumer_id in hidden:

@@ -1,0 +1,37 @@
+{
+  "bridges": [
+    {
+      "bridge_id": "capability.mcp-bridge-text-reverser-echo-sha256",
+      "consumer_goal": [
+        "mcp_sha256_hex"
+      ],
+      "consumer_id": "capability.mcp-echo-sha256",
+      "consumer_provide": "mcp_sha256_hex",
+      "consumer_require": "text",
+      "consumer_runtime": "mcp",
+      "consumer_server": "echo",
+      "consumer_slug": "echo-sha256",
+      "consumer_tool": "sha256",
+      "mapping": {
+        "reversed_text": [
+          "text"
+        ]
+      },
+      "producer_id": "capability.absorbed-text-reverser",
+      "producer_input": {
+        "raw_text": "absorption plane"
+      },
+      "producer_runtime": "python",
+      "producer_slug": "text-reverser",
+      "provides": [
+        "text"
+      ],
+      "requires": [
+        "reversed_text"
+      ]
+    }
+  ],
+  "kind": "mcp_application_bridges",
+  "schema_version": 1,
+  "updated_at": "2026-08-29T16:11:39.831150Z"
+}
