@@ -9,7 +9,9 @@ class, but experience fuel never checks the ledger.
 This module:
 
 - treats an operational class as closed when every required structural
-  capability is proved on the live ledger
+  capability is proved on the live working-tree ledger or the continuous-loop
+  lineage tip, so a lagging controller checkout cannot reopen a closer that
+  already landed on origin
 - drops closed classes from genesis fuel (including forced pattern-register
   rows)
 - stops local bind from falling back to the harvested 402 class once it is
@@ -19,6 +21,7 @@ This module:
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -33,6 +36,9 @@ from blackhole_agent.capability_compounder import (
 SCHEMA_VERSION = 1
 KERNEL_CLASS_CLOSURE_ID = "capability.kernel-class-closure"
 KERNEL_TURN_FAILED = "kernel_turn_failed"
+LEDGER_GIT_PATH = "capabilities/ledger.json"
+LOOP_STATE_RELATIVE = Path(".blackhole-agent") / "unbound" / "continuous-loop.json"
+_GIT_LEDGER_CACHE: dict[tuple[str, str], CapabilityLedger | None] = {}
 
 KERNEL_CLASS_CLOSURE_DONE_WHEN = (
     f"capability_exists:{KERNEL_CLASS_CLOSURE_ID};"
@@ -80,14 +86,94 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _load_repo_ledger(root: Path) -> CapabilityLedger | None:
-    path = default_ledger_path(Path(root))
-    if not path.exists():
-        return None
+def discover_lineage_ref(root: Path) -> str:
+    """Return the continuous-loop lineage tip, or empty when none is recorded."""
+
+    path = Path(root) / LOOP_STATE_RELATIVE
+    if not path.is_file():
+        return ""
     try:
-        return load_ledger(path)
-    except Exception:  # noqa: BLE001 - harvest must still return fuel
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    if not isinstance(payload, Mapping):
+        return ""
+    return str(payload.get("lineage_ref") or "").strip()
+
+
+def load_ledger_from_git_ref(root: Path, ref: str) -> CapabilityLedger | None:
+    """Load ``capabilities/ledger.json`` from a git object, ignoring the working tree."""
+
+    commit = str(ref or "").strip()
+    if not commit:
         return None
+    key = (str(Path(root).resolve()), commit)
+    if key in _GIT_LEDGER_CACHE:
+        return _GIT_LEDGER_CACHE[key]
+    ledger: CapabilityLedger | None = None
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(Path(root)), "show", f"{commit}:{LEDGER_GIT_PATH}"],
+            capture_output=True,
+            timeout=20,
+            check=False,
+        )
+        if completed.returncode == 0 and completed.stdout:
+            payload = json.loads(completed.stdout.decode("utf-8"))
+            if isinstance(payload, Mapping):
+                ledger = CapabilityLedger.from_dict(payload)
+    except Exception:  # noqa: BLE001 - closure must still consult the working tree
+        ledger = None
+    _GIT_LEDGER_CACHE[key] = ledger
+    return ledger
+
+
+def merge_proved_ledgers(*ledgers: CapabilityLedger | None) -> CapabilityLedger | None:
+    """Union capabilities, preferring a proved last_proof_exit_code."""
+
+    live = [item for item in ledgers if item is not None]
+    if not live:
+        return None
+    merged = CapabilityLedger(schema_version=int(live[0].schema_version or SCHEMA_VERSION))
+    for ledger in live:
+        for capability_id, capability in ledger.capabilities.items():
+            existing = merged.capabilities.get(capability_id)
+            if existing is None:
+                merged.capabilities[capability_id] = capability
+                continue
+            if capability.last_proof_exit_code == 0 and existing.last_proof_exit_code != 0:
+                merged.capabilities[capability_id] = capability
+    return merged
+
+
+def load_effective_ledger(
+    root: Path,
+    *,
+    lineage_ref: str = "",
+    ledger: CapabilityLedger | None = None,
+) -> CapabilityLedger | None:
+    """Working-tree ledger plus proved closers from the lineage tip.
+
+    The continuous loop creates the next mission against the controller
+    checkout, which can lag origin after a worktree publish. Class closure
+    must still see closers that exist only on ``lineage_ref``.
+    """
+
+    working = ledger
+    if working is None:
+        path = default_ledger_path(Path(root))
+        if path.exists():
+            try:
+                working = load_ledger(path)
+            except Exception:  # noqa: BLE001 - harvest must still return fuel
+                working = None
+    ref = str(lineage_ref or "").strip() or discover_lineage_ref(root)
+    tip = load_ledger_from_git_ref(root, ref) if ref else None
+    return merge_proved_ledgers(working, tip)
+
+
+def _load_repo_ledger(root: Path, *, lineage_ref: str = "") -> CapabilityLedger | None:
+    return load_effective_ledger(Path(root), lineage_ref=lineage_ref)
 
 
 def _ledger_proves(ledger: CapabilityLedger | None, capability_id: str) -> bool:
@@ -106,39 +192,62 @@ def class_is_closed(
     root: Path,
     *,
     ledger: CapabilityLedger | None = None,
+    lineage_ref: str = "",
 ) -> bool:
-    """True when every required structural closer is proved on the ledger."""
+    """True when every required structural closer is proved on the effective ledger."""
 
     required = class_closure_ids(class_id)
     if not required:
         return False
-    live = ledger if ledger is not None else _load_repo_ledger(root)
+    live = load_effective_ledger(Path(root), lineage_ref=lineage_ref, ledger=ledger)
     return all(_ledger_proves(live, item_id) for item_id in required)
 
 
-def first_open_candidate(candidates: Iterable[Any], root: Path, *, ledger: CapabilityLedger | None = None) -> Any | None:
+def first_open_candidate(
+    candidates: Iterable[Any],
+    root: Path,
+    *,
+    ledger: CapabilityLedger | None = None,
+    lineage_ref: str = "",
+) -> Any | None:
     """Return the first experience candidate whose class is still open."""
 
-    live = ledger if ledger is not None else _load_repo_ledger(root)
+    live = load_effective_ledger(Path(root), lineage_ref=lineage_ref, ledger=ledger)
     for item in candidates:
         class_id = str(getattr(item, "class_id", "") or "")
-        if class_id and class_is_closed(class_id, root, ledger=live):
+        if class_id and class_is_closed(class_id, root, ledger=live, lineage_ref=lineage_ref):
             continue
         return item
     return None
 
 
-def drop_closed_class_fuel(fuel: Any, root: Path, *, ledger: CapabilityLedger | None = None) -> Any:
+def drop_closed_class_fuel(
+    fuel: Any,
+    root: Path,
+    *,
+    ledger: CapabilityLedger | None = None,
+    lineage_ref: str = "",
+) -> Any:
     """Strip closed classes from harvested genesis fuel."""
 
-    live = ledger if ledger is not None else _load_repo_ledger(root)
+    live = load_effective_ledger(Path(root), lineage_ref=lineage_ref, ledger=ledger)
     forced = getattr(fuel, "forced", None)
-    if isinstance(forced, Mapping) and class_is_closed(str(forced.get("class_id") or ""), root, ledger=live):
+    if isinstance(forced, Mapping) and class_is_closed(
+        str(forced.get("class_id") or ""),
+        root,
+        ledger=live,
+        lineage_ref=lineage_ref,
+    ):
         forced = None
     kept = [
         item
         for item in list(getattr(fuel, "candidates", None) or [])
-        if not class_is_closed(str(getattr(item, "class_id", "") or ""), root, ledger=live)
+        if not class_is_closed(
+            str(getattr(item, "class_id", "") or ""),
+            root,
+            ledger=live,
+            lineage_ref=lineage_ref,
+        )
     ]
     fuel.forced = forced
     fuel.candidates = kept
@@ -234,6 +343,33 @@ def builtin_kernel_class_closure_proof() -> dict[str, Any]:
     checks["closes_mission_blocked"] = class_closure_ids("mission_blocked") == (
         "capability.kernel-unscoped-resume",
     )
+    checks["closes_genesis_selection_blocked"] = class_closure_ids("genesis_selection_blocked") == (
+        "capability.kernel-genesis-bind",
+    )
+
+    from blackhole_agent.capability_compounder import Capability, CapabilityLedger, register_capability
+
+    tip = CapabilityLedger()
+    register_capability(
+        tip,
+        Capability(
+            id="capability.kernel-genesis-bind",
+            name="genesis bind",
+            description="Lineage-tip closer used to prove stale-checkout merge.",
+            kind="python",
+            entry="blackhole_agent.local_capability_kernel:builtin_fixture_probe",
+            proof_command="uv run python -c \"print('ok')\"",
+            last_proof_exit_code=0,
+        ),
+        replace=True,
+    )
+    merged = merge_proved_ledgers(CapabilityLedger(), tip)
+    checks["lineage_merge_imports_proofs"] = _ledger_proves(merged, "capability.kernel-genesis-bind")
+    checks["merged_ledger_closes_selection_class"] = class_is_closed(
+        "genesis_selection_blocked",
+        Path("."),
+        ledger=merged,
+    ) is True
 
     class _State:
         def __init__(self, repo: Path, *, goal: str = "", done_when: str = "") -> None:

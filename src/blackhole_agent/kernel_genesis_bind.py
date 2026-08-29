@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
@@ -32,7 +33,7 @@ from blackhole_agent.capability_compounder import (
     register_capability,
     save_ledger,
 )
-from blackhole_agent.kernel_class_closure import class_closure_ids, class_is_closed
+from blackhole_agent.kernel_class_closure import class_closure_ids, class_is_closed, load_effective_ledger
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -115,16 +116,21 @@ def genesis_bind_is_needed(campaign: LocalCampaign) -> bool:
     return ticks > 0 and (consumed or met)
 
 
-def _catalog_item_open(item: Mapping[str, str], root: Path) -> bool:
+def _catalog_item_open(item: Mapping[str, str], root: Path, *, lineage_ref: str = "") -> bool:
     capability_id = str(item.get("id") or "").strip()
     if not capability_id:
         return False
-    path = default_ledger_path(Path(root))
-    if not path.is_file():
-        return True
     try:
-        ledger = load_ledger(path)
+        ledger = load_effective_ledger(Path(root), lineage_ref=lineage_ref)
     except Exception:  # noqa: BLE001 - catalog ranking must still continue
+        ledger = None
+        path = default_ledger_path(Path(root))
+        if path.is_file():
+            try:
+                ledger = load_ledger(path)
+            except Exception:  # noqa: BLE001 - catalog ranking must still continue
+                ledger = None
+    if ledger is None:
         return True
     capability = ledger.capabilities.get(capability_id)
     if capability is None:
@@ -136,6 +142,7 @@ def bind_gate_passing_successor(
     root: Path,
     *,
     campaign: LocalCampaign | None = None,
+    lineage_ref: str = "",
 ) -> tuple[str, str, str]:
     """Return a gate-passing successor, or empty source when nothing binds."""
 
@@ -147,19 +154,23 @@ def bind_gate_passing_successor(
         from blackhole_agent.experience_fuel import harvest_experience
         from blackhole_agent.local_mission_sovereignty import mission_from_candidate
 
-        fuel = harvest_experience(Path(root), limit=5)
-        ledger = None
-        path = default_ledger_path(Path(root))
-        if path.is_file():
-            try:
-                ledger = load_ledger(path)
-            except Exception:  # noqa: BLE001 - experience ranking must still continue
-                ledger = None
+        fuel = harvest_experience(Path(root), limit=5, lineage_ref=lineage_ref)
+        ledger = load_effective_ledger(Path(root), lineage_ref=lineage_ref)
         for item in fuel.candidates:
             class_id = str(item.class_id or "")
-            if class_id and class_is_closed(class_id, Path(root), ledger=ledger):
+            if class_id and class_is_closed(
+                class_id,
+                Path(root),
+                ledger=ledger,
+                lineage_ref=lineage_ref,
+            ):
                 continue
-            goal, done_when = mission_from_candidate(item, ledger=ledger)
+            goal, done_when = mission_from_candidate(
+                item,
+                ledger=ledger,
+                root=Path(root),
+                lineage_ref=lineage_ref,
+            )
             if not goal or not done_when:
                 continue
             gate = assess_mission_selection(
@@ -173,7 +184,7 @@ def bind_gate_passing_successor(
     except Exception:  # noqa: BLE001 - catalog fallback must still run
         pass
     for item in SUCCESSOR_CATALOG:
-        if not _catalog_item_open(item, Path(root)):
+        if not _catalog_item_open(item, Path(root), lineage_ref=lineage_ref):
             continue
         goal = str(item.get("goal") or "").strip()
         done_when = str(item.get("done_when") or "").strip()
@@ -294,6 +305,69 @@ def _write_complete_mission(root: Path, mission_id: str, goal: str, *, order: in
         encoding="utf-8",
     )
     os.utime(state_path, (float(order), float(order)))
+
+
+def _write_selection_blocked_mission(root: Path) -> None:
+    path = (
+        Path(root)
+        / ".blackhole-agent"
+        / "unbound"
+        / "missions"
+        / "blocked-selection"
+        / "state.json"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "mission_id": "blocked-selection",
+                "status": "blocked",
+                "goal": "",
+                "done_when": "",
+                "last_summary": "Autonomous mission selection rejected (3/3): capability_diversity_gate",
+                "recent_turns": [
+                    {
+                        "iteration": 3,
+                        "effective_status": "blocked",
+                        "summary": "Autonomous mission selection rejected (3/3): capability_diversity_gate",
+                        "selection_gate": {
+                            "accepted": False,
+                            "reasons": [
+                                "capability_diversity_gate: capability family is saturated in the recent mission window"
+                            ],
+                        },
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_loop_lineage(root: Path, lineage_ref: str) -> None:
+    path = Path(root) / ".blackhole-agent" / "unbound" / "continuous-loop.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"lineage_ref": lineage_ref, "status": "running_mission"}) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _git_commit_ledger(root: Path) -> str:
+    subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Blackhole Test"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "blackhole@example.invalid"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "lineage ledger"], cwd=root, check=True, capture_output=True)
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return (sha.stdout or "").strip()
 
 
 def _register_proved(root: Path, capability_id: str) -> None:
@@ -478,6 +552,60 @@ def builtin_kernel_genesis_bind_proof() -> dict[str, Any]:
     keep = _State(Path("."), goal="Operator growth goal.")
     hydrate_mission_from_campaign(keep, repo_path=Path("."))
     checks["hydrate_preserves_operator_goal"] = keep.goal == "Operator growth goal."
+
+    from blackhole_agent.experience_fuel import ExperienceCandidate, harvest_experience
+    from blackhole_agent.kernel_class_closure import class_is_closed
+    from blackhole_agent.local_mission_sovereignty import (
+        HARVESTED_KERNEL_FAILURE_DONE_WHEN,
+        mission_from_candidate,
+    )
+
+    closed_goal, closed_done = mission_from_candidate(
+        ExperienceCandidate(
+            source="unbound",
+            class_id=GENESIS_SELECTION_BLOCKED,
+            summary="turn 3 reported blocked",
+        ),
+        ledger=None,
+    )
+    checks["open_selection_class_binds_closer_not_sovereignty"] = (
+        GENESIS_SELECTION_BLOCKED in closed_goal
+        and KERNEL_GENESIS_BIND_ID in closed_done
+        and "local-mission-sovereignty" not in closed_done
+    )
+
+    with tempfile.TemporaryDirectory(prefix="kernel-genesis-bind-stale-") as tmp:
+        root = Path(tmp)
+        _write_fixture_ledger(root)
+        _register_turn_failed_closers(root)
+        _register_proved(root, KERNEL_GENESIS_BIND_ID)
+        sha = _git_commit_ledger(root)
+        _write_fixture_ledger(root)
+        _register_turn_failed_closers(root)
+        _write_loop_lineage(root, sha)
+        _write_selection_blocked_mission(root)
+        save_campaign(root, _consumed_campaign())
+        stale_closed = class_is_closed(GENESIS_SELECTION_BLOCKED, root)
+        stale_fuel = harvest_experience(root, limit=5)
+        stale_goal, stale_done, stale_source = bind_gate_passing_successor(root)
+        stale_create_goal, stale_create_done, stale_create_source = bind_create_fields(root)
+    checks["stale_checkout_still_closes_class"] = stale_closed is True
+    checks["stale_checkout_drops_selection_fuel"] = not any(
+        item.class_id == GENESIS_SELECTION_BLOCKED for item in stale_fuel.candidates
+    )
+    checks["stale_checkout_binds_growth_not_sovereignty"] = (
+        stale_goal == CONSUMED_GROWTH_GOAL
+        and CONSUMED_GROWTH_ID in stale_done
+        and stale_source == "genesis_bind_growth"
+        and HARVESTED_KERNEL_FAILURE_DONE_WHEN not in stale_done
+        and GENESIS_SELECTION_BLOCKED not in stale_goal
+    )
+    checks["stale_create_bind_uses_growth"] = (
+        stale_create_goal == CONSUMED_GROWTH_GOAL
+        and CONSUMED_GROWTH_ID in stale_create_done
+        and str(stale_create_source).startswith("genesis_bind")
+    )
+
     checks["no_skill_route"] = not legacy_pipeline_was_used()
     checks["schema_version"] = SCHEMA_VERSION == 1
 

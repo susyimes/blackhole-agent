@@ -11,6 +11,8 @@ rotate inventory instead of pursuing a mission. This module closes that hole:
 - evaluate a machine-checkable outcome contract in-process
 - emit mission_goal/done_when so genesis cannot stall
 - persist a handoff so a recovered first-class kernel resumes, not restarts
+- skip structurally closed operational classes and already-proved harvested
+  contracts so a lagging controller checkout cannot rebind genesis_selection_blocked
 """
 
 from __future__ import annotations
@@ -161,8 +163,17 @@ def save_campaign(root: Path, campaign: LocalCampaign) -> Path:
 def mission_from_candidate(
     candidate: ExperienceCandidate | None,
     ledger: CapabilityLedger | None = None,
+    *,
+    root: Path | None = None,
+    lineage_ref: str = "",
 ) -> tuple[str, str]:
-    """Map harvested operational fuel onto a bindable Unbound mission."""
+    """Map harvested operational fuel onto a bindable Unbound mission.
+
+    Classes with a structural closer bind that closer's exists/proved
+    contract. Already-closed classes return empty so bind can fall through
+    to a catalog successor instead of reusing the already-proved harvested
+    local-mission-sovereignty contract.
+    """
 
     if candidate is None:
         return HARVESTED_KERNEL_FAILURE_GOAL, HARVESTED_KERNEL_FAILURE_DONE_WHEN
@@ -182,6 +193,37 @@ def mission_from_candidate(
             return goal, leftover_campaign_done_when(summary, ledger=ledger)
         except Exception:  # noqa: BLE001 - leftover bind must still choose a mission
             return goal, HARVESTED_KERNEL_FAILURE_DONE_WHEN
+    try:
+        from blackhole_agent.kernel_class_closure import class_closure_ids, class_is_closed
+
+        required = class_closure_ids(class_id)
+    except Exception:  # noqa: BLE001 - bind must still choose a mission
+        required = ()
+    if required:
+        if root is not None and class_is_closed(
+            class_id,
+            Path(root),
+            ledger=ledger,
+            lineage_ref=lineage_ref,
+        ):
+            return "", ""
+        missing = [
+            item
+            for item in required
+            if not (
+                ledger is not None
+                and ledger.capabilities.get(item) is not None
+                and ledger.capabilities[item].last_proof_exit_code == 0
+            )
+        ]
+        if ledger is not None and not missing:
+            return "", ""
+        closer = missing[0] if missing else required[0]
+        return goal, (
+            f"capability_exists:{closer};"
+            f"capability_proved:{closer};"
+            "no_skill_route"
+        )
     return goal, HARVESTED_KERNEL_FAILURE_DONE_WHEN
 
 
@@ -234,8 +276,20 @@ def bind_local_mission(
         fill_source = "pattern-register"
     elif live and live.candidates:
         ledger = load_tick_ledger(tick_root)
+        try:
+            from blackhole_agent.kernel_class_closure import load_effective_ledger
+
+            effective = load_effective_ledger(tick_root, ledger=ledger)
+            if effective is not None:
+                ledger = effective
+        except Exception:  # noqa: BLE001 - bind must still rank working-tree candidates
+            pass
         for candidate in live.candidates:
-            cand_goal, cand_done = mission_from_candidate(candidate, ledger=ledger)
+            cand_goal, cand_done = mission_from_candidate(
+                candidate,
+                ledger=ledger,
+                root=tick_root,
+            )
             passes = True
             try:
                 from blackhole_agent.kernel_genesis_bind import candidate_passes_selection
@@ -957,6 +1011,75 @@ def builtin_local_mission_sovereignty_proof() -> dict[str, Any]:
     checks["not_kernel_turn_failed"] = not any(
         item.get("class_id") == "kernel_turn_failed" for item in events
     )
+
+    from blackhole_agent.kernel_class_closure import class_is_closed
+    from blackhole_agent.kernel_genesis_bind import (
+        CONSUMED_GROWTH_GOAL,
+        CONSUMED_GROWTH_ID,
+        GENESIS_SELECTION_BLOCKED,
+        KERNEL_GENESIS_BIND_ID,
+        _consumed_campaign,
+        _git_commit_ledger,
+        _register_proved,
+        _write_loop_lineage,
+        _write_selection_blocked_mission,
+        bind_gate_passing_successor,
+    )
+    from blackhole_agent.kernel_unscoped_resume import _register_turn_failed_closers
+
+    selection_goal, selection_done = mission_from_candidate(
+        ExperienceCandidate(
+            source="unbound",
+            class_id=GENESIS_SELECTION_BLOCKED,
+            summary="turn 3 reported blocked",
+        )
+    )
+    checks["selection_class_binds_closer_not_self"] = (
+        GENESIS_SELECTION_BLOCKED in selection_goal
+        and KERNEL_GENESIS_BIND_ID in selection_done
+        and "local-mission-sovereignty" not in selection_done
+    )
+
+    with tempfile.TemporaryDirectory(prefix="local-sov-stale-") as tmp:
+        root = Path(tmp)
+        _write_fixture_ledger(root)
+        _register_turn_failed_closers(root)
+        _register_proved(root, KERNEL_GENESIS_BIND_ID)
+        sha = _git_commit_ledger(root)
+        _write_fixture_ledger(root)
+        _register_turn_failed_closers(root)
+        _write_loop_lineage(root, sha)
+        _write_selection_blocked_mission(root)
+        save_campaign(root, _consumed_campaign())
+        skipped_goal, skipped_done = mission_from_candidate(
+            ExperienceCandidate(
+                source="unbound",
+                class_id=GENESIS_SELECTION_BLOCKED,
+                summary="turn 3 reported blocked",
+            ),
+            root=root,
+        )
+        stale_closed = class_is_closed(GENESIS_SELECTION_BLOCKED, root)
+        stale_fuel = harvest_experience(root, limit=5)
+        stale_bind = bind_local_mission(_State(root), harvest=True)
+        stale_succ_goal, stale_succ_done, stale_succ_source = bind_gate_passing_successor(root)
+    checks["stale_checkout_skips_closed_selection_candidate"] = (
+        skipped_goal == "" and skipped_done == "" and stale_closed is True
+    )
+    checks["stale_checkout_does_not_harvest_selection_class"] = not any(
+        item.class_id == GENESIS_SELECTION_BLOCKED for item in stale_fuel.candidates
+    )
+    checks["stale_checkout_local_bind_skips_sovereignty_rerun"] = (
+        HARVESTED_KERNEL_FAILURE_DONE_WHEN not in (stale_bind.done_when or "")
+        and GENESIS_SELECTION_BLOCKED not in (stale_bind.goal or "")
+        and "local-mission-sovereignty" not in (stale_bind.done_when or "")
+    )
+    checks["stale_checkout_successor_is_growth"] = (
+        stale_succ_goal == CONSUMED_GROWTH_GOAL
+        and CONSUMED_GROWTH_ID in stale_succ_done
+        and stale_succ_source == "genesis_bind_growth"
+    )
+
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
     ok = all(checks.values())

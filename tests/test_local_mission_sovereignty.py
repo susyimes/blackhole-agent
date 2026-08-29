@@ -2,11 +2,14 @@ from pathlib import Path
 
 from blackhole_agent.kernel_health import LOCAL_KERNEL
 from blackhole_agent.kernel_salvage import HARVESTED_GROK_402, classify_run_artifact
+from blackhole_agent.experience_fuel import ExperienceCandidate
+from blackhole_agent.kernel_genesis_bind import GENESIS_SELECTION_BLOCKED, KERNEL_GENESIS_BIND_ID
 from blackhole_agent.local_mission_sovereignty import (
     HARVESTED_KERNEL_FAILURE_DONE_WHEN,
     HARVESTED_KERNEL_FAILURE_GOAL,
     bind_local_mission,
     builtin_local_mission_sovereignty_proof,
+    mission_from_candidate,
     render_local_campaign_for_prompt,
     save_campaign,
     LocalCampaign,
@@ -45,6 +48,22 @@ def test_builtin_proof_binds_402_genesis_and_advances_campaign():
     assert report["checks"]["contract_met_when_capability_present"]
     assert LOCAL_KERNEL == "local"
     assert "kernel_turn_failed" in HARVESTED_KERNEL_FAILURE_GOAL
+    assert report["checks"]["selection_class_binds_closer_not_self"]
+    assert report["checks"]["stale_checkout_skips_closed_selection_candidate"]
+    assert report["checks"]["stale_checkout_successor_is_growth"]
+
+
+def test_mission_from_candidate_does_not_reuse_harvested_sovereignty():
+    goal, done_when = mission_from_candidate(
+        ExperienceCandidate(
+            source="unbound",
+            class_id=GENESIS_SELECTION_BLOCKED,
+            summary="turn 3 reported blocked",
+        )
+    )
+    assert GENESIS_SELECTION_BLOCKED in goal
+    assert KERNEL_GENESIS_BIND_ID in done_when
+    assert "local-mission-sovereignty" not in done_when
 
 
 def test_prompt_includes_local_campaign_handoff(tmp_path: Path):

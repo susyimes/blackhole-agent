@@ -85,6 +85,8 @@ def bind_create_fields(
     repo_path: Path,
     goal: str = "",
     done_when: str = "",
+    *,
+    lineage_ref: str = "",
 ) -> tuple[str, str, str]:
     """Fill missing create_mission fields from an unfinished local campaign."""
 
@@ -101,6 +103,7 @@ def bind_create_fields(
             succ_goal, succ_done, succ_source = bind_gate_passing_successor(
                 Path(repo_path),
                 campaign=campaign,
+                lineage_ref=lineage_ref,
             )
         except Exception:  # noqa: BLE001 - create bind must still fail closed
             succ_goal, succ_done, succ_source = "", "", ""

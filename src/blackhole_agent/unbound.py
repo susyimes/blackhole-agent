@@ -816,13 +816,6 @@ def create_mission(
     kernel, kernel_resolution = kernel_resolver(kernel)
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
-    if not goal.strip():
-        forced = required_pattern_mission(repo_path)
-        if forced:
-            goal = forced["goal"]
-            done_when = done_when.strip() or forced["done_when"]
-    if not goal.strip() or not done_when.strip():
-        goal, done_when, _src = bind_create_fields(repo_path, goal, done_when)
     run_command(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=repo_path,
@@ -833,6 +826,18 @@ def create_mission(
         ["git", "rev-parse", "--verify", f"{target_branch}^{{commit}}"],
         command_runner=command_runner,
     )
+    if not goal.strip():
+        forced = required_pattern_mission(repo_path)
+        if forced:
+            goal = forced["goal"]
+            done_when = done_when.strip() or forced["done_when"]
+    if not goal.strip() or not done_when.strip():
+        goal, done_when, _src = bind_create_fields(
+            repo_path,
+            goal,
+            done_when,
+            lineage_ref=target_head,
+        )
 
     mission_id = f"{compact_utc_timestamp()}-{uuid.uuid4().hex[:8]}"
     branch = f"{branch_prefix.strip('/')}/{slugify(goal or 'autonomous-genesis')}-{mission_id[-8:]}"

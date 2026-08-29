@@ -106,3 +106,7 @@ def test_builtin_proof_binds_gate_passing_successor():
     assert KERNEL_GENESIS_BIND_DONE_WHEN in report["done_when"]
     assert CONSUMED_GROWTH_GOAL
     assert LOCAL_KERNEL == "local"
+    assert report["checks"]["open_selection_class_binds_closer_not_sovereignty"]
+    assert report["checks"]["stale_checkout_still_closes_class"]
+    assert report["checks"]["stale_checkout_binds_growth_not_sovereignty"]
+    assert report["checks"]["stale_create_bind_uses_growth"]

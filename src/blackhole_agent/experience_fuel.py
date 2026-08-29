@@ -292,11 +292,19 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
     return candidates
 
 
-def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT) -> ExperienceFuel:
+def harvest_experience(
+    repo_path: Path,
+    *,
+    limit: int = DEFAULT_CANDIDATE_LIMIT,
+    lineage_ref: str = "",
+) -> ExperienceFuel:
     """Collect forced pattern classes and harvested operational failures."""
 
+    effective_ledger = None
     try:
-        from blackhole_agent.kernel_class_closure import class_is_closed
+        from blackhole_agent.kernel_class_closure import class_is_closed, load_effective_ledger
+
+        effective_ledger = load_effective_ledger(repo_path, lineage_ref=lineage_ref)
     except Exception:  # noqa: BLE001 - harvest must still return fuel
 
         def class_is_closed(class_id: str, root: Path, **kwargs: Any) -> bool:
@@ -304,7 +312,12 @@ def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT)
 
     register = load_register(repo_path)
     forced = required_pattern_mission(repo_path, register=register)
-    if forced and class_is_closed(str(forced.get("class_id") or ""), repo_path):
+    if forced and class_is_closed(
+        str(forced.get("class_id") or ""),
+        repo_path,
+        ledger=effective_ledger,
+        lineage_ref=lineage_ref,
+    ):
         forced = None
     candidates: list[ExperienceCandidate] = []
     if forced:
@@ -321,7 +334,12 @@ def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT)
     for entry in forced_classes(register):
         if forced and entry.class_id == forced["class_id"]:
             continue
-        if class_is_closed(entry.class_id, repo_path):
+        if class_is_closed(
+            entry.class_id,
+            repo_path,
+            ledger=effective_ledger,
+            lineage_ref=lineage_ref,
+        ):
             continue
         candidates.append(
             ExperienceCandidate(
@@ -338,7 +356,12 @@ def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT)
     seen: set[str] = set()
     mission_history = load_recent_mission_history(repo_path)
     for item in sorted(candidates, key=lambda row: row.priority, reverse=True):
-        if class_is_closed(item.class_id, repo_path):
+        if class_is_closed(
+            item.class_id,
+            repo_path,
+            ledger=effective_ledger,
+            lineage_ref=lineage_ref,
+        ):
             continue
         if (
             item.class_id == "mission_leftover"
