@@ -2182,9 +2182,9 @@ def reclaim_mission_worktrees(
             timeout=600,
         )
         if removed.returncode != 0:
-            report["errors"].append(
-                {"mission_id": state.mission_id, "error": (removed.stderr or removed.stdout or "").strip()}
-            )
+            from blackhole_agent.worktree_gc_resilience import finish_failed_worktree_remove
+
+            finish_failed_worktree_remove(report, entry, workspace, removed)
             continue
         entry["removed"] = True
         if delete_branches and state.branch:

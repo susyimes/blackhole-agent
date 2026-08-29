@@ -197,14 +197,16 @@ def harvest_unbound_failures(
     from blackhole_agent.pattern_register import classify_unbound_turn
 
     missions_dir = repo_path / ".blackhole-agent" / "unbound" / "missions"
-    if not missions_dir.is_dir():
-        return []
     candidates: list[ExperienceCandidate] = []
     seen: set[tuple[str, str]] = set()
-    all_states = sorted(
-        missions_dir.glob("*/state.json"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
+    all_states = (
+        sorted(
+            missions_dir.glob("*/state.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if missions_dir.is_dir()
+        else []
     )
     state_files = all_states[: max(int(limit), DEFAULT_LEFTOVER_SCAN_LIMIT)]
     for state_path in state_files:
@@ -295,6 +297,14 @@ def harvest_unbound_failures(
                 priority=2,
             )
         )
+    try:
+        from blackhole_agent.worktree_gc_resilience import harvest_worktree_gc_event
+
+        gc_event = harvest_worktree_gc_event(loop_state)
+    except Exception:  # noqa: BLE001 - harvest must still return other fuel
+        gc_event = None
+    if gc_event:
+        candidates.append(_candidate_from_event(gc_event, priority=4))
     return candidates
 
 

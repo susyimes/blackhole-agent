@@ -172,6 +172,30 @@ def test_delete_branches_removes_merged_branch_only(tmp_path: Path) -> None:
     assert _git(repo, "branch", "--list", "unbound/test-m1") == ""
 
 
+def test_stale_not_a_working_tree_directory_is_reclaimed(tmp_path: Path) -> None:
+    import shutil
+
+    repo = _init_repo(tmp_path)
+    stale = _make_mission(repo, "m1-stale", status="complete", created_at="2026-01-01T00:00:00Z")
+    live = _make_mission(repo, "m2-live", status="complete", created_at="2026-01-02T00:00:00Z")
+    gitdir = stale / ".git"
+    if gitdir.is_dir():
+        shutil.rmtree(gitdir)
+    elif gitdir.exists():
+        gitdir.unlink()
+    subprocess.run(["git", "worktree", "prune"], cwd=repo, capture_output=True, check=False)
+    (stale / "STALE.txt").write_text("leftover\n", encoding="utf-8")
+
+    report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+
+    assert report["ok"] is True, report
+    assert report["errors"] == []
+    stale_entry = next(item for item in report["reclaimed"] if item["mission_id"] == "m1-stale")
+    assert stale_entry["stale_not_a_working_tree"] is True
+    assert not stale.exists()
+    assert not live.exists()
+
+
 def test_missing_workspace_is_pruned_from_registry(tmp_path: Path) -> None:
     import shutil
 

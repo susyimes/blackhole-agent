@@ -109,6 +109,17 @@ PATTERN_CLASSES: dict[str, dict[str, str]] = {
         "root_cause": "The supervisor could not create an isolated candidate worktree.",
         "structural_fix": "Repair worktree setup so wakes do not depend on a leftover dirty tree.",
     },
+    "worktree_gc_failed": {
+        "name": "Mission worktree GC failed",
+        "root_cause": (
+            "Reclamation treated a leftover directory git no longer registers "
+            "as a working tree as a fatal remove error, poisoning the GC report."
+        ),
+        "structural_fix": (
+            "Delete stale not-a-working-tree directories and keep genuine "
+            "remove failures as errors; do not fail the whole GC run on this class."
+        ),
+    },
 }
 
 

@@ -125,6 +125,10 @@ _STOP = frozenset(
 _CAP_ID = re.compile(r"capability\.[a-z0-9][a-z0-9.-]*", re.IGNORECASE)
 _TOKEN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _MARKERS = (
+    ("mission-worktree reclamation of stale", "capability.worktree-gc-resilience"),
+    ("no longer a git working tree", "capability.worktree-gc-resilience"),
+    ("last_worktree_gc_error sticky", "capability.worktree-gc-resilience"),
+    ("is not a working tree still fails", "capability.worktree-gc-resilience"),
     ("leftover harvest isolation", "capability.leftover-lineage-plane"),
     ("lagging checkout leftover", "capability.leftover-lineage-plane"),
     ("shipped leftover still enters genesis fuel", "capability.leftover-lineage-plane"),

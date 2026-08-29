@@ -82,6 +82,9 @@ CLASS_CLOSURE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "genesis_selection_blocked": (
         "capability.kernel-genesis-bind",
     ),
+    "worktree_gc_failed": (
+        "capability.worktree-gc-resilience",
+    ),
 }
 
 
