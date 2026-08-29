@@ -54,6 +54,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.kernel-class-closure",
         "capability.kernel-unscoped-resume",
         "capability.kernel-genesis-bind",
+        "capability.kernel-consumed-growth",
         "capability.milestone-commit-resilience",
         "capability.kernel-circuit-breaker",
         "capability.kernel-decision-salvage",

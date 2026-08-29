@@ -70,6 +70,17 @@ CONSUMED_GROWTH_GOAL = (
     "repair stalled growth: absorb and prove a new ledger leaf in-process so "
     "recovered kernels compound capability instead of blocking."
 )
+COMPOUND_LOOP_ID = "capability.kernel-compound-loop"
+COMPOUND_LOOP_DONE_WHEN = (
+    f"capability_exists:{COMPOUND_LOOP_ID};"
+    f"capability_proved:{COMPOUND_LOOP_ID};"
+    "no_skill_route"
+)
+COMPOUND_LOOP_GOAL = (
+    "When in-process absorbed leaves from consumed campaigns saturate, repair "
+    "stalled compounding: run a novelty-ranked growth loop in-process so recovered "
+    "kernels keep expanding primitive coverage instead of blocking."
+)
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
     {
@@ -83,6 +94,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": CONSUMED_GROWTH_GOAL,
         "done_when": CONSUMED_GROWTH_DONE_WHEN,
         "source": "genesis_bind_growth",
+    },
+    {
+        "id": COMPOUND_LOOP_ID,
+        "goal": COMPOUND_LOOP_GOAL,
+        "done_when": COMPOUND_LOOP_DONE_WHEN,
+        "source": "genesis_bind_compound",
     },
 )
 

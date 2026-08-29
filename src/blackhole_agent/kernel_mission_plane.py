@@ -73,6 +73,7 @@ HANDOFF_KEYS = (
     "local_finality",
     "leftover_summary",
     "leftover_consumed",
+    "consumed_growth_leaf",
 )
 
 

@@ -583,7 +583,25 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         )
         campaign.handoff = {**dict(campaign.handoff or {}), "leftover_summary": leftover_summary}
     previous_handoff = dict(campaign.handoff or {})
-    capability_id = _next_step(campaign)
+    growth_used = False
+    capability_id = ""
+    try:
+        from blackhole_agent.kernel_consumed_growth import attach_consumed_growth_leaf
+
+        capability_id = attach_consumed_growth_leaf(
+            campaign,
+            ledger,
+            root,
+            goal=binding.goal,
+            done_when=binding.done_when,
+            bind_source=binding.source,
+        )
+        growth_used = bool(capability_id)
+    except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
+        capability_id = ""
+        growth_used = False
+    if not capability_id:
+        capability_id = _next_step(campaign)
     succession_used = False
     mission_plane_used = False
     if not capability_id:
@@ -659,6 +677,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         reason = "mission_plane"
     elif succession_used:
         reason = "succession"
+    elif growth_used:
+        reason = "consumed_growth"
     elif invoked:
         reason = "invoked"
     elif plane_ok:
@@ -685,6 +705,17 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         summary = (
             f"Local mission-plane executed {', '.join(passed)} after cheap "
             "local-anchor rotation and succession were exhausted."
+        )
+    elif passed and growth_used:
+        delta = (
+            "Local consumed-growth absorbed and proved "
+            + ", ".join(passed)
+            + " in-process after cheap inventory was all that remained."
+        )
+        summary = (
+            f"Local consumed-growth absorbed and proved {', '.join(passed)} "
+            "in-process so recovered kernels compound capability instead of "
+            "rotating inventory."
         )
     elif passed and succession_used:
         delta = (
@@ -760,6 +791,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.handoff["succession_step"] = passed[0]
     if mission_plane_used and passed:
         campaign.handoff["mission_plane_step"] = passed[0]
+    if growth_used and passed:
+        campaign.handoff["consumed_growth_leaf"] = passed[0]
     if plane_ok:
         campaign.handoff["mission_plane_ok"] = True
     if finalize:
