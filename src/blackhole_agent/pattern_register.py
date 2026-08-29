@@ -13,7 +13,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 SCHEMA_VERSION = 1
 DEFAULT_RECURRENCE_THRESHOLD = 3
@@ -77,6 +77,18 @@ PATTERN_CLASSES: dict[str, dict[str, str]] = {
         "name": "Mission blocked",
         "root_cause": "An Unbound mission entered blocked status.",
         "structural_fix": "Remove the external blocker class or make the mission self-unblocking.",
+    },
+    "genesis_selection_blocked": {
+        "name": "Genesis selection blocked",
+        "root_cause": (
+            "Autonomous genesis invented a saturated or near-duplicate mission after a "
+            "consumed campaign left goal/done_when empty; selection gates rejected it "
+            "until the mission blocked."
+        ),
+        "structural_fix": (
+            "Bind a gate-passing successor in-process when class_closed genesis has no "
+            "remaining campaign; do not invent forage into blocked status."
+        ),
     },
     "publication_failed": {
         "name": "Lineage publication failed",
@@ -434,6 +446,25 @@ def classify_supervisor_pass(record: dict[str, Any]) -> list[dict[str, str]]:
     return events
 
 
+def blocked_class_id(record: Mapping[str, Any] | None) -> str:
+    """Distinguish selection-gate blocks from other blocked missions."""
+
+    payload = record or {}
+    selection = payload.get("selection_gate")
+    if isinstance(selection, Mapping) and selection.get("accepted") is False:
+        return "genesis_selection_blocked"
+    summary = str(payload.get("last_summary") or payload.get("summary") or "").lower()
+    if "mission selection rejected" in summary or "autonomous mission selection rejected" in summary:
+        return "genesis_selection_blocked"
+    for turn in reversed(list(payload.get("recent_turns") or [])):
+        if not isinstance(turn, Mapping):
+            continue
+        gate = turn.get("selection_gate")
+        if isinstance(gate, Mapping) and gate.get("accepted") is False:
+            return "genesis_selection_blocked"
+    return "mission_blocked"
+
+
 def classify_unbound_turn(record: dict[str, Any]) -> list[dict[str, str]]:
     """Map one Unbound turn or failure record onto zero or more error classes."""
 
@@ -452,9 +483,10 @@ def classify_unbound_turn(record: dict[str, Any]) -> list[dict[str, str]]:
         )
         return events
     if record.get("effective_status") == "blocked" or record.get("requested_status") == "blocked":
+        class_id = blocked_class_id(record)
         events.append(
             {
-                "class_id": "mission_blocked",
+                "class_id": class_id,
                 "source": "unbound",
                 "summary": f"turn {iteration} reported blocked",
                 "evidence": str(record.get("summary") or "")[:400],

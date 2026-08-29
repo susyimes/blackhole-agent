@@ -233,12 +233,22 @@ def bind_local_mission(
         fill_done = str(live.forced.get("done_when") or fill_done)
         fill_source = "pattern-register"
     elif live and live.candidates:
-        fill_goal, fill_done = mission_from_candidate(
-            live.candidates[0],
-            ledger=load_tick_ledger(tick_root),
-        )
-        fill_source = f"experience/{live.candidates[0].class_id or 'operational'}"
-    elif fill_source == "class_closed" and (not fill_goal or not fill_done):
+        ledger = load_tick_ledger(tick_root)
+        for candidate in live.candidates:
+            cand_goal, cand_done = mission_from_candidate(candidate, ledger=ledger)
+            passes = True
+            try:
+                from blackhole_agent.kernel_genesis_bind import candidate_passes_selection
+
+                passes = candidate_passes_selection(tick_root, cand_goal, cand_done)
+            except Exception:  # noqa: BLE001 - skip candidates the gates cannot assess
+                passes = False
+            if cand_goal and cand_done and passes:
+                fill_goal = cand_goal
+                fill_done = cand_done
+                fill_source = f"experience/{candidate.class_id or 'operational'}"
+                break
+    if fill_source == "class_closed" and (not fill_goal or not fill_done):
         try:
             from blackhole_agent.kernel_unscoped_resume import bind_from_unscoped_campaign
 
@@ -247,6 +257,17 @@ def bind_local_mission(
                 fill_goal = scoped_goal
                 fill_done = scoped_done
                 fill_source = scoped_source
+        except Exception:  # noqa: BLE001 - binding must still choose a mission
+            pass
+    if fill_source == "class_closed" and (not fill_goal or not fill_done):
+        try:
+            from blackhole_agent.kernel_genesis_bind import bind_gate_passing_successor
+
+            succ_goal, succ_done, succ_source = bind_gate_passing_successor(tick_root)
+            if succ_source:
+                fill_goal = succ_goal
+                fill_done = succ_done
+                fill_source = succ_source
         except Exception:  # noqa: BLE001 - binding must still choose a mission
             pass
 

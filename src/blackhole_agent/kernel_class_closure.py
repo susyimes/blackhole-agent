@@ -70,6 +70,9 @@ CLASS_CLOSURE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "mission_blocked": (
         "capability.kernel-unscoped-resume",
     ),
+    "genesis_selection_blocked": (
+        "capability.kernel-genesis-bind",
+    ),
 }
 
 

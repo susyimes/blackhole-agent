@@ -95,6 +95,21 @@ def bind_create_fields(
     campaign = load_campaign(Path(repo_path))
     scoped = _scope_campaign_for_resume(campaign)
     if not campaign_is_resumable(campaign):
+        try:
+            from blackhole_agent.kernel_genesis_bind import bind_gate_passing_successor
+
+            succ_goal, succ_done, succ_source = bind_gate_passing_successor(
+                Path(repo_path),
+                campaign=campaign,
+            )
+        except Exception:  # noqa: BLE001 - create bind must still fail closed
+            succ_goal, succ_done, succ_source = "", "", ""
+        if succ_source:
+            if not filled_goal:
+                filled_goal = succ_goal
+            if not filled_done:
+                filled_done = succ_done
+            return filled_goal, filled_done, succ_source
         return filled_goal, filled_done, ""
     if scoped:
         save_campaign(Path(repo_path), campaign)
@@ -131,6 +146,35 @@ def hydrate_mission_from_campaign(
             "stage": str(getattr(state, "stage", "") or ""),
         }
     if not campaign_is_resumable(campaign):
+        try:
+            from blackhole_agent.kernel_genesis_bind import bind_gate_passing_successor
+
+            succ_goal, succ_done, succ_source = bind_gate_passing_successor(
+                durable,
+                campaign=campaign,
+            )
+        except Exception:  # noqa: BLE001 - hydrate must still fail closed
+            succ_goal, succ_done, succ_source = "", "", ""
+        if succ_source:
+            applied = False
+            if not before_goal:
+                state.goal = succ_goal
+                applied = True
+            if not before_done:
+                state.done_when = succ_done
+                applied = True
+            if str(getattr(state, "goal", "") or "").strip() and str(
+                getattr(state, "done_when", "") or ""
+            ).strip():
+                state.stage = "execution"
+            return {
+                "applied": applied,
+                "source": succ_source,
+                "reason": "genesis_bind",
+                "goal": str(getattr(state, "goal", "") or ""),
+                "done_when": str(getattr(state, "done_when", "") or ""),
+                "stage": str(getattr(state, "stage", "") or ""),
+            }
         return {
             "applied": False,
             "source": "",
@@ -278,8 +322,11 @@ def builtin_kernel_resume_proof() -> dict[str, Any]:
         save_campaign(root, finished)
         skipped = _State(root)
         skip_report = hydrate_mission_from_campaign(skipped)
-    checks["finished_campaign_does_not_hydrate"] = (
-        skip_report["applied"] is False and skipped.stage == "genesis" and not skipped.goal
+    checks["finished_campaign_binds_successor"] = (
+        skip_report["applied"] is True
+        and skipped.stage == "execution"
+        and bool(skipped.goal)
+        and str(skip_report.get("source") or "").startswith("genesis_bind")
     )
 
     with tempfile.TemporaryDirectory(prefix="kernel-resume-durable-") as tmp:
@@ -416,7 +463,12 @@ def builtin_kernel_resume_proof() -> dict[str, Any]:
         consumed = consume_resumed_campaign(adopted)
         after = _State(root, mission_id="later")
         blocked = hydrate_mission_from_campaign(after)
-    checks["consume_prevents_rebind"] = consumed is True and blocked["applied"] is False and not after.goal
+    checks["consume_prevents_rebind"] = (
+        consumed is True
+        and blocked["applied"] is True
+        and after.goal != unfinished.goal
+        and str(blocked.get("source") or "").startswith("genesis_bind")
+    )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
     ok = all(checks.values())

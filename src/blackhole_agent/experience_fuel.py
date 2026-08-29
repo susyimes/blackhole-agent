@@ -15,6 +15,7 @@ from typing import Any
 
 from blackhole_agent.pattern_register import (
     PATTERN_CLASSES,
+    blocked_class_id,
     classify_from_catalog,
     forced_classes,
     load_register,
@@ -218,7 +219,7 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
                 candidates.append(_candidate_from_event(event, priority=3))
         if state.get("status") == "blocked":
             event = {
-                "class_id": "mission_blocked",
+                "class_id": blocked_class_id(state),
                 "source": "unbound",
                 "summary": f"mission {state.get('mission_id', '')} blocked",
                 "evidence": str(state.get("last_summary") or "")[:400],

@@ -280,10 +280,11 @@ def builtin_kernel_finality_proof() -> dict[str, Any]:
         recovered = _State(root, goal="", done_when="", mission_id="recovered")
         recovered.stage = "genesis"
         hydrate = hydrate_mission_from_campaign(recovered, persist=True)
-    checks["finalized_campaign_is_not_resumable"] = (
-        campaign_is_resumable(finished) is False
-        and hydrate.get("applied") is False
-        and not recovered.goal
+    checks["finalized_campaign_is_not_resumable"] = campaign_is_resumable(finished) is False
+    checks["finalized_campaign_binds_successor"] = (
+        hydrate.get("applied") is True
+        and bool(recovered.goal)
+        and str(hydrate.get("source") or "").startswith("genesis_bind")
     )
 
     payload = {
