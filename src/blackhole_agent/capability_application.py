@@ -453,7 +453,8 @@ def build_application_registry(
     external tools, plus typed key-bridges whose producer and consumer are
     both proved. Default watchdog, recovery, and fragility calls stay on the
     base registry so pre-growth proofs keep their exact semantics; the
-    absorbed reliability plane watches the grown goals separately.
+    absorbed reliability plane watches the grown goals separately, and the
+    absorbed recovery plane heals a red producer or consumer on that surface.
     """
 
     hidden = set(hide)

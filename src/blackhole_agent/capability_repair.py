@@ -222,6 +222,7 @@ def repair_capability(
     cwd: Path,
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 120,
+    skip_proved_deps: bool = False,
 ) -> tuple[CapabilityLedger, dict[str, Any]]:
     """Diagnose then repair one capability inside ``ledger``.
 
@@ -250,7 +251,7 @@ def repair_capability(
         command_runner=command_runner,
         timeout=timeout,
     )
-    if diagnosis["healthy"]:
+    if diagnosis["healthy"] and capability.last_proof_exit_code == 0:
         return ledger, {
             "capability_id": capability_id,
             "ok": True,
@@ -261,6 +262,8 @@ def repair_capability(
         }
 
     actions: list[str] = []
+    if diagnosis["healthy"] and capability.last_proof_exit_code != 0:
+        actions.append("reprove_stale_stamp")
     if diagnosis["stale_interpreter"] is not None:
         ledger = _replace_capability_fields(
             ledger,
@@ -275,7 +278,7 @@ def repair_capability(
         cwd=cwd,
         command_runner=command_runner,
         timeout=timeout,
-        skip_proved_deps=False,
+        skip_proved_deps=skip_proved_deps,
     )
     actions.append("reprove_dependency_chain")
 

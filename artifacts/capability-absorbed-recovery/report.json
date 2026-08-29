@@ -1,0 +1,113 @@
+{
+  "absorbed_ids": [
+    "absorbed-compose-text-reverser-snake-case"
+  ],
+  "composition_id": "absorbed-compose-text-reverser-snake-case",
+  "generated_at": "2026-08-29T14:28:21.874396Z",
+  "grade": {
+    "ok": true,
+    "verdict_count": 6,
+    "verdicts_passed": 6
+  },
+  "healed": {
+    "blocked_capabilities": [
+      "capability.absorbed-text-reverser"
+    ],
+    "break_stamps_after": {
+      "capability.absorbed-text-reverser": 0
+    },
+    "honest_unsolved": [],
+    "ok": true,
+    "recovered": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "repair_count": 1,
+    "repair_ids": [
+      "capability.absorbed-text-reverser"
+    ],
+    "repair_verdicts": {
+      "capability.absorbed-text-reverser": "repaired"
+    },
+    "repaired_count": 1,
+    "task_ids": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "unrepairable_count": 0
+  },
+  "isolation": {
+    "blocked_capabilities": [],
+    "break_stamps_after": {
+      "capability.absorbed-text-reverser": 1
+    },
+    "honest_unsolved": [],
+    "ok": true,
+    "recovered": [],
+    "repair_count": 0,
+    "repair_ids": [],
+    "repair_verdicts": {},
+    "repaired_count": 0,
+    "task_ids": [
+      "routed-triage-record",
+      "scan-gated-activation",
+      "blocked-scan-honesty",
+      "ledger-gated-proposal",
+      "ledger-inventory-check",
+      "persona-stamped-proposal"
+    ],
+    "unrepairable_count": 0
+  },
+  "kind": "capability_absorbed_recovery",
+  "live": {
+    "blocked_capabilities": [],
+    "break_stamps_after": {},
+    "honest_unsolved": [],
+    "ok": true,
+    "recovered": [],
+    "repair_count": 0,
+    "repair_ids": [],
+    "repair_verdicts": {},
+    "repaired_count": 0,
+    "task_ids": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "unrepairable_count": 0
+  },
+  "ok": true,
+  "producer_id": "capability.absorbed-text-reverser",
+  "report_digest": "79e847d5d15ce6646e16f6722804b17ac16f348b1e823f29430f5b2a75dcaacd",
+  "schema_version": 1,
+  "unrepairable": {
+    "blocked_capabilities": [
+      "capability.absorbed-text-reverser"
+    ],
+    "break_stamps_after": {
+      "capability.absorbed-text-reverser": 1
+    },
+    "honest_unsolved": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "ok": false,
+    "recovered": [],
+    "repair_count": 1,
+    "repair_ids": [
+      "capability.absorbed-text-reverser"
+    ],
+    "repair_verdicts": {
+      "capability.absorbed-text-reverser": "unrepairable"
+    },
+    "repaired_count": 0,
+    "task_ids": [
+      "absorbed-compose-text-reverser-snake-case"
+    ],
+    "unrepairable_count": 1
+  },
+  "used_skill_route_discovery": false,
+  "verdicts": {
+    "base_isolation": true,
+    "has_absorbed_goals": true,
+    "live_absorbed_healthy": true,
+    "no_skill_route": true,
+    "producer_stale_healed": true,
+    "producer_unrepairable_honest": true
+  }
+}

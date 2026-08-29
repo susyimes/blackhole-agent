@@ -21,6 +21,10 @@ module closes those two into one loop:
    capability are recorded as falsifiable evidence. Fake healing is a
    verification failure, not a result.
 
+Default arguments keep pre-growth semantics on ``APPLICATION_TASKS``. Pass
+absorbed composition tasks with ``include_absorbed=True`` to heal typed
+pipelines the base loop cannot see.
+
 The report is digest-sealed under ``artifacts/capability-recovery/``.
 Verification is pure: it recomputes the grade from recorded task and repair
 outcomes, re-checks the digest chain, re-checks every solved plan against the
@@ -49,9 +53,11 @@ from typing import Any, Callable, Mapping, Sequence
 from blackhole_agent.capability_application import (
     APPLICATION_STEPS,
     APPLICATION_TASKS,
+    ApplicationTask,
     _capability_proved,
     build_application_registry,
     plan_application_task,
+    plan_member_is_sound,
     run_application_task,
 )
 from blackhole_agent.capability_compounder import (
@@ -133,18 +139,55 @@ def _repair_projection(report: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _surface_blast(
+    ledger: CapabilityLedger,
+    tasks: Sequence[ApplicationTask],
+    *,
+    include_absorbed: bool,
+    surface_ids: Sequence[str] | None = None,
+    allowed_ids: Sequence[str] | None = None,
+) -> dict[str, int]:
+    """Hide-one blast radius for the tasks under recovery."""
+
+    if not include_absorbed:
+        from blackhole_agent.capability_fragility import blast_radius_map
+
+        return blast_radius_map(ledger)
+    registry = build_application_registry(ledger, include_absorbed=True)
+    if allowed_ids is not None:
+        allowed = set(allowed_ids)
+        registry = {key: step for key, step in registry.items() if key in allowed}
+    targets = list(surface_ids) if surface_ids is not None else list(registry)
+    blast: dict[str, int] = {}
+    for capability_id in targets:
+        reduced = {key: step for key, step in registry.items() if key != capability_id}
+        blast[capability_id] = sum(
+            1 for task in tasks if plan_application_task(task, reduced) is None
+        )
+    return blast
+
+
 def run_recovery_loop(
     *,
     breaks: Mapping[str, str] | None = None,
     persist: bool = False,
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 120,
+    tasks: Sequence[ApplicationTask] | None = None,
+    include_absorbed: bool = False,
+    surface_ids: Sequence[str] | None = None,
+    skip_proved_deps: bool = False,
+    repair_fn: Callable[..., Any] | None = None,
+    allowed_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Detect blocked goals, repair what blocks them, re-plan, grade.
 
     ``breaks`` maps capability ids to synthetic break modes; when given, the
     whole loop runs on a scratch clone and the live ledger is never touched
-    unless ``persist=True``.
+    unless ``persist=True``. Default arguments keep pre-growth semantics:
+    ``APPLICATION_TASKS`` over the base registry. Pass absorbed composition
+    tasks with ``include_absorbed=True`` to heal typed pipelines the base
+    loop cannot see.
     """
 
     path = default_ledger_path(REPO_ROOT)
@@ -156,14 +199,25 @@ def run_recovery_loop(
         ledger = apply_synthetic_break(ledger, capability_id, mode)
         applied_breaks.append({"capability_id": capability_id, "mode": mode})
 
+    task_list = tuple(tasks) if tasks is not None else APPLICATION_TASKS
+    registry_kwargs = {"include_absorbed": include_absorbed}
+    allowed = set(allowed_ids) if allowed_ids is not None else None
+
+    def _registry(active):
+        built = build_application_registry(active, **registry_kwargs)
+        if allowed is None:
+            return built
+        return {key: step for key, step in built.items() if key in allowed}
+
     # Phase 1: detect — which goals have no plan over the current stamps?
-    registry = build_application_registry(ledger)
+    registry = _registry(ledger)
     initial_plans = {
-        task.id: plan_application_task(task, registry) for task in APPLICATION_TASKS
+        task.id: plan_application_task(task, registry) for task in task_list
     }
+    surface = list(surface_ids) if surface_ids is not None else list(APPLICATION_STEPS)
     blocked_capabilities = sorted(
         capability_id
-        for capability_id in APPLICATION_STEPS
+        for capability_id in surface
         if not _capability_proved(ledger, capability_id)
     )
 
@@ -172,18 +226,24 @@ def run_recovery_loop(
     # before failures that block fewer. Blast radii come from the *healthy*
     # surface structure (the live ledger), not the broken clone — a red
     # capability is absent from its own impact matrix.
-    from blackhole_agent.capability_fragility import blast_radius_map
-
-    blast = blast_radius_map(live)
+    blast = _surface_blast(
+        live,
+        task_list,
+        include_absorbed=include_absorbed,
+        surface_ids=surface,
+        allowed_ids=allowed_ids,
+    )
     blocked_capabilities.sort(key=lambda cid: (-blast.get(cid, 0), cid))
     repairs: list[dict[str, Any]] = []
+    repair = repair_fn or repair_capability
     for capability_id in blocked_capabilities:
-        ledger, report = repair_capability(
+        ledger, report = repair(
             ledger,
             capability_id,
             cwd=REPO_ROOT,
             command_runner=command_runner,
             timeout=timeout,
+            skip_proved_deps=skip_proved_deps,
         )
         projection = _repair_projection(report)
         projection["blast_radius"] = blast.get(capability_id, 0)
@@ -192,9 +252,9 @@ def run_recovery_loop(
         save_ledger(path, ledger)
 
     # Phase 3: re-plan, execute, grade against the frozen oracles.
-    registry = build_application_registry(ledger)
+    registry = _registry(ledger)
     task_records: list[dict[str, Any]] = []
-    for task in APPLICATION_TASKS:
+    for task in task_list:
         started = time.perf_counter()
         result = run_application_task(task, registry)
         duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -206,7 +266,7 @@ def run_recovery_loop(
                 "ok": result["ok"],
                 "plan": result["plan"],
                 "plan_sound": bool(plan)
-                and all(_capability_proved(ledger, capability_id) for capability_id in plan),
+                and all(plan_member_is_sound(ledger, capability_id) for capability_id in plan),
                 "outcome": result["outcome"],
                 "error": result["error"],
                 "duration_ms": duration_ms,
@@ -326,7 +386,7 @@ def check_recovery_consistency(
         if not record.get("ok"):
             continue
         for capability_id in record.get("plan") or []:
-            if not _capability_proved(ledger, capability_id):
+            if not plan_member_is_sound(ledger, capability_id):
                 solved_plans_sound = False
             verdict = repair_verdicts.get(capability_id)
             if verdict is not None and verdict not in {"repaired", "healthy"}:
