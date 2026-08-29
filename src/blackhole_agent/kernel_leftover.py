@@ -12,11 +12,15 @@ This module:
 - treats a leftover as satisfied when a later complete mission overlaps it,
   a proved ledger capability matches a leftover marker, or a durable claim
   was consumed
+- consults the origin/lineage-tip ledger, not only a lagging checkout, so a
+  shipped leftover whose closer already landed on origin cannot re-enter
+  genesis fuel
 - keeps unsatisfied leftovers in genesis fuel
 - binds remaining leftovers to a campaign-relative ``program_passes``
   contract so 402-local ticks can complete them
 - consumes a leftover-bound campaign after local finality so the next
-  genesis cannot reopen it
+  genesis cannot reopen it, including leftover-prefixed goals bound from
+  ``state.goal`` rather than the leftover class
 - stamps a durable leftover-claim when a proved ledger marker already
   closes the leftover, so 402-local campaigns do not re-bind it
 """
@@ -121,6 +125,11 @@ _STOP = frozenset(
 _CAP_ID = re.compile(r"capability\.[a-z0-9][a-z0-9.-]*", re.IGNORECASE)
 _TOKEN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _MARKERS = (
+    ("leftover harvest isolation", "capability.leftover-lineage-plane"),
+    ("lagging checkout leftover", "capability.leftover-lineage-plane"),
+    ("shipped leftover still enters genesis fuel", "capability.leftover-lineage-plane"),
+    ("origin leftover closer", "capability.leftover-lineage-plane"),
+    ("only reads the lagging checkout ledger", "capability.leftover-lineage-plane"),
     ("mission-plane", "capability.kernel-mission-plane"),
     ("mission plane", "capability.kernel-mission-plane"),
     ("campaign handoff", "capability.kernel-resume"),
@@ -561,7 +570,20 @@ def leftover_summary_from_goal(goal: str) -> str:
     return text
 
 
-def _load_repo_ledger(root: Path) -> CapabilityLedger | None:
+def campaign_binds_leftover(campaign: Any) -> bool:
+    """True when a local campaign is leftover-bound by source or leftover-prefixed goal.
+
+    Cheap 402-local ticks often bind from ``state.goal+state.done_when`` after
+    genesis already copied a leftover into the mission goal. Those campaigns
+    still close the leftover class and must consume the claim.
+    """
+
+    bound = str(getattr(campaign, "bound_from", "") or "")
+    goal = str(getattr(campaign, "goal", "") or "")
+    return LEFTOVER_CLASS in bound or goal.startswith(LEFTOVER_GOAL_PREFIX)
+
+
+def _load_checkout_ledger(root: Path) -> CapabilityLedger | None:
     path = default_ledger_path(Path(root))
     if not path.exists():
         return None
@@ -569,6 +591,25 @@ def _load_repo_ledger(root: Path) -> CapabilityLedger | None:
         return load_ledger(path)
     except Exception:  # noqa: BLE001 - leftover harvest must still return fuel
         return None
+
+
+def _load_repo_ledger(root: Path, *, lineage_ref: str = "") -> CapabilityLedger | None:
+    """Working-tree ledger plus proved leftover closers from the origin tip.
+
+    Leftover harvest runs against the controller checkout, which can lag the
+    published lineage. Marker satisfaction must still see closers that exist
+    only on ``lineage_ref``.
+    """
+
+    try:
+        from blackhole_agent.kernel_class_closure import load_effective_ledger
+
+        merged = load_effective_ledger(Path(root), lineage_ref=lineage_ref)
+        if merged is not None:
+            return merged
+    except Exception:  # noqa: BLE001 - leftover harvest must still consult the checkout
+        pass
+    return _load_checkout_ledger(root)
 
 
 def _ledger_proves(ledger: CapabilityLedger | None, capability_id: str) -> bool:
@@ -625,8 +666,15 @@ def leftover_satisfied_by(
     *,
     source_mission_id: str = "",
     ledger: CapabilityLedger | None = None,
+    lineage_ref: str = "",
 ) -> str:
-    """Return a short reason when leftover work is already closed, else empty."""
+    """Return a short reason when leftover work is already closed, else empty.
+
+    ``ledger`` pins satisfaction to an explicit snapshot (used to prove a
+    lagging checkout still sees the leftover). When omitted, the origin
+    lineage ledger is merged so a closer that already landed on the
+    published tip consumes the leftover.
+    """
 
     leftover = " ".join(str(text or "").split())
     if not leftover:
@@ -634,7 +682,9 @@ def leftover_satisfied_by(
     if leftover_claim_consumed(root, leftover):
         claim = (load_leftover_claims(root).get("claims") or {}).get(leftover_claim_id(leftover)) or {}
         return str(claim.get("satisfied_by") or "claim_consumed")
-    live_ledger = ledger if ledger is not None else _load_repo_ledger(root)
+    live_ledger = (
+        ledger if ledger is not None else _load_repo_ledger(root, lineage_ref=lineage_ref)
+    )
     markers = leftover_marker_ids(leftover)
     for capability_id in markers:
         if _ledger_proves(live_ledger, capability_id):
@@ -676,12 +726,14 @@ def leftover_is_open(
     *,
     source_mission_id: str = "",
     ledger: CapabilityLedger | None = None,
+    lineage_ref: str = "",
 ) -> bool:
     return not leftover_satisfied_by(
         text,
         root,
         source_mission_id=source_mission_id,
         ledger=ledger,
+        lineage_ref=lineage_ref,
     )
 
 
@@ -707,8 +759,7 @@ def leftover_campaign_done_when(goal: str, ledger: CapabilityLedger | None = Non
 def consume_bound_leftover(root: Path, campaign: Any) -> bool:
     """Persist leftover consumption after a leftover-bound local finality."""
 
-    bound = str(getattr(campaign, "bound_from", "") or "")
-    if LEFTOVER_CLASS not in bound:
+    if not campaign_binds_leftover(campaign):
         return False
     handoff = dict(getattr(campaign, "handoff", None) or {})
     summary = str(handoff.get("leftover_summary") or leftover_summary_from_goal(getattr(campaign, "goal", "") or ""))

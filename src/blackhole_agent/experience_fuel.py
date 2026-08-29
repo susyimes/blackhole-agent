@@ -188,7 +188,12 @@ def leftover_next_step(text: str) -> str:
     return ""
 
 
-def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SCAN_LIMIT) -> list[ExperienceCandidate]:
+def harvest_unbound_failures(
+    repo_path: Path,
+    *,
+    limit: int = DEFAULT_MISSION_SCAN_LIMIT,
+    lineage_ref: str = "",
+) -> list[ExperienceCandidate]:
     from blackhole_agent.pattern_register import classify_unbound_turn
 
     missions_dir = repo_path / ".blackhole-agent" / "unbound" / "missions"
@@ -239,6 +244,7 @@ def harvest_unbound_failures(repo_path: Path, *, limit: int = DEFAULT_MISSION_SC
                     leftover,
                     Path(repo_path),
                     source_mission_id=mission_id,
+                    lineage_ref=lineage_ref,
                 )
             except Exception:  # noqa: BLE001 - harvest must still surface unknown leftovers
                 leftover_open = True
@@ -351,7 +357,7 @@ def harvest_experience(
             )
         )
     candidates.extend(harvest_supervisor_failures(repo_path))
-    candidates.extend(harvest_unbound_failures(repo_path))
+    candidates.extend(harvest_unbound_failures(repo_path, lineage_ref=lineage_ref))
     deduped: list[ExperienceCandidate] = []
     seen: set[str] = set()
     mission_history = load_recent_mission_history(repo_path)
