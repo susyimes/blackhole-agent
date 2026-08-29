@@ -40,5 +40,6 @@ def test_builtin_proof_consumes_closed_402_class(tmp_path):
     assert LOCAL_KERNEL == "local"
     assert "capability.kernel-class-closure" in LOCAL_DENYLIST
     assert report["checks"]["closes_genesis_selection_blocked"]
+    assert report["checks"]["closes_validation_replay_failed"]
     assert report["checks"]["lineage_merge_imports_proofs"]
     assert report["checks"]["merged_ledger_closes_selection_class"]

@@ -59,6 +59,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.kernel-primitive-compose",
         "capability.kernel-composed-program",
         "capability.milestone-commit-resilience",
+        "capability.validation-replay-resilience",
         "capability.kernel-circuit-breaker",
         "capability.kernel-decision-salvage",
         "capability.mission-plane",

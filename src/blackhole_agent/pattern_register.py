@@ -71,7 +71,11 @@ PATTERN_CLASSES: dict[str, dict[str, str]] = {
     "validation_replay_failed": {
         "name": "Validation replay failed",
         "root_cause": "A claimed validation did not reproduce under controller replay.",
-        "structural_fix": "Report only commands the controller can re-run; remove fabricated exit codes.",
+        "structural_fix": (
+            "Replay a bounded growth *-verify witness instead of re-running an "
+            "unbounded *-proof CLI. A hang without a derived witness still fails "
+            "closed; a later long proof is not fixed by shortening the last command."
+        ),
     },
     "mission_blocked": {
         "name": "Mission blocked",

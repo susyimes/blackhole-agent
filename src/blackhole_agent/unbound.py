@@ -310,13 +310,18 @@ def normalize_validation(value: Any) -> list[dict[str, Any]]:
         exit_code = item.get("exit_code")
         if not isinstance(exit_code, int):
             exit_code = None
-        normalized.append(
-            {
-                "command": str(item.get("command") or "").strip(),
-                "exit_code": exit_code,
-                "summary": str(item.get("summary") or item.get("result") or "").strip(),
-            }
-        )
+        row = {
+            "command": str(item.get("command") or "").strip(),
+            "exit_code": exit_code,
+            "summary": str(item.get("summary") or item.get("result") or "").strip(),
+        }
+        witness_command = str(item.get("witness_command") or "").strip()
+        if witness_command:
+            row["witness_command"] = witness_command
+        witness_receipt = str(item.get("witness_receipt") or "").strip()
+        if witness_receipt:
+            row["witness_receipt"] = witness_receipt
+        normalized.append(row)
     return normalized
 
 
@@ -1348,24 +1353,23 @@ def reproduce_validation(
     timeout: int = VALIDATION_REPLAY_TIMEOUT_SECONDS,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> list[dict[str, Any]]:
-    """Replay reported successful validation commands so claims must reproduce."""
+    """Replay reported successful validation commands so claims must reproduce.
 
-    replays: list[dict[str, Any]] = []
-    for item in validation:
-        command = str(item.get("command") or "").strip()
-        if not command or item.get("exit_code") != 0:
-            continue
-        if len(replays) >= limit:
-            break
-        replays.append(
-            replay_validation_command(
-                workspace,
-                command,
-                timeout=timeout,
-                command_runner=command_runner,
-            )
-        )
-    return replays
+    Unbounded growth ``*-proof`` CLIs are rewritten to a bounded ``*-verify``
+    witness before replay so a true milestone cannot be rejected by the
+    harvested timeout class. A hang with no derived witness still fails.
+    """
+
+    from blackhole_agent.validation_replay import WITNESS_TIMEOUT_SECONDS, reproduce_resilient
+
+    return reproduce_resilient(
+        workspace,
+        validation,
+        limit=limit,
+        timeout=timeout,
+        witness_timeout=min(timeout, WITNESS_TIMEOUT_SECONDS),
+        command_runner=command_runner,
+    )
 
 
 def run_workspace_goal_watchdog(workspace: Path, *, timeout: int = 120) -> dict[str, Any] | None:
@@ -1439,6 +1443,8 @@ def evaluate_milestone(
     workspace: Path | None = None,
     mission_done_when: str = "",
     kernel: str = "",
+    command_runner: Callable[..., Any] | None = None,
+    replay_timeout: int | None = None,
 ) -> MilestoneGate:
     # Prefer worktree bytecode after agent edits within this tick.
     cc = reload_worktree_compounder() if workspace is not None else None
@@ -1479,7 +1485,12 @@ def evaluate_milestone(
         reasons.append("no successful exact validation command was reported")
     validation_replays: list[dict[str, Any]] = []
     if workspace is not None and successful_validation(decision.validation) and not waive:
-        validation_replays = reproduce_validation(workspace, decision.validation)
+        validation_replays = reproduce_validation(
+            workspace,
+            decision.validation,
+            timeout=replay_timeout if replay_timeout is not None else VALIDATION_REPLAY_TIMEOUT_SECONDS,
+            command_runner=command_runner or subprocess.run,
+        )
         for replay in validation_replays:
             if replay.get("ok"):
                 continue
