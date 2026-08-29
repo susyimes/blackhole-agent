@@ -121,9 +121,21 @@ PROGRAM_TOWER_DONE_WHEN = (
     "no_skill_route"
 )
 PROGRAM_TOWER_GOAL = (
-    "When in-process stacked programs saturate unique coverage, "
-    "repair stalled tower compounding: promote a ready program tower "
-    "in-process so recovered kernels keep compounding lattices instead of blocking."
+    "When unique stacked-program coverage saturates, repair stalled lattice "
+    "compounding: promote a ready program tower of stacked programs in-process "
+    "so recovered kernels keep compounding lattices instead of rotating cheap "
+    "inventory."
+)
+PROGRAM_LATTICE_ID = "capability.kernel-program-lattice"
+PROGRAM_LATTICE_DONE_WHEN = (
+    f"capability_exists:{PROGRAM_LATTICE_ID};"
+    f"capability_proved:{PROGRAM_LATTICE_ID};"
+    "no_skill_route"
+)
+PROGRAM_LATTICE_GOAL = (
+    "After program towers fill unique coverage, repair stalled fabric "
+    "compounding: mint a ready program lattice in-process so recovered kernels "
+    "keep compounding fabrics instead of falling back to cheap inventory probes."
 )
 
 SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
@@ -168,6 +180,12 @@ SUCCESSOR_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PROGRAM_TOWER_GOAL,
         "done_when": PROGRAM_TOWER_DONE_WHEN,
         "source": "genesis_bind_tower",
+    },
+    {
+        "id": PROGRAM_LATTICE_ID,
+        "goal": PROGRAM_LATTICE_GOAL,
+        "done_when": PROGRAM_LATTICE_DONE_WHEN,
+        "source": "genesis_bind_lattice",
     },
 )
 

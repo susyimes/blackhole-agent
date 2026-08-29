@@ -588,6 +588,7 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
     compose_used = False
     program_used = False
     stack_used = False
+    tower_used = False
     capability_id = ""
     try:
         from blackhole_agent.kernel_consumed_growth import attach_consumed_growth_leaf
@@ -669,6 +670,22 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
             capability_id = ""
             stack_used = False
     if not capability_id:
+        try:
+            from blackhole_agent.kernel_program_tower import attach_program_tower
+
+            capability_id = attach_program_tower(
+                campaign,
+                ledger,
+                root,
+                goal=binding.goal,
+                done_when=binding.done_when,
+                bind_source=binding.source,
+            )
+            tower_used = bool(capability_id)
+        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
+            capability_id = ""
+            tower_used = False
+    if not capability_id:
         capability_id = _next_step(campaign)
     succession_used = False
     mission_plane_used = False
@@ -745,6 +762,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         reason = "mission_plane"
     elif succession_used:
         reason = "succession"
+    elif tower_used:
+        reason = "program_tower"
     elif stack_used:
         reason = "program_stack"
     elif program_used:
@@ -781,6 +800,17 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         summary = (
             f"Local mission-plane executed {', '.join(passed)} after cheap "
             "local-anchor rotation and succession were exhausted."
+        )
+    elif passed and tower_used:
+        delta = (
+            "Local program-tower promoted and proved "
+            + ", ".join(passed)
+            + " as a program tower after unique stacked-program coverage saturated."
+        )
+        summary = (
+            f"Local program-tower promoted and proved {', '.join(passed)} "
+            "in-process so recovered kernels keep compounding lattices instead of "
+            "rotating cheap inventory."
         )
     elif passed and stack_used:
         delta = (
@@ -921,6 +951,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         campaign.handoff["composed_program_unit"] = passed[0]
     if stack_used and passed:
         campaign.handoff["program_stack_unit"] = passed[0]
+    if tower_used and passed:
+        campaign.handoff["program_tower_unit"] = passed[0]
     if plane_ok:
         campaign.handoff["mission_plane_ok"] = True
     if finalize:

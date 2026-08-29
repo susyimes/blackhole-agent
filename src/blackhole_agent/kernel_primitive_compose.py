@@ -42,6 +42,7 @@ from blackhole_agent.kernel_compound_loop import (
     bound_to_composed_program,
     bound_to_primitive_compose,
     bound_to_program_stack,
+    bound_to_program_tower,
     is_compound_loop_leaf_id,
     primitive_unique_coverage_is_saturated,
 )
@@ -167,9 +168,10 @@ def primitive_compose_is_needed(
         return False
     program_bound = bound_to_composed_program(live_goal, live_done, source)
     stack_bound = bound_to_program_stack(live_goal, live_done, source)
-    if (program_bound or stack_bound) and composition_unique_coverage_is_saturated(
-        ledger, campaign
-    ):
+    tower_bound = bound_to_program_tower(live_goal, live_done, source)
+    if (
+        program_bound or stack_bound or tower_bound
+    ) and composition_unique_coverage_is_saturated(ledger, campaign):
         return False
     if not scoped and not saturated:
         return False

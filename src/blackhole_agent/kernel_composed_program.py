@@ -40,6 +40,7 @@ from blackhole_agent.kernel_compound_loop import (
     COMPOUND_LOOP_LEAF_PREFIX,
     bound_to_composed_program,
     bound_to_program_stack,
+    bound_to_program_tower,
     is_compound_loop_leaf_id,
 )
 from blackhole_agent.kernel_consumed_growth import is_cheap_inventory_id
@@ -192,7 +193,10 @@ def composed_program_is_needed(
     if not saturated:
         return False
     stack_bound = bound_to_program_stack(live_goal, live_done, source)
-    if stack_bound and program_unique_coverage_is_saturated(ledger, campaign):
+    tower_bound = bound_to_program_tower(live_goal, live_done, source)
+    if (stack_bound or tower_bound) and program_unique_coverage_is_saturated(
+        ledger, campaign
+    ):
         return False
     if not scoped and not saturated:
         return False
