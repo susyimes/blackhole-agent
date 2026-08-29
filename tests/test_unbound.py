@@ -451,6 +451,64 @@ def test_genesis_turn_can_define_the_mission_without_forcing_a_goal_at_start(tmp
     assert state.done_when.startswith("A real end-to-end run succeeds")
 
 
+def test_genesis_rejects_repetitive_scalar_mission_and_blocks_after_three_attempts(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    missions = repo / ".blackhole-agent" / "unbound" / "missions"
+    for index, level in enumerate(range(145, 151), start=1):
+        history_path = missions / f"history-{level}" / "state.json"
+        history_path.parent.mkdir(parents=True)
+        goal = (
+            "Close operational class mission_leftover: Optional later work is reflecting Python "
+            "nested-namespace class instance methods "
+            f"{level} submodule levels down rather than {level - 1} levels down."
+        )
+        history_path.write_text(
+            json.dumps(
+                {
+                    "mission_id": f"history-{level}",
+                    "status": "complete",
+                    "goal": goal,
+                    "recent_turns": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        os.utime(history_path, (index, index))
+    state_path = create_mission(repo_path=repo, worktree_parent=tmp_path / "worktrees")
+
+    def repetitive_kernel(state, prompt, turn_dir, **kwargs):
+        return KernelTurnResult(
+            kernel=state.kernel,
+            last_message=decision_payload(
+                "complete",
+                mission_goal=(
+                    "Optional later work is reflecting Python nested-namespace class instance methods "
+                    "151 submodule levels down rather than 150 levels down."
+                ),
+                done_when="The next depth-specific fixture passes.",
+                summary="Extended the same nesting depth by one.",
+                done_when_met=True,
+            ),
+            session_id=state.session_id,
+            command=("fake-kernel",),
+            result_path=str(turn_dir / "fake-result.json"),
+        )
+
+    records = [run_unbound_turn(state_path, kernel_runner=repetitive_kernel) for _ in range(3)]
+    state = load_mission(state_path)
+
+    assert records[0]["effective_status"] == "continue"
+    assert records[0]["selection_gate"]["accepted"] is False
+    assert records[0]["milestone_gate"]["accepted"] is False
+    assert records[-1]["effective_status"] == "blocked"
+    assert records[-1]["selection_rejection_count"] == 3
+    assert state.status == "blocked"
+    assert state.stage == "genesis"
+    assert state.goal == ""
+
+
 def test_create_mission_recovers_when_worktree_add_times_out_after_clean_checkout(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()

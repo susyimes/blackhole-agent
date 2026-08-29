@@ -12,6 +12,7 @@ stewardship/**/*.tar.gz binary
 capabilities/absorbed/**/*.tar.gz binary
 capabilities/absorbed/**/*.whl binary
 capabilities/absorbed/**/*.zip binary
+capabilities/absorbed/**/*.exe binary
 # Vendored upstream suite overlays are digest-pinned against upstream's own
 # bytes, which legitimately contain CR fixtures (toml-test control-char and
 # crlf cases). eol=lf normalization silently rewrites those bytes and breaks

@@ -20,6 +20,11 @@ from blackhole_agent.pattern_register import (
     load_register,
     required_pattern_mission,
 )
+from blackhole_agent.mission_selection import (
+    assess_mission_selection,
+    load_recent_mission_history,
+    render_mission_selection_guard,
+)
 
 DEFAULT_CANDIDATE_LIMIT = 5
 DEFAULT_PASS_SCAN_LIMIT = 8
@@ -330,8 +335,19 @@ def harvest_experience(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT)
     candidates.extend(harvest_unbound_failures(repo_path))
     deduped: list[ExperienceCandidate] = []
     seen: set[str] = set()
+    mission_history = load_recent_mission_history(repo_path)
     for item in sorted(candidates, key=lambda row: row.priority, reverse=True):
         if class_is_closed(item.class_id, repo_path):
+            continue
+        if (
+            item.class_id == "mission_leftover"
+            and not assess_mission_selection(
+                repo_path,
+                item.summary,
+                "outcome-level behavior must be implemented and proved",
+                history=mission_history,
+            ).accepted
+        ):
             continue
         key = item.class_id or item.summary
         if key in seen:
@@ -372,12 +388,15 @@ def merge_experience_into_proposals(
 
 
 def render_experience_for_genesis(repo_path: Path, *, limit: int = DEFAULT_CANDIDATE_LIMIT) -> str:
-    """Compact genesis-prompt block. Empty when there is no operational fuel."""
+    """Compact genesis fuel plus the controller-enforced selection policy."""
 
     fuel = harvest_experience(repo_path, limit=limit)
+    guard = render_mission_selection_guard(repo_path)
     if not fuel.candidates:
-        return ""
+        return guard
     lines = [
+        guard,
+        "",
         "Operational experience (internal fuel — prefer these over a fresh invention):",
     ]
     if fuel.forced:

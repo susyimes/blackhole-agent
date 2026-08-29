@@ -211,6 +211,14 @@ uv run blackhole-unbound start --repo-path . --kernel grok
 uv run blackhole-unbound run --repo-path .
 ```
 
+Autonomous genesis is controller-gated rather than prompt-only. Numeric/depth
+variants of a recent mission are normalized and rejected as repetitions;
+scalar-only extensions must yield to a materially new behavior or measurable
+repair; and a capability family selected at least three times in the last six
+missions is temporarily saturated. The gate evidence is written into each turn
+record. Three consecutive rejected genesis choices block that mission so the
+outer loop can rotate instead of spinning locally.
+
 Select `--kernel kimi` instead to run the same mission through Kimi Code CLI.
 
 Run continuous single-agent self-evolution on a 30-minute outer cadence:

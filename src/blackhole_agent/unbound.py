@@ -34,6 +34,10 @@ from blackhole_agent.kernel_resume import (
     hydrate_mission_from_campaign,
 )
 from blackhole_agent.milestone_commit import ensure_git_longpaths, stage_milestone_paths
+from blackhole_agent.mission_selection import (
+    SELECTION_REJECTION_LIMIT,
+    assess_mission_selection,
+)
 from blackhole_agent.pattern_register import (
     ingest_unbound_turn,
     maybe_resolve_from_goal,
@@ -89,7 +93,7 @@ from blackhole_agent.capability_compounder import (
 )
 from blackhole_agent.kernel_salvage import (
     execute_kernel_turn_with_salvage,
-    extract_json_decision,
+    extract_json_decision as extract_json_decision,
 )
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.capability_repair import run_repair_plane
@@ -974,8 +978,9 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
         )
     else:
         mission_block = f"Mission goal:\n{state.goal}\n\nDone when:\n{state.done_when}"
-    history = [
-        {
+    history = []
+    for item in state.recent_turns[-RECENT_TURN_LIMIT:]:
+        row = {
             "iteration": item.get("iteration"),
             "effective_status": item.get("effective_status"),
             "summary": item.get("summary"),
@@ -983,8 +988,9 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
             "next_step": item.get("next_step"),
             "commit_sha": item.get("commit_sha"),
         }
-        for item in state.recent_turns[-RECENT_TURN_LIMIT:]
-    ]
+        if item.get("selection_gate"):
+            row["selection_gate"] = item.get("selection_gate")
+        history.append(row)
     ledger_block = capability_ledger_for_prompt(Path(state.workspace_path))
     try:
         from blackhole_agent.local_mission_sovereignty import render_local_campaign_for_prompt
@@ -1674,13 +1680,29 @@ def run_unbound_turn(
         )
         (turn_dir / "final-message.md").write_text(kernel_result.last_message, encoding="utf-8")
 
+        selection_gate = None
+        selection_rejection_count = 0
         if state.stage == "genesis":
-            if decision.mission_goal:
-                state.goal = decision.mission_goal
-            if decision.done_when:
-                state.done_when = decision.done_when
-            if state.goal and state.done_when:
+            proposed_goal = decision.mission_goal or state.goal
+            proposed_done_when = decision.done_when or state.done_when
+            selection_gate = assess_mission_selection(
+                Path(state.repo_path),
+                proposed_goal,
+                proposed_done_when,
+                exclude_mission_id=state.mission_id,
+                forced=bool(state.goal.strip()),
+            )
+            if selection_gate.accepted:
+                state.goal = proposed_goal
+                state.done_when = proposed_done_when
                 state.stage = "execution"
+            else:
+                selection_rejection_count = 1
+                for prior in reversed(state.recent_turns):
+                    prior_gate = prior.get("selection_gate") if isinstance(prior, dict) else None
+                    if not isinstance(prior_gate, dict) or prior_gate.get("accepted") is not False:
+                        break
+                    selection_rejection_count += 1
         elif decision.done_when:
             # Execution-stage agents may refine the completion contract (e.g.
             # to match the outcome-parser grammar); adopt it before gating.
@@ -1699,11 +1721,27 @@ def run_unbound_turn(
             kernel=kernel_result.kernel,
         )
         effective_status = decision.status
+        if selection_gate is not None and not selection_gate.accepted:
+            gate = MilestoneGate(
+                requested=gate.requested,
+                accepted=False,
+                reasons=(*gate.reasons, *selection_gate.reasons),
+                changed_paths=gate.changed_paths,
+                behavior_paths=gate.behavior_paths,
+                validation_replay=gate.validation_replay,
+            )
+            effective_status = "blocked" if selection_rejection_count >= SELECTION_REJECTION_LIMIT else "continue"
         commit_sha = ""
         milestone_number = state.milestone_count + 1
         skip_commit = gate.accepted and decision.status == "complete" and str(kernel_result.kernel or "") == "local"
         if gate.requested and not gate.accepted:
-            effective_status = "continue"
+            effective_status = (
+                "blocked"
+                if selection_gate is not None
+                and not selection_gate.accepted
+                and selection_rejection_count >= SELECTION_REJECTION_LIMIT
+                else "continue"
+            )
         elif gate.accepted and not skip_commit:
             try:
                 commit_sha = commit_milestone(
@@ -1757,9 +1795,21 @@ def run_unbound_turn(
         state.iteration = iteration
         state.session_id = kernel_result.session_id or state.session_id
         state.session_started = bool(state.session_id) or state.session_started
-        state.current_strategy = decision.strategy
-        state.next_step = decision.next_step
-        state.last_summary = decision.summary
+        if selection_gate is not None and not selection_gate.accepted:
+            rejection_summary = (
+                f"Autonomous mission selection rejected ({selection_rejection_count}/"
+                f"{SELECTION_REJECTION_LIMIT}): {'; '.join(selection_gate.reasons)}"
+            )
+            state.current_strategy = "Rotate to a materially different, outcome-sized capability mission."
+            state.next_step = (
+                "Select a new mission_goal and machine-checkable done_when that pass repetition, "
+                "marginal-value, and capability-diversity gates."
+            )
+            state.last_summary = rejection_summary
+        else:
+            state.current_strategy = decision.strategy
+            state.next_step = decision.next_step
+            state.last_summary = decision.summary
         state.last_error = ""
 
         record = {
@@ -1786,6 +1836,8 @@ def run_unbound_turn(
             "command": list(kernel_result.command),
             "kernel_result_path": kernel_result.result_path,
             "kernel_salvage": salvage_meta,
+            "selection_gate": selection_gate.to_dict() if selection_gate is not None else None,
+            "selection_rejection_count": selection_rejection_count,
         }
         atomic_write_json(turn_dir / "turn.json", record)
         append_jsonl(
