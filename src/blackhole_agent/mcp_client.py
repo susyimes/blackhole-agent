@@ -76,6 +76,20 @@ class McpProtocolError(RuntimeError):
     """Raised when the server misbehaves, times out, or returns a JSON-RPC error."""
 
 
+def is_mcp_transport_failure(exc: BaseException) -> bool:
+    """True for hung or dead JSON-RPC transport, not application-level tool errors."""
+
+    text = str(exc).lower()
+    return any(
+        marker in text
+        for marker in (
+            "timeout waiting for response",
+            "closed stdout",
+            "process is not running",
+        )
+    )
+
+
 class McpStdioSession:
     """One live MCP stdio session: initialize -> tools/list -> tools/call."""
 

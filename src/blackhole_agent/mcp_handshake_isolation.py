@@ -36,6 +36,7 @@ from blackhole_agent.mcp_client import (
     McpStdioSession,
     _extract_text,
     echo_server_command,
+    is_mcp_transport_failure,
 )
 
 SCHEMA_VERSION = 1
@@ -89,6 +90,7 @@ class McpPluginPlane:
     def __init__(self) -> None:
         self.plane_failed = False
         self.fail_error = ""
+        self.isolate_hung_calls = True
         self._sessions: dict[str, McpStdioSession] = {}
         self._isolated: dict[str, str] = {}
         self._tools: dict[str, tuple[str, ...]] = {}
@@ -115,7 +117,12 @@ class McpPluginPlane:
         if session is None:
             error = self.isolated_error(server) or "unknown plugin"
             raise McpProtocolError(f"plugin {server!r} is not serving: {error}")
-        return session.call_tool(name, arguments)
+        try:
+            return session.call_tool(name, arguments)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -155,6 +162,7 @@ def connect_mcp_plane(
     plugins: Sequence[McpPluginSpec],
     *,
     isolate_dead: bool = True,
+    isolate_hung_calls: bool = True,
 ) -> McpPluginPlane:
     """Connect a multi-plugin MCP plane.
 
@@ -162,6 +170,11 @@ def connect_mcp_plane(
     live servers serving when one initialize never arrives.
     ``isolate_dead=False`` is the fail-closed hole: any dead handshake aborts
     the whole plane, including plugins that already came up.
+
+    ``isolate_hung_calls=True`` (default) isolates a plugin whose tools/list
+    or tools/call never returns so sibling servers keep serving.
+    ``isolate_hung_calls=False`` is the post-handshake hole: a hung tools/list
+    is accepted as live with no tools, and a hung tools/call stays on the plane.
     """
 
     specs = list(plugins)
@@ -169,6 +182,7 @@ def connect_mcp_plane(
     if len(names) != len(set(names)):
         raise ValueError(f"duplicate MCP plugin names: {names}")
     plane = McpPluginPlane()
+    plane.isolate_hung_calls = bool(isolate_hung_calls)
     if not isolate_dead:
         return _connect_fail_closed(plane, specs)
     return _connect_isolated(plane, specs)
@@ -235,6 +249,7 @@ def _connect_isolated(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) -> 
     for thread in threads:
         thread.join(timeout=budget)
 
+    pending: list[tuple[McpPluginSpec, McpStdioSession]] = []
     for spec in specs:
         recorded = results.get(spec.name)
         if recorded is None:
@@ -244,7 +259,54 @@ def _connect_isolated(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) -> 
         if session is None:
             plane._accept_isolated(spec.name, error or "initialize response never arrived")
             continue
-        _record_live(plane, spec, session)
+        pending.append((spec, session))
+
+    if not plane.isolate_hung_calls:
+        for spec, session in pending:
+            _record_live(plane, spec, session)
+        return plane
+
+    discovery: dict[str, tuple[tuple[str, ...] | None, str]] = {}
+
+    def discover(spec: McpPluginSpec, session: McpStdioSession) -> None:
+        try:
+            payload = session.list_tools()
+            tools = tuple(
+                str(item.get("name") or "")
+                for item in (payload.get("tools") or [])
+                if isinstance(item, Mapping) and item.get("name")
+            )
+            with lock:
+                discovery[spec.name] = (tools, "")
+        except Exception as exc:
+            with lock:
+                discovery[spec.name] = (None, str(exc))
+
+    discover_threads = [
+        threading.Thread(target=discover, args=(spec, session), daemon=True)
+        for spec, session in pending
+    ]
+    for thread in discover_threads:
+        thread.start()
+    discover_budget = max(
+        (spec.timeout_seconds for spec, _ in pending),
+        default=LIVE_HANDSHAKE_TIMEOUT_SECONDS,
+    ) + 10.0
+    for thread in discover_threads:
+        thread.join(timeout=discover_budget)
+
+    for spec, session in pending:
+        recorded_discovery = discovery.get(spec.name)
+        if recorded_discovery is None:
+            plane._accept_isolated(spec.name, "tools/list never returned")
+            session.kill()
+            continue
+        tools, error = recorded_discovery
+        if tools is None:
+            plane._accept_isolated(spec.name, error or "tools/list never returned")
+            session.kill()
+            continue
+        plane._accept_live(spec.name, session, tools)
     return plane
 
 

@@ -67,6 +67,11 @@ from blackhole_agent.kernel_mission_memory import (
     MISSION_MEMORY_GOAL,
     MISSION_MEMORY_ID,
 )
+from blackhole_agent.mcp_call_isolation import (
+    MCP_CALL_DONE_WHEN,
+    MCP_CALL_GOAL,
+    MCP_CALL_ID,
+)
 from blackhole_agent.mcp_handshake_isolation import (
     MCP_HANDSHAKE_DONE_WHEN,
     MCP_HANDSHAKE_GOAL,
@@ -138,6 +143,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_HANDSHAKE_GOAL,
         "done_when": MCP_HANDSHAKE_DONE_WHEN,
         "source": "genesis_bind_handshake",
+    },
+    {
+        "id": MCP_CALL_ID,
+        "goal": MCP_CALL_GOAL,
+        "done_when": MCP_CALL_DONE_WHEN,
+        "source": "genesis_bind_call_isolation",
     },
 )
 
@@ -431,6 +442,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_memory"] = DIVERSITY_CATALOG[1]["id"] == MISSION_MEMORY_ID
     checks["catalog_names_half_open"] = DIVERSITY_CATALOG[2]["id"] == HALF_OPEN_PERSIST_ID
     checks["catalog_names_handshake"] = DIVERSITY_CATALOG[3]["id"] == MCP_HANDSHAKE_ID
+    checks["catalog_names_call"] = DIVERSITY_CATALOG[4]["id"] == MCP_CALL_ID
 
     ok = all(checks.values())
     if ok:
