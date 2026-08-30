@@ -85,6 +85,9 @@ CLASS_CLOSURE_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "worktree_gc_failed": (
         "capability.worktree-gc-resilience",
     ),
+    "publication_failed": (
+        "capability.publication-resilience",
+    ),
 }
 
 
@@ -354,6 +357,9 @@ def builtin_kernel_class_closure_proof() -> dict[str, Any]:
     )
     checks["closes_genesis_selection_blocked"] = class_closure_ids("genesis_selection_blocked") == (
         "capability.kernel-genesis-bind",
+    )
+    checks["closes_publication_failed"] = class_closure_ids("publication_failed") == (
+        "capability.publication-resilience",
     )
 
     from blackhole_agent.capability_compounder import Capability, CapabilityLedger, register_capability

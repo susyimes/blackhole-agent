@@ -501,6 +501,29 @@ def git_is_ancestor(
     return completed.returncode == 0
 
 
+def remote_head_is_fast_forward(
+    repo_path: Path,
+    remote_before: str,
+    commit_sha: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> bool:
+    """True when the remote head is missing, equal, or an ancestor of commit_sha."""
+
+    head = str(remote_before or "").strip()
+    tip = str(commit_sha or "").strip()
+    if not head:
+        return True
+    if head == tip:
+        return True
+    if not git_commit_exists(repo_path, head, command_runner=command_runner):
+        return False
+    try:
+        return git_is_ancestor(repo_path, head, tip, command_runner=command_runner)
+    except RuntimeError:
+        return False
+
+
 def worktree_checkout_is_ready(
     workspace: Path,
     *,
@@ -604,6 +627,27 @@ def publish_lineage(
             remote_before=remote_before,
             remote_after=remote_before,
             error="",
+            command=command,
+        )
+    if not remote_head_is_fast_forward(
+        repo_path,
+        remote_before,
+        commit_sha,
+        command_runner=command_runner,
+    ):
+        from blackhole_agent.publication_resilience import REMOTE_HEAD_MISMATCH_PREFIX
+
+        return PublicationResult(
+            ok=False,
+            commit_sha=commit_sha,
+            remote=remote,
+            branch=branch,
+            remote_before=remote_before,
+            remote_after="",
+            error=(
+                f"{REMOTE_HEAD_MISMATCH_PREFIX}: {remote_before} is not a "
+                f"fast-forward ancestor of {commit_sha}"
+            ),
             command=command,
         )
     if remote_before:
@@ -2392,7 +2436,9 @@ def run_continuous_loop(
                 loop_state["last_publish_error"] = ""
                 run_worktree_gc("publication")
             else:
-                loop_state["last_publish_error"] = result.error
+                from blackhole_agent.publication_resilience import apply_publication_failure
+
+                apply_publication_failure(loop_state, result.error)
             loop_state["status"] = "running"
             save_continuous_loop_state(state_path, loop_state)
             return result.ok

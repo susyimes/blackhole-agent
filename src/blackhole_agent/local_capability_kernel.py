@@ -64,6 +64,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.mcp-reverse-channel",
         "capability.mcp-http-transport",
         "capability.mcp-http-event-stream",
+        "capability.publication-resilience",
         "capability.kernel-consumed-growth",
         "capability.kernel-compound-loop",
         "capability.kernel-primitive-compose",
