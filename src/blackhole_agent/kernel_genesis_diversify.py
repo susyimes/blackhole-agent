@@ -67,6 +67,11 @@ from blackhole_agent.kernel_mission_memory import (
     MISSION_MEMORY_GOAL,
     MISSION_MEMORY_ID,
 )
+from blackhole_agent.mcp_handshake_isolation import (
+    MCP_HANDSHAKE_DONE_WHEN,
+    MCP_HANDSHAKE_GOAL,
+    MCP_HANDSHAKE_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -84,7 +89,6 @@ from blackhole_agent.mission_selection import (
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GENESIS_DIVERSIFY_ID = "capability.kernel-genesis-diversify"
-MCP_HANDSHAKE_ID = "capability.mcp-handshake-isolation"
 
 GENESIS_DIVERSIFY_DONE_WHEN = (
     f"capability_exists:{GENESIS_DIVERSIFY_ID};"
@@ -96,16 +100,6 @@ GENESIS_DIVERSIFY_GOAL = (
     "controller selection gates, repair the empty successor: mint a diversity-ranked "
     "mission on a different capability family in-process so a live consumed campaign "
     "cannot leave genesis unbound."
-)
-MCP_HANDSHAKE_DONE_WHEN = (
-    f"capability_exists:{MCP_HANDSHAKE_ID};"
-    f"capability_proved:{MCP_HANDSHAKE_ID};"
-    "no_skill_route"
-)
-MCP_HANDSHAKE_GOAL = (
-    "Repair MCP client handshake isolation: a plugin whose initialize response "
-    "never arrives still fails the whole MCP plane; isolate the dead handshake so "
-    "live servers keep serving."
 )
 
 COMPOUNDING_THROUGH_FABRIC = (
@@ -436,6 +430,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["schema_version"] = SCHEMA_VERSION == 1
     checks["catalog_names_memory"] = DIVERSITY_CATALOG[1]["id"] == MISSION_MEMORY_ID
     checks["catalog_names_half_open"] = DIVERSITY_CATALOG[2]["id"] == HALF_OPEN_PERSIST_ID
+    checks["catalog_names_handshake"] = DIVERSITY_CATALOG[3]["id"] == MCP_HANDSHAKE_ID
 
     ok = all(checks.values())
     if ok:

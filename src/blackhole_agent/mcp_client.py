@@ -89,31 +89,35 @@ class McpStdioSession:
         self.protocol_version = ""
 
     def start(self) -> "McpStdioSession":
-        self._process = subprocess.Popen(
-            self.command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            cwd=str(REPO_ROOT),
-        )
-        reader = threading.Thread(target=self._pump, daemon=True)
-        reader.start()
-        handshake = self.request(
-            "initialize",
-            {
-                "protocolVersion": DEFAULT_PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": CLIENT_INFO,
-            },
-        )
-        if not isinstance(handshake, Mapping) or "serverInfo" not in handshake:
-            raise McpProtocolError(f"malformed initialize result: {handshake!r}")
-        self.server_info = dict(handshake.get("serverInfo") or {})
-        self.protocol_version = str(handshake.get("protocolVersion") or "")
-        self.notify("notifications/initialized", {})
-        return self
+        try:
+            self._process = subprocess.Popen(
+                self.command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                cwd=str(REPO_ROOT),
+            )
+            reader = threading.Thread(target=self._pump, daemon=True)
+            reader.start()
+            handshake = self.request(
+                "initialize",
+                {
+                    "protocolVersion": DEFAULT_PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": CLIENT_INFO,
+                },
+            )
+            if not isinstance(handshake, Mapping) or "serverInfo" not in handshake:
+                raise McpProtocolError(f"malformed initialize result: {handshake!r}")
+            self.server_info = dict(handshake.get("serverInfo") or {})
+            self.protocol_version = str(handshake.get("protocolVersion") or "")
+            self.notify("notifications/initialized", {})
+            return self
+        except Exception:
+            self.kill()
+            raise
 
     def _pump(self) -> None:
         assert self._process is not None and self._process.stdout is not None
@@ -176,6 +180,28 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
         return dict(result)
 
+    def kill(self) -> None:
+        """Abandon a session immediately, including a hung initialize."""
+
+        process = self._process
+        self._process = None
+        if process is None:
+            return
+        try:
+            if process.stdin is not None:
+                process.stdin.close()
+        except OSError:
+            pass
+        if process.poll() is None:
+            try:
+                process.kill()
+            except OSError:
+                pass
+            try:
+                process.wait(timeout=5)
+            except (subprocess.TimeoutExpired, OSError):
+                pass
+
     def close(self) -> None:
         if self._process is None:
             return
@@ -187,8 +213,8 @@ class McpStdioSession:
         try:
             self._process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            self._process.kill()
-            self._process.wait(timeout=5)
+            self.kill()
+            return
         self._process = None
 
     def __enter__(self) -> "McpStdioSession":
