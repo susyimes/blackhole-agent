@@ -134,6 +134,24 @@ def reverse_channel_reply(
     }
 
 
+DEFAULT_ELICITATION_CONTENT: dict[str, Any] = {"approved": True}
+
+
+def elicitation_reply(
+    message: Mapping[str, Any],
+    *,
+    content: Mapping[str, Any] | None = None,
+    action: str = "accept",
+) -> dict[str, Any]:
+    """Build the JSON-RPC response for a server-originated elicitation/create."""
+
+    resolved = str(action or "accept")
+    result: dict[str, Any] = {"action": resolved}
+    if resolved == "accept":
+        result["content"] = dict(content or DEFAULT_ELICITATION_CONTENT)
+    return {"jsonrpc": "2.0", "id": message.get("id"), "result": result}
+
+
 class McpStdioSession:
     """One live MCP stdio session: initialize -> tools/list -> tools/call."""
 

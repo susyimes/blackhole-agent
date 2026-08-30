@@ -82,6 +82,11 @@ from blackhole_agent.mcp_http_transport import (
     MCP_HTTP_GOAL,
     MCP_HTTP_ID,
 )
+from blackhole_agent.mcp_http_event_stream import (
+    MCP_HTTP_EVENT_DONE_WHEN,
+    MCP_HTTP_EVENT_GOAL,
+    MCP_HTTP_EVENT_ID,
+)
 from blackhole_agent.mcp_handshake_isolation import (
     MCP_HANDSHAKE_DONE_WHEN,
     MCP_HANDSHAKE_GOAL,
@@ -171,6 +176,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_HTTP_GOAL,
         "done_when": MCP_HTTP_DONE_WHEN,
         "source": "genesis_bind_http_transport",
+    },
+    {
+        "id": MCP_HTTP_EVENT_ID,
+        "goal": MCP_HTTP_EVENT_GOAL,
+        "done_when": MCP_HTTP_EVENT_DONE_WHEN,
+        "source": "genesis_bind_http_event_stream",
     },
 )
 
@@ -467,6 +478,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_call"] = DIVERSITY_CATALOG[4]["id"] == MCP_CALL_ID
     checks["catalog_names_reverse"] = DIVERSITY_CATALOG[5]["id"] == MCP_REVERSE_ID
     checks["catalog_names_http"] = DIVERSITY_CATALOG[6]["id"] == MCP_HTTP_ID
+    checks["catalog_names_event_stream"] = DIVERSITY_CATALOG[7]["id"] == MCP_HTTP_EVENT_ID
 
     ok = all(checks.values())
     if ok:

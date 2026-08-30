@@ -17,6 +17,8 @@ This module closes that hole:
 from __future__ import annotations
 
 import json
+import select
+import socket
 import sys
 import tempfile
 import threading
@@ -27,6 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import ProxyHandler, Request, build_opener
 
 from blackhole_agent.capability_compounder import (
@@ -42,12 +45,16 @@ from blackhole_agent.kernel_leftover import leftover_marker_ids
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
 from blackhole_agent.mcp_client import (
     CLIENT_INFO,
+    DEFAULT_ELICITATION_CONTENT,
     DEFAULT_PROTOCOL_VERSION,
     McpProtocolError,
     McpStdioSession,
     _extract_text,
     echo_server_command,
+    elicitation_reply,
+    is_jsonrpc_server_request,
     is_mcp_transport_failure,
+    reverse_channel_reply,
 )
 from blackhole_agent.mcp_echo_server import handle_message
 from blackhole_agent.mcp_handshake_isolation import (
@@ -74,8 +81,6 @@ MCP_HTTP_GOAL = (
     "MCP servers never serve tools on the live plane."
 )
 
-_LOOPBACK_OPENER = build_opener(ProxyHandler({}))
-
 
 class HttpEchoHandle:
     """Loopback streamable-HTTP MCP echo server."""
@@ -97,19 +102,27 @@ def encode_sse_jsonrpc(payload: Mapping[str, Any]) -> bytes:
     return f"event: message\ndata: {body}\n\n".encode("utf-8")
 
 
+def parse_sse_event(raw: bytes | str) -> dict[str, Any] | None:
+    """Parse one SSE event into a JSON object, or None when it is not JSON-RPC."""
+
+    text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+    data_lines = [
+        line[5:].lstrip() for line in text.splitlines() if line.startswith("data:")
+    ]
+    if not data_lines:
+        return None
+    try:
+        payload = json.loads("\n".join(data_lines))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def parse_sse_jsonrpc(raw: bytes | str, request_id: Any) -> dict[str, Any]:
     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
     for event in text.split("\n\n"):
-        data_lines = [
-            line[5:].lstrip() for line in event.splitlines() if line.startswith("data:")
-        ]
-        if not data_lines:
-            continue
-        try:
-            payload = json.loads("\n".join(data_lines))
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict) and payload.get("id") == request_id:
+        payload = parse_sse_event(event)
+        if payload is not None and payload.get("id") == request_id:
             return payload
     raise McpProtocolError(f"timeout waiting for response id={request_id}")
 
@@ -199,7 +212,13 @@ def start_http_echo_server() -> Iterator[HttpEchoHandle]:
 
 
 class McpHttpSession:
-    """One live MCP streamable-HTTP session: initialize -> tools/list -> tools/call."""
+    """One live MCP streamable-HTTP session: initialize -> tools/list -> tools/call.
+
+    After initialize the client opens a GET SSE stream so the server can send
+    reverse-channel JSON-RPC (elicitation, ping, progress). POST-only servers
+    that reject GET stay on the live plane; ``listen_event_stream=False`` is
+    the fail-open hole for hosted plugins that elicit over GET.
+    """
 
     def __init__(
         self,
@@ -207,22 +226,40 @@ class McpHttpSession:
         *,
         timeout_seconds: float = 30.0,
         accept: str = DEFAULT_ACCEPT,
+        listen_event_stream: bool = True,
+        answer_elicitation: bool = True,
+        elicitation_action: str = "accept",
+        elicitation_content: Mapping[str, Any] | None = None,
     ) -> None:
         self.url = str(url).rstrip("/")
         self.timeout_seconds = float(timeout_seconds)
         self.accept = str(accept or DEFAULT_ACCEPT)
+        self.listen_event_stream = bool(listen_event_stream)
+        self.answer_elicitation = bool(answer_elicitation)
+        self.elicitation_action = str(elicitation_action or "accept")
+        self.elicitation_content = dict(elicitation_content or DEFAULT_ELICITATION_CONTENT)
         self.session_id = ""
         self.server_info: dict[str, Any] = {}
         self.protocol_version = ""
+        self.event_stream_open = False
+        self.answered_requests: list[dict[str, Any]] = []
+        self.server_notifications: list[dict[str, Any]] = []
         self._next_id = 0
         self._closed = False
+        self.event_stream_error = ""
+        self._event_sock: socket.socket | None = None
+        self._event_rest = b""
 
     def start(self) -> "McpHttpSession":
+        client_capabilities: dict[str, Any] = {}
+        if self.listen_event_stream:
+            client_capabilities["elicitation"] = {}
+            client_capabilities["roots"] = {}
         handshake = self.request(
             "initialize",
             {
                 "protocolVersion": DEFAULT_PROTOCOL_VERSION,
-                "capabilities": {},
+                "capabilities": client_capabilities,
                 "clientInfo": CLIENT_INFO,
             },
         )
@@ -231,6 +268,8 @@ class McpHttpSession:
         self.server_info = dict(handshake.get("serverInfo") or {})
         self.protocol_version = str(handshake.get("protocolVersion") or "")
         self.notify("notifications/initialized", {})
+        if self.listen_event_stream:
+            self._try_open_event_stream()
         return self
 
     def _post(self, payload: Mapping[str, Any], *, expect_response: bool) -> dict[str, Any] | None:
@@ -246,7 +285,9 @@ class McpHttpSession:
         request = Request(self.url, data=body, headers=headers, method="POST")
         request_id = payload.get("id")
         try:
-            with _LOOPBACK_OPENER.open(request, timeout=self.timeout_seconds) as response:
+            # Fresh opener per POST: GET SSE pump and tools/call run concurrently.
+            opener = build_opener(ProxyHandler({}))
+            with opener.open(request, timeout=self.timeout_seconds) as response:
                 session = response.headers.get("Mcp-Session-Id") or ""
                 if session:
                     self.session_id = session
@@ -310,8 +351,120 @@ class McpHttpSession:
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
         return dict(result)
 
+    def _try_open_event_stream(self) -> None:
+        """Best-effort GET SSE; POST-only hosted plugins stay on the plane."""
+
+        if self._closed or not self.session_id:
+            return
+        parsed = urlparse(self.url)
+        host = parsed.hostname or "127.0.0.1"
+        port = int(parsed.port or (443 if parsed.scheme == "https" else 80))
+        path = parsed.path or "/mcp"
+        try:
+            sock = socket.create_connection((host, port), timeout=min(5.0, self.timeout_seconds))
+        except OSError as exc:
+            self.event_stream_error = f"GET connect failed: {exc}"
+            return
+        try:
+            sock.sendall(
+                (
+                    f"GET {path} HTTP/1.1\r\n"
+                    f"Host: {host}:{port}\r\n"
+                    "Accept: text/event-stream\r\n"
+                    f"Mcp-Session-Id: {self.session_id}\r\n"
+                    "Cache-Control: no-cache\r\n"
+                    "Connection: keep-alive\r\n"
+                    "\r\n"
+                ).encode("ascii")
+            )
+            sock.settimeout(2.0)
+            header_buf = b""
+            while b"\r\n\r\n" not in header_buf:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    raise OSError("GET stream closed during headers")
+                header_buf += chunk
+            header_text, rest = header_buf.split(b"\r\n\r\n", 1)
+            status_line = header_text.split(b"\r\n", 1)[0].decode("ascii", errors="replace")
+            parts = status_line.split()
+            if len(parts) < 2 or parts[1] != "200":
+                sock.close()
+                self.event_stream_error = status_line
+                return
+            self._event_sock = sock
+            self._event_rest = rest
+            self.event_stream_open = True
+            self.event_stream_error = ""
+            threading.Thread(target=self._pump_event_stream, daemon=True).start()
+        except OSError as exc:
+            self.event_stream_error = str(exc)
+            try:
+                sock.close()
+            except OSError:
+                pass
+
+    def _pump_event_stream(self) -> None:
+        sock = self._event_sock
+        buffer = self._event_rest.decode("utf-8", errors="replace")
+        try:
+            while not self._closed and sock is not None:
+                while "\n\n" in buffer:
+                    raw, buffer = buffer.split("\n\n", 1)
+                    payload = parse_sse_event(raw)
+                    if payload is not None:
+                        self._handle_event_message(payload)
+                try:
+                    ready, _, _ = select.select([sock], [], [], 0.25)
+                except (OSError, ValueError):
+                    break
+                if not ready:
+                    continue
+                try:
+                    chunk = sock.recv(4096)
+                except TimeoutError:
+                    continue
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                buffer += chunk.decode("utf-8", errors="replace")
+        finally:
+            self.event_stream_open = False
+
+    def _handle_event_message(self, message: Mapping[str, Any]) -> None:
+        if not is_jsonrpc_server_request(message):
+            if str(message.get("method") or "").startswith("notifications/"):
+                self.server_notifications.append(dict(message))
+            return
+        method = str(message.get("method") or "")
+        if method == "elicitation/create" and self.answer_elicitation:
+            reply = elicitation_reply(
+                message,
+                content=self.elicitation_content,
+                action=self.elicitation_action,
+            )
+            error = False
+        else:
+            reply = reverse_channel_reply(message)
+            error = "error" in reply
+        self.answered_requests.append(
+            {"method": method, "id": message.get("id"), "error": error}
+        )
+        try:
+            self._post(reply, expect_response=False)
+        except McpProtocolError:
+            return
+
     def kill(self) -> None:
         self._closed = True
+        sock = self._event_sock
+        self._event_sock = None
+        self.event_stream_open = False
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
 
     def close(self) -> None:
         self.kill()
