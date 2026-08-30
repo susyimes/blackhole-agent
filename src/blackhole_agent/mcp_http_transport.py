@@ -1,0 +1,555 @@
+"""Speak MCP streamable HTTP so hosted plugins can serve on the live plane.
+
+Handshake isolation, hung-call isolation, and the stdio reverse channel keep
+newline-delimited plugins alive. A spec-compliant server that only speaks
+HTTP POST (JSON or SSE) still cannot complete initialize: the stdio client
+never POSTs, the hosted process writes no NDJSON, and the plane never sees
+its tools.
+
+This module closes that hole:
+
+- POST JSON-RPC to an HTTP MCP endpoint (streamable HTTP subset)
+- accept ``application/json`` or ``text/event-stream`` responses
+- keep the stdio-only path so the hole stays falsifiable
+- let an HTTP plugin and a stdio sibling serve on the same plane
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import threading
+import time
+import uuid
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, Iterator, Mapping
+from urllib.error import HTTPError, URLError
+from urllib.request import ProxyHandler, Request, build_opener
+
+from blackhole_agent.capability_compounder import (
+    Capability,
+    default_ledger_path,
+    legacy_pipeline_was_used,
+    load_ledger,
+    register_capability,
+    save_ledger,
+    utc_now_iso,
+)
+from blackhole_agent.kernel_leftover import leftover_marker_ids
+from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
+from blackhole_agent.mcp_client import (
+    CLIENT_INFO,
+    DEFAULT_PROTOCOL_VERSION,
+    McpProtocolError,
+    McpStdioSession,
+    _extract_text,
+    echo_server_command,
+    is_mcp_transport_failure,
+)
+from blackhole_agent.mcp_echo_server import handle_message
+from blackhole_agent.mcp_handshake_isolation import (
+    DEAD_HANDSHAKE_TIMEOUT_SECONDS,
+    LIVE_HANDSHAKE_TIMEOUT_SECONDS,
+    McpPluginSpec,
+    connect_mcp_plane,
+)
+
+SCHEMA_VERSION = 1
+MCP_HTTP_ID = "capability.mcp-http-transport"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ACCEPT = "application/json, text/event-stream"
+SSE_ACCEPT = "text/event-stream"
+
+MCP_HTTP_DONE_WHEN = (
+    f"capability_exists:{MCP_HTTP_ID};"
+    f"capability_proved:{MCP_HTTP_ID};"
+    "no_skill_route"
+)
+MCP_HTTP_GOAL = (
+    "Repair MCP streamable HTTP transport: a spec-compliant plugin that speaks "
+    "HTTP POST and SSE instead of stdio never completes initialize, so hosted "
+    "MCP servers never serve tools on the live plane."
+)
+
+_LOOPBACK_OPENER = build_opener(ProxyHandler({}))
+
+
+class HttpEchoHandle:
+    """Loopback streamable-HTTP MCP echo server."""
+
+    def __init__(self, url: str, server: ThreadingHTTPServer, thread: threading.Thread) -> None:
+        self.url = url
+        self.server = server
+        self.thread = thread
+
+
+def http_stdio_silent_command() -> list[str]:
+    """Process that only speaks HTTP; stdio initialize never arrives."""
+
+    return [sys.executable, "-u", "-m", "blackhole_agent.mcp_http_transport", "silent"]
+
+
+def encode_sse_jsonrpc(payload: Mapping[str, Any]) -> bytes:
+    body = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
+    return f"event: message\ndata: {body}\n\n".encode("utf-8")
+
+
+def parse_sse_jsonrpc(raw: bytes | str, request_id: Any) -> dict[str, Any]:
+    text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+    for event in text.split("\n\n"):
+        data_lines = [
+            line[5:].lstrip() for line in event.splitlines() if line.startswith("data:")
+        ]
+        if not data_lines:
+            continue
+        try:
+            payload = json.loads("\n".join(data_lines))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and payload.get("id") == request_id:
+            return payload
+    raise McpProtocolError(f"timeout waiting for response id={request_id}")
+
+
+class _McpHttpEchoServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+class _McpHttpHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, format: str, *args: Any) -> None:  # noqa: A003 - stdlib signature
+        return
+
+    def do_POST(self) -> None:  # noqa: N802 - stdlib
+        if self.path.rstrip("/") not in {"", "/mcp"}:
+            self.send_error(404, "not an MCP endpoint")
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            message = json.loads(raw.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._write_rpc(
+                {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}},
+                status=400,
+            )
+            return
+        if not isinstance(message, dict):
+            self._write_rpc(
+                {"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "invalid request"}},
+                status=400,
+            )
+            return
+        response = handle_message(message)
+        session = self.headers.get("Mcp-Session-Id") or ""
+        if str(message.get("method") or "") == "initialize":
+            session = uuid.uuid4().hex
+        if response is None:
+            self.send_response(202)
+            if session:
+                self.send_header("Mcp-Session-Id", session)
+            self.end_headers()
+            return
+        self._write_rpc(response, session=session)
+
+    def _write_rpc(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        status: int = 200,
+        session: str = "",
+    ) -> None:
+        accept = (self.headers.get("Accept") or "").lower()
+        prefer_sse = "text/event-stream" in accept and "application/json" not in accept
+        if prefer_sse:
+            body = encode_sse_jsonrpc(payload)
+            content_type = "text/event-stream"
+        else:
+            body = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+            content_type = "application/json"
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        if session:
+            self.send_header("Mcp-Session-Id", session)
+        self.end_headers()
+        self.wfile.write(body)
+
+
+@contextmanager
+def start_http_echo_server() -> Iterator[HttpEchoHandle]:
+    """Serve the in-repo echo tools over loopback streamable HTTP."""
+
+    server = _McpHttpEchoServer(("127.0.0.1", 0), _McpHttpHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address[:2]
+    handle = HttpEchoHandle(url=f"http://{host}:{port}/mcp", server=server, thread=thread)
+    try:
+        yield handle
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+class McpHttpSession:
+    """One live MCP streamable-HTTP session: initialize -> tools/list -> tools/call."""
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float = 30.0,
+        accept: str = DEFAULT_ACCEPT,
+    ) -> None:
+        self.url = str(url).rstrip("/")
+        self.timeout_seconds = float(timeout_seconds)
+        self.accept = str(accept or DEFAULT_ACCEPT)
+        self.session_id = ""
+        self.server_info: dict[str, Any] = {}
+        self.protocol_version = ""
+        self._next_id = 0
+        self._closed = False
+
+    def start(self) -> "McpHttpSession":
+        handshake = self.request(
+            "initialize",
+            {
+                "protocolVersion": DEFAULT_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": CLIENT_INFO,
+            },
+        )
+        if not isinstance(handshake, Mapping) or "serverInfo" not in handshake:
+            raise McpProtocolError(f"malformed initialize result: {handshake!r}")
+        self.server_info = dict(handshake.get("serverInfo") or {})
+        self.protocol_version = str(handshake.get("protocolVersion") or "")
+        self.notify("notifications/initialized", {})
+        return self
+
+    def _post(self, payload: Mapping[str, Any], *, expect_response: bool) -> dict[str, Any] | None:
+        if self._closed:
+            raise McpProtocolError("MCP HTTP session is not running")
+        body = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": self.accept,
+        }
+        if self.session_id:
+            headers["Mcp-Session-Id"] = self.session_id
+        request = Request(self.url, data=body, headers=headers, method="POST")
+        request_id = payload.get("id")
+        try:
+            with _LOOPBACK_OPENER.open(request, timeout=self.timeout_seconds) as response:
+                session = response.headers.get("Mcp-Session-Id") or ""
+                if session:
+                    self.session_id = session
+                status = getattr(response, "status", 200)
+                content_type = str(response.headers.get("Content-Type") or "")
+                raw = response.read()
+        except HTTPError as error:
+            raise McpProtocolError(
+                f"http {error.code} waiting for response id={request_id}"
+            ) from error
+        except (TimeoutError, URLError, OSError) as error:
+            raise McpProtocolError(f"timeout waiting for response id={request_id}") from error
+        if not expect_response or status == 202:
+            return None
+        if "text/event-stream" in content_type:
+            return parse_sse_jsonrpc(raw, request_id)
+        try:
+            message = json.loads(raw.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise McpProtocolError(f"malformed HTTP JSON-RPC for id={request_id}") from error
+        if not isinstance(message, dict):
+            raise McpProtocolError(f"malformed HTTP JSON-RPC for id={request_id}")
+        return message
+
+    def request(self, method: str, params: Mapping[str, Any] | None = None) -> Any:
+        self._next_id += 1
+        request_id = self._next_id
+        response = self._post(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": method,
+                "params": dict(params or {}),
+            },
+            expect_response=True,
+        )
+        if not isinstance(response, dict):
+            raise McpProtocolError(f"timeout waiting for response id={request_id}")
+        if "error" in response:
+            error = response["error"] or {}
+            raise McpProtocolError(
+                f"JSON-RPC error {error.get('code')}: {error.get('message')} for method {method}"
+            )
+        return response.get("result")
+
+    def notify(self, method: str, params: Mapping[str, Any] | None = None) -> None:
+        self._post(
+            {"jsonrpc": "2.0", "method": method, "params": dict(params or {})},
+            expect_response=False,
+        )
+
+    def list_tools(self) -> dict[str, Any]:
+        result = self.request("tools/list", {})
+        if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
+            raise McpProtocolError(f"malformed tools/list result: {result!r}")
+        return dict(result)
+
+    def call_tool(self, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
+        result = self.request("tools/call", {"name": name, "arguments": dict(arguments)})
+        if not isinstance(result, Mapping):
+            raise McpProtocolError(f"malformed tools/call result: {result!r}")
+        return dict(result)
+
+    def kill(self) -> None:
+        self._closed = True
+
+    def close(self) -> None:
+        self.kill()
+
+    def __enter__(self) -> "McpHttpSession":
+        return self.start()
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+
+def mcp_http_transport_proof_command() -> str:
+    return (
+        "uv run python -c \"from blackhole_agent.mcp_http_transport import "
+        "builtin_mcp_http_transport_proof; r=builtin_mcp_http_transport_proof(); "
+        "assert r['ok'] and r.get('action')=='mcp_http_transport' "
+        "and r.get('passed_count',0) >= 12 "
+        "and not r.get('used_skill_route_discovery')\""
+    )
+
+
+def ensure_mcp_http_transport_capability(*, repo_path: Path | None = None) -> Capability:
+    """Register the closer on the live ledger once the proof is green."""
+
+    root = (repo_path or REPO_ROOT).resolve()
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    capability = Capability(
+        id=MCP_HTTP_ID,
+        name="MCP streamable HTTP transport",
+        description=(
+            "A spec-compliant MCP plugin that speaks HTTP POST and SSE instead "
+            "of stdio completes initialize on the live plane and serves tools "
+            "beside stdio siblings."
+        ),
+        kind="python",
+        entry="blackhole_agent.mcp_http_transport:builtin_mcp_http_transport_proof",
+        proof_command=mcp_http_transport_proof_command(),
+        dependencies=(
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "unbound.milestone-gate",
+            "capability.mcp-handshake-isolation",
+        ),
+        behavior_paths=(
+            "src/blackhole_agent/mcp_http_transport.py",
+            "src/blackhole_agent/mcp_handshake_isolation.py",
+            "src/blackhole_agent/mcp_client.py",
+            "src/blackhole_agent/local_capability_kernel.py",
+            "src/blackhole_agent/kernel_leftover.py",
+            "src/blackhole_agent/kernel_genesis_diversify.py",
+            "capabilities/ledger.json",
+        ),
+        capability_delta=(
+            "Hosted MCP servers that speak streamable HTTP stay on the live "
+            "plane: the client POSTs JSON-RPC (JSON or SSE) instead of waiting "
+            "for stdio NDJSON that never arrives."
+        ),
+        tags=("mcp", "http", "transport", "sse", "streamable"),
+        last_proved_at=utc_now_iso(),
+        last_proof_exit_code=0,
+        source_mission_id="20260830T031507Z-7c20446f",
+        source_milestone=1,
+    )
+    register_capability(ledger, capability, replace=True)
+    save_ledger(path, ledger)
+    return capability
+
+
+def builtin_mcp_http_transport_proof() -> dict[str, Any]:
+    """Hermetic proof: HTTP POST/SSE initialize serves hosted MCP tools."""
+
+    from blackhole_agent.kernel_genesis_bind import _register_proved
+    from blackhole_agent.kernel_genesis_diversify import (
+        DIVERSITY_CATALOG,
+        _prepare_exhausted_catalog,
+        bind_gate_passing_successor,
+    )
+    from blackhole_agent.mcp_call_isolation import MCP_CALL_GOAL
+    from blackhole_agent.mcp_handshake_isolation import MCP_HANDSHAKE_GOAL
+    from blackhole_agent.mcp_reverse_channel import MCP_REVERSE_GOAL
+
+    catalog = DIVERSITY_CATALOG
+    checks: dict[str, bool] = {}
+    checks["denylists_self"] = MCP_HTTP_ID in LOCAL_DENYLIST
+    checks["leftover_marker"] = leftover_marker_ids(MCP_HTTP_GOAL) == (MCP_HTTP_ID,)
+    checks["reverse_goal_is_not_http"] = leftover_marker_ids(MCP_REVERSE_GOAL) != (MCP_HTTP_ID,)
+    checks["handshake_goal_is_not_http"] = leftover_marker_ids(MCP_HANDSHAKE_GOAL) != (MCP_HTTP_ID,)
+    checks["call_goal_is_not_http"] = leftover_marker_ids(MCP_CALL_GOAL) != (MCP_HTTP_ID,)
+    checks["schema_version"] = SCHEMA_VERSION == 1
+    checks["catalog_names_http"] = (
+        len(catalog) > 6 and catalog[6]["id"] == MCP_HTTP_ID and catalog[5]["id"] != MCP_HTTP_ID
+    )
+
+    naive = McpStdioSession(
+        http_stdio_silent_command(),
+        timeout_seconds=DEAD_HANDSHAKE_TIMEOUT_SECONDS,
+    )
+    try:
+        stalled = False
+        try:
+            naive.start()
+        except McpProtocolError as exc:
+            stalled = is_mcp_transport_failure(exc)
+        checks["stdio_cannot_handshake_http_plugin"] = stalled
+    finally:
+        naive.kill()
+
+    isolated = connect_mcp_plane(
+        [
+            McpPluginSpec(
+                "hosted-stdio",
+                http_stdio_silent_command(),
+                timeout_seconds=DEAD_HANDSHAKE_TIMEOUT_SECONDS,
+            ),
+            McpPluginSpec("live", echo_server_command(), timeout_seconds=LIVE_HANDSHAKE_TIMEOUT_SECONDS),
+        ],
+        isolate_dead=True,
+        isolate_hung_calls=True,
+    )
+    try:
+        echoed = _extract_text(isolated.call_tool("live", "echo", {"text": "stdio-sibling"}))
+        checks["stdio_plane_isolates_http_only_plugin"] = (
+            isolated.plane_failed is False
+            and isolated.live_names == ("live",)
+            and "hosted-stdio" in isolated.isolated_names
+            and echoed == "stdio-sibling"
+        )
+    finally:
+        isolated.close()
+
+    with start_http_echo_server() as hosted:
+        json_session = McpHttpSession(hosted.url, timeout_seconds=LIVE_HANDSHAKE_TIMEOUT_SECONDS)
+        try:
+            json_session.start()
+            tools = json_session.list_tools()
+            names = tuple(
+                str(item.get("name") or "")
+                for item in (tools.get("tools") or [])
+                if isinstance(item, Mapping)
+            )
+            echoed = _extract_text(json_session.call_tool("echo", {"text": "via-http"}))
+            digest = _extract_text(json_session.call_tool("sha256", {"text": "via-http"}))
+            checks["http_json_initialize_serves"] = (
+                bool(json_session.server_info.get("name"))
+                and json_session.protocol_version == DEFAULT_PROTOCOL_VERSION
+                and bool(json_session.session_id)
+                and "echo" in names
+                and "sha256" in names
+                and echoed == "via-http"
+                and len(digest) == 64
+            )
+        finally:
+            json_session.kill()
+
+        sse_session = McpHttpSession(
+            hosted.url,
+            timeout_seconds=LIVE_HANDSHAKE_TIMEOUT_SECONDS,
+            accept=SSE_ACCEPT,
+        )
+        try:
+            sse_session.start()
+            sse_echo = _extract_text(sse_session.call_tool("echo", {"text": "via-sse"}))
+            checks["http_sse_initialize_serves"] = (
+                sse_echo == "via-sse" and bool(sse_session.session_id)
+            )
+        finally:
+            sse_session.kill()
+
+        mixed = connect_mcp_plane(
+            [
+                McpPluginSpec(
+                    "hosted",
+                    timeout_seconds=LIVE_HANDSHAKE_TIMEOUT_SECONDS,
+                    url=hosted.url,
+                ),
+                McpPluginSpec("live", echo_server_command(), timeout_seconds=LIVE_HANDSHAKE_TIMEOUT_SECONDS),
+            ],
+            isolate_dead=True,
+            isolate_hung_calls=True,
+        )
+        try:
+            hosted_echo = _extract_text(mixed.call_tool("hosted", "echo", {"text": "hosted-ok"}))
+            live_echo = _extract_text(mixed.call_tool("live", "echo", {"text": "live-ok"}))
+            checks["mixed_http_and_stdio_serve"] = (
+                mixed.plane_failed is False
+                and mixed.live_names == ("hosted", "live")
+                and hosted_echo == "hosted-ok"
+                and live_echo == "live-ok"
+            )
+        finally:
+            mixed.close()
+
+    with tempfile.TemporaryDirectory(prefix="mcp-http-transport-bind-") as tmp:
+        root = Path(tmp)
+        _prepare_exhausted_catalog(root)
+        for item in catalog:
+            if item["id"] != MCP_HTTP_ID:
+                _register_proved(root, item["id"])
+        live_goal, live_done, live_source = bind_gate_passing_successor(root)
+    checks["exhausted_catalog_binds_http"] = (
+        live_goal == MCP_HTTP_GOAL
+        and MCP_HTTP_ID in live_done
+        and live_source == "genesis_bind_http_transport"
+        and live_goal != MCP_REVERSE_GOAL
+    )
+    checks["no_skill_route"] = not legacy_pipeline_was_used()
+
+    ok = all(checks.values())
+    if ok:
+        ensure_mcp_http_transport_capability()
+    return {
+        "ok": ok,
+        "action": "mcp_http_transport",
+        "checks": checks,
+        "passed_count": sum(1 for value in checks.values() if value),
+        "check_count": len(checks),
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+        "mission_goal": MCP_HTTP_GOAL,
+        "done_when": MCP_HTTP_DONE_WHEN,
+    }
+
+
+def run_silent_http_server() -> int:
+    """Stay alive on HTTP only; write nothing to stdout so stdio initialize dies."""
+
+    with start_http_echo_server():
+        while True:
+            time.sleep(3600)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    mode = args[0] if args else "silent"
+    if mode in {"silent", "serve-stdio-silent"}:
+        return run_silent_http_server()
+    raise SystemExit(f"unknown mcp_http_transport mode: {mode}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

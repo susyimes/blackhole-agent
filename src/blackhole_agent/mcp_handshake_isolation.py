@@ -70,18 +70,20 @@ def closed_initialize_command() -> list[str]:
 
 
 class McpPluginSpec:
-    """One named stdio plugin on the MCP plane."""
+    """One named plugin on the MCP plane (stdio command or HTTP URL)."""
 
     def __init__(
         self,
         name: str,
-        command: Sequence[str],
+        command: Sequence[str] = (),
         *,
         timeout_seconds: float = LIVE_HANDSHAKE_TIMEOUT_SECONDS,
+        url: str = "",
     ) -> None:
         self.name = str(name)
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
+        self.url = str(url or "").strip()
 
 
 class McpPluginPlane:
@@ -91,7 +93,7 @@ class McpPluginPlane:
         self.plane_failed = False
         self.fail_error = ""
         self.isolate_hung_calls = True
-        self._sessions: dict[str, McpStdioSession] = {}
+        self._sessions: dict[str, Any] = {}
         self._isolated: dict[str, str] = {}
         self._tools: dict[str, tuple[str, ...]] = {}
 
@@ -145,7 +147,7 @@ class McpPluginPlane:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    def _accept_live(self, name: str, session: McpStdioSession, tools: Sequence[str] = ()) -> None:
+    def _accept_live(self, name: str, session: Any, tools: Sequence[str] = ()) -> None:
         self._sessions[name] = session
         self._tools[name] = tuple(str(item) for item in tools if str(item))
         self._isolated.pop(name, None)
@@ -188,7 +190,7 @@ def connect_mcp_plane(
     return _connect_isolated(plane, specs)
 
 
-def _record_live(plane: McpPluginPlane, spec: McpPluginSpec, session: McpStdioSession) -> None:
+def _record_live(plane: McpPluginPlane, spec: McpPluginSpec, session: Any) -> None:
     tools: tuple[str, ...] = ()
     try:
         payload = session.list_tools()
@@ -202,7 +204,17 @@ def _record_live(plane: McpPluginPlane, spec: McpPluginSpec, session: McpStdioSe
     plane._accept_live(spec.name, session, tools)
 
 
-def _handshake_session(spec: McpPluginSpec) -> tuple[McpStdioSession | None, str]:
+def _handshake_session(spec: McpPluginSpec) -> tuple[Any | None, str]:
+    if spec.url:
+        from blackhole_agent.mcp_http_transport import McpHttpSession
+
+        session: Any = McpHttpSession(spec.url, timeout_seconds=spec.timeout_seconds)
+        try:
+            session.start()
+            return session, ""
+        except Exception as exc:
+            session.kill()
+            return None, str(exc)
     session = McpStdioSession(spec.command, timeout_seconds=spec.timeout_seconds)
     try:
         session.start()
@@ -213,7 +225,7 @@ def _handshake_session(spec: McpPluginSpec) -> tuple[McpStdioSession | None, str
 
 
 def _connect_fail_closed(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) -> McpPluginPlane:
-    started: list[tuple[McpPluginSpec, McpStdioSession]] = []
+    started: list[tuple[McpPluginSpec, Any]] = []
     try:
         for spec in specs:
             session, error = _handshake_session(spec)
@@ -234,7 +246,7 @@ def _connect_fail_closed(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) 
 
 
 def _connect_isolated(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) -> McpPluginPlane:
-    results: dict[str, tuple[McpStdioSession | None, str]] = {}
+    results: dict[str, tuple[Any | None, str]] = {}
     lock = threading.Lock()
 
     def worker(spec: McpPluginSpec) -> None:
@@ -249,7 +261,7 @@ def _connect_isolated(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) -> 
     for thread in threads:
         thread.join(timeout=budget)
 
-    pending: list[tuple[McpPluginSpec, McpStdioSession]] = []
+    pending: list[tuple[McpPluginSpec, Any]] = []
     for spec in specs:
         recorded = results.get(spec.name)
         if recorded is None:
@@ -268,7 +280,7 @@ def _connect_isolated(plane: McpPluginPlane, specs: Sequence[McpPluginSpec]) -> 
 
     discovery: dict[str, tuple[tuple[str, ...] | None, str]] = {}
 
-    def discover(spec: McpPluginSpec, session: McpStdioSession) -> None:
+    def discover(spec: McpPluginSpec, session: Any) -> None:
         try:
             payload = session.list_tools()
             tools = tuple(
