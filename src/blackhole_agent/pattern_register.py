@@ -553,6 +553,12 @@ def ingest_supervisor_pass(repo_path: Path, record: dict[str, Any]) -> PatternRe
 
 
 def ingest_unbound_turn(repo_path: Path, record: dict[str, Any]) -> PatternRegister:
+    try:
+        from blackhole_agent.kernel_mission_memory import remember_turn_record
+
+        remember_turn_record(repo_path, record)
+    except Exception:  # noqa: BLE001 - pattern ingest must still record the class
+        pass
     return ingest_events(repo_path, classify_unbound_turn(record))
 
 

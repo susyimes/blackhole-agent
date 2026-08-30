@@ -236,7 +236,9 @@ def harvest_unbound_failures(
                 seen.add(key)
                 candidates.append(_candidate_from_event(event, priority=2))
         leftover = leftover_next_step(str(state.get("next_step") or ""))
+        leftover_seen: set[str] = set()
         if leftover:
+            leftover_seen.add(leftover)
             mission_id = str(state.get("mission_id") or "")
             leftover_open = True
             try:
@@ -261,9 +263,51 @@ def harvest_unbound_failures(
                 if key not in seen:
                     seen.add(key)
                     candidates.append(_candidate_from_event(event, priority=5))
-        for turn in reversed(list(state.get("recent_turns") or [])):
+        turn_records = list(state.get("recent_turns") or [])
+        try:
+            from blackhole_agent.kernel_mission_memory import (
+                iter_turn_records,
+                remember_turn_record,
+            )
+
+            turn_records = iter_turn_records(state_path, state)
+        except Exception:  # noqa: BLE001 - harvest must still read recent_turns
+            remember_turn_record = None  # type: ignore[assignment]
+        mission_id = str(state.get("mission_id") or "")
+        for turn in reversed(list(turn_records)):
             if not isinstance(turn, dict):
                 continue
+            if remember_turn_record is not None:
+                try:
+                    remember_turn_record(repo_path, turn, source_mission_id=mission_id)
+                except Exception:  # noqa: BLE001 - harvest must still classify the turn
+                    pass
+            turn_leftover = leftover_next_step(str(turn.get("next_step") or ""))
+            if turn_leftover and turn_leftover not in leftover_seen:
+                leftover_seen.add(turn_leftover)
+                leftover_open = True
+                try:
+                    from blackhole_agent.kernel_leftover import leftover_is_open
+
+                    leftover_open = leftover_is_open(
+                        turn_leftover,
+                        Path(repo_path),
+                        source_mission_id=mission_id,
+                        lineage_ref=lineage_ref,
+                    )
+                except Exception:  # noqa: BLE001 - harvest must still surface unknown leftovers
+                    leftover_open = True
+                if leftover_open:
+                    event = {
+                        "class_id": "mission_leftover",
+                        "source": "unbound",
+                        "summary": turn_leftover,
+                        "evidence": f"mission {mission_id} leftover turn next_step",
+                    }
+                    key = (event["class_id"], event["summary"])
+                    if key not in seen:
+                        seen.add(key)
+                        candidates.append(_candidate_from_event(event, priority=5))
             salvage = turn.get("kernel_salvage") if isinstance(turn.get("kernel_salvage"), dict) else {}
             salvage_class = str(salvage.get("class_id") or "")
             if salvage_class in _SALVAGE_CLASSES:
@@ -368,6 +412,12 @@ def harvest_experience(
         )
     candidates.extend(harvest_supervisor_failures(repo_path))
     candidates.extend(harvest_unbound_failures(repo_path, lineage_ref=lineage_ref))
+    try:
+        from blackhole_agent.kernel_mission_memory import recall_open_classes
+
+        candidates.extend(recall_open_classes(repo_path, lineage_ref=lineage_ref))
+    except Exception:  # noqa: BLE001 - harvest must still return live fuel
+        pass
     deduped: list[ExperienceCandidate] = []
     seen: set[str] = set()
     mission_history = load_recent_mission_history(repo_path)

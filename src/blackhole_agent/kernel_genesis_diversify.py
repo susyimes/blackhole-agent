@@ -57,6 +57,11 @@ from blackhole_agent.kernel_genesis_bind import (
     genesis_bind_is_needed,
 )
 from blackhole_agent.kernel_leftover import leftover_marker_ids
+from blackhole_agent.kernel_mission_memory import (
+    MISSION_MEMORY_DONE_WHEN,
+    MISSION_MEMORY_GOAL,
+    MISSION_MEMORY_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -74,7 +79,6 @@ from blackhole_agent.mission_selection import (
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GENESIS_DIVERSIFY_ID = "capability.kernel-genesis-diversify"
-MISSION_MEMORY_ID = "capability.kernel-mission-memory"
 HALF_OPEN_PERSIST_ID = "capability.kernel-half-open-persist"
 MCP_HANDSHAKE_ID = "capability.mcp-handshake-isolation"
 
@@ -88,16 +92,6 @@ GENESIS_DIVERSIFY_GOAL = (
     "controller selection gates, repair the empty successor: mint a diversity-ranked "
     "mission on a different capability family in-process so a live consumed campaign "
     "cannot leave genesis unbound."
-)
-MISSION_MEMORY_DONE_WHEN = (
-    f"capability_exists:{MISSION_MEMORY_ID};"
-    f"capability_proved:{MISSION_MEMORY_ID};"
-    "no_skill_route"
-)
-MISSION_MEMORY_GOAL = (
-    "Repair mission-memory recall: a harvested operational class recorded only "
-    "inside a completed mission turn never reaches the next genesis, so the same "
-    "failure is re-invented instead of replayed from durable memory."
 )
 HALF_OPEN_PERSIST_DONE_WHEN = (
     f"capability_exists:{HALF_OPEN_PERSIST_ID};"
