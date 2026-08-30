@@ -1,10 +1,10 @@
 """Bind a gate-passing successor when the compounding catalog is exhausted.
 
 ``bind_gate_passing_successor`` walks the compounding ``SUCCESSOR_CATALOG``.
-After program fabric is proved, the only remaining catalog row is program
-weave. On live history that weave is a repetition-gate near-duplicate of
-fabric/lattice/tower, so bind returns empty. Recovered kernels and first-class
-genesis then invent until ``genesis_selection_blocked``.
+After program weave is proved, the compounding catalog is exhausted. On live
+history that weave is a repetition-gate near-duplicate of fabric/lattice/tower,
+so bind returns empty unless forage-shaped history still accepts it. Recovered
+kernels and first-class genesis then invent until ``genesis_selection_blocked``.
 
 This module closes that hole:
 

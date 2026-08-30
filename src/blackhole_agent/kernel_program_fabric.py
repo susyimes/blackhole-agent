@@ -40,6 +40,7 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.kernel_compound_loop import (
     COMPOUND_LOOP_LEAF_PREFIX,
     bound_to_program_fabric,
+    bound_to_program_weave,
     is_compound_loop_leaf_id,
 )
 from blackhole_agent.kernel_consumed_growth import is_cheap_inventory_id
@@ -249,6 +250,9 @@ def program_fabric_is_needed(
     saturated = lattice_unique_coverage_is_saturated(ledger, campaign)
     if not saturated:
         return False
+    weave_bound = bound_to_program_weave(live_goal, live_done, source)
+    if weave_bound and fabric_unique_coverage_is_saturated(ledger, campaign):
+        return False
     if not scoped and not saturated:
         return False
     remaining = cheap_remaining(campaign)
@@ -321,6 +325,27 @@ def rank_ready_program_fabrics(
         )
     annotate_opportunities_with_novelty(ledger, opportunities)
     return rank_growth_opportunities(opportunities)
+
+
+def fabric_unique_coverage_is_saturated(
+    ledger: CapabilityLedger,
+    campaign: LocalCampaign | None = None,
+) -> bool:
+    """True when no novelty-ranked program fabric remains to mint."""
+
+    _ = campaign  # coverage is a ledger property; campaign completion is orthogonal
+    ranked = rank_ready_program_fabrics(ledger)
+    has_novel = any(
+        item.get("novel") and item.get("status") == "ready" for item in ranked
+    )
+    if has_novel:
+        return False
+    proved = [
+        item_id
+        for item_id, item in ledger.capabilities.items()
+        if is_program_fabric_id(item_id) and item.last_proof_exit_code == 0
+    ]
+    return len(proved) >= 2
 
 
 def select_program_fabric(
@@ -441,6 +466,35 @@ def promote_and_prove_program_fabric(
     if is_primitive_capability(proved):
         return ""
     return fabric_id
+
+
+def saturate_program_fabrics(
+    root: Path,
+    ledger: CapabilityLedger,
+    campaign: LocalCampaign,
+) -> list[str]:
+    """Mint every remaining novel consecutive-pair program fabric."""
+
+    minted: list[str] = []
+    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    while True:
+        fabric_id = ""
+        for item in rank_ready_program_fabrics(ledger, skip_ids=tuple(skip)):
+            candidate = str(item.get("suggested_id") or "").strip()
+            if not candidate or candidate in skip:
+                continue
+            if item.get("novel") and item.get("status") == "ready":
+                fabric_id = candidate
+                break
+        if not fabric_id:
+            return minted
+        proved = promote_and_prove_program_fabric(Path(root), ledger, fabric_id)
+        if not proved:
+            return minted
+        minted.append(proved)
+        skip.add(proved)
+        if proved not in campaign.completed_ids:
+            campaign.completed_ids.append(proved)
 
 
 def attach_program_fabric(

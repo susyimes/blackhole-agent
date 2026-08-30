@@ -54,6 +54,8 @@ from blackhole_agent.kernel_genesis_bind import (
     PROGRAM_STACK_ID,
     PROGRAM_TOWER_GOAL,
     PROGRAM_TOWER_ID,
+    PROGRAM_WEAVE_GOAL,
+    PROGRAM_WEAVE_ID,
 )
 from blackhole_agent.kernel_succession import cheap_remaining
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, invoke_local_capability
@@ -192,6 +194,16 @@ def bound_to_program_fabric(goal: str, done_when: str = "", bind_source: str = "
     return "genesis_bind_fabric" in str(bind_source or "")
 
 
+def bound_to_program_weave(goal: str, done_when: str = "", bind_source: str = "") -> bool:
+    """True when genesis is already scoped to the program-weave closer."""
+
+    if PROGRAM_WEAVE_ID in f"{goal} {done_when}":
+        return True
+    if str(goal or "").strip() == PROGRAM_WEAVE_GOAL:
+        return True
+    return "genesis_bind_weave" in str(bind_source or "")
+
+
 def compound_loop_is_needed(
     campaign: LocalCampaign,
     ledger: CapabilityLedger,
@@ -225,6 +237,7 @@ def compound_loop_is_needed(
     tower_bound = bound_to_program_tower(live_goal, live_done, source)
     lattice_bound = bound_to_program_lattice(live_goal, live_done, source)
     fabric_bound = bound_to_program_fabric(live_goal, live_done, source)
+    weave_bound = bound_to_program_weave(live_goal, live_done, source)
     if (
         compose_bound
         or program_bound
@@ -232,6 +245,7 @@ def compound_loop_is_needed(
         or tower_bound
         or lattice_bound
         or fabric_bound
+        or weave_bound
     ) and primitive_unique_coverage_is_saturated(ledger, campaign):
         return False
     scoped = (
@@ -242,6 +256,7 @@ def compound_loop_is_needed(
         or tower_bound
         or lattice_bound
         or fabric_bound
+        or weave_bound
     )
     saturated = absorbed_leaves_are_saturated(campaign, ledger)
     if not scoped and not saturated:

@@ -42,6 +42,7 @@ from blackhole_agent.kernel_compound_loop import (
     bound_to_program_lattice,
     bound_to_program_stack,
     bound_to_program_tower,
+    bound_to_program_weave,
     is_compound_loop_leaf_id,
 )
 from blackhole_agent.kernel_consumed_growth import is_cheap_inventory_id
@@ -199,9 +200,10 @@ def program_stack_is_needed(
     tower_bound = bound_to_program_tower(live_goal, live_done, source)
     lattice_bound = bound_to_program_lattice(live_goal, live_done, source)
     fabric_bound = bound_to_program_fabric(live_goal, live_done, source)
-    if (tower_bound or lattice_bound or fabric_bound) and stack_unique_coverage_is_saturated(
-        ledger, campaign
-    ):
+    weave_bound = bound_to_program_weave(live_goal, live_done, source)
+    if (
+        tower_bound or lattice_bound or fabric_bound or weave_bound
+    ) and stack_unique_coverage_is_saturated(ledger, campaign):
         return False
     if not scoped and not saturated:
         return False
