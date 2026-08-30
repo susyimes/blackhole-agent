@@ -14,6 +14,11 @@ The hermetic proof uses the in-repo reference server
 needed; the same code path works against any standards-compliant stdio MCP
 server command.
 
+Stdio sessions answer server-originated JSON-RPC requests (``ping``,
+``roots/list``) on the same stream so a spec-compliant plugin that probes the
+client before returning a tool result stays live. ``answer_reverse_channel=False``
+is the fail-open hole: those inbound requests are ignored and the plugin stalls.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -54,6 +59,9 @@ SCHEMA_VERSION = 1
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 CLIENT_INFO = {"name": "blackhole-unbound", "version": "1.0.0"}
 DEFAULT_ARTIFACT_DIR = "artifacts/mcp-live"
+DEFAULT_MCP_ROOTS: tuple[dict[str, str], ...] = (
+    {"uri": "file:///workspace", "name": "workspace"},
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -90,12 +98,58 @@ def is_mcp_transport_failure(exc: BaseException) -> bool:
     )
 
 
+def is_jsonrpc_server_request(message: Mapping[str, Any]) -> bool:
+    """True for a JSON-RPC request the server sent to the client."""
+
+    return (
+        isinstance(message, Mapping)
+        and "method" in message
+        and "id" in message
+        and "result" not in message
+        and "error" not in message
+    )
+
+
+def reverse_channel_reply(
+    message: Mapping[str, Any],
+    *,
+    roots: Sequence[Mapping[str, str]] = DEFAULT_MCP_ROOTS,
+) -> dict[str, Any]:
+    """Build the JSON-RPC response for a server-originated request."""
+
+    method = str(message.get("method") or "")
+    request_id = message.get("id")
+    if method == "ping":
+        return {"jsonrpc": "2.0", "id": request_id, "result": {}}
+    if method == "roots/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {"roots": [dict(item) for item in roots]},
+        }
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": -32601, "message": f"method not found: {method}"},
+    }
+
+
 class McpStdioSession:
     """One live MCP stdio session: initialize -> tools/list -> tools/call."""
 
-    def __init__(self, command: Sequence[str], *, timeout_seconds: float = 30.0) -> None:
+    def __init__(
+        self,
+        command: Sequence[str],
+        *,
+        timeout_seconds: float = 30.0,
+        answer_reverse_channel: bool = True,
+        roots: Sequence[Mapping[str, str]] | None = None,
+    ) -> None:
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
+        self.answer_reverse_channel = bool(answer_reverse_channel)
+        self.roots = tuple(dict(item) for item in (roots if roots is not None else DEFAULT_MCP_ROOTS))
+        self.answered_requests: list[dict[str, Any]] = []
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -115,11 +169,14 @@ class McpStdioSession:
             )
             reader = threading.Thread(target=self._pump, daemon=True)
             reader.start()
+            client_capabilities: dict[str, Any] = {}
+            if self.answer_reverse_channel:
+                client_capabilities["roots"] = {}
             handshake = self.request(
                 "initialize",
                 {
                     "protocolVersion": DEFAULT_PROTOCOL_VERSION,
-                    "capabilities": {},
+                    "capabilities": client_capabilities,
                     "clientInfo": CLIENT_INFO,
                 },
             )
@@ -162,10 +219,28 @@ class McpStdioSession:
                 continue
             if not isinstance(message, dict):
                 continue
+            if is_jsonrpc_server_request(message):
+                self._answer_server_request(message)
+                continue
             if message.get("id") != request_id:
                 # Notifications or unrelated traffic; keep waiting for our response.
                 continue
             return message
+
+    def _answer_server_request(self, message: Mapping[str, Any]) -> None:
+        """Reply to a server-originated JSON-RPC request, or ignore it (the hole)."""
+
+        if not self.answer_reverse_channel:
+            return
+        reply = reverse_channel_reply(message, roots=self.roots)
+        self._send(reply)
+        self.answered_requests.append(
+            {
+                "method": str(message.get("method") or ""),
+                "id": message.get("id"),
+                "error": "error" in reply,
+            }
+        )
 
     def request(self, method: str, params: Mapping[str, Any] | None = None) -> Any:
         self._next_id += 1

@@ -61,6 +61,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.kernel-half-open-persist",
         "capability.mcp-handshake-isolation",
         "capability.mcp-call-isolation",
+        "capability.mcp-reverse-channel",
         "capability.kernel-consumed-growth",
         "capability.kernel-compound-loop",
         "capability.kernel-primitive-compose",
