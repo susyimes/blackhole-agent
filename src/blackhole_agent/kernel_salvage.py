@@ -29,6 +29,7 @@ from blackhole_agent.kernel_health import (
     kernel_is_available,
     load_kernel_health,
     mark_kernel_success,
+    refresh_kernel_breakers,
     save_kernel_health,
     trip_kernel,
 )
@@ -381,6 +382,7 @@ def execute_kernel_turn_with_salvage(
     turn_dir = Path(turn_dir)
     repo = _repo_from_state(state)
     store = health if health is not None else (load_kernel_health(repo) if repo else KernelHealth())
+    refresh_kernel_breakers(store, now=now)
     installed = (
         set(installed_kernels)
         if installed_kernels is not None
@@ -390,6 +392,8 @@ def execute_kernel_turn_with_salvage(
     def persist() -> None:
         if persist_health and repo is not None:
             save_kernel_health(repo, store, now=now)
+
+    persist()
 
     def dispatch() -> Any:
         if state.kernel == LOCAL_KERNEL:

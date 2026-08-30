@@ -57,6 +57,11 @@ from blackhole_agent.kernel_genesis_bind import (
     genesis_bind_is_needed,
 )
 from blackhole_agent.kernel_leftover import leftover_marker_ids
+from blackhole_agent.kernel_half_open_persist import (
+    HALF_OPEN_PERSIST_DONE_WHEN,
+    HALF_OPEN_PERSIST_GOAL,
+    HALF_OPEN_PERSIST_ID,
+)
 from blackhole_agent.kernel_mission_memory import (
     MISSION_MEMORY_DONE_WHEN,
     MISSION_MEMORY_GOAL,
@@ -79,7 +84,6 @@ from blackhole_agent.mission_selection import (
 SCHEMA_VERSION = 1
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GENESIS_DIVERSIFY_ID = "capability.kernel-genesis-diversify"
-HALF_OPEN_PERSIST_ID = "capability.kernel-half-open-persist"
 MCP_HANDSHAKE_ID = "capability.mcp-handshake-isolation"
 
 GENESIS_DIVERSIFY_DONE_WHEN = (
@@ -92,16 +96,6 @@ GENESIS_DIVERSIFY_GOAL = (
     "controller selection gates, repair the empty successor: mint a diversity-ranked "
     "mission on a different capability family in-process so a live consumed campaign "
     "cannot leave genesis unbound."
-)
-HALF_OPEN_PERSIST_DONE_WHEN = (
-    f"capability_exists:{HALF_OPEN_PERSIST_ID};"
-    f"capability_proved:{HALF_OPEN_PERSIST_ID};"
-    "no_skill_route"
-)
-HALF_OPEN_PERSIST_GOAL = (
-    "Repair kernel health persistence: a peer kernel whose cooldown has elapsed "
-    "still records state=open, so operators and reports treat a half-open probe as "
-    "still dead."
 )
 MCP_HANDSHAKE_DONE_WHEN = (
     f"capability_exists:{MCP_HANDSHAKE_ID};"
@@ -441,6 +435,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["no_skill_route"] = not legacy_pipeline_was_used()
     checks["schema_version"] = SCHEMA_VERSION == 1
     checks["catalog_names_memory"] = DIVERSITY_CATALOG[1]["id"] == MISSION_MEMORY_ID
+    checks["catalog_names_half_open"] = DIVERSITY_CATALOG[2]["id"] == HALF_OPEN_PERSIST_ID
 
     ok = all(checks.values())
     if ok:

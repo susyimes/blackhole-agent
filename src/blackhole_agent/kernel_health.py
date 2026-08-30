@@ -128,6 +128,7 @@ def load_kernel_health(repo_path: Path) -> KernelHealth:
 
 
 def save_kernel_health(repo_path: Path, health: KernelHealth, *, now: datetime | None = None) -> Path:
+    refresh_kernel_breakers(health, now=now)
     path = health_path(repo_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     health.updated_at = _iso(_utc_now(now))
@@ -144,6 +145,111 @@ def breaker_status(breaker: KernelBreaker | None, *, now: datetime | None = None
     if until is not None and _utc_now(now) >= until:
         return "half_open"
     return "open"
+
+
+def refresh_kernel_breakers(health: KernelHealth, *, now: datetime | None = None) -> tuple[str, ...]:
+    """Write computed breaker status into recorded ``state`` fields."""
+
+    moment = _utc_now(now)
+    changed: list[str] = []
+    for name, breaker in health.kernels.items():
+        status = breaker_status(breaker, now=moment)
+        if breaker.state != status:
+            breaker.state = status
+            changed.append(name)
+    if changed:
+        health.updated_at = _iso(moment)
+    return tuple(changed)
+
+
+def recorded_kernel_state(repo_path: Path, kernel: str) -> str:
+    """Return the raw persisted ``state`` field operators read from disk."""
+
+    path = health_path(repo_path)
+    if not path.is_file():
+        return ""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    if not isinstance(payload, Mapping):
+        return ""
+    raw = payload.get("kernels") if isinstance(payload.get("kernels"), Mapping) else {}
+    row = raw.get(kernel) if isinstance(raw.get(kernel), Mapping) else {}
+    return str(row.get("state") or "")
+
+
+def recorded_open_kernels(health: KernelHealth) -> list[str]:
+    """Kernels a naive operator report treats as dead from recorded ``state``."""
+
+    return [name for name, breaker in sorted(health.kernels.items()) if breaker.state == "open"]
+
+
+def kernel_health_report(health: KernelHealth, *, now: datetime | None = None) -> dict[str, Any]:
+    """Operator snapshot: half-open probes are probe-ready, not still dead."""
+
+    moment = _utc_now(now)
+    kernels: dict[str, dict[str, Any]] = {}
+    dead: list[str] = []
+    half_open: list[str] = []
+    ready: list[str] = []
+    for name, breaker in sorted(health.kernels.items()):
+        status = breaker_status(breaker, now=moment)
+        available = name == LOCAL_KERNEL or status in {"closed", "half_open"}
+        kernels[name] = {
+            "state": status,
+            "recorded_state": breaker.state,
+            "class_id": breaker.class_id,
+            "cooldown_until": breaker.cooldown_until,
+            "trip_count": breaker.trip_count,
+            "available": available,
+        }
+        if status == "open":
+            dead.append(name)
+        elif status == "half_open":
+            half_open.append(name)
+        else:
+            ready.append(name)
+    return {
+        "updated_at": health.updated_at,
+        "kernels": kernels,
+        "dead": dead,
+        "half_open": half_open,
+        "ready": ready,
+    }
+
+
+def persist_half_open_kernel_health(
+    repo_path: Path,
+    health: KernelHealth | None = None,
+    *,
+    now: datetime | None = None,
+) -> tuple[Path, KernelHealth, tuple[str, ...]]:
+    """Persist computed half-open status so the on-disk record is not still open."""
+
+    live = health if health is not None else load_kernel_health(repo_path)
+    changed = refresh_kernel_breakers(live, now=now)
+    path = save_kernel_health(repo_path, live, now=now)
+    return path, live, changed
+
+
+def kernel_health_snapshot(
+    repo_path: Path,
+    *,
+    now: datetime | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Load, refresh, optionally persist, and report kernel health."""
+
+    health = load_kernel_health(repo_path)
+    changed = refresh_kernel_breakers(health, now=now)
+    if persist:
+        save_kernel_health(repo_path, health, now=now)
+    report = kernel_health_report(health, now=now)
+    report["persisted"] = persist
+    report["state_changes"] = list(changed)
+    report["path"] = str(health_path(repo_path))
+    return report
 
 
 def kernel_is_available(health: KernelHealth, kernel: str, *, now: datetime | None = None) -> bool:

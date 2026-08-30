@@ -9,6 +9,8 @@ from blackhole_agent.kernel_health import (
     kernel_is_available,
     load_kernel_health,
     mark_kernel_success,
+    persist_half_open_kernel_health,
+    recorded_kernel_state,
     trip_kernel,
 )
 from blackhole_agent.kernel_salvage import HARVESTED_GROK_402, classify_run_artifact
@@ -36,6 +38,11 @@ def test_success_closes_breaker_and_cooldown_half_opens(tmp_path):
     tripped = datetime.fromisoformat(later.tripped_at.replace("Z", "+00:00"))
     assert kernel_is_available(health, "grok", now=tripped + timedelta(hours=7))
 
+    later_at = tripped + timedelta(hours=7)
+    persist_half_open_kernel_health(tmp_path, health, now=later_at)
+    assert recorded_kernel_state(tmp_path, "grok") == "half_open"
+    assert load_kernel_health(tmp_path).kernels["grok"].state == "half_open"
+
     mark_kernel_success(health, "grok")
     assert kernel_is_available(health, "grok")
 
@@ -44,6 +51,7 @@ def test_success_closes_breaker_and_cooldown_half_opens(tmp_path):
     save_kernel_health(tmp_path, health)
     loaded = load_kernel_health(tmp_path)
     assert kernel_is_available(loaded, "grok")
+    assert loaded.kernels["grok"].state == "closed"
 
 
 def test_builtin_proof_replays_harvested_402_storm():
