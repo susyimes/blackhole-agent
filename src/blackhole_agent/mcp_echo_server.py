@@ -4,7 +4,8 @@ Implements just enough of the Model Context Protocol (newline-delimited
 JSON-RPC 2.0 over stdio) to exercise a real client session without network
 or third-party servers: ``initialize``, ``notifications/initialized``,
 ``ping``, ``tools/list``, ``tools/call``, ``resources/list``,
-``resources/templates/list``, and ``resources/read``.
+``resources/templates/list``, ``resources/read``, ``prompts/list``, and
+``prompts/get``.
 
 Tools exposed:
 
@@ -15,6 +16,11 @@ Resources exposed:
 
 - ``resource://blackhole/echo/about``: identity of this server.
 - ``resource://blackhole/echo/note/{id}``: template-expanded note body.
+
+Prompts exposed:
+
+- ``about``: identity of this server as a user prompt.
+- ``note``: argument ``id`` expands to a ``note:{id}`` user prompt.
 
 Run with ``python -m blackhole_agent.mcp_echo_server``. Only JSON-RPC
 responses are written to stdout; protocol noise goes to stderr never, so the
@@ -33,7 +39,10 @@ SERVER_INFO = {"name": "blackhole-echo-mcp", "version": "1.0.0"}
 ABOUT_URI = "resource://blackhole/echo/about"
 NOTE_TEMPLATE = "resource://blackhole/echo/note/{id}"
 NOTE_PREFIX = "resource://blackhole/echo/note/"
+ABOUT_PROMPT = "about"
+NOTE_PROMPT = "note"
 RESOURCE_NOT_FOUND = -32002
+PROMPT_NOT_FOUND = -32602
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -73,6 +82,25 @@ RESOURCE_TEMPLATES: list[dict[str, Any]] = [
         "name": "note",
         "description": "Read a named note from the echo data plane.",
         "mimeType": "text/plain",
+    },
+]
+
+PROMPTS: list[dict[str, Any]] = [
+    {
+        "name": ABOUT_PROMPT,
+        "description": "Identity of this server as a user prompt.",
+        "arguments": [],
+    },
+    {
+        "name": NOTE_PROMPT,
+        "description": "Render a named note as a user prompt.",
+        "arguments": [
+            {
+                "name": "id",
+                "description": "Note identifier",
+                "required": True,
+            }
+        ],
     },
 ]
 
@@ -118,6 +146,35 @@ def _resource_contents(uri: str) -> dict[str, Any] | None:
     return None
 
 
+def _prompt_messages(name: str, arguments: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return MCP prompt messages for a known prompt, or None if missing."""
+
+    if name == ABOUT_PROMPT:
+        return {
+            "description": "Identity of the in-repo reference MCP server.",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {"type": "text", "text": str(SERVER_INFO["name"])},
+                }
+            ],
+        }
+    if name == NOTE_PROMPT:
+        note_id = str(arguments.get("id") or "")
+        if not note_id:
+            return None
+        return {
+            "description": f"Note {note_id}",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {"type": "text", "text": f"note:{note_id}"},
+                }
+            ],
+        }
+    return None
+
+
 def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
     """Handle one JSON-RPC message; return the response or None for notifications."""
 
@@ -133,7 +190,7 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
         if method == "initialize":
             result: Any = {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}, "resources": {}},
+                "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
                 "serverInfo": SERVER_INFO,
             }
         elif method == "ping":
@@ -158,6 +215,24 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
                     },
                 }
             result = contents
+        elif method == "prompts/list":
+            result = {"prompts": PROMPTS}
+        elif method == "prompts/get":
+            prompt_name = str(params.get("name") or "")
+            prompt_args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
+            prompt = _prompt_messages(prompt_name, prompt_args)
+            if prompt is None:
+                missing = (
+                    f"missing prompt argument: id"
+                    if prompt_name == NOTE_PROMPT
+                    else f"unknown prompt: {prompt_name}"
+                )
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": PROMPT_NOT_FOUND, "message": missing},
+                }
+            result = prompt
         else:
             return {
                 "jsonrpc": "2.0",

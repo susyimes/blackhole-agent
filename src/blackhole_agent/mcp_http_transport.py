@@ -373,6 +373,21 @@ class McpHttpSession:
             raise McpProtocolError(f"malformed resources/read result: {result!r}")
         return dict(result)
 
+    def list_prompts(self) -> dict[str, Any]:
+        result = self.request("prompts/list", {})
+        if not isinstance(result, Mapping) or not isinstance(result.get("prompts"), list):
+            raise McpProtocolError(f"malformed prompts/list result: {result!r}")
+        return dict(result)
+
+    def get_prompt(self, name: str, arguments: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        params: dict[str, Any] = {"name": str(name)}
+        if arguments:
+            params["arguments"] = dict(arguments)
+        result = self.request("prompts/get", params)
+        if not isinstance(result, Mapping) or not isinstance(result.get("messages"), list):
+            raise McpProtocolError(f"malformed prompts/get result: {result!r}")
+        return dict(result)
+
     def _try_open_event_stream(self) -> None:
         """Best-effort GET SSE; POST-only hosted plugins stay on the plane."""
 

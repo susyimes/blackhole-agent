@@ -20,6 +20,19 @@ def test_echo_server_handshake_and_tools_list() -> None:
         assert names == {"echo", "sha256"}
 
 
+def test_echo_server_lists_and_gets_prompts() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        assert isinstance(session.server_capabilities.get("prompts"), dict)
+        listed = session.list_prompts()
+        names = {item["name"] for item in listed["prompts"]}
+        assert "about" in names
+        about = mcp_client.extract_prompt_text(session.get_prompt("about"))
+        assert about == "blackhole-echo-mcp"
+        assert any(item.get("name") == "note" for item in listed["prompts"])
+        note = mcp_client.extract_prompt_text(session.get_prompt("note", {"id": "beacon"}))
+        assert note == "note:beacon"
+
+
 def test_echo_server_lists_and_reads_resources() -> None:
     with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
         assert isinstance(session.server_capabilities.get("resources"), dict)

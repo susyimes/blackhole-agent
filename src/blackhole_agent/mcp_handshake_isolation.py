@@ -255,6 +255,35 @@ class McpPluginPlane:
                 self._accept_isolated(server, str(exc))
             raise
 
+    def list_prompts(self, server: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        list_fn = getattr(session, "list_prompts", None)
+        if list_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak prompts/list")
+        try:
+            return list_fn()
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
+    def get_prompt(
+        self,
+        server: str,
+        name: str,
+        arguments: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        session = self._live_session(server)
+        get_fn = getattr(session, "get_prompt", None)
+        if get_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak prompts/get")
+        try:
+            return get_fn(name, arguments)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "plane_failed": self.plane_failed,

@@ -194,7 +194,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list."""
 
     def __init__(
         self,
@@ -362,6 +362,21 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed resources/read result: {result!r}")
         return dict(result)
 
+    def list_prompts(self) -> dict[str, Any]:
+        result = self.request("prompts/list", {})
+        if not isinstance(result, Mapping) or not isinstance(result.get("prompts"), list):
+            raise McpProtocolError(f"malformed prompts/list result: {result!r}")
+        return dict(result)
+
+    def get_prompt(self, name: str, arguments: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        params: dict[str, Any] = {"name": str(name)}
+        if arguments:
+            params["arguments"] = dict(arguments)
+        result = self.request("prompts/get", params)
+        if not isinstance(result, Mapping) or not isinstance(result.get("messages"), list):
+            raise McpProtocolError(f"malformed prompts/get result: {result!r}")
+        return dict(result)
+
     def kill(self) -> None:
         """Abandon a session immediately, including a hung initialize."""
 
@@ -417,6 +432,26 @@ def extract_resource_text(result: Mapping[str, Any]) -> str:
 
     contents = result.get("contents") or []
     parts = [str(item.get("text") or "") for item in contents if isinstance(item, Mapping)]
+    return "".join(parts)
+
+
+def extract_prompt_text(result: Mapping[str, Any]) -> str:
+    """Join text bodies from a prompts/get messages payload."""
+
+    messages = result.get("messages") or []
+    parts: list[str] = []
+    for item in messages:
+        if not isinstance(item, Mapping):
+            continue
+        content = item.get("content")
+        if isinstance(content, Mapping):
+            parts.append(str(content.get("text") or ""))
+        elif isinstance(content, list):
+            parts.extend(
+                str(block.get("text") or "")
+                for block in content
+                if isinstance(block, Mapping)
+            )
     return "".join(parts)
 
 
