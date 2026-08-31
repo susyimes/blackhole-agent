@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="root" type="Node2D" unique_id=740453831]
+
+[node name="Beacon" type="Label" parent="." unique_id=1854065863]
+text = "BH-GODOT-OK"

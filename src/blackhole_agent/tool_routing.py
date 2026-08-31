@@ -596,6 +596,59 @@ def gmail_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+GODOT_TOOL_PROVIDER = "godot"
+
+
+def godot_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party Godot scene actuation route.
+
+    Provider ``godot`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live engine session silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="godot",
+        description=(
+            "Drive a first-class Godot session: list projects, inspect a "
+            "project.godot, create a scene, add a node, save, run, and read "
+            "debug output. Project-gated play-checks stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "list_projects",
+                        "get_project_info",
+                        "create_scene",
+                        "add_node",
+                        "save_scene",
+                        "run_project",
+                        "get_debug_output",
+                        "stop_project",
+                    ],
+                },
+                "directory": {"type": "string"},
+                "scenePath": {"type": "string"},
+                "scene": {"type": "string"},
+                "rootNodeType": {"type": "string"},
+                "parentNodePath": {"type": "string"},
+                "nodeType": {"type": "string"},
+                "nodeName": {"type": "string"},
+                "properties": {"type": "object"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GODOT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 
