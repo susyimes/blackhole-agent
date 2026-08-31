@@ -228,12 +228,19 @@ def evaluate_tool_call_policy_route(
 def route_tool_descriptors(
     descriptors: Sequence[ToolDescriptor],
     *,
+    executable_providers: Sequence[str] = DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
+    executable_tool_types: Sequence[str | None] = DEFAULT_EXECUTABLE_TOOL_TYPES,
     tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
 ) -> tuple[ToolRouteDecision, ...]:
     """Return inspectable routing decisions for a batch of descriptors."""
 
     return tuple(
-        route_tool_descriptor(descriptor, tool_call_policy_evaluator=tool_call_policy_evaluator)
+        route_tool_descriptor(
+            descriptor,
+            executable_providers=executable_providers,
+            executable_tool_types=executable_tool_types,
+            tool_call_policy_evaluator=tool_call_policy_evaluator,
+        )
         for descriptor in descriptors
     )
 
@@ -242,11 +249,18 @@ def build_tool_routing_preflight(
     descriptors: Sequence[ToolDescriptor],
     *,
     required_tool_names: Sequence[str] = (),
+    executable_providers: Sequence[str] = DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
+    executable_tool_types: Sequence[str | None] = DEFAULT_EXECUTABLE_TOOL_TYPES,
     tool_call_policy_evaluator: ToolCallPolicyEvaluator | None = None,
 ) -> dict[str, Any]:
     """Return startup-safe diagnostics for local tool routing capabilities."""
 
-    decisions = route_tool_descriptors(descriptors, tool_call_policy_evaluator=tool_call_policy_evaluator)
+    decisions = route_tool_descriptors(
+        descriptors,
+        executable_providers=executable_providers,
+        executable_tool_types=executable_tool_types,
+        tool_call_policy_evaluator=tool_call_policy_evaluator,
+    )
     executable_names = sorted(decision.descriptor.name for decision in decisions if decision.executable)
     executable_name_set = set(executable_names)
     required_names = tuple(dict.fromkeys(name for name in required_tool_names if name))
@@ -499,6 +513,44 @@ def local_memory_tool_descriptor(*, session_id: str | None = None) -> ToolDescri
         },
         provider="local",
         session_id=session_id,
+    )
+
+
+BROWSER_TOOL_PROVIDER = "browser"
+
+
+def browser_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party browser actuation route.
+
+    Provider ``browser`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live web session silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="browser",
+        description=(
+            "Drive a first-class browser session: navigate, click, type, submit, "
+            "and read a local or opted-in page. Cookie-gated workflows stay "
+            "sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["navigate", "click", "type", "submit", "read"],
+                },
+                "url": {"type": "string"},
+                "text": {"type": "string"},
+                "name": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=BROWSER_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
     )
 
 

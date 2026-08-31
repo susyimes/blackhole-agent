@@ -97,6 +97,11 @@ from blackhole_agent.publication_resilience import (
     PUBLICATION_RESILIENCE_GOAL,
     PUBLICATION_RESILIENCE_ID,
 )
+from blackhole_agent.browser_actuation import (
+    BROWSER_ACTUATION_DONE_WHEN,
+    BROWSER_ACTUATION_GOAL,
+    BROWSER_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -193,6 +198,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PUBLICATION_RESILIENCE_GOAL,
         "done_when": PUBLICATION_RESILIENCE_DONE_WHEN,
         "source": "genesis_bind_publication",
+    },
+    {
+        "id": BROWSER_ACTUATION_ID,
+        "goal": BROWSER_ACTUATION_GOAL,
+        "done_when": BROWSER_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_browser",
     },
 )
 
@@ -491,6 +502,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_http"] = DIVERSITY_CATALOG[6]["id"] == MCP_HTTP_ID
     checks["catalog_names_event_stream"] = DIVERSITY_CATALOG[7]["id"] == MCP_HTTP_EVENT_ID
     checks["catalog_names_publication"] = DIVERSITY_CATALOG[8]["id"] == PUBLICATION_RESILIENCE_ID
+    checks["catalog_names_browser"] = DIVERSITY_CATALOG[9]["id"] == BROWSER_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
