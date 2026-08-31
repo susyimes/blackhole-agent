@@ -122,6 +122,11 @@ from blackhole_agent.kernel_half_open_probe import (
     HALF_OPEN_PROBE_GOAL,
     HALF_OPEN_PROBE_ID,
 )
+from blackhole_agent.mcp_sampling import (
+    MCP_SAMPLING_DONE_WHEN,
+    MCP_SAMPLING_GOAL,
+    MCP_SAMPLING_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -248,6 +253,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": HALF_OPEN_PROBE_GOAL,
         "done_when": HALF_OPEN_PROBE_DONE_WHEN,
         "source": "genesis_bind_half_open_probe",
+    },
+    {
+        "id": MCP_SAMPLING_ID,
+        "goal": MCP_SAMPLING_GOAL,
+        "done_when": MCP_SAMPLING_DONE_WHEN,
+        "source": "genesis_bind_sampling",
     },
 )
 
@@ -551,6 +562,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_godot"] = DIVERSITY_CATALOG[11]["id"] == GODOT_ACTUATION_ID
     checks["catalog_names_reconnect"] = DIVERSITY_CATALOG[12]["id"] == MCP_RECONNECT_ID
     checks["catalog_names_half_open_probe"] = DIVERSITY_CATALOG[13]["id"] == HALF_OPEN_PROBE_ID
+    checks["catalog_names_sampling"] = DIVERSITY_CATALOG[14]["id"] == MCP_SAMPLING_ID
 
     ok = all(checks.values())
     if ok:

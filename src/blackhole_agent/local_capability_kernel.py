@@ -70,6 +70,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.godot-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
+        "capability.mcp-sampling",
         "capability.kernel-consumed-growth",
         "capability.kernel-compound-loop",
         "capability.kernel-primitive-compose",

@@ -135,6 +135,8 @@ def reverse_channel_reply(
 
 
 DEFAULT_ELICITATION_CONTENT: dict[str, Any] = {"approved": True}
+DEFAULT_SAMPLING_MODEL = "blackhole-unbound"
+DEFAULT_SAMPLING_STOP = "endTurn"
 
 
 def elicitation_reply(
@@ -152,6 +154,45 @@ def elicitation_reply(
     return {"jsonrpc": "2.0", "id": message.get("id"), "result": result}
 
 
+def sampling_user_text(message: Mapping[str, Any]) -> str:
+    """Return the last user text from a sampling/createMessage request."""
+
+    params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+    messages = params.get("messages") if isinstance(params.get("messages"), list) else []
+    for item in reversed(list(messages)):
+        if not isinstance(item, Mapping):
+            continue
+        content = item.get("content")
+        if isinstance(content, Mapping) and str(content.get("type") or "text") == "text":
+            return str(content.get("text") or "")
+        if isinstance(content, str):
+            return content
+    return ""
+
+
+def sampling_reply(
+    message: Mapping[str, Any],
+    *,
+    text: str | None = None,
+    model: str = DEFAULT_SAMPLING_MODEL,
+    stop_reason: str = DEFAULT_SAMPLING_STOP,
+) -> dict[str, Any]:
+    """Build the JSON-RPC response for a server-originated sampling/createMessage."""
+
+    user = sampling_user_text(message)
+    resolved = str(text) if text is not None else (f"sampled:{user}" if user else "sampled")
+    return {
+        "jsonrpc": "2.0",
+        "id": message.get("id"),
+        "result": {
+            "role": "assistant",
+            "content": {"type": "text", "text": resolved},
+            "model": str(model or DEFAULT_SAMPLING_MODEL),
+            "stopReason": str(stop_reason or DEFAULT_SAMPLING_STOP),
+        },
+    }
+
+
 class McpStdioSession:
     """One live MCP stdio session: initialize -> tools/list -> tools/call."""
 
@@ -161,11 +202,13 @@ class McpStdioSession:
         *,
         timeout_seconds: float = 30.0,
         answer_reverse_channel: bool = True,
+        answer_sampling: bool = False,
         roots: Sequence[Mapping[str, str]] | None = None,
     ) -> None:
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
         self.answer_reverse_channel = bool(answer_reverse_channel)
+        self.answer_sampling = bool(answer_sampling)
         self.roots = tuple(dict(item) for item in (roots if roots is not None else DEFAULT_MCP_ROOTS))
         self.answered_requests: list[dict[str, Any]] = []
         self._process: subprocess.Popen[str] | None = None
@@ -190,6 +233,8 @@ class McpStdioSession:
             client_capabilities: dict[str, Any] = {}
             if self.answer_reverse_channel:
                 client_capabilities["roots"] = {}
+            if self.answer_sampling:
+                client_capabilities["sampling"] = {}
             handshake = self.request(
                 "initialize",
                 {
@@ -248,9 +293,15 @@ class McpStdioSession:
     def _answer_server_request(self, message: Mapping[str, Any]) -> None:
         """Reply to a server-originated JSON-RPC request, or ignore it (the hole)."""
 
-        if not self.answer_reverse_channel:
-            return
-        reply = reverse_channel_reply(message, roots=self.roots)
+        method = str(message.get("method") or "")
+        if method == "sampling/createMessage":
+            if not self.answer_sampling:
+                return
+            reply = sampling_reply(message)
+        else:
+            if not self.answer_reverse_channel:
+                return
+            reply = reverse_channel_reply(message, roots=self.roots)
         self._send(reply)
         self.answered_requests.append(
             {

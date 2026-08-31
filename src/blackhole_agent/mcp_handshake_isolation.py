@@ -80,11 +80,13 @@ class McpPluginSpec:
         *,
         timeout_seconds: float = LIVE_HANDSHAKE_TIMEOUT_SECONDS,
         url: str = "",
+        answer_sampling: bool = False,
     ) -> None:
         self.name = str(name)
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
         self.url = str(url or "").strip()
+        self.answer_sampling = bool(answer_sampling)
 
 
 class McpPluginPlane:
@@ -299,7 +301,11 @@ def _handshake_session(spec: McpPluginSpec) -> tuple[Any | None, str]:
         except Exception as exc:
             session.kill()
             return None, str(exc)
-    session = McpStdioSession(spec.command, timeout_seconds=spec.timeout_seconds)
+    session = McpStdioSession(
+        spec.command,
+        timeout_seconds=spec.timeout_seconds,
+        answer_sampling=spec.answer_sampling,
+    )
     try:
         session.start()
         return session, ""
