@@ -157,6 +157,11 @@ from blackhole_agent.mcp_cancellation import (
     MCP_CANCELLATION_GOAL,
     MCP_CANCELLATION_ID,
 )
+from blackhole_agent.mcp_resource_subscribe import (
+    MCP_SUBSCRIBE_DONE_WHEN,
+    MCP_SUBSCRIBE_GOAL,
+    MCP_SUBSCRIBE_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -325,6 +330,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_CANCELLATION_GOAL,
         "done_when": MCP_CANCELLATION_DONE_WHEN,
         "source": "genesis_bind_cancellation",
+    },
+    {
+        "id": MCP_SUBSCRIBE_ID,
+        "goal": MCP_SUBSCRIBE_GOAL,
+        "done_when": MCP_SUBSCRIBE_DONE_WHEN,
+        "source": "genesis_bind_resource_subscribe",
     },
 )
 
@@ -635,6 +646,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_logging"] = DIVERSITY_CATALOG[18]["id"] == MCP_LOGGING_ID
     checks["catalog_names_elicitation"] = DIVERSITY_CATALOG[19]["id"] == MCP_ELICITATION_ID
     checks["catalog_names_cancellation"] = DIVERSITY_CATALOG[20]["id"] == MCP_CANCELLATION_ID
+    checks["catalog_names_resource_subscribe"] = DIVERSITY_CATALOG[21]["id"] == MCP_SUBSCRIBE_ID
 
     ok = all(checks.values())
     if ok:

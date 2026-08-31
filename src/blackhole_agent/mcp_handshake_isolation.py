@@ -270,6 +270,34 @@ class McpPluginPlane:
                 self._accept_isolated(server, str(exc))
             raise
 
+    def subscribe_resource(self, server: str, uri: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        subscribe_fn = getattr(session, "subscribe_resource", None)
+        if subscribe_fn is None:
+            raise McpProtocolError(
+                f"plugin {server!r} does not speak resources/subscribe"
+            )
+        try:
+            return subscribe_fn(uri)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
+    def unsubscribe_resource(self, server: str, uri: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        unsubscribe_fn = getattr(session, "unsubscribe_resource", None)
+        if unsubscribe_fn is None:
+            raise McpProtocolError(
+                f"plugin {server!r} does not speak resources/unsubscribe"
+            )
+        try:
+            return unsubscribe_fn(uri)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
     def list_prompts(self, server: str) -> dict[str, Any]:
         session = self._live_session(server)
         list_fn = getattr(session, "list_prompts", None)

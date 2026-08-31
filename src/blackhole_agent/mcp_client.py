@@ -22,6 +22,11 @@ fail-open hole for ping/roots: those inbound requests are ignored and the
 plugin stalls. ``answer_elicitation=False`` leaves ``elicitation/create`` on
 the unknown-method path so the hole stays falsifiable.
 
+Resource subscriptions (``resources/subscribe``, ``resources/unsubscribe``)
+keep a watch on a URI so ``notifications/resources/updated`` can unlock an
+update-gated tool. Skipping subscribe leaves the snapshot stale even when
+``resources/read`` already works.
+
 In-flight ``tools/call`` can send ``notifications/cancelled`` so a plugin
 that occupies stdio with a long actuation aborts instead of holding the
 session until timeout. ``cancel_after=None`` is the hole: the abandoned
@@ -221,7 +226,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled."""
 
     def __init__(
         self,
@@ -246,6 +251,7 @@ class McpStdioSession:
         self.answered_requests: list[dict[str, Any]] = []
         self.cancelled_request_ids: list[int] = []
         self.server_notifications: list[dict[str, Any]] = []
+        self.subscribed_uris: list[str] = []
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -454,6 +460,33 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed resources/read result: {result!r}")
         return dict(result)
 
+    def subscribe_resource(self, uri: str) -> dict[str, Any]:
+        """Watch ``uri`` so notifications/resources/updated can unlock it."""
+
+        resolved = str(uri)
+        result = self.request("resources/subscribe", {"uri": resolved})
+        if result is None:
+            result = {}
+        if not isinstance(result, Mapping):
+            raise McpProtocolError(f"malformed resources/subscribe result: {result!r}")
+        if resolved not in self.subscribed_uris:
+            self.subscribed_uris.append(resolved)
+        return dict(result)
+
+    def unsubscribe_resource(self, uri: str) -> dict[str, Any]:
+        """Drop a resource watch; later updates no longer unlock the tool."""
+
+        resolved = str(uri)
+        result = self.request("resources/unsubscribe", {"uri": resolved})
+        if result is None:
+            result = {}
+        if not isinstance(result, Mapping):
+            raise McpProtocolError(
+                f"malformed resources/unsubscribe result: {result!r}"
+            )
+        self.subscribed_uris = [item for item in self.subscribed_uris if item != resolved]
+        return dict(result)
+
     def list_prompts(self) -> dict[str, Any]:
         result = self.request("prompts/list", {})
         if not isinstance(result, Mapping) or not isinstance(result.get("prompts"), list):
@@ -556,6 +589,20 @@ def extract_resource_text(result: Mapping[str, Any]) -> str:
     contents = result.get("contents") or []
     parts = [str(item.get("text") or "") for item in contents if isinstance(item, Mapping)]
     return "".join(parts)
+
+
+def extract_resource_updated(notifications: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    """Return URIs from captured notifications/resources/updated payloads."""
+
+    uris: list[str] = []
+    for item in notifications:
+        if str(item.get("method") or "") != "notifications/resources/updated":
+            continue
+        params = item.get("params") if isinstance(item.get("params"), Mapping) else {}
+        uri = str(params.get("uri") or "")
+        if uri:
+            uris.append(uri)
+    return tuple(uris)
 
 
 def extract_completion_values(result: Mapping[str, Any]) -> tuple[str, ...]:
