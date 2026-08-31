@@ -127,6 +127,11 @@ from blackhole_agent.mcp_sampling import (
     MCP_SAMPLING_GOAL,
     MCP_SAMPLING_ID,
 )
+from blackhole_agent.mcp_resources import (
+    MCP_RESOURCES_DONE_WHEN,
+    MCP_RESOURCES_GOAL,
+    MCP_RESOURCES_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -259,6 +264,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_SAMPLING_GOAL,
         "done_when": MCP_SAMPLING_DONE_WHEN,
         "source": "genesis_bind_sampling",
+    },
+    {
+        "id": MCP_RESOURCES_ID,
+        "goal": MCP_RESOURCES_GOAL,
+        "done_when": MCP_RESOURCES_DONE_WHEN,
+        "source": "genesis_bind_resources",
     },
 )
 
@@ -563,6 +574,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_reconnect"] = DIVERSITY_CATALOG[12]["id"] == MCP_RECONNECT_ID
     checks["catalog_names_half_open_probe"] = DIVERSITY_CATALOG[13]["id"] == HALF_OPEN_PROBE_ID
     checks["catalog_names_sampling"] = DIVERSITY_CATALOG[14]["id"] == MCP_SAMPLING_ID
+    checks["catalog_names_resources"] = DIVERSITY_CATALOG[15]["id"] == MCP_RESOURCES_ID
 
     ok = all(checks.values())
     if ok:

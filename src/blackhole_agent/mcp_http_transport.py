@@ -351,6 +351,28 @@ class McpHttpSession:
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
         return dict(result)
 
+    def list_resources(self) -> dict[str, Any]:
+        result = self.request("resources/list", {})
+        if not isinstance(result, Mapping) or not isinstance(result.get("resources"), list):
+            raise McpProtocolError(f"malformed resources/list result: {result!r}")
+        return dict(result)
+
+    def list_resource_templates(self) -> dict[str, Any]:
+        result = self.request("resources/templates/list", {})
+        if not isinstance(result, Mapping) or not isinstance(
+            result.get("resourceTemplates"), list
+        ):
+            raise McpProtocolError(
+                f"malformed resources/templates/list result: {result!r}"
+            )
+        return dict(result)
+
+    def read_resource(self, uri: str) -> dict[str, Any]:
+        result = self.request("resources/read", {"uri": str(uri)})
+        if not isinstance(result, Mapping) or not isinstance(result.get("contents"), list):
+            raise McpProtocolError(f"malformed resources/read result: {result!r}")
+        return dict(result)
+
     def _try_open_event_stream(self) -> None:
         """Best-effort GET SSE; POST-only hosted plugins stay on the plane."""
 

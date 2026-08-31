@@ -3,12 +3,18 @@
 Implements just enough of the Model Context Protocol (newline-delimited
 JSON-RPC 2.0 over stdio) to exercise a real client session without network
 or third-party servers: ``initialize``, ``notifications/initialized``,
-``ping``, ``tools/list``, and ``tools/call``.
+``ping``, ``tools/list``, ``tools/call``, ``resources/list``,
+``resources/templates/list``, and ``resources/read``.
 
 Tools exposed:
 
 - ``echo`` (readOnlyHint): returns the supplied text back as content.
 - ``sha256`` (readOnlyHint): returns the hex digest of the supplied text.
+
+Resources exposed:
+
+- ``resource://blackhole/echo/about``: identity of this server.
+- ``resource://blackhole/echo/note/{id}``: template-expanded note body.
 
 Run with ``python -m blackhole_agent.mcp_echo_server``. Only JSON-RPC
 responses are written to stdout; protocol noise goes to stderr never, so the
@@ -24,6 +30,10 @@ from typing import Any, Mapping
 
 PROTOCOL_VERSION = "2025-03-26"
 SERVER_INFO = {"name": "blackhole-echo-mcp", "version": "1.0.0"}
+ABOUT_URI = "resource://blackhole/echo/about"
+NOTE_TEMPLATE = "resource://blackhole/echo/note/{id}"
+NOTE_PREFIX = "resource://blackhole/echo/note/"
+RESOURCE_NOT_FOUND = -32002
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -48,6 +58,24 @@ TOOLS: list[dict[str, Any]] = [
     },
 ]
 
+RESOURCES: list[dict[str, Any]] = [
+    {
+        "uri": ABOUT_URI,
+        "name": "about",
+        "description": "Identity of the in-repo reference MCP server.",
+        "mimeType": "text/plain",
+    },
+]
+
+RESOURCE_TEMPLATES: list[dict[str, Any]] = [
+    {
+        "uriTemplate": NOTE_TEMPLATE,
+        "name": "note",
+        "description": "Read a named note from the echo data plane.",
+        "mimeType": "text/plain",
+    },
+]
+
 
 def _text_content(text: str) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": False}
@@ -60,6 +88,34 @@ def _call_tool(name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
     if name == "sha256":
         return _text_content(hashlib.sha256(text.encode("utf-8")).hexdigest())
     raise KeyError(name)
+
+
+def _resource_contents(uri: str) -> dict[str, Any] | None:
+    """Return MCP resource contents for a known URI, or None if missing."""
+
+    if uri == ABOUT_URI:
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "text/plain",
+                    "text": str(SERVER_INFO["name"]),
+                }
+            ]
+        }
+    if uri.startswith(NOTE_PREFIX):
+        note_id = uri[len(NOTE_PREFIX) :]
+        if note_id:
+            return {
+                "contents": [
+                    {
+                        "uri": uri,
+                        "mimeType": "text/plain",
+                        "text": f"note:{note_id}",
+                    }
+                ]
+            }
+    return None
 
 
 def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -77,7 +133,7 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
         if method == "initialize":
             result: Any = {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
+                "capabilities": {"tools": {}, "resources": {}},
                 "serverInfo": SERVER_INFO,
             }
         elif method == "ping":
@@ -86,6 +142,22 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
             result = {"tools": TOOLS}
         elif method == "tools/call":
             result = _call_tool(str(params.get("name") or ""), params.get("arguments") or {})
+        elif method == "resources/list":
+            result = {"resources": RESOURCES}
+        elif method == "resources/templates/list":
+            result = {"resourceTemplates": RESOURCE_TEMPLATES}
+        elif method == "resources/read":
+            contents = _resource_contents(str(params.get("uri") or ""))
+            if contents is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": RESOURCE_NOT_FOUND,
+                        "message": f"unknown resource: {params.get('uri')}",
+                    },
+                }
+            result = contents
         else:
             return {
                 "jsonrpc": "2.0",

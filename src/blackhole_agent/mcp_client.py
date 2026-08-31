@@ -194,7 +194,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> tools/call."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list."""
 
     def __init__(
         self,
@@ -215,6 +215,7 @@ class McpStdioSession:
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
         self.server_info: dict[str, Any] = {}
+        self.server_capabilities: dict[str, Any] = {}
         self.protocol_version = ""
 
     def start(self) -> "McpStdioSession":
@@ -246,6 +247,7 @@ class McpStdioSession:
             if not isinstance(handshake, Mapping) or "serverInfo" not in handshake:
                 raise McpProtocolError(f"malformed initialize result: {handshake!r}")
             self.server_info = dict(handshake.get("serverInfo") or {})
+            self.server_capabilities = dict(handshake.get("capabilities") or {})
             self.protocol_version = str(handshake.get("protocolVersion") or "")
             self.notify("notifications/initialized", {})
             return self
@@ -338,6 +340,28 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
         return dict(result)
 
+    def list_resources(self) -> dict[str, Any]:
+        result = self.request("resources/list", {})
+        if not isinstance(result, Mapping) or not isinstance(result.get("resources"), list):
+            raise McpProtocolError(f"malformed resources/list result: {result!r}")
+        return dict(result)
+
+    def list_resource_templates(self) -> dict[str, Any]:
+        result = self.request("resources/templates/list", {})
+        if not isinstance(result, Mapping) or not isinstance(
+            result.get("resourceTemplates"), list
+        ):
+            raise McpProtocolError(
+                f"malformed resources/templates/list result: {result!r}"
+            )
+        return dict(result)
+
+    def read_resource(self, uri: str) -> dict[str, Any]:
+        result = self.request("resources/read", {"uri": str(uri)})
+        if not isinstance(result, Mapping) or not isinstance(result.get("contents"), list):
+            raise McpProtocolError(f"malformed resources/read result: {result!r}")
+        return dict(result)
+
     def kill(self) -> None:
         """Abandon a session immediately, including a hung initialize."""
 
@@ -385,6 +409,14 @@ class McpStdioSession:
 def _extract_text(result: Mapping[str, Any]) -> str:
     content = result.get("content") or []
     parts = [str(item.get("text") or "") for item in content if isinstance(item, Mapping)]
+    return "".join(parts)
+
+
+def extract_resource_text(result: Mapping[str, Any]) -> str:
+    """Join text bodies from a resources/read contents payload."""
+
+    contents = result.get("contents") or []
+    parts = [str(item.get("text") or "") for item in contents if isinstance(item, Mapping)]
     return "".join(parts)
 
 

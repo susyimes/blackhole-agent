@@ -210,6 +210,51 @@ class McpPluginPlane:
                 self._accept_isolated(server, str(exc))
             raise
 
+    def _live_session(self, server: str) -> Any:
+        session = self._sessions.get(server)
+        if session is None:
+            error = self.isolated_error(server) or "unknown plugin"
+            raise McpProtocolError(f"plugin {server!r} is not serving: {error}")
+        return session
+
+    def list_resources(self, server: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        list_fn = getattr(session, "list_resources", None)
+        if list_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak resources/list")
+        try:
+            return list_fn()
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
+    def list_resource_templates(self, server: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        list_fn = getattr(session, "list_resource_templates", None)
+        if list_fn is None:
+            raise McpProtocolError(
+                f"plugin {server!r} does not speak resources/templates/list"
+            )
+        try:
+            return list_fn()
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
+    def read_resource(self, server: str, uri: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        read_fn = getattr(session, "read_resource", None)
+        if read_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak resources/read")
+        try:
+            return read_fn(uri)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "plane_failed": self.plane_failed,

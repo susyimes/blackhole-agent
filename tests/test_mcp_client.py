@@ -20,6 +20,27 @@ def test_echo_server_handshake_and_tools_list() -> None:
         assert names == {"echo", "sha256"}
 
 
+def test_echo_server_lists_and_reads_resources() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        assert isinstance(session.server_capabilities.get("resources"), dict)
+        listed = session.list_resources()
+        uris = {item["uri"] for item in listed["resources"]}
+        assert "resource://blackhole/echo/about" in uris
+        about = mcp_client.extract_resource_text(
+            session.read_resource("resource://blackhole/echo/about")
+        )
+        assert about == "blackhole-echo-mcp"
+        templates = session.list_resource_templates()
+        assert any(
+            item.get("uriTemplate") == "resource://blackhole/echo/note/{id}"
+            for item in templates["resourceTemplates"]
+        )
+        note = mcp_client.extract_resource_text(
+            session.read_resource("resource://blackhole/echo/note/beacon")
+        )
+        assert note == "note:beacon"
+
+
 def test_live_tool_call_returns_real_result() -> None:
     with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
         result = session.call_tool("echo", {"text": "hello-live"})
