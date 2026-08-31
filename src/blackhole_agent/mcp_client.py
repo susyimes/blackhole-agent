@@ -15,9 +15,12 @@ needed; the same code path works against any standards-compliant stdio MCP
 server command.
 
 Stdio sessions answer server-originated JSON-RPC requests (``ping``,
-``roots/list``) on the same stream so a spec-compliant plugin that probes the
-client before returning a tool result stays live. ``answer_reverse_channel=False``
-is the fail-open hole: those inbound requests are ignored and the plugin stalls.
+``roots/list``, ``sampling/createMessage``, ``elicitation/create``) on the
+same stream so a spec-compliant plugin that probes the client before
+returning a tool result stays live. ``answer_reverse_channel=False`` is the
+fail-open hole for ping/roots: those inbound requests are ignored and the
+plugin stalls. ``answer_elicitation=False`` leaves ``elicitation/create`` on
+the unknown-method path so the hole stays falsifiable.
 
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
@@ -205,7 +208,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete -> logging/setLevel."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create."""
 
     def __init__(
         self,
@@ -214,12 +217,18 @@ class McpStdioSession:
         timeout_seconds: float = 30.0,
         answer_reverse_channel: bool = True,
         answer_sampling: bool = False,
+        answer_elicitation: bool = False,
+        elicitation_action: str = "accept",
+        elicitation_content: Mapping[str, Any] | None = None,
         roots: Sequence[Mapping[str, str]] | None = None,
     ) -> None:
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
         self.answer_reverse_channel = bool(answer_reverse_channel)
         self.answer_sampling = bool(answer_sampling)
+        self.answer_elicitation = bool(answer_elicitation)
+        self.elicitation_action = str(elicitation_action or "accept")
+        self.elicitation_content = dict(elicitation_content or DEFAULT_ELICITATION_CONTENT)
         self.roots = tuple(dict(item) for item in (roots if roots is not None else DEFAULT_MCP_ROOTS))
         self.answered_requests: list[dict[str, Any]] = []
         self.server_notifications: list[dict[str, Any]] = []
@@ -228,6 +237,7 @@ class McpStdioSession:
         self._next_id = 0
         self.server_info: dict[str, Any] = {}
         self.server_capabilities: dict[str, Any] = {}
+        self.client_capabilities: dict[str, Any] = {}
         self.protocol_version = ""
 
     def start(self) -> "McpStdioSession":
@@ -248,6 +258,9 @@ class McpStdioSession:
                 client_capabilities["roots"] = {}
             if self.answer_sampling:
                 client_capabilities["sampling"] = {}
+            if self.answer_elicitation:
+                client_capabilities["elicitation"] = {}
+            self.client_capabilities = dict(client_capabilities)
             handshake = self.request(
                 "initialize",
                 {
@@ -315,6 +328,12 @@ class McpStdioSession:
             if not self.answer_sampling:
                 return
             reply = sampling_reply(message)
+        elif method == "elicitation/create" and self.answer_elicitation:
+            reply = elicitation_reply(
+                message,
+                content=self.elicitation_content,
+                action=self.elicitation_action,
+            )
         else:
             if not self.answer_reverse_channel:
                 return
