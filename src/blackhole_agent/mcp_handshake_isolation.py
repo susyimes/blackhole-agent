@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -96,6 +97,7 @@ class McpPluginPlane:
         self._sessions: dict[str, Any] = {}
         self._isolated: dict[str, str] = {}
         self._tools: dict[str, tuple[str, ...]] = {}
+        self._specs: dict[str, McpPluginSpec] = {}
 
     @property
     def live_names(self) -> tuple[str, ...]:
@@ -113,6 +115,86 @@ class McpPluginPlane:
 
     def advertised_tools(self, name: str) -> tuple[str, ...]:
         return tuple(self._tools.get(name) or ())
+
+    def session_token(self, name: str) -> int:
+        session = self._sessions.get(name)
+        return id(session) if session is not None else 0
+
+    def reconnect_plugin(
+        self,
+        name: str,
+        *,
+        spec: McpPluginSpec | None = None,
+        max_attempts: int = 3,
+        backoff_seconds: float = 0.0,
+    ) -> dict[str, Any]:
+        """Handshake an isolated plugin again without restarting live siblings."""
+
+        resolved = spec or self._specs.get(name)
+        if resolved is None:
+            return {
+                "ok": False,
+                "already_live": False,
+                "attempts": 0,
+                "name": str(name),
+                "error": "unknown plugin",
+            }
+        self._specs[name] = resolved
+        if name in self._sessions:
+            return {
+                "ok": True,
+                "already_live": True,
+                "attempts": 0,
+                "name": str(name),
+                "error": "",
+            }
+        attempts = 0
+        last_error = self._isolated.get(name) or "not serving"
+        limit = max(1, int(max_attempts))
+        delay = max(0.0, float(backoff_seconds))
+        for attempts in range(1, limit + 1):
+            session, error = _handshake_session(resolved)
+            if session is None:
+                last_error = error or "initialize closed"
+                self._accept_isolated(name, last_error)
+            elif self.isolate_hung_calls:
+                try:
+                    payload = session.list_tools()
+                    tools = tuple(
+                        str(item.get("name") or "")
+                        for item in (payload.get("tools") or [])
+                        if isinstance(item, Mapping) and item.get("name")
+                    )
+                    self._accept_live(name, session, tools)
+                    return {
+                        "ok": True,
+                        "already_live": False,
+                        "attempts": attempts,
+                        "name": str(name),
+                        "error": "",
+                    }
+                except Exception as exc:
+                    session.kill()
+                    last_error = str(exc)
+                    self._accept_isolated(name, last_error)
+            else:
+                _record_live(self, resolved, session)
+                return {
+                    "ok": True,
+                    "already_live": False,
+                    "attempts": attempts,
+                    "name": str(name),
+                    "error": "",
+                }
+            if attempts < limit and delay > 0:
+                time.sleep(delay)
+        return {
+            "ok": False,
+            "already_live": False,
+            "attempts": attempts,
+            "name": str(name),
+            "error": last_error,
+        }
 
     def call_tool(self, server: str, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
         session = self._sessions.get(server)
@@ -185,6 +267,8 @@ def connect_mcp_plane(
         raise ValueError(f"duplicate MCP plugin names: {names}")
     plane = McpPluginPlane()
     plane.isolate_hung_calls = bool(isolate_hung_calls)
+    for spec in specs:
+        plane._specs[spec.name] = spec
     if not isolate_dead:
         return _connect_fail_closed(plane, specs)
     return _connect_isolated(plane, specs)

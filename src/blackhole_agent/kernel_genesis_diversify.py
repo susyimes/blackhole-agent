@@ -112,6 +112,11 @@ from blackhole_agent.godot_actuation import (
     GODOT_ACTUATION_GOAL,
     GODOT_ACTUATION_ID,
 )
+from blackhole_agent.mcp_plugin_reconnect import (
+    MCP_RECONNECT_DONE_WHEN,
+    MCP_RECONNECT_GOAL,
+    MCP_RECONNECT_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -226,6 +231,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": GODOT_ACTUATION_GOAL,
         "done_when": GODOT_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_godot",
+    },
+    {
+        "id": MCP_RECONNECT_ID,
+        "goal": MCP_RECONNECT_GOAL,
+        "done_when": MCP_RECONNECT_DONE_WHEN,
+        "source": "genesis_bind_reconnect",
     },
 )
 
@@ -527,6 +538,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_browser"] = DIVERSITY_CATALOG[9]["id"] == BROWSER_ACTUATION_ID
     checks["catalog_names_gmail"] = DIVERSITY_CATALOG[10]["id"] == GMAIL_ACTUATION_ID
     checks["catalog_names_godot"] = DIVERSITY_CATALOG[11]["id"] == GODOT_ACTUATION_ID
+    checks["catalog_names_reconnect"] = DIVERSITY_CATALOG[12]["id"] == MCP_RECONNECT_ID
 
     ok = all(checks.values())
     if ok:
