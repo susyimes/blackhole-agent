@@ -554,6 +554,48 @@ def browser_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+GMAIL_TOOL_PROVIDER = "gmail"
+
+
+def gmail_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party Gmail inbox actuation route.
+
+    Provider ``gmail`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live mailbox silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="gmail",
+        description=(
+            "Drive a first-class Gmail session: search, list labels, modify "
+            "labels, draft, and read an opted-in mailbox. Label-gated drafts "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["search", "list_labels", "modify", "draft", "read"],
+                },
+                "query": {"type": "string"},
+                "messageId": {"type": "string"},
+                "addLabelIds": {"type": "array", "items": {"type": "string"}},
+                "to": {"type": "array", "items": {"type": "string"}},
+                "subject": {"type": "string"},
+                "body": {"type": "string"},
+                "inReplyTo": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GMAIL_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 

@@ -66,6 +66,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.mcp-http-event-stream",
         "capability.publication-resilience",
         "capability.browser-actuation",
+        "capability.gmail-actuation",
         "capability.kernel-consumed-growth",
         "capability.kernel-compound-loop",
         "capability.kernel-primitive-compose",
