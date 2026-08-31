@@ -302,6 +302,18 @@ class McpPluginPlane:
                 self._accept_isolated(server, str(exc))
             raise
 
+    def set_log_level(self, server: str, level: str) -> dict[str, Any]:
+        session = self._live_session(server)
+        set_fn = getattr(session, "set_log_level", None)
+        if set_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak logging/setLevel")
+        try:
+            return set_fn(level)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "plane_failed": self.plane_failed,

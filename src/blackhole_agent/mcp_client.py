@@ -59,6 +59,17 @@ SCHEMA_VERSION = 1
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 CLIENT_INFO = {"name": "blackhole-unbound", "version": "1.0.0"}
 DEFAULT_ARTIFACT_DIR = "artifacts/mcp-live"
+LOG_LEVELS: tuple[str, ...] = (
+    "debug",
+    "info",
+    "notice",
+    "warning",
+    "error",
+    "critical",
+    "alert",
+    "emergency",
+)
+LOG_LEVEL_SET = frozenset(LOG_LEVELS)
 DEFAULT_MCP_ROOTS: tuple[dict[str, str], ...] = (
     {"uri": "file:///workspace", "name": "workspace"},
 )
@@ -194,7 +205,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete -> logging/setLevel."""
 
     def __init__(
         self,
@@ -211,6 +222,7 @@ class McpStdioSession:
         self.answer_sampling = bool(answer_sampling)
         self.roots = tuple(dict(item) for item in (roots if roots is not None else DEFAULT_MCP_ROOTS))
         self.answered_requests: list[dict[str, Any]] = []
+        self.server_notifications: list[dict[str, Any]] = []
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -287,8 +299,11 @@ class McpStdioSession:
             if is_jsonrpc_server_request(message):
                 self._answer_server_request(message)
                 continue
+            if str(message.get("method") or "").startswith("notifications/"):
+                self.server_notifications.append(dict(message))
+                continue
             if message.get("id") != request_id:
-                # Notifications or unrelated traffic; keep waiting for our response.
+                # Unrelated traffic; keep waiting for our response.
                 continue
             return message
 
@@ -400,6 +415,14 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed completion/complete result: {result!r}")
         return dict(result)
 
+    def set_log_level(self, level: str) -> dict[str, Any]:
+        result = self.request("logging/setLevel", {"level": str(level)})
+        if result is None:
+            return {}
+        if not isinstance(result, Mapping):
+            raise McpProtocolError(f"malformed logging/setLevel result: {result!r}")
+        return dict(result)
+
     def kill(self) -> None:
         """Abandon a session immediately, including a hung initialize."""
 
@@ -464,6 +487,24 @@ def extract_completion_values(result: Mapping[str, Any]) -> tuple[str, ...]:
     completion = result.get("completion") if isinstance(result.get("completion"), Mapping) else {}
     values = completion.get("values") if isinstance(completion.get("values"), list) else []
     return tuple(str(item) for item in values)
+
+
+def extract_log_messages(notifications: Sequence[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    """Return notifications/message payloads captured on the live session."""
+
+    messages: list[dict[str, Any]] = []
+    for item in notifications:
+        if str(item.get("method") or "") != "notifications/message":
+            continue
+        params = item.get("params") if isinstance(item.get("params"), Mapping) else {}
+        messages.append(
+            {
+                "level": str(params.get("level") or ""),
+                "logger": str(params.get("logger") or ""),
+                "data": params.get("data"),
+            }
+        )
+    return tuple(messages)
 
 
 def extract_prompt_text(result: Mapping[str, Any]) -> str:

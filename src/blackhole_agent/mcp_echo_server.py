@@ -5,7 +5,8 @@ JSON-RPC 2.0 over stdio) to exercise a real client session without network
 or third-party servers: ``initialize``, ``notifications/initialized``,
 ``ping``, ``tools/list``, ``tools/call``, ``resources/list``,
 ``resources/templates/list``, ``resources/read``, ``prompts/list``,
-``prompts/get``, and ``completion/complete``.
+``prompts/get``, ``completion/complete``, and ``logging/setLevel``
+(emitting ``notifications/message``).
 
 Tools exposed:
 
@@ -45,6 +46,20 @@ RESOURCE_NOT_FOUND = -32002
 PROMPT_NOT_FOUND = -32602
 COMPLETION_NOT_FOUND = -32602
 NOTE_COMPLETION_IDS: tuple[str, ...] = ("sentinel", "sensor", "about")
+LOG_LEVEL_NOT_FOUND = -32602
+LOG_LEVEL_SET = frozenset(
+    {
+        "debug",
+        "info",
+        "notice",
+        "warning",
+        "error",
+        "critical",
+        "alert",
+        "emergency",
+    }
+)
+PENDING_NOTIFICATIONS: list[dict[str, Any]] = []
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -223,6 +238,7 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
                     "resources": {},
                     "prompts": {},
                     "completions": {},
+                    "logging": {},
                 },
                 "serverInfo": SERVER_INFO,
             }
@@ -278,6 +294,29 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
                     },
                 }
             result = completed
+        elif method == "logging/setLevel":
+            level = str(params.get("level") or "") if isinstance(params, Mapping) else ""
+            if level not in LOG_LEVEL_SET:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": LOG_LEVEL_NOT_FOUND,
+                        "message": f"unknown log level: {level}",
+                    },
+                }
+            PENDING_NOTIFICATIONS.append(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "notifications/message",
+                    "params": {
+                        "level": level,
+                        "logger": "blackhole-echo",
+                        "data": f"level:{level}",
+                    },
+                }
+            )
+            result = {}
         else:
             return {
                 "jsonrpc": "2.0",
@@ -303,6 +342,11 @@ def main() -> int:
         except json.JSONDecodeError:
             continue
         response = handle_message(message)
+        pending = list(PENDING_NOTIFICATIONS)
+        PENDING_NOTIFICATIONS.clear()
+        for notification in pending:
+            sys.stdout.write(json.dumps(notification) + "\n")
+            sys.stdout.flush()
         if response is not None:
             sys.stdout.write(json.dumps(response) + "\n")
             sys.stdout.flush()

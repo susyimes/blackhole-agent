@@ -411,6 +411,14 @@ class McpHttpSession:
             raise McpProtocolError(f"malformed completion/complete result: {result!r}")
         return dict(result)
 
+    def set_log_level(self, level: str) -> dict[str, Any]:
+        result = self.request("logging/setLevel", {"level": str(level)})
+        if result is None:
+            return {}
+        if not isinstance(result, Mapping):
+            raise McpProtocolError(f"malformed logging/setLevel result: {result!r}")
+        return dict(result)
+
     def _try_open_event_stream(self) -> None:
         """Best-effort GET SSE; POST-only hosted plugins stay on the plane."""
 

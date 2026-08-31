@@ -20,6 +20,16 @@ def test_echo_server_handshake_and_tools_list() -> None:
         assert names == {"echo", "sha256"}
 
 
+def test_echo_server_sets_log_level_and_emits_message() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        assert isinstance(session.server_capabilities.get("logging"), dict)
+        session.set_log_level("info")
+        logs = mcp_client.extract_log_messages(session.server_notifications)
+        assert any(item.get("data") == "level:info" for item in logs)
+        with pytest.raises(mcp_client.McpProtocolError):
+            session.set_log_level("not-a-level")
+
+
 def test_echo_server_completes_note_arguments() -> None:
     with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
         assert isinstance(session.server_capabilities.get("completions"), dict)
