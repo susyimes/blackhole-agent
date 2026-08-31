@@ -76,6 +76,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.mcp-completions",
         "capability.mcp-logging",
         "capability.mcp-elicitation",
+        "capability.mcp-cancellation",
         "capability.kernel-consumed-growth",
         "capability.kernel-compound-loop",
         "capability.kernel-primitive-compose",

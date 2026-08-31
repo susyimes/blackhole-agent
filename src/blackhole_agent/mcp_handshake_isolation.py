@@ -200,13 +200,26 @@ class McpPluginPlane:
             "error": last_error,
         }
 
-    def call_tool(self, server: str, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    def call_tool(
+        self,
+        server: str,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        cancel_after: float | None = None,
+    ) -> dict[str, Any]:
         session = self._sessions.get(server)
         if session is None:
             error = self.isolated_error(server) or "unknown plugin"
             raise McpProtocolError(f"plugin {server!r} is not serving: {error}")
         try:
-            return session.call_tool(name, arguments)
+            if cancel_after is None:
+                return session.call_tool(name, arguments)
+            return session.call_tool(name, arguments, cancel_after=cancel_after)
+        except TypeError as exc:
+            raise McpProtocolError(
+                f"plugin {server!r} cannot cancel in-flight tools/call"
+            ) from exc
         except McpProtocolError as exc:
             if self.isolate_hung_calls and is_mcp_transport_failure(exc):
                 self._accept_isolated(server, str(exc))

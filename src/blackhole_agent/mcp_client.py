@@ -22,6 +22,11 @@ fail-open hole for ping/roots: those inbound requests are ignored and the
 plugin stalls. ``answer_elicitation=False`` leaves ``elicitation/create`` on
 the unknown-method path so the hole stays falsifiable.
 
+In-flight ``tools/call`` can send ``notifications/cancelled`` so a plugin
+that occupies stdio with a long actuation aborts instead of holding the
+session until timeout. ``cancel_after=None`` is the hole: the abandoned
+request stays blocked.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -46,6 +51,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -73,6 +79,7 @@ LOG_LEVELS: tuple[str, ...] = (
     "emergency",
 )
 LOG_LEVEL_SET = frozenset(LOG_LEVELS)
+JSONRPC_REQUEST_CANCELLED = -32800
 DEFAULT_MCP_ROOTS: tuple[dict[str, str], ...] = (
     {"uri": "file:///workspace", "name": "workspace"},
 )
@@ -110,6 +117,12 @@ def is_mcp_transport_failure(exc: BaseException) -> bool:
             "process is not running",
         )
     )
+
+
+def is_mcp_cancelled(exc: BaseException) -> bool:
+    """True when the server acknowledged notifications/cancelled with -32800."""
+
+    return f"json-rpc error {JSONRPC_REQUEST_CANCELLED}" in str(exc).lower()
 
 
 def is_jsonrpc_server_request(message: Mapping[str, Any]) -> bool:
@@ -208,7 +221,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled."""
 
     def __init__(
         self,
@@ -231,6 +244,7 @@ class McpStdioSession:
         self.elicitation_content = dict(elicitation_content or DEFAULT_ELICITATION_CONTENT)
         self.roots = tuple(dict(item) for item in (roots if roots is not None else DEFAULT_MCP_ROOTS))
         self.answered_requests: list[dict[str, Any]] = []
+        self.cancelled_request_ids: list[int] = []
         self.server_notifications: list[dict[str, Any]] = []
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
@@ -292,11 +306,39 @@ class McpStdioSession:
         self._process.stdin.write(json.dumps(message) + "\n")
         self._process.stdin.flush()
 
-    def _read_response(self, request_id: int) -> dict[str, Any]:
+    def cancel_request(self, request_id: int, reason: str = "timeout") -> None:
+        """Send notifications/cancelled for an in-flight JSON-RPC request."""
+
+        self.notify(
+            "notifications/cancelled",
+            {"requestId": int(request_id), "reason": str(reason or "timeout")},
+        )
+        self.cancelled_request_ids.append(int(request_id))
+
+    def _read_response(
+        self,
+        request_id: int,
+        *,
+        cancel_after: float | None = None,
+    ) -> dict[str, Any]:
+        cancel_at = (
+            time.monotonic() + float(cancel_after) if cancel_after is not None else None
+        )
+        cancelled = False
         while True:
+            timeout = self.timeout_seconds
+            if cancel_at is not None and not cancelled:
+                remaining_cancel = cancel_at - time.monotonic()
+                if remaining_cancel <= 0:
+                    self.cancel_request(request_id)
+                    cancelled = True
+                    continue
+                timeout = min(timeout, remaining_cancel)
             try:
-                line = self._lines.get(timeout=self.timeout_seconds)
+                line = self._lines.get(timeout=timeout)
             except queue.Empty as error:
+                if cancel_at is not None and not cancelled:
+                    continue
                 raise McpProtocolError(f"timeout waiting for response id={request_id}") from error
             if line is None:
                 raise McpProtocolError("MCP server closed stdout before responding")
@@ -347,11 +389,17 @@ class McpStdioSession:
             }
         )
 
-    def request(self, method: str, params: Mapping[str, Any] | None = None) -> Any:
+    def request(
+        self,
+        method: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        cancel_after: float | None = None,
+    ) -> Any:
         self._next_id += 1
         request_id = self._next_id
         self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": dict(params or {})})
-        response = self._read_response(request_id)
+        response = self._read_response(request_id, cancel_after=cancel_after)
         if "error" in response:
             error = response["error"] or {}
             raise McpProtocolError(
@@ -368,8 +416,18 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
         return dict(result)
 
-    def call_tool(self, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
-        result = self.request("tools/call", {"name": name, "arguments": dict(arguments)})
+    def call_tool(
+        self,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        cancel_after: float | None = None,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "tools/call",
+            {"name": name, "arguments": dict(arguments)},
+            cancel_after=cancel_after,
+        )
         if not isinstance(result, Mapping):
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
         return dict(result)
