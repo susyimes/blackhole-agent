@@ -16,7 +16,7 @@ import shutil
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from blackhole_agent.kernel_health import (
     CLI_FAILOVER_ORDER,
@@ -374,9 +374,19 @@ def execute_kernel_turn_with_salvage(
     now: datetime | None = None,
     persist_health: bool = True,
     local_action: Callable[..., Any] | None = None,
+    probe_peers: bool = True,
+    peer_probe: Callable[[str], Mapping[str, Any]] | None = None,
 ) -> tuple[Any, Any, dict[str, Any]]:
-    """Run the kernel; on death, salvage a decision instead of raising."""
+    """Run the kernel; on death, salvage a decision instead of raising.
 
+    Half-open peer CLI kernels are pinged before the requested kernel runs so
+    cooldown recovery cannot stall behind a healthy mission kernel.
+    """
+
+    from blackhole_agent.kernel_half_open_probe import (
+        disabled_peer_probe_report,
+        probe_half_open_peer_kernels,
+    )
     from blackhole_agent.unbound import KernelTurnResult, TurnDecision, extract_json_decision
 
     turn_dir = Path(turn_dir)
@@ -394,6 +404,35 @@ def execute_kernel_turn_with_salvage(
             save_kernel_health(repo, store, now=now)
 
     persist()
+    requested = str(getattr(state, "kernel", "") or "")
+    peer_probe_report: dict[str, Any]
+    if probe_peers:
+        try:
+            peer_probe_report = probe_half_open_peer_kernels(
+                store,
+                requested=requested,
+                installed=installed,
+                probe=peer_probe,
+                now=now,
+                persist=persist if persist_health else None,
+            )
+        except Exception as error:  # noqa: BLE001 - peer ping must not stall the mission
+            peer_probe_report = {
+                "ok": False,
+                "skipped": False,
+                "error": type(error).__name__,
+                "requested": requested,
+                "probed": [],
+                "recovered": [],
+                "retripped": [],
+                "left_half_open": [],
+            }
+    else:
+        peer_probe_report = disabled_peer_probe_report(requested)
+
+    def with_probe_meta(meta: dict[str, Any]) -> dict[str, Any]:
+        meta.setdefault("peer_probe", peer_probe_report)
+        return meta
 
     def dispatch() -> Any:
         if state.kernel == LOCAL_KERNEL:
@@ -439,7 +478,7 @@ def execute_kernel_turn_with_salvage(
                 meta = {"ok": True, "source": "kernel"}
                 if rerouted != original:
                     meta.update({"rerouted_from": original, "health_reroute": True})
-                return kernel_result, decision, meta
+                return kernel_result, decision, with_probe_meta(meta)
             meta = salvaged.to_dict() if salvaged is not None else {}
             meta.update(
                 {
@@ -449,7 +488,7 @@ def execute_kernel_turn_with_salvage(
                     "failover_kernel": state.kernel,
                 }
             )
-            return kernel_result, decision, meta
+            return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
                 state.session_id = kernel_result.session_id or state.session_id
@@ -472,7 +511,7 @@ def execute_kernel_turn_with_salvage(
             if salvaged.source == "message":
                 decision = TurnDecision.from_payload(salvaged.decision)
                 result = kernel_result or _synthetic_result(state, salvaged, None, KernelTurnResult)
-                return result, decision, salvaged.to_dict()
+                return result, decision, with_probe_meta(salvaged.to_dict())
             next_kernel = select_failover_kernel(
                 state.kernel,
                 installed,
@@ -493,7 +532,7 @@ def execute_kernel_turn_with_salvage(
                 )
                 decision = TurnDecision.from_payload(blocked.decision)
                 result = _synthetic_result(state, blocked, kernel_result, KernelTurnResult)
-                return result, decision, blocked.to_dict()
+                return result, decision, with_probe_meta(blocked.to_dict())
             from_kernel = state.kernel
             _switch_kernel(state, next_kernel)
 
