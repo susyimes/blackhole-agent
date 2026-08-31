@@ -4,8 +4,8 @@ Implements just enough of the Model Context Protocol (newline-delimited
 JSON-RPC 2.0 over stdio) to exercise a real client session without network
 or third-party servers: ``initialize``, ``notifications/initialized``,
 ``ping``, ``tools/list``, ``tools/call``, ``resources/list``,
-``resources/templates/list``, ``resources/read``, ``prompts/list``, and
-``prompts/get``.
+``resources/templates/list``, ``resources/read``, ``prompts/list``,
+``prompts/get``, and ``completion/complete``.
 
 Tools exposed:
 
@@ -43,6 +43,8 @@ ABOUT_PROMPT = "about"
 NOTE_PROMPT = "note"
 RESOURCE_NOT_FOUND = -32002
 PROMPT_NOT_FOUND = -32602
+COMPLETION_NOT_FOUND = -32602
+NOTE_COMPLETION_IDS: tuple[str, ...] = ("sentinel", "sensor", "about")
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -146,6 +148,32 @@ def _resource_contents(uri: str) -> dict[str, Any] | None:
     return None
 
 
+def _complete_argument(params: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return MCP completion values for a known prompt or resource template."""
+
+    ref = params.get("ref") if isinstance(params.get("ref"), Mapping) else {}
+    argument = params.get("argument") if isinstance(params.get("argument"), Mapping) else {}
+    ref_type = str(ref.get("type") or "")
+    arg_name = str(argument.get("name") or "")
+    prefix = str(argument.get("value") or "")
+    if arg_name != "id":
+        return None
+    if ref_type == "ref/prompt" and str(ref.get("name") or "") == NOTE_PROMPT:
+        candidates = NOTE_COMPLETION_IDS
+    elif ref_type == "ref/resource" and str(ref.get("uri") or "") == NOTE_TEMPLATE:
+        candidates = NOTE_COMPLETION_IDS
+    else:
+        return None
+    values = [item for item in candidates if item.startswith(prefix)]
+    return {
+        "completion": {
+            "values": values,
+            "total": len(values),
+            "hasMore": False,
+        }
+    }
+
+
 def _prompt_messages(name: str, arguments: Mapping[str, Any]) -> dict[str, Any] | None:
     """Return MCP prompt messages for a known prompt, or None if missing."""
 
@@ -190,7 +218,12 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
         if method == "initialize":
             result: Any = {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+                "capabilities": {
+                    "tools": {},
+                    "resources": {},
+                    "prompts": {},
+                    "completions": {},
+                },
                 "serverInfo": SERVER_INFO,
             }
         elif method == "ping":
@@ -233,6 +266,18 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
                     "error": {"code": PROMPT_NOT_FOUND, "message": missing},
                 }
             result = prompt
+        elif method == "completion/complete":
+            completed = _complete_argument(params if isinstance(params, Mapping) else {})
+            if completed is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": COMPLETION_NOT_FOUND,
+                        "message": "unknown completion ref",
+                    },
+                }
+            result = completed
         else:
             return {
                 "jsonrpc": "2.0",

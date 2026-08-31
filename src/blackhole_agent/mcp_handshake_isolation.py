@@ -284,6 +284,24 @@ class McpPluginPlane:
                 self._accept_isolated(server, str(exc))
             raise
 
+    def complete(
+        self,
+        server: str,
+        ref: Mapping[str, Any],
+        argument_name: str,
+        argument_value: str = "",
+    ) -> dict[str, Any]:
+        session = self._live_session(server)
+        complete_fn = getattr(session, "complete", None)
+        if complete_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak completion/complete")
+        try:
+            return complete_fn(ref, argument_name, argument_value)
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "plane_failed": self.plane_failed,

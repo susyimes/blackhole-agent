@@ -388,6 +388,29 @@ class McpHttpSession:
             raise McpProtocolError(f"malformed prompts/get result: {result!r}")
         return dict(result)
 
+    def complete(
+        self,
+        ref: Mapping[str, Any],
+        argument_name: str,
+        argument_value: str = "",
+    ) -> dict[str, Any]:
+        result = self.request(
+            "completion/complete",
+            {
+                "ref": dict(ref),
+                "argument": {
+                    "name": str(argument_name),
+                    "value": str(argument_value),
+                },
+            },
+        )
+        completion = result.get("completion") if isinstance(result, Mapping) else None
+        if not isinstance(result, Mapping) or not isinstance(completion, Mapping):
+            raise McpProtocolError(f"malformed completion/complete result: {result!r}")
+        if not isinstance(completion.get("values"), list):
+            raise McpProtocolError(f"malformed completion/complete result: {result!r}")
+        return dict(result)
+
     def _try_open_event_stream(self) -> None:
         """Best-effort GET SSE; POST-only hosted plugins stay on the plane."""
 

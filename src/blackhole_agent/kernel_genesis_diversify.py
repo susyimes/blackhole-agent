@@ -137,6 +137,11 @@ from blackhole_agent.mcp_prompts import (
     MCP_PROMPTS_GOAL,
     MCP_PROMPTS_ID,
 )
+from blackhole_agent.mcp_completions import (
+    MCP_COMPLETIONS_DONE_WHEN,
+    MCP_COMPLETIONS_GOAL,
+    MCP_COMPLETIONS_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -281,6 +286,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_PROMPTS_GOAL,
         "done_when": MCP_PROMPTS_DONE_WHEN,
         "source": "genesis_bind_prompts",
+    },
+    {
+        "id": MCP_COMPLETIONS_ID,
+        "goal": MCP_COMPLETIONS_GOAL,
+        "done_when": MCP_COMPLETIONS_DONE_WHEN,
+        "source": "genesis_bind_completions",
     },
 )
 
@@ -587,6 +598,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_sampling"] = DIVERSITY_CATALOG[14]["id"] == MCP_SAMPLING_ID
     checks["catalog_names_resources"] = DIVERSITY_CATALOG[15]["id"] == MCP_RESOURCES_ID
     checks["catalog_names_prompts"] = DIVERSITY_CATALOG[16]["id"] == MCP_PROMPTS_ID
+    checks["catalog_names_completions"] = DIVERSITY_CATALOG[17]["id"] == MCP_COMPLETIONS_ID
 
     ok = all(checks.values())
     if ok:

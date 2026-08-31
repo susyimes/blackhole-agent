@@ -20,6 +20,21 @@ def test_echo_server_handshake_and_tools_list() -> None:
         assert names == {"echo", "sha256"}
 
 
+def test_echo_server_completes_note_arguments() -> None:
+    with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
+        assert isinstance(session.server_capabilities.get("completions"), dict)
+        prefix = session.complete({"type": "ref/prompt", "name": "note"}, "id", "sen")
+        assert mcp_client.extract_completion_values(prefix) == ("sentinel", "sensor")
+        resource = session.complete(
+            {"type": "ref/resource", "uri": "resource://blackhole/echo/note/{id}"},
+            "id",
+            "a",
+        )
+        assert mcp_client.extract_completion_values(resource) == ("about",)
+        with pytest.raises(mcp_client.McpProtocolError):
+            session.complete({"type": "ref/prompt", "name": "missing-prompt"}, "id", "")
+
+
 def test_echo_server_lists_and_gets_prompts() -> None:
     with mcp_client.McpStdioSession(mcp_client.echo_server_command()) as session:
         assert isinstance(session.server_capabilities.get("prompts"), dict)

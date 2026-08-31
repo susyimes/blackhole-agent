@@ -194,7 +194,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> prompts/list -> completion/complete."""
 
     def __init__(
         self,
@@ -377,6 +377,29 @@ class McpStdioSession:
             raise McpProtocolError(f"malformed prompts/get result: {result!r}")
         return dict(result)
 
+    def complete(
+        self,
+        ref: Mapping[str, Any],
+        argument_name: str,
+        argument_value: str = "",
+    ) -> dict[str, Any]:
+        result = self.request(
+            "completion/complete",
+            {
+                "ref": dict(ref),
+                "argument": {
+                    "name": str(argument_name),
+                    "value": str(argument_value),
+                },
+            },
+        )
+        completion = result.get("completion") if isinstance(result, Mapping) else None
+        if not isinstance(result, Mapping) or not isinstance(completion, Mapping):
+            raise McpProtocolError(f"malformed completion/complete result: {result!r}")
+        if not isinstance(completion.get("values"), list):
+            raise McpProtocolError(f"malformed completion/complete result: {result!r}")
+        return dict(result)
+
     def kill(self) -> None:
         """Abandon a session immediately, including a hung initialize."""
 
@@ -433,6 +456,14 @@ def extract_resource_text(result: Mapping[str, Any]) -> str:
     contents = result.get("contents") or []
     parts = [str(item.get("text") or "") for item in contents if isinstance(item, Mapping)]
     return "".join(parts)
+
+
+def extract_completion_values(result: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return completion values from a completion/complete payload."""
+
+    completion = result.get("completion") if isinstance(result.get("completion"), Mapping) else {}
+    values = completion.get("values") if isinstance(completion.get("values"), list) else []
+    return tuple(str(item) for item in values)
 
 
 def extract_prompt_text(result: Mapping[str, Any]) -> str:
