@@ -51,6 +51,10 @@ _LEFTOVER_HINTS = (
     "mission-plane",
     "cheap-anchor",
 )
+_CATALOG_HANDOFF_HINTS = (
+    "unsaturated diversity-catalog family",
+    "next unsaturated diversity-catalog",
+)
 _SALVAGE_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
 
 
@@ -176,12 +180,17 @@ def leftover_next_step(text: str) -> str:
     lowered = raw.lower()
     if lowered in _CLOSED_NEXT_STEPS:
         return ""
+    if any(hint in lowered for hint in _CATALOG_HANDOFF_HINTS):
+        return ""
     if any(hint in lowered for hint in _LEFTOVER_HINTS):
         remainder = raw
         for prefix in _GENERIC_CLOSER_PREFIXES:
             if remainder.lower().startswith(prefix.lower()):
                 remainder = remainder[len(prefix) :].strip()
                 break
+        remainder_lowered = remainder.lower()
+        if any(hint in remainder_lowered for hint in _CATALOG_HANDOFF_HINTS):
+            return ""
         return remainder or raw
     if any(lowered.startswith(prefix) for prefix in _GENERIC_NEXT_PREFIXES):
         return ""
