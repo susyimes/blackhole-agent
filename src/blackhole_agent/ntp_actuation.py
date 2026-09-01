@@ -1042,6 +1042,7 @@ def builtin_ntp_actuation_proof() -> dict[str, Any]:
         semantic_signature,
         semantic_similarity,
     )
+    from blackhole_agent.dhcp_actuation import DHCP_ACTUATION_ID
     from blackhole_agent.radius_actuation import RADIUS_ACTUATION_GOAL, RADIUS_ACTUATION_ID
     from blackhole_agent.snmp_actuation import SNMP_ACTUATION_GOAL, SNMP_ACTUATION_ID
     from blackhole_agent.syslog_actuation import SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUATION_ID
@@ -1081,6 +1082,11 @@ def builtin_ntp_actuation_proof() -> dict[str, Any]:
         and catalog[50]["id"] == RADIUS_ACTUATION_ID
         and catalog[50]["source"] == "genesis_bind_radius"
     )
+    checks["catalog_names_dhcp"] = (
+        len(catalog) > 51
+        and catalog[51]["id"] == DHCP_ACTUATION_ID
+        and catalog[51]["source"] == "genesis_bind_dhcp"
+    )
     family = capability_family(NTP_ACTUATION_GOAL)
     checks["family_is_ntp"] = "ntp" in family
     checks["family_is_rfc5905"] = "rfc5905" in family
@@ -1090,7 +1096,9 @@ def builtin_ntp_actuation_proof() -> dict[str, Any]:
     checks["family_is_not_tftp"] = "tftp" not in family and "rfc1350" not in family
     checks["family_is_not_ftp"] = "ftpd" not in family and "pasv" not in family
     checks["family_is_not_dns"] = "tsig" not in family and "nameserver" not in family
-    checks["family_is_not_radius"] = "radius" not in family and "rfc2865" not in family
+    checks["family_is_not_radius"] = (
+        "radius" not in family and "radiu" not in family and "rfc2865" not in family
+    )
     origin = sentinel_timestamp()
     packed = encode_packet(mode=MODE_CLIENT, transmit=origin)
     parsed = parse_packet(packed)

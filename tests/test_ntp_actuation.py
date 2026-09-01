@@ -184,6 +184,7 @@ def test_builtin_proof_seals_ntp_actuation() -> None:
     assert report["checks"]["tampered_trace_fails"]
     assert report["checks"]["exhausted_catalog_binds_ntp"]
     assert report["checks"]["catalog_names_radius"]
+    assert report["checks"]["catalog_names_dhcp"]
     assert report["mission_goal"] == NTP_ACTUATION_GOAL
     assert report["done_when"] == NTP_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
@@ -210,4 +211,5 @@ def test_selection_gate_accepts_ntp_family(tmp_path: Path) -> None:
     assert "syslog" not in family
     assert "nilvalue" not in family
     assert "radius" not in family
+    assert "radiu" not in family
     assert "rfc2865" not in family

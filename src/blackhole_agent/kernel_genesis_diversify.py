@@ -307,6 +307,11 @@ from blackhole_agent.radius_actuation import (
     RADIUS_ACTUATION_GOAL,
     RADIUS_ACTUATION_ID,
 )
+from blackhole_agent.dhcp_actuation import (
+    DHCP_ACTUATION_DONE_WHEN,
+    DHCP_ACTUATION_GOAL,
+    DHCP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -656,6 +661,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": RADIUS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_radius",
     },
+    {
+        "id": DHCP_ACTUATION_ID,
+        "goal": DHCP_ACTUATION_GOAL,
+        "done_when": DHCP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_dhcp",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -997,6 +1008,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_syslog"] = DIVERSITY_CATALOG[48]["id"] == SYSLOG_ACTUATION_ID
     checks["catalog_names_ntp"] = DIVERSITY_CATALOG[49]["id"] == NTP_ACTUATION_ID
     checks["catalog_names_radius"] = DIVERSITY_CATALOG[50]["id"] == RADIUS_ACTUATION_ID
+    checks["catalog_names_dhcp"] = DIVERSITY_CATALOG[51]["id"] == DHCP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

@@ -864,6 +864,7 @@ TFTP_TOOL_PROVIDER = "tftp"
 SNMP_TOOL_PROVIDER = "snmp"
 SYSLOG_TOOL_PROVIDER = "syslog"
 NTP_TOOL_PROVIDER = "ntp"
+RADIUS_TOOL_PROVIDER = "radius"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1534,6 +1535,48 @@ def ntp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=NTP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def radius_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2865 RADIUS Access-Request/Access-Accept route.
+
+    Provider ``radius`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live daemon silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="radius",
+        description=(
+            "Drive a first-class RFC 2865 session: bind a loopback RADIUS "
+            "daemon, send an Access-Request with a User-Name attribute and "
+            "shared-secret User-Password, lockstep an Access-Accept that "
+            "echoes the stored User-Name, independently poll the stored "
+            "User-Name on a later client socket, and read the sealed "
+            "attribute digest. Secret-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "request": {"type": "boolean"},
+                "accept": {"type": "boolean"},
+                "username": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_secret": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=RADIUS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
