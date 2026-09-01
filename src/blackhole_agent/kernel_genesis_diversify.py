@@ -207,6 +207,11 @@ from blackhole_agent.mcp_http_auth import (
     MCP_HTTP_AUTH_GOAL,
     MCP_HTTP_AUTH_ID,
 )
+from blackhole_agent.imap_actuation import (
+    IMAP_ACTUATION_DONE_WHEN,
+    IMAP_ACTUATION_GOAL,
+    IMAP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -435,6 +440,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_HTTP_AUTH_GOAL,
         "done_when": MCP_HTTP_AUTH_DONE_WHEN,
         "source": "genesis_bind_http_auth",
+    },
+    {
+        "id": IMAP_ACTUATION_ID,
+        "goal": IMAP_ACTUATION_GOAL,
+        "done_when": IMAP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_imap",
     },
 )
 
@@ -757,6 +768,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     )
     checks["catalog_names_smtp"] = DIVERSITY_CATALOG[29]["id"] == SMTP_ACTUATION_ID
     checks["catalog_names_http_auth"] = DIVERSITY_CATALOG[30]["id"] == MCP_HTTP_AUTH_ID
+    checks["catalog_names_imap"] = DIVERSITY_CATALOG[31]["id"] == IMAP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

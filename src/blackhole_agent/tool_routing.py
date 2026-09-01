@@ -808,6 +808,46 @@ def smtp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+IMAP_TOOL_PROVIDER = "imap"
+
+
+def imap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party UID/IDLE-gated inbound IMAP route.
+
+    Provider ``imap`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="imap",
+        description=(
+            "Drive a first-class IMAP session: bind a loopback IMAP4rev1 listener, "
+            "AUTHENTICATE PLAIN, SELECT INBOX, IDLE until EXISTS, UID FETCH the "
+            "newly arrived message, and read the sealed inbox. UID-gated inbound "
+            "mail stays sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "fetch", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "idle": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IMAP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 
