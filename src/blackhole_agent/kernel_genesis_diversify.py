@@ -302,6 +302,11 @@ from blackhole_agent.ntp_actuation import (
     NTP_ACTUATION_GOAL,
     NTP_ACTUATION_ID,
 )
+from blackhole_agent.radius_actuation import (
+    RADIUS_ACTUATION_DONE_WHEN,
+    RADIUS_ACTUATION_GOAL,
+    RADIUS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -645,6 +650,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": NTP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ntp",
     },
+    {
+        "id": RADIUS_ACTUATION_ID,
+        "goal": RADIUS_ACTUATION_GOAL,
+        "done_when": RADIUS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_radius",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -985,6 +996,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_snmp"] = DIVERSITY_CATALOG[47]["id"] == SNMP_ACTUATION_ID
     checks["catalog_names_syslog"] = DIVERSITY_CATALOG[48]["id"] == SYSLOG_ACTUATION_ID
     checks["catalog_names_ntp"] = DIVERSITY_CATALOG[49]["id"] == NTP_ACTUATION_ID
+    checks["catalog_names_radius"] = DIVERSITY_CATALOG[50]["id"] == RADIUS_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

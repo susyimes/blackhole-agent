@@ -863,6 +863,7 @@ FTP_TOOL_PROVIDER = "ftp"
 TFTP_TOOL_PROVIDER = "tftp"
 SNMP_TOOL_PROVIDER = "snmp"
 SYSLOG_TOOL_PROVIDER = "syslog"
+NTP_TOOL_PROVIDER = "ntp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1489,6 +1490,50 @@ def syslog_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SYSLOG_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ntp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5905 NTP originate/receive/transmit route.
+
+    Provider ``ntp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live daemon silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ntp",
+        description=(
+            "Drive a first-class RFC 5905 session: bind a loopback NTP "
+            "daemon, send a CLIENT packet with an originate timestamp and "
+            "keyid MAC, lockstep a SERVER reply that fills receive and "
+            "transmit, independently poll the stored origin timestamp on a "
+            "later client socket, and read the sealed timestamp digest. "
+            "Keyid-gated exchanges stay sealed as digest-chained actuation "
+            "traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "client": {"type": "boolean"},
+                "server": {"type": "boolean"},
+                "originate": {"type": "boolean"},
+                "receive": {"type": "boolean"},
+                "transmit": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_keyid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=NTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

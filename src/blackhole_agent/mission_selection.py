@@ -143,6 +143,9 @@ _SURFACE_TOKENS = frozenset(
         "selection",
         "security",
         "timeout",
+        "ntp",
+        "rfc5905",
+        "keyid",
     }
 )
 _IMPACT_MARKERS = (
