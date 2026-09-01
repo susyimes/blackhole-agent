@@ -869,6 +869,7 @@ DHCP_TOOL_PROVIDER = "dhcp"
 IKE_TOOL_PROVIDER = "ike"
 SIP_TOOL_PROVIDER = "sip"
 STUN_TOOL_PROVIDER = "stun"
+TURN_TOOL_PROVIDER = "turn"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1742,6 +1743,46 @@ def stun_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=STUN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def turn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5766 TURN Allocate/Success route.
+
+    Provider ``turn`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live relay silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="turn",
+        description=(
+            "Drive a first-class RFC 5766 session: bind a loopback TURN "
+            "relay, send an Allocate with a non-empty nonce, lockstep an "
+            "Allocation Success that carries the stored allocation nonce, "
+            "independently poll the stored allocation nonce on a later "
+            "client socket, and read the sealed relay digest. Nonce-gated "
+            "exchanges stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "allocate": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_nonce": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TURN_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

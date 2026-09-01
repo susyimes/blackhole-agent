@@ -163,6 +163,11 @@ _SURFACE_TOKENS = frozenset(
         "turn",
         "rfc5766",
         "relay",
+        "nonce",
+        "ice",
+        "rfc8445",
+        "ufrag",
+        "foundation",
     }
 )
 _IMPACT_MARKERS = (
