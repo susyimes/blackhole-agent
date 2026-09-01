@@ -317,6 +317,11 @@ from blackhole_agent.ike_actuation import (
     IKE_ACTUATION_GOAL,
     IKE_ACTUATION_ID,
 )
+from blackhole_agent.sip_actuation import (
+    SIP_ACTUATION_DONE_WHEN,
+    SIP_ACTUATION_GOAL,
+    SIP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -678,6 +683,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": IKE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ike",
     },
+    {
+        "id": SIP_ACTUATION_ID,
+        "goal": SIP_ACTUATION_GOAL,
+        "done_when": SIP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_sip",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1021,6 +1032,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_radius"] = DIVERSITY_CATALOG[50]["id"] == RADIUS_ACTUATION_ID
     checks["catalog_names_dhcp"] = DIVERSITY_CATALOG[51]["id"] == DHCP_ACTUATION_ID
     checks["catalog_names_ike"] = DIVERSITY_CATALOG[52]["id"] == IKE_ACTUATION_ID
+    checks["catalog_names_sip"] = DIVERSITY_CATALOG[53]["id"] == SIP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

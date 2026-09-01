@@ -866,6 +866,7 @@ SYSLOG_TOOL_PROVIDER = "syslog"
 NTP_TOOL_PROVIDER = "ntp"
 RADIUS_TOOL_PROVIDER = "radius"
 DHCP_TOOL_PROVIDER = "dhcp"
+IKE_TOOL_PROVIDER = "ike"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1619,6 +1620,46 @@ def dhcp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=DHCP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ike_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7296 IKE SA_INIT/AUTH route.
+
+    Provider ``ike`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live daemon silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ike",
+        description=(
+            "Drive a first-class RFC 7296 session: bind a loopback IKE "
+            "daemon, send IKE_SA_INIT with a non-zero initiator SPI, lockstep "
+            "an IKE_AUTH that carries the stored initiator SPI, independently "
+            "poll the stored initiator SPI on a later client socket, and read "
+            "the sealed spi digest. SPI-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "sa_init": {"type": "boolean"},
+                "auth": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_spi": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IKE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
