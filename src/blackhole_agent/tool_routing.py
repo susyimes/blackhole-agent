@@ -769,6 +769,45 @@ def webhook_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+SMTP_TOOL_PROVIDER = "smtp"
+
+
+def smtp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party envelope-gated outbound SMTP route.
+
+    Provider ``smtp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="smtp",
+        description=(
+            "Drive a first-class SMTP session: bind a loopback SMTP listener, "
+            "AUTH PLAIN, land a MAIL FROM / RCPT TO / DATA transaction, and "
+            "read the sealed mailbox. Envelope-gated deliveries stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "send", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SMTP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 
