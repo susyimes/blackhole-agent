@@ -42,6 +42,11 @@ server emits ``notifications/progress``. Omitting the token is the hole:
 a progress-gated plugin cannot report monotonic completion and isolation
 treats live work as a hung session.
 
+Handshake snapshots ``tools/list`` once. A plugin that publishes a gated
+tool only after ``notifications/tools/list_changed`` stays invisible until
+``refresh_tools`` re-lists. Skipping the refresh is the hole: the plane
+keeps the stale handshake catalog.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -236,7 +241,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress -> notifications/tools/list_changed."""
 
     def __init__(
         self,
@@ -264,6 +269,8 @@ class McpStdioSession:
         self.subscribed_uris: list[str] = []
         self.roots_list_changed_sent: list[tuple[str, ...]] = []
         self.progress_tokens: list[str | int] = []
+        self.tool_names: list[str] = []
+        self.tool_list_count = 0
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -459,7 +466,19 @@ class McpStdioSession:
         result = self.request("tools/list", {})
         if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
-        return dict(result)
+        payload = dict(result)
+        self.tool_names = [
+            str(item.get("name") or "")
+            for item in payload.get("tools") or []
+            if isinstance(item, Mapping) and item.get("name")
+        ]
+        self.tool_list_count += 1
+        return payload
+
+    def refresh_tools(self) -> dict[str, Any]:
+        """Re-list after ``notifications/tools/list_changed`` so a dynamic catalog is visible."""
+
+        return self.list_tools()
 
     def call_tool(
         self,
@@ -680,6 +699,19 @@ def extract_log_messages(notifications: Sequence[Mapping[str, Any]]) -> tuple[di
             }
         )
     return tuple(messages)
+
+
+def extract_tools_list_changed(
+    notifications: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Return notifications/tools/list_changed payloads captured on the live session."""
+
+    events: list[dict[str, Any]] = []
+    for item in notifications:
+        if str(item.get("method") or "") != "notifications/tools/list_changed":
+            continue
+        events.append(dict(item))
+    return tuple(events)
 
 
 def extract_progress_notifications(

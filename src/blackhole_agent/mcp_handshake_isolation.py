@@ -330,6 +330,31 @@ class McpPluginPlane:
             )
         notify_fn(roots)
 
+    def refresh_tools(self, server: str) -> dict[str, Any]:
+        """Re-list after notifications/tools/list_changed and replace the handshake snapshot."""
+
+        session = self._live_session(server)
+        refresh_fn = getattr(session, "refresh_tools", None)
+        if refresh_fn is None:
+            refresh_fn = getattr(session, "list_tools", None)
+        if refresh_fn is None:
+            raise McpProtocolError(f"plugin {server!r} does not speak tools/list")
+        try:
+            payload = refresh_fn()
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+        if not isinstance(payload, Mapping):
+            raise McpProtocolError(f"malformed tools/list result: {payload!r}")
+        tools = tuple(
+            str(item.get("name") or "")
+            for item in (payload.get("tools") or [])
+            if isinstance(item, Mapping) and item.get("name")
+        )
+        self._tools[server] = tools
+        return dict(payload)
+
     def list_prompts(self, server: str) -> dict[str, Any]:
         session = self._live_session(server)
         list_fn = getattr(session, "list_prompts", None)

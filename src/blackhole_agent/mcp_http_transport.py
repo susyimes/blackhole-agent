@@ -244,6 +244,8 @@ class McpHttpSession:
         self.event_stream_open = False
         self.answered_requests: list[dict[str, Any]] = []
         self.server_notifications: list[dict[str, Any]] = []
+        self.tool_names: list[str] = []
+        self.tool_list_count = 0
         self._next_id = 0
         self._closed = False
         self.event_stream_error = ""
@@ -343,7 +345,19 @@ class McpHttpSession:
         result = self.request("tools/list", {})
         if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
-        return dict(result)
+        payload = dict(result)
+        self.tool_names = [
+            str(item.get("name") or "")
+            for item in payload.get("tools") or []
+            if isinstance(item, Mapping) and item.get("name")
+        ]
+        self.tool_list_count = getattr(self, "tool_list_count", 0) + 1
+        return payload
+
+    def refresh_tools(self) -> dict[str, Any]:
+        """Re-list after ``notifications/tools/list_changed`` so a dynamic catalog is visible."""
+
+        return self.list_tools()
 
     def call_tool(self, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
         result = self.request("tools/call", {"name": name, "arguments": dict(arguments)})

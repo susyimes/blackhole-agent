@@ -8,6 +8,8 @@ or third-party servers: ``initialize``, ``notifications/initialized``,
 ``prompts/get``, ``completion/complete``, and ``logging/setLevel``
 (emitting ``notifications/message``). A ``tools/call`` that carries
 ``_meta.progressToken`` also emits monotonic ``notifications/progress``.
+Initialize advertises ``tools.listChanged``; the static catalog never
+emits ``notifications/tools/list_changed``.
 
 Tools exposed:
 
@@ -235,7 +237,7 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
             result: Any = {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {
-                    "tools": {},
+                    "tools": {"listChanged": True},
                     "resources": {},
                     "prompts": {},
                     "completions": {},
