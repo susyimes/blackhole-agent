@@ -850,6 +850,7 @@ def imap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
 
 REDIS_TOOL_PROVIDER = "redis"
 MQTT_TOOL_PROVIDER = "mqtt"
+DNS_TOOL_PROVIDER = "dns"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -923,6 +924,45 @@ def mqtt_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MQTT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def dns_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party TSIG-gated DNS apex-record route.
+
+    Provider ``dns`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live nameserver silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="dns",
+        description=(
+            "Drive a first-class DNS session: bind a loopback DNS/UDP "
+            "nameserver, UPDATE an apex TXT with HMAC-SHA256 TSIG, QUERY the "
+            "record, independently re-QUERY from a fresh socket, and read the "
+            "sealed zone. TSIG-gated apex records stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "update": {"type": "boolean"},
+                "query": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DNS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
