@@ -857,6 +857,7 @@ S3_TOOL_PROVIDER = "s3"
 WATCH_TOOL_PROVIDER = "watch"
 WEBSOCKET_TOOL_PROVIDER = "websocket"
 SSH_TOOL_PROVIDER = "ssh"
+GRPC_TOOL_PROVIDER = "grpc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1225,6 +1226,51 @@ def ssh_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SSH_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def grpc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party HTTP/2 gRPC length-prefixed RPC route.
+
+    Provider ``grpc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live HTTP/2 listener silently executable — a caller must opt the
+    provider in.
+    """
+
+    return ToolDescriptor(
+        name="grpc",
+        description=(
+            "Drive a first-class HTTP/2 gRPC session: bind a loopback "
+            "listener, complete the connection preface, SETTINGS, HPACK "
+            "HEADERS, a length-prefixed protobuf Seal RPC, grpc-status "
+            "TRAILERS, independently re-invoke the retained reply on a later "
+            "stream, and read the sealed status digest. Metadata-gated RPC "
+            "output stays sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "preface": {"type": "boolean"},
+                "settings": {"type": "boolean"},
+                "headers": {"type": "boolean"},
+                "data": {"type": "boolean"},
+                "trailers": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "secret": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GRPC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
