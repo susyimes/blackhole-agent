@@ -854,6 +854,7 @@ DNS_TOOL_PROVIDER = "dns"
 LDAP_TOOL_PROVIDER = "ldap"
 POSTGRES_TOOL_PROVIDER = "postgres"
 S3_TOOL_PROVIDER = "s3"
+WATCH_TOOL_PROVIDER = "watch"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1089,6 +1090,48 @@ def s3_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=S3_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def watch_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party filesystem path-watch mutation route.
+
+    Provider ``watch`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live filesystem observer silently executable — a caller must opt the
+    provider in.
+    """
+
+    return ToolDescriptor(
+        name="watch",
+        description=(
+            "Drive a first-class path-watch session: bind an on-disk watch "
+            "root, subscribe an independent observer, CREATE a beacon, "
+            "MODIFY it, CONSUME the mutation events, independently re-hash "
+            "the beacon from a fresh file open, and read the sealed change "
+            "digest. Path-watch mutations stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "create": {"type": "boolean"},
+                "modify": {"type": "boolean"},
+                "consume": {"type": "boolean"},
+                "secret": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=WATCH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
