@@ -731,6 +731,44 @@ def sqlite_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+WEBHOOK_TOOL_PROVIDER = "webhook"
+
+
+def webhook_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party HMAC-gated inbound webhook route.
+
+    Provider ``webhook`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="webhook",
+        description=(
+            "Drive a first-class webhook session: bind a loopback HTTP listener, "
+            "receive an inbound POST, verify X-Hub-Signature-256, ack the sealed "
+            "payload, and read it back. HMAC-gated deliveries stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "receive", "verify", "ack", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "signed": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=WEBHOOK_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 
