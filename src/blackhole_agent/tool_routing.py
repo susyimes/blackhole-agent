@@ -694,6 +694,43 @@ def github_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+SQLITE_TOOL_PROVIDER = "sqlite"
+
+
+def sqlite_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party SQLite schema-gated storage route.
+
+    Provider ``sqlite`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live database silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="sqlite",
+        description=(
+            "Drive a first-class SQLite session: open a database file, apply a "
+            "schema migration, insert inside a transaction, commit or roll back, "
+            "and query the sealed beacon. Schema-gated writes stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["open", "migrate", "insert", "commit", "rollback", "query", "close"],
+                },
+                "token": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SQLITE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 

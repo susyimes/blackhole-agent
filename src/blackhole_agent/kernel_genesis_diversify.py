@@ -177,6 +177,11 @@ from blackhole_agent.github_actuation import (
     GITHUB_ACTUATION_GOAL,
     GITHUB_ACTUATION_ID,
 )
+from blackhole_agent.sqlite_actuation import (
+    SQLITE_ACTUATION_DONE_WHEN,
+    SQLITE_ACTUATION_GOAL,
+    SQLITE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -369,6 +374,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": GITHUB_ACTUATION_GOAL,
         "done_when": GITHUB_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_github",
+    },
+    {
+        "id": SQLITE_ACTUATION_ID,
+        "goal": SQLITE_ACTUATION_GOAL,
+        "done_when": SQLITE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_sqlite",
     },
 )
 
@@ -683,6 +694,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_roots_list_changed"] = DIVERSITY_CATALOG[22]["id"] == MCP_ROOTS_CHANGED_ID
     checks["catalog_names_browser_cdp"] = DIVERSITY_CATALOG[23]["id"] == BROWSER_CDP_ID
     checks["catalog_names_github"] = DIVERSITY_CATALOG[24]["id"] == GITHUB_ACTUATION_ID
+    checks["catalog_names_sqlite"] = DIVERSITY_CATALOG[25]["id"] == SQLITE_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

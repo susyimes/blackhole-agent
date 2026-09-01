@@ -70,6 +70,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.gmail-actuation",
         "capability.godot-actuation",
         "capability.github-actuation",
+        "capability.sqlite-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",
