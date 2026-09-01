@@ -81,6 +81,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.mqtt-actuation",
         "capability.dns-actuation",
         "capability.ldap-actuation",
+        "capability.postgres-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

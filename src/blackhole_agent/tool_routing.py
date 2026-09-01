@@ -852,6 +852,7 @@ REDIS_TOOL_PROVIDER = "redis"
 MQTT_TOOL_PROVIDER = "mqtt"
 DNS_TOOL_PROVIDER = "dns"
 LDAP_TOOL_PROVIDER = "ldap"
+POSTGRES_TOOL_PROVIDER = "postgres"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1004,6 +1005,47 @@ def ldap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LDAP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def postgres_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party Startup/Password/SimpleQuery PostgreSQL route.
+
+    Provider ``postgres`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live relational-wire listener silently executable — a caller must opt
+    the provider in.
+    """
+
+    return ToolDescriptor(
+        name="postgres",
+        description=(
+            "Drive a first-class PostgreSQL session: bind a loopback v3 "
+            "frontend/backend listener, send a StartupMessage, cleartext "
+            "Password, INSERT a beacon row, SimpleQuery a RowDescription/"
+            "DataRow, independently re-Query from a fresh connection, and "
+            "read the sealed result. Password-gated relational rows stay "
+            "sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "insert": {"type": "boolean"},
+                "query": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=POSTGRES_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

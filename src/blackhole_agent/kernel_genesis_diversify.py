@@ -232,6 +232,11 @@ from blackhole_agent.ldap_actuation import (
     LDAP_ACTUATION_GOAL,
     LDAP_ACTUATION_ID,
 )
+from blackhole_agent.postgres_actuation import (
+    POSTGRES_ACTUATION_DONE_WHEN,
+    POSTGRES_ACTUATION_GOAL,
+    POSTGRES_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -490,6 +495,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LDAP_ACTUATION_GOAL,
         "done_when": LDAP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ldap",
+    },
+    {
+        "id": POSTGRES_ACTUATION_ID,
+        "goal": POSTGRES_ACTUATION_GOAL,
+        "done_when": POSTGRES_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_postgres",
     },
 )
 
@@ -816,6 +827,8 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_redis"] = DIVERSITY_CATALOG[32]["id"] == REDIS_ACTUATION_ID
     checks["catalog_names_mqtt"] = DIVERSITY_CATALOG[33]["id"] == MQTT_ACTUATION_ID
     checks["catalog_names_dns"] = DIVERSITY_CATALOG[34]["id"] == DNS_ACTUATION_ID
+    checks["catalog_names_ldap"] = DIVERSITY_CATALOG[35]["id"] == LDAP_ACTUATION_ID
+    checks["catalog_names_postgres"] = DIVERSITY_CATALOG[36]["id"] == POSTGRES_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
