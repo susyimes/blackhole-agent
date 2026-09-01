@@ -856,6 +856,7 @@ POSTGRES_TOOL_PROVIDER = "postgres"
 S3_TOOL_PROVIDER = "s3"
 WATCH_TOOL_PROVIDER = "watch"
 WEBSOCKET_TOOL_PROVIDER = "websocket"
+SSH_TOOL_PROVIDER = "ssh"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1179,6 +1180,51 @@ def websocket_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=WEBSOCKET_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ssh_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party SSH-2.0 binary-packet exec route.
+
+    Provider ``ssh`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live ssh daemon silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ssh",
+        description=(
+            "Drive a first-class SSH-2.0 session: bind a loopback daemon, "
+            "IDENTIFY SSH-2.0, complete group14 DH KEXINIT, password "
+            "USERAUTH, CHANNEL-OPEN a session, EXEC a command, independently "
+            "re-EXEC the retained stdout on a later connection, and read the "
+            "sealed stdout digest. Password-gated exec output stays sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "identify": {"type": "boolean"},
+                "kex": {"type": "boolean"},
+                "mac": {"type": "boolean"},
+                "channel": {"type": "boolean"},
+                "exec": {"type": "boolean"},
+                "receive": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SSH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
