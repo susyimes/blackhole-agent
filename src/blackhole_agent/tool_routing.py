@@ -853,6 +853,7 @@ MQTT_TOOL_PROVIDER = "mqtt"
 DNS_TOOL_PROVIDER = "dns"
 LDAP_TOOL_PROVIDER = "ldap"
 POSTGRES_TOOL_PROVIDER = "postgres"
+S3_TOOL_PROVIDER = "s3"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1046,6 +1047,48 @@ def postgres_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=POSTGRES_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def s3_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party SigV4 S3 object-store route.
+
+    Provider ``s3`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live object-store listener silently executable — a caller must opt the
+    provider in.
+    """
+
+    return ToolDescriptor(
+        name="s3",
+        description=(
+            "Drive a first-class S3 session: bind a loopback path-style "
+            "listener, sign AWS4-HMAC-SHA256, PutObject a beacon, GetObject "
+            "the ETag, ListObjects the bucket, independently re-GET from a "
+            "fresh signed request, and read the sealed object. SigV4-gated "
+            "object-store payloads stay sealed as digest-chained actuation "
+            "traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "put": {"type": "boolean"},
+                "get": {"type": "boolean"},
+                "list_bucket": {"type": "boolean"},
+                "secret": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=S3_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
