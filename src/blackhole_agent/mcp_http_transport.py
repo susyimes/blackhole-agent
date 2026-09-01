@@ -230,6 +230,10 @@ class McpHttpSession:
         answer_elicitation: bool = True,
         elicitation_action: str = "accept",
         elicitation_content: Mapping[str, Any] | None = None,
+        access_token: str = "",
+        client_id: str = "",
+        client_secret: str = "",
+        authorize_on_401: bool = False,
     ) -> None:
         self.url = str(url).rstrip("/")
         self.timeout_seconds = float(timeout_seconds)
@@ -238,6 +242,10 @@ class McpHttpSession:
         self.answer_elicitation = bool(answer_elicitation)
         self.elicitation_action = str(elicitation_action or "accept")
         self.elicitation_content = dict(elicitation_content or DEFAULT_ELICITATION_CONTENT)
+        self.access_token = str(access_token or "")
+        self.client_id = str(client_id or "")
+        self.client_secret = str(client_secret or "")
+        self.authorize_on_401 = bool(authorize_on_401)
         self.session_id = ""
         self.server_info: dict[str, Any] = {}
         self.protocol_version = ""
@@ -246,8 +254,12 @@ class McpHttpSession:
         self.server_notifications: list[dict[str, Any]] = []
         self.tool_names: list[str] = []
         self.tool_list_count = 0
+        self.last_www_authenticate = ""
+        self.resource_metadata_url = ""
+        self.token_endpoint = ""
         self._next_id = 0
         self._closed = False
+        self._auth_attempted = False
         self.event_stream_error = ""
         self._event_sock: socket.socket | None = None
         self._event_rest = b""
@@ -284,6 +296,8 @@ class McpHttpSession:
         }
         if self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
+        if self.access_token:
+            headers["Authorization"] = f"Bearer {self.access_token}"
         request = Request(self.url, data=body, headers=headers, method="POST")
         request_id = payload.get("id")
         try:
@@ -297,8 +311,29 @@ class McpHttpSession:
                 content_type = str(response.headers.get("Content-Type") or "")
                 raw = response.read()
         except HTTPError as error:
+            www = str(error.headers.get("WWW-Authenticate") or error.headers.get("www-authenticate") or "")
+            status_code = int(error.code)
+            try:
+                error.read()
+            except Exception:  # noqa: BLE001 - drain the HTTPError body
+                pass
+            if www:
+                self.last_www_authenticate = www
+            if (
+                status_code == 401
+                and self.authorize_on_401
+                and not self.access_token
+                and self.client_secret
+                and not self._auth_attempted
+            ):
+                self._auth_attempted = True
+                self.access_token = self._exchange_from_challenge(www)
+                if self.access_token:
+                    return self._post(payload, expect_response=expect_response)
             raise McpProtocolError(
-                f"http {error.code} waiting for response id={request_id}"
+                f"http {status_code} waiting for response id={request_id}",
+                status_code=status_code,
+                www_authenticate=www,
             ) from error
         except (TimeoutError, URLError, OSError) as error:
             raise McpProtocolError(f"timeout waiting for response id={request_id}") from error
@@ -334,6 +369,30 @@ class McpHttpSession:
                 f"JSON-RPC error {error.get('code')}: {error.get('message')} for method {method}"
             )
         return response.get("result")
+
+    def _exchange_from_challenge(self, www_authenticate: str) -> str:
+        """Discover RFC 9728 metadata and exchange client_credentials for a bearer token."""
+
+        from blackhole_agent.mcp_http_auth import exchange_client_credentials, parse_www_authenticate
+
+        challenge = parse_www_authenticate(www_authenticate)
+        metadata_url = str(challenge.get("resource_metadata") or "")
+        if not metadata_url:
+            raise McpProtocolError(
+                "http 401 missing resource_metadata",
+                status_code=401,
+                www_authenticate=www_authenticate,
+            )
+        self.resource_metadata_url = metadata_url
+        token, token_endpoint = exchange_client_credentials(
+            metadata_url,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            resource=self.url,
+            timeout_seconds=self.timeout_seconds,
+        )
+        self.token_endpoint = token_endpoint
+        return token
 
     def notify(self, method: str, params: Mapping[str, Any] | None = None) -> None:
         self._post(
@@ -448,12 +507,16 @@ class McpHttpSession:
             self.event_stream_error = f"GET connect failed: {exc}"
             return
         try:
+            auth_header = (
+                f"Authorization: Bearer {self.access_token}\r\n" if self.access_token else ""
+            )
             sock.sendall(
                 (
                     f"GET {path} HTTP/1.1\r\n"
                     f"Host: {host}:{port}\r\n"
                     "Accept: text/event-stream\r\n"
                     f"Mcp-Session-Id: {self.session_id}\r\n"
+                    f"{auth_header}"
                     "Cache-Control: no-cache\r\n"
                     "Connection: keep-alive\r\n"
                     "\r\n"

@@ -82,6 +82,10 @@ class McpPluginSpec:
         url: str = "",
         answer_sampling: bool = False,
         answer_elicitation: bool = False,
+        access_token: str = "",
+        client_id: str = "",
+        client_secret: str = "",
+        authorize_on_401: bool = False,
     ) -> None:
         self.name = str(name)
         self.command = [str(part) for part in command]
@@ -89,6 +93,10 @@ class McpPluginSpec:
         self.url = str(url or "").strip()
         self.answer_sampling = bool(answer_sampling)
         self.answer_elicitation = bool(answer_elicitation)
+        self.access_token = str(access_token or "")
+        self.client_id = str(client_id or "")
+        self.client_secret = str(client_secret or "")
+        self.authorize_on_401 = bool(authorize_on_401)
 
 
 class McpPluginPlane:
@@ -498,7 +506,14 @@ def _handshake_session(spec: McpPluginSpec) -> tuple[Any | None, str]:
     if spec.url:
         from blackhole_agent.mcp_http_transport import McpHttpSession
 
-        session: Any = McpHttpSession(spec.url, timeout_seconds=spec.timeout_seconds)
+        session: Any = McpHttpSession(
+            spec.url,
+            timeout_seconds=spec.timeout_seconds,
+            access_token=spec.access_token,
+            client_id=spec.client_id,
+            client_secret=spec.client_secret,
+            authorize_on_401=spec.authorize_on_401,
+        )
         try:
             session.start()
             return session, ""

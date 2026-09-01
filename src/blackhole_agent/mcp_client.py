@@ -124,6 +124,17 @@ def _digest(payload: Any) -> str:
 class McpProtocolError(RuntimeError):
     """Raised when the server misbehaves, times out, or returns a JSON-RPC error."""
 
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        status_code: int | None = None,
+        www_authenticate: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.www_authenticate = str(www_authenticate or "")
+
 
 def is_mcp_transport_failure(exc: BaseException) -> bool:
     """True for hung or dead JSON-RPC transport, not application-level tool errors."""
