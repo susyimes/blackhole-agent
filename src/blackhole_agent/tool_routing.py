@@ -855,6 +855,7 @@ LDAP_TOOL_PROVIDER = "ldap"
 POSTGRES_TOOL_PROVIDER = "postgres"
 S3_TOOL_PROVIDER = "s3"
 WATCH_TOOL_PROVIDER = "watch"
+WEBSOCKET_TOOL_PROVIDER = "websocket"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1132,6 +1133,52 @@ def watch_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=WATCH_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def websocket_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6455 websocket upgrade-framing route.
+
+    Provider ``websocket`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live upgrade listener silently executable — a caller must opt the
+    provider in.
+    """
+
+    return ToolDescriptor(
+        name="websocket",
+        description=(
+            "Drive a first-class RFC 6455 session: bind a loopback websocket "
+            "listener, complete a 101 Switching Protocols handshake with "
+            "Sec-WebSocket-Accept, mask a client text frame, echo it, answer "
+            "a control-frame pong, independently replay the retained payload "
+            "on a later connection, and read the sealed frame digest. "
+            "Upgrade-gated frames stay sealed as digest-chained actuation "
+            "traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "upgrade": {"type": "boolean"},
+                "send": {"type": "boolean"},
+                "receive": {"type": "boolean"},
+                "pong": {"type": "boolean"},
+                "mask": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "secret": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=WEBSOCKET_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -86,6 +86,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.watch-actuation",
         "capability.mcp-cursor-pagination",
         "capability.mcp-structured-output",
+        "capability.websocket-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

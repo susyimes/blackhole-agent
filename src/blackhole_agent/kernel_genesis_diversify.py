@@ -257,6 +257,11 @@ from blackhole_agent.mcp_structured_output import (
     MCP_STRUCTURED_GOAL,
     MCP_STRUCTURED_ID,
 )
+from blackhole_agent.websocket_actuation import (
+    WEBSOCKET_ACTUATION_DONE_WHEN,
+    WEBSOCKET_ACTUATION_GOAL,
+    WEBSOCKET_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -545,6 +550,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_STRUCTURED_GOAL,
         "done_when": MCP_STRUCTURED_DONE_WHEN,
         "source": "genesis_bind_structured_output",
+    },
+    {
+        "id": WEBSOCKET_ACTUATION_ID,
+        "goal": WEBSOCKET_ACTUATION_GOAL,
+        "done_when": WEBSOCKET_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_websocket",
     },
 )
 
@@ -877,6 +888,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_watch"] = DIVERSITY_CATALOG[38]["id"] == WATCH_ACTUATION_ID
     checks["catalog_names_cursor_pagination"] = DIVERSITY_CATALOG[39]["id"] == MCP_CURSOR_ID
     checks["catalog_names_structured_output"] = DIVERSITY_CATALOG[40]["id"] == MCP_STRUCTURED_ID
+    checks["catalog_names_websocket"] = DIVERSITY_CATALOG[41]["id"] == WEBSOCKET_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
