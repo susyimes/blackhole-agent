@@ -859,6 +859,7 @@ WEBSOCKET_TOOL_PROVIDER = "websocket"
 SSH_TOOL_PROVIDER = "ssh"
 GRPC_TOOL_PROVIDER = "grpc"
 AMQP_TOOL_PROVIDER = "amqp"
+FTP_TOOL_PROVIDER = "ftp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1318,6 +1319,49 @@ def amqp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=AMQP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ftp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 959 FTP PASV file-transfer route.
+
+    Provider ``ftp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ftp",
+        description=(
+            "Drive a first-class RFC 959 session: bind a loopback FTP "
+            "listener, USER/PASS, TYPE I, PASV, STOR a binary body on a "
+            "separate data connection, RETR it, independently RETR the stored "
+            "body on a later control session, and read the sealed file "
+            "digest. PASV-gated transfers stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "type": {"type": "boolean"},
+                "pasv": {"type": "boolean"},
+                "store": {"type": "boolean"},
+                "retrieve": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=FTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
