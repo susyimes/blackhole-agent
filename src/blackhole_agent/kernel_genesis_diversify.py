@@ -327,6 +327,11 @@ from blackhole_agent.stun_actuation import (
     STUN_ACTUATION_GOAL,
     STUN_ACTUATION_ID,
 )
+from blackhole_agent.turn_actuation import (
+    TURN_ACTUATION_DONE_WHEN,
+    TURN_ACTUATION_GOAL,
+    TURN_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -700,6 +705,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": STUN_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_stun",
     },
+    {
+        "id": TURN_ACTUATION_ID,
+        "goal": TURN_ACTUATION_GOAL,
+        "done_when": TURN_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_turn",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1045,6 +1056,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_ike"] = DIVERSITY_CATALOG[52]["id"] == IKE_ACTUATION_ID
     checks["catalog_names_sip"] = DIVERSITY_CATALOG[53]["id"] == SIP_ACTUATION_ID
     checks["catalog_names_stun"] = DIVERSITY_CATALOG[54]["id"] == STUN_ACTUATION_ID
+    checks["catalog_names_turn"] = DIVERSITY_CATALOG[55]["id"] == TURN_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

@@ -868,6 +868,7 @@ RADIUS_TOOL_PROVIDER = "radius"
 DHCP_TOOL_PROVIDER = "dhcp"
 IKE_TOOL_PROVIDER = "ike"
 SIP_TOOL_PROVIDER = "sip"
+STUN_TOOL_PROVIDER = "stun"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1701,6 +1702,46 @@ def sip_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SIP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def stun_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5389 STUN Binding Request/Success route.
+
+    Provider ``stun`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live daemon silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="stun",
+        description=(
+            "Drive a first-class RFC 5389 session: bind a loopback STUN "
+            "daemon, send a Binding Request with a non-zero transaction ID, "
+            "lockstep a Binding Success that carries the stored transaction "
+            "ID, independently poll the stored transaction ID on a later "
+            "client socket, and read the sealed txid digest. Transaction-ID-"
+            "gated exchanges stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "request": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_txid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=STUN_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
