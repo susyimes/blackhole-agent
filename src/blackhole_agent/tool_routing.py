@@ -861,6 +861,7 @@ GRPC_TOOL_PROVIDER = "grpc"
 AMQP_TOOL_PROVIDER = "amqp"
 FTP_TOOL_PROVIDER = "ftp"
 TFTP_TOOL_PROVIDER = "tftp"
+SNMP_TOOL_PROVIDER = "snmp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1404,6 +1405,47 @@ def tftp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=TFTP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def snmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1157 SNMP GET/SET/RESPONSE route.
+
+    Provider ``snmp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="snmp",
+        description=(
+            "Drive a first-class RFC 1157 session: bind a loopback SNMP "
+            "listener, SET an OCTET STRING varbind, lockstep GET/RESPONSE "
+            "PDUs with a community string, independently GET the stored "
+            "varbind on a later client socket, and read the sealed varbind "
+            "digest. Community-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "set": {"type": "boolean"},
+                "get": {"type": "boolean"},
+                "response": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_community": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SNMP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
