@@ -363,6 +363,31 @@ class McpPluginPlane:
         self._tools[server] = tools
         return dict(payload)
 
+    def paginate_tools(self, server: str) -> dict[str, Any]:
+        """Follow ``nextCursor`` and replace the handshake snapshot with the full catalog."""
+
+        session = self._live_session(server)
+        paginate_fn = getattr(session, "paginate_tools", None)
+        if paginate_fn is None:
+            raise McpProtocolError(
+                f"plugin {server!r} does not speak cursor-paginated tools/list"
+            )
+        try:
+            payload = paginate_fn()
+        except McpProtocolError as exc:
+            if self.isolate_hung_calls and is_mcp_transport_failure(exc):
+                self._accept_isolated(server, str(exc))
+            raise
+        if not isinstance(payload, Mapping):
+            raise McpProtocolError(f"malformed tools/list result: {payload!r}")
+        tools = tuple(
+            str(item.get("name") or "")
+            for item in (payload.get("tools") or [])
+            if isinstance(item, Mapping) and item.get("name")
+        )
+        self._tools[server] = tools
+        return dict(payload)
+
     def list_prompts(self, server: str) -> dict[str, Any]:
         session = self._live_session(server)
         list_fn = getattr(session, "list_prompts", None)

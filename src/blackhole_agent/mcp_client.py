@@ -47,6 +47,11 @@ tool only after ``notifications/tools/list_changed`` stays invisible until
 ``refresh_tools`` re-lists. Skipping the refresh is the hole: the plane
 keeps the stale handshake catalog.
 
+``tools/list`` may also page with ``nextCursor``. A first page that omits
+the gated tool is not a stale snapshot: ``refresh_tools`` asks for page one
+again. ``paginate_tools`` follows the cursor until the catalog is complete.
+Skipping the cursor is the hole: a page-two tool stays hidden.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -73,7 +78,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
 from blackhole_agent.tool_routing import (
@@ -86,6 +91,7 @@ from blackhole_agent.tool_routing import (
 
 SCHEMA_VERSION = 1
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
+MAX_LIST_PAGES = 32
 CLIENT_INFO = {"name": "blackhole-unbound", "version": "1.0.0"}
 DEFAULT_ARTIFACT_DIR = "artifacts/mcp-live"
 LOG_LEVELS: tuple[str, ...] = (
@@ -134,6 +140,54 @@ class McpProtocolError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.www_authenticate = str(www_authenticate or "")
+
+
+def extract_next_cursor(payload: Mapping[str, Any] | None) -> str:
+    """Return the MCP list ``nextCursor``, or empty when the page is complete."""
+
+    if not isinstance(payload, Mapping):
+        return ""
+    raw = payload.get("nextCursor")
+    if raw is None or raw is False:
+        return ""
+    return str(raw)
+
+
+def paginate_mcp_list(
+    list_page: Callable[..., Mapping[str, Any]],
+    *,
+    result_key: str,
+    max_pages: int = MAX_LIST_PAGES,
+) -> dict[str, Any]:
+    """Follow ``nextCursor`` until a list result has no further page."""
+
+    collected: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    cursor = ""
+    last: dict[str, Any] = {}
+    limit = max(1, int(max_pages))
+    for _ in range(limit):
+        if cursor:
+            if cursor in seen:
+                raise McpProtocolError(f"{result_key} list cursor loop: {cursor!r}")
+            seen.add(cursor)
+            page = list_page(cursor=cursor)
+        else:
+            page = list_page()
+        if not isinstance(page, Mapping) or not isinstance(page.get(result_key), list):
+            raise McpProtocolError(f"malformed {result_key} list result: {page!r}")
+        last = dict(page)
+        for item in last.get(result_key) or []:
+            if isinstance(item, Mapping):
+                collected.append(dict(item))
+        nxt = extract_next_cursor(last)
+        if not nxt:
+            payload = dict(last)
+            payload[result_key] = collected
+            payload.pop("nextCursor", None)
+            return payload
+        cursor = nxt
+    raise McpProtocolError(f"{result_key} list pagination exceeded max pages")
 
 
 def is_mcp_transport_failure(exc: BaseException) -> bool:
@@ -252,7 +306,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress -> notifications/tools/list_changed."""
+    """One live MCP stdio session: initialize -> tools/list -> nextCursor pages -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress -> notifications/tools/list_changed."""
 
     def __init__(
         self,
@@ -282,6 +336,7 @@ class McpStdioSession:
         self.progress_tokens: list[str | int] = []
         self.tool_names: list[str] = []
         self.tool_list_count = 0
+        self.last_tools_cursor = ""
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -473,8 +528,12 @@ class McpStdioSession:
         self.notify("notifications/roots/list_changed", {})
         self.roots_list_changed_sent.append(extract_root_uris(self.roots))
 
-    def list_tools(self) -> dict[str, Any]:
-        result = self.request("tools/list", {})
+    def list_tools(self, cursor: str | None = None) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        resolved = str(cursor or "")
+        if resolved:
+            params["cursor"] = resolved
+        result = self.request("tools/list", params)
         if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
         payload = dict(result)
@@ -484,12 +543,27 @@ class McpStdioSession:
             if isinstance(item, Mapping) and item.get("name")
         ]
         self.tool_list_count += 1
+        self.last_tools_cursor = extract_next_cursor(payload)
         return payload
 
     def refresh_tools(self) -> dict[str, Any]:
         """Re-list after ``notifications/tools/list_changed`` so a dynamic catalog is visible."""
 
         return self.list_tools()
+
+    def paginate_tools(self, *, max_pages: int = MAX_LIST_PAGES) -> dict[str, Any]:
+        """Follow ``nextCursor`` until a page-two tool is part of the snapshot."""
+
+        payload = paginate_mcp_list(
+            self.list_tools, result_key="tools", max_pages=max_pages
+        )
+        self.tool_names = [
+            str(item.get("name") or "")
+            for item in payload.get("tools") or []
+            if isinstance(item, Mapping) and item.get("name")
+        ]
+        self.last_tools_cursor = ""
+        return payload
 
     def call_tool(
         self,

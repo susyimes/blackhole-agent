@@ -84,6 +84,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.postgres-actuation",
         "capability.s3-actuation",
         "capability.watch-actuation",
+        "capability.mcp-cursor-pagination",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

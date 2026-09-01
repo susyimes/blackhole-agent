@@ -47,13 +47,16 @@ from blackhole_agent.mcp_client import (
     CLIENT_INFO,
     DEFAULT_ELICITATION_CONTENT,
     DEFAULT_PROTOCOL_VERSION,
+    MAX_LIST_PAGES,
     McpProtocolError,
     McpStdioSession,
     _extract_text,
     echo_server_command,
     elicitation_reply,
+    extract_next_cursor,
     is_jsonrpc_server_request,
     is_mcp_transport_failure,
+    paginate_mcp_list,
     reverse_channel_reply,
 )
 from blackhole_agent.mcp_echo_server import handle_message
@@ -254,6 +257,7 @@ class McpHttpSession:
         self.server_notifications: list[dict[str, Any]] = []
         self.tool_names: list[str] = []
         self.tool_list_count = 0
+        self.last_tools_cursor = ""
         self.last_www_authenticate = ""
         self.resource_metadata_url = ""
         self.token_endpoint = ""
@@ -400,8 +404,12 @@ class McpHttpSession:
             expect_response=False,
         )
 
-    def list_tools(self) -> dict[str, Any]:
-        result = self.request("tools/list", {})
+    def list_tools(self, cursor: str | None = None) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        resolved = str(cursor or "")
+        if resolved:
+            params["cursor"] = resolved
+        result = self.request("tools/list", params)
         if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
         payload = dict(result)
@@ -411,12 +419,27 @@ class McpHttpSession:
             if isinstance(item, Mapping) and item.get("name")
         ]
         self.tool_list_count = getattr(self, "tool_list_count", 0) + 1
+        self.last_tools_cursor = extract_next_cursor(payload)
         return payload
 
     def refresh_tools(self) -> dict[str, Any]:
         """Re-list after ``notifications/tools/list_changed`` so a dynamic catalog is visible."""
 
         return self.list_tools()
+
+    def paginate_tools(self, *, max_pages: int = MAX_LIST_PAGES) -> dict[str, Any]:
+        """Follow ``nextCursor`` until a page-two tool is part of the snapshot."""
+
+        payload = paginate_mcp_list(
+            self.list_tools, result_key="tools", max_pages=max_pages
+        )
+        self.tool_names = [
+            str(item.get("name") or "")
+            for item in payload.get("tools") or []
+            if isinstance(item, Mapping) and item.get("name")
+        ]
+        self.last_tools_cursor = ""
+        return payload
 
     def call_tool(self, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
         result = self.request("tools/call", {"name": name, "arguments": dict(arguments)})
