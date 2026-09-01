@@ -298,6 +298,30 @@ class McpPluginPlane:
                 self._accept_isolated(server, str(exc))
             raise
 
+    def replace_roots(
+        self,
+        server: str,
+        roots: Sequence[Mapping[str, str]],
+    ) -> None:
+        session = self._live_session(server)
+        replace_fn = getattr(session, "replace_roots", None)
+        if replace_fn is None:
+            raise McpProtocolError(f"plugin {server!r} cannot replace workspace roots")
+        replace_fn(roots)
+
+    def notify_roots_list_changed(
+        self,
+        server: str,
+        roots: Sequence[Mapping[str, str]] | None = None,
+    ) -> None:
+        session = self._live_session(server)
+        notify_fn = getattr(session, "notify_roots_list_changed", None)
+        if notify_fn is None:
+            raise McpProtocolError(
+                f"plugin {server!r} does not speak notifications/roots/list_changed"
+            )
+        notify_fn(roots)
+
     def list_prompts(self, server: str) -> dict[str, Any]:
         session = self._live_session(server)
         list_fn = getattr(session, "list_prompts", None)

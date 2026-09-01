@@ -32,6 +32,11 @@ that occupies stdio with a long actuation aborts instead of holding the
 session until timeout. ``cancel_after=None`` is the hole: the abandoned
 request stays blocked.
 
+Workspace roots advertise ``listChanged`` and can push
+``notifications/roots/list_changed`` when Unbound switches to a sibling
+worktree. ``replace_roots`` without the notification is the hole: the
+plugin keeps listing files from the stale checkout.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -226,7 +231,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed."""
 
     def __init__(
         self,
@@ -252,6 +257,7 @@ class McpStdioSession:
         self.cancelled_request_ids: list[int] = []
         self.server_notifications: list[dict[str, Any]] = []
         self.subscribed_uris: list[str] = []
+        self.roots_list_changed_sent: list[tuple[str, ...]] = []
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -275,7 +281,7 @@ class McpStdioSession:
             reader.start()
             client_capabilities: dict[str, Any] = {}
             if self.answer_reverse_channel:
-                client_capabilities["roots"] = {}
+                client_capabilities["roots"] = {"listChanged": True}
             if self.answer_sampling:
                 client_capabilities["sampling"] = {}
             if self.answer_elicitation:
@@ -415,6 +421,22 @@ class McpStdioSession:
 
     def notify(self, method: str, params: Mapping[str, Any] | None = None) -> None:
         self._send({"jsonrpc": "2.0", "method": method, "params": dict(params or {})})
+
+    def replace_roots(self, roots: Sequence[Mapping[str, str]]) -> None:
+        """Update local roots without notifying plugins (the worktree hole)."""
+
+        self.roots = tuple(dict(item) for item in roots)
+
+    def notify_roots_list_changed(
+        self,
+        roots: Sequence[Mapping[str, str]] | None = None,
+    ) -> None:
+        """Push ``notifications/roots/list_changed`` after a worktree switch."""
+
+        if roots is not None:
+            self.replace_roots(roots)
+        self.notify("notifications/roots/list_changed", {})
+        self.roots_list_changed_sent.append(extract_root_uris(self.roots))
 
     def list_tools(self) -> dict[str, Any]:
         result = self.request("tools/list", {})
@@ -589,6 +611,16 @@ def extract_resource_text(result: Mapping[str, Any]) -> str:
     contents = result.get("contents") or []
     parts = [str(item.get("text") or "") for item in contents if isinstance(item, Mapping)]
     return "".join(parts)
+
+
+def extract_root_uris(roots: Sequence[Mapping[str, Any]] | None) -> tuple[str, ...]:
+    """Return root URIs from a roots/list payload or a local roots tuple."""
+
+    return tuple(
+        str(item.get("uri") or "")
+        for item in (roots or ())
+        if isinstance(item, Mapping)
+    )
 
 
 def extract_resource_updated(notifications: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
