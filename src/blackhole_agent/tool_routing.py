@@ -649,6 +649,51 @@ def godot_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+GITHUB_TOOL_PROVIDER = "github"
+
+
+def github_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party GitHub issue/PR actuation route.
+
+    Provider ``github`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live repository silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="github",
+        description=(
+            "Drive a first-class GitHub session: search issues, list labels, "
+            "add a triage label, open a pull request, and read the sealed PR. "
+            "Issue-gated pull requests stay sealed as digest-chained actuation "
+            "traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["search", "list_labels", "add_label", "create_pr", "read_pr"],
+                },
+                "query": {"type": "string"},
+                "issueNumber": {"type": "integer"},
+                "labels": {"type": "array", "items": {"type": "string"}},
+                "title": {"type": "string"},
+                "body": {"type": "string"},
+                "head": {"type": "string"},
+                "base": {"type": "string"},
+                "closes": {"type": "integer"},
+                "prNumber": {"type": "integer"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GITHUB_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 

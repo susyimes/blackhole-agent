@@ -172,6 +172,11 @@ from blackhole_agent.browser_cdp_actuation import (
     BROWSER_CDP_GOAL,
     BROWSER_CDP_ID,
 )
+from blackhole_agent.github_actuation import (
+    GITHUB_ACTUATION_DONE_WHEN,
+    GITHUB_ACTUATION_GOAL,
+    GITHUB_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -358,6 +363,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": BROWSER_CDP_GOAL,
         "done_when": BROWSER_CDP_DONE_WHEN,
         "source": "genesis_bind_browser_cdp",
+    },
+    {
+        "id": GITHUB_ACTUATION_ID,
+        "goal": GITHUB_ACTUATION_GOAL,
+        "done_when": GITHUB_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_github",
     },
 )
 
@@ -671,6 +682,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_resource_subscribe"] = DIVERSITY_CATALOG[21]["id"] == MCP_SUBSCRIBE_ID
     checks["catalog_names_roots_list_changed"] = DIVERSITY_CATALOG[22]["id"] == MCP_ROOTS_CHANGED_ID
     checks["catalog_names_browser_cdp"] = DIVERSITY_CATALOG[23]["id"] == BROWSER_CDP_ID
+    checks["catalog_names_github"] = DIVERSITY_CATALOG[24]["id"] == GITHUB_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
