@@ -167,6 +167,11 @@ from blackhole_agent.mcp_roots_list_changed import (
     MCP_ROOTS_CHANGED_GOAL,
     MCP_ROOTS_CHANGED_ID,
 )
+from blackhole_agent.browser_cdp_actuation import (
+    BROWSER_CDP_DONE_WHEN,
+    BROWSER_CDP_GOAL,
+    BROWSER_CDP_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -347,6 +352,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_ROOTS_CHANGED_GOAL,
         "done_when": MCP_ROOTS_CHANGED_DONE_WHEN,
         "source": "genesis_bind_roots_list_changed",
+    },
+    {
+        "id": BROWSER_CDP_ID,
+        "goal": BROWSER_CDP_GOAL,
+        "done_when": BROWSER_CDP_DONE_WHEN,
+        "source": "genesis_bind_browser_cdp",
     },
 )
 
@@ -659,6 +670,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_cancellation"] = DIVERSITY_CATALOG[20]["id"] == MCP_CANCELLATION_ID
     checks["catalog_names_resource_subscribe"] = DIVERSITY_CATALOG[21]["id"] == MCP_SUBSCRIBE_ID
     checks["catalog_names_roots_list_changed"] = DIVERSITY_CATALOG[22]["id"] == MCP_ROOTS_CHANGED_ID
+    checks["catalog_names_browser_cdp"] = DIVERSITY_CATALOG[23]["id"] == BROWSER_CDP_ID
 
     ok = all(checks.values())
     if ok:

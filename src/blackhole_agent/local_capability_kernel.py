@@ -66,6 +66,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.mcp-http-event-stream",
         "capability.publication-resilience",
         "capability.browser-actuation",
+        "capability.browser-cdp-actuation",
         "capability.gmail-actuation",
         "capability.godot-actuation",
         "capability.mcp-plugin-reconnect",
