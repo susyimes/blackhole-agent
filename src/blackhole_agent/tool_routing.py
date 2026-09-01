@@ -870,6 +870,7 @@ IKE_TOOL_PROVIDER = "ike"
 SIP_TOOL_PROVIDER = "sip"
 STUN_TOOL_PROVIDER = "stun"
 TURN_TOOL_PROVIDER = "turn"
+ICE_TOOL_PROVIDER = "ice"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1783,6 +1784,48 @@ def turn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=TURN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ice_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8445 ICE connectivity-check/nominate route.
+
+    Provider ``ice`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live agent silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ice",
+        description=(
+            "Drive a first-class RFC 8445 session: bind a loopback ICE "
+            "agent, send a connectivity-check with a non-empty ufrag, "
+            "lockstep a nominated-pair Success that carries the stored "
+            "candidate foundation, independently poll the stored candidate "
+            "foundation on a later client socket, and read the sealed "
+            "foundation digest. Ufrag-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "check": {"type": "boolean"},
+                "nominate": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ufrag": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ICE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
