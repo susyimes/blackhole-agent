@@ -148,6 +148,12 @@ _SURFACE_TOKENS = frozenset(
         "keyid",
         "radiu",
         "rfc2865",
+        "dhcp",
+        "rfc2131",
+        "yiaddr",
+        "ike",
+        "rfc7296",
+        "spi",
     }
 )
 _IMPACT_MARKERS = (
