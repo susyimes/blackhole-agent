@@ -860,6 +860,7 @@ SSH_TOOL_PROVIDER = "ssh"
 GRPC_TOOL_PROVIDER = "grpc"
 AMQP_TOOL_PROVIDER = "amqp"
 FTP_TOOL_PROVIDER = "ftp"
+TFTP_TOOL_PROVIDER = "tftp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1362,6 +1363,47 @@ def ftp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=FTP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def tftp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1350 TFTP RRQ/WRQ/DATA/ACK route.
+
+    Provider ``tftp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="tftp",
+        description=(
+            "Drive a first-class RFC 1350 session: bind a loopback TFTP "
+            "listener, WRQ an octet stream, lockstep DATA/ACK opcodes from a "
+            "distinct transfer TID, independently RRQ the stored body on a "
+            "later client socket, and read the sealed block digest. "
+            "TID-gated transfers stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "wrq": {"type": "boolean"},
+                "data": {"type": "boolean"},
+                "ack": {"type": "boolean"},
+                "retrieve": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_transfer_tid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TFTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

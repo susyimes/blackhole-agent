@@ -47,4 +47,4 @@ def test_builtin_proof_drops_handoff_and_binds_tftp() -> None:
     assert capability.last_proof_exit_code == 0
     assert "leftover" in capability.tags
     assert "tftp" in capability.tags
-    assert TFTP_ACTUATION_ID not in ledger.capabilities
+    assert leftover_marker_ids(TFTP_ACTUATION_GOAL) == (TFTP_ACTUATION_ID,)

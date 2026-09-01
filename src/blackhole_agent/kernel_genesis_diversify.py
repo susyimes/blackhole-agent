@@ -287,6 +287,11 @@ from blackhole_agent.tftp_actuation import (
     TFTP_ACTUATION_GOAL,
     TFTP_ACTUATION_ID,
 )
+from blackhole_agent.snmp_actuation import (
+    SNMP_ACTUATION_DONE_WHEN,
+    SNMP_ACTUATION_GOAL,
+    SNMP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -611,6 +616,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": TFTP_ACTUATION_GOAL,
         "done_when": TFTP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_tftp",
+    },
+    {
+        "id": SNMP_ACTUATION_ID,
+        "goal": SNMP_ACTUATION_GOAL,
+        "done_when": SNMP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_snmp",
     },
 )
 
@@ -949,6 +960,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_amqp"] = DIVERSITY_CATALOG[44]["id"] == AMQP_ACTUATION_ID
     checks["catalog_names_ftp"] = DIVERSITY_CATALOG[45]["id"] == FTP_ACTUATION_ID
     checks["catalog_names_tftp"] = DIVERSITY_CATALOG[46]["id"] == TFTP_ACTUATION_ID
+    checks["catalog_names_snmp"] = DIVERSITY_CATALOG[47]["id"] == SNMP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
