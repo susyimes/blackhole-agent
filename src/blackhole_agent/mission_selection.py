@@ -157,6 +157,9 @@ _SURFACE_TOKENS = frozenset(
         "sip",
         "rfc3261",
         "callid",
+        "stun",
+        "rfc5389",
+        "txid",
     }
 )
 _IMPACT_MARKERS = (

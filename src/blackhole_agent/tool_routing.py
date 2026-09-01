@@ -867,6 +867,7 @@ NTP_TOOL_PROVIDER = "ntp"
 RADIUS_TOOL_PROVIDER = "radius"
 DHCP_TOOL_PROVIDER = "dhcp"
 IKE_TOOL_PROVIDER = "ike"
+SIP_TOOL_PROVIDER = "sip"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1660,6 +1661,46 @@ def ike_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=IKE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def sip_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3261 SIP INVITE/200 route.
+
+    Provider ``sip`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live daemon silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="sip",
+        description=(
+            "Drive a first-class RFC 3261 session: bind a loopback SIP "
+            "daemon, send INVITE with a non-empty Call-ID, lockstep a "
+            "200 OK that carries the stored dialog Call-ID, independently "
+            "poll the stored dialog Call-ID on a later client socket, and read "
+            "the sealed callid digest. Call-ID-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "invite": {"type": "boolean"},
+                "ok": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_callid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SIP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
