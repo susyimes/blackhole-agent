@@ -862,6 +862,7 @@ AMQP_TOOL_PROVIDER = "amqp"
 FTP_TOOL_PROVIDER = "ftp"
 TFTP_TOOL_PROVIDER = "tftp"
 SNMP_TOOL_PROVIDER = "snmp"
+SYSLOG_TOOL_PROVIDER = "syslog"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1446,6 +1447,48 @@ def snmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SNMP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def syslog_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5424 syslog PRI/HEADER/SD/MSG route.
+
+    Provider ``syslog`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live collector silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="syslog",
+        description=(
+            "Drive a first-class RFC 5424 session: bind a loopback syslog "
+            "collector, emit PRI, HEADER with a non-NILVALUE hostname, "
+            "STRUCTURED-DATA, and MSG, independently replay the stored "
+            "datagram on a later client socket, and read the sealed syslog "
+            "digest. NILVALUE-gated structured-data stays sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "pri": {"type": "boolean"},
+                "header": {"type": "boolean"},
+                "structured_data": {"type": "boolean"},
+                "msg": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_hostname": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SYSLOG_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
