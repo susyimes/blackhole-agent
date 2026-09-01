@@ -848,6 +848,46 @@ def imap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
     )
 
 
+REDIS_TOOL_PROVIDER = "redis"
+
+
+def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party BLPOP-gated Redis work-queue route.
+
+    Provider ``redis`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="redis",
+        description=(
+            "Drive a first-class Redis session: bind a loopback RESP listener, "
+            "AUTH with requirepass, SELECT a logical database, BLPOP a newly "
+            "RPUSH'd job, and read the sealed queue. BLPOP-gated work stays "
+            "sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "pop", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "blpop": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=REDIS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
 
