@@ -37,6 +37,11 @@ Workspace roots advertise ``listChanged`` and can push
 worktree. ``replace_roots`` without the notification is the hole: the
 plugin keeps listing files from the stale checkout.
 
+Long-running ``tools/call`` can attach ``_meta.progressToken`` so the
+server emits ``notifications/progress``. Omitting the token is the hole:
+a progress-gated plugin cannot report monotonic completion and isolation
+treats live work as a hung session.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -231,7 +236,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed."""
+    """One live MCP stdio session: initialize -> tools/list -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress."""
 
     def __init__(
         self,
@@ -258,6 +263,7 @@ class McpStdioSession:
         self.server_notifications: list[dict[str, Any]] = []
         self.subscribed_uris: list[str] = []
         self.roots_list_changed_sent: list[tuple[str, ...]] = []
+        self.progress_tokens: list[str | int] = []
         self._process: subprocess.Popen[str] | None = None
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
@@ -407,10 +413,21 @@ class McpStdioSession:
         params: Mapping[str, Any] | None = None,
         *,
         cancel_after: float | None = None,
+        progress_token: str | int | None = None,
     ) -> Any:
         self._next_id += 1
         request_id = self._next_id
-        self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": dict(params or {})})
+        payload = dict(params or {})
+        if progress_token is not None:
+            meta = (
+                dict(payload.get("_meta") or {})
+                if isinstance(payload.get("_meta"), Mapping)
+                else {}
+            )
+            meta["progressToken"] = progress_token
+            payload["_meta"] = meta
+            self.progress_tokens.append(progress_token)
+        self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": payload})
         response = self._read_response(request_id, cancel_after=cancel_after)
         if "error" in response:
             error = response["error"] or {}
@@ -450,11 +467,13 @@ class McpStdioSession:
         arguments: Mapping[str, Any],
         *,
         cancel_after: float | None = None,
+        progress_token: str | int | None = None,
     ) -> dict[str, Any]:
         result = self.request(
             "tools/call",
             {"name": name, "arguments": dict(arguments)},
             cancel_after=cancel_after,
+            progress_token=progress_token,
         )
         if not isinstance(result, Mapping):
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
@@ -661,6 +680,45 @@ def extract_log_messages(notifications: Sequence[Mapping[str, Any]]) -> tuple[di
             }
         )
     return tuple(messages)
+
+
+def extract_progress_notifications(
+    notifications: Sequence[Mapping[str, Any]],
+    *,
+    token: str | int | None = None,
+) -> tuple[dict[str, Any], ...]:
+    """Return notifications/progress payloads captured on the live session."""
+
+    events: list[dict[str, Any]] = []
+    for item in notifications:
+        if str(item.get("method") or "") != "notifications/progress":
+            continue
+        params = item.get("params") if isinstance(item.get("params"), Mapping) else {}
+        if token is not None and params.get("progressToken") != token:
+            continue
+        events.append(
+            {
+                "progressToken": params.get("progressToken"),
+                "progress": params.get("progress"),
+                "total": params.get("total"),
+                "message": str(params.get("message") or ""),
+            }
+        )
+    return tuple(events)
+
+
+def progress_is_monotonic(events: Sequence[Mapping[str, Any]]) -> bool:
+    """True when progress values increase and at least one event is present."""
+
+    last: float | None = None
+    for item in events:
+        value = item.get("progress")
+        if not isinstance(value, (int, float)):
+            return False
+        if last is not None and float(value) <= last:
+            return False
+        last = float(value)
+    return last is not None
 
 
 def extract_prompt_text(result: Mapping[str, Any]) -> str:

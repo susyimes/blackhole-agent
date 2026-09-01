@@ -72,6 +72,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.github-actuation",
         "capability.sqlite-actuation",
         "capability.webhook-actuation",
+        "capability.mcp-progress",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

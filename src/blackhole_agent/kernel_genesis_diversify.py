@@ -187,6 +187,11 @@ from blackhole_agent.webhook_actuation import (
     WEBHOOK_ACTUATION_GOAL,
     WEBHOOK_ACTUATION_ID,
 )
+from blackhole_agent.mcp_progress import (
+    MCP_PROGRESS_DONE_WHEN,
+    MCP_PROGRESS_GOAL,
+    MCP_PROGRESS_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -391,6 +396,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": WEBHOOK_ACTUATION_GOAL,
         "done_when": WEBHOOK_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_webhook",
+    },
+    {
+        "id": MCP_PROGRESS_ID,
+        "goal": MCP_PROGRESS_GOAL,
+        "done_when": MCP_PROGRESS_DONE_WHEN,
+        "source": "genesis_bind_progress",
     },
 )
 
@@ -707,6 +718,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_github"] = DIVERSITY_CATALOG[24]["id"] == GITHUB_ACTUATION_ID
     checks["catalog_names_sqlite"] = DIVERSITY_CATALOG[25]["id"] == SQLITE_ACTUATION_ID
     checks["catalog_names_webhook"] = DIVERSITY_CATALOG[26]["id"] == WEBHOOK_ACTUATION_ID
+    checks["catalog_names_progress"] = DIVERSITY_CATALOG[27]["id"] == MCP_PROGRESS_ID
 
     ok = all(checks.values())
     if ok:

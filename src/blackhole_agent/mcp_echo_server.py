@@ -6,7 +6,8 @@ or third-party servers: ``initialize``, ``notifications/initialized``,
 ``ping``, ``tools/list``, ``tools/call``, ``resources/list``,
 ``resources/templates/list``, ``resources/read``, ``prompts/list``,
 ``prompts/get``, ``completion/complete``, and ``logging/setLevel``
-(emitting ``notifications/message``).
+(emitting ``notifications/message``). A ``tools/call`` that carries
+``_meta.progressToken`` also emits monotonic ``notifications/progress``.
 
 Tools exposed:
 
@@ -247,6 +248,33 @@ def handle_message(message: Mapping[str, Any]) -> dict[str, Any] | None:
         elif method == "tools/list":
             result = {"tools": TOOLS}
         elif method == "tools/call":
+            meta = params.get("_meta") if isinstance(params.get("_meta"), Mapping) else {}
+            token = meta.get("progressToken")
+            if token is not None and str(token) != "":
+                PENDING_NOTIFICATIONS.extend(
+                    (
+                        {
+                            "jsonrpc": "2.0",
+                            "method": "notifications/progress",
+                            "params": {
+                                "progressToken": token,
+                                "progress": 1,
+                                "total": 2,
+                                "message": "working",
+                            },
+                        },
+                        {
+                            "jsonrpc": "2.0",
+                            "method": "notifications/progress",
+                            "params": {
+                                "progressToken": token,
+                                "progress": 2,
+                                "total": 2,
+                                "message": "done",
+                            },
+                        },
+                    )
+                )
             result = _call_tool(str(params.get("name") or ""), params.get("arguments") or {})
         elif method == "resources/list":
             result = {"resources": RESOURCES}

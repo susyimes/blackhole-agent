@@ -207,16 +207,24 @@ class McpPluginPlane:
         arguments: Mapping[str, Any],
         *,
         cancel_after: float | None = None,
+        progress_token: str | int | None = None,
     ) -> dict[str, Any]:
         session = self._sessions.get(server)
         if session is None:
             error = self.isolated_error(server) or "unknown plugin"
             raise McpProtocolError(f"plugin {server!r} is not serving: {error}")
+        kwargs: dict[str, Any] = {}
+        if cancel_after is not None:
+            kwargs["cancel_after"] = cancel_after
+        if progress_token is not None:
+            kwargs["progress_token"] = progress_token
         try:
-            if cancel_after is None:
-                return session.call_tool(name, arguments)
-            return session.call_tool(name, arguments, cancel_after=cancel_after)
+            return session.call_tool(name, arguments, **kwargs)
         except TypeError as exc:
+            if progress_token is not None:
+                raise McpProtocolError(
+                    f"plugin {server!r} cannot attach a progressToken"
+                ) from exc
             raise McpProtocolError(
                 f"plugin {server!r} cannot cancel in-flight tools/call"
             ) from exc
