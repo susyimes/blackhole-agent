@@ -849,6 +849,7 @@ def imap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
 
 
 REDIS_TOOL_PROVIDER = "redis"
+MQTT_TOOL_PROVIDER = "mqtt"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -883,6 +884,45 @@ def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=REDIS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mqtt_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party retained-topic MQTT fanout route.
+
+    Provider ``mqtt`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live listener silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mqtt",
+        description=(
+            "Drive a first-class MQTT session: bind a loopback MQTT 3.1.1 "
+            "listener, CONNECT with a password, PUBLISH a retained topic, "
+            "SUBSCRIBE a wildcard filter after the publisher has disconnected, "
+            "and read the sealed fanout. Retained-topic deliveries stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "receive", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "subscribe": {"type": "boolean"},
+                "retain": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MQTT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

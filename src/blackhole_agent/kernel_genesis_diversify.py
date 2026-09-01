@@ -217,6 +217,11 @@ from blackhole_agent.redis_actuation import (
     REDIS_ACTUATION_GOAL,
     REDIS_ACTUATION_ID,
 )
+from blackhole_agent.mqtt_actuation import (
+    MQTT_ACTUATION_DONE_WHEN,
+    MQTT_ACTUATION_GOAL,
+    MQTT_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -457,6 +462,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": REDIS_ACTUATION_GOAL,
         "done_when": REDIS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_redis",
+    },
+    {
+        "id": MQTT_ACTUATION_ID,
+        "goal": MQTT_ACTUATION_GOAL,
+        "done_when": MQTT_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_mqtt",
     },
 )
 
@@ -781,6 +792,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_http_auth"] = DIVERSITY_CATALOG[30]["id"] == MCP_HTTP_AUTH_ID
     checks["catalog_names_imap"] = DIVERSITY_CATALOG[31]["id"] == IMAP_ACTUATION_ID
     checks["catalog_names_redis"] = DIVERSITY_CATALOG[32]["id"] == REDIS_ACTUATION_ID
+    checks["catalog_names_mqtt"] = DIVERSITY_CATALOG[33]["id"] == MQTT_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
