@@ -858,6 +858,7 @@ WATCH_TOOL_PROVIDER = "watch"
 WEBSOCKET_TOOL_PROVIDER = "websocket"
 SSH_TOOL_PROVIDER = "ssh"
 GRPC_TOOL_PROVIDER = "grpc"
+AMQP_TOOL_PROVIDER = "amqp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1271,6 +1272,52 @@ def grpc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=GRPC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def amqp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party AMQP 0-9-1 work-queue delivery route.
+
+    Provider ``amqp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live broker silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="amqp",
+        description=(
+            "Drive a first-class AMQP 0-9-1 session: bind a loopback broker, "
+            "speak the protocol header, CONNECTION-START/TUNE/OPEN, "
+            "CHANNEL-OPEN, QUEUE-DECLARE, BASIC-PUBLISH a content-header plus "
+            "body, BASIC-DELIVER a delivery-tag, independently re-consume the "
+            "retained last-value on a later connection, and read the sealed "
+            "delivery-tag digest. PLAIN-gated work-queue deliveries stay "
+            "sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "protocol": {"type": "boolean"},
+                "connection": {"type": "boolean"},
+                "channel": {"type": "boolean"},
+                "declare": {"type": "boolean"},
+                "publish": {"type": "boolean"},
+                "consume": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=AMQP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
