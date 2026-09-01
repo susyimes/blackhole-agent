@@ -851,6 +851,7 @@ def imap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
 REDIS_TOOL_PROVIDER = "redis"
 MQTT_TOOL_PROVIDER = "mqtt"
 DNS_TOOL_PROVIDER = "dns"
+LDAP_TOOL_PROVIDER = "ldap"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -963,6 +964,46 @@ def dns_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=DNS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ldap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party BIND/ADD/SEARCH LDAP directory route.
+
+    Provider ``ldap`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live directory silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ldap",
+        description=(
+            "Drive a first-class LDAP session: bind a loopback LDAP v3 "
+            "directory, simple BIND as the directory manager, ADD a "
+            "distinguished-name entry, SEARCH it with an equality filter, "
+            "independently re-SEARCH from a fresh connection, and read the "
+            "sealed DIT. BIND-gated identity entries stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "authenticate": {"type": "boolean"},
+                "add": {"type": "boolean"},
+                "search": {"type": "boolean"},
+                "password": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LDAP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

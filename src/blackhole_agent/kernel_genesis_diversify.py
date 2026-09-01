@@ -227,6 +227,11 @@ from blackhole_agent.dns_actuation import (
     DNS_ACTUATION_GOAL,
     DNS_ACTUATION_ID,
 )
+from blackhole_agent.ldap_actuation import (
+    LDAP_ACTUATION_DONE_WHEN,
+    LDAP_ACTUATION_GOAL,
+    LDAP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -479,6 +484,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": DNS_ACTUATION_GOAL,
         "done_when": DNS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_dns",
+    },
+    {
+        "id": LDAP_ACTUATION_ID,
+        "goal": LDAP_ACTUATION_GOAL,
+        "done_when": LDAP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_ldap",
     },
 )
 
