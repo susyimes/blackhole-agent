@@ -172,6 +172,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6347",
         "cookie",
         "epoch",
+        "srtp",
+        "rfc3711",
+        "roc",
+        "ssrc",
     }
 )
 _IMPACT_MARKERS = (

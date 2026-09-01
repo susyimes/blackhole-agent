@@ -342,6 +342,11 @@ from blackhole_agent.dtls_actuation import (
     DTLS_ACTUATION_GOAL,
     DTLS_ACTUATION_ID,
 )
+from blackhole_agent.srtp_actuation import (
+    SRTP_ACTUATION_DONE_WHEN,
+    SRTP_ACTUATION_GOAL,
+    SRTP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -733,6 +738,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": DTLS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_dtls",
     },
+    {
+        "id": SRTP_ACTUATION_ID,
+        "goal": SRTP_ACTUATION_GOAL,
+        "done_when": SRTP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_srtp",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1081,6 +1092,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_turn"] = DIVERSITY_CATALOG[55]["id"] == TURN_ACTUATION_ID
     checks["catalog_names_ice"] = DIVERSITY_CATALOG[56]["id"] == ICE_ACTUATION_ID
     checks["catalog_names_dtls"] = DIVERSITY_CATALOG[57]["id"] == DTLS_ACTUATION_ID
+    checks["catalog_names_srtp"] = DIVERSITY_CATALOG[58]["id"] == SRTP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
