@@ -53,10 +53,12 @@ from blackhole_agent.mcp_client import (
     _extract_text,
     echo_server_command,
     elicitation_reply,
+    apply_structured_output,
     extract_next_cursor,
     is_jsonrpc_server_request,
     is_mcp_transport_failure,
     paginate_mcp_list,
+    remember_tool_catalog,
     reverse_channel_reply,
 )
 from blackhole_agent.mcp_echo_server import handle_message
@@ -237,6 +239,7 @@ class McpHttpSession:
         client_id: str = "",
         client_secret: str = "",
         authorize_on_401: bool = False,
+        validate_structured: bool = True,
     ) -> None:
         self.url = str(url).rstrip("/")
         self.timeout_seconds = float(timeout_seconds)
@@ -249,6 +252,7 @@ class McpHttpSession:
         self.client_id = str(client_id or "")
         self.client_secret = str(client_secret or "")
         self.authorize_on_401 = bool(authorize_on_401)
+        self.validate_structured = bool(validate_structured)
         self.session_id = ""
         self.server_info: dict[str, Any] = {}
         self.protocol_version = ""
@@ -256,6 +260,7 @@ class McpHttpSession:
         self.answered_requests: list[dict[str, Any]] = []
         self.server_notifications: list[dict[str, Any]] = []
         self.tool_names: list[str] = []
+        self.tool_output_schemas: dict[str, dict[str, Any]] = {}
         self.tool_list_count = 0
         self.last_tools_cursor = ""
         self.last_www_authenticate = ""
@@ -413,11 +418,7 @@ class McpHttpSession:
         if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
         payload = dict(result)
-        self.tool_names = [
-            str(item.get("name") or "")
-            for item in payload.get("tools") or []
-            if isinstance(item, Mapping) and item.get("name")
-        ]
+        self.tool_names, self.tool_output_schemas = remember_tool_catalog(payload)
         self.tool_list_count = getattr(self, "tool_list_count", 0) + 1
         self.last_tools_cursor = extract_next_cursor(payload)
         return payload
@@ -433,11 +434,7 @@ class McpHttpSession:
         payload = paginate_mcp_list(
             self.list_tools, result_key="tools", max_pages=max_pages
         )
-        self.tool_names = [
-            str(item.get("name") or "")
-            for item in payload.get("tools") or []
-            if isinstance(item, Mapping) and item.get("name")
-        ]
+        self.tool_names, self.tool_output_schemas = remember_tool_catalog(payload)
         self.last_tools_cursor = ""
         return payload
 
@@ -445,7 +442,11 @@ class McpHttpSession:
         result = self.request("tools/call", {"name": name, "arguments": dict(arguments)})
         if not isinstance(result, Mapping):
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
-        return dict(result)
+        return apply_structured_output(
+            dict(result),
+            schema=self.tool_output_schemas.get(str(name)),
+            validate=self.validate_structured,
+        )
 
     def list_resources(self) -> dict[str, Any]:
         result = self.request("resources/list", {})

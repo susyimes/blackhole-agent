@@ -52,6 +52,13 @@ the gated tool is not a stale snapshot: ``refresh_tools`` asks for page one
 again. ``paginate_tools`` follows the cursor until the catalog is complete.
 Skipping the cursor is the hole: a page-two tool stays hidden.
 
+Tools may advertise ``outputSchema`` and return ``structuredContent``. A
+client that only extracts ``content[].text`` drops the typed payload, so a
+schema-typed result never seals. ``validate_structured=True`` (default)
+consumes and validates structured content against the advertised schema.
+``validate_structured=False`` is the hole: structuredContent is stripped
+and only placeholder text remains.
+
 The external third-party plane (official ``server-filesystem`` via npx) is
 two-tier: the live tier (``run_live_external_proof``) performs a fresh
 networked actuation and seals a durable trace with a ``latest-external.json``
@@ -151,6 +158,155 @@ def extract_next_cursor(payload: Mapping[str, Any] | None) -> str:
     if raw is None or raw is False:
         return ""
     return str(raw)
+
+
+STRUCTURED_OUTPUT_UNREAD = "structured output unread"
+
+
+def extract_output_schema(tool: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Return a tool's advertised ``outputSchema``, or None when absent."""
+
+    if not isinstance(tool, Mapping):
+        return None
+    raw = tool.get("outputSchema")
+    return dict(raw) if isinstance(raw, Mapping) else None
+
+
+def extract_structured_content(result: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Return ``structuredContent`` from a tools/call result, or None."""
+
+    if not isinstance(result, Mapping):
+        return None
+    raw = result.get("structuredContent")
+    return dict(raw) if isinstance(raw, Mapping) else None
+
+
+def index_tool_output_schemas(payload: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """Map advertised tool names to their ``outputSchema`` objects."""
+
+    schemas: dict[str, dict[str, Any]] = {}
+    if not isinstance(payload, Mapping):
+        return schemas
+    for item in payload.get("tools") or []:
+        if not isinstance(item, Mapping):
+            continue
+        name = str(item.get("name") or "")
+        schema = extract_output_schema(item)
+        if name and schema is not None:
+            schemas[name] = schema
+    return schemas
+
+
+def remember_tool_catalog(
+    payload: Mapping[str, Any] | None,
+) -> tuple[list[str], dict[str, dict[str, Any]]]:
+    """Return tool names plus output schemas from a tools/list payload."""
+
+    names: list[str] = []
+    if not isinstance(payload, Mapping):
+        return names, {}
+    for item in payload.get("tools") or []:
+        if isinstance(item, Mapping) and item.get("name"):
+            names.append(str(item.get("name") or ""))
+    return names, index_tool_output_schemas(payload)
+
+
+def sealed_structured_text(result: Mapping[str, Any] | None) -> str:
+    """Join structured ``text`` and ``token`` fields into a sealed payload."""
+
+    payload = extract_structured_content(result) or {}
+    text = str(payload.get("text") or "")
+    token = str(payload.get("token") or "")
+    if text and token:
+        return f"{text}|{token}"
+    return ""
+
+
+def _json_schema_type_ok(value: Any, expected: str) -> bool:
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "object":
+        return isinstance(value, Mapping)
+    if expected == "array":
+        return isinstance(value, list)
+    if expected == "null":
+        return value is None
+    return True
+
+
+def validate_structured_output(payload: Any, schema: Mapping[str, Any] | None) -> str:
+    """Return an empty string when ``payload`` matches a JSON Schema subset."""
+
+    if not isinstance(schema, Mapping):
+        return "outputSchema is not an object"
+    expected = str(schema.get("type") or "")
+    if expected and not _json_schema_type_ok(payload, expected):
+        return f"structuredContent expected {expected}"
+    if expected == "array" and isinstance(schema.get("items"), Mapping):
+        for item in payload:
+            error = validate_structured_output(item, schema["items"])
+            if error:
+                return error
+        return ""
+    if expected and expected != "object":
+        return ""
+    if not isinstance(payload, Mapping):
+        return "structuredContent is not an object"
+    required = schema.get("required") or []
+    if isinstance(required, list):
+        for key in required:
+            name = str(key)
+            if name not in payload:
+                return f"structuredContent missing {name}"
+    properties = schema.get("properties") if isinstance(schema.get("properties"), Mapping) else {}
+    additional = schema.get("additionalProperties", True)
+    for key, value in payload.items():
+        prop = properties.get(key) if isinstance(properties, Mapping) else None
+        if not isinstance(prop, Mapping):
+            if additional is False:
+                return f"structuredContent unexpected {key}"
+            continue
+        error = validate_structured_output(value, prop)
+        if error:
+            return error
+    return ""
+
+
+def apply_structured_output(
+    result: Mapping[str, Any],
+    *,
+    schema: Mapping[str, Any] | None,
+    validate: bool,
+) -> dict[str, Any]:
+    """Consume or strip structuredContent for a tool that advertised outputSchema.
+
+    Skip path (``validate=False``) drops structuredContent so only placeholder
+    text remains. Live path validates the typed payload and fail-closes when
+    it is missing or invalid. Tools without outputSchema are unchanged.
+    """
+
+    out = dict(result)
+    if not schema:
+        return out
+    if not validate:
+        out.pop("structuredContent", None)
+        return out
+    structured = extract_structured_content(out)
+    error = (
+        STRUCTURED_OUTPUT_UNREAD
+        if structured is None
+        else validate_structured_output(structured, schema)
+    )
+    if error:
+        out["isError"] = True
+        out["content"] = [{"type": "text", "text": error}]
+    return out
 
 
 def paginate_mcp_list(
@@ -306,7 +462,7 @@ def sampling_reply(
 
 
 class McpStdioSession:
-    """One live MCP stdio session: initialize -> tools/list -> nextCursor pages -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress -> notifications/tools/list_changed."""
+    """One live MCP stdio session: initialize -> tools/list -> nextCursor pages -> resources/list -> resources/subscribe -> prompts/list -> completion/complete -> logging/setLevel -> elicitation/create -> notifications/cancelled -> notifications/roots/list_changed -> notifications/progress -> notifications/tools/list_changed -> structuredContent."""
 
     def __init__(
         self,
@@ -319,6 +475,7 @@ class McpStdioSession:
         elicitation_action: str = "accept",
         elicitation_content: Mapping[str, Any] | None = None,
         roots: Sequence[Mapping[str, str]] | None = None,
+        validate_structured: bool = True,
     ) -> None:
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
@@ -328,6 +485,7 @@ class McpStdioSession:
         self.elicitation_action = str(elicitation_action or "accept")
         self.elicitation_content = dict(elicitation_content or DEFAULT_ELICITATION_CONTENT)
         self.roots = tuple(dict(item) for item in (roots if roots is not None else DEFAULT_MCP_ROOTS))
+        self.validate_structured = bool(validate_structured)
         self.answered_requests: list[dict[str, Any]] = []
         self.cancelled_request_ids: list[int] = []
         self.server_notifications: list[dict[str, Any]] = []
@@ -335,6 +493,7 @@ class McpStdioSession:
         self.roots_list_changed_sent: list[tuple[str, ...]] = []
         self.progress_tokens: list[str | int] = []
         self.tool_names: list[str] = []
+        self.tool_output_schemas: dict[str, dict[str, Any]] = {}
         self.tool_list_count = 0
         self.last_tools_cursor = ""
         self._process: subprocess.Popen[str] | None = None
@@ -537,11 +696,7 @@ class McpStdioSession:
         if not isinstance(result, Mapping) or not isinstance(result.get("tools"), list):
             raise McpProtocolError(f"malformed tools/list result: {result!r}")
         payload = dict(result)
-        self.tool_names = [
-            str(item.get("name") or "")
-            for item in payload.get("tools") or []
-            if isinstance(item, Mapping) and item.get("name")
-        ]
+        self.tool_names, self.tool_output_schemas = remember_tool_catalog(payload)
         self.tool_list_count += 1
         self.last_tools_cursor = extract_next_cursor(payload)
         return payload
@@ -557,11 +712,7 @@ class McpStdioSession:
         payload = paginate_mcp_list(
             self.list_tools, result_key="tools", max_pages=max_pages
         )
-        self.tool_names = [
-            str(item.get("name") or "")
-            for item in payload.get("tools") or []
-            if isinstance(item, Mapping) and item.get("name")
-        ]
+        self.tool_names, self.tool_output_schemas = remember_tool_catalog(payload)
         self.last_tools_cursor = ""
         return payload
 
@@ -581,7 +732,11 @@ class McpStdioSession:
         )
         if not isinstance(result, Mapping):
             raise McpProtocolError(f"malformed tools/call result: {result!r}")
-        return dict(result)
+        return apply_structured_output(
+            dict(result),
+            schema=self.tool_output_schemas.get(str(name)),
+            validate=self.validate_structured,
+        )
 
     def list_resources(self) -> dict[str, Any]:
         result = self.request("resources/list", {})

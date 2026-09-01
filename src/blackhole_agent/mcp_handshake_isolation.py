@@ -86,6 +86,7 @@ class McpPluginSpec:
         client_id: str = "",
         client_secret: str = "",
         authorize_on_401: bool = False,
+        validate_structured: bool = True,
     ) -> None:
         self.name = str(name)
         self.command = [str(part) for part in command]
@@ -97,6 +98,7 @@ class McpPluginSpec:
         self.client_id = str(client_id or "")
         self.client_secret = str(client_secret or "")
         self.authorize_on_401 = bool(authorize_on_401)
+        self.validate_structured = bool(validate_structured)
 
 
 class McpPluginPlane:
@@ -538,6 +540,7 @@ def _handshake_session(spec: McpPluginSpec) -> tuple[Any | None, str]:
             client_id=spec.client_id,
             client_secret=spec.client_secret,
             authorize_on_401=spec.authorize_on_401,
+            validate_structured=spec.validate_structured,
         )
         try:
             session.start()
@@ -550,6 +553,7 @@ def _handshake_session(spec: McpPluginSpec) -> tuple[Any | None, str]:
         timeout_seconds=spec.timeout_seconds,
         answer_sampling=spec.answer_sampling,
         answer_elicitation=spec.answer_elicitation,
+        validate_structured=spec.validate_structured,
     )
     try:
         session.start()

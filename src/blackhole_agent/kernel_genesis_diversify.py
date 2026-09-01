@@ -252,6 +252,11 @@ from blackhole_agent.mcp_cursor_pagination import (
     MCP_CURSOR_GOAL,
     MCP_CURSOR_ID,
 )
+from blackhole_agent.mcp_structured_output import (
+    MCP_STRUCTURED_DONE_WHEN,
+    MCP_STRUCTURED_GOAL,
+    MCP_STRUCTURED_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -534,6 +539,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MCP_CURSOR_GOAL,
         "done_when": MCP_CURSOR_DONE_WHEN,
         "source": "genesis_bind_cursor_pagination",
+    },
+    {
+        "id": MCP_STRUCTURED_ID,
+        "goal": MCP_STRUCTURED_GOAL,
+        "done_when": MCP_STRUCTURED_DONE_WHEN,
+        "source": "genesis_bind_structured_output",
     },
 )
 
@@ -865,6 +876,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_s3"] = DIVERSITY_CATALOG[37]["id"] == S3_ACTUATION_ID
     checks["catalog_names_watch"] = DIVERSITY_CATALOG[38]["id"] == WATCH_ACTUATION_ID
     checks["catalog_names_cursor_pagination"] = DIVERSITY_CATALOG[39]["id"] == MCP_CURSOR_ID
+    checks["catalog_names_structured_output"] = DIVERSITY_CATALOG[40]["id"] == MCP_STRUCTURED_ID
 
     ok = all(checks.values())
     if ok:
