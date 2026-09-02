@@ -872,6 +872,7 @@ STUN_TOOL_PROVIDER = "stun"
 TURN_TOOL_PROVIDER = "turn"
 ICE_TOOL_PROVIDER = "ice"
 DTLS_TOOL_PROVIDER = "dtls"
+SRTP_TOOL_PROVIDER = "srtp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1869,6 +1870,48 @@ def dtls_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=DTLS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def srtp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3711 SRTP Protect/Unprotect route.
+
+    Provider ``srtp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="srtp",
+        description=(
+            "Drive a first-class RFC 3711 session: bind a loopback SRTP "
+            "endpoint, send a Protect with a non-empty ssrc, "
+            "lockstep an Unprotect that carries the stored packet "
+            "roc, independently poll the stored packet roc on a "
+            "later client socket, and read the sealed roc digest. "
+            "SSRC-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "protect": {"type": "boolean"},
+                "unprotect": {"type": "boolean"},
+                "roc": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ssrc": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SRTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
