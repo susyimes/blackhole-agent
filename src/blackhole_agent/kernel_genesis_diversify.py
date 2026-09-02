@@ -352,6 +352,11 @@ from blackhole_agent.sctp_actuation import (
     SCTP_ACTUATION_GOAL,
     SCTP_ACTUATION_ID,
 )
+from blackhole_agent.datachannel_actuation import (
+    DATACHANNEL_ACTUATION_DONE_WHEN,
+    DATACHANNEL_ACTUATION_GOAL,
+    DATACHANNEL_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -755,6 +760,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": SCTP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_sctp",
     },
+    {
+        "id": DATACHANNEL_ACTUATION_ID,
+        "goal": DATACHANNEL_ACTUATION_GOAL,
+        "done_when": DATACHANNEL_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_datachannel",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1105,6 +1116,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_dtls"] = DIVERSITY_CATALOG[57]["id"] == DTLS_ACTUATION_ID
     checks["catalog_names_srtp"] = DIVERSITY_CATALOG[58]["id"] == SRTP_ACTUATION_ID
     checks["catalog_names_sctp"] = DIVERSITY_CATALOG[59]["id"] == SCTP_ACTUATION_ID
+    checks["catalog_names_datachannel"] = DIVERSITY_CATALOG[60]["id"] == DATACHANNEL_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

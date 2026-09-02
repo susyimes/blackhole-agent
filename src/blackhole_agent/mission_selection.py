@@ -180,6 +180,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4960",
         "vtag",
         "tsn",
+        "datachannel",
+        "rfc8831",
+        "ppid",
+        "dcep",
     }
 )
 _IMPACT_MARKERS = (
