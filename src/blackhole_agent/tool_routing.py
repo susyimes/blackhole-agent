@@ -881,6 +881,7 @@ WEBTRANSPORT_TOOL_PROVIDER = "webtransport"
 DATAGRAM_TOOL_PROVIDER = "datagram"
 MASQUE_TOOL_PROVIDER = "masque"
 CONNECTIP_TOOL_PROVIDER = "connectip"
+OHTTP_TOOL_PROVIDER = "ohttp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2256,6 +2257,48 @@ def connectip_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=CONNECTIP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ohttp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9458 Oblivious HTTP ENCAPSULATE/DECAPSULATE route.
+
+    Provider ``ohttp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ohttp",
+        description=(
+            "Drive a first-class RFC 9458 session: bind a loopback Oblivious HTTP "
+            "gateway, send an ENCAPSULATE with a non-empty configid, "
+            "lockstep a DECAPSULATE that carries the stored "
+            "gateway, independently poll the stored gateway on a "
+            "later client socket, and read the sealed gateway digest. "
+            "CONFIGID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "encapsulate_cycle": {"type": "boolean"},
+                "decapsulate": {"type": "boolean"},
+                "gateway": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_configid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=OHTTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
