@@ -204,6 +204,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9298",
         "targetid",
         "authority",
+        "connectip",
+        "rfc9484",
+        "prefixid",
+        "ipaddr",
     }
 )
 _IMPACT_MARKERS = (
