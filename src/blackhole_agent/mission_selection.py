@@ -200,6 +200,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9221",
         "flowid",
         "contextid",
+        "masque",
+        "rfc9298",
+        "targetid",
+        "authority",
     }
 )
 _IMPACT_MARKERS = (

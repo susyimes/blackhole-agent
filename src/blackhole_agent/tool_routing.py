@@ -878,6 +878,7 @@ DATACHANNEL_TOOL_PROVIDER = "datachannel"
 QUIC_TOOL_PROVIDER = "quic"
 HTTP3_TOOL_PROVIDER = "http3"
 WEBTRANSPORT_TOOL_PROVIDER = "webtransport"
+DATAGRAM_TOOL_PROVIDER = "datagram"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2127,6 +2128,48 @@ def webtransport_tool_descriptor(*, session_id: str | None = None) -> ToolDescri
             "additionalProperties": False,
         },
         provider=WEBTRANSPORT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def datagram_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9221 QUIC DATAGRAM SEND/ECHO route.
+
+    Provider ``datagram`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="datagram",
+        description=(
+            "Drive a first-class RFC 9221 session: bind a loopback QUIC DATAGRAM "
+            "endpoint, send a SEND with a non-empty flowid, "
+            "lockstep an ECHO that carries the stored flow "
+            "contextid, independently poll the stored flow contextid on a "
+            "later client socket, and read the sealed contextid digest. "
+            "FLOWID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "send": {"type": "boolean"},
+                "echo": {"type": "boolean"},
+                "contextid": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_flowid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DATAGRAM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
