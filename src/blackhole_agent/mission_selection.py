@@ -225,6 +225,11 @@ _SURFACE_TOKENS = frozenset(
         "rfc9530",
         "digestid",
         "contentdigest",
+        "bhttp",
+        "rfc9292",
+        "messageid",
+        "binarymsg",
+        "binaryhttp",
     }
 )
 _IMPACT_MARKERS = (

@@ -407,6 +407,11 @@ from blackhole_agent.digestfields_actuation import (
     DIGESTFIELDS_ACTUATION_GOAL,
     DIGESTFIELDS_ACTUATION_ID,
 )
+from blackhole_agent.bhttp_actuation import (
+    BHTTP_ACTUATION_DONE_WHEN,
+    BHTTP_ACTUATION_GOAL,
+    BHTTP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -876,6 +881,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": DIGESTFIELDS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_digestfields",
     },
+    {
+        "id": BHTTP_ACTUATION_ID,
+        "goal": BHTTP_ACTUATION_GOAL,
+        "done_when": BHTTP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_bhttp",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1237,6 +1248,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_ohsvcb"] = DIVERSITY_CATALOG[68]["id"] == OHSVCB_ACTUATION_ID
     checks["catalog_names_httpsig"] = DIVERSITY_CATALOG[69]["id"] == HTTPSIG_ACTUATION_ID
     checks["catalog_names_digestfields"] = DIVERSITY_CATALOG[70]["id"] == DIGESTFIELDS_ACTUATION_ID
+    checks["catalog_names_bhttp"] = DIVERSITY_CATALOG[71]["id"] == BHTTP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
