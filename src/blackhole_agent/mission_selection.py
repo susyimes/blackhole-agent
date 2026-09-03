@@ -220,6 +220,11 @@ _SURFACE_TOKENS = frozenset(
         "rfc9421",
         "sigid",
         "sigbase",
+        "digestfields",
+        "digestfield",
+        "rfc9530",
+        "digestid",
+        "contentdigest",
     }
 )
 _IMPACT_MARKERS = (
