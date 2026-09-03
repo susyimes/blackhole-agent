@@ -874,6 +874,7 @@ ICE_TOOL_PROVIDER = "ice"
 DTLS_TOOL_PROVIDER = "dtls"
 SRTP_TOOL_PROVIDER = "srtp"
 SCTP_TOOL_PROVIDER = "sctp"
+DATACHANNEL_TOOL_PROVIDER = "datachannel"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1955,6 +1956,48 @@ def sctp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SCTP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def datachannel_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8831 Data Channel OPEN/ACK route.
+
+    Provider ``datachannel`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="datachannel",
+        description=(
+            "Drive a first-class RFC 8831 session: bind a loopback Data Channel "
+            "endpoint, send an OPEN with a non-empty ppid, "
+            "lockstep an ACK that carries the stored channel "
+            "dcep, independently poll the stored channel dcep on a "
+            "later client socket, and read the sealed dcep digest. "
+            "PPID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "open": {"type": "boolean"},
+                "ack": {"type": "boolean"},
+                "dcep": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ppid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DATACHANNEL_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

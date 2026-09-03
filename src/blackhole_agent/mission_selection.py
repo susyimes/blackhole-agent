@@ -184,6 +184,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc8831",
         "ppid",
         "dcep",
+        "quic",
+        "rfc9000",
+        "dcid",
+        "pktnum",
     }
 )
 _IMPACT_MARKERS = (
