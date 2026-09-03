@@ -397,6 +397,11 @@ from blackhole_agent.ohsvcb_actuation import (
     OHSVCB_ACTUATION_GOAL,
     OHSVCB_ACTUATION_ID,
 )
+from blackhole_agent.httpsig_actuation import (
+    HTTPSIG_ACTUATION_DONE_WHEN,
+    HTTPSIG_ACTUATION_GOAL,
+    HTTPSIG_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -854,6 +859,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": OHSVCB_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ohsvcb",
     },
+    {
+        "id": HTTPSIG_ACTUATION_ID,
+        "goal": HTTPSIG_ACTUATION_GOAL,
+        "done_when": HTTPSIG_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_httpsig",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1213,6 +1224,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_connectip"] = DIVERSITY_CATALOG[66]["id"] == CONNECTIP_ACTUATION_ID
     checks["catalog_names_ohttp"] = DIVERSITY_CATALOG[67]["id"] == OHTTP_ACTUATION_ID
     checks["catalog_names_ohsvcb"] = DIVERSITY_CATALOG[68]["id"] == OHSVCB_ACTUATION_ID
+    checks["catalog_names_httpsig"] = DIVERSITY_CATALOG[69]["id"] == HTTPSIG_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

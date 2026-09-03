@@ -216,6 +216,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9540",
         "svcbid",
         "keyconf",
+        "httpsig",
+        "rfc9421",
+        "sigid",
+        "sigbase",
     }
 )
 _IMPACT_MARKERS = (
