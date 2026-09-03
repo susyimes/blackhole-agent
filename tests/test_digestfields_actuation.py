@@ -3,6 +3,7 @@ from pathlib import Path
 from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
 from blackhole_agent.http11_actuation import HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_ID
 from blackhole_agent.http2_actuation import HTTP2_ACTUATION_GOAL, HTTP2_ACTUATION_ID
+from blackhole_agent.httpcache_actuation import HTTPCACHE_ACTUATION_GOAL, HTTPCACHE_ACTUATION_ID
 from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
 from blackhole_agent.connectip_actuation import CONNECTIP_ACTUATION_GOAL, CONNECTIP_ACTUATION_ID
 from blackhole_agent.datachannel_actuation import DATACHANNEL_ACTUATION_GOAL, DATACHANNEL_ACTUATION_ID
@@ -99,6 +100,7 @@ NEIGHBORS = (
     BHTTP_ACTUATION_GOAL,
     HTTP11_ACTUATION_GOAL,
     HTTP2_ACTUATION_GOAL,
+    HTTPCACHE_ACTUATION_GOAL,
 )
 NEIGHBOR_IDS = (
     HTTPSIG_ACTUATION_ID,
@@ -130,6 +132,7 @@ NEIGHBOR_IDS = (
     BHTTP_ACTUATION_ID,
     HTTP11_ACTUATION_ID,
     HTTP2_ACTUATION_ID,
+    HTTPCACHE_ACTUATION_ID,
 )
 
 
@@ -140,10 +143,12 @@ def test_goal_binds_digestfields_actuation_plane() -> None:
     assert leftover_marker_ids(BHTTP_ACTUATION_GOAL) == (BHTTP_ACTUATION_ID,)
     assert leftover_marker_ids(HTTP11_ACTUATION_GOAL) == (HTTP11_ACTUATION_ID,)
     assert leftover_marker_ids(HTTP2_ACTUATION_GOAL) == (HTTP2_ACTUATION_ID,)
+    assert leftover_marker_ids(HTTPCACHE_ACTUATION_GOAL) == (HTTPCACHE_ACTUATION_ID,)
     assert leftover_marker_ids(HTTPSIG_ACTUATION_GOAL) == (HTTPSIG_ACTUATION_ID,)
     assert BHTTP_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTP11_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTP2_ACTUATION_ID in LOCAL_DENYLIST
+    assert HTTPCACHE_ACTUATION_ID in LOCAL_DENYLIST
     for goal, capability_id in zip(NEIGHBORS, NEIGHBOR_IDS, strict=True):
         assert leftover_marker_ids(goal) == (capability_id,)
         assert DIGESTFIELDS_ACTUATION_ID not in leftover_marker_ids(goal)
@@ -264,6 +269,7 @@ def test_builtin_proof_seals_digestfields_actuation() -> None:
     assert report["checks"]["catalog_names_bhttp"]
     assert report["checks"]["catalog_names_http11"]
     assert report["checks"]["catalog_names_http2"]
+    assert report["checks"]["catalog_names_httpcache"]
     assert report["checks"]["leftover_text_binds_digestfields"]
     assert report["checks"]["proved_digestfields_consumes_leftover"]
     assert report["mission_goal"] == DIGESTFIELDS_ACTUATION_GOAL
@@ -326,3 +332,6 @@ def test_selection_gate_accepts_digestfields_family(tmp_path: Path) -> None:
     assert "http2" not in family
     assert "rfc9113" not in family
     assert "settingsid" not in family
+    assert "httpcache" not in family
+    assert "rfc9111" not in family
+    assert "cacheid" not in family

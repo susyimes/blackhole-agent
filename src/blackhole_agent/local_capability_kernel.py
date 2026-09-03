@@ -120,6 +120,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.bhttp-actuation",
         "capability.http11-actuation",
         "capability.http2-actuation",
+        "capability.httpcache-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

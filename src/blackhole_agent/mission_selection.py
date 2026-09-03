@@ -240,6 +240,11 @@ _SURFACE_TOKENS = frozenset(
         "settingsid",
         "hpack",
         "preface",
+        "httpcache",
+        "rfc9111",
+        "cacheid",
+        "freshness",
+        "validator",
     }
 )
 _IMPACT_MARKERS = (

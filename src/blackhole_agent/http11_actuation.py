@@ -1276,6 +1276,7 @@ def builtin_http11_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: opted-in RFC 9112 HTTP/1.1 lockstep actuation seals a startline digest."""
 
     from blackhole_agent.http2_actuation import HTTP2_ACTUATION_GOAL, HTTP2_ACTUATION_ID
+    from blackhole_agent.httpcache_actuation import HTTPCACHE_ACTUATION_GOAL, HTTPCACHE_ACTUATION_ID
     from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
     from blackhole_agent.digestfields_actuation import DIGESTFIELDS_ACTUATION_GOAL, DIGESTFIELDS_ACTUATION_ID
     from blackhole_agent.httpsig_actuation import HTTPSIG_ACTUATION_GOAL, HTTPSIG_ACTUATION_ID
@@ -1362,6 +1363,7 @@ def builtin_http11_actuation_proof() -> dict[str, Any]:
         (FTP_ACTUATION_GOAL, FTP_ACTUATION_ID, "ftp"),
         (DNS_ACTUATION_GOAL, DNS_ACTUATION_ID, "dns"),
         (HTTP2_ACTUATION_GOAL, HTTP2_ACTUATION_ID, "http2"),
+        (HTTPCACHE_ACTUATION_GOAL, HTTPCACHE_ACTUATION_ID, "httpcache"),
     )
     for goal, capability_id, name in neighbor_goals:
         checks[f"{name}_goal_is_not_http11"] = leftover_marker_ids(goal) == (capability_id,)
@@ -1416,6 +1418,11 @@ def builtin_http11_actuation_proof() -> dict[str, Any]:
         len(catalog) > 73
         and catalog[73]["id"] == HTTP2_ACTUATION_ID
         and catalog[73]["source"] == "genesis_bind_http2"
+    )
+    checks["catalog_names_httpcache"] = (
+        len(catalog) > 74
+        and catalog[74]["id"] == HTTPCACHE_ACTUATION_ID
+        and catalog[74]["source"] == "genesis_bind_httpcache"
     )
     family = capability_family(HTTP11_ACTUATION_GOAL)
     checks["family_is_http11"] = "http11" in family
@@ -1526,6 +1533,13 @@ def builtin_http11_actuation_proof() -> dict[str, Any]:
         and "settingsid" not in family
         and "hpack" not in family
         and "preface" not in family
+    )
+    checks["family_is_not_httpcache"] = (
+        "httpcache" not in family
+        and "rfc9111" not in family
+        and "cacheid" not in family
+        and "freshness" not in family
+        and "validator" not in family
     )
     packed = encode_parse(identity=SENTINEL, requestid=DEFAULT_REQUESTID, startline=DEFAULT_STARTLINE)
     parsed = parse_message(packed)
