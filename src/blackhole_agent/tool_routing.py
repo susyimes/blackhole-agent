@@ -876,6 +876,7 @@ SRTP_TOOL_PROVIDER = "srtp"
 SCTP_TOOL_PROVIDER = "sctp"
 DATACHANNEL_TOOL_PROVIDER = "datachannel"
 QUIC_TOOL_PROVIDER = "quic"
+HTTP3_TOOL_PROVIDER = "http3"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2041,6 +2042,48 @@ def quic_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=QUIC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def http3_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9114 HTTP/3 SETTINGS/HEADERS route.
+
+    Provider ``http3`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="http3",
+        description=(
+            "Drive a first-class RFC 9114 session: bind a loopback HTTP/3 "
+            "endpoint, send a SETTINGS with a non-empty streamid, "
+            "lockstep a HEADERS that carries the stored stream "
+            "qpack, independently poll the stored stream qpack on a "
+            "later client socket, and read the sealed qpack digest. "
+            "STREAMID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "settings": {"type": "boolean"},
+                "headers": {"type": "boolean"},
+                "qpack": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_streamid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HTTP3_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

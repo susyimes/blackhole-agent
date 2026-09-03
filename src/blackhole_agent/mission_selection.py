@@ -192,6 +192,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9114",
         "streamid",
         "qpack",
+        "webtransport",
+        "rfc9220",
+        "sessionid",
+        "capsule",
     }
 )
 _IMPACT_MARKERS = (

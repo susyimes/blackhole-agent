@@ -367,6 +367,11 @@ from blackhole_agent.http3_actuation import (
     HTTP3_ACTUATION_GOAL,
     HTTP3_ACTUATION_ID,
 )
+from blackhole_agent.webtransport_actuation import (
+    WEBTRANSPORT_ACTUATION_DONE_WHEN,
+    WEBTRANSPORT_ACTUATION_GOAL,
+    WEBTRANSPORT_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -788,6 +793,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": HTTP3_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_http3",
     },
+    {
+        "id": WEBTRANSPORT_ACTUATION_ID,
+        "goal": WEBTRANSPORT_ACTUATION_GOAL,
+        "done_when": WEBTRANSPORT_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_webtransport",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1141,6 +1152,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_datachannel"] = DIVERSITY_CATALOG[60]["id"] == DATACHANNEL_ACTUATION_ID
     checks["catalog_names_quic"] = DIVERSITY_CATALOG[61]["id"] == QUIC_ACTUATION_ID
     checks["catalog_names_http3"] = DIVERSITY_CATALOG[62]["id"] == HTTP3_ACTUATION_ID
+    checks["catalog_names_webtransport"] = DIVERSITY_CATALOG[63]["id"] == WEBTRANSPORT_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
