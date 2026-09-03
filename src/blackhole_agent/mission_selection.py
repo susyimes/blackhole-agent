@@ -235,6 +235,11 @@ _SURFACE_TOKENS = frozenset(
         "requestid",
         "startline",
         "httpmessage",
+        "http2",
+        "rfc9113",
+        "settingsid",
+        "hpack",
+        "preface",
     }
 )
 _IMPACT_MARKERS = (

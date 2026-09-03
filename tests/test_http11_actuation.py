@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
-from blackhole_agent.http11_actuation import HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_ID
 from blackhole_agent.http2_actuation import HTTP2_ACTUATION_GOAL, HTTP2_ACTUATION_ID
 from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
 from blackhole_agent.connectip_actuation import CONNECTIP_ACTUATION_GOAL, CONNECTIP_ACTUATION_ID
@@ -14,26 +12,30 @@ from blackhole_agent.http3_actuation import HTTP3_ACTUATION_GOAL, HTTP3_ACTUATIO
 from blackhole_agent.datagram_actuation import DATAGRAM_ACTUATION_GOAL, DATAGRAM_ACTUATION_ID
 from blackhole_agent.masque_actuation import MASQUE_ACTUATION_GOAL, MASQUE_ACTUATION_ID
 from blackhole_agent.ohttp_actuation import OHTTP_ACTUATION_GOAL, OHTTP_ACTUATION_ID
-from blackhole_agent.digestfields_actuation import (
-    DEFAULT_DIGESTID,
-    DEFAULT_CONTENTDIGEST,
-    EMPTY_DIGESTID,
-    FRAME_DIGEST,
-    DIGESTFIELDS_ACTUATION_DONE_WHEN,
-    DIGESTFIELDS_ACTUATION_GOAL,
-    DIGESTFIELDS_ACTUATION_ID,
-    DIGESTFIELDS_LEFTOVER,
-    DF_FIRST,
+from blackhole_agent.http11_actuation import (
+    DEFAULT_REQUESTID,
+    DEFAULT_STARTLINE,
+    EMPTY_REQUESTID,
+    FRAME_PARSE,
+    HTTP11_ACTUATION_DONE_WHEN,
+    HTTP11_ACTUATION_GOAL,
+    HTTP11_ACTUATION_ID,
+    HTTP11_LEFTOVER,
+    HTTP_VERSION,
+    H11_FIRST,
     SENTINEL,
-    builtin_digestfields_actuation_proof,
-    content_digest_sfv,
+    builtin_http11_actuation_proof,
     crc32c,
-    encode_verify,
-    encode_digest,
-    independent_digestfields_digest,
+    encode_parse,
+    encode_serialize,
+    independent_http11_digest,
     parse_message,
-    run_digestfields_workflow,
+    parse_request,
+    run_http11_workflow,
+    serialize_request,
 )
+from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
+from blackhole_agent.digestfields_actuation import DIGESTFIELDS_ACTUATION_GOAL, DIGESTFIELDS_ACTUATION_ID
 from blackhole_agent.httpsig_actuation import HTTPSIG_ACTUATION_GOAL, HTTPSIG_ACTUATION_ID
 from blackhole_agent.ohsvcb_actuation import OHSVCB_ACTUATION_GOAL, OHSVCB_ACTUATION_ID
 from blackhole_agent.ice_actuation import ICE_ACTUATION_GOAL, ICE_ACTUATION_ID
@@ -58,9 +60,9 @@ from blackhole_agent.syslog_actuation import SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUA
 from blackhole_agent.tftp_actuation import TFTP_ACTUATION_GOAL, TFTP_ACTUATION_ID
 from blackhole_agent.tool_routing import (
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
-    DIGESTFIELDS_TOOL_PROVIDER,
+    HTTP11_TOOL_PROVIDER,
     build_tool_routing_preflight,
-    digestfields_tool_descriptor,
+    http11_tool_descriptor,
     route_tool_descriptor,
 )
 from blackhole_agent.turn_actuation import TURN_ACTUATION_GOAL, TURN_ACTUATION_ID
@@ -70,6 +72,8 @@ from blackhole_agent.webtransport_actuation import (
 )
 
 NEIGHBORS = (
+    BHTTP_ACTUATION_GOAL,
+    DIGESTFIELDS_ACTUATION_GOAL,
     HTTPSIG_ACTUATION_GOAL,
     OHSVCB_ACTUATION_GOAL,
     OHTTP_ACTUATION_GOAL,
@@ -96,11 +100,11 @@ NEIGHBORS = (
     TFTP_ACTUATION_GOAL,
     FTP_ACTUATION_GOAL,
     DNS_ACTUATION_GOAL,
-    BHTTP_ACTUATION_GOAL,
-    HTTP11_ACTUATION_GOAL,
     HTTP2_ACTUATION_GOAL,
 )
 NEIGHBOR_IDS = (
+    BHTTP_ACTUATION_ID,
+    DIGESTFIELDS_ACTUATION_ID,
     HTTPSIG_ACTUATION_ID,
     OHSVCB_ACTUATION_ID,
     OHTTP_ACTUATION_ID,
@@ -127,171 +131,181 @@ NEIGHBOR_IDS = (
     TFTP_ACTUATION_ID,
     FTP_ACTUATION_ID,
     DNS_ACTUATION_ID,
-    BHTTP_ACTUATION_ID,
-    HTTP11_ACTUATION_ID,
     HTTP2_ACTUATION_ID,
 )
 
 
-def test_goal_binds_digestfields_actuation_plane() -> None:
-    assert leftover_marker_ids(DIGESTFIELDS_ACTUATION_GOAL) == (DIGESTFIELDS_ACTUATION_ID,)
-    assert leftover_marker_ids(DIGESTFIELDS_LEFTOVER) == (DIGESTFIELDS_ACTUATION_ID,)
-    assert DIGESTFIELDS_ACTUATION_ID in LOCAL_DENYLIST
-    assert leftover_marker_ids(BHTTP_ACTUATION_GOAL) == (BHTTP_ACTUATION_ID,)
+def test_goal_binds_http11_actuation_plane() -> None:
     assert leftover_marker_ids(HTTP11_ACTUATION_GOAL) == (HTTP11_ACTUATION_ID,)
-    assert leftover_marker_ids(HTTP2_ACTUATION_GOAL) == (HTTP2_ACTUATION_ID,)
-    assert leftover_marker_ids(HTTPSIG_ACTUATION_GOAL) == (HTTPSIG_ACTUATION_ID,)
-    assert BHTTP_ACTUATION_ID in LOCAL_DENYLIST
+    assert leftover_marker_ids(HTTP11_LEFTOVER) == (HTTP11_ACTUATION_ID,)
     assert HTTP11_ACTUATION_ID in LOCAL_DENYLIST
+    assert leftover_marker_ids(HTTP2_ACTUATION_GOAL) == (HTTP2_ACTUATION_ID,)
+    assert leftover_marker_ids(BHTTP_ACTUATION_GOAL) == (BHTTP_ACTUATION_ID,)
     assert HTTP2_ACTUATION_ID in LOCAL_DENYLIST
     for goal, capability_id in zip(NEIGHBORS, NEIGHBOR_IDS, strict=True):
         assert leftover_marker_ids(goal) == (capability_id,)
-        assert DIGESTFIELDS_ACTUATION_ID not in leftover_marker_ids(goal)
-        assert capability_id not in leftover_marker_ids(DIGESTFIELDS_ACTUATION_GOAL)
-    digestfields_signature = semantic_signature(DIGESTFIELDS_ACTUATION_GOAL)
+        assert HTTP11_ACTUATION_ID not in leftover_marker_ids(goal)
+        assert capability_id not in leftover_marker_ids(HTTP11_ACTUATION_GOAL)
+    http11_signature = semantic_signature(HTTP11_ACTUATION_GOAL)
     for neighbor in NEIGHBORS:
-        assert semantic_similarity(digestfields_signature, semantic_signature(neighbor)) < 0.82
+        assert semantic_similarity(http11_signature, semantic_signature(neighbor)) < 0.82
 
 
-def test_opted_in_digestfields_tool_completes_digest_verify_poll() -> None:
-    descriptor = digestfields_tool_descriptor()
+def test_opted_in_http11_tool_completes_parse_serialize_poll() -> None:
+    descriptor = http11_tool_descriptor()
     naive = route_tool_descriptor(descriptor)
     opted = route_tool_descriptor(
         descriptor,
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, DIGESTFIELDS_TOOL_PROVIDER),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, HTTP11_TOOL_PROVIDER),
     )
     assert naive.executable is False
     assert opted.executable is True
 
     preflight = build_tool_routing_preflight(
         [descriptor],
-        required_tool_names=("digestfields",),
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, DIGESTFIELDS_TOOL_PROVIDER),
+        required_tool_names=("http11",),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, HTTP11_TOOL_PROVIDER),
     )
     assert preflight["ok"] is True
-    assert preflight["executable_tool_names"] == ["digestfields"]
+    assert preflight["executable_tool_names"] == ["http11"]
 
-    missing = run_digestfields_workflow(with_digestid=False)
-    skip_bind = run_digestfields_workflow(skip_bind=True)
-    skip_digest_cycle = run_digestfields_workflow(do_digest_cycle=False)
-    skip_verify = run_digestfields_workflow(do_verify=False)
-    skip_contentdigest = run_digestfields_workflow(do_contentdigest=False)
-    skip_replay = run_digestfields_workflow(replay=False)
-    skip_digestid = run_digestfields_workflow(use_digestid=False)
-    live = run_digestfields_workflow()
+    missing = run_http11_workflow(with_requestid=False)
+    skip_bind = run_http11_workflow(skip_bind=True)
+    skip_parse_cycle = run_http11_workflow(do_parse_cycle=False)
+    skip_serialize = run_http11_workflow(do_serialize=False)
+    skip_startline = run_http11_workflow(do_startline=False)
+    skip_replay = run_http11_workflow(replay=False)
+    skip_requestid = run_http11_workflow(use_requestid=False)
+    live = run_http11_workflow()
     assert missing["ok"] is False
     assert missing["final_status"] == 403
-    assert missing["error"] == "missing_digestid"
+    assert missing["error"] == "missing_requestid"
     assert skip_bind["ok"] is False
     assert skip_bind["error"] == "not_bound"
-    assert skip_digest_cycle["ok"] is False
-    assert skip_digest_cycle["error"] == "digest_required"
-    assert skip_verify["ok"] is False
-    assert skip_verify["error"] == "verify_required"
-    assert skip_contentdigest["ok"] is False
-    assert skip_contentdigest["error"] == "contentdigest_required"
+    assert skip_parse_cycle["ok"] is False
+    assert skip_parse_cycle["error"] == "parse_required"
+    assert skip_serialize["ok"] is False
+    assert skip_serialize["error"] == "serialize_required"
+    assert skip_startline["ok"] is False
+    assert skip_startline["error"] == "startline_required"
     assert skip_replay["ok"] is False
     assert skip_replay["error"] == "replay_required"
-    assert skip_digestid["ok"] is False
-    assert skip_digestid["error"] == "digestid_required"
+    assert skip_requestid["ok"] is False
+    assert skip_requestid["error"] == "requestid_required"
     assert live["ok"] is True
     assert live["sentinel"] == SENTINEL
     assert live["independent_sentinel"] == SENTINEL
     assert Path(live["sealed_path"]).is_file()
-    row = independent_digestfields_digest(Path(live["sealed_path"]))
+    row = independent_http11_digest(Path(live["sealed_path"]))
     assert row["sentinel"] == SENTINEL
-    assert row["digest_frame"] is True
-    assert row["verify"] is True
-    assert row["contentdigest_response"] is True
+    assert row["parse_frame"] is True
+    assert row["serialize"] is True
+    assert row["startline_response"] is True
     assert row["stored"] is True
     assert row["retrieved"] is True
     assert row["replayed"] is True
     assert row["independent"] is True
-    assert row["digestid_bound"] is True
+    assert row["requestid_bound"] is True
     assert row["digest"]
-    assert live["digestid"] == DEFAULT_DIGESTID
-    assert live["contentdigest"] == DEFAULT_CONTENTDIGEST
+    assert live["requestid"] == DEFAULT_REQUESTID
+    assert live["startline"] == DEFAULT_STARTLINE
     assert int(live["port"]) > 0
     queried = parse_message(
-        encode_digest(identity=SENTINEL, digestid=DEFAULT_DIGESTID, contentdigest=DEFAULT_CONTENTDIGEST)
+        encode_parse(identity=SENTINEL, requestid=DEFAULT_REQUESTID, startline=DEFAULT_STARTLINE)
     )
-    assert queried["is_digest"] is True and queried["is_response"] is False
-    assert queried["identity"] == SENTINEL and queried["digestid"] == DEFAULT_DIGESTID
-    assert queried["contentdigest"] == DEFAULT_CONTENTDIGEST
-    assert queried["type"] == FRAME_DIGEST
-    assert queried["first_byte"] == DF_FIRST
+    assert queried["is_parse"] is True and queried["is_response"] is False
+    assert queried["identity"] == SENTINEL and queried["requestid"] == DEFAULT_REQUESTID
+    assert queried["startline"] == DEFAULT_STARTLINE
+    assert queried["type"] == FRAME_PARSE
+    assert queried["first_byte"] == H11_FIRST
     answered = parse_message(
-        encode_verify(identity=SENTINEL, digestid=DEFAULT_DIGESTID, contentdigest=DEFAULT_CONTENTDIGEST)
+        encode_serialize(identity=SENTINEL, requestid=DEFAULT_REQUESTID, startline=DEFAULT_STARTLINE)
     )
-    assert answered["is_verify"] is True and answered["is_response"] is True
-    assert answered["digestid"] == DEFAULT_DIGESTID
-    assert answered["contentdigest"] == DEFAULT_CONTENTDIGEST
-    packed = encode_digest(identity=SENTINEL, digestid=DEFAULT_DIGESTID, contentdigest=DEFAULT_CONTENTDIGEST)
+    assert answered["is_serialize"] is True and answered["is_response"] is True
+    assert answered["requestid"] == DEFAULT_REQUESTID
+    assert answered["startline"] == DEFAULT_STARTLINE
+    packed = encode_parse(identity=SENTINEL, requestid=DEFAULT_REQUESTID, startline=DEFAULT_STARTLINE)
     zeroed = packed[:-4] + (0).to_bytes(4, "big")
     assert crc32c(zeroed) == int.from_bytes(packed[-4:], "big")
     bare = parse_message(
-        encode_digest(identity=SENTINEL, digestid=DEFAULT_DIGESTID, include_digestid=False)
+        encode_parse(identity=SENTINEL, requestid=DEFAULT_REQUESTID, include_requestid=False)
     )
-    assert bare["has_digestid"] is False
-    assert bare["digestid"] == EMPTY_DIGESTID
-    sfv = content_digest_sfv(SENTINEL, DEFAULT_DIGESTID)
-    assert sfv.startswith("sha-256=:") and sfv.endswith(":")
+    assert bare["has_requestid"] is False
+    assert bare["requestid"] == EMPTY_REQUESTID
+    body = f"{SENTINEL}:{DEFAULT_REQUESTID:08x}".encode("ascii")
+    request = serialize_request(
+        method="POST",
+        target=f"/http11/{DEFAULT_REQUESTID:08x}",
+        version=HTTP_VERSION,
+        headers=(
+            ("Host", SENTINEL),
+            ("Content-Type", "application/octet-stream"),
+            ("Content-Length", str(len(body))),
+        ),
+        body=body,
+    )
+    decoded = parse_request(request)
+    assert decoded["version"] == HTTP_VERSION
+    assert decoded["method"] == "POST"
+    assert decoded["target"] == f"/http11/{DEFAULT_REQUESTID:08x}"
+    assert decoded["start_line"] == f"POST /http11/{DEFAULT_REQUESTID:08x} {HTTP_VERSION}"
+    assert decoded["body"] == body
 
 
-def test_builtin_proof_seals_digestfields_actuation() -> None:
-    report = builtin_digestfields_actuation_proof()
+def test_builtin_proof_seals_http11_actuation() -> None:
+    report = builtin_http11_actuation_proof()
     assert report["ok"] is True, report.get("failed") or report.get("checks")
-    assert report["action"] == "digestfields_actuation"
+    assert report["action"] == "http11_actuation"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
     assert report["passed_count"] >= 12
-    assert report["checks"]["naive_preflight_missing_digestfields"]
+    assert report["checks"]["naive_preflight_missing_http11"]
     assert report["checks"]["opted_in_preflight_ok"]
-    assert report["checks"]["naive_without_digestid_is_forbidden"]
-    assert report["checks"]["skip_digest_cycle_stays_empty"]
-    assert report["checks"]["skip_verify_stays_empty"]
-    assert report["checks"]["skip_contentdigest_stays_empty"]
+    assert report["checks"]["naive_without_requestid_is_forbidden"]
+    assert report["checks"]["skip_parse_cycle_stays_empty"]
+    assert report["checks"]["skip_serialize_stays_empty"]
+    assert report["checks"]["skip_startline_stays_empty"]
     assert report["checks"]["skip_replay_stays_empty"]
-    assert report["checks"]["skip_digestid_stays_empty"]
+    assert report["checks"]["skip_requestid_stays_empty"]
     assert report["checks"]["workflow_extracts_sentinel"]
     assert report["checks"]["workflow_commits_independent_digest"]
     assert report["checks"]["workflow_writes_sealed_file"]
-    assert report["checks"]["workflow_records_contentdigest"]
+    assert report["checks"]["workflow_records_startline"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_digestfields"]
-    assert report["checks"]["catalog_names_digestfields"]
-    assert report["checks"]["catalog_names_bhttp"]
+    assert report["checks"]["exhausted_catalog_binds_http11"]
     assert report["checks"]["catalog_names_http11"]
     assert report["checks"]["catalog_names_http2"]
-    assert report["checks"]["leftover_text_binds_digestfields"]
-    assert report["checks"]["proved_digestfields_consumes_leftover"]
-    assert report["mission_goal"] == DIGESTFIELDS_ACTUATION_GOAL
-    assert report["done_when"] == DIGESTFIELDS_ACTUATION_DONE_WHEN
+    assert report["checks"]["leftover_text_binds_http11"]
+    assert report["checks"]["proved_http11_consumes_leftover"]
+    assert report["mission_goal"] == HTTP11_ACTUATION_GOAL
+    assert report["done_when"] == HTTP11_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
-    capability = ledger.capabilities[DIGESTFIELDS_ACTUATION_ID]
+    capability = ledger.capabilities[HTTP11_ACTUATION_ID]
     assert capability.last_proof_exit_code == 0
-    assert "digestfields" in capability.tags
-    assert "rfc9530" in capability.tags
+    assert "http11" in capability.tags
+    assert "rfc9112" in capability.tags
     assert "http" in capability.tags
-    assert "digestid" in capability.tags
-    assert "contentdigest" in capability.tags
+    assert "requestid" in capability.tags
+    assert "startline" in capability.tags
+    assert "httpmessage" in capability.tags
 
 
-def test_selection_gate_accepts_digestfields_family(tmp_path: Path) -> None:
+def test_selection_gate_accepts_http11_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
-        DIGESTFIELDS_ACTUATION_GOAL,
-        DIGESTFIELDS_ACTUATION_DONE_WHEN,
+        HTTP11_ACTUATION_GOAL,
+        HTTP11_ACTUATION_DONE_WHEN,
         history=(),
     )
     assert gate.accepted is True
     assert gate.scalar_extension is False
-    family = capability_family(DIGESTFIELDS_ACTUATION_GOAL)
-    assert "digestfield" in family
-    assert "rfc9530" in family
-    assert "digestid" in family
-    assert "contentdigest" in family
+    family = capability_family(HTTP11_ACTUATION_GOAL)
+    assert "http11" in family
+    assert "rfc9112" in family
+    assert "requestid" in family
+    assert "startline" in family
+    assert "httpmessage" in family
     assert "rfc9000" not in family
     assert "http3" not in family
     assert "rfc9114" not in family
@@ -317,12 +331,13 @@ def test_selection_gate_accepts_digestfields_family(tmp_path: Path) -> None:
     assert "ohsvcb" not in family
     assert "rfc9540" not in family
     assert "svcbid" not in family
+    assert "digestfield" not in family
+    assert "rfc9530" not in family
+    assert "digestid" not in family
     assert "bhttp" not in family
     assert "rfc9292" not in family
     assert "messageid" not in family
-    assert "http11" not in family
-    assert "rfc9112" not in family
-    assert "requestid" not in family
     assert "http2" not in family
     assert "rfc9113" not in family
     assert "settingsid" not in family
+    assert "hpack" not in family
