@@ -427,6 +427,11 @@ from blackhole_agent.httpcache_actuation import (
     HTTPCACHE_ACTUATION_GOAL,
     HTTPCACHE_ACTUATION_ID,
 )
+from blackhole_agent.httpsemantics_actuation import (
+    HTTPSMANTICS_ACTUATION_DONE_WHEN,
+    HTTPSMANTICS_ACTUATION_GOAL,
+    HTTPSMANTICS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -920,6 +925,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": HTTPCACHE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_httpcache",
     },
+    {
+        "id": HTTPSMANTICS_ACTUATION_ID,
+        "goal": HTTPSMANTICS_ACTUATION_GOAL,
+        "done_when": HTTPSMANTICS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_httpsemantics",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1285,6 +1296,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_http11"] = DIVERSITY_CATALOG[72]["id"] == HTTP11_ACTUATION_ID
     checks["catalog_names_http2"] = DIVERSITY_CATALOG[73]["id"] == HTTP2_ACTUATION_ID
     checks["catalog_names_httpcache"] = DIVERSITY_CATALOG[74]["id"] == HTTPCACHE_ACTUATION_ID
+    checks["catalog_names_httpsemantics"] = DIVERSITY_CATALOG[75]["id"] == HTTPSMANTICS_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

@@ -1360,6 +1360,7 @@ def builtin_http2_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: opted-in RFC 9113 HTTP/2 lockstep actuation seals a hpack digest."""
 
     from blackhole_agent.httpcache_actuation import HTTPCACHE_ACTUATION_GOAL, HTTPCACHE_ACTUATION_ID
+    from blackhole_agent.httpsemantics_actuation import HTTPSMANTICS_ACTUATION_GOAL, HTTPSMANTICS_ACTUATION_ID
     from blackhole_agent.http11_actuation import HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_ID
     from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
     from blackhole_agent.digestfields_actuation import DIGESTFIELDS_ACTUATION_GOAL, DIGESTFIELDS_ACTUATION_ID
@@ -1448,6 +1449,7 @@ def builtin_http2_actuation_proof() -> dict[str, Any]:
         (FTP_ACTUATION_GOAL, FTP_ACTUATION_ID, "ftp"),
         (DNS_ACTUATION_GOAL, DNS_ACTUATION_ID, "dns"),
         (HTTPCACHE_ACTUATION_GOAL, HTTPCACHE_ACTUATION_ID, "httpcache"),
+        (HTTPSMANTICS_ACTUATION_GOAL, HTTPSMANTICS_ACTUATION_ID, "httpsemantics"),
     )
     for goal, capability_id, name in neighbor_goals:
         checks[f"{name}_goal_is_not_http2"] = leftover_marker_ids(goal) == (capability_id,)
@@ -1505,6 +1507,11 @@ def builtin_http2_actuation_proof() -> dict[str, Any]:
         len(catalog) > 74
         and catalog[74]["id"] == HTTPCACHE_ACTUATION_ID
         and catalog[74]["source"] == "genesis_bind_httpcache"
+    )
+    checks["catalog_names_httpsemantics"] = (
+        len(catalog) > 75
+        and catalog[75]["id"] == HTTPSMANTICS_ACTUATION_ID
+        and catalog[75]["source"] == "genesis_bind_httpsemantics"
     )
     family = capability_family(HTTP2_ACTUATION_GOAL)
     checks["family_is_http2"] = "http2" in family
@@ -1622,6 +1629,12 @@ def builtin_http2_actuation_proof() -> dict[str, Any]:
         and "cacheid" not in family
         and "freshness" not in family
         and "validator" not in family
+    )
+    checks["family_is_not_httpsemantics"] = (
+        "httpsemantic" not in family
+        and "rfc9110" not in family
+        and "methodid" not in family
+        and "fieldsection" not in family
     )
     packed = encode_preface(identity=SENTINEL, settingsid=DEFAULT_SETTINGSID, hpack=DEFAULT_HPACK)
     parsed = parse_message(packed)

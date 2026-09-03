@@ -245,6 +245,11 @@ _SURFACE_TOKENS = frozenset(
         "cacheid",
         "freshness",
         "validator",
+        "httpsemantics",
+        "httpsemantic",
+        "rfc9110",
+        "methodid",
+        "fieldsection",
     }
 )
 _IMPACT_MARKERS = (

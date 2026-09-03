@@ -888,6 +888,7 @@ DIGESTFIELDS_TOOL_PROVIDER = "digestfields"
 BHTTP_TOOL_PROVIDER = "bhttp"
 HTTP11_TOOL_PROVIDER = "http11"
 HTTP2_TOOL_PROVIDER = "http2"
+HTTPCACHE_TOOL_PROVIDER = "httpcache"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2557,6 +2558,48 @@ def http2_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=HTTP2_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def httpcache_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9111 HTTP Caching STORE/REVALIDATE route.
+
+    Provider ``httpcache`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="httpcache",
+        description=(
+            "Drive a first-class RFC 9111 session: bind a loopback HTTP cache "
+            "origin, send a STORE with a non-empty cacheid, "
+            "lockstep a REVALIDATE that carries the stored "
+            "freshness, independently poll the stored cache validator on a "
+            "later client socket, and read the sealed freshness digest. "
+            "CACHEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "store_cycle": {"type": "boolean"},
+                "revalidate": {"type": "boolean"},
+                "freshness": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_cacheid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HTTPCACHE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
