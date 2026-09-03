@@ -880,6 +880,7 @@ HTTP3_TOOL_PROVIDER = "http3"
 WEBTRANSPORT_TOOL_PROVIDER = "webtransport"
 DATAGRAM_TOOL_PROVIDER = "datagram"
 MASQUE_TOOL_PROVIDER = "masque"
+CONNECTIP_TOOL_PROVIDER = "connectip"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2213,6 +2214,48 @@ def masque_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MASQUE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def connectip_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9484 CONNECT-IP ASSIGN/ADVERTISE route.
+
+    Provider ``connectip`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="connectip",
+        description=(
+            "Drive a first-class RFC 9484 session: bind a loopback CONNECT-IP "
+            "endpoint, send an ASSIGN with a non-empty prefixid, "
+            "lockstep an ADVERTISE that carries the stored assigned "
+            "ipaddr, independently poll the stored assigned ipaddr on a "
+            "later client socket, and read the sealed ipaddr digest. "
+            "PREFIXID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "assign_cycle": {"type": "boolean"},
+                "advertise": {"type": "boolean"},
+                "ipaddr": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_prefixid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=CONNECTIP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

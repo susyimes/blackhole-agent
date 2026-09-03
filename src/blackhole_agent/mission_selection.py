@@ -208,6 +208,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9484",
         "prefixid",
         "ipaddr",
+        "ohttp",
+        "rfc9458",
+        "configid",
+        "gateway",
     }
 )
 _IMPACT_MARKERS = (
