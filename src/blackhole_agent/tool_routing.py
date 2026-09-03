@@ -875,6 +875,7 @@ DTLS_TOOL_PROVIDER = "dtls"
 SRTP_TOOL_PROVIDER = "srtp"
 SCTP_TOOL_PROVIDER = "sctp"
 DATACHANNEL_TOOL_PROVIDER = "datachannel"
+QUIC_TOOL_PROVIDER = "quic"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -1998,6 +1999,48 @@ def datachannel_tool_descriptor(*, session_id: str | None = None) -> ToolDescrip
             "additionalProperties": False,
         },
         provider=DATACHANNEL_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def quic_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9000 QUIC INITIAL/HANDSHAKE route.
+
+    Provider ``quic`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="quic",
+        description=(
+            "Drive a first-class RFC 9000 session: bind a loopback QUIC "
+            "endpoint, send an INITIAL with a non-empty dcid, "
+            "lockstep a HANDSHAKE that carries the stored packet "
+            "pktnum, independently poll the stored packet pktnum on a "
+            "later client socket, and read the sealed pktnum digest. "
+            "DCID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "initial": {"type": "boolean"},
+                "handshake": {"type": "boolean"},
+                "pktnum": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dcid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=QUIC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
