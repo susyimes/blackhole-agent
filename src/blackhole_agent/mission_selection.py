@@ -230,6 +230,11 @@ _SURFACE_TOKENS = frozenset(
         "messageid",
         "binarymsg",
         "binaryhttp",
+        "http11",
+        "rfc9112",
+        "requestid",
+        "startline",
+        "httpmessage",
     }
 )
 _IMPACT_MARKERS = (

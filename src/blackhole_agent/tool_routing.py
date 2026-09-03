@@ -885,6 +885,7 @@ OHTTP_TOOL_PROVIDER = "ohttp"
 OHSVCB_TOOL_PROVIDER = "ohsvcb"
 HTTPSIG_TOOL_PROVIDER = "httpsig"
 DIGESTFIELDS_TOOL_PROVIDER = "digestfields"
+BHTTP_TOOL_PROVIDER = "bhttp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2428,6 +2429,48 @@ def digestfields_tool_descriptor(*, session_id: str | None = None) -> ToolDescri
             "additionalProperties": False,
         },
         provider=DIGESTFIELDS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def bhttp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9292 Binary HTTP ENCODE/DECODE route.
+
+    Provider ``bhttp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="bhttp",
+        description=(
+            "Drive a first-class RFC 9292 session: bind a loopback Binary HTTP "
+            "origin, send an ENCODE with a non-empty messageid, "
+            "lockstep a DECODE that carries the stored "
+            "binarymsg, independently poll the stored binarymsg on a "
+            "later client socket, and read the sealed binarymsg digest. "
+            "MESSAGEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "encode_cycle": {"type": "boolean"},
+                "decode": {"type": "boolean"},
+                "binarymsg": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_messageid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=BHTTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

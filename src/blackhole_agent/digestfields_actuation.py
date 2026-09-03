@@ -1100,6 +1100,7 @@ def builtin_digestfields_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: opted-in RFC 9530 Digest Fields lockstep actuation seals a contentdigest digest."""
 
     from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
+    from blackhole_agent.http11_actuation import HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_ID
     from blackhole_agent.httpsig_actuation import HTTPSIG_ACTUATION_GOAL, HTTPSIG_ACTUATION_ID
     from blackhole_agent.ohsvcb_actuation import OHSVCB_ACTUATION_GOAL, OHSVCB_ACTUATION_ID
     from blackhole_agent.ohttp_actuation import OHTTP_ACTUATION_GOAL, OHTTP_ACTUATION_ID
@@ -1182,6 +1183,7 @@ def builtin_digestfields_actuation_proof() -> dict[str, Any]:
         (FTP_ACTUATION_GOAL, FTP_ACTUATION_ID, "ftp"),
         (DNS_ACTUATION_GOAL, DNS_ACTUATION_ID, "dns"),
         (BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID, "bhttp"),
+        (HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_ID, "http11"),
     )
     for goal, capability_id, name in neighbor_goals:
         checks[f"{name}_goal_is_not_digestfields"] = leftover_marker_ids(goal) == (capability_id,)
@@ -1213,6 +1215,11 @@ def builtin_digestfields_actuation_proof() -> dict[str, Any]:
         len(catalog) > 71
         and catalog[71]["id"] == BHTTP_ACTUATION_ID
         and catalog[71]["source"] == "genesis_bind_bhttp"
+    )
+    checks["catalog_names_http11"] = (
+        len(catalog) > 72
+        and catalog[72]["id"] == HTTP11_ACTUATION_ID
+        and catalog[72]["source"] == "genesis_bind_http11"
     )
     family = capability_family(DIGESTFIELDS_ACTUATION_GOAL)
     checks["family_is_digestfields"] = "digestfield" in family
@@ -1309,6 +1316,13 @@ def builtin_digestfields_actuation_proof() -> dict[str, Any]:
         and "rfc9292" not in family
         and "messageid" not in family
         and "binarymsg" not in family
+    )
+    checks["family_is_not_http11"] = (
+        "http11" not in family
+        and "rfc9112" not in family
+        and "requestid" not in family
+        and "startline" not in family
+        and "httpmessage" not in family
     )
     packed = encode_digest(identity=SENTINEL, digestid=DEFAULT_DIGESTID, contentdigest=DEFAULT_CONTENTDIGEST)
     parsed = parse_message(packed)
