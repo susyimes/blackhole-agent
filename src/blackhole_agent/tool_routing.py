@@ -877,6 +877,7 @@ SCTP_TOOL_PROVIDER = "sctp"
 DATACHANNEL_TOOL_PROVIDER = "datachannel"
 QUIC_TOOL_PROVIDER = "quic"
 HTTP3_TOOL_PROVIDER = "http3"
+WEBTRANSPORT_TOOL_PROVIDER = "webtransport"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2084,6 +2085,48 @@ def http3_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=HTTP3_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def webtransport_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9220 WebTransport CONNECT/SESSION route.
+
+    Provider ``webtransport`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="webtransport",
+        description=(
+            "Drive a first-class RFC 9220 session: bind a loopback WebTransport "
+            "endpoint, send a CONNECT with a non-empty sessionid, "
+            "lockstep a SESSION that carries the stored session "
+            "capsule, independently poll the stored session capsule on a "
+            "later client socket, and read the sealed capsule digest. "
+            "SESSIONID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "connect": {"type": "boolean"},
+                "session": {"type": "boolean"},
+                "capsule": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_sessionid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=WEBTRANSPORT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

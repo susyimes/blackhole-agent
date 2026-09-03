@@ -196,6 +196,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9220",
         "sessionid",
         "capsule",
+        "datagram",
+        "rfc9221",
+        "flowid",
+        "contextid",
     }
 )
 _IMPACT_MARKERS = (
