@@ -1331,6 +1331,10 @@ def builtin_httpcache_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: opted-in RFC 9111 HTTP Caching lockstep actuation seals a freshness digest."""
 
     from blackhole_agent.httpsemantics_actuation import HTTPSMANTICS_ACTUATION_GOAL, HTTPSMANTICS_ACTUATION_ID
+    from blackhole_agent.structuredfields_actuation import (
+        STRUCTUREDFIELDS_ACTUATION_GOAL,
+        STRUCTUREDFIELDS_ACTUATION_ID,
+    )
     from blackhole_agent.http2_actuation import HTTP2_ACTUATION_GOAL, HTTP2_ACTUATION_ID
     from blackhole_agent.http11_actuation import HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_ID
     from blackhole_agent.bhttp_actuation import BHTTP_ACTUATION_GOAL, BHTTP_ACTUATION_ID
@@ -1421,6 +1425,7 @@ def builtin_httpcache_actuation_proof() -> dict[str, Any]:
         (FTP_ACTUATION_GOAL, FTP_ACTUATION_ID, "ftp"),
         (DNS_ACTUATION_GOAL, DNS_ACTUATION_ID, "dns"),
         (HTTPSMANTICS_ACTUATION_GOAL, HTTPSMANTICS_ACTUATION_ID, "httpsemantics"),
+        (STRUCTUREDFIELDS_ACTUATION_GOAL, STRUCTUREDFIELDS_ACTUATION_ID, "structuredfields"),
     )
     for goal, capability_id, name in neighbor_goals:
         checks[f"{name}_goal_is_not_httpcache"] = leftover_marker_ids(goal) == (capability_id,)
@@ -1478,6 +1483,11 @@ def builtin_httpcache_actuation_proof() -> dict[str, Any]:
         and catalog[75]["id"] == HTTPSMANTICS_ACTUATION_ID
         and catalog[75]["source"] == "genesis_bind_httpsemantics"
     )
+    checks["catalog_names_structuredfields"] = (
+        len(catalog) > 76
+        and catalog[76]["id"] == STRUCTUREDFIELDS_ACTUATION_ID
+        and catalog[76]["source"] == "genesis_bind_structuredfields"
+    )
     family = capability_family(HTTPCACHE_ACTUATION_GOAL)
     checks["family_is_httpcache"] = "httpcache" in family
     checks["family_is_rfc9111"] = "rfc9111" in family
@@ -1489,6 +1499,12 @@ def builtin_httpcache_actuation_proof() -> dict[str, Any]:
         and "rfc9110" not in family
         and "methodid" not in family
         and "fieldsection" not in family
+    )
+    checks["family_is_not_structuredfields"] = (
+        "structuredfield" not in family
+        and "rfc8941" not in family
+        and "dictid" not in family
+        and "sfv" not in family
     )
     checks["family_is_not_http2"] = (
         "http2" not in family

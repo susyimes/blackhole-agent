@@ -250,6 +250,11 @@ _SURFACE_TOKENS = frozenset(
         "rfc9110",
         "methodid",
         "fieldsection",
+        "structuredfields",
+        "structuredfield",
+        "rfc8941",
+        "dictid",
+        "sfv",
     }
 )
 _IMPACT_MARKERS = (
