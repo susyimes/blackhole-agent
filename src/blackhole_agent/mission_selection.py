@@ -309,6 +309,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5988",
         "relationid",
         "relationdigest",
+        "extvalue",
+        "rfc5987",
+        "charsetid",
+        "charsetdigest",
     }
 )
 _IMPACT_MARKERS = (

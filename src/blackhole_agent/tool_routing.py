@@ -902,6 +902,7 @@ XFO_TOOL_PROVIDER = "xfo"
 WEBORIGIN_TOOL_PROVIDER = "weborigin"
 HTTPCOOKIE_TOOL_PROVIDER = "httpcookie"
 CONTENTDISPOSITION_TOOL_PROVIDER = "contentdisposition"
+WEBLINKING_TOOL_PROVIDER = "weblinking"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3159,6 +3160,48 @@ def contentdisposition_tool_descriptor(*, session_id: str | None = None) -> Tool
             "additionalProperties": False,
         },
         provider=CONTENTDISPOSITION_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def weblinking_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5988 Web Linking LINK/RELATION route.
+
+    Provider ``weblinking`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="weblinking",
+        description=(
+            "Drive a first-class RFC 5988 session: bind a loopback Web Linking "
+            "origin, send a LINK with a non-empty relationid, "
+            "lockstep a RELATION that carries the stored "
+            "relationdigest, independently poll the stored relationdigest on a "
+            "later client socket, and read the sealed relationdigest. "
+            "RELATIONID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "link": {"type": "boolean"},
+                "relation": {"type": "boolean"},
+                "relationdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_relationid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=WEBLINKING_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

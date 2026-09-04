@@ -497,6 +497,11 @@ from blackhole_agent.weblinking_actuation import (
     WEBLINKING_ACTUATION_GOAL,
     WEBLINKING_ACTUATION_ID,
 )
+from blackhole_agent.extvalue_actuation import (
+    EXTVALUE_ACTUATION_DONE_WHEN,
+    EXTVALUE_ACTUATION_GOAL,
+    EXTVALUE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1074,6 +1079,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": WEBLINKING_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_weblinking",
     },
+    {
+        "id": EXTVALUE_ACTUATION_ID,
+        "goal": EXTVALUE_ACTUATION_GOAL,
+        "done_when": EXTVALUE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_extvalue",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1457,6 +1468,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
         DIVERSITY_CATALOG[87]["id"] == CONTENTDISPOSITION_ACTUATION_ID
     )
     checks["catalog_names_weblinking"] = DIVERSITY_CATALOG[88]["id"] == WEBLINKING_ACTUATION_ID
+    checks["catalog_names_extvalue"] = DIVERSITY_CATALOG[89]["id"] == EXTVALUE_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
