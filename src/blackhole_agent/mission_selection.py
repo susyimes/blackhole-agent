@@ -329,6 +329,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4918",
         "lockid",
         "lockdigest",
+        "spnego",
+        "rfc4559",
+        "negotiateid",
+        "negotiatedigest",
     }
 )
 _IMPACT_MARKERS = (

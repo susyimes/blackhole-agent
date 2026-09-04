@@ -907,6 +907,7 @@ EXTVALUE_TOOL_PROVIDER = "extvalue"
 STALECONTENT_TOOL_PROVIDER = "stalecontent"
 HTTPPATCH_TOOL_PROVIDER = "httppatch"
 WELLKNOWN_TOOL_PROVIDER = "wellknown"
+WEBDAV_TOOL_PROVIDER = "webdav"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3374,6 +3375,48 @@ def wellknown_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=WELLKNOWN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def webdav_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4918 HTTP Extensions for WebDAV PROPFIND/LOCK route.
+
+    Provider ``webdav`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="webdav",
+        description=(
+            "Drive a first-class RFC 4918 session: bind a loopback HTTP Extensions "
+            "for WebDAV origin, send a PROPFIND with a non-empty lockid, "
+            "lockstep a LOCK that carries the stored "
+            "lockdigest, independently poll the stored lockdigest on a "
+            "later client socket, and read the sealed lockdigest. "
+            "LOCKID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "propfind": {"type": "boolean"},
+                "lock": {"type": "boolean"},
+                "lockdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lockid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=WEBDAV_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
