@@ -333,6 +333,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4559",
         "negotiateid",
         "negotiatedigest",
+        "httptls",
+        "rfc2817",
+        "upgradeid",
+        "upgradetlsdigest",
     }
 )
 _IMPACT_MARKERS = (

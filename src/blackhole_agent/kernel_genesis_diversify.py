@@ -527,6 +527,11 @@ from blackhole_agent.spnego_actuation import (
     SPNEGO_ACTUATION_GOAL,
     SPNEGO_ACTUATION_ID,
 )
+from blackhole_agent.httptls_actuation import (
+    HTTPTLS_ACTUATION_DONE_WHEN,
+    HTTPTLS_ACTUATION_GOAL,
+    HTTPTLS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1140,6 +1145,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": SPNEGO_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_spnego",
     },
+    {
+        "id": HTTPTLS_ACTUATION_ID,
+        "goal": HTTPTLS_ACTUATION_GOAL,
+        "done_when": HTTPTLS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_httptls",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1529,6 +1540,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_wellknown"] = DIVERSITY_CATALOG[92]["id"] == WELLKNOWN_ACTUATION_ID
     checks["catalog_names_webdav"] = DIVERSITY_CATALOG[93]["id"] == WEBDAV_ACTUATION_ID
     checks["catalog_names_spnego"] = DIVERSITY_CATALOG[94]["id"] == SPNEGO_ACTUATION_ID
+    checks["catalog_names_httptls"] = DIVERSITY_CATALOG[95]["id"] == HTTPTLS_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
