@@ -255,6 +255,13 @@ _SURFACE_TOKENS = frozenset(
         "rfc8941",
         "dictid",
         "sfv",
+        "clienthints",
+        "clienthint",
+        "rfc8942",
+        "chid",
+        "acceptch",
+        "critch",
+        "hintsdigest",
     }
 )
 _IMPACT_MARKERS = (
