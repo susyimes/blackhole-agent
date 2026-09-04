@@ -472,6 +472,11 @@ from blackhole_agent.expectct_actuation import (
     EXPECTCT_ACTUATION_GOAL,
     EXPECTCT_ACTUATION_ID,
 )
+from blackhole_agent.xfo_actuation import (
+    XFO_ACTUATION_DONE_WHEN,
+    XFO_ACTUATION_GOAL,
+    XFO_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1019,6 +1024,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": EXPECTCT_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_expectct",
     },
+    {
+        "id": XFO_ACTUATION_ID,
+        "goal": XFO_ACTUATION_GOAL,
+        "done_when": XFO_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_xfo",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1395,6 +1406,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_hsts"] = DIVERSITY_CATALOG[81]["id"] == HSTS_ACTUATION_ID
     checks["catalog_names_hpkp"] = DIVERSITY_CATALOG[82]["id"] == HPKP_ACTUATION_ID
     checks["catalog_names_expectct"] = DIVERSITY_CATALOG[83]["id"] == EXPECTCT_ACTUATION_ID
+    checks["catalog_names_xfo"] = DIVERSITY_CATALOG[84]["id"] == XFO_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

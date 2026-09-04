@@ -897,6 +897,7 @@ ENCRYPTEDCONTENT_TOOL_PROVIDER = "encryptedcontent"
 ALTSVC_TOOL_PROVIDER = "altsvc"
 HSTS_TOOL_PROVIDER = "hsts"
 HPKP_TOOL_PROVIDER = "hpkp"
+EXPECTCT_TOOL_PROVIDER = "expectct"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2944,6 +2945,48 @@ def hpkp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=HPKP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def expectct_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9163 Expect-CT EXPECT/REPORT route.
+
+    Provider ``expectct`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="expectct",
+        description=(
+            "Drive a first-class RFC 9163 session: bind a loopback Expect-CT "
+            "origin, send an EXPECT with a non-empty ctid, "
+            "lockstep a REPORT that carries the stored "
+            "ctdigest, independently poll the stored ctdigest on a "
+            "later client socket, and read the sealed ctdigest. "
+            "CTID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "expect": {"type": "boolean"},
+                "report": {"type": "boolean"},
+                "ctdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ctid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EXPECTCT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

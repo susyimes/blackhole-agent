@@ -289,6 +289,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9163",
         "ctid",
         "ctdigest",
+        "xfo",
+        "rfc7034",
+        "frameid",
+        "framedigest",
     }
 )
 _IMPACT_MARKERS = (
