@@ -512,6 +512,11 @@ from blackhole_agent.httppatch_actuation import (
     HTTPPATCH_ACTUATION_GOAL,
     HTTPPATCH_ACTUATION_ID,
 )
+from blackhole_agent.wellknown_actuation import (
+    WELLKNOWN_ACTUATION_DONE_WHEN,
+    WELLKNOWN_ACTUATION_GOAL,
+    WELLKNOWN_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1107,6 +1112,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": HTTPPATCH_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_httppatch",
     },
+    {
+        "id": WELLKNOWN_ACTUATION_ID,
+        "goal": WELLKNOWN_ACTUATION_GOAL,
+        "done_when": WELLKNOWN_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_wellknown",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1493,6 +1504,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_extvalue"] = DIVERSITY_CATALOG[89]["id"] == EXTVALUE_ACTUATION_ID
     checks["catalog_names_stalecontent"] = DIVERSITY_CATALOG[90]["id"] == STALECONTENT_ACTUATION_ID
     checks["catalog_names_httppatch"] = DIVERSITY_CATALOG[91]["id"] == HTTPPATCH_ACTUATION_ID
+    checks["catalog_names_wellknown"] = DIVERSITY_CATALOG[92]["id"] == WELLKNOWN_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

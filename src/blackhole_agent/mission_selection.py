@@ -321,6 +321,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5789",
         "patchid",
         "patchdigest",
+        "wellknown",
+        "rfc5785",
+        "suffixid",
+        "suffixdigest",
     }
 )
 _IMPACT_MARKERS = (

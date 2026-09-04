@@ -905,6 +905,7 @@ CONTENTDISPOSITION_TOOL_PROVIDER = "contentdisposition"
 WEBLINKING_TOOL_PROVIDER = "weblinking"
 EXTVALUE_TOOL_PROVIDER = "extvalue"
 STALECONTENT_TOOL_PROVIDER = "stalecontent"
+HTTPPATCH_TOOL_PROVIDER = "httppatch"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3288,6 +3289,48 @@ def stalecontent_tool_descriptor(*, session_id: str | None = None) -> ToolDescri
             "additionalProperties": False,
         },
         provider=STALECONTENT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def httppatch_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5789 PATCH Method for HTTP PATCH/ENTITY route.
+
+    Provider ``httppatch`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="httppatch",
+        description=(
+            "Drive a first-class RFC 5789 session: bind a loopback PATCH Method "
+            "for HTTP origin, send a PATCH with a non-empty patchid, "
+            "lockstep an ENTITY that carries the stored "
+            "patchdigest, independently poll the stored patchdigest on a "
+            "later client socket, and read the sealed patchdigest. "
+            "PATCHID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "patch": {"type": "boolean"},
+                "entity": {"type": "boolean"},
+                "patchdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_patchid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HTTPPATCH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
