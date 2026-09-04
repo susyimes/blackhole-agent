@@ -268,6 +268,11 @@ _SURFACE_TOKENS = frozenset(
         "linkid",
         "hint103",
         "earlydigest",
+        "encryptedcontent",
+        "rfc8188",
+        "encid",
+        "aes128gcm",
+        "ecedigest",
     }
 )
 _IMPACT_MARKERS = (

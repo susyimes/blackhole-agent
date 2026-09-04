@@ -892,6 +892,7 @@ HTTPCACHE_TOOL_PROVIDER = "httpcache"
 HTTPSMANTICS_TOOL_PROVIDER = "httpsemantics"
 STRUCTUREDFIELDS_TOOL_PROVIDER = "structuredfields"
 CLIENTHINTS_TOOL_PROVIDER = "clienthints"
+EARLYHINTS_TOOL_PROVIDER = "earlyhints"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2729,6 +2730,48 @@ def clienthints_tool_descriptor(*, session_id: str | None = None) -> ToolDescrip
             "additionalProperties": False,
         },
         provider=CLIENTHINTS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def earlyhints_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8297 Early Hints LINK/HINT route.
+
+    Provider ``earlyhints`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="earlyhints",
+        description=(
+            "Drive a first-class RFC 8297 session: bind a loopback Early Hints "
+            "origin, send a LINK with a non-empty linkid, "
+            "lockstep a HINT that carries the stored "
+            "earlydigest, independently poll the stored earlydigest on a "
+            "later client socket, and read the sealed earlydigest. "
+            "LINKID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "link": {"type": "boolean"},
+                "hint": {"type": "boolean"},
+                "earlydigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_linkid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EARLYHINTS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

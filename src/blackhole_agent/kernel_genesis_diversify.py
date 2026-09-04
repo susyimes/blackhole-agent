@@ -447,6 +447,11 @@ from blackhole_agent.earlyhints_actuation import (
     EARLYHINTS_ACTUATION_GOAL,
     EARLYHINTS_ACTUATION_ID,
 )
+from blackhole_agent.encryptedcontent_actuation import (
+    ENCRYPTEDCONTENT_ACTUATION_DONE_WHEN,
+    ENCRYPTEDCONTENT_ACTUATION_GOAL,
+    ENCRYPTEDCONTENT_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -964,6 +969,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": EARLYHINTS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_earlyhints",
     },
+    {
+        "id": ENCRYPTEDCONTENT_ACTUATION_ID,
+        "goal": ENCRYPTEDCONTENT_ACTUATION_GOAL,
+        "done_when": ENCRYPTEDCONTENT_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_encryptedcontent",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1333,6 +1344,9 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_structuredfields"] = DIVERSITY_CATALOG[76]["id"] == STRUCTUREDFIELDS_ACTUATION_ID
     checks["catalog_names_clienthints"] = DIVERSITY_CATALOG[77]["id"] == CLIENTHINTS_ACTUATION_ID
     checks["catalog_names_earlyhints"] = DIVERSITY_CATALOG[78]["id"] == EARLYHINTS_ACTUATION_ID
+    checks["catalog_names_encryptedcontent"] = (
+        DIVERSITY_CATALOG[79]["id"] == ENCRYPTEDCONTENT_ACTUATION_ID
+    )
 
     ok = all(checks.values())
     if ok:
