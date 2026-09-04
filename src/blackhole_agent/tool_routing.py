@@ -900,6 +900,7 @@ HPKP_TOOL_PROVIDER = "hpkp"
 EXPECTCT_TOOL_PROVIDER = "expectct"
 XFO_TOOL_PROVIDER = "xfo"
 WEBORIGIN_TOOL_PROVIDER = "weborigin"
+HTTPCOOKIE_TOOL_PROVIDER = "httpcookie"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3073,6 +3074,48 @@ def weborigin_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=WEBORIGIN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def httpcookie_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6265 HTTP State Management SET-COOKIE/COOKIE route.
+
+    Provider ``httpcookie`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="httpcookie",
+        description=(
+            "Drive a first-class RFC 6265 session: bind a loopback HTTP cookie "
+            "origin, send a SET-COOKIE with a non-empty cookieid, "
+            "lockstep a COOKIE that carries the stored "
+            "cookiedigest, independently poll the stored cookiedigest on a "
+            "later client socket, and read the sealed cookiedigest. "
+            "COOKIEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "setcookie": {"type": "boolean"},
+                "cookie": {"type": "boolean"},
+                "cookiedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_cookieid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HTTPCOOKIE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

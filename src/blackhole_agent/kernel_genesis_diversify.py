@@ -487,6 +487,11 @@ from blackhole_agent.httpcookie_actuation import (
     HTTPCOOKIE_ACTUATION_GOAL,
     HTTPCOOKIE_ACTUATION_ID,
 )
+from blackhole_agent.contentdisposition_actuation import (
+    CONTENTDISPOSITION_ACTUATION_DONE_WHEN,
+    CONTENTDISPOSITION_ACTUATION_GOAL,
+    CONTENTDISPOSITION_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1052,6 +1057,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": HTTPCOOKIE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_httpcookie",
     },
+    {
+        "id": CONTENTDISPOSITION_ACTUATION_ID,
+        "goal": CONTENTDISPOSITION_ACTUATION_GOAL,
+        "done_when": CONTENTDISPOSITION_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_contentdisposition",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1431,6 +1442,9 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_xfo"] = DIVERSITY_CATALOG[84]["id"] == XFO_ACTUATION_ID
     checks["catalog_names_weborigin"] = DIVERSITY_CATALOG[85]["id"] == WEBORIGIN_ACTUATION_ID
     checks["catalog_names_httpcookie"] = DIVERSITY_CATALOG[86]["id"] == HTTPCOOKIE_ACTUATION_ID
+    checks["catalog_names_contentdisposition"] = (
+        DIVERSITY_CATALOG[87]["id"] == CONTENTDISPOSITION_ACTUATION_ID
+    )
 
     ok = all(checks.values())
     if ok:

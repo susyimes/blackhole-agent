@@ -301,6 +301,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6265",
         "cookieid",
         "cookiedigest",
+        "contentdisposition",
+        "rfc6266",
+        "dispositionid",
+        "dispositiondigest",
     }
 )
 _IMPACT_MARKERS = (
