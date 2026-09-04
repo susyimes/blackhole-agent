@@ -895,6 +895,7 @@ CLIENTHINTS_TOOL_PROVIDER = "clienthints"
 EARLYHINTS_TOOL_PROVIDER = "earlyhints"
 ENCRYPTEDCONTENT_TOOL_PROVIDER = "encryptedcontent"
 ALTSVC_TOOL_PROVIDER = "altsvc"
+HSTS_TOOL_PROVIDER = "hsts"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2858,6 +2859,48 @@ def altsvc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=ALTSVC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def hsts_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6797 HTTP Strict Transport Security STS/PRELOAD route.
+
+    Provider ``hsts`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="hsts",
+        description=(
+            "Drive a first-class RFC 6797 session: bind a loopback HTTP "
+            "Strict Transport Security origin, send an STS with a non-empty hstsid, "
+            "lockstep a PRELOAD that carries the stored "
+            "stsdigest, independently poll the stored stsdigest on a "
+            "later client socket, and read the sealed stsdigest. "
+            "HSTSID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "sts": {"type": "boolean"},
+                "preload": {"type": "boolean"},
+                "stsdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_hstsid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HSTS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
