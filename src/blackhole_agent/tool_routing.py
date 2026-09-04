@@ -903,6 +903,7 @@ WEBORIGIN_TOOL_PROVIDER = "weborigin"
 HTTPCOOKIE_TOOL_PROVIDER = "httpcookie"
 CONTENTDISPOSITION_TOOL_PROVIDER = "contentdisposition"
 WEBLINKING_TOOL_PROVIDER = "weblinking"
+EXTVALUE_TOOL_PROVIDER = "extvalue"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3202,6 +3203,48 @@ def weblinking_tool_descriptor(*, session_id: str | None = None) -> ToolDescript
             "additionalProperties": False,
         },
         provider=WEBLINKING_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def extvalue_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5987 Character Set and Language Encoding ENCODING/LANGUAGE route.
+
+    Provider ``extvalue`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="extvalue",
+        description=(
+            "Drive a first-class RFC 5987 session: bind a loopback Character Set "
+            "and Language Encoding origin, send an ENCODING with a non-empty charsetid, "
+            "lockstep a LANGUAGE that carries the stored "
+            "charsetdigest, independently poll the stored charsetdigest on a "
+            "later client socket, and read the sealed charsetdigest. "
+            "CHARSETID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "encoding": {"type": "boolean"},
+                "language": {"type": "boolean"},
+                "charsetdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_charsetid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EXTVALUE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

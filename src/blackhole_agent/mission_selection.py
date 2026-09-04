@@ -313,6 +313,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5987",
         "charsetid",
         "charsetdigest",
+        "stalecontent",
+        "rfc5861",
+        "staleid",
+        "staledigest",
     }
 )
 _IMPACT_MARKERS = (
