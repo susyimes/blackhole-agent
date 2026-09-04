@@ -893,6 +893,7 @@ HTTPSMANTICS_TOOL_PROVIDER = "httpsemantics"
 STRUCTUREDFIELDS_TOOL_PROVIDER = "structuredfields"
 CLIENTHINTS_TOOL_PROVIDER = "clienthints"
 EARLYHINTS_TOOL_PROVIDER = "earlyhints"
+ENCRYPTEDCONTENT_TOOL_PROVIDER = "encryptedcontent"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2772,6 +2773,48 @@ def earlyhints_tool_descriptor(*, session_id: str | None = None) -> ToolDescript
             "additionalProperties": False,
         },
         provider=EARLYHINTS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def encryptedcontent_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8188 Encrypted Content-Encoding ENCRYPT/DECRYPT route.
+
+    Provider ``encryptedcontent`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="encryptedcontent",
+        description=(
+            "Drive a first-class RFC 8188 session: bind a loopback Encrypted "
+            "Content-Encoding origin, send an ENCRYPT with a non-empty encid, "
+            "lockstep a DECRYPT that carries the stored "
+            "ecedigest, independently poll the stored ecedigest on a "
+            "later client socket, and read the sealed ecedigest. "
+            "ENCID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "encrypt": {"type": "boolean"},
+                "decrypt": {"type": "boolean"},
+                "ecedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_encid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ENCRYPTEDCONTENT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -273,6 +273,10 @@ _SURFACE_TOKENS = frozenset(
         "encid",
         "aes128gcm",
         "ecedigest",
+        "altsvc",
+        "rfc7838",
+        "altsvcid",
+        "origindigest",
     }
 )
 _IMPACT_MARKERS = (
