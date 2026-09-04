@@ -901,6 +901,7 @@ EXPECTCT_TOOL_PROVIDER = "expectct"
 XFO_TOOL_PROVIDER = "xfo"
 WEBORIGIN_TOOL_PROVIDER = "weborigin"
 HTTPCOOKIE_TOOL_PROVIDER = "httpcookie"
+CONTENTDISPOSITION_TOOL_PROVIDER = "contentdisposition"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3116,6 +3117,48 @@ def httpcookie_tool_descriptor(*, session_id: str | None = None) -> ToolDescript
             "additionalProperties": False,
         },
         provider=HTTPCOOKIE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def contentdisposition_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6266 Content-Disposition DISPOSITION/ATTACHMENT route.
+
+    Provider ``contentdisposition`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="contentdisposition",
+        description=(
+            "Drive a first-class RFC 6266 session: bind a loopback Content-Disposition "
+            "origin, send a DISPOSITION with a non-empty dispositionid, "
+            "lockstep an ATTACHMENT that carries the stored "
+            "dispositiondigest, independently poll the stored dispositiondigest on a "
+            "later client socket, and read the sealed dispositiondigest. "
+            "DISPOSITIONID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "disposition": {"type": "boolean"},
+                "attachment": {"type": "boolean"},
+                "dispositiondigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dispositionid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=CONTENTDISPOSITION_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

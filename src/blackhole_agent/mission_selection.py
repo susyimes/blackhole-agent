@@ -305,6 +305,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6266",
         "dispositionid",
         "dispositiondigest",
+        "weblinking",
+        "rfc5988",
+        "relationid",
+        "relationdigest",
     }
 )
 _IMPACT_MARKERS = (
