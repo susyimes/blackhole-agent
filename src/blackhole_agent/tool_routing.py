@@ -896,6 +896,7 @@ EARLYHINTS_TOOL_PROVIDER = "earlyhints"
 ENCRYPTEDCONTENT_TOOL_PROVIDER = "encryptedcontent"
 ALTSVC_TOOL_PROVIDER = "altsvc"
 HSTS_TOOL_PROVIDER = "hsts"
+HPKP_TOOL_PROVIDER = "hpkp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2901,6 +2902,48 @@ def hsts_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=HSTS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def hpkp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7469 HTTP Public Key Pinning PIN/REPORT route.
+
+    Provider ``hpkp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="hpkp",
+        description=(
+            "Drive a first-class RFC 7469 session: bind a loopback HTTP "
+            "Public Key Pinning origin, send a PIN with a non-empty pinid, "
+            "lockstep a REPORT that carries the stored "
+            "pindigest, independently poll the stored pindigest on a "
+            "later client socket, and read the sealed pindigest. "
+            "PINID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "pin": {"type": "boolean"},
+                "report": {"type": "boolean"},
+                "pindigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pinid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HPKP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
