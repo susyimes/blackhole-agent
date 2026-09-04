@@ -517,6 +517,11 @@ from blackhole_agent.wellknown_actuation import (
     WELLKNOWN_ACTUATION_GOAL,
     WELLKNOWN_ACTUATION_ID,
 )
+from blackhole_agent.webdav_actuation import (
+    WEBDAV_ACTUATION_DONE_WHEN,
+    WEBDAV_ACTUATION_GOAL,
+    WEBDAV_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1118,6 +1123,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": WELLKNOWN_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_wellknown",
     },
+    {
+        "id": WEBDAV_ACTUATION_ID,
+        "goal": WEBDAV_ACTUATION_GOAL,
+        "done_when": WEBDAV_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_webdav",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1505,6 +1516,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_stalecontent"] = DIVERSITY_CATALOG[90]["id"] == STALECONTENT_ACTUATION_ID
     checks["catalog_names_httppatch"] = DIVERSITY_CATALOG[91]["id"] == HTTPPATCH_ACTUATION_ID
     checks["catalog_names_wellknown"] = DIVERSITY_CATALOG[92]["id"] == WELLKNOWN_ACTUATION_ID
+    checks["catalog_names_webdav"] = DIVERSITY_CATALOG[93]["id"] == WEBDAV_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

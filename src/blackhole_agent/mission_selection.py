@@ -325,6 +325,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5785",
         "suffixid",
         "suffixdigest",
+        "webdav",
+        "rfc4918",
+        "lockid",
+        "lockdigest",
     }
 )
 _IMPACT_MARKERS = (
