@@ -262,6 +262,12 @@ _SURFACE_TOKENS = frozenset(
         "acceptch",
         "critch",
         "hintsdigest",
+        "earlyhints",
+        "earlyhint",
+        "rfc8297",
+        "linkid",
+        "hint103",
+        "earlydigest",
     }
 )
 _IMPACT_MARKERS = (

@@ -891,6 +891,7 @@ HTTP2_TOOL_PROVIDER = "http2"
 HTTPCACHE_TOOL_PROVIDER = "httpcache"
 HTTPSMANTICS_TOOL_PROVIDER = "httpsemantics"
 STRUCTUREDFIELDS_TOOL_PROVIDER = "structuredfields"
+CLIENTHINTS_TOOL_PROVIDER = "clienthints"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2686,6 +2687,48 @@ def structuredfields_tool_descriptor(*, session_id: str | None = None) -> ToolDe
             "additionalProperties": False,
         },
         provider=STRUCTUREDFIELDS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def clienthints_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8942 HTTP Client Hints ACCEPTCH/CRITCH route.
+
+    Provider ``clienthints`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="clienthints",
+        description=(
+            "Drive a first-class RFC 8942 session: bind a loopback Client Hints "
+            "origin, send an ACCEPTCH with a non-empty chid, "
+            "lockstep a CRITCH that carries the stored "
+            "hintsdigest, independently poll the stored hintsdigest on a "
+            "later client socket, and read the sealed hintsdigest. "
+            "CHID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "acceptch": {"type": "boolean"},
+                "critch": {"type": "boolean"},
+                "hintsdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_chid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=CLIENTHINTS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
