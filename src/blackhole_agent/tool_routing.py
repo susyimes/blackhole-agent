@@ -894,6 +894,7 @@ STRUCTUREDFIELDS_TOOL_PROVIDER = "structuredfields"
 CLIENTHINTS_TOOL_PROVIDER = "clienthints"
 EARLYHINTS_TOOL_PROVIDER = "earlyhints"
 ENCRYPTEDCONTENT_TOOL_PROVIDER = "encryptedcontent"
+ALTSVC_TOOL_PROVIDER = "altsvc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2815,6 +2816,48 @@ def encryptedcontent_tool_descriptor(*, session_id: str | None = None) -> ToolDe
             "additionalProperties": False,
         },
         provider=ENCRYPTEDCONTENT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def altsvc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7838 HTTP Alternative Services ALTSVC/ORIGIN route.
+
+    Provider ``altsvc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="altsvc",
+        description=(
+            "Drive a first-class RFC 7838 session: bind a loopback HTTP "
+            "Alternative Services origin, send an ALTSVC with a non-empty altsvcid, "
+            "lockstep an ORIGIN that carries the stored "
+            "origindigest, independently poll the stored origindigest on a "
+            "later client socket, and read the sealed origindigest. "
+            "ALTSVCID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "altsvc": {"type": "boolean"},
+                "origin": {"type": "boolean"},
+                "origindigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_altsvcid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ALTSVC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

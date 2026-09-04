@@ -457,6 +457,11 @@ from blackhole_agent.altsvc_actuation import (
     ALTSVC_ACTUATION_GOAL,
     ALTSVC_ACTUATION_ID,
 )
+from blackhole_agent.hsts_actuation import (
+    HSTS_ACTUATION_DONE_WHEN,
+    HSTS_ACTUATION_GOAL,
+    HSTS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -986,6 +991,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": ALTSVC_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_altsvc",
     },
+    {
+        "id": HSTS_ACTUATION_ID,
+        "goal": HSTS_ACTUATION_GOAL,
+        "done_when": HSTS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_hsts",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1359,6 +1370,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
         DIVERSITY_CATALOG[79]["id"] == ENCRYPTEDCONTENT_ACTUATION_ID
     )
     checks["catalog_names_altsvc"] = DIVERSITY_CATALOG[80]["id"] == ALTSVC_ACTUATION_ID
+    checks["catalog_names_hsts"] = DIVERSITY_CATALOG[81]["id"] == HSTS_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
