@@ -297,6 +297,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6454",
         "tupleid",
         "tupledigest",
+        "httpcookie",
+        "rfc6265",
+        "cookieid",
+        "cookiedigest",
     }
 )
 _IMPACT_MARKERS = (

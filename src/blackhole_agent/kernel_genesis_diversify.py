@@ -482,6 +482,11 @@ from blackhole_agent.weborigin_actuation import (
     WEBORIGIN_ACTUATION_GOAL,
     WEBORIGIN_ACTUATION_ID,
 )
+from blackhole_agent.httpcookie_actuation import (
+    HTTPCOOKIE_ACTUATION_DONE_WHEN,
+    HTTPCOOKIE_ACTUATION_GOAL,
+    HTTPCOOKIE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1041,6 +1046,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": WEBORIGIN_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_weborigin",
     },
+    {
+        "id": HTTPCOOKIE_ACTUATION_ID,
+        "goal": HTTPCOOKIE_ACTUATION_GOAL,
+        "done_when": HTTPCOOKIE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_httpcookie",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1419,6 +1430,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_expectct"] = DIVERSITY_CATALOG[83]["id"] == EXPECTCT_ACTUATION_ID
     checks["catalog_names_xfo"] = DIVERSITY_CATALOG[84]["id"] == XFO_ACTUATION_ID
     checks["catalog_names_weborigin"] = DIVERSITY_CATALOG[85]["id"] == WEBORIGIN_ACTUATION_ID
+    checks["catalog_names_httpcookie"] = DIVERSITY_CATALOG[86]["id"] == HTTPCOOKIE_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
