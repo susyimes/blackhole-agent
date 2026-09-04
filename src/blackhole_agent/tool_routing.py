@@ -904,6 +904,7 @@ HTTPCOOKIE_TOOL_PROVIDER = "httpcookie"
 CONTENTDISPOSITION_TOOL_PROVIDER = "contentdisposition"
 WEBLINKING_TOOL_PROVIDER = "weblinking"
 EXTVALUE_TOOL_PROVIDER = "extvalue"
+STALECONTENT_TOOL_PROVIDER = "stalecontent"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3245,6 +3246,48 @@ def extvalue_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=EXTVALUE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def stalecontent_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5861 HTTP Cache-Control Extensions for Stale Content STALE/IFERROR route.
+
+    Provider ``stalecontent`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="stalecontent",
+        description=(
+            "Drive a first-class RFC 5861 session: bind a loopback HTTP Cache-Control "
+            "Extensions for Stale Content origin, send a STALE with a non-empty staleid, "
+            "lockstep an IFERROR that carries the stored "
+            "staledigest, independently poll the stored staledigest on a "
+            "later client socket, and read the sealed staledigest. "
+            "STALEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "stale": {"type": "boolean"},
+                "iferror": {"type": "boolean"},
+                "staledigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_staleid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=STALECONTENT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
