@@ -898,6 +898,7 @@ ALTSVC_TOOL_PROVIDER = "altsvc"
 HSTS_TOOL_PROVIDER = "hsts"
 HPKP_TOOL_PROVIDER = "hpkp"
 EXPECTCT_TOOL_PROVIDER = "expectct"
+XFO_TOOL_PROVIDER = "xfo"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -2987,6 +2988,48 @@ def expectct_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=EXPECTCT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def xfo_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7034 X-Frame-Options DENY/SAMEORIGIN route.
+
+    Provider ``xfo`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="xfo",
+        description=(
+            "Drive a first-class RFC 7034 session: bind a loopback X-Frame-Options "
+            "origin, send a DENY with a non-empty frameid, "
+            "lockstep a SAMEORIGIN that carries the stored "
+            "framedigest, independently poll the stored framedigest on a "
+            "later client socket, and read the sealed framedigest. "
+            "FRAMEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "deny": {"type": "boolean"},
+                "sameorigin": {"type": "boolean"},
+                "framedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_frameid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=XFO_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
