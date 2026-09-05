@@ -382,6 +382,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc1521",
         "mimeid",
         "mimedigest",
+        "gopher",
+        "rfc1436",
+        "gopherid",
+        "gopherdigest",
     }
 )
 _IMPACT_MARKERS = (

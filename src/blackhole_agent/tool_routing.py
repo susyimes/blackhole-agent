@@ -920,6 +920,7 @@ DIGESTAUTH_TOOL_PROVIDER = "digestauth"
 HTTP10_TOOL_PROVIDER = "http10"
 URL_TOOL_PROVIDER = "url"
 URI_TOOL_PROVIDER = "uri"
+MIME_TOOL_PROVIDER = "mime"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3933,6 +3934,48 @@ def uri_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=URI_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mime_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1521 MIME BODY/TRANSFER route.
+
+    Provider ``mime`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mime",
+        description=(
+            "Drive a first-class RFC 1521 session: bind a loopback MIME "
+            "origin, send a BODY with a non-empty "
+            "mimeid, lockstep a TRANSFER that carries the stored "
+            "mimedigest, independently poll the stored mimedigest "
+            "on a later client socket, and read the sealed mimedigest. "
+            "MIMEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "body": {"type": "boolean"},
+                "transfer": {"type": "boolean"},
+                "mimedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_mimeid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MIME_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
