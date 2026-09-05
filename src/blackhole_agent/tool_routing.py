@@ -922,6 +922,7 @@ URL_TOOL_PROVIDER = "url"
 URI_TOOL_PROVIDER = "uri"
 MIME_TOOL_PROVIDER = "mime"
 GOPHER_TOOL_PROVIDER = "gopher"
+FINGER_TOOL_PROVIDER = "finger"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4019,6 +4020,48 @@ def gopher_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=GOPHER_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def finger_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1288 Finger QUERY/USER route.
+
+    Provider ``finger`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="finger",
+        description=(
+            "Drive a first-class RFC 1288 session: bind a loopback Finger "
+            "origin, send a QUERY with a non-empty "
+            "fingerid, lockstep a USER that carries the stored "
+            "fingerdigest, independently poll the stored fingerdigest "
+            "on a later client socket, and read the sealed fingerdigest. "
+            "FINGERID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "query": {"type": "boolean"},
+                "user": {"type": "boolean"},
+                "fingerdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_fingerid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=FINGER_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
