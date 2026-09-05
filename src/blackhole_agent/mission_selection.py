@@ -378,6 +378,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc1630",
         "uriid",
         "uridigest",
+        "mime",
+        "rfc1521",
+        "mimeid",
+        "mimedigest",
     }
 )
 _IMPACT_MARKERS = (

@@ -919,6 +919,7 @@ HTTPSTATE_TOOL_PROVIDER = "httpstate"
 DIGESTAUTH_TOOL_PROVIDER = "digestauth"
 HTTP10_TOOL_PROVIDER = "http10"
 URL_TOOL_PROVIDER = "url"
+URI_TOOL_PROVIDER = "uri"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3890,6 +3891,48 @@ def url_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=URL_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def uri_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1630 URI IDENTIFY/DEREF route.
+
+    Provider ``uri`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="uri",
+        description=(
+            "Drive a first-class RFC 1630 session: bind a loopback URI "
+            "origin, send an IDENTIFY with a non-empty "
+            "uriid, lockstep a DEREF that carries the stored "
+            "uridigest, independently poll the stored uridigest "
+            "on a later client socket, and read the sealed uridigest. "
+            "URIID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "identify": {"type": "boolean"},
+                "deref": {"type": "boolean"},
+                "uridigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_uriid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=URI_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
