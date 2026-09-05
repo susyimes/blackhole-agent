@@ -592,6 +592,11 @@ from blackhole_agent.gopher_actuation import (
     GOPHER_ACTUATION_GOAL,
     GOPHER_ACTUATION_ID,
 )
+from blackhole_agent.finger_actuation import (
+    FINGER_ACTUATION_DONE_WHEN,
+    FINGER_ACTUATION_GOAL,
+    FINGER_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1283,6 +1288,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": GOPHER_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_gopher",
     },
+    {
+        "id": FINGER_ACTUATION_ID,
+        "goal": FINGER_ACTUATION_GOAL,
+        "done_when": FINGER_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_finger",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1685,6 +1696,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_uri"] = DIVERSITY_CATALOG[105]["id"] == URI_ACTUATION_ID
     checks["catalog_names_mime"] = DIVERSITY_CATALOG[106]["id"] == MIME_ACTUATION_ID
     checks["catalog_names_gopher"] = DIVERSITY_CATALOG[107]["id"] == GOPHER_ACTUATION_ID
+    checks["catalog_names_finger"] = DIVERSITY_CATALOG[108]["id"] == FINGER_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
