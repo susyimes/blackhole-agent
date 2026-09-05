@@ -909,6 +909,7 @@ HTTPPATCH_TOOL_PROVIDER = "httppatch"
 WELLKNOWN_TOOL_PROVIDER = "wellknown"
 WEBDAV_TOOL_PROVIDER = "webdav"
 SPNEGO_TOOL_PROVIDER = "spnego"
+HTTPTLS_TOOL_PROVIDER = "httptls"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3460,6 +3461,48 @@ def spnego_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SPNEGO_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def httptls_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2817 HTTP Upgrade to TLS UPGRADE/TLS route.
+
+    Provider ``httptls`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="httptls",
+        description=(
+            "Drive a first-class RFC 2817 session: bind a loopback Upgrading to "
+            "TLS Within HTTP/1.1 origin, send a UPGRADE with a non-empty "
+            "upgradeid, lockstep a TLS that carries the stored "
+            "upgradetlsdigest, independently poll the stored upgradetlsdigest "
+            "on a later client socket, and read the sealed upgradetlsdigest. "
+            "UPGRADEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "upgrade": {"type": "boolean"},
+                "tls": {"type": "boolean"},
+                "upgradetlsdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_upgradeid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HTTPTLS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

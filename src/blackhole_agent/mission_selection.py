@@ -334,9 +334,14 @@ _SURFACE_TOKENS = frozenset(
         "negotiateid",
         "negotiatedigest",
         "httptls",
+        "httptl",
         "rfc2817",
         "upgradeid",
         "upgradetlsdigest",
+        "httpauth",
+        "rfc2617",
+        "nonceid",
+        "authdigest",
     }
 )
 _IMPACT_MARKERS = (
