@@ -562,6 +562,11 @@ from blackhole_agent.httpstate_actuation import (
     HTTPSTATE_ACTUATION_GOAL,
     HTTPSTATE_ACTUATION_ID,
 )
+from blackhole_agent.digestauth_actuation import (
+    DIGESTAUTH_ACTUATION_DONE_WHEN,
+    DIGESTAUTH_ACTUATION_GOAL,
+    DIGESTAUTH_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1217,6 +1222,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": HTTPSTATE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_httpstate",
     },
+    {
+        "id": DIGESTAUTH_ACTUATION_ID,
+        "goal": DIGESTAUTH_ACTUATION_GOAL,
+        "done_when": DIGESTAUTH_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_digestauth",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1613,6 +1624,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_icp"] = DIVERSITY_CATALOG[99]["id"] == ICP_ACTUATION_ID
     checks["catalog_names_httpver"] = DIVERSITY_CATALOG[100]["id"] == HTTPVER_ACTUATION_ID
     checks["catalog_names_httpstate"] = DIVERSITY_CATALOG[101]["id"] == HTTPSTATE_ACTUATION_ID
+    checks["catalog_names_digestauth"] = DIVERSITY_CATALOG[102]["id"] == DIGESTAUTH_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

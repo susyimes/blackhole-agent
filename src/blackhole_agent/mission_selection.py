@@ -362,6 +362,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc2109",
         "stateid",
         "statedigest",
+        "digestauth",
+        "rfc2069",
+        "challengeid",
+        "responsedigest",
     }
 )
 _IMPACT_MARKERS = (
