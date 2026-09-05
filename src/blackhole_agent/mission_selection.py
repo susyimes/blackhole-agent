@@ -346,6 +346,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc2295",
         "variantid",
         "choicedigest",
+        "hitmeter",
+        "rfc2227",
+        "meterid",
+        "usagedigest",
     }
 )
 _IMPACT_MARKERS = (

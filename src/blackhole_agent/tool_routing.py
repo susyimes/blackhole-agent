@@ -911,6 +911,7 @@ WEBDAV_TOOL_PROVIDER = "webdav"
 SPNEGO_TOOL_PROVIDER = "spnego"
 HTTPTLS_TOOL_PROVIDER = "httptls"
 HTTPAUTH_TOOL_PROVIDER = "httpauth"
+TCN_TOOL_PROVIDER = "tcn"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3546,6 +3547,48 @@ def httpauth_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=HTTPAUTH_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def tcn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2295 Transparent Content Negotiation ALTERNATES/CHOICE route.
+
+    Provider ``tcn`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="tcn",
+        description=(
+            "Drive a first-class RFC 2295 session: bind a loopback Transparent "
+            "Content Negotiation origin, send an ALTERNATES with a non-empty "
+            "variantid, lockstep a CHOICE that carries the stored "
+            "choicedigest, independently poll the stored choicedigest "
+            "on a later client socket, and read the sealed choicedigest. "
+            "VARIANTID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "alternates": {"type": "boolean"},
+                "choice": {"type": "boolean"},
+                "choicedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_variantid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TCN_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
