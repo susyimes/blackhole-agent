@@ -350,6 +350,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc2227",
         "meterid",
         "usagedigest",
+        "icp",
+        "rfc2186",
+        "queryid",
+        "icpdigest",
     }
 )
 _IMPACT_MARKERS = (

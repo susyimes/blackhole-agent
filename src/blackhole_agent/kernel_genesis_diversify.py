@@ -547,6 +547,11 @@ from blackhole_agent.hitmeter_actuation import (
     HITMETER_ACTUATION_GOAL,
     HITMETER_ACTUATION_ID,
 )
+from blackhole_agent.icp_actuation import (
+    ICP_ACTUATION_DONE_WHEN,
+    ICP_ACTUATION_GOAL,
+    ICP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1184,6 +1189,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": HITMETER_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_hitmeter",
     },
+    {
+        "id": ICP_ACTUATION_ID,
+        "goal": ICP_ACTUATION_GOAL,
+        "done_when": ICP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_icp",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1577,6 +1588,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_httpauth"] = DIVERSITY_CATALOG[96]["id"] == HTTPAUTH_ACTUATION_ID
     checks["catalog_names_tcn"] = DIVERSITY_CATALOG[97]["id"] == TCN_ACTUATION_ID
     checks["catalog_names_hitmeter"] = DIVERSITY_CATALOG[98]["id"] == HITMETER_ACTUATION_ID
+    checks["catalog_names_icp"] = DIVERSITY_CATALOG[99]["id"] == ICP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

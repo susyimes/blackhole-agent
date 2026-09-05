@@ -912,6 +912,7 @@ SPNEGO_TOOL_PROVIDER = "spnego"
 HTTPTLS_TOOL_PROVIDER = "httptls"
 HTTPAUTH_TOOL_PROVIDER = "httpauth"
 TCN_TOOL_PROVIDER = "tcn"
+HITMETER_TOOL_PROVIDER = "hitmeter"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -3589,6 +3590,48 @@ def tcn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=TCN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def hitmeter_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2227 Simple Hit-Metering METER/USAGE route.
+
+    Provider ``hitmeter`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="hitmeter",
+        description=(
+            "Drive a first-class RFC 2227 session: bind a loopback Simple "
+            "Hit-Metering origin, send a METER with a non-empty "
+            "meterid, lockstep a USAGE that carries the stored "
+            "usagedigest, independently poll the stored usagedigest "
+            "on a later client socket, and read the sealed usagedigest. "
+            "METERID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "meter": {"type": "boolean"},
+                "usage": {"type": "boolean"},
+                "usagedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_meterid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=HITMETER_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
