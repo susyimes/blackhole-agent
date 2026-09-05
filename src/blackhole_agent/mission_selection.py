@@ -370,6 +370,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc1945",
         "http10id",
         "http10digest",
+        "url",
+        "rfc1738",
+        "urlid",
+        "urldigest",
     }
 )
 _IMPACT_MARKERS = (
