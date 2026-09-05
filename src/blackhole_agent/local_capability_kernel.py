@@ -151,6 +151,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.digestauth-actuation",
         "capability.http10-actuation",
         "capability.url-actuation",
+        "capability.uri-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

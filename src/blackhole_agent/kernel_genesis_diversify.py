@@ -577,6 +577,11 @@ from blackhole_agent.url_actuation import (
     URL_ACTUATION_GOAL,
     URL_ACTUATION_ID,
 )
+from blackhole_agent.uri_actuation import (
+    URI_ACTUATION_DONE_WHEN,
+    URI_ACTUATION_GOAL,
+    URI_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1250,6 +1255,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": URL_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_url",
     },
+    {
+        "id": URI_ACTUATION_ID,
+        "goal": URI_ACTUATION_GOAL,
+        "done_when": URI_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_uri",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1649,6 +1660,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_digestauth"] = DIVERSITY_CATALOG[102]["id"] == DIGESTAUTH_ACTUATION_ID
     checks["catalog_names_http10"] = DIVERSITY_CATALOG[103]["id"] == HTTP10_ACTUATION_ID
     checks["catalog_names_url"] = DIVERSITY_CATALOG[104]["id"] == URL_ACTUATION_ID
+    checks["catalog_names_uri"] = DIVERSITY_CATALOG[105]["id"] == URI_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:
