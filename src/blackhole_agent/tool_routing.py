@@ -931,6 +931,7 @@ UDP_TOOL_PROVIDER = "udp"
 ICMP_TOOL_PROVIDER = "icmp"
 IP_TOOL_PROVIDER = "ip"
 ARP_TOOL_PROVIDER = "arp"
+RARP_TOOL_PROVIDER = "rarp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4406,6 +4407,48 @@ def arp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=ARP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def rarp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 903 RARP REVERSE/REPLY route.
+
+    Provider ``rarp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="rarp",
+        description=(
+            "Drive a first-class RFC 903 session: bind a loopback Reverse "
+            "Address Resolution Protocol origin, send a REVERSE with a non-empty "
+            "rarpid, lockstep a REPLY that carries the stored "
+            "rarpdigest, independently poll the stored rarpdigest "
+            "on a later client socket, and read the sealed rarpdigest. "
+            "RARPID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "reverse": {"type": "boolean"},
+                "reply": {"type": "boolean"},
+                "rarpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_rarpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=RARP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
