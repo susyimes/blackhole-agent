@@ -647,6 +647,11 @@ from blackhole_agent.igmp_actuation import (
     IGMP_ACTUATION_GOAL,
     IGMP_ACTUATION_ID,
 )
+from blackhole_agent.mld_actuation import (
+    MLD_ACTUATION_DONE_WHEN,
+    MLD_ACTUATION_GOAL,
+    MLD_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1403,6 +1408,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": IGMP_ACTUATION_GOAL,
         "done_when": IGMP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_igmp",
+    },
+    {
+        "id": MLD_ACTUATION_ID,
+        "goal": MLD_ACTUATION_GOAL,
+        "done_when": MLD_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_mld",
     },
 )
 

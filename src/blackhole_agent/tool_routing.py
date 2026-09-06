@@ -932,6 +932,7 @@ ICMP_TOOL_PROVIDER = "icmp"
 IP_TOOL_PROVIDER = "ip"
 ARP_TOOL_PROVIDER = "arp"
 RARP_TOOL_PROVIDER = "rarp"
+IGMP_TOOL_PROVIDER = "igmp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4449,6 +4450,48 @@ def rarp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=RARP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def igmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1112 IGMP QUERY/REPORT route.
+
+    Provider ``igmp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="igmp",
+        description=(
+            "Drive a first-class RFC 1112 session: bind a loopback Internet "
+            "Group Management Protocol origin, send a QUERY with a non-empty "
+            "igmpid, lockstep a REPORT that carries the stored "
+            "igmpdigest, independently poll the stored igmpdigest "
+            "on a later client socket, and read the sealed igmpdigest. "
+            "IGMPID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "query": {"type": "boolean"},
+                "report": {"type": "boolean"},
+                "igmpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_igmpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IGMP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
