@@ -935,6 +935,7 @@ RARP_TOOL_PROVIDER = "rarp"
 IGMP_TOOL_PROVIDER = "igmp"
 MLD_TOOL_PROVIDER = "mld"
 NDP_TOOL_PROVIDER = "ndp"
+SLAAC_TOOL_PROVIDER = "slaac"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4578,6 +4579,48 @@ def ndp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=NDP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def slaac_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4862 SLAAC ROUTER/PREFIX route.
+
+    Provider ``slaac`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="slaac",
+        description=(
+            "Drive a first-class RFC 4862 session: bind a loopback IPv6 "
+            "Stateless Address Autoconfiguration origin, send a ROUTER with a "
+            "non-empty slaacid, lockstep a PREFIX that carries the stored "
+            "slaacdigest, independently poll the stored slaacdigest "
+            "on a later client socket, and read the sealed slaacdigest. "
+            "SLAACID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "router": {"type": "boolean"},
+                "prefix": {"type": "boolean"},
+                "slaacdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_slaacid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SLAAC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -442,6 +442,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4862",
         "slaacid",
         "slaacdigest",
+        "tempaddr",
+        "rfc4941",
+        "tempaddrid",
+        "tempaddrdigest",
     }
 )
 _IMPACT_MARKERS = (

@@ -662,6 +662,11 @@ from blackhole_agent.slaac_actuation import (
     SLAAC_ACTUATION_GOAL,
     SLAAC_ACTUATION_ID,
 )
+from blackhole_agent.tempaddr_actuation import (
+    TEMPADDR_ACTUATION_DONE_WHEN,
+    TEMPADDR_ACTUATION_GOAL,
+    TEMPADDR_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1436,6 +1441,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": SLAAC_ACTUATION_GOAL,
         "done_when": SLAAC_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_slaac",
+    },
+    {
+        "id": TEMPADDR_ACTUATION_ID,
+        "goal": TEMPADDR_ACTUATION_GOAL,
+        "done_when": TEMPADDR_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_tempaddr",
     },
 )
 
