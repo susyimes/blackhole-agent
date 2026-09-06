@@ -414,6 +414,9 @@ _SURFACE_TOKENS = frozenset(
         "rfc792",
         "icmpid",
         "icmpdigest",
+        "rfc791",
+        "ipid",
+        "ipdigest",
     }
 )
 _IMPACT_MARKERS = (

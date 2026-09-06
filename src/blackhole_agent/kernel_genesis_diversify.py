@@ -627,6 +627,11 @@ from blackhole_agent.icmp_actuation import (
     ICMP_ACTUATION_GOAL,
     ICMP_ACTUATION_ID,
 )
+from blackhole_agent.ip_actuation import (
+    IP_ACTUATION_DONE_WHEN,
+    IP_ACTUATION_GOAL,
+    IP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1360,6 +1365,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": ICMP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_icmp",
     },
+    {
+        "id": IP_ACTUATION_ID,
+        "goal": IP_ACTUATION_GOAL,
+        "done_when": IP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_ip",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1769,6 +1780,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_tcp"] = DIVERSITY_CATALOG[112]["id"] == TCP_ACTUATION_ID
     checks["catalog_names_udp"] = DIVERSITY_CATALOG[113]["id"] == UDP_ACTUATION_ID
     checks["catalog_names_icmp"] = DIVERSITY_CATALOG[114]["id"] == ICMP_ACTUATION_ID
+    checks["catalog_names_ip"] = DIVERSITY_CATALOG[115]["id"] == IP_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

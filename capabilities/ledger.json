@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.240810Z"
+      "updated_at": "2026-09-06T13:29:30.619347Z"
     },
     "capability.absorbed-apache-airflow-providers-amazon": {
       "behavior_paths": [
@@ -2405,7 +2405,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.264676Z"
+      "updated_at": "2026-09-06T13:29:30.649515Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -2437,7 +2437,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-09-06T05:32:33.218946Z"
+      "updated_at": "2026-09-06T13:29:30.593080Z"
     },
     "capability.adversarial-contract": {
       "behavior_paths": [
@@ -2470,7 +2470,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.244780Z"
+      "updated_at": "2026-09-06T13:29:30.624487Z"
     },
     "capability.altsvc-actuation": {
       "behavior_paths": [
@@ -3073,7 +3073,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.270600Z"
+      "updated_at": "2026-09-06T13:29:30.656534Z"
     },
     "capability.application-python-cent-nested-instance-growth-plane": {
       "behavior_paths": [
@@ -22131,7 +22131,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.246753Z"
+      "updated_at": "2026-09-06T13:29:30.628092Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -22166,7 +22166,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-09-06T05:32:33.226936Z"
+      "updated_at": "2026-09-06T13:29:30.602703Z"
     },
     "capability.bhttp-actuation": {
       "behavior_paths": [
@@ -22445,7 +22445,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.254762Z"
+      "updated_at": "2026-09-06T13:29:30.637639Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -22480,7 +22480,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-09-06T05:32:33.238812Z"
+      "updated_at": "2026-09-06T13:29:30.617032Z"
     },
     "capability.datachannel-actuation": {
       "behavior_paths": [
@@ -22708,7 +22708,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-09-06T05:32:33.224933Z"
+      "updated_at": "2026-09-06T13:29:30.600271Z"
     },
     "capability.dns-actuation": {
       "behavior_paths": [
@@ -22921,7 +22921,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.262696Z"
+      "updated_at": "2026-09-06T13:29:30.647195Z"
     },
     "capability.expectct-actuation": {
       "behavior_paths": [
@@ -23050,7 +23050,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.256733Z"
+      "updated_at": "2026-09-06T13:29:30.639935Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -23099,7 +23099,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.260714Z"
+      "updated_at": "2026-09-06T13:29:30.644835Z"
     },
     "capability.finger-actuation": {
       "behavior_paths": [
@@ -23287,7 +23287,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.274551Z"
+      "updated_at": "2026-09-06T13:29:30.663558Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -23317,7 +23317,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-09-06T05:32:33.222934Z"
+      "updated_at": "2026-09-06T13:29:30.597954Z"
     },
     "capability.ftp-actuation": {
       "behavior_paths": [
@@ -23454,7 +23454,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-09-06T05:32:33.228909Z"
+      "updated_at": "2026-09-06T13:29:30.605032Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -23491,7 +23491,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.284493Z"
+      "updated_at": "2026-09-06T13:29:30.675601Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -23525,7 +23525,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.278556Z"
+      "updated_at": "2026-09-06T13:29:30.668198Z"
     },
     "capability.godot-actuation": {
       "behavior_paths": [
@@ -23634,7 +23634,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-09-06T05:32:33.216993Z"
+      "updated_at": "2026-09-06T13:29:30.590626Z"
     },
     "capability.grpc-actuation": {
       "behavior_paths": [
@@ -24370,6 +24370,50 @@
         "diversity"
       ],
       "updated_at": "2026-09-01T23:21:39.953900Z"
+    },
+    "capability.icmp-actuation": {
+      "behavior_paths": [
+        "src/blackhole_agent/icmp_actuation.py",
+        "src/blackhole_agent/tool_routing.py",
+        "src/blackhole_agent/kernel_leftover.py",
+        "src/blackhole_agent/kernel_genesis_diversify.py",
+        "src/blackhole_agent/local_capability_kernel.py",
+        "src/blackhole_agent/udp_actuation.py",
+        "src/blackhole_agent/tcp_actuation.py",
+        "src/blackhole_agent/telnet_actuation.py",
+        "src/blackhole_agent/ip_actuation.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A required icmp tool is executable after explicit provider opt-in: Unbound binds a real loopback RFC 792 daemon, speaks a ECHO then REPLY over Internet Control Message Protocol with a non-empty icmpid and icmpdigest, independently polls the stored icmpdigest on a later client socket, and binds this family as the next diversity-catalog successor once RFC 768 User Datagram Protocol lockstep is proved. Missing icmpids, skip-ECHO, skip-REPLY, skip-icmpdigest, skip-REPLAY, and a ECHO aimed without a icmpid stay fail-closed. Later genesis can take RFC 791 Internet Protocol DATAGRAM/FRAGMENT as the next unsaturated diversity-catalog family.",
+      "created_at": "2026-09-06T13:28:08.602005Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.udp-actuation"
+      ],
+      "description": "Missions that require a icmp tool can opt the icmp provider in, bind a loopback RFC 792 Internet Control Message Protocol endpoint, complete a ECHO with a non-empty icmpid, lockstep a REPLY that carries the stored icmpdigest, independently poll the stored icmpdigest on a later socket, and seal a digest-chained icmpdigest. Default routing stays fail-closed; a missing icmpid keeps the hole falsifiable, and skip-ECHO/REPLY/ICMPDIGEST/REPLAY stay empty.",
+      "entry": "blackhole_agent.icmp_actuation:builtin_icmp_actuation_proof",
+      "id": "capability.icmp-actuation",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-06T13:28:08.601988Z",
+      "name": "First-class RFC 792 Internet Control Message Protocol ECHO/REPLY actuation",
+      "proof_command": "uv run python -c \"from blackhole_agent.icmp_actuation import builtin_icmp_actuation_proof; r=builtin_icmp_actuation_proof(); assert r['ok'] and r.get('action')=='icmp_actuation' and r.get('passed_count',0) >= 12 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260906T054811Z-3e4c39b7",
+      "tags": [
+        "icmp",
+        "rfc792",
+        "http",
+        "icmpid",
+        "icmpdigest",
+        "echo",
+        "reply",
+        "actuation",
+        "diversity"
+      ],
+      "updated_at": "2026-09-06T13:29:23.477630Z"
     },
     "capability.icp-actuation": {
       "behavior_paths": [
@@ -25602,7 +25646,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.276537Z"
+      "updated_at": "2026-09-06T13:29:30.665897Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -25630,7 +25674,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-09-06T05:32:33.220944Z"
+      "updated_at": "2026-09-06T13:29:30.595596Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -25656,7 +25700,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-09-06T05:32:33.211074Z"
+      "updated_at": "2026-09-06T13:29:30.583596Z"
     },
     "capability.leftover-catalog-handoff": {
       "behavior_paths": [
@@ -25774,7 +25818,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.250814Z"
+      "updated_at": "2026-09-06T13:29:30.632989Z"
     },
     "capability.local-capability-kernel": {
       "behavior_paths": [
@@ -27062,7 +27106,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-09-06T05:32:33.234903Z"
+      "updated_at": "2026-09-06T13:29:30.612321Z"
     },
     "capability.mqtt-actuation": {
       "behavior_paths": [
@@ -27288,7 +27332,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.236855Z"
+      "updated_at": "2026-09-06T13:29:30.614698Z"
     },
     "capability.portability-proof": {
       "behavior_paths": [
@@ -27324,7 +27368,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.282524Z"
+      "updated_at": "2026-09-06T13:29:30.673101Z"
     },
     "capability.postgres-actuation": {
       "behavior_paths": [
@@ -27392,7 +27436,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-09-06T05:32:33.230904Z"
+      "updated_at": "2026-09-06T13:29:30.607325Z"
     },
     "capability.publication-resilience": {
       "behavior_paths": [
@@ -27514,7 +27558,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.258713Z"
+      "updated_at": "2026-09-06T13:29:30.642384Z"
     },
     "capability.radius-actuation": {
       "behavior_paths": [
@@ -27594,7 +27638,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.252790Z"
+      "updated_at": "2026-09-06T13:29:30.635331Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -27630,7 +27674,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.272553Z"
+      "updated_at": "2026-09-06T13:29:30.660560Z"
     },
     "capability.redis-actuation": {
       "behavior_paths": [
@@ -27702,7 +27746,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.266676Z"
+      "updated_at": "2026-09-06T13:29:30.651842Z"
     },
     "capability.s3-actuation": {
       "behavior_paths": [
@@ -27768,7 +27812,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-09-06T05:32:33.215015Z"
+      "updated_at": "2026-09-06T13:29:30.588322Z"
     },
     "capability.sctp-actuation": {
       "behavior_paths": [
@@ -27841,7 +27885,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-09-06T05:32:33.232929Z"
+      "updated_at": "2026-09-06T13:29:30.609809Z"
     },
     "capability.sip-actuation": {
       "behavior_paths": [
@@ -27991,7 +28035,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.248819Z"
+      "updated_at": "2026-09-06T13:29:30.630608Z"
     },
     "capability.spnego-actuation": {
       "behavior_paths": [
@@ -28300,7 +28344,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.280537Z"
+      "updated_at": "2026-09-06T13:29:30.670533Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -28627,7 +28671,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-09-06T05:32:33.242805Z"
+      "updated_at": "2026-09-06T13:29:30.621766Z"
     },
     "capability.turn-actuation": {
       "behavior_paths": [
@@ -28741,7 +28785,7 @@
         "discovery",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.292672Z"
+      "updated_at": "2026-09-06T13:29:30.684995Z"
     },
     "capability.upstream-campaign": {
       "behavior_paths": [
@@ -28783,7 +28827,7 @@
         "impact",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.300622Z"
+      "updated_at": "2026-09-06T13:29:30.694589Z"
     },
     "capability.upstream-contribution": {
       "behavior_paths": [
@@ -28814,7 +28858,7 @@
         "contribution",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.294655Z"
+      "updated_at": "2026-09-06T13:29:30.687350Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -28847,7 +28891,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.288459Z"
+      "updated_at": "2026-09-06T13:29:30.680297Z"
     },
     "capability.upstream-epoch": {
       "behavior_paths": [
@@ -28887,7 +28931,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.304571Z"
+      "updated_at": "2026-09-06T13:29:30.699228Z"
     },
     "capability.upstream-fleet": {
       "behavior_paths": [
@@ -28924,7 +28968,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.302590Z"
+      "updated_at": "2026-09-06T13:29:30.696913Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -28957,7 +29001,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.290561Z"
+      "updated_at": "2026-09-06T13:29:30.682665Z"
     },
     "capability.upstream-impact": {
       "behavior_paths": [
@@ -28990,7 +29034,7 @@
         "portfolio",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.298645Z"
+      "updated_at": "2026-09-06T13:29:30.692211Z"
     },
     "capability.upstream-program": {
       "behavior_paths": [
@@ -29035,7 +29079,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.308578Z"
+      "updated_at": "2026-09-06T13:29:30.703864Z"
     },
     "capability.upstream-publication": {
       "behavior_paths": [
@@ -29067,7 +29111,7 @@
         "actuation",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.296662Z"
+      "updated_at": "2026-09-06T13:29:30.689806Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -29102,7 +29146,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.286495Z"
+      "updated_at": "2026-09-06T13:29:30.677987Z"
     },
     "capability.upstream-succession": {
       "behavior_paths": [
@@ -29144,7 +29188,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.306550Z"
+      "updated_at": "2026-09-06T13:29:30.701549Z"
     },
     "capability.uri-actuation": {
       "behavior_paths": [
@@ -29261,7 +29305,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-09-06T05:32:33.268647Z"
+      "updated_at": "2026-09-06T13:29:30.654182Z"
     },
     "capability.validation-replay-resilience": {
       "behavior_paths": [
@@ -29993,7 +30037,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-09-06T05:32:33.213054Z"
+      "updated_at": "2026-09-06T13:29:30.586000Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -30017,7 +30061,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-09-06T05:32:33.205160Z"
+      "updated_at": "2026-09-06T13:29:30.577233Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -30042,9 +30086,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-09-06T05:32:33.209055Z"
+      "updated_at": "2026-09-06T13:29:30.581188Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-06T05:32:33.310771Z"
+  "updated_at": "2026-09-06T13:29:30.706985Z"
 }

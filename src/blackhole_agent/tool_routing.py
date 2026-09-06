@@ -928,6 +928,7 @@ NNTP_TOOL_PROVIDER = "nntp"
 TELNET_TOOL_PROVIDER = "telnet"
 TCP_TOOL_PROVIDER = "tcp"
 UDP_TOOL_PROVIDER = "udp"
+ICMP_TOOL_PROVIDER = "icmp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4277,6 +4278,48 @@ def udp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=UDP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def icmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 792 ICMP ECHO/REPLY route.
+
+    Provider ``icmp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="icmp",
+        description=(
+            "Drive a first-class RFC 792 session: bind a loopback Internet "
+            "Control Message Protocol origin, send an ECHO with a non-empty "
+            "icmpid, lockstep a REPLY that carries the stored "
+            "icmpdigest, independently poll the stored icmpdigest "
+            "on a later client socket, and read the sealed icmpdigest. "
+            "ICMPID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "echo": {"type": "boolean"},
+                "reply": {"type": "boolean"},
+                "icmpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_icmpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ICMP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
