@@ -1446,6 +1446,10 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         IPV6ADDR_ACTUATION_GOAL,
         IPV6ADDR_ACTUATION_ID,
     )
+    from blackhole_agent.ipv6scope_actuation import (
+        IPV6SCOPE_ACTUATION_GOAL,
+        IPV6SCOPE_ACTUATION_ID,
+    )
     from blackhole_agent.opaqueiid_actuation import (
         OPAQUEIID_ACTUATION_GOAL,
         OPAQUEIID_ACTUATION_ID,
@@ -1689,6 +1693,7 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         (HTTPAUTH_ACTUATION_GOAL, HTTPAUTH_ACTUATION_ID, "httpauth"),
         (TCN_ACTUATION_GOAL, TCN_ACTUATION_ID, "tcn"),
         (ULA_ACTUATION_GOAL, ULA_ACTUATION_ID, "ula"),
+        (IPV6SCOPE_ACTUATION_GOAL, IPV6SCOPE_ACTUATION_ID, "ipv6scope"),
         (IPV6ADDR_ACTUATION_GOAL, IPV6ADDR_ACTUATION_ID, "ipv6addr"),
         (SEND_ACTUATION_GOAL, SEND_ACTUATION_ID, "send"),
         (OPAQUEIID_ACTUATION_GOAL, OPAQUEIID_ACTUATION_ID, "opaqueiid"),
@@ -1797,6 +1802,11 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         and catalog[127]["id"] == IPV6ADDR_ACTUATION_ID
         and catalog[127]["source"] == "genesis_bind_ipv6addr"
     )
+    checks["catalog_names_ipv6scope"] = (
+        len(catalog) > 128
+        and catalog[128]["id"] == IPV6SCOPE_ACTUATION_ID
+        and catalog[128]["source"] == "genesis_bind_ipv6scope"
+    )
     family = capability_family(CGA_ACTUATION_GOAL)
     checks["family_is_cga"] = "cga" in family.split("/")
     checks["family_is_cga_surface"] = "cgaid" in family
@@ -1826,6 +1836,12 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         and "rfc4291" not in family
         and "ipv6addrid" not in family
         and "ipv6addrdigest" not in family
+    )
+    checks["family_is_not_ipv6scope"] = (
+        "ipv6scope" not in family.split("/")
+        and "rfc4007" not in family
+        and "scopeid" not in family
+        and "scopedigest" not in family
     )
     checks["family_is_not_send"] = (
         "send" not in family.split("/")

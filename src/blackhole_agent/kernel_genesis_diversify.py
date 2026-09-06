@@ -692,6 +692,11 @@ from blackhole_agent.ipv6addr_actuation import (
     IPV6ADDR_ACTUATION_GOAL,
     IPV6ADDR_ACTUATION_ID,
 )
+from blackhole_agent.ipv6scope_actuation import (
+    IPV6SCOPE_ACTUATION_DONE_WHEN,
+    IPV6SCOPE_ACTUATION_GOAL,
+    IPV6SCOPE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1502,6 +1507,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": IPV6ADDR_ACTUATION_GOAL,
         "done_when": IPV6ADDR_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ipv6addr",
+    },
+    {
+        "id": IPV6SCOPE_ACTUATION_ID,
+        "goal": IPV6SCOPE_ACTUATION_GOAL,
+        "done_when": IPV6SCOPE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_ipv6scope",
     },
 )
 

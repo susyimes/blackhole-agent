@@ -941,6 +941,7 @@ OPAQUEIID_TOOL_PROVIDER = "opaqueiid"
 CGA_TOOL_PROVIDER = "cga"
 SEND_TOOL_PROVIDER = "send"
 ULA_TOOL_PROVIDER = "ula"
+IPV6ADDR_TOOL_PROVIDER = "ipv6addr"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4836,6 +4837,48 @@ def ula_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=ULA_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ipv6addr_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4291 IPv6 Addressing Architecture GLOBAL/UNICAST route.
+
+    Provider ``ipv6addr`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ipv6addr",
+        description=(
+            "Drive a first-class RFC 4291 session: bind a loopback IPv6 "
+            "Addressing Architecture origin, send a GLOBAL with a "
+            "non-empty ipv6addrid, lockstep a UNICAST that carries the stored "
+            "ipv6addrdigest, independently poll the stored ipv6addrdigest "
+            "on a later client socket, and read the sealed ipv6addrdigest. "
+            "IPV6ADDRID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "global": {"type": "boolean"},
+                "unicast": {"type": "boolean"},
+                "ipv6addrdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ipv6addrid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IPV6ADDR_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
