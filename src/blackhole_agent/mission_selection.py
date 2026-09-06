@@ -462,6 +462,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4193",
         "ulaid",
         "uladigest",
+        "ipv6addr",
+        "rfc4291",
+        "ipv6addrid",
+        "ipv6addrdigest",
     }
 )
 _IMPACT_MARKERS = (

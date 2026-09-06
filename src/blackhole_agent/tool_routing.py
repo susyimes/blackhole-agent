@@ -940,6 +940,7 @@ TEMPADDR_TOOL_PROVIDER = "tempaddr"
 OPAQUEIID_TOOL_PROVIDER = "opaqueiid"
 CGA_TOOL_PROVIDER = "cga"
 SEND_TOOL_PROVIDER = "send"
+ULA_TOOL_PROVIDER = "ula"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4793,6 +4794,48 @@ def send_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SEND_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ula_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4193 ULA UNIQUE/LOCAL route.
+
+    Provider ``ula`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ula",
+        description=(
+            "Drive a first-class RFC 4193 session: bind a loopback Unique Local "
+            "IPv6 Unicast Addresses origin, send a UNIQUE with a "
+            "non-empty ulaid, lockstep a LOCAL that carries the stored "
+            "uladigest, independently poll the stored uladigest "
+            "on a later client socket, and read the sealed uladigest. "
+            "ULAID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "unique": {"type": "boolean"},
+                "local": {"type": "boolean"},
+                "uladigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ulaid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ULA_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

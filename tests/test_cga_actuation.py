@@ -21,6 +21,10 @@ from blackhole_agent.ula_actuation import (
     ULA_ACTUATION_GOAL,
     ULA_ACTUATION_ID,
 )
+from blackhole_agent.ipv6addr_actuation import (
+    IPV6ADDR_ACTUATION_GOAL,
+    IPV6ADDR_ACTUATION_ID,
+)
 from blackhole_agent.opaqueiid_actuation import (
     OPAQUEIID_ACTUATION_GOAL,
     OPAQUEIID_ACTUATION_ID,
@@ -389,6 +393,7 @@ def test_goal_binds_cga_actuation_plane() -> None:
     assert leftover_marker_ids(CGA_ACTUATION_GOAL) == (CGA_ACTUATION_ID,)
     assert leftover_marker_ids(CGA_LEFTOVER) == (CGA_ACTUATION_ID,)
     assert leftover_marker_ids(ULA_ACTUATION_GOAL) == (ULA_ACTUATION_ID,)
+    assert leftover_marker_ids(IPV6ADDR_ACTUATION_GOAL) == (IPV6ADDR_ACTUATION_ID,)
     assert leftover_marker_ids(SEND_ACTUATION_GOAL) == (SEND_ACTUATION_ID,)
     assert leftover_marker_ids(OPAQUEIID_ACTUATION_GOAL) == (OPAQUEIID_ACTUATION_ID,)
     assert leftover_marker_ids(TEMPADDR_ACTUATION_GOAL) == (TEMPADDR_ACTUATION_ID,)
