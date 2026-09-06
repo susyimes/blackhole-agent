@@ -937,6 +937,7 @@ MLD_TOOL_PROVIDER = "mld"
 NDP_TOOL_PROVIDER = "ndp"
 SLAAC_TOOL_PROVIDER = "slaac"
 TEMPADDR_TOOL_PROVIDER = "tempaddr"
+OPAQUEIID_TOOL_PROVIDER = "opaqueiid"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4664,6 +4665,48 @@ def tempaddr_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=TEMPADDR_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def opaqueiid_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7217 Opaque IID STABLE/OPAQUE route.
+
+    Provider ``opaqueiid`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="opaqueiid",
+        description=(
+            "Drive a first-class RFC 7217 session: bind a loopback Semantically "
+            "Opaque Interface Identifiers origin, send a STABLE with a "
+            "non-empty opaqueid, lockstep an OPAQUE that carries the stored "
+            "opaquedigest, independently poll the stored opaquedigest "
+            "on a later client socket, and read the sealed opaquedigest. "
+            "OPAQUEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "stable": {"type": "boolean"},
+                "opaque": {"type": "boolean"},
+                "opaquedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_opaqueid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=OPAQUEIID_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
