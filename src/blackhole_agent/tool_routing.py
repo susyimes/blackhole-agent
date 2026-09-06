@@ -927,6 +927,7 @@ LPD_TOOL_PROVIDER = "lpd"
 NNTP_TOOL_PROVIDER = "nntp"
 TELNET_TOOL_PROVIDER = "telnet"
 TCP_TOOL_PROVIDER = "tcp"
+UDP_TOOL_PROVIDER = "udp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4234,6 +4235,48 @@ def tcp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=TCP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def udp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 768 UDP SEND/RECV route.
+
+    Provider ``udp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="udp",
+        description=(
+            "Drive a first-class RFC 768 session: bind a loopback User "
+            "Datagram Protocol origin, send a SEND with a non-empty "
+            "udpid, lockstep a RECV that carries the stored "
+            "udpdigest, independently poll the stored udpdigest "
+            "on a later client socket, and read the sealed udpdigest. "
+            "UDPID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "send": {"type": "boolean"},
+                "recv": {"type": "boolean"},
+                "udpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_udpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=UDP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
