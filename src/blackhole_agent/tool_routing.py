@@ -925,6 +925,7 @@ GOPHER_TOOL_PROVIDER = "gopher"
 FINGER_TOOL_PROVIDER = "finger"
 LPD_TOOL_PROVIDER = "lpd"
 NNTP_TOOL_PROVIDER = "nntp"
+TELNET_TOOL_PROVIDER = "telnet"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4148,6 +4149,48 @@ def nntp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=NNTP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def telnet_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 854 TELNET DO/WILL route.
+
+    Provider ``telnet`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="telnet",
+        description=(
+            "Drive a first-class RFC 854 session: bind a loopback Telnet "
+            "Protocol Specification origin, send a DO with a non-empty "
+            "telnetid, lockstep a WILL that carries the stored "
+            "telnetdigest, independently poll the stored telnetdigest "
+            "on a later client socket, and read the sealed telnetdigest. "
+            "TELNETID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "do": {"type": "boolean"},
+                "will": {"type": "boolean"},
+                "telnetdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_telnetid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TELNET_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
