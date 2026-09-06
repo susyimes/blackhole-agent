@@ -943,6 +943,7 @@ SEND_TOOL_PROVIDER = "send"
 ULA_TOOL_PROVIDER = "ula"
 IPV6ADDR_TOOL_PROVIDER = "ipv6addr"
 IPV6SCOPE_TOOL_PROVIDER = "ipv6scope"
+ADDRSELECT_TOOL_PROVIDER = "addrselect"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4922,6 +4923,48 @@ def ipv6scope_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=IPV6SCOPE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def addrselect_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6724 Default Address Selection SOURCE/DEST route.
+
+    Provider ``addrselect`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="addrselect",
+        description=(
+            "Drive a first-class RFC 6724 session: bind a loopback IPv6 "
+            "Default Address Selection origin, send a SOURCE with a "
+            "non-empty selectid, lockstep a DEST that carries the stored "
+            "selectdigest, independently poll the stored selectdigest "
+            "on a later client socket, and read the sealed selectdigest. "
+            "SELECTID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "source": {"type": "boolean"},
+                "dest": {"type": "boolean"},
+                "selectdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_selectid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ADDRSELECT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

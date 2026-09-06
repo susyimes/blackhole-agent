@@ -474,6 +474,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6724",
         "selectid",
         "selectdigest",
+        "addrpolicy",
+        "rfc7078",
+        "policyid",
+        "policydigest",
     }
 )
 _IMPACT_MARKERS = (

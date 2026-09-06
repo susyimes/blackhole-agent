@@ -13,13 +13,13 @@ from blackhole_agent.spnego_actuation import (
     SPNEGO_ACTUATION_GOAL,
     SPNEGO_ACTUATION_ID,
 )
-from blackhole_agent.addrselect_actuation import (
-    ADDRSELECT_ACTUATION_GOAL,
-    ADDRSELECT_ACTUATION_ID,
-)
 from blackhole_agent.addrpolicy_actuation import (
     ADDRPOLICY_ACTUATION_GOAL,
     ADDRPOLICY_ACTUATION_ID,
+)
+from blackhole_agent.ipv6scope_actuation import (
+    IPV6SCOPE_ACTUATION_GOAL,
+    IPV6SCOPE_ACTUATION_ID,
 )
 from blackhole_agent.ipv6addr_actuation import (
     IPV6ADDR_ACTUATION_GOAL,
@@ -175,40 +175,40 @@ from blackhole_agent.digestauth_actuation import (
     DIGESTAUTH_ACTUATION_GOAL,
     DIGESTAUTH_ACTUATION_ID,
 )
-from blackhole_agent.ipv6scope_actuation import (
-    DEFAULT_SCOPEID,
-    DEFAULT_SCOPEDIGEST,
-    DEFAULT_SCOPE,
-    EMPTY_SCOPEID,
-    FRAME_ZONE,
-    FRAME_SCOPE,
-    IPV6SCOPE_ACTUATION_DONE_WHEN,
-    IPV6SCOPE_ACTUATION_GOAL,
-    IPV6SCOPE_ACTUATION_ID,
-    IPV6SCOPE_LEFTOVER,
-    IPV6SCOPE_FIRST,
-    ZONE_POLICY,
-    RFC_SCOPE_FIELD,
-    RFC_ZONE_FIELD,
+from blackhole_agent.addrselect_actuation import (
+    DEFAULT_SELECTID,
+    DEFAULT_SELECTDIGEST,
+    DEFAULT_SOURCE,
+    EMPTY_SELECTID,
+    FRAME_DEST,
+    FRAME_SOURCE,
+    ADDRSELECT_ACTUATION_DONE_WHEN,
+    ADDRSELECT_ACTUATION_GOAL,
+    ADDRSELECT_ACTUATION_ID,
+    ADDRSELECT_LEFTOVER,
+    ADDRSELECT_FIRST,
+    DEST_POLICY,
+    RFC_SOURCE_FIELD,
+    RFC_DEST_FIELD,
     SENTINEL,
-    SCOPE_HEADER,
-    builtin_ipv6scope_actuation_proof,
+    SOURCE_HEADER,
+    builtin_addrselect_actuation_proof,
     canonical_public,
     canonical_temporary,
     crc32c,
     encode_public,
     encode_temporary,
-    encode_ipv6scope_header,
-    independent_scopedigest,
+    encode_addrselect_header,
+    independent_selectdigest,
     parse_http_request,
     parse_http_response,
     parse_message,
-    parse_ipv6scope,
-    parse_ipv6scope_header,
+    parse_addrselect,
+    parse_addrselect_header,
     public_request,
     public_response,
-    run_ipv6scope_workflow,
-    serialize_ipv6scope,
+    run_addrselect_workflow,
+    serialize_addrselect,
     temporary_request,
     temporary_response,
 )
@@ -237,10 +237,10 @@ from blackhole_agent.stun_actuation import STUN_ACTUATION_GOAL, STUN_ACTUATION_I
 from blackhole_agent.syslog_actuation import SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUATION_ID
 from blackhole_agent.tftp_actuation import TFTP_ACTUATION_GOAL, TFTP_ACTUATION_ID
 from blackhole_agent.tool_routing import (
-    IPV6SCOPE_TOOL_PROVIDER,
+    ADDRSELECT_TOOL_PROVIDER,
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     build_tool_routing_preflight,
-    ipv6scope_tool_descriptor,
+    addrselect_tool_descriptor,
     route_tool_descriptor,
 )
 from blackhole_agent.turn_actuation import TURN_ACTUATION_GOAL, TURN_ACTUATION_ID
@@ -294,8 +294,8 @@ NEIGHBORS = (
     HTTPCOOKIE_ACTUATION_GOAL,
     WEBLINKING_ACTUATION_GOAL,
     EXTVALUE_ACTUATION_GOAL,
-    ADDRSELECT_ACTUATION_GOAL,
     ADDRPOLICY_ACTUATION_GOAL,
+    IPV6SCOPE_ACTUATION_GOAL,
     IPV6ADDR_ACTUATION_GOAL,
     ULA_ACTUATION_GOAL,
     CGA_ACTUATION_GOAL,
@@ -370,8 +370,8 @@ NEIGHBOR_IDS = (
     HTTPCOOKIE_ACTUATION_ID,
     WEBLINKING_ACTUATION_ID,
     EXTVALUE_ACTUATION_ID,
-    ADDRSELECT_ACTUATION_ID,
     ADDRPOLICY_ACTUATION_ID,
+    IPV6SCOPE_ACTUATION_ID,
     IPV6ADDR_ACTUATION_ID,
     ULA_ACTUATION_ID,
     CGA_ACTUATION_ID,
@@ -403,11 +403,11 @@ NEIGHBOR_IDS = (
 )
 
 
-def test_goal_binds_ipv6scope_actuation_plane() -> None:
-    assert leftover_marker_ids(IPV6SCOPE_ACTUATION_GOAL) == (IPV6SCOPE_ACTUATION_ID,)
-    assert leftover_marker_ids(IPV6SCOPE_LEFTOVER) == (IPV6SCOPE_ACTUATION_ID,)
+def test_goal_binds_addrselect_actuation_plane() -> None:
     assert leftover_marker_ids(ADDRSELECT_ACTUATION_GOAL) == (ADDRSELECT_ACTUATION_ID,)
+    assert leftover_marker_ids(ADDRSELECT_LEFTOVER) == (ADDRSELECT_ACTUATION_ID,)
     assert leftover_marker_ids(ADDRPOLICY_ACTUATION_GOAL) == (ADDRPOLICY_ACTUATION_ID,)
+    assert leftover_marker_ids(IPV6SCOPE_ACTUATION_GOAL) == (IPV6SCOPE_ACTUATION_ID,)
     assert leftover_marker_ids(IPV6ADDR_ACTUATION_GOAL) == (IPV6ADDR_ACTUATION_ID,)
     assert leftover_marker_ids(ULA_ACTUATION_GOAL) == (ULA_ACTUATION_ID,)
     assert leftover_marker_ids(CGA_ACTUATION_GOAL) == (CGA_ACTUATION_ID,)
@@ -431,10 +431,11 @@ def test_goal_binds_ipv6scope_actuation_plane() -> None:
     assert leftover_marker_ids(HTTP10_ACTUATION_GOAL) == (HTTP10_ACTUATION_ID,)
     assert HTTP10_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(DIGESTAUTH_ACTUATION_GOAL) == (DIGESTAUTH_ACTUATION_ID,)
-    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
+    assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
     assert ULA_ACTUATION_ID in LOCAL_DENYLIST
     assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
     assert ADDRPOLICY_ACTUATION_ID in LOCAL_DENYLIST
+    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
     assert CGA_ACTUATION_ID in LOCAL_DENYLIST
     assert TEMPADDR_ACTUATION_ID in LOCAL_DENYLIST
     assert SLAAC_ACTUATION_ID in LOCAL_DENYLIST
@@ -453,8 +454,8 @@ def test_goal_binds_ipv6scope_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPAUTH_ACTUATION_GOAL) == (HTTPAUTH_ACTUATION_ID,)
     assert leftover_marker_ids(TCN_ACTUATION_GOAL) == (TCN_ACTUATION_ID,)
     assert leftover_marker_ids(ICP_ACTUATION_GOAL) == (ICP_ACTUATION_ID,)
-    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
-    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
+    assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
+    assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPAUTH_ACTUATION_ID in LOCAL_DENYLIST
     assert TCN_ACTUATION_ID in LOCAL_DENYLIST
@@ -466,9 +467,9 @@ def test_goal_binds_ipv6scope_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPCOOKIE_ACTUATION_GOAL) == (HTTPCOOKIE_ACTUATION_ID,)
     assert leftover_marker_ids(WEBORIGIN_ACTUATION_GOAL) == (WEBORIGIN_ACTUATION_ID,)
     assert leftover_marker_ids(XFO_ACTUATION_GOAL) == (XFO_ACTUATION_ID,)
-    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
+    assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
-    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
+    assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert SPNEGO_ACTUATION_ID in LOCAL_DENYLIST
     assert STALECONTENT_ACTUATION_ID in LOCAL_DENYLIST
@@ -478,187 +479,187 @@ def test_goal_binds_ipv6scope_actuation_plane() -> None:
     assert WEBORIGIN_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(HSTS_ACTUATION_GOAL) == (HSTS_ACTUATION_ID,)
     assert leftover_marker_ids(HPKP_ACTUATION_GOAL) == (HPKP_ACTUATION_ID,)
-    assert leftover_marker_ids(IPV6SCOPE_ACTUATION_GOAL) == (IPV6SCOPE_ACTUATION_ID,)
+    assert leftover_marker_ids(ADDRSELECT_ACTUATION_GOAL) == (ADDRSELECT_ACTUATION_ID,)
     assert leftover_marker_ids(HTTPSTATE_ACTUATION_GOAL) == (HTTPSTATE_ACTUATION_ID,)
     assert leftover_marker_ids(ALTSVC_ACTUATION_GOAL) == (ALTSVC_ACTUATION_ID,)
     assert leftover_marker_ids(ENCRYPTEDCONTENT_ACTUATION_GOAL) == (ENCRYPTEDCONTENT_ACTUATION_ID,)
     assert leftover_marker_ids(EARLYHINTS_ACTUATION_GOAL) == (EARLYHINTS_ACTUATION_ID,)
     assert HSTS_ACTUATION_ID in LOCAL_DENYLIST
     assert HPKP_ACTUATION_ID in LOCAL_DENYLIST
-    assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
+    assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert ALTSVC_ACTUATION_ID in LOCAL_DENYLIST
     assert ENCRYPTEDCONTENT_ACTUATION_ID in LOCAL_DENYLIST
     for goal, capability_id in zip(NEIGHBORS, NEIGHBOR_IDS, strict=True):
         assert leftover_marker_ids(goal) == (capability_id,)
-        assert IPV6SCOPE_ACTUATION_ID not in leftover_marker_ids(goal)
-        assert capability_id not in leftover_marker_ids(IPV6SCOPE_ACTUATION_GOAL)
-    icp_signature = semantic_signature(IPV6SCOPE_ACTUATION_GOAL)
+        assert ADDRSELECT_ACTUATION_ID not in leftover_marker_ids(goal)
+        assert capability_id not in leftover_marker_ids(ADDRSELECT_ACTUATION_GOAL)
+    icp_signature = semantic_signature(ADDRSELECT_ACTUATION_GOAL)
     for neighbor in NEIGHBORS:
         assert semantic_similarity(icp_signature, semantic_signature(neighbor)) < 0.82
 
 
-def test_opted_in_ipv6scope_tool_completes_body_transfer_poll() -> None:
-    descriptor = ipv6scope_tool_descriptor()
+def test_opted_in_addrselect_tool_completes_body_transfer_poll() -> None:
+    descriptor = addrselect_tool_descriptor()
     naive = route_tool_descriptor(descriptor)
     opted = route_tool_descriptor(
         descriptor,
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, IPV6SCOPE_TOOL_PROVIDER),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, ADDRSELECT_TOOL_PROVIDER),
     )
     assert naive.executable is False
     assert opted.executable is True
 
     preflight = build_tool_routing_preflight(
         [descriptor],
-        required_tool_names=("ipv6scope",),
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, IPV6SCOPE_TOOL_PROVIDER),
+        required_tool_names=("addrselect",),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, ADDRSELECT_TOOL_PROVIDER),
     )
     assert preflight["ok"] is True
-    assert preflight["executable_tool_names"] == ["ipv6scope"]
+    assert preflight["executable_tool_names"] == ["addrselect"]
 
-    missing = run_ipv6scope_workflow(with_scopeid=False)
-    skip_bind = run_ipv6scope_workflow(skip_bind=True)
-    skip_temporary = run_ipv6scope_workflow(do_temporary=False)
-    skip_public = run_ipv6scope_workflow(do_public=False)
-    skip_scopedigest = run_ipv6scope_workflow(do_scopedigest=False)
-    skip_replay = run_ipv6scope_workflow(replay=False)
-    skip_scopeid = run_ipv6scope_workflow(use_scopeid=False)
-    live = run_ipv6scope_workflow()
+    missing = run_addrselect_workflow(with_selectid=False)
+    skip_bind = run_addrselect_workflow(skip_bind=True)
+    skip_temporary = run_addrselect_workflow(do_temporary=False)
+    skip_public = run_addrselect_workflow(do_public=False)
+    skip_selectdigest = run_addrselect_workflow(do_selectdigest=False)
+    skip_replay = run_addrselect_workflow(replay=False)
+    skip_selectid = run_addrselect_workflow(use_selectid=False)
+    live = run_addrselect_workflow()
     assert missing["ok"] is False
     assert missing["final_status"] == 403
-    assert missing["error"] == "missing_scopeid"
+    assert missing["error"] == "missing_selectid"
     assert skip_bind["ok"] is False
     assert skip_bind["error"] == "not_bound"
     assert skip_temporary["ok"] is False
     assert skip_temporary["error"] == "temporary_required"
     assert skip_public["ok"] is False
     assert skip_public["error"] == "public_required"
-    assert skip_scopedigest["ok"] is False
-    assert skip_scopedigest["error"] == "scopedigest_required"
+    assert skip_selectdigest["ok"] is False
+    assert skip_selectdigest["error"] == "selectdigest_required"
     assert skip_replay["ok"] is False
     assert skip_replay["error"] == "replay_required"
-    assert skip_scopeid["ok"] is False
-    assert skip_scopeid["error"] == "scopeid_required"
+    assert skip_selectid["ok"] is False
+    assert skip_selectid["error"] == "selectid_required"
     assert live["ok"] is True
     assert live["sentinel"] == SENTINEL
     assert live["independent_sentinel"] == SENTINEL
     assert Path(live["sealed_path"]).is_file()
-    row = independent_scopedigest(Path(live["sealed_path"]))
+    row = independent_selectdigest(Path(live["sealed_path"]))
     assert row["sentinel"] == SENTINEL
     assert row["temporary_frame"] is True
     assert row["public_frame"] is True
-    assert row["scopedigest_locate"] is True
+    assert row["selectdigest_locate"] is True
     assert row["stored"] is True
     assert row["retrieved"] is True
     assert row["replayed"] is True
     assert row["independent"] is True
-    assert row["scopeid_bound"] is True
+    assert row["selectid_bound"] is True
     assert row["digest"]
-    assert live["scopeid"] == DEFAULT_SCOPEID
-    assert live["scopedigest"] == DEFAULT_SCOPEDIGEST
+    assert live["selectid"] == DEFAULT_SELECTID
+    assert live["selectdigest"] == DEFAULT_SELECTDIGEST
     assert int(live["port"]) > 0
     queried = parse_message(
-        encode_temporary(identity=SENTINEL, scopeid=DEFAULT_SCOPEID, scopedigest=DEFAULT_SCOPEDIGEST)
+        encode_temporary(identity=SENTINEL, selectid=DEFAULT_SELECTID, selectdigest=DEFAULT_SELECTDIGEST)
     )
     assert queried["is_temporary"] is True and queried["is_public"] is False
-    assert queried["identity"] == SENTINEL and queried["scopeid"] == DEFAULT_SCOPEID
-    assert queried["scopedigest"] == DEFAULT_SCOPEDIGEST
-    assert queried["type"] == FRAME_SCOPE
-    assert queried["first_byte"] == IPV6SCOPE_FIRST
+    assert queried["identity"] == SENTINEL and queried["selectid"] == DEFAULT_SELECTID
+    assert queried["selectdigest"] == DEFAULT_SELECTDIGEST
+    assert queried["type"] == FRAME_SOURCE
+    assert queried["first_byte"] == ADDRSELECT_FIRST
     answered = parse_message(
-        encode_public(identity=SENTINEL, scopeid=DEFAULT_SCOPEID, scopedigest=DEFAULT_SCOPEDIGEST)
+        encode_public(identity=SENTINEL, selectid=DEFAULT_SELECTID, selectdigest=DEFAULT_SELECTDIGEST)
     )
     assert answered["is_public"] is True and answered["is_public"] is True
-    assert answered["scopeid"] == DEFAULT_SCOPEID
-    assert answered["scopedigest"] == DEFAULT_SCOPEDIGEST
-    packed = encode_temporary(identity=SENTINEL, scopeid=DEFAULT_SCOPEID, scopedigest=DEFAULT_SCOPEDIGEST)
+    assert answered["selectid"] == DEFAULT_SELECTID
+    assert answered["selectdigest"] == DEFAULT_SELECTDIGEST
+    packed = encode_temporary(identity=SENTINEL, selectid=DEFAULT_SELECTID, selectdigest=DEFAULT_SELECTDIGEST)
     zeroed = packed[:-4] + (0).to_bytes(4, "big")
     assert crc32c(zeroed) == int.from_bytes(packed[-4:], "big")
     bare = parse_message(
-        encode_temporary(identity=SENTINEL, scopeid=DEFAULT_SCOPEID, include_scopeid=False)
+        encode_temporary(identity=SENTINEL, selectid=DEFAULT_SELECTID, include_selectid=False)
     )
-    assert bare["has_scopeid"] is False
-    assert bare["scopeid"] == EMPTY_SCOPEID
-    publicised = serialize_ipv6scope(DEFAULT_SCOPE)
-    assert publicised == RFC_SCOPE_FIELD
-    assert parse_ipv6scope(publicised) == DEFAULT_SCOPE
-    assert parse_ipv6scope(RFC_ZONE_FIELD) == ZONE_POLICY
-    header = parse_ipv6scope_header(encode_ipv6scope_header(DEFAULT_SCOPE))
-    assert header["field_value"] == RFC_SCOPE_FIELD
-    assert header["header"] == SCOPE_HEADER
-    asked = parse_http_request(temporary_request(SENTINEL, DEFAULT_SCOPEID))
-    listed = parse_http_request(public_request(SENTINEL, DEFAULT_SCOPEID, DEFAULT_SCOPEDIGEST))
-    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_SCOPEID, DEFAULT_SCOPEDIGEST))
+    assert bare["has_selectid"] is False
+    assert bare["selectid"] == EMPTY_SELECTID
+    publicised = serialize_addrselect(DEFAULT_SOURCE)
+    assert publicised == RFC_SOURCE_FIELD
+    assert parse_addrselect(publicised) == DEFAULT_SOURCE
+    assert parse_addrselect(RFC_DEST_FIELD) == DEST_POLICY
+    header = parse_addrselect_header(encode_addrselect_header(DEFAULT_SOURCE))
+    assert header["field_value"] == RFC_SOURCE_FIELD
+    assert header["header"] == SOURCE_HEADER
+    asked = parse_http_request(temporary_request(SENTINEL, DEFAULT_SELECTID))
+    listed = parse_http_request(public_request(SENTINEL, DEFAULT_SELECTID, DEFAULT_SELECTDIGEST))
+    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_SELECTID, DEFAULT_SELECTDIGEST))
     preload_public = parse_http_response(
-        public_response(SENTINEL, DEFAULT_SCOPEID, DEFAULT_SCOPEDIGEST)
+        public_response(SENTINEL, DEFAULT_SELECTID, DEFAULT_SELECTDIGEST)
     )
-    assert asked["method"] == "SCOPE"
-    assert asked["ipv6scope_kind"] == "scope"
-    assert listed["ipv6scope_kind"] == "zone"
+    assert asked["method"] == "SOURCE"
+    assert asked["addrselect_kind"] == "source"
+    assert listed["addrselect_kind"] == "dest"
     assert got["status"] == 200
     assert preload_public["status"] == 200
-    assert got["policy"] == DEFAULT_SCOPE
-    assert preload_public["policy"] == ZONE_POLICY
-    assert canonical_temporary(SENTINEL, DEFAULT_SCOPEID).startswith("SCOPE")
-    assert "scopedigest=" in canonical_public(SENTINEL, DEFAULT_SCOPEID, DEFAULT_SCOPEDIGEST)
+    assert got["policy"] == DEFAULT_SOURCE
+    assert preload_public["policy"] == DEST_POLICY
+    assert canonical_temporary(SENTINEL, DEFAULT_SELECTID).startswith("SOURCE")
+    assert "selectdigest=" in canonical_public(SENTINEL, DEFAULT_SELECTID, DEFAULT_SELECTDIGEST)
 
 
-def test_builtin_proof_seals_ipv6scope_actuation() -> None:
-    report = builtin_ipv6scope_actuation_proof()
+def test_builtin_proof_seals_addrselect_actuation() -> None:
+    report = builtin_addrselect_actuation_proof()
     assert report["ok"] is True, report.get("failed") or report.get("checks")
-    assert report["action"] == "ipv6scope_actuation"
+    assert report["action"] == "addrselect_actuation"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
     assert report["passed_count"] >= 12
-    assert report["checks"]["naive_preflight_missing_ipv6scope"]
+    assert report["checks"]["naive_preflight_missing_addrselect"]
     assert report["checks"]["opted_in_preflight_ok"]
-    assert report["checks"]["naive_without_scopeid_is_forbidden"]
+    assert report["checks"]["naive_without_selectid_is_forbidden"]
     assert report["checks"]["skip_temporary_stays_empty"]
     assert report["checks"]["skip_public_stays_empty"]
-    assert report["checks"]["skip_scopedigest_stays_empty"]
+    assert report["checks"]["skip_selectdigest_stays_empty"]
     assert report["checks"]["skip_replay_stays_empty"]
-    assert report["checks"]["skip_scopeid_stays_empty"]
+    assert report["checks"]["skip_selectid_stays_empty"]
     assert report["checks"]["workflow_extracts_sentinel"]
     assert report["checks"]["workflow_commits_independent_digest"]
     assert report["checks"]["workflow_writes_sealed_file"]
-    assert report["checks"]["workflow_records_scopedigest"]
+    assert report["checks"]["workflow_records_selectdigest"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_ipv6scope"]
+    assert report["checks"]["exhausted_catalog_binds_addrselect"]
     assert report["checks"]["catalog_names_ipv6scope"]
     assert report["checks"]["catalog_names_addrselect"]
     assert report["checks"]["catalog_names_addrpolicy"]
-    assert report["checks"]["leftover_text_binds_ipv6scope"]
-    assert report["checks"]["proved_ipv6scope_consumes_leftover"]
-    assert report["mission_goal"] == IPV6SCOPE_ACTUATION_GOAL
-    assert report["done_when"] == IPV6SCOPE_ACTUATION_DONE_WHEN
+    assert report["checks"]["leftover_text_binds_addrselect"]
+    assert report["checks"]["proved_addrselect_consumes_leftover"]
+    assert report["mission_goal"] == ADDRSELECT_ACTUATION_GOAL
+    assert report["done_when"] == ADDRSELECT_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
-    capability = ledger.capabilities[IPV6SCOPE_ACTUATION_ID]
+    capability = ledger.capabilities[ADDRSELECT_ACTUATION_ID]
     assert capability.last_proof_exit_code == 0
-    assert "ipv6scope" in capability.tags
-    assert "rfc4007" in capability.tags
+    assert "addrselect" in capability.tags
+    assert "rfc6724" in capability.tags
     assert "http" in capability.tags
-    assert "scopeid" in capability.tags
-    assert "scopedigest" in capability.tags
-    assert "scope" in capability.tags
-    assert "zone" in capability.tags
+    assert "selectid" in capability.tags
+    assert "selectdigest" in capability.tags
+    assert "source" in capability.tags
+    assert "dest" in capability.tags
 
 
-def test_selection_gate_accepts_ipv6scope_family(tmp_path: Path) -> None:
+def test_selection_gate_accepts_addrselect_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
-        IPV6SCOPE_ACTUATION_GOAL,
-        IPV6SCOPE_ACTUATION_DONE_WHEN,
+        ADDRSELECT_ACTUATION_GOAL,
+        ADDRSELECT_ACTUATION_DONE_WHEN,
         history=(),
     )
     assert gate.accepted is True
     assert gate.scalar_extension is False
-    family = capability_family(IPV6SCOPE_ACTUATION_GOAL)
+    family = capability_family(ADDRSELECT_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
-    assert "ipv6scope" in family.split("/")
-    assert "rfc4007" in family
-    assert "scopeid" in family
-    assert "scopedigest" in family
+    assert "addrselect" in family.split("/")
+    assert "rfc6724" in family
+    assert "selectid" in family
+    assert "selectdigest" in family
     assert "chid" not in family_tokens
     assert "altsvc" not in family
     assert "rfc7838" not in family
@@ -676,14 +677,14 @@ def test_selection_gate_accepts_ipv6scope_family(tmp_path: Path) -> None:
     assert "rfc4559" not in family
     assert "negotiateid" not in family
     assert "negotiatedigest" not in family
-    assert "addrselect" not in family.split("/")
-    assert "rfc6724" not in family
-    assert "selectid" not in family
-    assert "selectdigest" not in family
     assert "addrpolicy" not in family.split("/")
     assert "rfc7078" not in family
     assert "policyid" not in family
     assert "policydigest" not in family
+    assert "ipv6scope" not in family.split("/")
+    assert "rfc4007" not in family
+    assert "scopeid" not in family
+    assert "scopedigest" not in family
     assert "ipv6addr" not in family.split("/")
     assert "ula" not in family.split("/")
     assert "send" not in family.split("/")

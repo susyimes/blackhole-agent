@@ -1439,6 +1439,10 @@ def builtin_ipv6scope_actuation_proof() -> dict[str, Any]:
         ADDRSELECT_ACTUATION_GOAL,
         ADDRSELECT_ACTUATION_ID,
     )
+    from blackhole_agent.addrpolicy_actuation import (
+        ADDRPOLICY_ACTUATION_GOAL,
+        ADDRPOLICY_ACTUATION_ID,
+    )
     from blackhole_agent.ipv6addr_actuation import (
         IPV6ADDR_ACTUATION_GOAL,
         IPV6ADDR_ACTUATION_ID,
@@ -1694,6 +1698,7 @@ def builtin_ipv6scope_actuation_proof() -> dict[str, Any]:
         (HTTPAUTH_ACTUATION_GOAL, HTTPAUTH_ACTUATION_ID, "httpauth"),
         (TCN_ACTUATION_GOAL, TCN_ACTUATION_ID, "tcn"),
         (ADDRSELECT_ACTUATION_GOAL, ADDRSELECT_ACTUATION_ID, "addrselect"),
+        (ADDRPOLICY_ACTUATION_GOAL, ADDRPOLICY_ACTUATION_ID, "addrpolicy"),
         (IPV6ADDR_ACTUATION_GOAL, IPV6ADDR_ACTUATION_ID, "ipv6addr"),
         (ULA_ACTUATION_GOAL, ULA_ACTUATION_ID, "ula"),
         (CGA_ACTUATION_GOAL, CGA_ACTUATION_ID, "cga"),
@@ -1792,6 +1797,11 @@ def builtin_ipv6scope_actuation_proof() -> dict[str, Any]:
         and catalog[129]["id"] == ADDRSELECT_ACTUATION_ID
         and catalog[129]["source"] == "genesis_bind_addrselect"
     )
+    checks["catalog_names_addrpolicy"] = (
+        len(catalog) > 130
+        and catalog[130]["id"] == ADDRPOLICY_ACTUATION_ID
+        and catalog[130]["source"] == "genesis_bind_addrpolicy"
+    )
     family = capability_family(IPV6SCOPE_ACTUATION_GOAL)
     checks["family_is_ipv6scope"] = "ipv6scope" in family.split("/")
     checks["family_is_ipv6scope_surface"] = "scopeid" in family
@@ -1815,6 +1825,12 @@ def builtin_ipv6scope_actuation_proof() -> dict[str, Any]:
         and "rfc6724" not in family
         and "selectid" not in family
         and "selectdigest" not in family
+    )
+    checks["family_is_not_addrpolicy"] = (
+        "addrpolicy" not in family.split("/")
+        and "rfc7078" not in family
+        and "policyid" not in family
+        and "policydigest" not in family
     )
     checks["family_is_not_ipv6addr"] = (
         "ipv6addr" not in family.split("/")
