@@ -156,6 +156,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.gopher-actuation",
         "capability.finger-actuation",
         "capability.lpd-actuation",
+        "capability.nntp-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

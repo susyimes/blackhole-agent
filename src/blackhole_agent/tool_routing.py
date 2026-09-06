@@ -923,6 +923,7 @@ URI_TOOL_PROVIDER = "uri"
 MIME_TOOL_PROVIDER = "mime"
 GOPHER_TOOL_PROVIDER = "gopher"
 FINGER_TOOL_PROVIDER = "finger"
+LPD_TOOL_PROVIDER = "lpd"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4062,6 +4063,48 @@ def finger_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=FINGER_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lpd_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 1179 LPD PRINT/QUEUE route.
+
+    Provider ``lpd`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lpd",
+        description=(
+            "Drive a first-class RFC 1179 session: bind a loopback Line Printer "
+            "Daemon origin, send a PRINT with a non-empty "
+            "lpdid, lockstep a QUEUE that carries the stored "
+            "lpddigest, independently poll the stored lpddigest "
+            "on a later client socket, and read the sealed lpddigest. "
+            "LPDID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "print": {"type": "boolean"},
+                "queue": {"type": "boolean"},
+                "lpddigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lpdid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LPD_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
