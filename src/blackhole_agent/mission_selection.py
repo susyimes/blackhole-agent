@@ -470,6 +470,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4007",
         "scopeid",
         "scopedigest",
+        "addrselect",
+        "rfc6724",
+        "selectid",
+        "selectdigest",
     }
 )
 _IMPACT_MARKERS = (

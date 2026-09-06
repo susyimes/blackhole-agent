@@ -1443,6 +1443,10 @@ def builtin_ula_actuation_proof() -> dict[str, Any]:
         IPV6SCOPE_ACTUATION_GOAL,
         IPV6SCOPE_ACTUATION_ID,
     )
+    from blackhole_agent.addrselect_actuation import (
+        ADDRSELECT_ACTUATION_GOAL,
+        ADDRSELECT_ACTUATION_ID,
+    )
     from blackhole_agent.send_actuation import (
         SEND_ACTUATION_GOAL,
         SEND_ACTUATION_ID,
@@ -1694,6 +1698,7 @@ def builtin_ula_actuation_proof() -> dict[str, Any]:
         (HTTPAUTH_ACTUATION_GOAL, HTTPAUTH_ACTUATION_ID, "httpauth"),
         (TCN_ACTUATION_GOAL, TCN_ACTUATION_ID, "tcn"),
         (IPV6SCOPE_ACTUATION_GOAL, IPV6SCOPE_ACTUATION_ID, "ipv6scope"),
+        (ADDRSELECT_ACTUATION_GOAL, ADDRSELECT_ACTUATION_ID, "addrselect"),
         (IPV6ADDR_ACTUATION_GOAL, IPV6ADDR_ACTUATION_ID, "ipv6addr"),
         (SEND_ACTUATION_GOAL, SEND_ACTUATION_ID, "send"),
         (CGA_ACTUATION_GOAL, CGA_ACTUATION_ID, "cga"),
@@ -1797,6 +1802,11 @@ def builtin_ula_actuation_proof() -> dict[str, Any]:
         and catalog[128]["id"] == IPV6SCOPE_ACTUATION_ID
         and catalog[128]["source"] == "genesis_bind_ipv6scope"
     )
+    checks["catalog_names_addrselect"] = (
+        len(catalog) > 129
+        and catalog[129]["id"] == ADDRSELECT_ACTUATION_ID
+        and catalog[129]["source"] == "genesis_bind_addrselect"
+    )
     family = capability_family(ULA_ACTUATION_GOAL)
     checks["family_is_ula"] = "ula" in family.split("/")
     checks["family_is_ula_surface"] = "ulaid" in family
@@ -1826,6 +1836,12 @@ def builtin_ula_actuation_proof() -> dict[str, Any]:
         and "rfc4007" not in family
         and "scopeid" not in family
         and "scopedigest" not in family
+    )
+    checks["family_is_not_addrselect"] = (
+        "addrselect" not in family.split("/")
+        and "rfc6724" not in family
+        and "selectid" not in family
+        and "selectdigest" not in family
     )
     checks["family_is_not_send"] = (
         "send" not in family.split("/")
