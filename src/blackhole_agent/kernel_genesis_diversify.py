@@ -667,6 +667,11 @@ from blackhole_agent.tempaddr_actuation import (
     TEMPADDR_ACTUATION_GOAL,
     TEMPADDR_ACTUATION_ID,
 )
+from blackhole_agent.opaqueiid_actuation import (
+    OPAQUEIID_ACTUATION_DONE_WHEN,
+    OPAQUEIID_ACTUATION_GOAL,
+    OPAQUEIID_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1447,6 +1452,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": TEMPADDR_ACTUATION_GOAL,
         "done_when": TEMPADDR_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_tempaddr",
+    },
+    {
+        "id": OPAQUEIID_ACTUATION_ID,
+        "goal": OPAQUEIID_ACTUATION_GOAL,
+        "done_when": OPAQUEIID_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_opaqueiid",
     },
 )
 
