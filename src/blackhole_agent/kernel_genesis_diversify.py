@@ -657,6 +657,11 @@ from blackhole_agent.ndp_actuation import (
     NDP_ACTUATION_GOAL,
     NDP_ACTUATION_ID,
 )
+from blackhole_agent.slaac_actuation import (
+    SLAAC_ACTUATION_DONE_WHEN,
+    SLAAC_ACTUATION_GOAL,
+    SLAAC_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1425,6 +1430,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": NDP_ACTUATION_GOAL,
         "done_when": NDP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ndp",
+    },
+    {
+        "id": SLAAC_ACTUATION_ID,
+        "goal": SLAAC_ACTUATION_GOAL,
+        "done_when": SLAAC_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_slaac",
     },
 )
 
