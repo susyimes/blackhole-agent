@@ -632,6 +632,11 @@ from blackhole_agent.ip_actuation import (
     IP_ACTUATION_GOAL,
     IP_ACTUATION_ID,
 )
+from blackhole_agent.arp_actuation import (
+    ARP_ACTUATION_DONE_WHEN,
+    ARP_ACTUATION_GOAL,
+    ARP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1370,6 +1375,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": IP_ACTUATION_GOAL,
         "done_when": IP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ip",
+    },
+    {
+        "id": ARP_ACTUATION_ID,
+        "goal": ARP_ACTUATION_GOAL,
+        "done_when": ARP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_arp",
     },
 )
 
