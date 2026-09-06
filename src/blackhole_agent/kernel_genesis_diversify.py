@@ -637,6 +637,11 @@ from blackhole_agent.arp_actuation import (
     ARP_ACTUATION_GOAL,
     ARP_ACTUATION_ID,
 )
+from blackhole_agent.rarp_actuation import (
+    RARP_ACTUATION_DONE_WHEN,
+    RARP_ACTUATION_GOAL,
+    RARP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1381,6 +1386,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": ARP_ACTUATION_GOAL,
         "done_when": ARP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_arp",
+    },
+    {
+        "id": RARP_ACTUATION_ID,
+        "goal": RARP_ACTUATION_GOAL,
+        "done_when": RARP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_rarp",
     },
 )
 
