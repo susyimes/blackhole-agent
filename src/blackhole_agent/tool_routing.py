@@ -933,6 +933,7 @@ IP_TOOL_PROVIDER = "ip"
 ARP_TOOL_PROVIDER = "arp"
 RARP_TOOL_PROVIDER = "rarp"
 IGMP_TOOL_PROVIDER = "igmp"
+MLD_TOOL_PROVIDER = "mld"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4492,6 +4493,48 @@ def igmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=IGMP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mld_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2710 MLD LISTENER/DONE route.
+
+    Provider ``mld`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mld",
+        description=(
+            "Drive a first-class RFC 2710 session: bind a loopback Multicast "
+            "Listener Discovery origin, send a LISTENER with a non-empty "
+            "mldid, lockstep a DONE that carries the stored "
+            "mlddigest, independently poll the stored mlddigest "
+            "on a later client socket, and read the sealed mlddigest. "
+            "MLDID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "listener": {"type": "boolean"},
+                "done": {"type": "boolean"},
+                "mlddigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_mldid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MLD_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
