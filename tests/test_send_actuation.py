@@ -13,13 +13,13 @@ from blackhole_agent.spnego_actuation import (
     SPNEGO_ACTUATION_GOAL,
     SPNEGO_ACTUATION_ID,
 )
-from blackhole_agent.send_actuation import (
-    SEND_ACTUATION_GOAL,
-    SEND_ACTUATION_ID,
-)
 from blackhole_agent.ula_actuation import (
     ULA_ACTUATION_GOAL,
     ULA_ACTUATION_ID,
+)
+from blackhole_agent.cga_actuation import (
+    CGA_ACTUATION_GOAL,
+    CGA_ACTUATION_ID,
 )
 from blackhole_agent.opaqueiid_actuation import (
     OPAQUEIID_ACTUATION_GOAL,
@@ -163,40 +163,40 @@ from blackhole_agent.digestauth_actuation import (
     DIGESTAUTH_ACTUATION_GOAL,
     DIGESTAUTH_ACTUATION_ID,
 )
-from blackhole_agent.cga_actuation import (
-    DEFAULT_CGAID,
-    DEFAULT_CGADIGEST,
-    DEFAULT_GENERATE,
-    EMPTY_CGAID,
-    FRAME_VERIFY,
-    FRAME_GENERATE,
-    CGA_ACTUATION_DONE_WHEN,
-    CGA_ACTUATION_GOAL,
-    CGA_ACTUATION_ID,
-    CGA_LEFTOVER,
-    CGA_FIRST,
-    VERIFY_POLICY,
-    RFC_GENERATE_FIELD,
-    RFC_VERIFY_FIELD,
+from blackhole_agent.send_actuation import (
+    DEFAULT_SENDID,
+    DEFAULT_SENDDIGEST,
+    DEFAULT_CPS,
+    EMPTY_SENDID,
+    FRAME_CPA,
+    FRAME_CPS,
+    SEND_ACTUATION_DONE_WHEN,
+    SEND_ACTUATION_GOAL,
+    SEND_ACTUATION_ID,
+    SEND_LEFTOVER,
+    SEND_FIRST,
+    CPA_POLICY,
+    RFC_CPS_FIELD,
+    RFC_CPA_FIELD,
     SENTINEL,
-    GENERATE_HEADER,
-    builtin_cga_actuation_proof,
+    CPS_HEADER,
+    builtin_send_actuation_proof,
     canonical_public,
     canonical_temporary,
     crc32c,
     encode_public,
     encode_temporary,
-    encode_cga_header,
-    independent_cgadigest,
+    encode_send_header,
+    independent_senddigest,
     parse_http_request,
     parse_http_response,
     parse_message,
-    parse_cga,
-    parse_cga_header,
+    parse_send,
+    parse_send_header,
     public_request,
     public_response,
-    run_cga_workflow,
-    serialize_cga,
+    run_send_workflow,
+    serialize_send,
     temporary_request,
     temporary_response,
 )
@@ -225,10 +225,10 @@ from blackhole_agent.stun_actuation import STUN_ACTUATION_GOAL, STUN_ACTUATION_I
 from blackhole_agent.syslog_actuation import SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUATION_ID
 from blackhole_agent.tftp_actuation import TFTP_ACTUATION_GOAL, TFTP_ACTUATION_ID
 from blackhole_agent.tool_routing import (
-    CGA_TOOL_PROVIDER,
+    SEND_TOOL_PROVIDER,
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     build_tool_routing_preflight,
-    cga_tool_descriptor,
+    send_tool_descriptor,
     route_tool_descriptor,
 )
 from blackhole_agent.turn_actuation import TURN_ACTUATION_GOAL, TURN_ACTUATION_ID
@@ -283,7 +283,7 @@ NEIGHBORS = (
     WEBLINKING_ACTUATION_GOAL,
     EXTVALUE_ACTUATION_GOAL,
     ULA_ACTUATION_GOAL,
-    SEND_ACTUATION_GOAL,
+    CGA_ACTUATION_GOAL,
     OPAQUEIID_ACTUATION_GOAL,
     TEMPADDR_ACTUATION_GOAL,
     SLAAC_ACTUATION_GOAL,
@@ -356,7 +356,7 @@ NEIGHBOR_IDS = (
     WEBLINKING_ACTUATION_ID,
     EXTVALUE_ACTUATION_ID,
     ULA_ACTUATION_ID,
-    SEND_ACTUATION_ID,
+    CGA_ACTUATION_ID,
     OPAQUEIID_ACTUATION_ID,
     TEMPADDR_ACTUATION_ID,
     SLAAC_ACTUATION_ID,
@@ -385,12 +385,13 @@ NEIGHBOR_IDS = (
 )
 
 
-def test_goal_binds_cga_actuation_plane() -> None:
-    assert leftover_marker_ids(CGA_ACTUATION_GOAL) == (CGA_ACTUATION_ID,)
-    assert leftover_marker_ids(CGA_LEFTOVER) == (CGA_ACTUATION_ID,)
-    assert leftover_marker_ids(ULA_ACTUATION_GOAL) == (ULA_ACTUATION_ID,)
+def test_goal_binds_send_actuation_plane() -> None:
     assert leftover_marker_ids(SEND_ACTUATION_GOAL) == (SEND_ACTUATION_ID,)
+    assert leftover_marker_ids(SEND_LEFTOVER) == (SEND_ACTUATION_ID,)
+    assert leftover_marker_ids(ULA_ACTUATION_GOAL) == (ULA_ACTUATION_ID,)
+    assert leftover_marker_ids(CGA_ACTUATION_GOAL) == (CGA_ACTUATION_ID,)
     assert leftover_marker_ids(OPAQUEIID_ACTUATION_GOAL) == (OPAQUEIID_ACTUATION_ID,)
+    assert OPAQUEIID_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(TEMPADDR_ACTUATION_GOAL) == (TEMPADDR_ACTUATION_ID,)
     assert leftover_marker_ids(SLAAC_ACTUATION_GOAL) == (SLAAC_ACTUATION_ID,)
     assert leftover_marker_ids(NDP_ACTUATION_GOAL) == (NDP_ACTUATION_ID,)
@@ -412,7 +413,6 @@ def test_goal_binds_cga_actuation_plane() -> None:
     assert ULA_ACTUATION_ID in LOCAL_DENYLIST
     assert SEND_ACTUATION_ID in LOCAL_DENYLIST
     assert CGA_ACTUATION_ID in LOCAL_DENYLIST
-    assert OPAQUEIID_ACTUATION_ID in LOCAL_DENYLIST
     assert TEMPADDR_ACTUATION_ID in LOCAL_DENYLIST
     assert SLAAC_ACTUATION_ID in LOCAL_DENYLIST
     assert NDP_ACTUATION_ID in LOCAL_DENYLIST
@@ -430,8 +430,8 @@ def test_goal_binds_cga_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPAUTH_ACTUATION_GOAL) == (HTTPAUTH_ACTUATION_ID,)
     assert leftover_marker_ids(TCN_ACTUATION_GOAL) == (TCN_ACTUATION_ID,)
     assert leftover_marker_ids(ICP_ACTUATION_GOAL) == (ICP_ACTUATION_ID,)
-    assert CGA_ACTUATION_ID in LOCAL_DENYLIST
-    assert CGA_ACTUATION_ID in LOCAL_DENYLIST
+    assert SEND_ACTUATION_ID in LOCAL_DENYLIST
+    assert SEND_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPAUTH_ACTUATION_ID in LOCAL_DENYLIST
     assert TCN_ACTUATION_ID in LOCAL_DENYLIST
@@ -443,9 +443,9 @@ def test_goal_binds_cga_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPCOOKIE_ACTUATION_GOAL) == (HTTPCOOKIE_ACTUATION_ID,)
     assert leftover_marker_ids(WEBORIGIN_ACTUATION_GOAL) == (WEBORIGIN_ACTUATION_ID,)
     assert leftover_marker_ids(XFO_ACTUATION_GOAL) == (XFO_ACTUATION_ID,)
-    assert CGA_ACTUATION_ID in LOCAL_DENYLIST
+    assert SEND_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
-    assert CGA_ACTUATION_ID in LOCAL_DENYLIST
+    assert SEND_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert SPNEGO_ACTUATION_ID in LOCAL_DENYLIST
     assert STALECONTENT_ACTUATION_ID in LOCAL_DENYLIST
@@ -455,185 +455,185 @@ def test_goal_binds_cga_actuation_plane() -> None:
     assert WEBORIGIN_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(HSTS_ACTUATION_GOAL) == (HSTS_ACTUATION_ID,)
     assert leftover_marker_ids(HPKP_ACTUATION_GOAL) == (HPKP_ACTUATION_ID,)
-    assert leftover_marker_ids(CGA_ACTUATION_GOAL) == (CGA_ACTUATION_ID,)
+    assert leftover_marker_ids(SEND_ACTUATION_GOAL) == (SEND_ACTUATION_ID,)
     assert leftover_marker_ids(HTTPSTATE_ACTUATION_GOAL) == (HTTPSTATE_ACTUATION_ID,)
     assert leftover_marker_ids(ALTSVC_ACTUATION_GOAL) == (ALTSVC_ACTUATION_ID,)
     assert leftover_marker_ids(ENCRYPTEDCONTENT_ACTUATION_GOAL) == (ENCRYPTEDCONTENT_ACTUATION_ID,)
     assert leftover_marker_ids(EARLYHINTS_ACTUATION_GOAL) == (EARLYHINTS_ACTUATION_ID,)
     assert HSTS_ACTUATION_ID in LOCAL_DENYLIST
     assert HPKP_ACTUATION_ID in LOCAL_DENYLIST
-    assert CGA_ACTUATION_ID in LOCAL_DENYLIST
+    assert SEND_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert ALTSVC_ACTUATION_ID in LOCAL_DENYLIST
     assert ENCRYPTEDCONTENT_ACTUATION_ID in LOCAL_DENYLIST
     for goal, capability_id in zip(NEIGHBORS, NEIGHBOR_IDS, strict=True):
         assert leftover_marker_ids(goal) == (capability_id,)
-        assert CGA_ACTUATION_ID not in leftover_marker_ids(goal)
-        assert capability_id not in leftover_marker_ids(CGA_ACTUATION_GOAL)
-    icp_signature = semantic_signature(CGA_ACTUATION_GOAL)
+        assert SEND_ACTUATION_ID not in leftover_marker_ids(goal)
+        assert capability_id not in leftover_marker_ids(SEND_ACTUATION_GOAL)
+    icp_signature = semantic_signature(SEND_ACTUATION_GOAL)
     for neighbor in NEIGHBORS:
         assert semantic_similarity(icp_signature, semantic_signature(neighbor)) < 0.82
 
 
-def test_opted_in_cga_tool_completes_body_transfer_poll() -> None:
-    descriptor = cga_tool_descriptor()
+def test_opted_in_send_tool_completes_body_transfer_poll() -> None:
+    descriptor = send_tool_descriptor()
     naive = route_tool_descriptor(descriptor)
     opted = route_tool_descriptor(
         descriptor,
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, CGA_TOOL_PROVIDER),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, SEND_TOOL_PROVIDER),
     )
     assert naive.executable is False
     assert opted.executable is True
 
     preflight = build_tool_routing_preflight(
         [descriptor],
-        required_tool_names=("cga",),
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, CGA_TOOL_PROVIDER),
+        required_tool_names=("send",),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, SEND_TOOL_PROVIDER),
     )
     assert preflight["ok"] is True
-    assert preflight["executable_tool_names"] == ["cga"]
+    assert preflight["executable_tool_names"] == ["send"]
 
-    missing = run_cga_workflow(with_cgaid=False)
-    skip_bind = run_cga_workflow(skip_bind=True)
-    skip_temporary = run_cga_workflow(do_temporary=False)
-    skip_public = run_cga_workflow(do_public=False)
-    skip_cgadigest = run_cga_workflow(do_cgadigest=False)
-    skip_replay = run_cga_workflow(replay=False)
-    skip_cgaid = run_cga_workflow(use_cgaid=False)
-    live = run_cga_workflow()
+    missing = run_send_workflow(with_sendid=False)
+    skip_bind = run_send_workflow(skip_bind=True)
+    skip_temporary = run_send_workflow(do_temporary=False)
+    skip_public = run_send_workflow(do_public=False)
+    skip_senddigest = run_send_workflow(do_senddigest=False)
+    skip_replay = run_send_workflow(replay=False)
+    skip_sendid = run_send_workflow(use_sendid=False)
+    live = run_send_workflow()
     assert missing["ok"] is False
     assert missing["final_status"] == 403
-    assert missing["error"] == "missing_cgaid"
+    assert missing["error"] == "missing_sendid"
     assert skip_bind["ok"] is False
     assert skip_bind["error"] == "not_bound"
     assert skip_temporary["ok"] is False
     assert skip_temporary["error"] == "temporary_required"
     assert skip_public["ok"] is False
     assert skip_public["error"] == "public_required"
-    assert skip_cgadigest["ok"] is False
-    assert skip_cgadigest["error"] == "cgadigest_required"
+    assert skip_senddigest["ok"] is False
+    assert skip_senddigest["error"] == "senddigest_required"
     assert skip_replay["ok"] is False
     assert skip_replay["error"] == "replay_required"
-    assert skip_cgaid["ok"] is False
-    assert skip_cgaid["error"] == "cgaid_required"
+    assert skip_sendid["ok"] is False
+    assert skip_sendid["error"] == "sendid_required"
     assert live["ok"] is True
     assert live["sentinel"] == SENTINEL
     assert live["independent_sentinel"] == SENTINEL
     assert Path(live["sealed_path"]).is_file()
-    row = independent_cgadigest(Path(live["sealed_path"]))
+    row = independent_senddigest(Path(live["sealed_path"]))
     assert row["sentinel"] == SENTINEL
     assert row["temporary_frame"] is True
     assert row["public_frame"] is True
-    assert row["cgadigest_locate"] is True
+    assert row["senddigest_locate"] is True
     assert row["stored"] is True
     assert row["retrieved"] is True
     assert row["replayed"] is True
     assert row["independent"] is True
-    assert row["cgaid_bound"] is True
+    assert row["sendid_bound"] is True
     assert row["digest"]
-    assert live["cgaid"] == DEFAULT_CGAID
-    assert live["cgadigest"] == DEFAULT_CGADIGEST
+    assert live["sendid"] == DEFAULT_SENDID
+    assert live["senddigest"] == DEFAULT_SENDDIGEST
     assert int(live["port"]) > 0
     queried = parse_message(
-        encode_temporary(identity=SENTINEL, cgaid=DEFAULT_CGAID, cgadigest=DEFAULT_CGADIGEST)
+        encode_temporary(identity=SENTINEL, sendid=DEFAULT_SENDID, senddigest=DEFAULT_SENDDIGEST)
     )
     assert queried["is_temporary"] is True and queried["is_public"] is False
-    assert queried["identity"] == SENTINEL and queried["cgaid"] == DEFAULT_CGAID
-    assert queried["cgadigest"] == DEFAULT_CGADIGEST
-    assert queried["type"] == FRAME_GENERATE
-    assert queried["first_byte"] == CGA_FIRST
+    assert queried["identity"] == SENTINEL and queried["sendid"] == DEFAULT_SENDID
+    assert queried["senddigest"] == DEFAULT_SENDDIGEST
+    assert queried["type"] == FRAME_CPS
+    assert queried["first_byte"] == SEND_FIRST
     answered = parse_message(
-        encode_public(identity=SENTINEL, cgaid=DEFAULT_CGAID, cgadigest=DEFAULT_CGADIGEST)
+        encode_public(identity=SENTINEL, sendid=DEFAULT_SENDID, senddigest=DEFAULT_SENDDIGEST)
     )
     assert answered["is_public"] is True and answered["is_public"] is True
-    assert answered["cgaid"] == DEFAULT_CGAID
-    assert answered["cgadigest"] == DEFAULT_CGADIGEST
-    packed = encode_temporary(identity=SENTINEL, cgaid=DEFAULT_CGAID, cgadigest=DEFAULT_CGADIGEST)
+    assert answered["sendid"] == DEFAULT_SENDID
+    assert answered["senddigest"] == DEFAULT_SENDDIGEST
+    packed = encode_temporary(identity=SENTINEL, sendid=DEFAULT_SENDID, senddigest=DEFAULT_SENDDIGEST)
     zeroed = packed[:-4] + (0).to_bytes(4, "big")
     assert crc32c(zeroed) == int.from_bytes(packed[-4:], "big")
     bare = parse_message(
-        encode_temporary(identity=SENTINEL, cgaid=DEFAULT_CGAID, include_cgaid=False)
+        encode_temporary(identity=SENTINEL, sendid=DEFAULT_SENDID, include_sendid=False)
     )
-    assert bare["has_cgaid"] is False
-    assert bare["cgaid"] == EMPTY_CGAID
-    publicised = serialize_cga(DEFAULT_GENERATE)
-    assert publicised == RFC_GENERATE_FIELD
-    assert parse_cga(publicised) == DEFAULT_GENERATE
-    assert parse_cga(RFC_VERIFY_FIELD) == VERIFY_POLICY
-    header = parse_cga_header(encode_cga_header(DEFAULT_GENERATE))
-    assert header["field_value"] == RFC_GENERATE_FIELD
-    assert header["header"] == GENERATE_HEADER
-    asked = parse_http_request(temporary_request(SENTINEL, DEFAULT_CGAID))
-    listed = parse_http_request(public_request(SENTINEL, DEFAULT_CGAID, DEFAULT_CGADIGEST))
-    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_CGAID, DEFAULT_CGADIGEST))
+    assert bare["has_sendid"] is False
+    assert bare["sendid"] == EMPTY_SENDID
+    publicised = serialize_send(DEFAULT_CPS)
+    assert publicised == RFC_CPS_FIELD
+    assert parse_send(publicised) == DEFAULT_CPS
+    assert parse_send(RFC_CPA_FIELD) == CPA_POLICY
+    header = parse_send_header(encode_send_header(DEFAULT_CPS))
+    assert header["field_value"] == RFC_CPS_FIELD
+    assert header["header"] == CPS_HEADER
+    asked = parse_http_request(temporary_request(SENTINEL, DEFAULT_SENDID))
+    listed = parse_http_request(public_request(SENTINEL, DEFAULT_SENDID, DEFAULT_SENDDIGEST))
+    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_SENDID, DEFAULT_SENDDIGEST))
     preload_public = parse_http_response(
-        public_response(SENTINEL, DEFAULT_CGAID, DEFAULT_CGADIGEST)
+        public_response(SENTINEL, DEFAULT_SENDID, DEFAULT_SENDDIGEST)
     )
-    assert asked["method"] == "GENERATE"
-    assert asked["cga_kind"] == "generate"
-    assert listed["cga_kind"] == "verify"
+    assert asked["method"] == "CPS"
+    assert asked["send_kind"] == "cps"
+    assert listed["send_kind"] == "cpa"
     assert got["status"] == 200
     assert preload_public["status"] == 200
-    assert got["policy"] == DEFAULT_GENERATE
-    assert preload_public["policy"] == VERIFY_POLICY
-    assert canonical_temporary(SENTINEL, DEFAULT_CGAID).startswith("GENERATE")
-    assert "cgadigest=" in canonical_public(SENTINEL, DEFAULT_CGAID, DEFAULT_CGADIGEST)
+    assert got["policy"] == DEFAULT_CPS
+    assert preload_public["policy"] == CPA_POLICY
+    assert canonical_temporary(SENTINEL, DEFAULT_SENDID).startswith("CPS")
+    assert "senddigest=" in canonical_public(SENTINEL, DEFAULT_SENDID, DEFAULT_SENDDIGEST)
 
 
-def test_builtin_proof_seals_cga_actuation() -> None:
-    report = builtin_cga_actuation_proof()
+def test_builtin_proof_seals_send_actuation() -> None:
+    report = builtin_send_actuation_proof()
     assert report["ok"] is True, report.get("failed") or report.get("checks")
-    assert report["action"] == "cga_actuation"
+    assert report["action"] == "send_actuation"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
     assert report["passed_count"] >= 12
-    assert report["checks"]["naive_preflight_missing_cga"]
+    assert report["checks"]["naive_preflight_missing_send"]
     assert report["checks"]["opted_in_preflight_ok"]
-    assert report["checks"]["naive_without_cgaid_is_forbidden"]
+    assert report["checks"]["naive_without_sendid_is_forbidden"]
     assert report["checks"]["skip_temporary_stays_empty"]
     assert report["checks"]["skip_public_stays_empty"]
-    assert report["checks"]["skip_cgadigest_stays_empty"]
+    assert report["checks"]["skip_senddigest_stays_empty"]
     assert report["checks"]["skip_replay_stays_empty"]
-    assert report["checks"]["skip_cgaid_stays_empty"]
+    assert report["checks"]["skip_sendid_stays_empty"]
     assert report["checks"]["workflow_extracts_sentinel"]
     assert report["checks"]["workflow_commits_independent_digest"]
     assert report["checks"]["workflow_writes_sealed_file"]
-    assert report["checks"]["workflow_records_cgadigest"]
+    assert report["checks"]["workflow_records_senddigest"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_cga"]
-    assert report["checks"]["catalog_names_cga"]
+    assert report["checks"]["exhausted_catalog_binds_send"]
     assert report["checks"]["catalog_names_send"]
-    assert report["checks"]["leftover_text_binds_cga"]
-    assert report["checks"]["proved_cga_consumes_leftover"]
-    assert report["mission_goal"] == CGA_ACTUATION_GOAL
-    assert report["done_when"] == CGA_ACTUATION_DONE_WHEN
+    assert report["checks"]["catalog_names_ula"]
+    assert report["checks"]["leftover_text_binds_send"]
+    assert report["checks"]["proved_send_consumes_leftover"]
+    assert report["mission_goal"] == SEND_ACTUATION_GOAL
+    assert report["done_when"] == SEND_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
-    capability = ledger.capabilities[CGA_ACTUATION_ID]
+    capability = ledger.capabilities[SEND_ACTUATION_ID]
     assert capability.last_proof_exit_code == 0
-    assert "cga" in capability.tags
-    assert "rfc3972" in capability.tags
+    assert "send" in capability.tags
+    assert "rfc3971" in capability.tags
     assert "http" in capability.tags
-    assert "cgaid" in capability.tags
-    assert "cgadigest" in capability.tags
-    assert "generate" in capability.tags
+    assert "sendid" in capability.tags
+    assert "senddigest" in capability.tags
+    assert "cps" in capability.tags
 
 
-def test_selection_gate_accepts_cga_family(tmp_path: Path) -> None:
+def test_selection_gate_accepts_send_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
-        CGA_ACTUATION_GOAL,
-        CGA_ACTUATION_DONE_WHEN,
+        SEND_ACTUATION_GOAL,
+        SEND_ACTUATION_DONE_WHEN,
         history=(),
     )
     assert gate.accepted is True
     assert gate.scalar_extension is False
-    family = capability_family(CGA_ACTUATION_GOAL)
+    family = capability_family(SEND_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
-    assert "cga" in family.split("/")
-    assert "rfc3972" in family
-    assert "cgaid" in family
-    assert "cgadigest" in family
+    assert "send" in family.split("/")
+    assert "rfc3971" in family
+    assert "sendid" in family
+    assert "senddigest" in family
     assert "chid" not in family_tokens
     assert "altsvc" not in family
     assert "rfc7838" not in family
@@ -652,8 +652,11 @@ def test_selection_gate_accepts_cga_family(tmp_path: Path) -> None:
     assert "negotiateid" not in family
     assert "negotiatedigest" not in family
     assert "ula" not in family.split("/")
-    assert "send" not in family.split("/")
+    assert "cga" not in family.split("/")
     assert "opaqueiid" not in family.split("/")
+    assert "rfc7217" not in family
+    assert "opaqueid" not in family
+    assert "opaquedigest" not in family
     assert "tempaddr" not in family.split("/")
     assert "rfc4941" not in family
     assert "tempaddrid" not in family
@@ -675,8 +678,8 @@ def test_selection_gate_accepts_cga_family(tmp_path: Path) -> None:
     assert "rfc793" not in family
     assert "tcpid" not in family
     assert "tcpdigest" not in family
-    assert "rfc3971" not in family
-    assert "rfc7217" not in family
+    assert "rfc4193" not in family
+    assert "rfc3972" not in family
     assert "rfc4862" not in family
     assert "rfc4861" not in family
     assert "rfc2710" not in family
@@ -684,16 +687,16 @@ def test_selection_gate_accepts_cga_family(tmp_path: Path) -> None:
     assert "rfc903" not in family
     assert "rfc826" not in family
     assert "rfc791" not in family
-    assert "sendid" not in family
-    assert "opaqueid" not in family
+    assert "ulaid" not in family
+    assert "cgaid" not in family
     assert "ndpid" not in family
     assert "mldid" not in family
     assert "igmpid" not in family
     assert "rarpid" not in family
     assert "arpid" not in family.split("/")
     assert "ipid" not in family
-    assert "senddigest" not in family
-    assert "opaquedigest" not in family
+    assert "uladigest" not in family
+    assert "cgadigest" not in family
     assert "ndpdigest" not in family
     assert "mlddigest" not in family
     assert "igmpdigest" not in family
@@ -721,13 +724,13 @@ def test_selection_gate_accepts_cga_family(tmp_path: Path) -> None:
     assert "digestauth" not in family
     assert "rfc2069" not in family
     assert "httpstate" not in family
-    assert "rfc3971" not in family
+    assert "rfc4193" not in family
     assert "rfc791" not in family
     assert "rfc2109" not in family
-    assert "sendid" not in family
+    assert "ulaid" not in family
     assert "ipid" not in family
     assert "stateid" not in family
-    assert "senddigest" not in family
+    assert "uladigest" not in family
     assert "ipdigest" not in family
     assert "statedigest" not in family
     assert "icp" not in family

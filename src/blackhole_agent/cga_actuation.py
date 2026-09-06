@@ -1393,6 +1393,7 @@ def ensure_cga_actuation_capability(*, repo_path: Path | None = None) -> Capabil
             "src/blackhole_agent/ip_actuation.py",
             "src/blackhole_agent/icmp_actuation.py",
             "src/blackhole_agent/send_actuation.py",
+            "src/blackhole_agent/ula_actuation.py",
             "capabilities/ledger.json",
         ),
         capability_delta=(
@@ -1436,6 +1437,10 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
     from blackhole_agent.send_actuation import (
         SEND_ACTUATION_GOAL,
         SEND_ACTUATION_ID,
+    )
+    from blackhole_agent.ula_actuation import (
+        ULA_ACTUATION_GOAL,
+        ULA_ACTUATION_ID,
     )
     from blackhole_agent.opaqueiid_actuation import (
         OPAQUEIID_ACTUATION_GOAL,
@@ -1679,6 +1684,7 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         (SPNEGO_ACTUATION_GOAL, SPNEGO_ACTUATION_ID, "spnego"),
         (HTTPAUTH_ACTUATION_GOAL, HTTPAUTH_ACTUATION_ID, "httpauth"),
         (TCN_ACTUATION_GOAL, TCN_ACTUATION_ID, "tcn"),
+        (ULA_ACTUATION_GOAL, ULA_ACTUATION_ID, "ula"),
         (SEND_ACTUATION_GOAL, SEND_ACTUATION_ID, "send"),
         (OPAQUEIID_ACTUATION_GOAL, OPAQUEIID_ACTUATION_ID, "opaqueiid"),
         (TEMPADDR_ACTUATION_GOAL, TEMPADDR_ACTUATION_ID, "tempaddr"),
@@ -1776,6 +1782,11 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         and catalog[125]["id"] == SEND_ACTUATION_ID
         and catalog[125]["source"] == "genesis_bind_send"
     )
+    checks["catalog_names_ula"] = (
+        len(catalog) > 126
+        and catalog[126]["id"] == ULA_ACTUATION_ID
+        and catalog[126]["source"] == "genesis_bind_ula"
+    )
     family = capability_family(CGA_ACTUATION_GOAL)
     checks["family_is_cga"] = "cga" in family.split("/")
     checks["family_is_cga_surface"] = "cgaid" in family
@@ -1793,6 +1804,12 @@ def builtin_cga_actuation_proof() -> dict[str, Any]:
         and "rfc4862" not in family
         and "slaacid" not in family
         and "slaacdigest" not in family
+    )
+    checks["family_is_not_ula"] = (
+        "ula" not in family.split("/")
+        and "rfc4193" not in family
+        and "ulaid" not in family
+        and "uladigest" not in family
     )
     checks["family_is_not_send"] = (
         "send" not in family.split("/")

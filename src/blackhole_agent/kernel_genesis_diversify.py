@@ -682,6 +682,11 @@ from blackhole_agent.send_actuation import (
     SEND_ACTUATION_GOAL,
     SEND_ACTUATION_ID,
 )
+from blackhole_agent.ula_actuation import (
+    ULA_ACTUATION_DONE_WHEN,
+    ULA_ACTUATION_GOAL,
+    ULA_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1480,6 +1485,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": SEND_ACTUATION_GOAL,
         "done_when": SEND_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_send",
+    },
+    {
+        "id": ULA_ACTUATION_ID,
+        "goal": ULA_ACTUATION_GOAL,
+        "done_when": ULA_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_ula",
     },
 )
 
