@@ -607,6 +607,11 @@ from blackhole_agent.nntp_actuation import (
     NNTP_ACTUATION_GOAL,
     NNTP_ACTUATION_ID,
 )
+from blackhole_agent.telnet_actuation import (
+    TELNET_ACTUATION_DONE_WHEN,
+    TELNET_ACTUATION_GOAL,
+    TELNET_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1316,6 +1321,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "done_when": NNTP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_nntp",
     },
+    {
+        "id": TELNET_ACTUATION_ID,
+        "goal": TELNET_ACTUATION_GOAL,
+        "done_when": TELNET_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_telnet",
+    },
 )
 
 _LIVE_SHAPED_GOALS = (
@@ -1721,6 +1732,7 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
     checks["catalog_names_finger"] = DIVERSITY_CATALOG[108]["id"] == FINGER_ACTUATION_ID
     checks["catalog_names_lpd"] = DIVERSITY_CATALOG[109]["id"] == LPD_ACTUATION_ID
     checks["catalog_names_nntp"] = DIVERSITY_CATALOG[110]["id"] == NNTP_ACTUATION_ID
+    checks["catalog_names_telnet"] = DIVERSITY_CATALOG[111]["id"] == TELNET_ACTUATION_ID
 
     ok = all(checks.values())
     if ok:

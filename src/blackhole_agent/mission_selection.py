@@ -398,6 +398,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc977",
         "nntpid",
         "nntpdigest",
+        "telnet",
+        "rfc854",
+        "telnetid",
+        "telnetdigest",
     }
 )
 _IMPACT_MARKERS = (

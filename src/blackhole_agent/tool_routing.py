@@ -924,6 +924,7 @@ MIME_TOOL_PROVIDER = "mime"
 GOPHER_TOOL_PROVIDER = "gopher"
 FINGER_TOOL_PROVIDER = "finger"
 LPD_TOOL_PROVIDER = "lpd"
+NNTP_TOOL_PROVIDER = "nntp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4105,6 +4106,48 @@ def lpd_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LPD_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def nntp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 977 NNTP ARTICLE/GROUP route.
+
+    Provider ``nntp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="nntp",
+        description=(
+            "Drive a first-class RFC 977 session: bind a loopback Network News "
+            "Transfer Protocol origin, send an ARTICLE with a non-empty "
+            "nntpid, lockstep a GROUP that carries the stored "
+            "nntpdigest, independently poll the stored nntpdigest "
+            "on a later client socket, and read the sealed nntpdigest. "
+            "NNTPID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "article": {"type": "boolean"},
+                "group": {"type": "boolean"},
+                "nntpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_nntpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=NNTP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
