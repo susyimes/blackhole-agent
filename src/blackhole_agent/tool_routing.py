@@ -938,6 +938,7 @@ NDP_TOOL_PROVIDER = "ndp"
 SLAAC_TOOL_PROVIDER = "slaac"
 TEMPADDR_TOOL_PROVIDER = "tempaddr"
 OPAQUEIID_TOOL_PROVIDER = "opaqueiid"
+CGA_TOOL_PROVIDER = "cga"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4707,6 +4708,48 @@ def opaqueiid_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=OPAQUEIID_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def cga_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3972 CGA GENERATE/VERIFY route.
+
+    Provider ``cga`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="cga",
+        description=(
+            "Drive a first-class RFC 3972 session: bind a loopback Cryptographically "
+            "Generated Addresses origin, send a GENERATE with a "
+            "non-empty cgaid, lockstep a VERIFY that carries the stored "
+            "cgadigest, independently poll the stored cgadigest "
+            "on a later client socket, and read the sealed cgadigest. "
+            "CGAID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "generate": {"type": "boolean"},
+                "verify": {"type": "boolean"},
+                "cgadigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_cgaid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=CGA_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

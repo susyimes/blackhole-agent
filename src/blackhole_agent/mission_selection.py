@@ -454,6 +454,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc3972",
         "cgaid",
         "cgadigest",
+        "send",
+        "rfc3971",
+        "sendid",
+        "senddigest",
     }
 )
 _IMPACT_MARKERS = (
