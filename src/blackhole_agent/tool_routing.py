@@ -962,6 +962,7 @@ M46_TOOL_PROVIDER = "m46"
 PREFIX64_TOOL_PROVIDER = "prefix64"
 SIIT_TOOL_PROVIDER = "siit"
 EAM_TOOL_PROVIDER = "eam"
+SIITDC_TOOL_PROVIDER = "siitdc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5743,6 +5744,48 @@ def eam_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         tool_type="function",
     )
 
+
+
+
+def siitdc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7755 SIIT-DC PREFIX/DC route.
+
+    Provider ``siitdc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="siitdc",
+        description=(
+            "Drive a first-class RFC 7755 session: bind a loopback SIIT-DC "
+            "Stateless IP/ICMP Translation origin, send a PREFIX with a non-empty "
+            "siitdcid, lockstep a DC that carries the stored siitdcdigest, "
+            "independently poll the stored siitdcdigest on a later client socket, "
+            "and read the sealed siitdcdigest. SIITDCID-gated exchanges stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "prefix": {"type": "boolean"},
+                "dc": {"type": "boolean"},
+                "siitdcdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_siitdcid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SIITDC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
