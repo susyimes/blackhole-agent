@@ -742,6 +742,11 @@ from blackhole_agent.disc_actuation import (
     DISC_ACTUATION_GOAL,
     DISC_ACTUATION_ID,
 )
+from blackhole_agent.dslite_actuation import (
+    DSLITE_ACTUATION_DONE_WHEN,
+    DSLITE_ACTUATION_GOAL,
+    DSLITE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1612,6 +1617,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": DISC_ACTUATION_GOAL,
         "done_when": DISC_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_disc",
+    },
+    {
+        "id": DSLITE_ACTUATION_ID,
+        "goal": DSLITE_ACTUATION_GOAL,
+        "done_when": DSLITE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_dslite",
     },
 )
 

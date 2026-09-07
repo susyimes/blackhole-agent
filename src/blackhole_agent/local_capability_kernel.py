@@ -184,6 +184,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.dns64-actuation",
         "capability.xlat-actuation",
         "capability.disc-actuation",
+        "capability.dslite-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

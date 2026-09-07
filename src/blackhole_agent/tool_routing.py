@@ -951,6 +951,7 @@ PREF64_TOOL_PROVIDER = "pref64"
 NAT64_TOOL_PROVIDER = "nat64"
 DNS64_TOOL_PROVIDER = "dns64"
 XLAT_TOOL_PROVIDER = "xlat"
+DISC_TOOL_PROVIDER = "disc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5267,6 +5268,48 @@ def xlat_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=XLAT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def disc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7050 IPV4ONLY/AAAA route.
+
+    Provider ``disc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="disc",
+        description=(
+            "Drive a first-class RFC 7050 session: bind a loopback Discovery "
+            "of the IPv6 Prefix Used for IPv6 Address Synthesis origin, send a "
+            "IPV4ONLY with a non-empty discid, lockstep a AAAA that carries the "
+            "stored discdigest, independently poll the stored discdigest "
+            "on a later client socket, and read the sealed discdigest. "
+            "DISCID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "ipv4only": {"type": "boolean"},
+                "aaaa": {"type": "boolean"},
+                "discdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_discid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DISC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
