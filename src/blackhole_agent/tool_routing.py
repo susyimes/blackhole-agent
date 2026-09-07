@@ -946,6 +946,7 @@ IPV6SCOPE_TOOL_PROVIDER = "ipv6scope"
 ADDRSELECT_TOOL_PROVIDER = "addrselect"
 ADDRPOLICY_TOOL_PROVIDER = "addrpolicy"
 FIRSTHOP_TOOL_PROVIDER = "firsthop"
+RDNSS_TOOL_PROVIDER = "rdnss"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5051,6 +5052,48 @@ def firsthop_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=FIRSTHOP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def rdnss_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8106 RDNSS/DNSSL route.
+
+    Provider ``rdnss`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="rdnss",
+        description=(
+            "Drive a first-class RFC 8106 session: bind a loopback IPv6 "
+            "Router Advertisement DNS Configuration origin, send a RDNSS with a "
+            "non-empty rdnssid, lockstep a DNSSL that carries the stored "
+            "rdnssdigest, independently poll the stored rdnssdigest "
+            "on a later client socket, and read the sealed rdnssdigest. "
+            "RDNSSID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "rdnss": {"type": "boolean"},
+                "dnssl": {"type": "boolean"},
+                "rdnssdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_rdnssid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=RDNSS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

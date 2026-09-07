@@ -717,6 +717,11 @@ from blackhole_agent.rdnss_actuation import (
     RDNSS_ACTUATION_GOAL,
     RDNSS_ACTUATION_ID,
 )
+from blackhole_agent.pref64_actuation import (
+    PREF64_ACTUATION_DONE_WHEN,
+    PREF64_ACTUATION_GOAL,
+    PREF64_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1557,6 +1562,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": RDNSS_ACTUATION_GOAL,
         "done_when": RDNSS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_rdnss",
+    },
+    {
+        "id": PREF64_ACTUATION_ID,
+        "goal": PREF64_ACTUATION_GOAL,
+        "done_when": PREF64_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_pref64",
     },
 )
 
