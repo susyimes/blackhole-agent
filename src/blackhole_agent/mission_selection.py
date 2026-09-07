@@ -536,6 +536,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc8114",
         "m46id",
         "m46digest",
+        "prefix64",
+        "rfc8115",
+        "prefix64id",
+        "prefix64digest",
     }
 )
 _IMPACT_MARKERS = (
