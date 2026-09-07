@@ -772,6 +772,11 @@ from blackhole_agent.ucpe_actuation import (
     UCPE_ACTUATION_GOAL,
     UCPE_ACTUATION_ID,
 )
+from blackhole_agent.m46_actuation import (
+    M46_ACTUATION_DONE_WHEN,
+    M46_ACTUATION_GOAL,
+    M46_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1678,6 +1683,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": UCPE_ACTUATION_GOAL,
         "done_when": UCPE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ucpe",
+    },
+    {
+        "id": M46_ACTUATION_ID,
+        "goal": M46_ACTUATION_GOAL,
+        "done_when": M46_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_m46",
     },
 )
 

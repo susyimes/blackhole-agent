@@ -957,6 +957,7 @@ LW4O6_TOOL_PROVIDER = "lw4o6"
 MAPE_TOOL_PROVIDER = "mape"
 MAPT_TOOL_PROVIDER = "mapt"
 S46_TOOL_PROVIDER = "s46"
+UCPE_TOOL_PROVIDER = "ucpe"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5525,6 +5526,48 @@ def s46_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=S46_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ucpe_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8026 UCPE CONTAINER/PROVISION route.
+
+    Provider ``ucpe`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ucpe",
+        description=(
+            "Drive a first-class RFC 8026 session: bind a loopback Unified "
+            "IPv4-in-IPv6 Softwire Customer Premises Equipment origin, send a "
+            "CONTAINER with a non-empty ucpeid, lockstep a PROVISION that "
+            "carries the stored ucpedigest, independently poll the stored "
+            "ucpedigest on a later client socket, and read the sealed "
+            "ucpedigest. UCPEID-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "container": {"type": "boolean"},
+                "provision": {"type": "boolean"},
+                "ucpedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ucpeid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=UCPE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
