@@ -618,6 +618,11 @@ _SURFACE_TOKENS = frozenset(
         "encapid",
         "encapdigest",
         "safi",
+        "mpbgp",
+        "rfc4760",
+        "mpbgpid",
+        "mpbgpdigest",
+        "nlri",
     }
 )
 _IMPACT_MARKERS = (
