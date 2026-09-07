@@ -623,6 +623,11 @@ _SURFACE_TOKENS = frozenset(
         "mpbgpid",
         "mpbgpdigest",
         "nlri",
+        "bgp4",
+        "rfc4271",
+        "bgp4id",
+        "bgp4digest",
+        "speaker",
     }
 )
 _IMPACT_MARKERS = (
