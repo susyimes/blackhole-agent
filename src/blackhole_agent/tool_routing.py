@@ -950,6 +950,7 @@ RDNSS_TOOL_PROVIDER = "rdnss"
 PREF64_TOOL_PROVIDER = "pref64"
 NAT64_TOOL_PROVIDER = "nat64"
 DNS64_TOOL_PROVIDER = "dns64"
+XLAT_TOOL_PROVIDER = "xlat"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5224,6 +5225,48 @@ def dns64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=DNS64_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def xlat_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6877 CLAT/PLAT route.
+
+    Provider ``xlat`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="xlat",
+        description=(
+            "Drive a first-class RFC 6877 session: bind a loopback 464XLAT "
+            "Combination of Stateful and Stateless Translation origin, send a "
+            "CLAT with a non-empty clatid, lockstep a PLAT that carries the "
+            "stored clatdigest, independently poll the stored clatdigest "
+            "on a later client socket, and read the sealed clatdigest. "
+            "CLATID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "clat": {"type": "boolean"},
+                "plat": {"type": "boolean"},
+                "clatdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_clatid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=XLAT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

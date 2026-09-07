@@ -503,6 +503,11 @@ _SURFACE_TOKENS = frozenset(
         "rfc6877",
         "clatid",
         "clatdigest",
+        "disc",
+        "rfc7050",
+        "discid",
+        "discdigest",
+        "ipv4only",
     }
 )
 _IMPACT_MARKERS = (
