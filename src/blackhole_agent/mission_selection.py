@@ -576,6 +576,12 @@ _SURFACE_TOKENS = frozenset(
         "sixto4id",
         "sixto4digest",
         "border",
+        "teredo",
+        "rfc4380",
+        "teredoid",
+        "teredodigest",
+        "bubble",
+        "qual",
     }
 )
 _IMPACT_MARKERS = (

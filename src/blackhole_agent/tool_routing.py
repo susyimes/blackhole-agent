@@ -967,6 +967,7 @@ SIITDTM_TOOL_PROVIDER = "siitdtm"
 V4EMBED_TOOL_PROVIDER = "v4embed"
 LUPREFIX_TOOL_PROVIDER = "luprefix"
 SIXRD_TOOL_PROVIDER = "sixrd"
+SIXTO4_TOOL_PROVIDER = "sixto4"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5951,6 +5952,48 @@ def sixrd_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SIXRD_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def sixto4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3056 Connection of IPv6 Domains via IPv4 Clouds 6TO4/BORDER route.
+
+    Provider ``sixto4`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="sixto4",
+        description=(
+            "Drive a first-class RFC 3056 session: bind a loopback Connection of IPv6 "
+            "Domains via IPv4 Clouds origin, send a 6TO4 with a non-empty "
+            "sixto4id, lockstep a BORDER that carries the stored sixto4digest, "
+            "independently poll the stored sixto4digest on a later client socket, "
+            "and read the sealed sixto4digest. SIXTO4ID-gated exchanges stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "6to4": {"type": "boolean"},
+                "border": {"type": "boolean"},
+                "sixto4digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_sixto4id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SIXTO4_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
