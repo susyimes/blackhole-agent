@@ -817,6 +817,11 @@ from blackhole_agent.sixrd_actuation import (
     SIXRD_ACTUATION_GOAL,
     SIXRD_ACTUATION_ID,
 )
+from blackhole_agent.sixto4_actuation import (
+    SIXTO4_ACTUATION_DONE_WHEN,
+    SIXTO4_ACTUATION_GOAL,
+    SIXTO4_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1777,6 +1782,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": SIXRD_ACTUATION_GOAL,
         "done_when": SIXRD_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_sixrd",
+    },
+    {
+        "id": SIXTO4_ACTUATION_ID,
+        "goal": SIXTO4_ACTUATION_GOAL,
+        "done_when": SIXTO4_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_sixto4",
     },
 )
 

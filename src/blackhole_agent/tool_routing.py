@@ -966,6 +966,7 @@ SIITDC_TOOL_PROVIDER = "siitdc"
 SIITDTM_TOOL_PROVIDER = "siitdtm"
 V4EMBED_TOOL_PROVIDER = "v4embed"
 LUPREFIX_TOOL_PROVIDER = "luprefix"
+SIXRD_TOOL_PROVIDER = "sixrd"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5909,6 +5910,47 @@ def luprefix_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=LUPREFIX_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def sixrd_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5969 IPv6 Rapid Deployment 6RD/DELEG route.
+
+    Provider ``sixrd`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="sixrd",
+        description=(
+            "Drive a first-class RFC 5969 session: bind a loopback IPv6 Rapid "
+            "Deployment on IPv4 Infrastructures origin, send a 6RD with a non-empty "
+            "sixrdid, lockstep a DELEG that carries the stored sixrddigest, "
+            "independently poll the stored sixrddigest on a later client socket, "
+            "and read the sealed sixrddigest. SIXRDID-gated exchanges stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "6rd": {"type": "boolean"},
+                "deleg": {"type": "boolean"},
+                "sixrddigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_sixrdid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SIXRD_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

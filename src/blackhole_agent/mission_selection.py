@@ -571,6 +571,11 @@ _SURFACE_TOKENS = frozenset(
         "sixrdid",
         "sixrddigest",
         "deleg",
+        "sixto4",
+        "rfc3056",
+        "sixto4id",
+        "sixto4digest",
+        "border",
     }
 )
 _IMPACT_MARKERS = (
