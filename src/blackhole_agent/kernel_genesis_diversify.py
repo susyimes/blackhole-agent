@@ -792,6 +792,11 @@ from blackhole_agent.eam_actuation import (
     EAM_ACTUATION_GOAL,
     EAM_ACTUATION_ID,
 )
+from blackhole_agent.siitdc_actuation import (
+    SIITDC_ACTUATION_DONE_WHEN,
+    SIITDC_ACTUATION_GOAL,
+    SIITDC_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1722,6 +1727,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": EAM_ACTUATION_GOAL,
         "done_when": EAM_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_eam",
+    },
+    {
+        "id": SIITDC_ACTUATION_ID,
+        "goal": SIITDC_ACTUATION_GOAL,
+        "done_when": SIITDC_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_siitdc",
     },
 )
 

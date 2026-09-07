@@ -548,6 +548,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc7757",
         "eamid",
         "eamdigest",
+        "siitdc",
+        "rfc7755",
+        "siitdcid",
+        "siitdcdigest",
     }
 )
 _IMPACT_MARKERS = (

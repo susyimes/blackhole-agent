@@ -961,6 +961,7 @@ UCPE_TOOL_PROVIDER = "ucpe"
 M46_TOOL_PROVIDER = "m46"
 PREFIX64_TOOL_PROVIDER = "prefix64"
 SIIT_TOOL_PROVIDER = "siit"
+EAM_TOOL_PROVIDER = "eam"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5696,6 +5697,48 @@ def siit_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SIIT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def eam_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7757 EAM EXPLICIT/MAPPING route.
+
+    Provider ``eam`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="eam",
+        description=(
+            "Drive a first-class RFC 7757 session: bind a loopback Explicit "
+            "Address Mappings origin, send an EXPLICIT with a non-empty "
+            "eamid, lockstep a MAPPING that carries the stored eamdigest, "
+            "independently poll the stored eamdigest on a later client socket, "
+            "and read the sealed eamdigest. EAMID-gated exchanges stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "explicit": {"type": "boolean"},
+                "mapping": {"type": "boolean"},
+                "eamdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_eamid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EAM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
