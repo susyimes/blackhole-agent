@@ -974,6 +974,7 @@ SIXOVER4_TOOL_PROVIDER = "sixover4"
 SIXIN4_TOOL_PROVIDER = "sixin4"
 TSP_TOOL_PROVIDER = "tsp"
 L2TP_TOOL_PROVIDER = "l2tp"
+MESH_TOOL_PROVIDER = "mesh"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6250,6 +6251,47 @@ def l2tp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=L2TP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mesh_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5565 Softwire Mesh Framework MESH/PEER route.
+
+    Provider ``mesh`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mesh",
+        description=(
+            "Drive a first-class RFC 5565 session: bind a loopback Softwire Mesh "
+            "Framework origin, send a MESH "
+            "with a non-empty meshid, lockstep a PEER that carries the stored "
+            "meshdigest, independently poll the stored meshdigest on a later "
+            "client socket, and read the sealed meshdigest. MESHID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "mesh": {"type": "boolean"},
+                "peer": {"type": "boolean"},
+                "meshdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_meshid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MESH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

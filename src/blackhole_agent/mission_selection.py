@@ -613,6 +613,11 @@ _SURFACE_TOKENS = frozenset(
         "meshid",
         "meshdigest",
         "peer",
+        "encap",
+        "rfc5512",
+        "encapid",
+        "encapdigest",
+        "safi",
     }
 )
 _IMPACT_MARKERS = (
