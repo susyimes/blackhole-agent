@@ -977,6 +977,7 @@ L2TP_TOOL_PROVIDER = "l2tp"
 MESH_TOOL_PROVIDER = "mesh"
 ENCAP_TOOL_PROVIDER = "encap"
 MPBGP_TOOL_PROVIDER = "mpbgp"
+BGP4_TOOL_PROVIDER = "bgp4"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6377,6 +6378,47 @@ def mpbgp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MPBGP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def bgp4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4271 A Border Gateway Protocol 4 BGP-4 OPEN/UPDATE route.
+
+    Provider ``bgp4`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="bgp4",
+        description=(
+            "Drive a first-class RFC 4271 session: bind a loopback Border Gateway Protocol 4 "
+            "origin, send an OPEN "
+            "with a non-empty bgp4id, lockstep an UPDATE that carries the stored "
+            "bgp4digest, independently poll the stored bgp4digest on a later "
+            "client socket, and read the sealed bgp4digest. BGP4ID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "bgp4": {"type": "boolean"},
+                "update": {"type": "boolean"},
+                "bgp4digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_bgp4id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=BGP4_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

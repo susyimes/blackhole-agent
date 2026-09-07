@@ -628,6 +628,10 @@ _SURFACE_TOKENS = frozenset(
         "bgp4id",
         "bgp4digest",
         "speaker",
+        "rtrefresh",
+        "rfc2918",
+        "rtrefreshid",
+        "rtrefreshdigest",
     }
 )
 _IMPACT_MARKERS = (
