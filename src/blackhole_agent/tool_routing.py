@@ -952,6 +952,7 @@ NAT64_TOOL_PROVIDER = "nat64"
 DNS64_TOOL_PROVIDER = "dns64"
 XLAT_TOOL_PROVIDER = "xlat"
 DISC_TOOL_PROVIDER = "disc"
+DSLITE_TOOL_PROVIDER = "dslite"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5310,6 +5311,48 @@ def disc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=DISC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def dslite_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6333 Dual-Stack Lite B4/AFTR route.
+
+    Provider ``dslite`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="dslite",
+        description=(
+            "Drive a first-class RFC 6333 session: bind a loopback Dual-Stack "
+            "Lite Broadband Deployments Following IPv4 Exhaustion origin, send a "
+            "B4 with a non-empty dsliteid, lockstep an AFTR that carries the "
+            "stored dslitedigest, independently poll the stored dslitedigest "
+            "on a later client socket, and read the sealed dslitedigest. "
+            "DSLITEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "b4": {"type": "boolean"},
+                "aftr": {"type": "boolean"},
+                "dslitedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dsliteid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DSLITE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
