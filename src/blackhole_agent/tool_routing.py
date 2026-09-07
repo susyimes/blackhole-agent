@@ -956,6 +956,7 @@ DSLITE_TOOL_PROVIDER = "dslite"
 LW4O6_TOOL_PROVIDER = "lw4o6"
 MAPE_TOOL_PROVIDER = "mape"
 MAPT_TOOL_PROVIDER = "mapt"
+S46_TOOL_PROVIDER = "s46"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5482,6 +5483,48 @@ def mapt_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MAPT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def s46_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7598 S46 RULE/PORTPARAMS route.
+
+    Provider ``s46`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="s46",
+        description=(
+            "Drive a first-class RFC 7598 session: bind a loopback DHCPv6 "
+            "Options for Configuration of Softwire Address and Port-Mapped "
+            "Clients origin, send a RULE with a non-empty s46id, lockstep a "
+            "PORTPARAMS that carries the stored s46digest, independently poll "
+            "the stored s46digest on a later client socket, and read the "
+            "sealed s46digest. S46ID-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "rule": {"type": "boolean"},
+                "portparams": {"type": "boolean"},
+                "s46digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_s46id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=S46_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
