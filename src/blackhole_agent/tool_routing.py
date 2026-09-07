@@ -959,6 +959,7 @@ MAPT_TOOL_PROVIDER = "mapt"
 S46_TOOL_PROVIDER = "s46"
 UCPE_TOOL_PROVIDER = "ucpe"
 M46_TOOL_PROVIDER = "m46"
+PREFIX64_TOOL_PROVIDER = "prefix64"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5611,6 +5612,48 @@ def m46_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=M46_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def prefix64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8115 PREFIX64 PREFIX/EMBED route.
+
+    Provider ``prefix64`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="prefix64",
+        description=(
+            "Drive a first-class RFC 8115 session: bind a loopback DHCPv6 "
+            "Option for IPv4-Embedded Multicast and Unicast IPv6 Prefixes "
+            "origin, send a PREFIX with a non-empty prefix64id, lockstep an "
+            "EMBED that carries the stored prefix64digest, independently poll "
+            "the stored prefix64digest on a later client socket, and read the "
+            "sealed prefix64digest. PREFIX64ID-gated exchanges stay sealed as "
+            "digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "prefix": {"type": "boolean"},
+                "embed": {"type": "boolean"},
+                "prefix64digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_prefix64id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PREFIX64_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

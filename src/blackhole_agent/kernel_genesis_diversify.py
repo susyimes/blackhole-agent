@@ -782,6 +782,11 @@ from blackhole_agent.prefix64_actuation import (
     PREFIX64_ACTUATION_GOAL,
     PREFIX64_ACTUATION_ID,
 )
+from blackhole_agent.siit_actuation import (
+    SIIT_ACTUATION_DONE_WHEN,
+    SIIT_ACTUATION_GOAL,
+    SIIT_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1700,6 +1705,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PREFIX64_ACTUATION_GOAL,
         "done_when": PREFIX64_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_prefix64",
+    },
+    {
+        "id": SIIT_ACTUATION_ID,
+        "goal": SIIT_ACTUATION_GOAL,
+        "done_when": SIIT_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_siit",
     },
 )
 

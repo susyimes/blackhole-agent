@@ -540,6 +540,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc8115",
         "prefix64id",
         "prefix64digest",
+        "siit",
+        "rfc7915",
+        "siitid",
+        "siitdigest",
     }
 )
 _IMPACT_MARKERS = (
