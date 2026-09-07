@@ -582,6 +582,11 @@ _SURFACE_TOKENS = frozenset(
         "teredodigest",
         "bubble",
         "qual",
+        "isatap",
+        "rfc5214",
+        "isatapid",
+        "isatapdigest",
+        "prl",
     }
 )
 _IMPACT_MARKERS = (

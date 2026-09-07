@@ -827,6 +827,11 @@ from blackhole_agent.teredo_actuation import (
     TEREDO_ACTUATION_GOAL,
     TEREDO_ACTUATION_ID,
 )
+from blackhole_agent.isatap_actuation import (
+    ISATAP_ACTUATION_DONE_WHEN,
+    ISATAP_ACTUATION_GOAL,
+    ISATAP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1799,6 +1804,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": TEREDO_ACTUATION_GOAL,
         "done_when": TEREDO_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_teredo",
+    },
+    {
+        "id": ISATAP_ACTUATION_ID,
+        "goal": ISATAP_ACTUATION_GOAL,
+        "done_when": ISATAP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_isatap",
     },
 )
 

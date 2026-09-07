@@ -968,6 +968,7 @@ V4EMBED_TOOL_PROVIDER = "v4embed"
 LUPREFIX_TOOL_PROVIDER = "luprefix"
 SIXRD_TOOL_PROVIDER = "sixrd"
 SIXTO4_TOOL_PROVIDER = "sixto4"
+TEREDO_TOOL_PROVIDER = "teredo"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5994,6 +5995,47 @@ def sixto4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SIXTO4_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def teredo_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4380 Teredo Tunneling IPv6 over UDP through NAT BUBBLE/QUAL route.
+
+    Provider ``teredo`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="teredo",
+        description=(
+            "Drive a first-class RFC 4380 session: bind a loopback Teredo Tunneling "
+            "IPv6 over UDP through Network Address Translations origin, send a BUBBLE "
+            "with a non-empty teredoid, lockstep a QUAL that carries the stored "
+            "teredodigest, independently poll the stored teredodigest on a later "
+            "client socket, and read the sealed teredodigest. TEREDOID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "bubble": {"type": "boolean"},
+                "qual": {"type": "boolean"},
+                "teredodigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_teredoid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TEREDO_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
