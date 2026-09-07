@@ -495,6 +495,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6146",
         "nat64id",
         "nat64digest",
+        "dns64",
+        "rfc6147",
+        "dns64id",
+        "dns64digest",
     }
 )
 _IMPACT_MARKERS = (

@@ -948,6 +948,7 @@ ADDRPOLICY_TOOL_PROVIDER = "addrpolicy"
 FIRSTHOP_TOOL_PROVIDER = "firsthop"
 RDNSS_TOOL_PROVIDER = "rdnss"
 PREF64_TOOL_PROVIDER = "pref64"
+NAT64_TOOL_PROVIDER = "nat64"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5137,6 +5138,48 @@ def pref64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PREF64_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def nat64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6146 NAT64/SESSION route.
+
+    Provider ``nat64`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="nat64",
+        description=(
+            "Drive a first-class RFC 6146 session: bind a loopback Stateful "
+            "NAT64 origin, send a NAT64 with a "
+            "non-empty nat64id, lockstep a SESSION that carries the stored "
+            "nat64digest, independently poll the stored nat64digest "
+            "on a later client socket, and read the sealed nat64digest. "
+            "NAT64ID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "nat64": {"type": "boolean"},
+                "session": {"type": "boolean"},
+                "nat64digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_nat64id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=NAT64_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
