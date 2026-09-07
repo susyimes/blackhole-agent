@@ -965,6 +965,7 @@ EAM_TOOL_PROVIDER = "eam"
 SIITDC_TOOL_PROVIDER = "siitdc"
 SIITDTM_TOOL_PROVIDER = "siitdtm"
 V4EMBED_TOOL_PROVIDER = "v4embed"
+LUPREFIX_TOOL_PROVIDER = "luprefix"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5867,6 +5868,47 @@ def v4embed_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=V4EMBED_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def luprefix_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8215 Local-Use Prefix LUP/NSL route.
+
+    Provider ``luprefix`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="luprefix",
+        description=(
+            "Drive a first-class RFC 8215 session: bind a loopback Local-Use "
+            "IPv4/IPv6 Translation Prefix origin, send a LUP with a non-empty "
+            "luprefixid, lockstep a NSL that carries the stored luprefixdigest, "
+            "independently poll the stored luprefixdigest on a later client socket, "
+            "and read the sealed luprefixdigest. LUPREFIXID-gated exchanges stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "lup": {"type": "boolean"},
+                "nsl": {"type": "boolean"},
+                "luprefixdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_luprefixid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LUPREFIX_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

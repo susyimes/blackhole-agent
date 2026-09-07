@@ -566,8 +566,11 @@ _SURFACE_TOKENS = frozenset(
         "rfc8215",
         "luprefixid",
         "luprefixdigest",
-        "lup",
-        "nsl",
+        "sixrd",
+        "rfc5969",
+        "sixrdid",
+        "sixrddigest",
+        "deleg",
     }
 )
 _IMPACT_MARKERS = (
