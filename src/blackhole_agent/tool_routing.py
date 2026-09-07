@@ -947,6 +947,7 @@ ADDRSELECT_TOOL_PROVIDER = "addrselect"
 ADDRPOLICY_TOOL_PROVIDER = "addrpolicy"
 FIRSTHOP_TOOL_PROVIDER = "firsthop"
 RDNSS_TOOL_PROVIDER = "rdnss"
+PREF64_TOOL_PROVIDER = "pref64"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5094,6 +5095,48 @@ def rdnss_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=RDNSS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def pref64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8781 PREF64/PREFIX route.
+
+    Provider ``pref64`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pref64",
+        description=(
+            "Drive a first-class RFC 8781 session: bind a loopback Discovering "
+            "PREF64 in Router Advertisements origin, send a PREF64 with a "
+            "non-empty pref64id, lockstep a PREFIX that carries the stored "
+            "pref64digest, independently poll the stored pref64digest "
+            "on a later client socket, and read the sealed pref64digest. "
+            "PREF64ID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "pref64": {"type": "boolean"},
+                "prefix": {"type": "boolean"},
+                "pref64digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pref64id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PREF64_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

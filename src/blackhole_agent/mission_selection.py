@@ -491,6 +491,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc8781",
         "pref64id",
         "pref64digest",
+        "nat64",
+        "rfc6146",
+        "nat64id",
+        "nat64digest",
     }
 )
 _IMPACT_MARKERS = (
