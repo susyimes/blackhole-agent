@@ -971,6 +971,7 @@ SIXTO4_TOOL_PROVIDER = "sixto4"
 TEREDO_TOOL_PROVIDER = "teredo"
 ISATAP_TOOL_PROVIDER = "isatap"
 SIXOVER4_TOOL_PROVIDER = "sixover4"
+SIXIN4_TOOL_PROVIDER = "sixin4"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6122,6 +6123,49 @@ def sixover4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=SIXOVER4_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+
+def sixin4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4213 Basic Transition Mechanisms for IPv6 Hosts and Routers 6IN4/CONFIG route.
+
+    Provider ``sixin4`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="sixin4",
+        description=(
+            "Drive a first-class RFC 4213 session: bind a loopback Basic Transition Mechanisms for IPv6 "
+            "Hosts and Routers origin, send a 6IN4 "
+            "with a non-empty sixin4id, lockstep a CONFIG that carries the stored "
+            "sixin4digest, independently poll the stored sixin4digest on a later "
+            "client socket, and read the sealed sixin4digest. SIXIN4ID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "sixin4": {"type": "boolean"},
+                "config": {"type": "boolean"},
+                "sixin4digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_sixin4id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SIXIN4_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

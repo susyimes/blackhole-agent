@@ -598,6 +598,10 @@ _SURFACE_TOKENS = frozenset(
         "sixin4id",
         "sixin4digest",
         "6in4",
+        "tsp",
+        "rfc5572",
+        "tspid",
+        "tspdigest",
     }
 )
 _IMPACT_MARKERS = (
