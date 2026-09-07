@@ -732,6 +732,11 @@ from blackhole_agent.dns64_actuation import (
     DNS64_ACTUATION_GOAL,
     DNS64_ACTUATION_ID,
 )
+from blackhole_agent.xlat_actuation import (
+    XLAT_ACTUATION_DONE_WHEN,
+    XLAT_ACTUATION_GOAL,
+    XLAT_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1590,6 +1595,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": DNS64_ACTUATION_GOAL,
         "done_when": DNS64_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_dns64",
+    },
+    {
+        "id": XLAT_ACTUATION_ID,
+        "goal": XLAT_ACTUATION_GOAL,
+        "done_when": XLAT_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_xlat",
     },
 )
 

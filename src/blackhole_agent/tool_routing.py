@@ -949,6 +949,7 @@ FIRSTHOP_TOOL_PROVIDER = "firsthop"
 RDNSS_TOOL_PROVIDER = "rdnss"
 PREF64_TOOL_PROVIDER = "pref64"
 NAT64_TOOL_PROVIDER = "nat64"
+DNS64_TOOL_PROVIDER = "dns64"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5180,6 +5181,49 @@ def nat64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=NAT64_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def dns64_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6147 DNS64/SYNTH route.
+
+    Provider ``dns64`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="dns64",
+        description=(
+            "Drive a first-class RFC 6147 session: bind a loopback DNS "
+            "Extensions for Network Address Translation from IPv6 Clients to "
+            "IPv4 Servers origin, send a DNS64 with a "
+            "non-empty dns64id, lockstep a SYNTH that carries the stored "
+            "dns64digest, independently poll the stored dns64digest "
+            "on a later client socket, and read the sealed dns64digest. "
+            "DNS64ID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "dns64": {"type": "boolean"},
+                "synth": {"type": "boolean"},
+                "dns64digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dns64id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DNS64_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
