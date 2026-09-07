@@ -944,6 +944,7 @@ ULA_TOOL_PROVIDER = "ula"
 IPV6ADDR_TOOL_PROVIDER = "ipv6addr"
 IPV6SCOPE_TOOL_PROVIDER = "ipv6scope"
 ADDRSELECT_TOOL_PROVIDER = "addrselect"
+ADDRPOLICY_TOOL_PROVIDER = "addrpolicy"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -4965,6 +4966,48 @@ def addrselect_tool_descriptor(*, session_id: str | None = None) -> ToolDescript
             "additionalProperties": False,
         },
         provider=ADDRSELECT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def addrpolicy_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7078 Address Selection Policy POLICY/TABLE route.
+
+    Provider ``addrpolicy`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="addrpolicy",
+        description=(
+            "Drive a first-class RFC 7078 session: bind a loopback DHCPv6 "
+            "Address Selection Policy origin, send a POLICY with a "
+            "non-empty policyid, lockstep a TABLE that carries the stored "
+            "policydigest, independently poll the stored policydigest "
+            "on a later client socket, and read the sealed policydigest. "
+            "POLICYID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "policy": {"type": "boolean"},
+                "table": {"type": "boolean"},
+                "policydigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_policyid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ADDRPOLICY_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -707,6 +707,11 @@ from blackhole_agent.addrpolicy_actuation import (
     ADDRPOLICY_ACTUATION_GOAL,
     ADDRPOLICY_ACTUATION_ID,
 )
+from blackhole_agent.firsthop_actuation import (
+    FIRSTHOP_ACTUATION_DONE_WHEN,
+    FIRSTHOP_ACTUATION_GOAL,
+    FIRSTHOP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1535,6 +1540,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": ADDRPOLICY_ACTUATION_GOAL,
         "done_when": ADDRPOLICY_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_addrpolicy",
+    },
+    {
+        "id": FIRSTHOP_ACTUATION_ID,
+        "goal": FIRSTHOP_ACTUATION_GOAL,
+        "done_when": FIRSTHOP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_firsthop",
     },
 )
 
