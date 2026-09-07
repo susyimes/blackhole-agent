@@ -970,6 +970,7 @@ SIXRD_TOOL_PROVIDER = "sixrd"
 SIXTO4_TOOL_PROVIDER = "sixto4"
 TEREDO_TOOL_PROVIDER = "teredo"
 ISATAP_TOOL_PROVIDER = "isatap"
+SIXOVER4_TOOL_PROVIDER = "sixover4"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6083,6 +6084,48 @@ def isatap_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         session_id=session_id,
         tool_type="function",
     )
+
+
+def sixover4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2529 Transmission of IPv6 over IPv4 Domains without Explicit Tunnels 6OVER4/MCAST route.
+
+    Provider ``sixover4`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="sixover4",
+        description=(
+            "Drive a first-class RFC 2529 session: bind a loopback Transmission of IPv6 over IPv4 "
+            "Domains without Explicit Tunnels origin, send a 6OVER4 "
+            "with a non-empty sixover4id, lockstep a MCAST that carries the stored "
+            "sixover4digest, independently poll the stored sixover4digest on a later "
+            "client socket, and read the sealed sixover4digest. SIXOVER4ID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "sixover4": {"type": "boolean"},
+                "mcast": {"type": "boolean"},
+                "sixover4digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_sixover4id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SIXOVER4_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
