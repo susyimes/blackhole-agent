@@ -955,6 +955,7 @@ DISC_TOOL_PROVIDER = "disc"
 DSLITE_TOOL_PROVIDER = "dslite"
 LW4O6_TOOL_PROVIDER = "lw4o6"
 MAPE_TOOL_PROVIDER = "mape"
+MAPT_TOOL_PROVIDER = "mapt"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5439,6 +5440,48 @@ def mape_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MAPE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mapt_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7599 MAP-T DMR/EA route.
+
+    Provider ``mapt`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mapt",
+        description=(
+            "Drive a first-class RFC 7599 session: bind a loopback Mapping "
+            "of Address and Port using Translation (MAP-T) origin, send a "
+            "DMR with a non-empty maptid, lockstep an EA that carries the "
+            "stored maptdigest, independently poll the stored maptdigest "
+            "on a later client socket, and read the sealed maptdigest. "
+            "MAPTID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "dmr": {"type": "boolean"},
+                "ea": {"type": "boolean"},
+                "maptdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_maptid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MAPT_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

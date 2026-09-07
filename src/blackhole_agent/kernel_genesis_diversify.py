@@ -762,6 +762,11 @@ from blackhole_agent.mapt_actuation import (
     MAPT_ACTUATION_GOAL,
     MAPT_ACTUATION_ID,
 )
+from blackhole_agent.s46_actuation import (
+    S46_ACTUATION_DONE_WHEN,
+    S46_ACTUATION_GOAL,
+    S46_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1656,6 +1661,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MAPT_ACTUATION_GOAL,
         "done_when": MAPT_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_mapt",
+    },
+    {
+        "id": S46_ACTUATION_ID,
+        "goal": S46_ACTUATION_GOAL,
+        "done_when": S46_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_s46",
     },
 )
 
