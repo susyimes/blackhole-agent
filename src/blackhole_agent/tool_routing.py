@@ -972,6 +972,7 @@ TEREDO_TOOL_PROVIDER = "teredo"
 ISATAP_TOOL_PROVIDER = "isatap"
 SIXOVER4_TOOL_PROVIDER = "sixover4"
 SIXIN4_TOOL_PROVIDER = "sixin4"
+TSP_TOOL_PROVIDER = "tsp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6166,6 +6167,47 @@ def sixin4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SIXIN4_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def tsp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5572 IPv6 Tunnel Broker with the Tunnel Setup Protocol TSP/SETUP route.
+
+    Provider ``tsp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="tsp",
+        description=(
+            "Drive a first-class RFC 5572 session: bind a loopback IPv6 Tunnel Broker with the Tunnel "
+            "Setup Protocol origin, send a TSP "
+            "with a non-empty tspid, lockstep a SETUP that carries the stored "
+            "tspdigest, independently poll the stored tspdigest on a later "
+            "client socket, and read the sealed tspdigest. TSPID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "tsp": {"type": "boolean"},
+                "setup": {"type": "boolean"},
+                "tspdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_tspid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TSP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -847,6 +847,11 @@ from blackhole_agent.tsp_actuation import (
     TSP_ACTUATION_GOAL,
     TSP_ACTUATION_ID,
 )
+from blackhole_agent.l2tp_actuation import (
+    L2TP_ACTUATION_DONE_WHEN,
+    L2TP_ACTUATION_GOAL,
+    L2TP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1843,6 +1848,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": TSP_ACTUATION_GOAL,
         "done_when": TSP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_tsp",
+    },
+    {
+        "id": L2TP_ACTUATION_ID,
+        "goal": L2TP_ACTUATION_GOAL,
+        "done_when": L2TP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_l2tp",
     },
 )
 

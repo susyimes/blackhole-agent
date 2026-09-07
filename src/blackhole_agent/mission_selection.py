@@ -602,6 +602,12 @@ _SURFACE_TOKENS = frozenset(
         "rfc5572",
         "tspid",
         "tspdigest",
+        "setup",
+        "l2tp",
+        "rfc5571",
+        "l2tpid",
+        "l2tpdigest",
+        "spoke",
     }
 )
 _IMPACT_MARKERS = (
