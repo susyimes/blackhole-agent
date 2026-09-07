@@ -807,6 +807,11 @@ from blackhole_agent.v4embed_actuation import (
     V4EMBED_ACTUATION_GOAL,
     V4EMBED_ACTUATION_ID,
 )
+from blackhole_agent.luprefix_actuation import (
+    LUPREFIX_ACTUATION_DONE_WHEN,
+    LUPREFIX_ACTUATION_GOAL,
+    LUPREFIX_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1755,6 +1760,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": V4EMBED_ACTUATION_GOAL,
         "done_when": V4EMBED_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_v4embed",
+    },
+    {
+        "id": LUPREFIX_ACTUATION_ID,
+        "goal": LUPREFIX_ACTUATION_GOAL,
+        "done_when": LUPREFIX_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_luprefix",
     },
 )
 

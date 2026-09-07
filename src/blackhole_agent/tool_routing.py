@@ -964,6 +964,7 @@ SIIT_TOOL_PROVIDER = "siit"
 EAM_TOOL_PROVIDER = "eam"
 SIITDC_TOOL_PROVIDER = "siitdc"
 SIITDTM_TOOL_PROVIDER = "siitdtm"
+V4EMBED_TOOL_PROVIDER = "v4embed"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5828,6 +5829,48 @@ def siitdtm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         session_id=session_id,
         tool_type="function",
     )
+
+
+def v4embed_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6052 IPv4-embedded IPv6 WKP/NSP route.
+
+    Provider ``v4embed`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="v4embed",
+        description=(
+            "Drive a first-class RFC 6052 session: bind a loopback IPv6 "
+            "Addressing of IPv4/IPv6 Translators origin, send a WKP with a non-empty "
+            "v4embedid, lockstep a NSP that carries the stored v4embeddigest, "
+            "independently poll the stored v4embeddigest on a later client socket, "
+            "and read the sealed v4embeddigest. V4EMBEDID-gated exchanges stay sealed "
+            "as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "wkp": {"type": "boolean"},
+                "nsp": {"type": "boolean"},
+                "v4embeddigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_v4embedid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=V4EMBED_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
