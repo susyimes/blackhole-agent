@@ -852,6 +852,11 @@ from blackhole_agent.l2tp_actuation import (
     L2TP_ACTUATION_GOAL,
     L2TP_ACTUATION_ID,
 )
+from blackhole_agent.mesh_actuation import (
+    MESH_ACTUATION_DONE_WHEN,
+    MESH_ACTUATION_GOAL,
+    MESH_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1854,6 +1859,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": L2TP_ACTUATION_GOAL,
         "done_when": L2TP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_l2tp",
+    },
+    {
+        "id": MESH_ACTUATION_ID,
+        "goal": MESH_ACTUATION_GOAL,
+        "done_when": MESH_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_mesh",
     },
 )
 

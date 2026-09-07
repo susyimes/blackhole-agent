@@ -973,6 +973,7 @@ ISATAP_TOOL_PROVIDER = "isatap"
 SIXOVER4_TOOL_PROVIDER = "sixover4"
 SIXIN4_TOOL_PROVIDER = "sixin4"
 TSP_TOOL_PROVIDER = "tsp"
+L2TP_TOOL_PROVIDER = "l2tp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6208,6 +6209,47 @@ def tsp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=TSP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def l2tp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5571 Softwire Hub and Spoke L2TP/SPOKE route.
+
+    Provider ``l2tp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="l2tp",
+        description=(
+            "Drive a first-class RFC 5571 session: bind a loopback Softwire Hub and Spoke "
+            "Deployment Framework with Layer Two Tunneling Protocol version 2 origin, send a L2TP "
+            "with a non-empty l2tpid, lockstep a SPOKE that carries the stored "
+            "l2tpdigest, independently poll the stored l2tpdigest on a later "
+            "client socket, and read the sealed l2tpdigest. L2TPID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "l2tp": {"type": "boolean"},
+                "spoke": {"type": "boolean"},
+                "l2tpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_l2tpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=L2TP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

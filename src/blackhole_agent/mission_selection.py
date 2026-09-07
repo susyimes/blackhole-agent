@@ -608,6 +608,11 @@ _SURFACE_TOKENS = frozenset(
         "l2tpid",
         "l2tpdigest",
         "spoke",
+        "mesh",
+        "rfc5565",
+        "meshid",
+        "meshdigest",
+        "peer",
     }
 )
 _IMPACT_MARKERS = (
