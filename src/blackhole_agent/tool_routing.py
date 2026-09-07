@@ -954,6 +954,7 @@ XLAT_TOOL_PROVIDER = "xlat"
 DISC_TOOL_PROVIDER = "disc"
 DSLITE_TOOL_PROVIDER = "dslite"
 LW4O6_TOOL_PROVIDER = "lw4o6"
+MAPE_TOOL_PROVIDER = "mape"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -5396,6 +5397,48 @@ def lw4o6_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LW4O6_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mape_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7597 MAP-E CE/BR route.
+
+    Provider ``mape`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mape",
+        description=(
+            "Drive a first-class RFC 7597 session: bind a loopback Mapping "
+            "of Address and Port with Encapsulation (MAP-E) origin, send a "
+            "CE with a non-empty mapeid, lockstep a BR that carries the "
+            "stored mapedigest, independently poll the stored mapedigest "
+            "on a later client socket, and read the sealed mapedigest. "
+            "MAPEID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "ce": {"type": "boolean"},
+                "br": {"type": "boolean"},
+                "mapedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_mapeid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MAPE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
