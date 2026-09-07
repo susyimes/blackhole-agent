@@ -482,6 +482,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc8028",
         "hopid",
         "hopdigest",
+        "rdnss",
+        "rfc8106",
+        "rdnssid",
+        "rdnssdigest",
     }
 )
 _IMPACT_MARKERS = (

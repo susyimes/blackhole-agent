@@ -712,6 +712,11 @@ from blackhole_agent.firsthop_actuation import (
     FIRSTHOP_ACTUATION_GOAL,
     FIRSTHOP_ACTUATION_ID,
 )
+from blackhole_agent.rdnss_actuation import (
+    RDNSS_ACTUATION_DONE_WHEN,
+    RDNSS_ACTUATION_GOAL,
+    RDNSS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1546,6 +1551,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": FIRSTHOP_ACTUATION_GOAL,
         "done_when": FIRSTHOP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_firsthop",
+    },
+    {
+        "id": RDNSS_ACTUATION_ID,
+        "goal": RDNSS_ACTUATION_GOAL,
+        "done_when": RDNSS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_rdnss",
     },
 )
 
