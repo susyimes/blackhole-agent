@@ -587,6 +587,11 @@ _SURFACE_TOKENS = frozenset(
         "isatapid",
         "isatapdigest",
         "prl",
+        "sixover4",
+        "rfc2529",
+        "sixover4id",
+        "sixover4digest",
+        "6over4",
     }
 )
 _IMPACT_MARKERS = (
