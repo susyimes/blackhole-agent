@@ -999,6 +999,7 @@ DFREC_TOOL_PROVIDER = "dfrec"
 MSRED_TOOL_PROVIDER = "msred"
 P2MPIR_TOOL_PROVIDER = "p2mpir"
 OIR_TOOL_PROVIDER = "oir"
+IESI_TOOL_PROVIDER = "iesi"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7302,6 +7303,48 @@ def oir_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=OIR_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def iesi_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9014 Interconnect Solution for Ethernet VPN Overlay Networks IESI/GW route.
+
+    Provider ``iesi`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="iesi",
+        description=(
+            "Drive a first-class RFC 9014 session: bind a loopback Interconnect Solution for Ethernet VPN Overlay Networks "
+            "origin, send an IESI "
+            "with a non-empty iesiid, lockstep a GW that carries the stored "
+            "iesidigest, independently poll the stored iesidigest on a later "
+            "client socket, and read the sealed iesidigest. IESIID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "iesi": {"type": "boolean"},
+                "gw": {"type": "boolean"},
+                "iesidigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_iesiid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IESI_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

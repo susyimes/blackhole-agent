@@ -982,6 +982,11 @@ from blackhole_agent.iesi_actuation import (
     IESI_ACTUATION_GOAL,
     IESI_ACTUATION_ID,
 )
+from blackhole_agent.pbb_actuation import (
+    PBB_ACTUATION_DONE_WHEN,
+    PBB_ACTUATION_GOAL,
+    PBB_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2140,6 +2145,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": IESI_ACTUATION_GOAL,
         "done_when": IESI_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_iesi",
+    },
+    {
+        "id": PBB_ACTUATION_ID,
+        "goal": PBB_ACTUATION_GOAL,
+        "done_when": PBB_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_pbb",
     },
 )
 
