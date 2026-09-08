@@ -937,6 +937,11 @@ from blackhole_agent.ippfx_actuation import (
     IPPFX_ACTUATION_GOAL,
     IPPFX_ACTUATION_ID,
 )
+from blackhole_agent.proxynd_actuation import (
+    PROXYND_ACTUATION_DONE_WHEN,
+    PROXYND_ACTUATION_GOAL,
+    PROXYND_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2041,6 +2046,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": IPPFX_ACTUATION_GOAL,
         "done_when": IPPFX_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_ippfx",
+    },
+    {
+        "id": PROXYND_ACTUATION_ID,
+        "goal": PROXYND_ACTUATION_GOAL,
+        "done_when": PROXYND_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_proxynd",
     },
 )
 

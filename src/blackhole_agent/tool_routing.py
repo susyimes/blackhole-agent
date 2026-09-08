@@ -990,6 +990,7 @@ ETREE_TOOL_PROVIDER = "etree"
 NVO_TOOL_PROVIDER = "nvo"
 DFE_TOOL_PROVIDER = "dfe"
 IRB_TOOL_PROVIDER = "irb"
+IPPFX_TOOL_PROVIDER = "ippfx"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6923,6 +6924,47 @@ def irb_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=IRB_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ippfx_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9136 IP Prefix Advertisement in Ethernet VPN PREFIX/IP route.
+
+    Provider ``ippfx`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ippfx",
+        description=(
+            "Drive a first-class RFC 9136 session: bind a loopback IP Prefix Advertisement in Ethernet VPN "
+            "origin, send a PREFIX "
+            "with a non-empty ippfxid, lockstep a IP that carries the stored "
+            "ippfxdigest, independently poll the stored ippfxdigest on a later "
+            "client socket, and read the sealed ippfxdigest. IPPFXID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "ippfx": {"type": "boolean"},
+                "ip": {"type": "boolean"},
+                "ippfxdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ippfxid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IPPFX_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -682,6 +682,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc9136",
         "ippfxid",
         "ippfxdigest",
+        "proxynd",
+        "rfc9161",
+        "proxyndid",
+        "proxynddigest",
     }
 )
 _IMPACT_MARKERS = (
