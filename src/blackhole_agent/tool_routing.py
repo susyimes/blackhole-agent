@@ -986,6 +986,7 @@ BGPSEC_TOOL_PROVIDER = "bgpsec"
 RTR_TOOL_PROVIDER = "rtr"
 EBGP_TOOL_PROVIDER = "ebgp"
 EVPN_TOOL_PROVIDER = "evpn"
+ETREE_TOOL_PROVIDER = "etree"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6755,6 +6756,47 @@ def evpn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=EVPN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def etree_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8317 Ethernet-Tree (E-Tree) Support in Ethernet VPN ROOT/LEAF route.
+
+    Provider ``etree`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="etree",
+        description=(
+            "Drive a first-class RFC 8317 session: bind a loopback Ethernet-Tree (E-Tree) Support in Ethernet VPN "
+            "origin, send a ROOT "
+            "with a non-empty etreeid, lockstep a LEAF that carries the stored "
+            "etreedigest, independently poll the stored etreedigest on a later "
+            "client socket, and read the sealed etreedigest. ETREEID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "etree": {"type": "boolean"},
+                "leaf": {"type": "boolean"},
+                "etreedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_etreeid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ETREE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

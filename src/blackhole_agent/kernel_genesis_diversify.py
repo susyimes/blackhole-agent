@@ -917,6 +917,11 @@ from blackhole_agent.etree_actuation import (
     ETREE_ACTUATION_GOAL,
     ETREE_ACTUATION_ID,
 )
+from blackhole_agent.nvo_actuation import (
+    NVO_ACTUATION_DONE_WHEN,
+    NVO_ACTUATION_GOAL,
+    NVO_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1997,6 +2002,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": ETREE_ACTUATION_GOAL,
         "done_when": ETREE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_etree",
+    },
+    {
+        "id": NVO_ACTUATION_ID,
+        "goal": NVO_ACTUATION_GOAL,
+        "done_when": NVO_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_nvo",
     },
 )
 
