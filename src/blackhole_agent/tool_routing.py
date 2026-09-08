@@ -984,6 +984,7 @@ EXTCOMM_TOOL_PROVIDER = "extcomm"
 LARGECOMM_TOOL_PROVIDER = "largecomm"
 BGPSEC_TOOL_PROVIDER = "bgpsec"
 RTR_TOOL_PROVIDER = "rtr"
+EBGP_TOOL_PROVIDER = "ebgp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6671,6 +6672,47 @@ def rtr_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=RTR_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def ebgp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8212 Default EBGP Route Propagation DEF/PROP route.
+
+    Provider ``ebgp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ebgp",
+        description=(
+            "Drive a first-class RFC 8212 session: bind a loopback Default EBGP Route Propagation "
+            "origin, send a DEF "
+            "with a non-empty ebgpid, lockstep a PROP that carries the stored "
+            "ebgpdigest, independently poll the stored ebgpdigest on a later "
+            "client socket, and read the sealed ebgpdigest. EBGPID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "ebgp": {"type": "boolean"},
+                "prop": {"type": "boolean"},
+                "ebgpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ebgpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EBGP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
