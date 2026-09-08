@@ -1007,6 +1007,7 @@ VPLS_TOOL_PROVIDER = "vpls"
 LDPSIG_TOOL_PROVIDER = "ldpsig"
 PWLDP_TOOL_PROVIDER = "pwldp"
 PWE3_TOOL_PROVIDER = "pwe3"
+PWREQ_TOOL_PROVIDER = "pwreq"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7640,6 +7641,47 @@ def pwe3_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PWE3_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def pwreq_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3916 Requirements for Pseudo-Wire Emulation Edge-to-Edge NATIVE/PW route.
+
+    Provider ``pwreq`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pwreq",
+        description=(
+            "Drive a first-class RFC 3916 session: bind a loopback Requirements for Pseudo-Wire Emulation Edge-to-Edge "
+            "origin, send a NATIVE "
+            "with a non-empty pwreqid, lockstep a PW that carries the stored "
+            "pwreqdigest, independently poll the stored pwreqdigest on a later "
+            "client socket, and read the sealed pwreqdigest. PWREQID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "native": {"type": "boolean"},
+                "pw": {"type": "boolean"},
+                "pwreqdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pwreqid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PWREQ_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

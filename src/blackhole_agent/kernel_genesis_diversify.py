@@ -1022,6 +1022,11 @@ from blackhole_agent.pwreq_actuation import (
     PWREQ_ACTUATION_GOAL,
     PWREQ_ACTUATION_ID,
 )
+from blackhole_agent.mplsarch_actuation import (
+    MPLSARCH_ACTUATION_DONE_WHEN,
+    MPLSARCH_ACTUATION_GOAL,
+    MPLSARCH_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2228,6 +2233,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PWREQ_ACTUATION_GOAL,
         "done_when": PWREQ_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pwreq",
+    },
+    {
+        "id": MPLSARCH_ACTUATION_ID,
+        "goal": MPLSARCH_ACTUATION_GOAL,
+        "done_when": MPLSARCH_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_mplsarch",
     },
 )
 
