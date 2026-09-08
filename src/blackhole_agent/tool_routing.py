@@ -1006,6 +1006,7 @@ EVPNREQ_TOOL_PROVIDER = "evpnreq"
 VPLS_TOOL_PROVIDER = "vpls"
 LDPSIG_TOOL_PROVIDER = "ldpsig"
 PWLDP_TOOL_PROVIDER = "pwldp"
+PWE3_TOOL_PROVIDER = "pwe3"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7598,6 +7599,47 @@ def pwldp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PWLDP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def pwe3_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3985 Pseudo Wire Emulation Edge-to-Edge (PWE3) Architecture PSN/NSP route.
+
+    Provider ``pwe3`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pwe3",
+        description=(
+            "Drive a first-class RFC 3985 session: bind a loopback Pseudo Wire Emulation Edge-to-Edge (PWE3) Architecture "
+            "origin, send a PSN "
+            "with a non-empty pwe3id, lockstep an NSP that carries the stored "
+            "pwe3digest, independently poll the stored pwe3digest on a later "
+            "client socket, and read the sealed pwe3digest. PWE3ID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "psn": {"type": "boolean"},
+                "nsp": {"type": "boolean"},
+                "pwe3digest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pwe3id": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PWE3_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
