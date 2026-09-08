@@ -992,6 +992,11 @@ from blackhole_agent.macip_actuation import (
     MACIP_ACTUATION_GOAL,
     MACIP_ACTUATION_ID,
 )
+from blackhole_agent.evpnreq_actuation import (
+    EVPNREQ_ACTUATION_DONE_WHEN,
+    EVPNREQ_ACTUATION_GOAL,
+    EVPNREQ_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2162,6 +2167,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MACIP_ACTUATION_GOAL,
         "done_when": MACIP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_macip",
+    },
+    {
+        "id": EVPNREQ_ACTUATION_ID,
+        "goal": EVPNREQ_ACTUATION_GOAL,
+        "done_when": EVPNREQ_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_evpnreq",
     },
 )
 

@@ -726,6 +726,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc7432",
         "macipid",
         "macipdigest",
+        "evpnreq",
+        "rfc7209",
+        "evpnreqid",
+        "evpnreqdigest",
     }
 )
 _IMPACT_MARKERS = (
