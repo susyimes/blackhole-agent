@@ -1003,6 +1003,7 @@ IESI_TOOL_PROVIDER = "iesi"
 PBB_TOOL_PROVIDER = "pbb"
 MACIP_TOOL_PROVIDER = "macip"
 EVPNREQ_TOOL_PROVIDER = "evpnreq"
+VPLS_TOOL_PROVIDER = "vpls"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7472,6 +7473,47 @@ def evpnreq_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=EVPNREQ_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def vpls_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4761 Virtual Private LAN Service Using BGP VE/NLRI route.
+
+    Provider ``vpls`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="vpls",
+        description=(
+            "Drive a first-class RFC 4761 session: bind a loopback Virtual Private LAN Service Using BGP "
+            "origin, send a VE "
+            "with a non-empty vplsid, lockstep an NLRI that carries the stored "
+            "vplsdigest, independently poll the stored vplsdigest on a later "
+            "client socket, and read the sealed vplsdigest. VPLSID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "ve": {"type": "boolean"},
+                "nlri": {"type": "boolean"},
+                "vplsdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_vplsid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=VPLS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

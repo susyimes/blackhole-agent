@@ -1002,6 +1002,11 @@ from blackhole_agent.vpls_actuation import (
     VPLS_ACTUATION_GOAL,
     VPLS_ACTUATION_ID,
 )
+from blackhole_agent.ldpsig_actuation import (
+    LDPSIG_ACTUATION_DONE_WHEN,
+    LDPSIG_ACTUATION_GOAL,
+    LDPSIG_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2184,6 +2189,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": VPLS_ACTUATION_GOAL,
         "done_when": VPLS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_vpls",
+    },
+    {
+        "id": LDPSIG_ACTUATION_ID,
+        "goal": LDPSIG_ACTUATION_GOAL,
+        "done_when": LDPSIG_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_ldpsig",
     },
 )
 
