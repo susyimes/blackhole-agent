@@ -710,6 +710,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc10018",
         "p2mpirid",
         "p2mpirdigest",
+        "oir",
+        "rfc9574",
+        "oirid",
+        "oirdigest",
     }
 )
 _IMPACT_MARKERS = (

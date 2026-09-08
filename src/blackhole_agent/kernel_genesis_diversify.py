@@ -972,6 +972,11 @@ from blackhole_agent.p2mpir_actuation import (
     P2MPIR_ACTUATION_GOAL,
     P2MPIR_ACTUATION_ID,
 )
+from blackhole_agent.oir_actuation import (
+    OIR_ACTUATION_DONE_WHEN,
+    OIR_ACTUATION_GOAL,
+    OIR_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2118,6 +2123,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": P2MPIR_ACTUATION_GOAL,
         "done_when": P2MPIR_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_p2mpir",
+    },
+    {
+        "id": OIR_ACTUATION_ID,
+        "goal": OIR_ACTUATION_GOAL,
+        "done_when": OIR_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_oir",
     },
 )
 

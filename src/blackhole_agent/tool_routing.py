@@ -997,6 +997,7 @@ EVPNBUM_TOOL_PROVIDER = "evpnbum"
 FXC_TOOL_PROVIDER = "fxc"
 DFREC_TOOL_PROVIDER = "dfrec"
 MSRED_TOOL_PROVIDER = "msred"
+P2MPIR_TOOL_PROVIDER = "p2mpir"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7218,6 +7219,47 @@ def msred_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MSRED_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def p2mpir_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 10018 Multicast and Ethernet VPN with Segment Routing P2MP/IR route.
+
+    Provider ``p2mpir`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="p2mpir",
+        description=(
+            "Drive a first-class RFC 10018 session: bind a loopback Multicast and Ethernet VPN with Segment Routing "
+            "origin, send a P2MP "
+            "with a non-empty p2mpirid, lockstep an IR that carries the stored "
+            "p2mpirdigest, independently poll the stored p2mpirdigest on a later "
+            "client socket, and read the sealed p2mpirdigest. P2MPIRID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "p2mpir": {"type": "boolean"},
+                "ir": {"type": "boolean"},
+                "p2mpirdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_p2mpirid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=P2MPIR_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
