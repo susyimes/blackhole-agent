@@ -1008,6 +1008,7 @@ LDPSIG_TOOL_PROVIDER = "ldpsig"
 PWLDP_TOOL_PROVIDER = "pwldp"
 PWE3_TOOL_PROVIDER = "pwe3"
 PWREQ_TOOL_PROVIDER = "pwreq"
+MPLSARCH_TOOL_PROVIDER = "mplsarch"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7682,6 +7683,47 @@ def pwreq_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PWREQ_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mplsarch_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3031 Multiprotocol Label Switching Architecture FEC/NHLFE route.
+
+    Provider ``mplsarch`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mplsarch",
+        description=(
+            "Drive a first-class RFC 3031 session: bind a loopback Multiprotocol Label Switching Architecture "
+            "origin, send a FEC "
+            "with a non-empty mplsid, lockstep an NHLFE that carries the stored "
+            "mplsdigest, independently poll the stored mplsdigest on a later "
+            "client socket, and read the sealed mplsdigest. MPLSID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "fec": {"type": "boolean"},
+                "nhlfe": {"type": "boolean"},
+                "mplsdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_mplsid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MPLSARCH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

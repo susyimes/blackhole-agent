@@ -754,6 +754,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc3031",
         "mplsid",
         "mplsdigest",
+        "mplslse",
+        "rfc3032",
+        "lseid",
+        "lsedigest",
     }
 )
 _IMPACT_MARKERS = (
