@@ -987,6 +987,7 @@ RTR_TOOL_PROVIDER = "rtr"
 EBGP_TOOL_PROVIDER = "ebgp"
 EVPN_TOOL_PROVIDER = "evpn"
 ETREE_TOOL_PROVIDER = "etree"
+NVO_TOOL_PROVIDER = "nvo"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6797,6 +6798,47 @@ def etree_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=ETREE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def nvo_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8365 Network Virtualization Overlay NVE/VNI route.
+
+    Provider ``nvo`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="nvo",
+        description=(
+            "Drive a first-class RFC 8365 session: bind a loopback Network Virtualization Overlay "
+            "origin, send a NVE "
+            "with a non-empty nvoid, lockstep a VNI that carries the stored "
+            "nvodigest, independently poll the stored nvodigest on a later "
+            "client socket, and read the sealed nvodigest. NVOID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "nvo": {"type": "boolean"},
+                "vni": {"type": "boolean"},
+                "nvodigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_nvoid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=NVO_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

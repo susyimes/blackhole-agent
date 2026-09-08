@@ -922,6 +922,11 @@ from blackhole_agent.nvo_actuation import (
     NVO_ACTUATION_GOAL,
     NVO_ACTUATION_ID,
 )
+from blackhole_agent.dfe_actuation import (
+    DFE_ACTUATION_DONE_WHEN,
+    DFE_ACTUATION_GOAL,
+    DFE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2008,6 +2013,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": NVO_ACTUATION_GOAL,
         "done_when": NVO_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_nvo",
+    },
+    {
+        "id": DFE_ACTUATION_ID,
+        "goal": DFE_ACTUATION_GOAL,
+        "done_when": DFE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_dfe",
     },
 )
 
