@@ -962,6 +962,11 @@ from blackhole_agent.dfrec_actuation import (
     DFREC_ACTUATION_GOAL,
     DFREC_ACTUATION_ID,
 )
+from blackhole_agent.msred_actuation import (
+    MSRED_ACTUATION_DONE_WHEN,
+    MSRED_ACTUATION_GOAL,
+    MSRED_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2096,6 +2101,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": DFREC_ACTUATION_GOAL,
         "done_when": DFREC_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_dfrec",
+    },
+    {
+        "id": MSRED_ACTUATION_ID,
+        "goal": MSRED_ACTUATION_GOAL,
+        "done_when": MSRED_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_msred",
     },
 )
 

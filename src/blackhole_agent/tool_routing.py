@@ -995,6 +995,7 @@ PROXYND_TOOL_PROVIDER = "proxynd"
 IMLPROXY_TOOL_PROVIDER = "imlproxy"
 EVPNBUM_TOOL_PROVIDER = "evpnbum"
 FXC_TOOL_PROVIDER = "fxc"
+DFREC_TOOL_PROVIDER = "dfrec"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7137,6 +7138,47 @@ def fxc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         tool_type="function",
     )
 
+
+
+def dfrec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9722 Fast Recovery for EVPN Designated Forwarder Election DFREC/FAST route.
+
+    Provider ``dfrec`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="dfrec",
+        description=(
+            "Drive a first-class RFC 9722 session: bind a loopback Fast Recovery for EVPN Designated Forwarder Election "
+            "origin, send a DFREC "
+            "with a non-empty dfrecid, lockstep a FAST that carries the stored "
+            "dfrecdigest, independently poll the stored dfrecdigest on a later "
+            "client socket, and read the sealed dfrecdigest. DFRECID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "dfrec": {"type": "boolean"},
+                "fast": {"type": "boolean"},
+                "dfrecdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dfrecid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DFREC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
