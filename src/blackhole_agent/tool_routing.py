@@ -989,6 +989,7 @@ EVPN_TOOL_PROVIDER = "evpn"
 ETREE_TOOL_PROVIDER = "etree"
 NVO_TOOL_PROVIDER = "nvo"
 DFE_TOOL_PROVIDER = "dfe"
+IRB_TOOL_PROVIDER = "irb"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6881,6 +6882,47 @@ def dfe_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=DFE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def irb_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9135 Integrated Routing and Bridging in Ethernet VPN IRB/L3 route.
+
+    Provider ``irb`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="irb",
+        description=(
+            "Drive a first-class RFC 9135 session: bind a loopback Integrated Routing and Bridging in Ethernet VPN "
+            "origin, send a IRB "
+            "with a non-empty irbid, lockstep a L3 that carries the stored "
+            "irbdigest, independently poll the stored irbdigest on a later "
+            "client socket, and read the sealed irbdigest. IRBID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "irb": {"type": "boolean"},
+                "l3": {"type": "boolean"},
+                "irbdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_irbid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=IRB_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
