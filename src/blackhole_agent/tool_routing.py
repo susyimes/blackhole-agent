@@ -981,6 +981,7 @@ BGP4_TOOL_PROVIDER = "bgp4"
 RTREFRESH_TOOL_PROVIDER = "rtrefresh"
 BGPCOMM_TOOL_PROVIDER = "bgpcomm"
 EXTCOMM_TOOL_PROVIDER = "extcomm"
+LARGECOMM_TOOL_PROVIDER = "largecomm"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6545,6 +6546,47 @@ def extcomm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=EXTCOMM_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def largecomm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8092 BGP Large Communities Attribute LARGE/PART route.
+
+    Provider ``largecomm`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="largecomm",
+        description=(
+            "Drive a first-class RFC 8092 session: bind a loopback BGP Large Communities "
+            "origin, send a LARGE "
+            "with a non-empty largecommid, lockstep a PART that carries the stored "
+            "largecommdigest, independently poll the stored largecommdigest on a later "
+            "client socket, and read the sealed largecommdigest. LARGECOMMID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "largecomm": {"type": "boolean"},
+                "part": {"type": "boolean"},
+                "largecommdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_largecommid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LARGECOMM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
