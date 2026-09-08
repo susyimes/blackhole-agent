@@ -998,6 +998,7 @@ FXC_TOOL_PROVIDER = "fxc"
 DFREC_TOOL_PROVIDER = "dfrec"
 MSRED_TOOL_PROVIDER = "msred"
 P2MPIR_TOOL_PROVIDER = "p2mpir"
+OIR_TOOL_PROVIDER = "oir"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7260,6 +7261,47 @@ def p2mpir_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=P2MPIR_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def oir_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9574 Optimized Ingress Replication for EVPN OIR/BUM route.
+
+    Provider ``oir`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="oir",
+        description=(
+            "Drive a first-class RFC 9574 session: bind a loopback Optimized Ingress Replication for EVPN "
+            "origin, send an OIR "
+            "with a non-empty oirid, lockstep a BUM that carries the stored "
+            "oirdigest, independently poll the stored oirdigest on a later "
+            "client socket, and read the sealed oirdigest. OIRID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "oir": {"type": "boolean"},
+                "bum": {"type": "boolean"},
+                "oirdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_oirid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=OIR_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

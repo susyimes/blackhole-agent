@@ -977,6 +977,11 @@ from blackhole_agent.oir_actuation import (
     OIR_ACTUATION_GOAL,
     OIR_ACTUATION_ID,
 )
+from blackhole_agent.iesi_actuation import (
+    IESI_ACTUATION_DONE_WHEN,
+    IESI_ACTUATION_GOAL,
+    IESI_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2129,6 +2134,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": OIR_ACTUATION_GOAL,
         "done_when": OIR_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_oir",
+    },
+    {
+        "id": IESI_ACTUATION_ID,
+        "goal": IESI_ACTUATION_GOAL,
+        "done_when": IESI_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_iesi",
     },
 )
 
