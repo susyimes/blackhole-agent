@@ -993,6 +993,7 @@ IRB_TOOL_PROVIDER = "irb"
 IPPFX_TOOL_PROVIDER = "ippfx"
 PROXYND_TOOL_PROVIDER = "proxynd"
 IMLPROXY_TOOL_PROVIDER = "imlproxy"
+EVPNBUM_TOOL_PROVIDER = "evpnbum"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7049,6 +7050,47 @@ def imlproxy_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=IMLPROXY_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def evpnbum_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9572 Updates to EVPN BUM Procedures SMET/IMET route.
+
+    Provider ``evpnbum`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="evpnbum",
+        description=(
+            "Drive a first-class RFC 9572 session: bind a loopback Updates to EVPN BUM Procedures "
+            "origin, send a SMET "
+            "with a non-empty evpnbumid, lockstep a IMET that carries the stored "
+            "evpnbumdigest, independently poll the stored evpnbumdigest on a later "
+            "client socket, and read the sealed evpnbumdigest. EVPNBUMID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "evpnbum": {"type": "boolean"},
+                "imet": {"type": "boolean"},
+                "evpnbumdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_evpnbumid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EVPNBUM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
