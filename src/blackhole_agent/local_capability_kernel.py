@@ -225,6 +225,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.ippfx-actuation",
         "capability.proxynd-actuation",
         "capability.imlproxy-actuation",
+        "capability.evpnbum-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

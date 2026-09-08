@@ -947,6 +947,11 @@ from blackhole_agent.imlproxy_actuation import (
     IMLPROXY_ACTUATION_GOAL,
     IMLPROXY_ACTUATION_ID,
 )
+from blackhole_agent.evpnbum_actuation import (
+    EVPNBUM_ACTUATION_DONE_WHEN,
+    EVPNBUM_ACTUATION_GOAL,
+    EVPNBUM_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2063,6 +2068,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": IMLPROXY_ACTUATION_GOAL,
         "done_when": IMLPROXY_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_imlproxy",
+    },
+    {
+        "id": EVPNBUM_ACTUATION_ID,
+        "goal": EVPNBUM_ACTUATION_GOAL,
+        "done_when": EVPNBUM_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_evpnbum",
     },
 )
 
