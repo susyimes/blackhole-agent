@@ -1400,6 +1400,7 @@ def ensure_bgpcomm_actuation_capability(*, repo_path: Path | None = None) -> Cap
             "src/blackhole_agent/bgpcomm_actuation.py",
             "src/blackhole_agent/rtrefresh_actuation.py",
             "src/blackhole_agent/extcomm_actuation.py",
+            "src/blackhole_agent/largecomm_actuation.py",
             "src/blackhole_agent/bgp4_actuation.py",
             "src/blackhole_agent/mpbgp_actuation.py",
             "src/blackhole_agent/encap_actuation.py",
@@ -1584,6 +1585,10 @@ def builtin_bgpcomm_actuation_proof() -> dict[str, Any]:
     from blackhole_agent.extcomm_actuation import (
         EXTCOMM_ACTUATION_GOAL,
         EXTCOMM_ACTUATION_ID,
+    )
+    from blackhole_agent.largecomm_actuation import (
+        LARGECOMM_ACTUATION_GOAL,
+        LARGECOMM_ACTUATION_ID,
     )
     from blackhole_agent.prefix64_actuation import (
         PREFIX64_ACTUATION_GOAL,
@@ -1924,6 +1929,7 @@ def builtin_bgpcomm_actuation_proof() -> dict[str, Any]:
         (BGP4_ACTUATION_GOAL, BGP4_ACTUATION_ID, "bgp4"),
         (RTREFRESH_ACTUATION_GOAL, RTREFRESH_ACTUATION_ID, "rtrefresh"),
         (EXTCOMM_ACTUATION_GOAL, EXTCOMM_ACTUATION_ID, "extcomm"),
+        (LARGECOMM_ACTUATION_GOAL, LARGECOMM_ACTUATION_ID, "largecomm"),
         (MAPT_ACTUATION_GOAL, MAPT_ACTUATION_ID, "mapt"),
         (MAPE_ACTUATION_GOAL, MAPE_ACTUATION_ID, "mape"),
         (LW4O6_ACTUATION_GOAL, LW4O6_ACTUATION_ID, "lw4o6"),
@@ -2216,6 +2222,11 @@ def builtin_bgpcomm_actuation_proof() -> dict[str, Any]:
         and catalog[166]["id"] == EXTCOMM_ACTUATION_ID
         and catalog[166]["source"] == "genesis_bind_extcomm"
     )
+    checks["catalog_names_largecomm"] = (
+        len(catalog) > 167
+        and catalog[167]["id"] == LARGECOMM_ACTUATION_ID
+        and catalog[167]["source"] == "genesis_bind_largecomm"
+    )
     family = capability_family(BGPCOMM_ACTUATION_GOAL)
     checks["family_is_bgpcomm"] = "bgpcomm" in family.split("/")
     checks["family_is_bgpcomm_surface"] = "bgpcomm" in family.split("/") and "bgpcommid" in set(semantic_tokens(BGPCOMM_ACTUATION_GOAL))
@@ -2365,6 +2376,12 @@ def builtin_bgpcomm_actuation_proof() -> dict[str, Any]:
         and "rfc4360" not in family
         and "extcommid" not in family
         and "extcommdigest" not in family
+    )
+    checks["family_is_not_largecomm"] = (
+        "largecomm" not in family.split("/")
+        and "rfc8092" not in family
+        and "largecommid" not in family
+        and "largecommdigest" not in family
     )
     checks["family_is_not_rtrefresh"] = (
         "rtrefresh" not in family.split("/")

@@ -81,9 +81,9 @@ from blackhole_agent.bgp4_actuation import (
     BGP4_ACTUATION_GOAL,
     BGP4_ACTUATION_ID,
 )
-from blackhole_agent.extcomm_actuation import (
-    EXTCOMM_ACTUATION_GOAL,
-    EXTCOMM_ACTUATION_ID,
+from blackhole_agent.bgpcomm_actuation import (
+    BGPCOMM_ACTUATION_GOAL,
+    BGPCOMM_ACTUATION_ID,
 )
 from blackhole_agent.largecomm_actuation import (
     LARGECOMM_ACTUATION_GOAL,
@@ -323,40 +323,40 @@ from blackhole_agent.digestauth_actuation import (
     DIGESTAUTH_ACTUATION_GOAL,
     DIGESTAUTH_ACTUATION_ID,
 )
-from blackhole_agent.bgpcomm_actuation import (
-    DEFAULT_BGPCOMMID,
-    DEFAULT_BGPCOMMDIGEST,
+from blackhole_agent.extcomm_actuation import (
+    DEFAULT_EXTCOMMID,
+    DEFAULT_EXTCOMMDIGEST,
     DEFAULT_SOURCE,
-    EMPTY_BGPCOMMID,
+    EMPTY_EXTCOMMID,
     FRAME_DEST,
     FRAME_SOURCE,
-    BGPCOMM_ACTUATION_DONE_WHEN,
-    BGPCOMM_ACTUATION_GOAL,
-    BGPCOMM_ACTUATION_ID,
-    BGPCOMM_LEFTOVER,
-    BGPCOMM_FIRST,
+    EXTCOMM_ACTUATION_DONE_WHEN,
+    EXTCOMM_ACTUATION_GOAL,
+    EXTCOMM_ACTUATION_ID,
+    EXTCOMM_LEFTOVER,
+    EXTCOMM_FIRST,
     DEST_HOP,
     RFC_SOURCE_FIELD,
     RFC_DEST_FIELD,
     SENTINEL,
     SOURCE_HEADER,
-    builtin_bgpcomm_actuation_proof,
+    builtin_extcomm_actuation_proof,
     canonical_public,
     canonical_temporary,
     crc32c,
     encode_public,
     encode_temporary,
-    encode_bgpcomm_header,
-    independent_bgpcommdigest,
+    encode_extcomm_header,
+    independent_extcommdigest,
     parse_http_comm,
     parse_http_response,
     parse_message,
-    parse_bgpcomm,
-    parse_bgpcomm_header,
+    parse_extcomm,
+    parse_extcomm_header,
     public_comm,
     public_response,
-    run_bgpcomm_workflow,
-    serialize_bgpcomm,
+    run_extcomm_workflow,
+    serialize_extcomm,
     temporary_comm,
     temporary_response,
 )
@@ -386,10 +386,10 @@ from blackhole_agent.stun_actuation import STUN_ACTUATION_GOAL, STUN_ACTUATION_I
 from blackhole_agent.syslog_actuation import SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUATION_ID
 from blackhole_agent.tftp_actuation import TFTP_ACTUATION_GOAL, TFTP_ACTUATION_ID
 from blackhole_agent.tool_routing import (
-    BGPCOMM_TOOL_PROVIDER,
+    EXTCOMM_TOOL_PROVIDER,
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     build_tool_routing_preflight,
-    bgpcomm_tool_descriptor,
+    extcomm_tool_descriptor,
     route_tool_descriptor,
 )
 from blackhole_agent.turn_actuation import TURN_ACTUATION_GOAL, TURN_ACTUATION_ID
@@ -460,7 +460,7 @@ NEIGHBORS = (
     MPBGP_ACTUATION_GOAL,
     BGP4_ACTUATION_GOAL,
     RTREFRESH_ACTUATION_GOAL,
-    EXTCOMM_ACTUATION_GOAL,
+    BGPCOMM_ACTUATION_GOAL,
     LARGECOMM_ACTUATION_GOAL,
     EAM_ACTUATION_GOAL,
     SIIT_ACTUATION_GOAL,
@@ -573,7 +573,7 @@ NEIGHBOR_IDS = (
     MPBGP_ACTUATION_ID,
     BGP4_ACTUATION_ID,
     RTREFRESH_ACTUATION_ID,
-    EXTCOMM_ACTUATION_ID,
+    BGPCOMM_ACTUATION_ID,
     LARGECOMM_ACTUATION_ID,
     EAM_ACTUATION_ID,
     SIIT_ACTUATION_ID,
@@ -626,11 +626,11 @@ NEIGHBOR_IDS = (
 )
 
 
-def test_goal_binds_bgpcomm_actuation_plane() -> None:
-    assert leftover_marker_ids(BGPCOMM_ACTUATION_GOAL) == (BGPCOMM_ACTUATION_ID,)
+def test_goal_binds_extcomm_actuation_plane() -> None:
+    assert leftover_marker_ids(EXTCOMM_ACTUATION_GOAL) == (EXTCOMM_ACTUATION_ID,)
     assert leftover_marker_ids(ADDRPOLICY_ACTUATION_GOAL) == (ADDRPOLICY_ACTUATION_ID,)
     assert leftover_marker_ids(ADDRSELECT_ACTUATION_GOAL) == (ADDRSELECT_ACTUATION_ID,)
-    assert leftover_marker_ids(BGPCOMM_ACTUATION_GOAL) == (BGPCOMM_ACTUATION_ID,)
+    assert leftover_marker_ids(EXTCOMM_ACTUATION_GOAL) == (EXTCOMM_ACTUATION_ID,)
     assert leftover_marker_ids(LW4O6_ACTUATION_GOAL) == (LW4O6_ACTUATION_ID,)
     assert leftover_marker_ids(DISC_ACTUATION_GOAL) == (DISC_ACTUATION_ID,)
     assert leftover_marker_ids(DNS64_ACTUATION_GOAL) == (DNS64_ACTUATION_ID,)
@@ -638,13 +638,13 @@ def test_goal_binds_bgpcomm_actuation_plane() -> None:
     assert leftover_marker_ids(RDNSS_ACTUATION_GOAL) == (RDNSS_ACTUATION_ID,)
     assert ADDRPOLICY_ACTUATION_ID in LOCAL_DENYLIST
     assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert LW4O6_ACTUATION_ID in LOCAL_DENYLIST
     assert DNS64_ACTUATION_ID in LOCAL_DENYLIST
     assert NAT64_ACTUATION_ID in LOCAL_DENYLIST
     assert RDNSS_ACTUATION_ID in LOCAL_DENYLIST
-    assert leftover_marker_ids(BGPCOMM_LEFTOVER) == (BGPCOMM_ACTUATION_ID,)
-    assert leftover_marker_ids(BGPCOMM_ACTUATION_GOAL) == (BGPCOMM_ACTUATION_ID,)
+    assert leftover_marker_ids(EXTCOMM_LEFTOVER) == (EXTCOMM_ACTUATION_ID,)
+    assert leftover_marker_ids(EXTCOMM_ACTUATION_GOAL) == (EXTCOMM_ACTUATION_ID,)
     assert leftover_marker_ids(DISC_ACTUATION_GOAL) == (DISC_ACTUATION_ID,)
     assert leftover_marker_ids(DNS64_ACTUATION_GOAL) == (DNS64_ACTUATION_ID,)
     assert leftover_marker_ids(NAT64_ACTUATION_GOAL) == (NAT64_ACTUATION_ID,)
@@ -673,10 +673,10 @@ def test_goal_binds_bgpcomm_actuation_plane() -> None:
     assert leftover_marker_ids(HTTP10_ACTUATION_GOAL) == (HTTP10_ACTUATION_ID,)
     assert HTTP10_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(DIGESTAUTH_ACTUATION_GOAL) == (DIGESTAUTH_ACTUATION_ID,)
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert ULA_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert DNS64_ACTUATION_ID in LOCAL_DENYLIST
     assert NAT64_ACTUATION_ID in LOCAL_DENYLIST
     assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
@@ -698,8 +698,8 @@ def test_goal_binds_bgpcomm_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPAUTH_ACTUATION_GOAL) == (HTTPAUTH_ACTUATION_ID,)
     assert leftover_marker_ids(TCN_ACTUATION_GOAL) == (TCN_ACTUATION_ID,)
     assert leftover_marker_ids(ICP_ACTUATION_GOAL) == (ICP_ACTUATION_ID,)
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPAUTH_ACTUATION_ID in LOCAL_DENYLIST
     assert TCN_ACTUATION_ID in LOCAL_DENYLIST
@@ -711,9 +711,9 @@ def test_goal_binds_bgpcomm_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPCOOKIE_ACTUATION_GOAL) == (HTTPCOOKIE_ACTUATION_ID,)
     assert leftover_marker_ids(WEBORIGIN_ACTUATION_GOAL) == (WEBORIGIN_ACTUATION_ID,)
     assert leftover_marker_ids(XFO_ACTUATION_GOAL) == (XFO_ACTUATION_ID,)
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert SPNEGO_ACTUATION_ID in LOCAL_DENYLIST
     assert STALECONTENT_ACTUATION_ID in LOCAL_DENYLIST
@@ -723,153 +723,153 @@ def test_goal_binds_bgpcomm_actuation_plane() -> None:
     assert WEBORIGIN_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(HSTS_ACTUATION_GOAL) == (HSTS_ACTUATION_ID,)
     assert leftover_marker_ids(HPKP_ACTUATION_GOAL) == (HPKP_ACTUATION_ID,)
-    assert leftover_marker_ids(BGPCOMM_ACTUATION_GOAL) == (BGPCOMM_ACTUATION_ID,)
+    assert leftover_marker_ids(EXTCOMM_ACTUATION_GOAL) == (EXTCOMM_ACTUATION_ID,)
     assert leftover_marker_ids(HTTPSTATE_ACTUATION_GOAL) == (HTTPSTATE_ACTUATION_ID,)
     assert leftover_marker_ids(ALTSVC_ACTUATION_GOAL) == (ALTSVC_ACTUATION_ID,)
     assert leftover_marker_ids(ENCRYPTEDCONTENT_ACTUATION_GOAL) == (ENCRYPTEDCONTENT_ACTUATION_ID,)
     assert leftover_marker_ids(EARLYHINTS_ACTUATION_GOAL) == (EARLYHINTS_ACTUATION_ID,)
     assert HSTS_ACTUATION_ID in LOCAL_DENYLIST
     assert HPKP_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGPCOMM_ACTUATION_ID in LOCAL_DENYLIST
+    assert EXTCOMM_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert ALTSVC_ACTUATION_ID in LOCAL_DENYLIST
     assert ENCRYPTEDCONTENT_ACTUATION_ID in LOCAL_DENYLIST
     for goal, capability_id in zip(NEIGHBORS, NEIGHBOR_IDS, strict=True):
         assert leftover_marker_ids(goal) == (capability_id,)
-        assert BGPCOMM_ACTUATION_ID not in leftover_marker_ids(goal)
-        assert capability_id not in leftover_marker_ids(BGPCOMM_ACTUATION_GOAL)
-    icp_signature = semantic_signature(BGPCOMM_ACTUATION_GOAL)
+        assert EXTCOMM_ACTUATION_ID not in leftover_marker_ids(goal)
+        assert capability_id not in leftover_marker_ids(EXTCOMM_ACTUATION_GOAL)
+    icp_signature = semantic_signature(EXTCOMM_ACTUATION_GOAL)
     for neighbor in NEIGHBORS:
         assert semantic_similarity(icp_signature, semantic_signature(neighbor)) < 0.82
 
 
-def test_opted_in_bgpcomm_tool_completes_body_transfer_poll() -> None:
-    descriptor = bgpcomm_tool_descriptor()
+def test_opted_in_extcomm_tool_completes_body_transfer_poll() -> None:
+    descriptor = extcomm_tool_descriptor()
     naive = route_tool_descriptor(descriptor)
     opted = route_tool_descriptor(
         descriptor,
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, BGPCOMM_TOOL_PROVIDER),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, EXTCOMM_TOOL_PROVIDER),
     )
     assert naive.executable is False
     assert opted.executable is True
 
     preflight = build_tool_routing_preflight(
         [descriptor],
-        required_tool_names=("bgpcomm",),
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, BGPCOMM_TOOL_PROVIDER),
+        required_tool_names=("extcomm",),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, EXTCOMM_TOOL_PROVIDER),
     )
     assert preflight["ok"] is True
-    assert preflight["executable_tool_names"] == ["bgpcomm"]
+    assert preflight["executable_tool_names"] == ["extcomm"]
 
-    missing = run_bgpcomm_workflow(with_bgpcommid=False)
-    skip_bind = run_bgpcomm_workflow(skip_bind=True)
-    skip_temporary = run_bgpcomm_workflow(do_temporary=False)
-    skip_public = run_bgpcomm_workflow(do_public=False)
-    skip_bgpcommdigest = run_bgpcomm_workflow(do_bgpcommdigest=False)
-    skip_replay = run_bgpcomm_workflow(replay=False)
-    skip_bgpcommid = run_bgpcomm_workflow(use_bgpcommid=False)
-    live = run_bgpcomm_workflow()
+    missing = run_extcomm_workflow(with_extcommid=False)
+    skip_bind = run_extcomm_workflow(skip_bind=True)
+    skip_temporary = run_extcomm_workflow(do_temporary=False)
+    skip_public = run_extcomm_workflow(do_public=False)
+    skip_extcommdigest = run_extcomm_workflow(do_extcommdigest=False)
+    skip_replay = run_extcomm_workflow(replay=False)
+    skip_extcommid = run_extcomm_workflow(use_extcommid=False)
+    live = run_extcomm_workflow()
     assert missing["ok"] is False
     assert missing["final_status"] == 403
-    assert missing["error"] == "missing_bgpcommid"
+    assert missing["error"] == "missing_extcommid"
     assert skip_bind["ok"] is False
     assert skip_bind["error"] == "not_bound"
     assert skip_temporary["ok"] is False
     assert skip_temporary["error"] == "temporary_required"
     assert skip_public["ok"] is False
     assert skip_public["error"] == "public_required"
-    assert skip_bgpcommdigest["ok"] is False
-    assert skip_bgpcommdigest["error"] == "bgpcommdigest_required"
+    assert skip_extcommdigest["ok"] is False
+    assert skip_extcommdigest["error"] == "extcommdigest_required"
     assert skip_replay["ok"] is False
     assert skip_replay["error"] == "replay_required"
-    assert skip_bgpcommid["ok"] is False
-    assert skip_bgpcommid["error"] == "bgpcommid_required"
+    assert skip_extcommid["ok"] is False
+    assert skip_extcommid["error"] == "extcommid_required"
     assert live["ok"] is True
     assert live["sentinel"] == SENTINEL
     assert live["independent_sentinel"] == SENTINEL
     assert Path(live["sealed_path"]).is_file()
-    row = independent_bgpcommdigest(Path(live["sealed_path"]))
+    row = independent_extcommdigest(Path(live["sealed_path"]))
     assert row["sentinel"] == SENTINEL
     assert row["temporary_frame"] is True
     assert row["public_frame"] is True
-    assert row["bgpcommdigest_locate"] is True
+    assert row["extcommdigest_locate"] is True
     assert row["stored"] is True
     assert row["retrieved"] is True
     assert row["replayed"] is True
     assert row["independent"] is True
-    assert row["bgpcommid_bound"] is True
+    assert row["extcommid_bound"] is True
     assert row["digest"]
-    assert live["bgpcommid"] == DEFAULT_BGPCOMMID
-    assert live["bgpcommdigest"] == DEFAULT_BGPCOMMDIGEST
+    assert live["extcommid"] == DEFAULT_EXTCOMMID
+    assert live["extcommdigest"] == DEFAULT_EXTCOMMDIGEST
     assert int(live["port"]) > 0
     queried = parse_message(
-        encode_temporary(identity=SENTINEL, bgpcommid=DEFAULT_BGPCOMMID, bgpcommdigest=DEFAULT_BGPCOMMDIGEST)
+        encode_temporary(identity=SENTINEL, extcommid=DEFAULT_EXTCOMMID, extcommdigest=DEFAULT_EXTCOMMDIGEST)
     )
     assert queried["is_temporary"] is True and queried["is_public"] is False
-    assert queried["identity"] == SENTINEL and queried["bgpcommid"] == DEFAULT_BGPCOMMID
-    assert queried["bgpcommdigest"] == DEFAULT_BGPCOMMDIGEST
+    assert queried["identity"] == SENTINEL and queried["extcommid"] == DEFAULT_EXTCOMMID
+    assert queried["extcommdigest"] == DEFAULT_EXTCOMMDIGEST
     assert queried["type"] == FRAME_SOURCE
-    assert queried["first_byte"] == BGPCOMM_FIRST
+    assert queried["first_byte"] == EXTCOMM_FIRST
     answered = parse_message(
-        encode_public(identity=SENTINEL, bgpcommid=DEFAULT_BGPCOMMID, bgpcommdigest=DEFAULT_BGPCOMMDIGEST)
+        encode_public(identity=SENTINEL, extcommid=DEFAULT_EXTCOMMID, extcommdigest=DEFAULT_EXTCOMMDIGEST)
     )
     assert answered["is_public"] is True and answered["is_public"] is True
-    assert answered["bgpcommid"] == DEFAULT_BGPCOMMID
-    assert answered["bgpcommdigest"] == DEFAULT_BGPCOMMDIGEST
-    packed = encode_temporary(identity=SENTINEL, bgpcommid=DEFAULT_BGPCOMMID, bgpcommdigest=DEFAULT_BGPCOMMDIGEST)
+    assert answered["extcommid"] == DEFAULT_EXTCOMMID
+    assert answered["extcommdigest"] == DEFAULT_EXTCOMMDIGEST
+    packed = encode_temporary(identity=SENTINEL, extcommid=DEFAULT_EXTCOMMID, extcommdigest=DEFAULT_EXTCOMMDIGEST)
     zeroed = packed[:-4] + (0).to_bytes(4, "big")
     assert crc32c(zeroed) == int.from_bytes(packed[-4:], "big")
     bare = parse_message(
-        encode_temporary(identity=SENTINEL, bgpcommid=DEFAULT_BGPCOMMID, include_bgpcommid=False)
+        encode_temporary(identity=SENTINEL, extcommid=DEFAULT_EXTCOMMID, include_extcommid=False)
     )
-    assert bare["has_bgpcommid"] is False
-    assert bare["bgpcommid"] == EMPTY_BGPCOMMID
-    publicised = serialize_bgpcomm(DEFAULT_SOURCE)
+    assert bare["has_extcommid"] is False
+    assert bare["extcommid"] == EMPTY_EXTCOMMID
+    publicised = serialize_extcomm(DEFAULT_SOURCE)
     assert publicised == RFC_SOURCE_FIELD
-    assert parse_bgpcomm(publicised) == DEFAULT_SOURCE
-    assert parse_bgpcomm(RFC_DEST_FIELD) == DEST_HOP
-    header = parse_bgpcomm_header(encode_bgpcomm_header(DEFAULT_SOURCE))
+    assert parse_extcomm(publicised) == DEFAULT_SOURCE
+    assert parse_extcomm(RFC_DEST_FIELD) == DEST_HOP
+    header = parse_extcomm_header(encode_extcomm_header(DEFAULT_SOURCE))
     assert header["field_value"] == RFC_SOURCE_FIELD
     assert header["header"] == SOURCE_HEADER
-    asked = parse_http_comm(temporary_comm(SENTINEL, DEFAULT_BGPCOMMID))
-    listed = parse_http_comm(public_comm(SENTINEL, DEFAULT_BGPCOMMID, DEFAULT_BGPCOMMDIGEST))
-    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_BGPCOMMID, DEFAULT_BGPCOMMDIGEST))
+    asked = parse_http_comm(temporary_comm(SENTINEL, DEFAULT_EXTCOMMID))
+    listed = parse_http_comm(public_comm(SENTINEL, DEFAULT_EXTCOMMID, DEFAULT_EXTCOMMDIGEST))
+    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_EXTCOMMID, DEFAULT_EXTCOMMDIGEST))
     preload_public = parse_http_response(
-        public_response(SENTINEL, DEFAULT_BGPCOMMID, DEFAULT_BGPCOMMDIGEST)
+        public_response(SENTINEL, DEFAULT_EXTCOMMID, DEFAULT_EXTCOMMDIGEST)
     )
-    assert asked["method"] == "COMM"
-    assert asked["disc_kind"] == "bgpcomm"
-    assert listed["disc_kind"] == "attr"
+    assert asked["method"] == "EXT"
+    assert asked["disc_kind"] == "extcomm"
+    assert listed["disc_kind"] == "type"
     assert got["status"] == 200
     assert preload_public["status"] == 200
     assert got["policy"] == DEFAULT_SOURCE
     assert preload_public["policy"] == DEST_HOP
-    assert canonical_temporary(SENTINEL, DEFAULT_BGPCOMMID).startswith("COMM")
-    assert "bgpcommdigest=" in canonical_public(SENTINEL, DEFAULT_BGPCOMMID, DEFAULT_BGPCOMMDIGEST)
+    assert canonical_temporary(SENTINEL, DEFAULT_EXTCOMMID).startswith("EXT")
+    assert "extcommdigest=" in canonical_public(SENTINEL, DEFAULT_EXTCOMMID, DEFAULT_EXTCOMMDIGEST)
 
 
-def test_builtin_proof_seals_bgpcomm_actuation() -> None:
-    report = builtin_bgpcomm_actuation_proof()
+def test_builtin_proof_seals_extcomm_actuation() -> None:
+    report = builtin_extcomm_actuation_proof()
     assert report["ok"] is True, report.get("failed") or report.get("checks")
-    assert report["action"] == "bgpcomm_actuation"
+    assert report["action"] == "extcomm_actuation"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
     assert report["passed_count"] >= 12
-    assert report["checks"]["naive_preflight_missing_bgpcomm"]
+    assert report["checks"]["naive_preflight_missing_extcomm"]
     assert report["checks"]["opted_in_preflight_ok"]
-    assert report["checks"]["naive_without_bgpcommid_is_forbidden"]
+    assert report["checks"]["naive_without_extcommid_is_forbidden"]
     assert report["checks"]["skip_temporary_stays_empty"]
     assert report["checks"]["skip_public_stays_empty"]
-    assert report["checks"]["skip_bgpcommdigest_stays_empty"]
+    assert report["checks"]["skip_extcommdigest_stays_empty"]
     assert report["checks"]["skip_replay_stays_empty"]
-    assert report["checks"]["skip_bgpcommid_stays_empty"]
+    assert report["checks"]["skip_extcommid_stays_empty"]
     assert report["checks"]["workflow_extracts_sentinel"]
     assert report["checks"]["workflow_commits_independent_digest"]
     assert report["checks"]["workflow_writes_sealed_file"]
-    assert report["checks"]["workflow_records_bgpcommdigest"]
+    assert report["checks"]["workflow_records_extcommdigest"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_bgpcomm"]
+    assert report["checks"]["exhausted_catalog_binds_extcomm"]
     assert report["checks"]["catalog_names_addrselect"]
     assert report["checks"]["catalog_names_addrpolicy"]
     assert report["checks"]["catalog_names_firsthop"]
@@ -908,39 +908,38 @@ def test_builtin_proof_seals_bgpcomm_actuation() -> None:
     assert report["checks"]["catalog_names_bgpcomm"]
     assert report["checks"]["catalog_names_extcomm"]
     assert report["checks"]["catalog_names_largecomm"]
-    assert report["checks"]["catalog_names_bgpcomm"]
     assert report["checks"]["catalog_names_mape"]
-    assert report["checks"]["leftover_text_binds_bgpcomm"]
-    assert report["checks"]["proved_bgpcomm_consumes_leftover"]
-    assert report["mission_goal"] == BGPCOMM_ACTUATION_GOAL
-    assert report["done_when"] == BGPCOMM_ACTUATION_DONE_WHEN
+    assert report["checks"]["leftover_text_binds_extcomm"]
+    assert report["checks"]["proved_extcomm_consumes_leftover"]
+    assert report["mission_goal"] == EXTCOMM_ACTUATION_GOAL
+    assert report["done_when"] == EXTCOMM_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
-    capability = ledger.capabilities[BGPCOMM_ACTUATION_ID]
+    capability = ledger.capabilities[EXTCOMM_ACTUATION_ID]
     assert capability.last_proof_exit_code == 0
-    assert "bgpcomm" in capability.tags
-    assert "rfc1997" in capability.tags
+    assert "extcomm" in capability.tags
+    assert "rfc4360" in capability.tags
     assert "http" in capability.tags
-    assert "bgpcommid" in capability.tags
-    assert "bgpcommdigest" in capability.tags
-    assert "bgpcomm" in capability.tags
-    assert "attr" in capability.tags
+    assert "extcommid" in capability.tags
+    assert "extcommdigest" in capability.tags
+    assert "extcomm" in capability.tags
+    assert "type" in capability.tags
 
 
-def test_selection_gate_accepts_bgpcomm_family(tmp_path: Path) -> None:
+def test_selection_gate_accepts_extcomm_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
-        BGPCOMM_ACTUATION_GOAL,
-        BGPCOMM_ACTUATION_DONE_WHEN,
+        EXTCOMM_ACTUATION_GOAL,
+        EXTCOMM_ACTUATION_DONE_WHEN,
         history=(),
     )
     assert gate.accepted is True
     assert gate.scalar_extension is False
-    family = capability_family(BGPCOMM_ACTUATION_GOAL)
+    family = capability_family(EXTCOMM_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
-    assert "bgpcomm" in family.split("/")
-    assert "rfc1997" in family
-    assert "bgpcommid" in set(semantic_tokens(BGPCOMM_ACTUATION_GOAL))
-    assert "bgpcommdigest" in family
+    assert "extcomm" in family.split("/")
+    assert "rfc4360" in family
+    assert "extcommid" in set(semantic_tokens(EXTCOMM_ACTUATION_GOAL))
+    assert "extcommdigest" in family
     assert "dns64" not in family.split("/")
     assert "rfc6147" not in family
     assert "dns64id" not in family
@@ -1030,10 +1029,10 @@ def test_selection_gate_accepts_bgpcomm_family(tmp_path: Path) -> None:
     assert "rfc4760" not in family
     assert "mpbgpid" not in family
     assert "mpbgpdigest" not in family
-    assert "extcomm" not in family.split("/")
-    assert "rfc4360" not in family
-    assert "extcommid" not in family
-    assert "extcommdigest" not in family
+    assert "bgpcomm" not in family.split("/")
+    assert "rfc1997" not in family
+    assert "bgpcommid" not in family
+    assert "bgpcommdigest" not in family
     assert "largecomm" not in family.split("/")
     assert "rfc8092" not in family
     assert "largecommid" not in family

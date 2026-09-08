@@ -640,6 +640,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4360",
         "extcommid",
         "extcommdigest",
+        "largecomm",
+        "rfc8092",
+        "largecommid",
+        "largecommdigest",
     }
 )
 _IMPACT_MARKERS = (
