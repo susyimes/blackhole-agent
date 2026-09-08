@@ -29,7 +29,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.891015Z"
+      "updated_at": "2026-09-08T21:38:50.903319Z"
     },
     "capability.absorbed-apache-airflow-providers-amazon": {
       "behavior_paths": [
@@ -2405,7 +2405,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.924407Z"
+      "updated_at": "2026-09-08T21:38:50.937891Z"
     },
     "capability.adaptive-grow": {
       "behavior_paths": [
@@ -2437,7 +2437,7 @@
         "growth",
         "adaptive"
       ],
-      "updated_at": "2026-09-08T21:06:01.853710Z"
+      "updated_at": "2026-09-08T21:38:50.872165Z"
     },
     "capability.addrpolicy-actuation": {
       "behavior_paths": [
@@ -2579,7 +2579,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.896380Z"
+      "updated_at": "2026-09-08T21:38:50.908642Z"
     },
     "capability.altsvc-actuation": {
       "behavior_paths": [
@@ -3182,7 +3182,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.932917Z"
+      "updated_at": "2026-09-08T21:38:50.946352Z"
     },
     "capability.application-python-cent-nested-instance-growth-plane": {
       "behavior_paths": [
@@ -22285,7 +22285,7 @@
         "adversarial",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.899162Z"
+      "updated_at": "2026-09-08T21:38:50.911284Z"
     },
     "capability.autonomic-cycle": {
       "behavior_paths": [
@@ -22320,7 +22320,7 @@
         "autonomic",
         "novelty"
       ],
-      "updated_at": "2026-09-08T21:06:01.867919Z"
+      "updated_at": "2026-09-08T21:38:50.882649Z"
     },
     "capability.bgp4-actuation": {
       "behavior_paths": [
@@ -23003,7 +23003,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.910164Z"
+      "updated_at": "2026-09-08T21:38:50.921826Z"
     },
     "capability.contract-plane": {
       "behavior_paths": [
@@ -23038,7 +23038,7 @@
         "evidence",
         "growth"
       ],
-      "updated_at": "2026-09-08T21:06:01.888288Z"
+      "updated_at": "2026-09-08T21:38:50.900635Z"
     },
     "capability.datachannel-actuation": {
       "behavior_paths": [
@@ -23617,7 +23617,7 @@
         "growth",
         "distill"
       ],
-      "updated_at": "2026-09-08T21:06:01.862594Z"
+      "updated_at": "2026-09-08T21:38:50.880046Z"
     },
     "capability.dns-actuation": {
       "behavior_paths": [
@@ -24845,7 +24845,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.921463Z"
+      "updated_at": "2026-09-08T21:38:50.935006Z"
     },
     "capability.expectct-actuation": {
       "behavior_paths": [
@@ -25093,7 +25093,7 @@
         "transfer",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.912775Z"
+      "updated_at": "2026-09-08T21:38:50.924652Z"
     },
     "capability.finality-plane": {
       "behavior_paths": [
@@ -25142,7 +25142,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.918453Z"
+      "updated_at": "2026-09-08T21:38:50.931747Z"
     },
     "capability.finger-actuation": {
       "behavior_paths": [
@@ -25386,7 +25386,7 @@
         "recovery",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.938386Z"
+      "updated_at": "2026-09-08T21:38:50.952001Z"
     },
     "capability.frontier-novelty": {
       "behavior_paths": [
@@ -25416,7 +25416,7 @@
         "growth",
         "novelty"
       ],
-      "updated_at": "2026-09-08T21:06:01.859588Z"
+      "updated_at": "2026-09-08T21:38:50.877415Z"
     },
     "capability.ftp-actuation": {
       "behavior_paths": [
@@ -25702,7 +25702,7 @@
         "mission",
         "planner"
       ],
-      "updated_at": "2026-09-08T21:06:01.872359Z"
+      "updated_at": "2026-09-08T21:38:50.885266Z"
     },
     "capability.goal-stack-health": {
       "behavior_paths": [
@@ -25739,7 +25739,7 @@
         "composition",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.952903Z"
+      "updated_at": "2026-09-08T21:38:50.965990Z"
     },
     "capability.goal-watchdog": {
       "behavior_paths": [
@@ -25773,7 +25773,7 @@
         "application",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.943774Z"
+      "updated_at": "2026-09-08T21:38:50.957367Z"
     },
     "capability.godot-actuation": {
       "behavior_paths": [
@@ -25882,7 +25882,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-09-08T21:06:01.850966Z"
+      "updated_at": "2026-09-08T21:38:50.869560Z"
     },
     "capability.grpc-actuation": {
       "behavior_paths": [
@@ -29163,7 +29163,7 @@
         "integrity",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.941123Z"
+      "updated_at": "2026-09-08T21:38:50.954676Z"
     },
     "capability.ledger-integrity": {
       "behavior_paths": [
@@ -29191,7 +29191,7 @@
         "compounder",
         "integrity"
       ],
-      "updated_at": "2026-09-08T21:06:01.856680Z"
+      "updated_at": "2026-09-08T21:38:50.874789Z"
     },
     "capability.ledger-inventory": {
       "behavior_paths": [
@@ -29217,7 +29217,7 @@
         "bootstrap",
         "compounder"
       ],
-      "updated_at": "2026-09-08T21:06:01.841295Z"
+      "updated_at": "2026-09-08T21:38:50.861650Z"
     },
     "capability.leftover-catalog-handoff": {
       "behavior_paths": [
@@ -29335,7 +29335,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.904803Z"
+      "updated_at": "2026-09-08T21:38:50.916571Z"
     },
     "capability.local-capability-kernel": {
       "behavior_paths": [
@@ -31253,7 +31253,7 @@
         "growth",
         "second-wave"
       ],
-      "updated_at": "2026-09-08T21:06:01.882287Z"
+      "updated_at": "2026-09-08T21:38:50.895307Z"
     },
     "capability.mld-actuation": {
       "behavior_paths": [
@@ -32236,7 +32236,7 @@
         "contract",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.885485Z"
+      "updated_at": "2026-09-08T21:38:50.897996Z"
     },
     "capability.p2mpir-actuation": {
       "behavior_paths": [
@@ -32588,7 +32588,7 @@
         "synthesis",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.949391Z"
+      "updated_at": "2026-09-08T21:38:50.963215Z"
     },
     "capability.postgres-actuation": {
       "behavior_paths": [
@@ -32790,7 +32790,7 @@
         "mission",
         "program"
       ],
-      "updated_at": "2026-09-08T21:06:01.876188Z"
+      "updated_at": "2026-09-08T21:38:50.887886Z"
     },
     "capability.proxynd-actuation": {
       "behavior_paths": [
@@ -32971,6 +32971,178 @@
       ],
       "updated_at": "2026-08-30T04:39:22.513864Z"
     },
+    "capability.pwldp-actuation": {
+      "behavior_paths": [
+        "src/blackhole_agent/rtr_actuation.py",
+        "src/blackhole_agent/ebgp_actuation.py",
+        "src/blackhole_agent/evpn_actuation.py",
+        "src/blackhole_agent/etree_actuation.py",
+        "src/blackhole_agent/nvo_actuation.py",
+        "src/blackhole_agent/dfe_actuation.py",
+        "src/blackhole_agent/irb_actuation.py",
+        "src/blackhole_agent/ippfx_actuation.py",
+        "src/blackhole_agent/proxynd_actuation.py",
+        "src/blackhole_agent/imlproxy_actuation.py",
+        "src/blackhole_agent/evpnbum_actuation.py",
+        "src/blackhole_agent/fxc_actuation.py",
+        "src/blackhole_agent/dfrec_actuation.py",
+        "src/blackhole_agent/msred_actuation.py",
+        "src/blackhole_agent/p2mpir_actuation.py",
+        "src/blackhole_agent/oir_actuation.py",
+        "src/blackhole_agent/iesi_actuation.py",
+        "src/blackhole_agent/pbb_actuation.py",
+        "src/blackhole_agent/macip_actuation.py",
+        "src/blackhole_agent/evpnreq_actuation.py",
+        "src/blackhole_agent/vpls_actuation.py",
+        "src/blackhole_agent/ldpsig_actuation.py",
+        "src/blackhole_agent/pwldp_actuation.py",
+        "src/blackhole_agent/pwe3_actuation.py",
+        "src/blackhole_agent/pwldp_actuation.py",
+        "src/blackhole_agent/largecomm_actuation.py",
+        "src/blackhole_agent/bgpsec_actuation.py",
+        "src/blackhole_agent/extcomm_actuation.py",
+        "src/blackhole_agent/bgpcomm_actuation.py",
+        "src/blackhole_agent/rtrefresh_actuation.py",
+        "src/blackhole_agent/pwldp_actuation.py",
+        "src/blackhole_agent/pwldp_actuation.py",
+        "src/blackhole_agent/bgp4_actuation.py",
+        "src/blackhole_agent/mpbgp_actuation.py",
+        "src/blackhole_agent/encap_actuation.py",
+        "src/blackhole_agent/mesh_actuation.py",
+        "src/blackhole_agent/l2tp_actuation.py",
+        "src/blackhole_agent/pwldp_actuation.py",
+        "src/blackhole_agent/tsp_actuation.py",
+        "src/blackhole_agent/sixin4_actuation.py",
+        "src/blackhole_agent/sixover4_actuation.py",
+        "src/blackhole_agent/isatap_actuation.py",
+        "src/blackhole_agent/teredo_actuation.py",
+        "src/blackhole_agent/sixto4_actuation.py",
+        "src/blackhole_agent/sixrd_actuation.py",
+        "src/blackhole_agent/luprefix_actuation.py",
+        "src/blackhole_agent/v4embed_actuation.py",
+        "src/blackhole_agent/siitdtm_actuation.py",
+        "src/blackhole_agent/siitdc_actuation.py",
+        "src/blackhole_agent/eam_actuation.py",
+        "src/blackhole_agent/siit_actuation.py",
+        "src/blackhole_agent/ucpe_actuation.py",
+        "src/blackhole_agent/s46_actuation.py",
+        "src/blackhole_agent/lw4o6_actuation.py",
+        "src/blackhole_agent/dslite_actuation.py",
+        "src/blackhole_agent/disc_actuation.py",
+        "src/blackhole_agent/xlat_actuation.py",
+        "src/blackhole_agent/dns64_actuation.py",
+        "src/blackhole_agent/nat64_actuation.py",
+        "src/blackhole_agent/pref64_actuation.py",
+        "src/blackhole_agent/rdnss_actuation.py",
+        "src/blackhole_agent/firsthop_actuation.py",
+        "src/blackhole_agent/addrpolicy_actuation.py",
+        "src/blackhole_agent/addrselect_actuation.py",
+        "src/blackhole_agent/ipv6scope_actuation.py",
+        "src/blackhole_agent/ipv6addr_actuation.py",
+        "src/blackhole_agent/cga_actuation.py",
+        "src/blackhole_agent/opaqueiid_actuation.py",
+        "src/blackhole_agent/tempaddr_actuation.py",
+        "src/blackhole_agent/slaac_actuation.py",
+        "src/blackhole_agent/ndp_actuation.py",
+        "src/blackhole_agent/mld_actuation.py",
+        "src/blackhole_agent/igmp_actuation.py",
+        "src/blackhole_agent/tool_routing.py",
+        "src/blackhole_agent/kernel_leftover.py",
+        "src/blackhole_agent/kernel_genesis_diversify.py",
+        "src/blackhole_agent/local_capability_kernel.py",
+        "src/blackhole_agent/rarp_actuation.py",
+        "src/blackhole_agent/arp_actuation.py",
+        "src/blackhole_agent/ip_actuation.py",
+        "src/blackhole_agent/icmp_actuation.py",
+        "src/blackhole_agent/m46_actuation.py",
+        "src/blackhole_agent/prefix64_actuation.py",
+        "src/blackhole_agent/mapt_actuation.py",
+        "src/blackhole_agent/mape_actuation.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A required pwldp tool is executable after explicit provider opt-in: Unbound binds a real loopback RFC 4447 daemon, speaks a LABEL then STATUS over Pseudowire Setup and Maintenance Using LDP with a non-empty pwldpid and pwldpdigest, independently polls the stored pwldpdigest on a later client socket, and binds this family as the next diversity-catalog successor once RFC 4762 Virtual Private LAN Service Using LDP PW/FEC lockstep is proved. Missing pwldpids, skip-LABEL, skip-STATUS, skip-pwldpdigest, skip-REPLAY, and a LABEL aimed without a pwldpid stay fail-closed. Later genesis can take RFC 3985 Pseudo Wire Emulation Edge-to-Edge (PWE3) Architecture PSN/NSP as the next unsaturated diversity-catalog family.",
+      "created_at": "2026-09-08T21:36:52.920693Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.luprefix-actuation",
+        "capability.sixrd-actuation",
+        "capability.sixto4-actuation",
+        "capability.teredo-actuation",
+        "capability.isatap-actuation",
+        "capability.sixover4-actuation",
+        "capability.sixin4-actuation",
+        "capability.tsp-actuation",
+        "capability.l2tp-actuation",
+        "capability.mesh-actuation",
+        "capability.encap-actuation",
+        "capability.mpbgp-actuation",
+        "capability.bgp4-actuation",
+        "capability.rtrefresh-actuation",
+        "capability.bgpcomm-actuation",
+        "capability.extcomm-actuation",
+        "capability.largecomm-actuation",
+        "capability.bgpsec-actuation",
+        "capability.rtr-actuation",
+        "capability.ebgp-actuation",
+        "capability.evpn-actuation",
+        "capability.etree-actuation",
+        "capability.nvo-actuation",
+        "capability.dfe-actuation",
+        "capability.irb-actuation",
+        "capability.ippfx-actuation",
+        "capability.proxynd-actuation",
+        "capability.imlproxy-actuation",
+        "capability.evpnbum-actuation",
+        "capability.fxc-actuation",
+        "capability.dfrec-actuation",
+        "capability.msred-actuation",
+        "capability.p2mpir-actuation",
+        "capability.oir-actuation",
+        "capability.iesi-actuation",
+        "capability.pbb-actuation",
+        "capability.macip-actuation",
+        "capability.evpnreq-actuation",
+        "capability.vpls-actuation",
+        "capability.ldpsig-actuation",
+        "capability.v4embed-actuation",
+        "capability.siitdtm-actuation",
+        "capability.siitdc-actuation",
+        "capability.eam-actuation",
+        "capability.siit-actuation",
+        "capability.prefix64-actuation",
+        "capability.m46-actuation",
+        "capability.ucpe-actuation",
+        "capability.s46-actuation",
+        "capability.mapt-actuation",
+        "capability.mape-actuation",
+        "capability.lw4o6-actuation",
+        "capability.dslite-actuation"
+      ],
+      "description": "Missions that require a pwldp tool can opt the pwldp provider in, bind a loopback RFC 4447 Pseudowire Setup and Maintenance Using LDP endpoint, complete a LABEL with a non-empty pwldpid, lockstep a STATUS that carries the stored pwldpdigest, independently poll the stored pwldpdigest on a later socket, and seal a digest-chained pwldpdigest. Default routing stays fail-closed; a missing pwldpid keeps the hole falsifiable, and skip-LABEL/STATUS/pwldpdigest/REPLAY stay empty.",
+      "entry": "blackhole_agent.pwldp_actuation:builtin_pwldp_actuation_proof",
+      "id": "capability.pwldp-actuation",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-08T21:36:52.920668Z",
+      "name": "First-class RFC 4447 Pseudowire Setup and Maintenance Using LDP LABEL/STATUS actuation",
+      "proof_command": "uv run python -c \"from blackhole_agent.pwldp_actuation import builtin_pwldp_actuation_proof; r=builtin_pwldp_actuation_proof(); assert r['ok'] and r.get('action')=='pwldp_actuation' and r.get('passed_count',0) >= 12 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260908T212150Z-9cc632f9",
+      "tags": [
+        "pwldp",
+        "rfc4447",
+        "http",
+        "pwldpid",
+        "pwldpdigest",
+        "label",
+        "status",
+        "actuation",
+        "diversity"
+      ],
+      "updated_at": "2026-09-08T21:38:42.396178Z"
+    },
     "capability.quic-actuation": {
       "behavior_paths": [
         "src/blackhole_agent/quic_actuation.py",
@@ -33055,7 +33227,7 @@
         "lineage",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.915419Z"
+      "updated_at": "2026-09-08T21:38:50.928639Z"
     },
     "capability.radius-actuation": {
       "behavior_paths": [
@@ -33236,7 +33408,7 @@
         "drift",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.907508Z"
+      "updated_at": "2026-09-08T21:38:50.919213Z"
     },
     "capability.recovery-loop": {
       "behavior_paths": [
@@ -33272,7 +33444,7 @@
         "self-healing",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.935676Z"
+      "updated_at": "2026-09-08T21:38:50.949255Z"
     },
     "capability.redis-actuation": {
       "behavior_paths": [
@@ -33344,7 +33516,7 @@
         "fitness",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.927301Z"
+      "updated_at": "2026-09-08T21:38:50.940607Z"
     },
     "capability.rtr-actuation": {
       "behavior_paths": [
@@ -33722,7 +33894,7 @@
         "compounder",
         "growth"
       ],
-      "updated_at": "2026-09-08T21:06:01.846737Z"
+      "updated_at": "2026-09-08T21:38:50.866938Z"
     },
     "capability.sctp-actuation": {
       "behavior_paths": [
@@ -33795,7 +33967,7 @@
         "second-wave",
         "domain"
       ],
-      "updated_at": "2026-09-08T21:06:01.879281Z"
+      "updated_at": "2026-09-08T21:38:50.890509Z"
     },
     "capability.send-actuation": {
       "behavior_paths": [
@@ -34667,7 +34839,7 @@
         "certificate",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.901956Z"
+      "updated_at": "2026-09-08T21:38:50.913930Z"
     },
     "capability.spnego-actuation": {
       "behavior_paths": [
@@ -34976,7 +35148,7 @@
         "goal-directed",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.946453Z"
+      "updated_at": "2026-09-08T21:38:50.960315Z"
     },
     "capability.synthesized-scan-verdict-label": {
       "behavior_paths": [
@@ -35446,7 +35618,7 @@
         "transfer",
         "package"
       ],
-      "updated_at": "2026-09-08T21:06:01.893684Z"
+      "updated_at": "2026-09-08T21:38:50.905957Z"
     },
     "capability.tsp-actuation": {
       "behavior_paths": [
@@ -35786,7 +35958,7 @@
         "discovery",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.964129Z"
+      "updated_at": "2026-09-08T21:38:50.976683Z"
     },
     "capability.upstream-campaign": {
       "behavior_paths": [
@@ -35828,7 +36000,7 @@
         "impact",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.975546Z"
+      "updated_at": "2026-09-08T21:38:50.987732Z"
     },
     "capability.upstream-contribution": {
       "behavior_paths": [
@@ -35859,7 +36031,7 @@
         "contribution",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.966970Z"
+      "updated_at": "2026-09-08T21:38:50.979569Z"
     },
     "capability.upstream-discovery": {
       "behavior_paths": [
@@ -35892,7 +36064,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.958705Z"
+      "updated_at": "2026-09-08T21:38:50.971276Z"
     },
     "capability.upstream-epoch": {
       "behavior_paths": [
@@ -35932,7 +36104,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.980938Z"
+      "updated_at": "2026-09-08T21:38:50.993075Z"
     },
     "capability.upstream-fleet": {
       "behavior_paths": [
@@ -35969,7 +36141,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.978260Z"
+      "updated_at": "2026-09-08T21:38:50.990382Z"
     },
     "capability.upstream-frontier": {
       "behavior_paths": [
@@ -36002,7 +36174,7 @@
         "security",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.961389Z"
+      "updated_at": "2026-09-08T21:38:50.973913Z"
     },
     "capability.upstream-impact": {
       "behavior_paths": [
@@ -36035,7 +36207,7 @@
         "portfolio",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.972816Z"
+      "updated_at": "2026-09-08T21:38:50.985099Z"
     },
     "capability.upstream-program": {
       "behavior_paths": [
@@ -36080,7 +36252,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.986298Z"
+      "updated_at": "2026-09-08T21:38:50.998396Z"
     },
     "capability.upstream-publication": {
       "behavior_paths": [
@@ -36112,7 +36284,7 @@
         "actuation",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.969943Z"
+      "updated_at": "2026-09-08T21:38:50.982378Z"
     },
     "capability.upstream-repair": {
       "behavior_paths": [
@@ -36147,7 +36319,7 @@
         "ablation",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.955833Z"
+      "updated_at": "2026-09-08T21:38:50.968642Z"
     },
     "capability.upstream-succession": {
       "behavior_paths": [
@@ -36189,7 +36361,7 @@
         "orchestration",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.983617Z"
+      "updated_at": "2026-09-08T21:38:50.995742Z"
     },
     "capability.uri-actuation": {
       "behavior_paths": [
@@ -36306,7 +36478,7 @@
         "outcome",
         "evidence"
       ],
-      "updated_at": "2026-09-08T21:06:01.930158Z"
+      "updated_at": "2026-09-08T21:38:50.943437Z"
     },
     "capability.v4embed-actuation": {
       "behavior_paths": [
@@ -37354,7 +37526,7 @@
         "bootstrap",
         "evolution-route"
       ],
-      "updated_at": "2026-09-08T21:06:01.844143Z"
+      "updated_at": "2026-09-08T21:38:50.864316Z"
     },
     "repo.import-health": {
       "behavior_paths": [
@@ -37378,7 +37550,7 @@
         "bootstrap",
         "health"
       ],
-      "updated_at": "2026-09-08T21:06:01.834998Z"
+      "updated_at": "2026-09-08T21:38:50.855677Z"
     },
     "unbound.milestone-gate": {
       "behavior_paths": [
@@ -37403,9 +37575,9 @@
         "bootstrap",
         "unbound"
       ],
-      "updated_at": "2026-09-08T21:06:01.838419Z"
+      "updated_at": "2026-09-08T21:38:50.858974Z"
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-08T21:06:01.989113Z"
+  "updated_at": "2026-09-08T21:38:51.001256Z"
 }

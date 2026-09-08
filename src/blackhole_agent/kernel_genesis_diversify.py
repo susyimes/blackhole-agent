@@ -1012,6 +1012,11 @@ from blackhole_agent.pwldp_actuation import (
     PWLDP_ACTUATION_GOAL,
     PWLDP_ACTUATION_ID,
 )
+from blackhole_agent.pwe3_actuation import (
+    PWE3_ACTUATION_DONE_WHEN,
+    PWE3_ACTUATION_GOAL,
+    PWE3_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2206,6 +2211,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PWLDP_ACTUATION_GOAL,
         "done_when": PWLDP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pwldp",
+    },
+    {
+        "id": PWE3_ACTUATION_ID,
+        "goal": PWE3_ACTUATION_GOAL,
+        "done_when": PWE3_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_pwe3",
     },
 )
 

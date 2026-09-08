@@ -1005,6 +1005,7 @@ MACIP_TOOL_PROVIDER = "macip"
 EVPNREQ_TOOL_PROVIDER = "evpnreq"
 VPLS_TOOL_PROVIDER = "vpls"
 LDPSIG_TOOL_PROVIDER = "ldpsig"
+PWLDP_TOOL_PROVIDER = "pwldp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7556,6 +7557,47 @@ def ldpsig_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LDPSIG_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def pwldp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4447 Pseudowire Setup and Maintenance Using LDP LABEL/STATUS route.
+
+    Provider ``pwldp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pwldp",
+        description=(
+            "Drive a first-class RFC 4447 session: bind a loopback Pseudowire Setup and Maintenance Using LDP "
+            "origin, send a LABEL "
+            "with a non-empty pwldpid, lockstep a STATUS that carries the stored "
+            "pwldpdigest, independently poll the stored pwldpdigest on a later "
+            "client socket, and read the sealed pwldpdigest. PWLDPID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "label": {"type": "boolean"},
+                "status": {"type": "boolean"},
+                "pwldpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pwldpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PWLDP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
