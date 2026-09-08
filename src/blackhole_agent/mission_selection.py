@@ -730,6 +730,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc7209",
         "evpnreqid",
         "evpnreqdigest",
+        "vpls",
+        "rfc4761",
+        "vplsid",
+        "vplsdigest",
     }
 )
 _IMPACT_MARKERS = (

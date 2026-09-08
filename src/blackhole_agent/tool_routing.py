@@ -1002,6 +1002,7 @@ OIR_TOOL_PROVIDER = "oir"
 IESI_TOOL_PROVIDER = "iesi"
 PBB_TOOL_PROVIDER = "pbb"
 MACIP_TOOL_PROVIDER = "macip"
+EVPNREQ_TOOL_PROVIDER = "evpnreq"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7430,6 +7431,47 @@ def macip_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MACIP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def evpnreq_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7209 Requirements for Ethernet VPN REQ/AA route.
+
+    Provider ``evpnreq`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="evpnreq",
+        description=(
+            "Drive a first-class RFC 7209 session: bind a loopback Requirements for Ethernet VPN "
+            "origin, send a REQ "
+            "with a non-empty evpnreqid, lockstep an AA that carries the stored "
+            "evpnreqdigest, independently poll the stored evpnreqdigest on a later "
+            "client socket, and read the sealed evpnreqdigest. EVPNREQID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "req": {"type": "boolean"},
+                "aa": {"type": "boolean"},
+                "evpnreqdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_evpnreqid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EVPNREQ_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
