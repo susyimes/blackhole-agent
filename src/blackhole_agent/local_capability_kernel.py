@@ -218,6 +218,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.rtr-actuation",
         "capability.ebgp-actuation",
         "capability.evpn-actuation",
+        "capability.etree-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",

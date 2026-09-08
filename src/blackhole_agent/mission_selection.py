@@ -660,6 +660,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc8214",
         "evpnid",
         "evpndigest",
+        "etree",
+        "rfc8317",
+        "etreeid",
+        "etreedigest",
     }
 )
 _IMPACT_MARKERS = (

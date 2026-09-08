@@ -912,6 +912,11 @@ from blackhole_agent.evpn_actuation import (
     EVPN_ACTUATION_GOAL,
     EVPN_ACTUATION_ID,
 )
+from blackhole_agent.etree_actuation import (
+    ETREE_ACTUATION_DONE_WHEN,
+    ETREE_ACTUATION_GOAL,
+    ETREE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1986,6 +1991,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": EVPN_ACTUATION_GOAL,
         "done_when": EVPN_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_evpn",
+    },
+    {
+        "id": ETREE_ACTUATION_ID,
+        "goal": ETREE_ACTUATION_GOAL,
+        "done_when": ETREE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_etree",
     },
 )
 

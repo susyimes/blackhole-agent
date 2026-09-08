@@ -985,6 +985,7 @@ LARGECOMM_TOOL_PROVIDER = "largecomm"
 BGPSEC_TOOL_PROVIDER = "bgpsec"
 RTR_TOOL_PROVIDER = "rtr"
 EBGP_TOOL_PROVIDER = "ebgp"
+EVPN_TOOL_PROVIDER = "evpn"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6713,6 +6714,47 @@ def ebgp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=EBGP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def evpn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8214 Virtual Private Wire Service Support in Ethernet VPN AD/VPWS route.
+
+    Provider ``evpn`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="evpn",
+        description=(
+            "Drive a first-class RFC 8214 session: bind a loopback Virtual Private Wire Service Support in Ethernet VPN "
+            "origin, send a AD "
+            "with a non-empty evpnid, lockstep a VPWS that carries the stored "
+            "evpndigest, independently poll the stored evpndigest on a later "
+            "client socket, and read the sealed evpndigest. EVPNID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "evpn": {"type": "boolean"},
+                "vpws": {"type": "boolean"},
+                "evpndigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_evpnid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EVPN_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
