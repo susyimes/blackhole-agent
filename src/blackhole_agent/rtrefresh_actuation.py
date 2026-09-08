@@ -1398,6 +1398,7 @@ def ensure_rtrefresh_actuation_capability(*, repo_path: Path | None = None) -> C
         behavior_paths=(
             "src/blackhole_agent/rtrefresh_actuation.py",
             "src/blackhole_agent/bgpcomm_actuation.py",
+            "src/blackhole_agent/extcomm_actuation.py",
             "src/blackhole_agent/bgp4_actuation.py",
             "src/blackhole_agent/mpbgp_actuation.py",
             "src/blackhole_agent/encap_actuation.py",
@@ -1578,6 +1579,10 @@ def builtin_rtrefresh_actuation_proof() -> dict[str, Any]:
     from blackhole_agent.bgpcomm_actuation import (
         BGPCOMM_ACTUATION_GOAL,
         BGPCOMM_ACTUATION_ID,
+    )
+    from blackhole_agent.extcomm_actuation import (
+        EXTCOMM_ACTUATION_GOAL,
+        EXTCOMM_ACTUATION_ID,
     )
     from blackhole_agent.prefix64_actuation import (
         PREFIX64_ACTUATION_GOAL,
@@ -1917,6 +1922,7 @@ def builtin_rtrefresh_actuation_proof() -> dict[str, Any]:
         (MPBGP_ACTUATION_GOAL, MPBGP_ACTUATION_ID, "mpbgp"),
         (BGP4_ACTUATION_GOAL, BGP4_ACTUATION_ID, "bgp4"),
         (BGPCOMM_ACTUATION_GOAL, BGPCOMM_ACTUATION_ID, "bgpcomm"),
+        (EXTCOMM_ACTUATION_GOAL, EXTCOMM_ACTUATION_ID, "extcomm"),
         (MAPT_ACTUATION_GOAL, MAPT_ACTUATION_ID, "mapt"),
         (MAPE_ACTUATION_GOAL, MAPE_ACTUATION_ID, "mape"),
         (LW4O6_ACTUATION_GOAL, LW4O6_ACTUATION_ID, "lw4o6"),
@@ -2204,6 +2210,11 @@ def builtin_rtrefresh_actuation_proof() -> dict[str, Any]:
         and catalog[165]["id"] == BGPCOMM_ACTUATION_ID
         and catalog[165]["source"] == "genesis_bind_bgpcomm"
     )
+    checks["catalog_names_extcomm"] = (
+        len(catalog) > 166
+        and catalog[166]["id"] == EXTCOMM_ACTUATION_ID
+        and catalog[166]["source"] == "genesis_bind_extcomm"
+    )
     family = capability_family(RTREFRESH_ACTUATION_GOAL)
     checks["family_is_rtrefresh"] = "rtrefresh" in family.split("/")
     checks["family_is_rtrefresh_surface"] = "rtrefresh" in family.split("/") and "rtrefreshid" in set(semantic_tokens(RTREFRESH_ACTUATION_GOAL))
@@ -2353,6 +2364,12 @@ def builtin_rtrefresh_actuation_proof() -> dict[str, Any]:
         and "rfc1997" not in family
         and "bgpcommid" not in family
         and "bgpcommdigest" not in family
+    )
+    checks["family_is_not_extcomm"] = (
+        "extcomm" not in family.split("/")
+        and "rfc4360" not in family
+        and "extcommid" not in family
+        and "extcommdigest" not in family
     )
     checks["family_is_not_bgp4"] = (
         "bgp4" not in family.split("/")

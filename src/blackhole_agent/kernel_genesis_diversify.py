@@ -882,6 +882,11 @@ from blackhole_agent.bgpcomm_actuation import (
     BGPCOMM_ACTUATION_GOAL,
     BGPCOMM_ACTUATION_ID,
 )
+from blackhole_agent.extcomm_actuation import (
+    EXTCOMM_ACTUATION_DONE_WHEN,
+    EXTCOMM_ACTUATION_GOAL,
+    EXTCOMM_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1920,6 +1925,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": BGPCOMM_ACTUATION_GOAL,
         "done_when": BGPCOMM_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_bgpcomm",
+    },
+    {
+        "id": EXTCOMM_ACTUATION_ID,
+        "goal": EXTCOMM_ACTUATION_GOAL,
+        "done_when": EXTCOMM_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_extcomm",
     },
 )
 
