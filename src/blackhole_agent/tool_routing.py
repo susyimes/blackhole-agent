@@ -988,6 +988,7 @@ EBGP_TOOL_PROVIDER = "ebgp"
 EVPN_TOOL_PROVIDER = "evpn"
 ETREE_TOOL_PROVIDER = "etree"
 NVO_TOOL_PROVIDER = "nvo"
+DFE_TOOL_PROVIDER = "dfe"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6839,6 +6840,47 @@ def nvo_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=NVO_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def dfe_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8584 Ethernet VPN Designated Forwarder Election DF/NDF route.
+
+    Provider ``dfe`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="dfe",
+        description=(
+            "Drive a first-class RFC 8584 session: bind a loopback Ethernet VPN Designated Forwarder Election "
+            "origin, send a DF "
+            "with a non-empty dfeid, lockstep a NDF that carries the stored "
+            "dfedigest, independently poll the stored dfedigest on a later "
+            "client socket, and read the sealed dfedigest. DFEID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "dfe": {"type": "boolean"},
+                "ndf": {"type": "boolean"},
+                "dfedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dfeid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DFE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
