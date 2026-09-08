@@ -1000,6 +1000,7 @@ MSRED_TOOL_PROVIDER = "msred"
 P2MPIR_TOOL_PROVIDER = "p2mpir"
 OIR_TOOL_PROVIDER = "oir"
 IESI_TOOL_PROVIDER = "iesi"
+PBB_TOOL_PROVIDER = "pbb"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7345,6 +7346,48 @@ def iesi_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=IESI_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def pbb_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 7623 Provider Backbone Bridging Combined with Ethernet VPN PBB/BMAC route.
+
+    Provider ``pbb`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pbb",
+        description=(
+            "Drive a first-class RFC 7623 session: bind a loopback Provider Backbone Bridging Combined with Ethernet VPN "
+            "origin, send a PBB "
+            "with a non-empty pbbid, lockstep a BMAC that carries the stored "
+            "pbbdigest, independently poll the stored pbbdigest on a later "
+            "client socket, and read the sealed pbbdigest. PBBID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "pbb": {"type": "boolean"},
+                "bmac": {"type": "boolean"},
+                "pbbdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pbbid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PBB_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -987,6 +987,11 @@ from blackhole_agent.pbb_actuation import (
     PBB_ACTUATION_GOAL,
     PBB_ACTUATION_ID,
 )
+from blackhole_agent.macip_actuation import (
+    MACIP_ACTUATION_DONE_WHEN,
+    MACIP_ACTUATION_GOAL,
+    MACIP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2151,6 +2156,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PBB_ACTUATION_GOAL,
         "done_when": PBB_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pbb",
+    },
+    {
+        "id": MACIP_ACTUATION_ID,
+        "goal": MACIP_ACTUATION_GOAL,
+        "done_when": MACIP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_macip",
     },
 )
 
