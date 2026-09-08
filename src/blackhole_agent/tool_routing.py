@@ -994,6 +994,7 @@ IPPFX_TOOL_PROVIDER = "ippfx"
 PROXYND_TOOL_PROVIDER = "proxynd"
 IMLPROXY_TOOL_PROVIDER = "imlproxy"
 EVPNBUM_TOOL_PROVIDER = "evpnbum"
+FXC_TOOL_PROVIDER = "fxc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7091,6 +7092,47 @@ def evpnbum_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=EVPNBUM_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def fxc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9625 EVPN VPWS Flexible Cross-Connect FXC/VLAN route.
+
+    Provider ``fxc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="fxc",
+        description=(
+            "Drive a first-class RFC 9625 session: bind a loopback EVPN VPWS Flexible Cross-Connect "
+            "origin, send a FXC "
+            "with a non-empty fxcid, lockstep a VLAN that carries the stored "
+            "fxcdigest, independently poll the stored fxcdigest on a later "
+            "client socket, and read the sealed fxcdigest. FXCID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "fxc": {"type": "boolean"},
+                "vlan": {"type": "boolean"},
+                "fxcdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_fxcid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=FXC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
