@@ -942,6 +942,11 @@ from blackhole_agent.proxynd_actuation import (
     PROXYND_ACTUATION_GOAL,
     PROXYND_ACTUATION_ID,
 )
+from blackhole_agent.imlproxy_actuation import (
+    IMLPROXY_ACTUATION_DONE_WHEN,
+    IMLPROXY_ACTUATION_GOAL,
+    IMLPROXY_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2052,6 +2057,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PROXYND_ACTUATION_GOAL,
         "done_when": PROXYND_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_proxynd",
+    },
+    {
+        "id": IMLPROXY_ACTUATION_ID,
+        "goal": IMLPROXY_ACTUATION_GOAL,
+        "done_when": IMLPROXY_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_imlproxy",
     },
 )
 

@@ -991,6 +991,7 @@ NVO_TOOL_PROVIDER = "nvo"
 DFE_TOOL_PROVIDER = "dfe"
 IRB_TOOL_PROVIDER = "irb"
 IPPFX_TOOL_PROVIDER = "ippfx"
+PROXYND_TOOL_PROVIDER = "proxynd"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6965,6 +6966,47 @@ def ippfx_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=IPPFX_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def proxynd_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9161 Operational Aspects of Proxy-ARP/ND in Ethernet VPN PROXY/ND route.
+
+    Provider ``proxynd`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="proxynd",
+        description=(
+            "Drive a first-class RFC 9161 session: bind a loopback Operational Aspects of Proxy-ARP/ND in Ethernet VPN "
+            "origin, send a PROXY "
+            "with a non-empty proxyndid, lockstep a ND that carries the stored "
+            "proxynddigest, independently poll the stored proxynddigest on a later "
+            "client socket, and read the sealed proxynddigest. PROXYNDID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "proxynd": {"type": "boolean"},
+                "nd": {"type": "boolean"},
+                "proxynddigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_proxyndid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PROXYND_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
