@@ -1401,6 +1401,7 @@ def ensure_bgp4_actuation_capability(*, repo_path: Path | None = None) -> Capabi
             "src/blackhole_agent/mesh_actuation.py",
             "src/blackhole_agent/l2tp_actuation.py",
             "src/blackhole_agent/rtrefresh_actuation.py",
+            "src/blackhole_agent/bgpcomm_actuation.py",
             "src/blackhole_agent/tsp_actuation.py",
             "src/blackhole_agent/sixin4_actuation.py",
             "src/blackhole_agent/sixover4_actuation.py",
@@ -1571,6 +1572,10 @@ def builtin_bgp4_actuation_proof() -> dict[str, Any]:
     from blackhole_agent.rtrefresh_actuation import (
         RTREFRESH_ACTUATION_GOAL,
         RTREFRESH_ACTUATION_ID,
+    )
+    from blackhole_agent.bgpcomm_actuation import (
+        BGPCOMM_ACTUATION_GOAL,
+        BGPCOMM_ACTUATION_ID,
     )
     from blackhole_agent.prefix64_actuation import (
         PREFIX64_ACTUATION_GOAL,
@@ -1909,6 +1914,7 @@ def builtin_bgp4_actuation_proof() -> dict[str, Any]:
         (ENCAP_ACTUATION_GOAL, ENCAP_ACTUATION_ID, "encap"),
         (MPBGP_ACTUATION_GOAL, MPBGP_ACTUATION_ID, "mpbgp"),
         (RTREFRESH_ACTUATION_GOAL, RTREFRESH_ACTUATION_ID, "rtrefresh"),
+        (BGPCOMM_ACTUATION_GOAL, BGPCOMM_ACTUATION_ID, "bgpcomm"),
         (MAPT_ACTUATION_GOAL, MAPT_ACTUATION_ID, "mapt"),
         (MAPE_ACTUATION_GOAL, MAPE_ACTUATION_ID, "mape"),
         (LW4O6_ACTUATION_GOAL, LW4O6_ACTUATION_ID, "lw4o6"),
@@ -2191,6 +2197,11 @@ def builtin_bgp4_actuation_proof() -> dict[str, Any]:
         and catalog[164]["id"] == RTREFRESH_ACTUATION_ID
         and catalog[164]["source"] == "genesis_bind_rtrefresh"
     )
+    checks["catalog_names_bgpcomm"] = (
+        len(catalog) > 165
+        and catalog[165]["id"] == BGPCOMM_ACTUATION_ID
+        and catalog[165]["source"] == "genesis_bind_bgpcomm"
+    )
     family = capability_family(BGP4_ACTUATION_GOAL)
     checks["family_is_bgp4"] = "bgp4" in family.split("/")
     checks["family_is_bgp4_surface"] = "bgp4" in family.split("/") and "bgp4id" in set(semantic_tokens(BGP4_ACTUATION_GOAL))
@@ -2340,6 +2351,12 @@ def builtin_bgp4_actuation_proof() -> dict[str, Any]:
         and "rfc2918" not in family
         and "rtrefreshid" not in family
         and "rtrefreshdigest" not in family
+    )
+    checks["family_is_not_bgpcomm"] = (
+        "bgpcomm" not in family.split("/")
+        and "rfc1997" not in family
+        and "bgpcommid" not in family
+        and "bgpcommdigest" not in family
     )
     checks["family_is_not_mapt"] = (
         "mapt" not in family.split("/")

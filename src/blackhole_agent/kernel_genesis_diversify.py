@@ -877,6 +877,11 @@ from blackhole_agent.rtrefresh_actuation import (
     RTREFRESH_ACTUATION_GOAL,
     RTREFRESH_ACTUATION_ID,
 )
+from blackhole_agent.bgpcomm_actuation import (
+    BGPCOMM_ACTUATION_DONE_WHEN,
+    BGPCOMM_ACTUATION_GOAL,
+    BGPCOMM_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1909,6 +1914,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": RTREFRESH_ACTUATION_GOAL,
         "done_when": RTREFRESH_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_rtrefresh",
+    },
+    {
+        "id": BGPCOMM_ACTUATION_ID,
+        "goal": BGPCOMM_ACTUATION_GOAL,
+        "done_when": BGPCOMM_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_bgpcomm",
     },
 )
 

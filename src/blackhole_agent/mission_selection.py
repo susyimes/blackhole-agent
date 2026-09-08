@@ -632,6 +632,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc2918",
         "rtrefreshid",
         "rtrefreshdigest",
+        "bgpcomm",
+        "rfc1997",
+        "bgpcommid",
+        "bgpcommdigest",
     }
 )
 _IMPACT_MARKERS = (

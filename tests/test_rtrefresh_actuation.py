@@ -77,9 +77,9 @@ from blackhole_agent.mpbgp_actuation import (
     MPBGP_ACTUATION_GOAL,
     MPBGP_ACTUATION_ID,
 )
-from blackhole_agent.rtrefresh_actuation import (
-    RTREFRESH_ACTUATION_GOAL,
-    RTREFRESH_ACTUATION_ID,
+from blackhole_agent.bgp4_actuation import (
+    BGP4_ACTUATION_GOAL,
+    BGP4_ACTUATION_ID,
 )
 from blackhole_agent.bgpcomm_actuation import (
     BGPCOMM_ACTUATION_GOAL,
@@ -315,40 +315,40 @@ from blackhole_agent.digestauth_actuation import (
     DIGESTAUTH_ACTUATION_GOAL,
     DIGESTAUTH_ACTUATION_ID,
 )
-from blackhole_agent.bgp4_actuation import (
-    DEFAULT_BGP4ID,
-    DEFAULT_BGP4DIGEST,
+from blackhole_agent.rtrefresh_actuation import (
+    DEFAULT_RTREFRESHID,
+    DEFAULT_RTREFRESHDIGEST,
     DEFAULT_SOURCE,
-    EMPTY_BGP4ID,
+    EMPTY_RTREFRESHID,
     FRAME_DEST,
     FRAME_SOURCE,
-    BGP4_ACTUATION_DONE_WHEN,
-    BGP4_ACTUATION_GOAL,
-    BGP4_ACTUATION_ID,
-    BGP4_LEFTOVER,
-    BGP4_FIRST,
+    RTREFRESH_ACTUATION_DONE_WHEN,
+    RTREFRESH_ACTUATION_GOAL,
+    RTREFRESH_ACTUATION_ID,
+    RTREFRESH_LEFTOVER,
+    RTREFRESH_FIRST,
     DEST_HOP,
     RFC_SOURCE_FIELD,
     RFC_DEST_FIELD,
     SENTINEL,
     SOURCE_HEADER,
-    builtin_bgp4_actuation_proof,
+    builtin_rtrefresh_actuation_proof,
     canonical_public,
     canonical_temporary,
     crc32c,
     encode_public,
     encode_temporary,
-    encode_bgp4_header,
-    independent_bgp4digest,
+    encode_rtrefresh_header,
+    independent_rtrefreshdigest,
     parse_http_request,
     parse_http_response,
     parse_message,
-    parse_bgp4,
-    parse_bgp4_header,
+    parse_rtrefresh,
+    parse_rtrefresh_header,
     public_request,
     public_response,
-    run_bgp4_workflow,
-    serialize_bgp4,
+    run_rtrefresh_workflow,
+    serialize_rtrefresh,
     temporary_request,
     temporary_response,
 )
@@ -378,10 +378,10 @@ from blackhole_agent.stun_actuation import STUN_ACTUATION_GOAL, STUN_ACTUATION_I
 from blackhole_agent.syslog_actuation import SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUATION_ID
 from blackhole_agent.tftp_actuation import TFTP_ACTUATION_GOAL, TFTP_ACTUATION_ID
 from blackhole_agent.tool_routing import (
-    BGP4_TOOL_PROVIDER,
+    RTREFRESH_TOOL_PROVIDER,
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     build_tool_routing_preflight,
-    bgp4_tool_descriptor,
+    rtrefresh_tool_descriptor,
     route_tool_descriptor,
 )
 from blackhole_agent.turn_actuation import TURN_ACTUATION_GOAL, TURN_ACTUATION_ID
@@ -450,7 +450,7 @@ NEIGHBORS = (
     MESH_ACTUATION_GOAL,
     ENCAP_ACTUATION_GOAL,
     MPBGP_ACTUATION_GOAL,
-    RTREFRESH_ACTUATION_GOAL,
+    BGP4_ACTUATION_GOAL,
     BGPCOMM_ACTUATION_GOAL,
     EAM_ACTUATION_GOAL,
     SIIT_ACTUATION_GOAL,
@@ -561,7 +561,7 @@ NEIGHBOR_IDS = (
     MESH_ACTUATION_ID,
     ENCAP_ACTUATION_ID,
     MPBGP_ACTUATION_ID,
-    RTREFRESH_ACTUATION_ID,
+    BGP4_ACTUATION_ID,
     BGPCOMM_ACTUATION_ID,
     EAM_ACTUATION_ID,
     SIIT_ACTUATION_ID,
@@ -614,11 +614,11 @@ NEIGHBOR_IDS = (
 )
 
 
-def test_goal_binds_bgp4_actuation_plane() -> None:
-    assert leftover_marker_ids(BGP4_ACTUATION_GOAL) == (BGP4_ACTUATION_ID,)
+def test_goal_binds_rtrefresh_actuation_plane() -> None:
+    assert leftover_marker_ids(RTREFRESH_ACTUATION_GOAL) == (RTREFRESH_ACTUATION_ID,)
     assert leftover_marker_ids(ADDRPOLICY_ACTUATION_GOAL) == (ADDRPOLICY_ACTUATION_ID,)
     assert leftover_marker_ids(ADDRSELECT_ACTUATION_GOAL) == (ADDRSELECT_ACTUATION_ID,)
-    assert leftover_marker_ids(BGP4_ACTUATION_GOAL) == (BGP4_ACTUATION_ID,)
+    assert leftover_marker_ids(RTREFRESH_ACTUATION_GOAL) == (RTREFRESH_ACTUATION_ID,)
     assert leftover_marker_ids(LW4O6_ACTUATION_GOAL) == (LW4O6_ACTUATION_ID,)
     assert leftover_marker_ids(DISC_ACTUATION_GOAL) == (DISC_ACTUATION_ID,)
     assert leftover_marker_ids(DNS64_ACTUATION_GOAL) == (DNS64_ACTUATION_ID,)
@@ -626,13 +626,13 @@ def test_goal_binds_bgp4_actuation_plane() -> None:
     assert leftover_marker_ids(RDNSS_ACTUATION_GOAL) == (RDNSS_ACTUATION_ID,)
     assert ADDRPOLICY_ACTUATION_ID in LOCAL_DENYLIST
     assert ADDRSELECT_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert LW4O6_ACTUATION_ID in LOCAL_DENYLIST
     assert DNS64_ACTUATION_ID in LOCAL_DENYLIST
     assert NAT64_ACTUATION_ID in LOCAL_DENYLIST
     assert RDNSS_ACTUATION_ID in LOCAL_DENYLIST
-    assert leftover_marker_ids(BGP4_LEFTOVER) == (BGP4_ACTUATION_ID,)
-    assert leftover_marker_ids(BGP4_ACTUATION_GOAL) == (BGP4_ACTUATION_ID,)
+    assert leftover_marker_ids(RTREFRESH_LEFTOVER) == (RTREFRESH_ACTUATION_ID,)
+    assert leftover_marker_ids(RTREFRESH_ACTUATION_GOAL) == (RTREFRESH_ACTUATION_ID,)
     assert leftover_marker_ids(DISC_ACTUATION_GOAL) == (DISC_ACTUATION_ID,)
     assert leftover_marker_ids(DNS64_ACTUATION_GOAL) == (DNS64_ACTUATION_ID,)
     assert leftover_marker_ids(NAT64_ACTUATION_GOAL) == (NAT64_ACTUATION_ID,)
@@ -661,10 +661,10 @@ def test_goal_binds_bgp4_actuation_plane() -> None:
     assert leftover_marker_ids(HTTP10_ACTUATION_GOAL) == (HTTP10_ACTUATION_ID,)
     assert HTTP10_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(DIGESTAUTH_ACTUATION_GOAL) == (DIGESTAUTH_ACTUATION_ID,)
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert ULA_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert DNS64_ACTUATION_ID in LOCAL_DENYLIST
     assert NAT64_ACTUATION_ID in LOCAL_DENYLIST
     assert IPV6SCOPE_ACTUATION_ID in LOCAL_DENYLIST
@@ -686,8 +686,8 @@ def test_goal_binds_bgp4_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPAUTH_ACTUATION_GOAL) == (HTTPAUTH_ACTUATION_ID,)
     assert leftover_marker_ids(TCN_ACTUATION_GOAL) == (TCN_ACTUATION_ID,)
     assert leftover_marker_ids(ICP_ACTUATION_GOAL) == (ICP_ACTUATION_ID,)
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPAUTH_ACTUATION_ID in LOCAL_DENYLIST
     assert TCN_ACTUATION_ID in LOCAL_DENYLIST
@@ -699,9 +699,9 @@ def test_goal_binds_bgp4_actuation_plane() -> None:
     assert leftover_marker_ids(HTTPCOOKIE_ACTUATION_GOAL) == (HTTPCOOKIE_ACTUATION_ID,)
     assert leftover_marker_ids(WEBORIGIN_ACTUATION_GOAL) == (WEBORIGIN_ACTUATION_ID,)
     assert leftover_marker_ids(XFO_ACTUATION_GOAL) == (XFO_ACTUATION_ID,)
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert SPNEGO_ACTUATION_ID in LOCAL_DENYLIST
     assert STALECONTENT_ACTUATION_ID in LOCAL_DENYLIST
@@ -711,153 +711,153 @@ def test_goal_binds_bgp4_actuation_plane() -> None:
     assert WEBORIGIN_ACTUATION_ID in LOCAL_DENYLIST
     assert leftover_marker_ids(HSTS_ACTUATION_GOAL) == (HSTS_ACTUATION_ID,)
     assert leftover_marker_ids(HPKP_ACTUATION_GOAL) == (HPKP_ACTUATION_ID,)
-    assert leftover_marker_ids(BGP4_ACTUATION_GOAL) == (BGP4_ACTUATION_ID,)
+    assert leftover_marker_ids(RTREFRESH_ACTUATION_GOAL) == (RTREFRESH_ACTUATION_ID,)
     assert leftover_marker_ids(HTTPSTATE_ACTUATION_GOAL) == (HTTPSTATE_ACTUATION_ID,)
     assert leftover_marker_ids(ALTSVC_ACTUATION_GOAL) == (ALTSVC_ACTUATION_ID,)
     assert leftover_marker_ids(ENCRYPTEDCONTENT_ACTUATION_GOAL) == (ENCRYPTEDCONTENT_ACTUATION_ID,)
     assert leftover_marker_ids(EARLYHINTS_ACTUATION_GOAL) == (EARLYHINTS_ACTUATION_ID,)
     assert HSTS_ACTUATION_ID in LOCAL_DENYLIST
     assert HPKP_ACTUATION_ID in LOCAL_DENYLIST
-    assert BGP4_ACTUATION_ID in LOCAL_DENYLIST
+    assert RTREFRESH_ACTUATION_ID in LOCAL_DENYLIST
     assert HTTPSTATE_ACTUATION_ID in LOCAL_DENYLIST
     assert ALTSVC_ACTUATION_ID in LOCAL_DENYLIST
     assert ENCRYPTEDCONTENT_ACTUATION_ID in LOCAL_DENYLIST
     for goal, capability_id in zip(NEIGHBORS, NEIGHBOR_IDS, strict=True):
         assert leftover_marker_ids(goal) == (capability_id,)
-        assert BGP4_ACTUATION_ID not in leftover_marker_ids(goal)
-        assert capability_id not in leftover_marker_ids(BGP4_ACTUATION_GOAL)
-    icp_signature = semantic_signature(BGP4_ACTUATION_GOAL)
+        assert RTREFRESH_ACTUATION_ID not in leftover_marker_ids(goal)
+        assert capability_id not in leftover_marker_ids(RTREFRESH_ACTUATION_GOAL)
+    icp_signature = semantic_signature(RTREFRESH_ACTUATION_GOAL)
     for neighbor in NEIGHBORS:
         assert semantic_similarity(icp_signature, semantic_signature(neighbor)) < 0.82
 
 
-def test_opted_in_bgp4_tool_completes_body_transfer_poll() -> None:
-    descriptor = bgp4_tool_descriptor()
+def test_opted_in_rtrefresh_tool_completes_body_transfer_poll() -> None:
+    descriptor = rtrefresh_tool_descriptor()
     naive = route_tool_descriptor(descriptor)
     opted = route_tool_descriptor(
         descriptor,
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, BGP4_TOOL_PROVIDER),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, RTREFRESH_TOOL_PROVIDER),
     )
     assert naive.executable is False
     assert opted.executable is True
 
     preflight = build_tool_routing_preflight(
         [descriptor],
-        required_tool_names=("bgp4",),
-        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, BGP4_TOOL_PROVIDER),
+        required_tool_names=("rtrefresh",),
+        executable_providers=(*DEFAULT_EXECUTABLE_TOOL_PROVIDERS, RTREFRESH_TOOL_PROVIDER),
     )
     assert preflight["ok"] is True
-    assert preflight["executable_tool_names"] == ["bgp4"]
+    assert preflight["executable_tool_names"] == ["rtrefresh"]
 
-    missing = run_bgp4_workflow(with_bgp4id=False)
-    skip_bind = run_bgp4_workflow(skip_bind=True)
-    skip_temporary = run_bgp4_workflow(do_temporary=False)
-    skip_public = run_bgp4_workflow(do_public=False)
-    skip_bgp4digest = run_bgp4_workflow(do_bgp4digest=False)
-    skip_replay = run_bgp4_workflow(replay=False)
-    skip_bgp4id = run_bgp4_workflow(use_bgp4id=False)
-    live = run_bgp4_workflow()
+    missing = run_rtrefresh_workflow(with_rtrefreshid=False)
+    skip_bind = run_rtrefresh_workflow(skip_bind=True)
+    skip_temporary = run_rtrefresh_workflow(do_temporary=False)
+    skip_public = run_rtrefresh_workflow(do_public=False)
+    skip_rtrefreshdigest = run_rtrefresh_workflow(do_rtrefreshdigest=False)
+    skip_replay = run_rtrefresh_workflow(replay=False)
+    skip_rtrefreshid = run_rtrefresh_workflow(use_rtrefreshid=False)
+    live = run_rtrefresh_workflow()
     assert missing["ok"] is False
     assert missing["final_status"] == 403
-    assert missing["error"] == "missing_bgp4id"
+    assert missing["error"] == "missing_rtrefreshid"
     assert skip_bind["ok"] is False
     assert skip_bind["error"] == "not_bound"
     assert skip_temporary["ok"] is False
     assert skip_temporary["error"] == "temporary_required"
     assert skip_public["ok"] is False
     assert skip_public["error"] == "public_required"
-    assert skip_bgp4digest["ok"] is False
-    assert skip_bgp4digest["error"] == "bgp4digest_required"
+    assert skip_rtrefreshdigest["ok"] is False
+    assert skip_rtrefreshdigest["error"] == "rtrefreshdigest_required"
     assert skip_replay["ok"] is False
     assert skip_replay["error"] == "replay_required"
-    assert skip_bgp4id["ok"] is False
-    assert skip_bgp4id["error"] == "bgp4id_required"
+    assert skip_rtrefreshid["ok"] is False
+    assert skip_rtrefreshid["error"] == "rtrefreshid_required"
     assert live["ok"] is True
     assert live["sentinel"] == SENTINEL
     assert live["independent_sentinel"] == SENTINEL
     assert Path(live["sealed_path"]).is_file()
-    row = independent_bgp4digest(Path(live["sealed_path"]))
+    row = independent_rtrefreshdigest(Path(live["sealed_path"]))
     assert row["sentinel"] == SENTINEL
     assert row["temporary_frame"] is True
     assert row["public_frame"] is True
-    assert row["bgp4digest_locate"] is True
+    assert row["rtrefreshdigest_locate"] is True
     assert row["stored"] is True
     assert row["retrieved"] is True
     assert row["replayed"] is True
     assert row["independent"] is True
-    assert row["bgp4id_bound"] is True
+    assert row["rtrefreshid_bound"] is True
     assert row["digest"]
-    assert live["bgp4id"] == DEFAULT_BGP4ID
-    assert live["bgp4digest"] == DEFAULT_BGP4DIGEST
+    assert live["rtrefreshid"] == DEFAULT_RTREFRESHID
+    assert live["rtrefreshdigest"] == DEFAULT_RTREFRESHDIGEST
     assert int(live["port"]) > 0
     queried = parse_message(
-        encode_temporary(identity=SENTINEL, bgp4id=DEFAULT_BGP4ID, bgp4digest=DEFAULT_BGP4DIGEST)
+        encode_temporary(identity=SENTINEL, rtrefreshid=DEFAULT_RTREFRESHID, rtrefreshdigest=DEFAULT_RTREFRESHDIGEST)
     )
     assert queried["is_temporary"] is True and queried["is_public"] is False
-    assert queried["identity"] == SENTINEL and queried["bgp4id"] == DEFAULT_BGP4ID
-    assert queried["bgp4digest"] == DEFAULT_BGP4DIGEST
+    assert queried["identity"] == SENTINEL and queried["rtrefreshid"] == DEFAULT_RTREFRESHID
+    assert queried["rtrefreshdigest"] == DEFAULT_RTREFRESHDIGEST
     assert queried["type"] == FRAME_SOURCE
-    assert queried["first_byte"] == BGP4_FIRST
+    assert queried["first_byte"] == RTREFRESH_FIRST
     answered = parse_message(
-        encode_public(identity=SENTINEL, bgp4id=DEFAULT_BGP4ID, bgp4digest=DEFAULT_BGP4DIGEST)
+        encode_public(identity=SENTINEL, rtrefreshid=DEFAULT_RTREFRESHID, rtrefreshdigest=DEFAULT_RTREFRESHDIGEST)
     )
     assert answered["is_public"] is True and answered["is_public"] is True
-    assert answered["bgp4id"] == DEFAULT_BGP4ID
-    assert answered["bgp4digest"] == DEFAULT_BGP4DIGEST
-    packed = encode_temporary(identity=SENTINEL, bgp4id=DEFAULT_BGP4ID, bgp4digest=DEFAULT_BGP4DIGEST)
+    assert answered["rtrefreshid"] == DEFAULT_RTREFRESHID
+    assert answered["rtrefreshdigest"] == DEFAULT_RTREFRESHDIGEST
+    packed = encode_temporary(identity=SENTINEL, rtrefreshid=DEFAULT_RTREFRESHID, rtrefreshdigest=DEFAULT_RTREFRESHDIGEST)
     zeroed = packed[:-4] + (0).to_bytes(4, "big")
     assert crc32c(zeroed) == int.from_bytes(packed[-4:], "big")
     bare = parse_message(
-        encode_temporary(identity=SENTINEL, bgp4id=DEFAULT_BGP4ID, include_bgp4id=False)
+        encode_temporary(identity=SENTINEL, rtrefreshid=DEFAULT_RTREFRESHID, include_rtrefreshid=False)
     )
-    assert bare["has_bgp4id"] is False
-    assert bare["bgp4id"] == EMPTY_BGP4ID
-    publicised = serialize_bgp4(DEFAULT_SOURCE)
+    assert bare["has_rtrefreshid"] is False
+    assert bare["rtrefreshid"] == EMPTY_RTREFRESHID
+    publicised = serialize_rtrefresh(DEFAULT_SOURCE)
     assert publicised == RFC_SOURCE_FIELD
-    assert parse_bgp4(publicised) == DEFAULT_SOURCE
-    assert parse_bgp4(RFC_DEST_FIELD) == DEST_HOP
-    header = parse_bgp4_header(encode_bgp4_header(DEFAULT_SOURCE))
+    assert parse_rtrefresh(publicised) == DEFAULT_SOURCE
+    assert parse_rtrefresh(RFC_DEST_FIELD) == DEST_HOP
+    header = parse_rtrefresh_header(encode_rtrefresh_header(DEFAULT_SOURCE))
     assert header["field_value"] == RFC_SOURCE_FIELD
     assert header["header"] == SOURCE_HEADER
-    asked = parse_http_request(temporary_request(SENTINEL, DEFAULT_BGP4ID))
-    listed = parse_http_request(public_request(SENTINEL, DEFAULT_BGP4ID, DEFAULT_BGP4DIGEST))
-    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_BGP4ID, DEFAULT_BGP4DIGEST))
+    asked = parse_http_request(temporary_request(SENTINEL, DEFAULT_RTREFRESHID))
+    listed = parse_http_request(public_request(SENTINEL, DEFAULT_RTREFRESHID, DEFAULT_RTREFRESHDIGEST))
+    got = parse_http_response(temporary_response(SENTINEL, DEFAULT_RTREFRESHID, DEFAULT_RTREFRESHDIGEST))
     preload_public = parse_http_response(
-        public_response(SENTINEL, DEFAULT_BGP4ID, DEFAULT_BGP4DIGEST)
+        public_response(SENTINEL, DEFAULT_RTREFRESHID, DEFAULT_RTREFRESHDIGEST)
     )
-    assert asked["method"] == "OPEN"
-    assert asked["disc_kind"] == "bgp4"
-    assert listed["disc_kind"] == "update"
+    assert asked["method"] == "REQUEST"
+    assert asked["disc_kind"] == "rtrefresh"
+    assert listed["disc_kind"] == "refresh"
     assert got["status"] == 200
     assert preload_public["status"] == 200
     assert got["policy"] == DEFAULT_SOURCE
     assert preload_public["policy"] == DEST_HOP
-    assert canonical_temporary(SENTINEL, DEFAULT_BGP4ID).startswith("OPEN")
-    assert "bgp4digest=" in canonical_public(SENTINEL, DEFAULT_BGP4ID, DEFAULT_BGP4DIGEST)
+    assert canonical_temporary(SENTINEL, DEFAULT_RTREFRESHID).startswith("REQUEST")
+    assert "rtrefreshdigest=" in canonical_public(SENTINEL, DEFAULT_RTREFRESHID, DEFAULT_RTREFRESHDIGEST)
 
 
-def test_builtin_proof_seals_bgp4_actuation() -> None:
-    report = builtin_bgp4_actuation_proof()
+def test_builtin_proof_seals_rtrefresh_actuation() -> None:
+    report = builtin_rtrefresh_actuation_proof()
     assert report["ok"] is True, report.get("failed") or report.get("checks")
-    assert report["action"] == "bgp4_actuation"
+    assert report["action"] == "rtrefresh_actuation"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
     assert report["passed_count"] >= 12
-    assert report["checks"]["naive_preflight_missing_bgp4"]
+    assert report["checks"]["naive_preflight_missing_rtrefresh"]
     assert report["checks"]["opted_in_preflight_ok"]
-    assert report["checks"]["naive_without_bgp4id_is_forbidden"]
+    assert report["checks"]["naive_without_rtrefreshid_is_forbidden"]
     assert report["checks"]["skip_temporary_stays_empty"]
     assert report["checks"]["skip_public_stays_empty"]
-    assert report["checks"]["skip_bgp4digest_stays_empty"]
+    assert report["checks"]["skip_rtrefreshdigest_stays_empty"]
     assert report["checks"]["skip_replay_stays_empty"]
-    assert report["checks"]["skip_bgp4id_stays_empty"]
+    assert report["checks"]["skip_rtrefreshid_stays_empty"]
     assert report["checks"]["workflow_extracts_sentinel"]
     assert report["checks"]["workflow_commits_independent_digest"]
     assert report["checks"]["workflow_writes_sealed_file"]
-    assert report["checks"]["workflow_records_bgp4digest"]
+    assert report["checks"]["workflow_records_rtrefreshdigest"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_bgp4"]
+    assert report["checks"]["exhausted_catalog_binds_rtrefresh"]
     assert report["checks"]["catalog_names_addrselect"]
     assert report["checks"]["catalog_names_addrpolicy"]
     assert report["checks"]["catalog_names_firsthop"]
@@ -894,38 +894,39 @@ def test_builtin_proof_seals_bgp4_actuation() -> None:
     assert report["checks"]["catalog_names_bgp4"]
     assert report["checks"]["catalog_names_rtrefresh"]
     assert report["checks"]["catalog_names_bgpcomm"]
+    assert report["checks"]["catalog_names_rtrefresh"]
     assert report["checks"]["catalog_names_mape"]
-    assert report["checks"]["leftover_text_binds_bgp4"]
-    assert report["checks"]["proved_bgp4_consumes_leftover"]
-    assert report["mission_goal"] == BGP4_ACTUATION_GOAL
-    assert report["done_when"] == BGP4_ACTUATION_DONE_WHEN
+    assert report["checks"]["leftover_text_binds_rtrefresh"]
+    assert report["checks"]["proved_rtrefresh_consumes_leftover"]
+    assert report["mission_goal"] == RTREFRESH_ACTUATION_GOAL
+    assert report["done_when"] == RTREFRESH_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
-    capability = ledger.capabilities[BGP4_ACTUATION_ID]
+    capability = ledger.capabilities[RTREFRESH_ACTUATION_ID]
     assert capability.last_proof_exit_code == 0
-    assert "bgp4" in capability.tags
-    assert "rfc4271" in capability.tags
+    assert "rtrefresh" in capability.tags
+    assert "rfc2918" in capability.tags
     assert "http" in capability.tags
-    assert "bgp4id" in capability.tags
-    assert "bgp4digest" in capability.tags
-    assert "bgp4" in capability.tags
-    assert "update" in capability.tags
+    assert "rtrefreshid" in capability.tags
+    assert "rtrefreshdigest" in capability.tags
+    assert "rtrefresh" in capability.tags
+    assert "refresh" in capability.tags
 
 
-def test_selection_gate_accepts_bgp4_family(tmp_path: Path) -> None:
+def test_selection_gate_accepts_rtrefresh_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
-        BGP4_ACTUATION_GOAL,
-        BGP4_ACTUATION_DONE_WHEN,
+        RTREFRESH_ACTUATION_GOAL,
+        RTREFRESH_ACTUATION_DONE_WHEN,
         history=(),
     )
     assert gate.accepted is True
     assert gate.scalar_extension is False
-    family = capability_family(BGP4_ACTUATION_GOAL)
+    family = capability_family(RTREFRESH_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
-    assert "bgp4" in family.split("/")
-    assert "rfc4271" in family
-    assert "bgp4id" in set(semantic_tokens(BGP4_ACTUATION_GOAL))
-    assert "bgp4digest" in family
+    assert "rtrefresh" in family.split("/")
+    assert "rfc2918" in family
+    assert "rtrefreshid" in set(semantic_tokens(RTREFRESH_ACTUATION_GOAL))
+    assert "rtrefreshdigest" in family
     assert "dns64" not in family.split("/")
     assert "rfc6147" not in family
     assert "dns64id" not in family
@@ -991,10 +992,10 @@ def test_selection_gate_accepts_bgp4_family(tmp_path: Path) -> None:
     assert "rfc5572" not in family
     assert "tspid" not in family
     assert "tspdigest" not in family
-    assert "rtrefresh" not in family.split("/")
-    assert "rfc2918" not in family
-    assert "rtrefreshid" not in family
-    assert "rtrefreshdigest" not in family
+    assert "bgp4" not in family.split("/")
+    assert "rfc4271" not in family
+    assert "bgp4id" not in family
+    assert "bgp4digest" not in family
     assert "l2tp" not in family.split("/")
     assert "rfc5571" not in family
     assert "l2tpid" not in family
@@ -1011,10 +1012,10 @@ def test_selection_gate_accepts_bgp4_family(tmp_path: Path) -> None:
     assert "rfc4760" not in family
     assert "mpbgpid" not in family
     assert "mpbgpdigest" not in family
-    assert "rtrefresh" not in family.split("/")
-    assert "rfc2918" not in family
-    assert "rtrefreshid" not in family
-    assert "rtrefreshdigest" not in family
+    assert "bgpcomm" not in family.split("/")
+    assert "rfc1997" not in family
+    assert "bgpcommid" not in family
+    assert "bgpcommdigest" not in family
     assert "isatap" not in family.split("/")
     assert "rfc5214" not in family
     assert "isatapid" not in family

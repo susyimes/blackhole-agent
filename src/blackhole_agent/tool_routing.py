@@ -978,6 +978,7 @@ MESH_TOOL_PROVIDER = "mesh"
 ENCAP_TOOL_PROVIDER = "encap"
 MPBGP_TOOL_PROVIDER = "mpbgp"
 BGP4_TOOL_PROVIDER = "bgp4"
+RTREFRESH_TOOL_PROVIDER = "rtrefresh"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6419,6 +6420,47 @@ def bgp4_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=BGP4_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def rtrefresh_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 2918 Route Refresh Capability for BGP-4 REQUEST/REFRESH route.
+
+    Provider ``rtrefresh`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="rtrefresh",
+        description=(
+            "Drive a first-class RFC 2918 session: bind a loopback Route Refresh "
+            "origin, send a REQUEST "
+            "with a non-empty rtrefreshid, lockstep a REFRESH that carries the stored "
+            "rtrefreshdigest, independently poll the stored rtrefreshdigest on a later "
+            "client socket, and read the sealed rtrefreshdigest. RTREFRESHID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "rtrefresh": {"type": "boolean"},
+                "refresh": {"type": "boolean"},
+                "rtrefreshdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_rtrefreshid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=RTREFRESH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
