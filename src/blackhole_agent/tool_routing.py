@@ -983,6 +983,7 @@ BGPCOMM_TOOL_PROVIDER = "bgpcomm"
 EXTCOMM_TOOL_PROVIDER = "extcomm"
 LARGECOMM_TOOL_PROVIDER = "largecomm"
 BGPSEC_TOOL_PROVIDER = "bgpsec"
+RTR_TOOL_PROVIDER = "rtr"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6629,6 +6630,47 @@ def bgpsec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=BGPSEC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def rtr_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8210 RPKI to Router Protocol SERIAL/RESET route.
+
+    Provider ``rtr`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="rtr",
+        description=(
+            "Drive a first-class RFC 8210 session: bind a loopback RPKI to Router Protocol "
+            "origin, send a SERIAL "
+            "with a non-empty rtrid, lockstep a RESET that carries the stored "
+            "rtrdigest, independently poll the stored rtrdigest on a later "
+            "client socket, and read the sealed rtrdigest. RTRID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "rtr": {"type": "boolean"},
+                "reset": {"type": "boolean"},
+                "rtrdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_rtrid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=RTR_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
