@@ -1009,6 +1009,7 @@ PWLDP_TOOL_PROVIDER = "pwldp"
 PWE3_TOOL_PROVIDER = "pwe3"
 PWREQ_TOOL_PROVIDER = "pwreq"
 MPLSARCH_TOOL_PROVIDER = "mplsarch"
+MPLSLSE_TOOL_PROVIDER = "mplslse"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7724,6 +7725,47 @@ def mplsarch_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor
             "additionalProperties": False,
         },
         provider=MPLSARCH_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mplslse_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3032 MPLS Label Stack Encoding LABEL/STACK route.
+
+    Provider ``mplslse`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mplslse",
+        description=(
+            "Drive a first-class RFC 3032 session: bind a loopback MPLS Label Stack Encoding "
+            "origin, send a LABEL "
+            "with a non-empty lseid, lockstep a STACK that carries the stored "
+            "lsedigest, independently poll the stored lsedigest on a later "
+            "client socket, and read the sealed lsedigest. LSEID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "label": {"type": "boolean"},
+                "stack": {"type": "boolean"},
+                "lsedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lseid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MPLSLSE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
