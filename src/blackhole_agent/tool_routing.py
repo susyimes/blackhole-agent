@@ -982,6 +982,7 @@ RTREFRESH_TOOL_PROVIDER = "rtrefresh"
 BGPCOMM_TOOL_PROVIDER = "bgpcomm"
 EXTCOMM_TOOL_PROVIDER = "extcomm"
 LARGECOMM_TOOL_PROVIDER = "largecomm"
+BGPSEC_TOOL_PROVIDER = "bgpsec"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -6587,6 +6588,47 @@ def largecomm_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=LARGECOMM_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def bgpsec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 8205 BGPsec Protocol SIGN/PATH route.
+
+    Provider ``bgpsec`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="bgpsec",
+        description=(
+            "Drive a first-class RFC 8205 session: bind a loopback BGPsec Protocol "
+            "origin, send a SIGN "
+            "with a non-empty bgpsecid, lockstep a PATH that carries the stored "
+            "bgpsecdigest, independently poll the stored bgpsecdigest on a later "
+            "client socket, and read the sealed bgpsecdigest. BGPSECID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "bgpsec": {"type": "boolean"},
+                "path": {"type": "boolean"},
+                "bgpsecdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_bgpsecid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=BGPSEC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -897,6 +897,11 @@ from blackhole_agent.bgpsec_actuation import (
     BGPSEC_ACTUATION_GOAL,
     BGPSEC_ACTUATION_ID,
 )
+from blackhole_agent.rtr_actuation import (
+    RTR_ACTUATION_DONE_WHEN,
+    RTR_ACTUATION_GOAL,
+    RTR_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -1953,6 +1958,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": BGPSEC_ACTUATION_GOAL,
         "done_when": BGPSEC_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_bgpsec",
+    },
+    {
+        "id": RTR_ACTUATION_ID,
+        "goal": RTR_ACTUATION_GOAL,
+        "done_when": RTR_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_rtr",
     },
 )
 
