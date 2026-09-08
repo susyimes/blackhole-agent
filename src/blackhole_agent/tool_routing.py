@@ -996,6 +996,7 @@ IMLPROXY_TOOL_PROVIDER = "imlproxy"
 EVPNBUM_TOOL_PROVIDER = "evpnbum"
 FXC_TOOL_PROVIDER = "fxc"
 DFREC_TOOL_PROVIDER = "dfrec"
+MSRED_TOOL_PROVIDER = "msred"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7179,6 +7180,48 @@ def dfrec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         session_id=session_id,
         tool_type="function",
     )
+
+
+def msred_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 9856 Multicast Source Redundancy in EVPNs WARM/HOT route.
+
+    Provider ``msred`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="msred",
+        description=(
+            "Drive a first-class RFC 9856 session: bind a loopback Multicast Source Redundancy in EVPNs "
+            "origin, send a WARM "
+            "with a non-empty msredid, lockstep a HOT that carries the stored "
+            "msreddigest, independently poll the stored msreddigest on a later "
+            "client socket, and read the sealed msreddigest. MSREDID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "msred": {"type": "boolean"},
+                "hot": {"type": "boolean"},
+                "msreddigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_msredid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MSRED_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""

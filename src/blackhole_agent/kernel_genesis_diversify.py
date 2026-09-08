@@ -967,6 +967,11 @@ from blackhole_agent.msred_actuation import (
     MSRED_ACTUATION_GOAL,
     MSRED_ACTUATION_ID,
 )
+from blackhole_agent.p2mpir_actuation import (
+    P2MPIR_ACTUATION_DONE_WHEN,
+    P2MPIR_ACTUATION_GOAL,
+    P2MPIR_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2107,6 +2112,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MSRED_ACTUATION_GOAL,
         "done_when": MSRED_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_msred",
+    },
+    {
+        "id": P2MPIR_ACTUATION_ID,
+        "goal": P2MPIR_ACTUATION_GOAL,
+        "done_when": P2MPIR_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_p2mpir",
     },
 )
 
