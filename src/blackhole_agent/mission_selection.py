@@ -857,6 +857,12 @@ _SURFACE_TOKENS = frozenset(
         "rfc5557",
         "gcoid",
         "gcodigest",
+        "svec",
+        "ilpce",
+        "rfc5623",
+        "ilpceid",
+        "ilpcedigest",
+        "vntm",
     }
 )
 _IMPACT_MARKERS = (

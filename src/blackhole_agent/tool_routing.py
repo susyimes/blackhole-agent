@@ -1033,6 +1033,7 @@ DSCT_TOOL_PROVIDER = "dsct"
 PATHKEY_TOOL_PROVIDER = "pathkey"
 PCEXCL_TOOL_PROVIDER = "pcexcl"
 OBJFUN_TOOL_PROVIDER = "objfun"
+GCO_TOOL_PROVIDER = "gco"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8739,6 +8740,48 @@ def objfun_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=OBJFUN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def gco_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5557 Global Concurrent Optimization GCO/SVEC route.
+
+    Provider ``gco`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="gco",
+        description=(
+            "Drive a first-class RFC 5557 session: bind a loopback Global Concurrent "
+            "Optimization origin, send a GCO "
+            "with a non-empty gcoid, lockstep a SVEC that carries the stored "
+            "gcodigest, independently poll the stored gcodigest on a later "
+            "client socket, and read the sealed gcodigest. GCOID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "gco": {"type": "boolean"},
+                "svec": {"type": "boolean"},
+                "gcodigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_gcoid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GCO_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
