@@ -863,6 +863,10 @@ _SURFACE_TOKENS = frozenset(
         "ilpceid",
         "ilpcedigest",
         "vntm",
+        "pcemon",
+        "rfc5886",
+        "pcemonid",
+        "pcemondigest",
     }
 )
 _IMPACT_MARKERS = (

@@ -1034,6 +1034,7 @@ PATHKEY_TOOL_PROVIDER = "pathkey"
 PCEXCL_TOOL_PROVIDER = "pcexcl"
 OBJFUN_TOOL_PROVIDER = "objfun"
 GCO_TOOL_PROVIDER = "gco"
+ILPCE_TOOL_PROVIDER = "ilpce"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8786,6 +8787,48 @@ def gco_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         tool_type="function",
     )
 
+
+
+
+def ilpce_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5623 PCE-Based Inter-Layer MPLS and GMPLS Traffic Engineering VNTM/LAYER route.
+
+    Provider ``ilpce`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="ilpce",
+        description=(
+            "Drive a first-class RFC 5623 session: bind a loopback PCE-Based Inter-Layer "
+            "MPLS and GMPLS Traffic Engineering origin, send a VNTM "
+            "with a non-empty ilpceid, lockstep a LAYER that carries the stored "
+            "ilpcedigest, independently poll the stored ilpcedigest on a later "
+            "client socket, and read the sealed ilpcedigest. ILPCEID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "vntm": {"type": "boolean"},
+                "layer": {"type": "boolean"},
+                "ilpcedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_ilpceid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ILPCE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
