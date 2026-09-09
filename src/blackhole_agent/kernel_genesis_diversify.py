@@ -1037,6 +1037,11 @@ from blackhole_agent.rsvpte_actuation import (
     RSVPTE_ACTUATION_GOAL,
     RSVPTE_ACTUATION_ID,
 )
+from blackhole_agent.gmpls_actuation import (
+    GMPLS_ACTUATION_DONE_WHEN,
+    GMPLS_ACTUATION_GOAL,
+    GMPLS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2261,6 +2266,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": RSVPTE_ACTUATION_GOAL,
         "done_when": RSVPTE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_rsvpte",
+    },
+    {
+        "id": GMPLS_ACTUATION_ID,
+        "goal": GMPLS_ACTUATION_GOAL,
+        "done_when": GMPLS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_gmpls",
     },
 )
 

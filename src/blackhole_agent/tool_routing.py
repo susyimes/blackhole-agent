@@ -1010,6 +1010,7 @@ PWE3_TOOL_PROVIDER = "pwe3"
 PWREQ_TOOL_PROVIDER = "pwreq"
 MPLSARCH_TOOL_PROVIDER = "mplsarch"
 MPLSLSE_TOOL_PROVIDER = "mplslse"
+RSVPTE_TOOL_PROVIDER = "rsvpte"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7766,6 +7767,49 @@ def mplslse_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MPLSLSE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+
+def rsvpte_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3209 RSVP-TE PATH/RESV route.
+
+    Provider ``rsvpte`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="rsvpte",
+        description=(
+            "Drive a first-class RFC 3209 session: bind a loopback RSVP-TE "
+            "origin, send a PATH "
+            "with a non-empty rsvpteid, lockstep a RESV that carries the stored "
+            "rsvptedigest, independently poll the stored rsvptedigest on a later "
+            "client socket, and read the sealed rsvptedigest. RSVPTEID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "path": {"type": "boolean"},
+                "resv": {"type": "boolean"},
+                "rsvptedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_rsvpteid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=RSVPTE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
