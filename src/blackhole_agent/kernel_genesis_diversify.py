@@ -1147,6 +1147,11 @@ from blackhole_agent.objfun_actuation import (
     OBJFUN_ACTUATION_GOAL,
     OBJFUN_ACTUATION_ID,
 )
+from blackhole_agent.gco_actuation import (
+    GCO_ACTUATION_DONE_WHEN,
+    GCO_ACTUATION_GOAL,
+    GCO_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2503,6 +2508,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": OBJFUN_ACTUATION_GOAL,
         "done_when": OBJFUN_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_objfun",
+    },
+    {
+        "id": GCO_ACTUATION_ID,
+        "goal": GCO_ACTUATION_GOAL,
+        "done_when": GCO_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_gco",
     },
 )
 
