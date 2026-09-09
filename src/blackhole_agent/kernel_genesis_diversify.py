@@ -1142,6 +1142,11 @@ from blackhole_agent.pcexcl_actuation import (
     PCEXCL_ACTUATION_GOAL,
     PCEXCL_ACTUATION_ID,
 )
+from blackhole_agent.objfun_actuation import (
+    OBJFUN_ACTUATION_DONE_WHEN,
+    OBJFUN_ACTUATION_GOAL,
+    OBJFUN_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2492,6 +2497,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PCEXCL_ACTUATION_GOAL,
         "done_when": PCEXCL_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pcexcl",
+    },
+    {
+        "id": OBJFUN_ACTUATION_ID,
+        "goal": OBJFUN_ACTUATION_GOAL,
+        "done_when": OBJFUN_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_objfun",
     },
 )
 

@@ -1031,6 +1031,7 @@ PCEP_TOOL_PROVIDER = "pcep"
 BRPC_TOOL_PROVIDER = "brpc"
 DSCT_TOOL_PROVIDER = "dsct"
 PATHKEY_TOOL_PROVIDER = "pathkey"
+PCEXCL_TOOL_PROVIDER = "pcexcl"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8653,6 +8654,48 @@ def pathkey_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PATHKEY_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def pcexcl_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5521 PCE Route Exclusions EXCLUDE/XRO route.
+
+    Provider ``pcexcl`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pcexcl",
+        description=(
+            "Drive a first-class RFC 5521 session: bind a loopback PCE Route "
+            "Exclusions origin, send an EXCLUDE "
+            "with a non-empty pcexclid, lockstep an XRO that carries the stored "
+            "pcexcldigest, independently poll the stored pcexcldigest on a later "
+            "client socket, and read the sealed pcexcldigest. PCEXCLID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "exclude": {"type": "boolean"},
+                "xro": {"type": "boolean"},
+                "pcexcldigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pcexclid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PCEXCL_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
