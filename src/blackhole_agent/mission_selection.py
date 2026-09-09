@@ -888,6 +888,10 @@ _SURFACE_TOKENS = frozenset(
         "asbwdigest",
         "asym",
         "bidir",
+        "smp",
+        "rfc6388",
+        "smpid",
+        "smpdigest",
     }
 )
 _IMPACT_MARKERS = (

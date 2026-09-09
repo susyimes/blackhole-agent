@@ -1182,6 +1182,11 @@ from blackhole_agent.asbw_actuation import (
     ASBW_ACTUATION_GOAL,
     ASBW_ACTUATION_ID,
 )
+from blackhole_agent.smp_actuation import (
+    SMP_ACTUATION_DONE_WHEN,
+    SMP_ACTUATION_GOAL,
+    SMP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2580,6 +2585,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": ASBW_ACTUATION_GOAL,
         "done_when": ASBW_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_asbw",
+    },
+    {
+        "id": SMP_ACTUATION_ID,
+        "goal": SMP_ACTUATION_GOAL,
+        "done_when": SMP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_smp",
     },
 )
 

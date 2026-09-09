@@ -1039,6 +1039,7 @@ PCEMON_TOOL_PROVIDER = "pcemon"
 PCEPMP_TOOL_PROVIDER = "pcepmp"
 WSON_TOOL_PROVIDER = "wson"
 LSC_TOOL_PROVIDER = "lsc"
+ASBW_TOOL_PROVIDER = "asbw"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8996,6 +8997,47 @@ def lsc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LSC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def asbw_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6387 GMPLS Asymmetric Bandwidth Bidirectional Label Switched Paths (LSPs) ASYM/BIDIR route.
+
+    Provider ``asbw`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="asbw",
+        description=(
+            "Drive a first-class RFC 6387 session: bind a loopback GMPLS Asymmetric "
+            "Bandwidth Bidirectional Label Switched Paths origin, send an ASYM "
+            "with a non-empty asbwid, lockstep a BIDIR that carries the stored "
+            "asbwdigest, independently poll the stored asbwdigest on a later "
+            "client socket, and read the sealed asbwdigest. ASBWID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "asym": {"type": "boolean"},
+                "bidir": {"type": "boolean"},
+                "asbwdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_asbwid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ASBW_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
