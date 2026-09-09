@@ -878,6 +878,10 @@ _SURFACE_TOKENS = frozenset(
         "wsonid",
         "wsondigest",
         "rwa",
+        "lsc",
+        "rfc6205",
+        "lscid",
+        "lscdigest",
     }
 )
 _IMPACT_MARKERS = (

@@ -1172,6 +1172,11 @@ from blackhole_agent.wson_actuation import (
     WSON_ACTUATION_GOAL,
     WSON_ACTUATION_ID,
 )
+from blackhole_agent.lsc_actuation import (
+    LSC_ACTUATION_DONE_WHEN,
+    LSC_ACTUATION_GOAL,
+    LSC_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2558,6 +2563,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": WSON_ACTUATION_GOAL,
         "done_when": WSON_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_wson",
+    },
+    {
+        "id": LSC_ACTUATION_ID,
+        "goal": LSC_ACTUATION_GOAL,
+        "done_when": LSC_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_lsc",
     },
 )
 
