@@ -819,6 +819,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5150",
         "lspstitchid",
         "lspstitchdigest",
+        "interas",
+        "rfc5151",
+        "interasid",
+        "interasdigest",
     }
 )
 _IMPACT_MARKERS = (

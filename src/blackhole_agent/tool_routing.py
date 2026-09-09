@@ -1024,6 +1024,7 @@ SEGREC_TOOL_PROVIDER = "segrec"
 EXROUTE_TOOL_PROVIDER = "exroute"
 P2MPTE_TOOL_PROVIDER = "p2mpte"
 CRANKBACK_TOOL_PROVIDER = "crankback"
+LSPSTITCH_TOOL_PROVIDER = "lspstitch"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8357,6 +8358,47 @@ def crankback_tool_descriptor(*, session_id: str | None = None) -> ToolDescripto
             "additionalProperties": False,
         },
         provider=CRANKBACK_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lspstitch_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5150 Label Switched Path Stitching STITCH/JOIN route.
+
+    Provider ``lspstitch`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lspstitch",
+        description=(
+            "Drive a first-class RFC 5150 session: bind a loopback Label Switched Path "
+            "Stitching origin, send a STITCH "
+            "with a non-empty lspstitchid, lockstep a JOIN that carries the stored "
+            "lspstitchdigest, independently poll the stored lspstitchdigest on a later "
+            "client socket, and read the sealed lspstitchdigest. LSPSTITCHID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "stitch": {"type": "boolean"},
+                "join": {"type": "boolean"},
+                "lspstitchdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lspstitchid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LSPSTITCH_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

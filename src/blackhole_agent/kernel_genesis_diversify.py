@@ -1107,6 +1107,11 @@ from blackhole_agent.lspstitch_actuation import (
     LSPSTITCH_ACTUATION_GOAL,
     LSPSTITCH_ACTUATION_ID,
 )
+from blackhole_agent.interas_actuation import (
+    INTERAS_ACTUATION_DONE_WHEN,
+    INTERAS_ACTUATION_GOAL,
+    INTERAS_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2415,6 +2420,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LSPSTITCH_ACTUATION_GOAL,
         "done_when": LSPSTITCH_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_lspstitch",
+    },
+    {
+        "id": INTERAS_ACTUATION_ID,
+        "goal": INTERAS_ACTUATION_GOAL,
+        "done_when": INTERAS_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_interas",
     },
 )
 
