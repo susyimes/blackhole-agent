@@ -811,6 +811,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4875",
         "p2mpteid",
         "p2mptedigest",
+        "crankback",
+        "rfc4920",
+        "crankbackid",
+        "crankbackdigest",
     }
 )
 _IMPACT_MARKERS = (

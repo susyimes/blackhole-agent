@@ -1097,6 +1097,11 @@ from blackhole_agent.p2mpte_actuation import (
     P2MPTE_ACTUATION_GOAL,
     P2MPTE_ACTUATION_ID,
 )
+from blackhole_agent.crankback_actuation import (
+    CRANKBACK_ACTUATION_DONE_WHEN,
+    CRANKBACK_ACTUATION_GOAL,
+    CRANKBACK_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2393,6 +2398,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": P2MPTE_ACTUATION_GOAL,
         "done_when": P2MPTE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_p2mpte",
+    },
+    {
+        "id": CRANKBACK_ACTUATION_ID,
+        "goal": CRANKBACK_ACTUATION_GOAL,
+        "done_when": CRANKBACK_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_crankback",
     },
 )
 
