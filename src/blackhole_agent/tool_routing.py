@@ -1038,6 +1038,7 @@ ILPCE_TOOL_PROVIDER = "ilpce"
 PCEMON_TOOL_PROVIDER = "pcemon"
 PCEPMP_TOOL_PROVIDER = "pcepmp"
 WSON_TOOL_PROVIDER = "wson"
+LSC_TOOL_PROVIDER = "lsc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8954,6 +8955,47 @@ def wson_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=WSON_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lsc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6205 Generalized Labels for Lambda-Switch-Capable (LSC) Label Switching Routers LSC/LABEL route.
+
+    Provider ``lsc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lsc",
+        description=(
+            "Drive a first-class RFC 6205 session: bind a loopback Generalized Labels "
+            "for Lambda-Switch-Capable (LSC) Label Switching Routers origin, send a LSC "
+            "with a non-empty lscid, lockstep a LABEL that carries the stored "
+            "lscdigest, independently poll the stored lscdigest on a later "
+            "client socket, and read the sealed lscdigest. LSCID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "lsc": {"type": "boolean"},
+                "label": {"type": "boolean"},
+                "lscdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lscid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LSC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
