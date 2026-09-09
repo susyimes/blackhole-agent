@@ -1012,6 +1012,7 @@ MPLSARCH_TOOL_PROVIDER = "mplsarch"
 MPLSLSE_TOOL_PROVIDER = "mplslse"
 RSVPTE_TOOL_PROVIDER = "rsvpte"
 GMPLS_TOOL_PROVIDER = "gmpls"
+LMP_TOOL_PROVIDER = "lmp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7852,6 +7853,47 @@ def gmpls_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=GMPLS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4204 LMP CONFIG/HELLO route.
+
+    Provider ``lmp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lmp",
+        description=(
+            "Drive a first-class RFC 4204 session: bind a loopback LMP "
+            "origin, send a CONFIG "
+            "with a non-empty lmpid, lockstep a HELLO that carries the stored "
+            "lmpdigest, independently poll the stored lmpdigest on a later "
+            "client socket, and read the sealed lmpdigest. LMPID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "config": {"type": "boolean"},
+                "hello": {"type": "boolean"},
+                "lmpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lmpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LMP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
