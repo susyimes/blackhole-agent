@@ -1015,6 +1015,7 @@ GMPLS_TOOL_PROVIDER = "gmpls"
 LMP_TOOL_PROVIDER = "lmp"
 LSPHIER_TOOL_PROVIDER = "lsphier"
 GUNI_TOOL_PROVIDER = "guni"
+LWDM_TOOL_PROVIDER = "lwdm"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7978,6 +7979,47 @@ def guni_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=GUNI_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lwdm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4209 LMP-WDM VERIFY/TRACE route.
+
+    Provider ``lwdm`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lwdm",
+        description=(
+            "Drive a first-class RFC 4209 session: bind a loopback LMP-WDM "
+            "origin, send a VERIFY "
+            "with a non-empty lwdmid, lockstep a TRACE that carries the stored "
+            "lwdmdigest, independently poll the stored lwdmdigest on a later "
+            "client socket, and read the sealed lwdmdigest. LWDMID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "verify": {"type": "boolean"},
+                "trace": {"type": "boolean"},
+                "lwdmdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lwdmid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LWDM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -1062,6 +1062,11 @@ from blackhole_agent.lwdm_actuation import (
     LWDM_ACTUATION_GOAL,
     LWDM_ACTUATION_ID,
 )
+from blackhole_agent.otn_actuation import (
+    OTN_ACTUATION_DONE_WHEN,
+    OTN_ACTUATION_GOAL,
+    OTN_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2316,6 +2321,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LWDM_ACTUATION_GOAL,
         "done_when": LWDM_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_lwdm",
+    },
+    {
+        "id": OTN_ACTUATION_ID,
+        "goal": OTN_ACTUATION_GOAL,
+        "done_when": OTN_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_otn",
     },
 )
 
