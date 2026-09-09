@@ -1041,6 +1041,7 @@ WSON_TOOL_PROVIDER = "wson"
 LSC_TOOL_PROVIDER = "lsc"
 ASBW_TOOL_PROVIDER = "asbw"
 SMP_TOOL_PROVIDER = "smp"
+FMOAM_TOOL_PROVIDER = "fmoam"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9080,6 +9081,47 @@ def smp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SMP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def fmoam_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6427 MPLS Fault Management Operations, Administration, and Maintenance (OAM) FM/AIS route.
+
+    Provider ``fmoam`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="fmoam",
+        description=(
+            "Drive a first-class RFC 6427 session: bind a loopback MPLS Fault "
+            "Management Operations, Administration, and Maintenance origin, send a FM "
+            "with a non-empty fmoamid, lockstep a AIS that carries the stored "
+            "fmoamdigest, independently poll the stored fmoamdigest on a later "
+            "client socket, and read the sealed fmoamdigest. FMOAMID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "fm": {"type": "boolean"},
+                "ais": {"type": "boolean"},
+                "fmoamdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_fmoamid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=FMOAM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
