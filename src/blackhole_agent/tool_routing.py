@@ -1028,6 +1028,7 @@ LSPSTITCH_TOOL_PROVIDER = "lspstitch"
 INTERAS_TOOL_PROVIDER = "interas"
 PERDOM_TOOL_PROVIDER = "perdom"
 PCEP_TOOL_PROVIDER = "pcep"
+BRPC_TOOL_PROVIDER = "brpc"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8525,6 +8526,47 @@ def pcep_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PCEP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def brpc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5441 Backward-Recursive PCE-Based Computation BRPC/REPLY route.
+
+    Provider ``brpc`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="brpc",
+        description=(
+            "Drive a first-class RFC 5441 session: bind a loopback Backward-Recursive "
+            "PCE-Based Computation origin, send a BRPC "
+            "with a non-empty brpcid, lockstep a REPLY that carries the stored "
+            "brpcdigest, independently poll the stored brpcdigest on a later "
+            "client socket, and read the sealed brpcdigest. BRPCID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "brpc": {"type": "boolean"},
+                "reply": {"type": "boolean"},
+                "brpcdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_brpcid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=BRPC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
