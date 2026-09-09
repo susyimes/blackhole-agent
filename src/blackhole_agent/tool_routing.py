@@ -1044,6 +1044,7 @@ SMP_TOOL_PROVIDER = "smp"
 FMOAM_TOOL_PROVIDER = "fmoam"
 PCV_TOOL_PROVIDER = "pcv"
 LILB_TOOL_PROVIDER = "lilb"
+PWST_TOOL_PROVIDER = "pwst"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9207,6 +9208,47 @@ def lilb_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LILB_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def pwst_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6478 Pseudowire Status for Static Pseudowires STATUS/ACK route.
+
+    Provider ``pwst`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pwst",
+        description=(
+            "Drive a first-class RFC 6478 session: bind a loopback Pseudowire Status "
+            "for Static Pseudowires origin, send a STATUS "
+            "with a non-empty pwstid, lockstep an ACK that carries the stored "
+            "pwstdigest, independently poll the stored pwstdigest on a later "
+            "client socket, and read the sealed pwstdigest. PWSTID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "status": {"type": "boolean"},
+                "ack": {"type": "boolean"},
+                "pwstdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pwstid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PWST_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
