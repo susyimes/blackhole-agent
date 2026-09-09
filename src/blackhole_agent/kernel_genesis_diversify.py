@@ -1122,6 +1122,11 @@ from blackhole_agent.pcep_actuation import (
     PCEP_ACTUATION_GOAL,
     PCEP_ACTUATION_ID,
 )
+from blackhole_agent.brpc_actuation import (
+    BRPC_ACTUATION_DONE_WHEN,
+    BRPC_ACTUATION_GOAL,
+    BRPC_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2448,6 +2453,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PCEP_ACTUATION_GOAL,
         "done_when": PCEP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pcep",
+    },
+    {
+        "id": BRPC_ACTUATION_ID,
+        "goal": BRPC_ACTUATION_GOAL,
+        "done_when": BRPC_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_brpc",
     },
 )
 
