@@ -906,6 +906,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6435",
         "lilbid",
         "lilbdigest",
+        "pwst",
+        "rfc6478",
+        "pwstid",
+        "pwstdigest",
     }
 )
 _IMPACT_MARKERS = (

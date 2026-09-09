@@ -1043,6 +1043,7 @@ ASBW_TOOL_PROVIDER = "asbw"
 SMP_TOOL_PROVIDER = "smp"
 FMOAM_TOOL_PROVIDER = "fmoam"
 PCV_TOOL_PROVIDER = "pcv"
+LILB_TOOL_PROVIDER = "lilb"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9165,6 +9166,47 @@ def pcv_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PCV_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lilb_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6435 A Protocol for Lock Instruct and Loopback of MPLS Transport Profile (MPLS-TP) OAM LI/LB route.
+
+    Provider ``lilb`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lilb",
+        description=(
+            "Drive a first-class RFC 6435 session: bind a loopback A Protocol for Lock Instruct "
+            "and Loopback of MPLS Transport Profile origin, send a LI "
+            "with a non-empty lilbid, lockstep a LB that carries the stored "
+            "lilbdigest, independently poll the stored lilbdigest on a later "
+            "client socket, and read the sealed lilbdigest. LILBID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "li": {"type": "boolean"},
+                "lb": {"type": "boolean"},
+                "lilbdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lilbid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LILB_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
