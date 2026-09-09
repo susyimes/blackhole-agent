@@ -1011,6 +1011,7 @@ PWREQ_TOOL_PROVIDER = "pwreq"
 MPLSARCH_TOOL_PROVIDER = "mplsarch"
 MPLSLSE_TOOL_PROVIDER = "mplslse"
 RSVPTE_TOOL_PROVIDER = "rsvpte"
+GMPLS_TOOL_PROVIDER = "gmpls"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7810,6 +7811,47 @@ def rsvpte_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=RSVPTE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def gmpls_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 3473 GMPLS RSVP-TE NOTIFY/RESVCONF route.
+
+    Provider ``gmpls`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="gmpls",
+        description=(
+            "Drive a first-class RFC 3473 session: bind a loopback GMPLS RSVP-TE "
+            "origin, send a NOTIFY "
+            "with a non-empty gmplsid, lockstep a RESVCONF that carries the stored "
+            "gmplsdigest, independently poll the stored gmplsdigest on a later "
+            "client socket, and read the sealed gmplsdigest. GMPLSID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "notify": {"type": "boolean"},
+                "resvconf": {"type": "boolean"},
+                "gmplsdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_gmplsid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GMPLS_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
