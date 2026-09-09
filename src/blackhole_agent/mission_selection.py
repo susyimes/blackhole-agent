@@ -791,6 +791,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4397",
         "asonid",
         "asondigest",
+        "grec",
+        "rfc4426",
+        "grecid",
+        "grecdigest",
     }
 )
 _IMPACT_MARKERS = (
