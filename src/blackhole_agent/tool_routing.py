@@ -1023,6 +1023,7 @@ E2EREC_TOOL_PROVIDER = "e2erec"
 SEGREC_TOOL_PROVIDER = "segrec"
 EXROUTE_TOOL_PROVIDER = "exroute"
 P2MPTE_TOOL_PROVIDER = "p2mpte"
+CRANKBACK_TOOL_PROVIDER = "crankback"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8315,6 +8316,47 @@ def p2mpte_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=P2MPTE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def crankback_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4920 Crankback Signaling CRANK/RETRY route.
+
+    Provider ``crankback`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="crankback",
+        description=(
+            "Drive a first-class RFC 4920 session: bind a loopback Crankback "
+            "Signaling origin, send a CRANK "
+            "with a non-empty crankbackid, lockstep a RETRY that carries the stored "
+            "crankbackdigest, independently poll the stored crankbackdigest on a later "
+            "client socket, and read the sealed crankbackdigest. CRANKBACKID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "crank": {"type": "boolean"},
+                "retry": {"type": "boolean"},
+                "crankbackdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_crankbackid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=CRANKBACK_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

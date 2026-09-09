@@ -815,6 +815,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4920",
         "crankbackid",
         "crankbackdigest",
+        "lspstitch",
+        "rfc5150",
+        "lspstitchid",
+        "lspstitchdigest",
     }
 )
 _IMPACT_MARKERS = (

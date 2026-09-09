@@ -1102,6 +1102,11 @@ from blackhole_agent.crankback_actuation import (
     CRANKBACK_ACTUATION_GOAL,
     CRANKBACK_ACTUATION_ID,
 )
+from blackhole_agent.lspstitch_actuation import (
+    LSPSTITCH_ACTUATION_DONE_WHEN,
+    LSPSTITCH_ACTUATION_GOAL,
+    LSPSTITCH_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2404,6 +2409,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": CRANKBACK_ACTUATION_GOAL,
         "done_when": CRANKBACK_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_crankback",
+    },
+    {
+        "id": LSPSTITCH_ACTUATION_ID,
+        "goal": LSPSTITCH_ACTUATION_GOAL,
+        "done_when": LSPSTITCH_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_lspstitch",
     },
 )
 
