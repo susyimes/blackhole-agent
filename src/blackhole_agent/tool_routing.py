@@ -1020,6 +1020,7 @@ OTN_TOOL_PROVIDER = "otn"
 ASON_TOOL_PROVIDER = "ason"
 GREC_TOOL_PROVIDER = "grec"
 E2EREC_TOOL_PROVIDER = "e2erec"
+SEGREC_TOOL_PROVIDER = "segrec"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8189,6 +8190,47 @@ def e2erec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=E2EREC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def segrec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4873 GMPLS Segment Recovery SEGMENT/RECOVER route.
+
+    Provider ``segrec`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="segrec",
+        description=(
+            "Drive a first-class RFC 4873 session: bind a loopback GMPLS Segment "
+            "Recovery origin, send a SEGMENT "
+            "with a non-empty segrecid, lockstep a RECOVER that carries the stored "
+            "segrecdigest, independently poll the stored segrecdigest on a later "
+            "client socket, and read the sealed segrecdigest. SEGRECID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "segment": {"type": "boolean"},
+                "recover": {"type": "boolean"},
+                "segrecdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_segrecid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=SEGREC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
