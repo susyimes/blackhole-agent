@@ -1212,6 +1212,11 @@ from blackhole_agent.mldp_actuation import (
     MLDP_ACTUATION_GOAL,
     MLDP_ACTUATION_ID,
 )
+from blackhole_agent.mvpn_actuation import (
+    MVPN_ACTUATION_DONE_WHEN,
+    MVPN_ACTUATION_GOAL,
+    MVPN_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2646,6 +2651,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": MLDP_ACTUATION_GOAL,
         "done_when": MLDP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_mldp",
+    },
+    {
+        "id": MVPN_ACTUATION_ID,
+        "goal": MVPN_ACTUATION_GOAL,
+        "done_when": MVPN_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_mvpn",
     },
 )
 

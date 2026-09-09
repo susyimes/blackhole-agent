@@ -914,6 +914,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6512",
         "mldpid",
         "mldpdigest",
+        "mvpn",
+        "rfc6513",
+        "mvpnid",
+        "mvpndigest",
     }
 )
 _IMPACT_MARKERS = (

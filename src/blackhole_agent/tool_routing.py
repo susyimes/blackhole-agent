@@ -1045,6 +1045,7 @@ FMOAM_TOOL_PROVIDER = "fmoam"
 PCV_TOOL_PROVIDER = "pcv"
 LILB_TOOL_PROVIDER = "lilb"
 PWST_TOOL_PROVIDER = "pwst"
+MLDP_TOOL_PROVIDER = "mldp"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9249,6 +9250,47 @@ def pwst_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=PWST_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def mldp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6512 Using Multipoint LDP When the Backbone Has No Route to the Root MLDP/ROOT route.
+
+    Provider ``mldp`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mldp",
+        description=(
+            "Drive a first-class RFC 6512 session: bind a loopback Using Multipoint LDP "
+            "When the Backbone Has No Route to the Root origin, send a MLDP "
+            "with a non-empty mldpid, lockstep a ROOT that carries the stored "
+            "mldpdigest, independently poll the stored mldpdigest on a later "
+            "client socket, and read the sealed mldpdigest. MLDPID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "mldp": {"type": "boolean"},
+                "root": {"type": "boolean"},
+                "mldpdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_mldpid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MLDP_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
