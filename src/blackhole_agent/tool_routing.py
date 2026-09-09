@@ -1016,6 +1016,7 @@ LMP_TOOL_PROVIDER = "lmp"
 LSPHIER_TOOL_PROVIDER = "lsphier"
 GUNI_TOOL_PROVIDER = "guni"
 LWDM_TOOL_PROVIDER = "lwdm"
+OTN_TOOL_PROVIDER = "otn"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8020,6 +8021,47 @@ def lwdm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LWDM_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def otn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4328 GMPLS OTN OTU/ODU route.
+
+    Provider ``otn`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="otn",
+        description=(
+            "Drive a first-class RFC 4328 session: bind a loopback GMPLS OTN "
+            "origin, send a OTU "
+            "with a non-empty otnid, lockstep a ODU that carries the stored "
+            "otndigest, independently poll the stored otndigest on a later "
+            "client socket, and read the sealed otndigest. OTNID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "otu": {"type": "boolean"},
+                "odu": {"type": "boolean"},
+                "otndigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_otnid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=OTN_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

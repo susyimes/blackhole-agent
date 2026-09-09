@@ -1067,6 +1067,11 @@ from blackhole_agent.otn_actuation import (
     OTN_ACTUATION_GOAL,
     OTN_ACTUATION_ID,
 )
+from blackhole_agent.ason_actuation import (
+    ASON_ACTUATION_DONE_WHEN,
+    ASON_ACTUATION_GOAL,
+    ASON_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2327,6 +2332,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": OTN_ACTUATION_GOAL,
         "done_when": OTN_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_otn",
+    },
+    {
+        "id": ASON_ACTUATION_ID,
+        "goal": ASON_ACTUATION_GOAL,
+        "done_when": ASON_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_ason",
     },
 )
 
