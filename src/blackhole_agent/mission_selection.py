@@ -820,9 +820,14 @@ _SURFACE_TOKENS = frozenset(
         "lspstitchid",
         "lspstitchdigest",
         "interas",
+        "intera",
         "rfc5151",
         "interasid",
         "interasdigest",
+        "perdom",
+        "rfc5152",
+        "perdomid",
+        "perdomdigest",
     }
 )
 _IMPACT_MARKERS = (

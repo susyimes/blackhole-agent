@@ -1112,6 +1112,11 @@ from blackhole_agent.interas_actuation import (
     INTERAS_ACTUATION_GOAL,
     INTERAS_ACTUATION_ID,
 )
+from blackhole_agent.perdom_actuation import (
+    PERDOM_ACTUATION_DONE_WHEN,
+    PERDOM_ACTUATION_GOAL,
+    PERDOM_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2426,6 +2431,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": INTERAS_ACTUATION_GOAL,
         "done_when": INTERAS_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_interas",
+    },
+    {
+        "id": PERDOM_ACTUATION_ID,
+        "goal": PERDOM_ACTUATION_GOAL,
+        "done_when": PERDOM_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_perdom",
     },
 )
 
