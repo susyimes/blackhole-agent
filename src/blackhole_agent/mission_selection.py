@@ -799,6 +799,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4872",
         "e2erecid",
         "e2erecdigest",
+        "segrec",
+        "rfc4873",
+        "segrecid",
+        "segrecdigest",
     }
 )
 _IMPACT_MARKERS = (

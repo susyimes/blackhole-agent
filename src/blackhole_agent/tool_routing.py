@@ -1019,6 +1019,7 @@ LWDM_TOOL_PROVIDER = "lwdm"
 OTN_TOOL_PROVIDER = "otn"
 ASON_TOOL_PROVIDER = "ason"
 GREC_TOOL_PROVIDER = "grec"
+E2EREC_TOOL_PROVIDER = "e2erec"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8147,6 +8148,47 @@ def grec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=GREC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def e2erec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4872 GMPLS End-to-End Recovery PROTECT/SWITCH route.
+
+    Provider ``e2erec`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="e2erec",
+        description=(
+            "Drive a first-class RFC 4872 session: bind a loopback GMPLS End-to-End "
+            "Recovery origin, send a PROTECT "
+            "with a non-empty e2erecid, lockstep a SWITCH that carries the stored "
+            "e2erecdigest, independently poll the stored e2erecdigest on a later "
+            "client socket, and read the sealed e2erecdigest. E2ERECID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "protect": {"type": "boolean"},
+                "switch": {"type": "boolean"},
+                "e2erecdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_e2erecid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=E2EREC_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

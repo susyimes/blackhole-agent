@@ -1082,6 +1082,11 @@ from blackhole_agent.e2erec_actuation import (
     E2EREC_ACTUATION_GOAL,
     E2EREC_ACTUATION_ID,
 )
+from blackhole_agent.segrec_actuation import (
+    SEGREC_ACTUATION_DONE_WHEN,
+    SEGREC_ACTUATION_GOAL,
+    SEGREC_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2360,6 +2365,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": E2EREC_ACTUATION_GOAL,
         "done_when": E2EREC_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_e2erec",
+    },
+    {
+        "id": SEGREC_ACTUATION_ID,
+        "goal": SEGREC_ACTUATION_GOAL,
+        "done_when": SEGREC_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_segrec",
     },
 )
 
