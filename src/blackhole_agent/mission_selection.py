@@ -844,6 +844,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5520",
         "pathkeyid",
         "pathkeydigest",
+        "pcexcl",
+        "rfc5521",
+        "pcexclid",
+        "pcexcldigest",
     }
 )
 _IMPACT_MARKERS = (

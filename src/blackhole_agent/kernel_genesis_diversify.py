@@ -1137,6 +1137,11 @@ from blackhole_agent.pathkey_actuation import (
     PATHKEY_ACTUATION_GOAL,
     PATHKEY_ACTUATION_ID,
 )
+from blackhole_agent.pcexcl_actuation import (
+    PCEXCL_ACTUATION_DONE_WHEN,
+    PCEXCL_ACTUATION_GOAL,
+    PCEXCL_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2481,6 +2486,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PATHKEY_ACTUATION_GOAL,
         "done_when": PATHKEY_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pathkey",
+    },
+    {
+        "id": PCEXCL_ACTUATION_ID,
+        "goal": PCEXCL_ACTUATION_GOAL,
+        "done_when": PCEXCL_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_pcexcl",
     },
 )
 

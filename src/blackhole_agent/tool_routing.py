@@ -1030,6 +1030,7 @@ PERDOM_TOOL_PROVIDER = "perdom"
 PCEP_TOOL_PROVIDER = "pcep"
 BRPC_TOOL_PROVIDER = "brpc"
 DSCT_TOOL_PROVIDER = "dsct"
+PATHKEY_TOOL_PROVIDER = "pathkey"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8613,6 +8614,49 @@ def dsct_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         session_id=session_id,
         tool_type="function",
     )
+
+
+
+def pathkey_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5520 Path-Key-Based Mechanism PATH/KEY route.
+
+    Provider ``pathkey`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pathkey",
+        description=(
+            "Drive a first-class RFC 5520 session: bind a loopback Path-Key-Based "
+            "Mechanism origin, send a PATH "
+            "with a non-empty pathkeyid, lockstep a KEY that carries the stored "
+            "pathkeydigest, independently poll the stored pathkeydigest on a later "
+            "client socket, and read the sealed pathkeydigest. PATHKEYID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "path": {"type": "boolean"},
+                "key": {"type": "boolean"},
+                "pathkeydigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pathkeyid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PATHKEY_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
