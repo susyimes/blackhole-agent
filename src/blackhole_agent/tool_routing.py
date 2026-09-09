@@ -1035,6 +1035,7 @@ PCEXCL_TOOL_PROVIDER = "pcexcl"
 OBJFUN_TOOL_PROVIDER = "objfun"
 GCO_TOOL_PROVIDER = "gco"
 ILPCE_TOOL_PROVIDER = "ilpce"
+PCEMON_TOOL_PROVIDER = "pcemon"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8826,6 +8827,48 @@ def ilpce_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=ILPCE_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+
+def pcemon_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5886 A Set of Monitoring Tools for PCE-Based Architecture MON/PCEID route.
+
+    Provider ``pcemon`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pcemon",
+        description=(
+            "Drive a first-class RFC 5886 session: bind a loopback A Set of Monitoring Tools "
+            "for PCE-Based Architecture origin, send a MON "
+            "with a non-empty pcemonid, lockstep a PCEID that carries the stored "
+            "pcemondigest, independently poll the stored pcemondigest on a later "
+            "client socket, and read the sealed pcemondigest. PCEMONID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "mon": {"type": "boolean"},
+                "pceid": {"type": "boolean"},
+                "pcemondigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pcemonid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PCEMON_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
