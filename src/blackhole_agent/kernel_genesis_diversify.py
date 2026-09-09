@@ -1057,6 +1057,11 @@ from blackhole_agent.guni_actuation import (
     GUNI_ACTUATION_GOAL,
     GUNI_ACTUATION_ID,
 )
+from blackhole_agent.lwdm_actuation import (
+    LWDM_ACTUATION_DONE_WHEN,
+    LWDM_ACTUATION_GOAL,
+    LWDM_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2305,6 +2310,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": GUNI_ACTUATION_GOAL,
         "done_when": GUNI_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_guni",
+    },
+    {
+        "id": LWDM_ACTUATION_ID,
+        "goal": LWDM_ACTUATION_GOAL,
+        "done_when": LWDM_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_lwdm",
     },
 )
 

@@ -1014,6 +1014,7 @@ RSVPTE_TOOL_PROVIDER = "rsvpte"
 GMPLS_TOOL_PROVIDER = "gmpls"
 LMP_TOOL_PROVIDER = "lmp"
 LSPHIER_TOOL_PROVIDER = "lsphier"
+GUNI_TOOL_PROVIDER = "guni"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7936,6 +7937,47 @@ def lsphier_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LSPHIER_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def guni_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4208 GMPLS UNI UNIC/UNIN route.
+
+    Provider ``guni`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="guni",
+        description=(
+            "Drive a first-class RFC 4208 session: bind a loopback GMPLS UNI "
+            "origin, send a UNIC "
+            "with a non-empty guniid, lockstep a UNIN that carries the stored "
+            "gunidigest, independently poll the stored gunidigest on a later "
+            "client socket, and read the sealed gunidigest. GUNIID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "unic": {"type": "boolean"},
+                "unin": {"type": "boolean"},
+                "gunidigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_guniid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GUNI_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
