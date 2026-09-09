@@ -1026,6 +1026,7 @@ P2MPTE_TOOL_PROVIDER = "p2mpte"
 CRANKBACK_TOOL_PROVIDER = "crankback"
 LSPSTITCH_TOOL_PROVIDER = "lspstitch"
 INTERAS_TOOL_PROVIDER = "interas"
+PERDOM_TOOL_PROVIDER = "perdom"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8441,6 +8442,47 @@ def interas_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=INTERAS_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def perdom_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5152 Per-Domain Path Computation COMPUTE/DOMAIN route.
+
+    Provider ``perdom`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="perdom",
+        description=(
+            "Drive a first-class RFC 5152 session: bind a loopback Per-Domain Path "
+            "Computation origin, send a COMPUTE "
+            "with a non-empty perdomid, lockstep a DOMAIN that carries the stored "
+            "perdomdigest, independently poll the stored perdomdigest on a later "
+            "client socket, and read the sealed perdomdigest. PERDOMID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "compute": {"type": "boolean"},
+                "domain": {"type": "boolean"},
+                "perdomdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_perdomid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PERDOM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

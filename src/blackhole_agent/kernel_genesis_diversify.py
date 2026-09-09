@@ -1117,6 +1117,11 @@ from blackhole_agent.perdom_actuation import (
     PERDOM_ACTUATION_GOAL,
     PERDOM_ACTUATION_ID,
 )
+from blackhole_agent.pcep_actuation import (
+    PCEP_ACTUATION_DONE_WHEN,
+    PCEP_ACTUATION_GOAL,
+    PCEP_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2437,6 +2442,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PERDOM_ACTUATION_GOAL,
         "done_when": PERDOM_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_perdom",
+    },
+    {
+        "id": PCEP_ACTUATION_ID,
+        "goal": PCEP_ACTUATION_GOAL,
+        "done_when": PCEP_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_pcep",
     },
 )
 

@@ -828,6 +828,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc5152",
         "perdomid",
         "perdomdigest",
+        "pcep",
+        "rfc5440",
+        "pcepid",
+        "pcepdigest",
     }
 )
 _IMPACT_MARKERS = (
