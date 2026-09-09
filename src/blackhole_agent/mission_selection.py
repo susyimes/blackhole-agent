@@ -892,6 +892,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6388",
         "smpid",
         "smpdigest",
+        "fmoam",
+        "rfc6427",
+        "fmoamid",
+        "fmoamdigest",
     }
 )
 _IMPACT_MARKERS = (

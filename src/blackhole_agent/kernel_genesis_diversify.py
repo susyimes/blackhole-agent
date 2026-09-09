@@ -1187,6 +1187,11 @@ from blackhole_agent.smp_actuation import (
     SMP_ACTUATION_GOAL,
     SMP_ACTUATION_ID,
 )
+from blackhole_agent.fmoam_actuation import (
+    FMOAM_ACTUATION_DONE_WHEN,
+    FMOAM_ACTUATION_GOAL,
+    FMOAM_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2591,6 +2596,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": SMP_ACTUATION_GOAL,
         "done_when": SMP_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_smp",
+    },
+    {
+        "id": FMOAM_ACTUATION_ID,
+        "goal": FMOAM_ACTUATION_GOAL,
+        "done_when": FMOAM_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_fmoam",
     },
 )
 
