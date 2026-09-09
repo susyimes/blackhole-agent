@@ -1013,6 +1013,7 @@ MPLSLSE_TOOL_PROVIDER = "mplslse"
 RSVPTE_TOOL_PROVIDER = "rsvpte"
 GMPLS_TOOL_PROVIDER = "gmpls"
 LMP_TOOL_PROVIDER = "lmp"
+LSPHIER_TOOL_PROVIDER = "lsphier"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -7894,6 +7895,47 @@ def lmp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=LMP_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def lsphier_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4206 LSP HIERARCHY FA/HIERARCHY route.
+
+    Provider ``lsphier`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="lsphier",
+        description=(
+            "Drive a first-class RFC 4206 session: bind a loopback LSP Hierarchy "
+            "origin, send a FA "
+            "with a non-empty lsphierid, lockstep a HIERARCHY that carries the stored "
+            "lsphierdigest, independently poll the stored lsphierdigest on a later "
+            "client socket, and read the sealed lsphierdigest. LSPHIERID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "fa": {"type": "boolean"},
+                "hierarchy": {"type": "boolean"},
+                "lsphierdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_lsphierid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=LSPHIER_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
