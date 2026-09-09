@@ -807,6 +807,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc4874",
         "exrouteid",
         "exroutedigest",
+        "p2mpte",
+        "rfc4875",
+        "p2mpteid",
+        "p2mptedigest",
     }
 )
 _IMPACT_MARKERS = (

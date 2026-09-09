@@ -1092,6 +1092,11 @@ from blackhole_agent.exroute_actuation import (
     EXROUTE_ACTUATION_GOAL,
     EXROUTE_ACTUATION_ID,
 )
+from blackhole_agent.p2mpte_actuation import (
+    P2MPTE_ACTUATION_DONE_WHEN,
+    P2MPTE_ACTUATION_GOAL,
+    P2MPTE_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2382,6 +2387,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": EXROUTE_ACTUATION_GOAL,
         "done_when": EXROUTE_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_exroute",
+    },
+    {
+        "id": P2MPTE_ACTUATION_ID,
+        "goal": P2MPTE_ACTUATION_GOAL,
+        "done_when": P2MPTE_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_p2mpte",
     },
 )
 

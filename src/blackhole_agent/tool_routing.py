@@ -1021,6 +1021,7 @@ ASON_TOOL_PROVIDER = "ason"
 GREC_TOOL_PROVIDER = "grec"
 E2EREC_TOOL_PROVIDER = "e2erec"
 SEGREC_TOOL_PROVIDER = "segrec"
+EXROUTE_TOOL_PROVIDER = "exroute"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8231,6 +8232,47 @@ def segrec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=SEGREC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def exroute_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 4874 Exclude Routes EXCLUDE/ROUTE route.
+
+    Provider ``exroute`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="exroute",
+        description=(
+            "Drive a first-class RFC 4874 session: bind a loopback Exclude "
+            "Routes origin, send an EXCLUDE "
+            "with a non-empty exrouteid, lockstep a ROUTE that carries the stored "
+            "exroutedigest, independently poll the stored exroutedigest on a later "
+            "client socket, and read the sealed exroutedigest. EXROUTEID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "exclude": {"type": "boolean"},
+                "route": {"type": "boolean"},
+                "exroutedigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_exrouteid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=EXROUTE_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )
