@@ -1132,6 +1132,11 @@ from blackhole_agent.dsct_actuation import (
     DSCT_ACTUATION_GOAL,
     DSCT_ACTUATION_ID,
 )
+from blackhole_agent.pathkey_actuation import (
+    PATHKEY_ACTUATION_DONE_WHEN,
+    PATHKEY_ACTUATION_GOAL,
+    PATHKEY_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2470,6 +2475,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": DSCT_ACTUATION_GOAL,
         "done_when": DSCT_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_dsct",
+    },
+    {
+        "id": PATHKEY_ACTUATION_ID,
+        "goal": PATHKEY_ACTUATION_GOAL,
+        "done_when": PATHKEY_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_pathkey",
     },
 )
 

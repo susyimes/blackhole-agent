@@ -1029,6 +1029,7 @@ INTERAS_TOOL_PROVIDER = "interas"
 PERDOM_TOOL_PROVIDER = "perdom"
 PCEP_TOOL_PROVIDER = "pcep"
 BRPC_TOOL_PROVIDER = "brpc"
+DSCT_TOOL_PROVIDER = "dsct"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -8571,6 +8572,47 @@ def brpc_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         tool_type="function",
     )
 
+
+
+def dsct_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 5455 Diffserv-aware Class-Type Object CLASS/TYPE route.
+
+    Provider ``dsct`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="dsct",
+        description=(
+            "Drive a first-class RFC 5455 session: bind a loopback Diffserv-aware "
+            "Class-Type Object origin, send a CLASS "
+            "with a non-empty dsctid, lockstep a TYPE that carries the stored "
+            "dsctdigest, independently poll the stored dsctdigest on a later "
+            "client socket, and read the sealed dsctdigest. DSCTID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "class": {"type": "boolean"},
+                "type": {"type": "boolean"},
+                "dsctdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_dsctid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=DSCT_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
