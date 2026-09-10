@@ -1046,6 +1046,7 @@ PCV_TOOL_PROVIDER = "pcv"
 LILB_TOOL_PROVIDER = "lilb"
 PWST_TOOL_PROVIDER = "pwst"
 MLDP_TOOL_PROVIDER = "mldp"
+MVPN_TOOL_PROVIDER = "mvpn"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9295,6 +9296,48 @@ def mldp_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         tool_type="function",
     )
 
+
+
+
+def mvpn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6513 Multicast in MPLS/BGP IP VPNs MVPN/CMCAST route.
+
+    Provider ``mvpn`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="mvpn",
+        description=(
+            "Drive a first-class RFC 6513 session: bind a loopback Multicast in MPLS/BGP IP "
+            "VPNs origin, send a MVPN "
+            "with a non-empty mvpnid, lockstep a CMCAST that carries the stored "
+            "mvpndigest, independently poll the stored mvpndigest on a later "
+            "client socket, and read the sealed mvpndigest. MVPNID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "mvpn": {"type": "boolean"},
+                "cmcast": {"type": "boolean"},
+                "mvpndigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_mvpnid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=MVPN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""

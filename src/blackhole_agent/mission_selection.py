@@ -918,6 +918,12 @@ _SURFACE_TOKENS = frozenset(
         "rfc6513",
         "mvpnid",
         "mvpndigest",
+        "cmcast",
+        "pmsi",
+        "rfc6514",
+        "pmsiid",
+        "pmsidigest",
+        "nlri",
     }
 )
 _IMPACT_MARKERS = (
