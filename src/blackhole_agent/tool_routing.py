@@ -382,6 +382,12 @@ def default_provider_harnesses() -> tuple[ProviderHarness, ...]:
             optional_extra_modules=("github_copilot",),
         ),
         ProviderHarness(
+            name="cursor-cli",
+            provider="cursor",
+            priority=16,
+            required_commands=("cursor-agent",),
+        ),
+        ProviderHarness(
             name="cursor-sdk",
             provider="cursor",
             priority=30,
@@ -461,7 +467,13 @@ def _provider_harness_status(
         if not _module_available(module, installed_modules):
             reasons.append(f"missing_optional_extra:{module}")
     for command in harness.required_commands:
-        if not _command_available(command, available_commands):
+        if command == "cursor-agent" and available_commands is None:
+            from blackhole_agent.kernels.cursor_cli import resolve_cursor_binary
+
+            available = bool(resolve_cursor_binary(environ=environ))
+        else:
+            available = _command_available(command, available_commands)
+        if not available:
             reasons.append(f"missing_dependency:{command}")
     for name in harness.required_env:
         if not str(environ.get(name) or "").strip():

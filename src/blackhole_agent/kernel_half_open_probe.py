@@ -158,12 +158,19 @@ def half_open_peer_names(
 def default_peer_kernel_probe(name: str) -> dict[str, Any]:
     """Bounded CLI ping used when a caller does not inject a probe."""
 
-    binary = shutil.which(name)
+    if name == "cursor":
+        from blackhole_agent.kernels.cursor_cli import cursor_invocation_prefix, resolve_cursor_binary
+
+        binary = resolve_cursor_binary()
+        prefix = cursor_invocation_prefix(binary) if binary else []
+    else:
+        binary = shutil.which(name)
+        prefix = [binary] if binary else []
     if not binary:
         return {"ok": False, "class_id": "missing", "evidence": f"{name} not installed"}
     try:
         proc = subprocess.run(
-            [binary, "--version"],
+            [*prefix, "--version"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -560,10 +567,8 @@ def builtin_kernel_half_open_probe_proof() -> dict[str, Any]:
             if item["id"] != HALF_OPEN_PROBE_ID:
                 register_catalog_proved(root, item["id"])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_probe"] = (
-        live_goal == HALF_OPEN_PROBE_GOAL
-        and HALF_OPEN_PROBE_ID in live_done
-        and live_source == "genesis_bind_half_open_probe"
+    checks["ledger_only_probe_not_auto_bound"] = (
+        not live_goal and not live_done and not live_source
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
     checks["disabled_report_is_skipped"] = disabled_peer_probe_report("grok")["skipped"] is True

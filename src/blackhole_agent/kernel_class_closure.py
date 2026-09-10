@@ -170,7 +170,9 @@ def load_effective_ledger(
 
     working = ledger
     if working is None:
-        path = default_ledger_path(Path(root))
+        from blackhole_agent.durable_state import durable_read_path
+
+        path = durable_read_path(default_ledger_path(Path(root)))
         if path.exists():
             try:
                 working = load_ledger(path)

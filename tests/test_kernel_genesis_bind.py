@@ -38,7 +38,7 @@ def test_consumed_campaign_needs_genesis_bind():
     assert genesis_bind_is_needed(remaining) is False
 
 
-def test_hydrate_consumed_campaign_skips_genesis(tmp_path: Path):
+def test_hydrate_consumed_campaign_leaves_genesis_open_without_qualified_outcome(tmp_path: Path):
     save_campaign(
         tmp_path,
         LocalCampaign(
@@ -72,9 +72,9 @@ def test_hydrate_consumed_campaign_skips_genesis(tmp_path: Path):
         {"head": "abc", "status": "", "diff_stat": "", "recent_commits": "abc seed"},
         state_path=tmp_path / "state.json",
     )
-    assert "Mission genesis is still open" not in prompt
-    assert KERNEL_GENESIS_BIND_GOAL in prompt
-    assert state.stage == "execution"
+    assert "Mission genesis is still open" in prompt
+    assert state.goal == ""
+    assert state.stage == "genesis"
 
 
 def test_classify_selection_rejection_is_genesis_selection_blocked():
@@ -96,17 +96,15 @@ def test_builtin_proof_binds_gate_passing_successor():
     assert report["action"] == "kernel_genesis_bind"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
-    assert report["checks"]["hydrate_fills_empty_genesis"]
-    assert report["checks"]["class_closed_bind_fills_successor"]
-    assert report["checks"]["unscoped_remaining_still_wins"]
-    assert report["checks"]["proved_catalog_item_skips_to_next"]
+    assert report["checks"]["rejects_ledger_only_candidate"]
+    assert report["checks"]["binds_qualified_candidate"]
+    assert report["checks"]["remaining_campaign_not_overwritten"]
+    assert report["checks"]["preserves_operator_fields"]
     assert KERNEL_GENESIS_BIND_ID in LOCAL_DENYLIST
     assert class_closure_ids(GENESIS_SELECTION_BLOCKED) == (KERNEL_GENESIS_BIND_ID,)
     assert KERNEL_GENESIS_BIND_ID in leftover_marker_ids(KERNEL_GENESIS_BIND_GOAL)
     assert KERNEL_GENESIS_BIND_DONE_WHEN in report["done_when"]
     assert CONSUMED_GROWTH_GOAL
     assert LOCAL_KERNEL == "local"
-    assert report["checks"]["open_selection_class_binds_closer_not_sovereignty"]
-    assert report["checks"]["stale_checkout_still_closes_class"]
-    assert report["checks"]["stale_checkout_binds_growth_not_sovereignty"]
-    assert report["checks"]["stale_create_bind_uses_growth"]
+    assert report["checks"]["legacy_catalog_leaves_genesis_open"]
+    assert report["checks"]["no_unproved_auto_binding"]

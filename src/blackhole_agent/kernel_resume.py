@@ -354,7 +354,7 @@ def builtin_kernel_resume_proof() -> dict[str, Any]:
 
     keep_goal = _State(Path("."), goal="Operator goal")
     save_target = Path(".")
-    keep_report = hydrate_mission_from_campaign(keep_goal, repo_path=save_target)
+    hydrate_mission_from_campaign(keep_goal, repo_path=save_target)
     checks["preserves_operator_goal"] = keep_goal.goal == "Operator goal"
 
     with tempfile.TemporaryDirectory(prefix="kernel-resume-keep-done-") as tmp:
@@ -379,11 +379,10 @@ def builtin_kernel_resume_proof() -> dict[str, Any]:
         save_campaign(root, finished)
         skipped = _State(root)
         skip_report = hydrate_mission_from_campaign(skipped)
-    checks["finished_campaign_binds_successor"] = (
-        skip_report["applied"] is True
-        and skipped.stage == "execution"
-        and bool(skipped.goal)
-        and str(skip_report.get("source") or "").startswith("genesis_bind")
+    checks["finished_campaign_waits_for_qualified_successor"] = (
+        skip_report["applied"] is False
+        and skipped.stage == "genesis"
+        and not skipped.goal
     )
 
     with tempfile.TemporaryDirectory(prefix="kernel-resume-durable-") as tmp:
@@ -522,9 +521,9 @@ def builtin_kernel_resume_proof() -> dict[str, Any]:
         blocked = hydrate_mission_from_campaign(after)
     checks["consume_prevents_rebind"] = (
         consumed is True
-        and blocked["applied"] is True
+        and blocked["applied"] is False
         and after.goal != unfinished.goal
-        and str(blocked.get("source") or "").startswith("genesis_bind")
+        and after.stage == "genesis"
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

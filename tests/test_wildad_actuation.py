@@ -592,7 +592,6 @@ from blackhole_agent.wildad_actuation import (
     DEFAULT_WILDDIGEST,
     DEFAULT_SOURCE,
     EMPTY_WILDID,
-    FRAME_DEST,
     FRAME_SOURCE,
     WILDAD_ACTUATION_DONE_WHEN,
     WILDAD_ACTUATION_GOAL,
@@ -1383,14 +1382,15 @@ def test_builtin_proof_seals_wildad_actuation() -> None:
     assert "ad" in capability.tags
 
 
-def test_selection_gate_accepts_wildad_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_wildad_outcome(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         WILDAD_ACTUATION_GOAL,
         WILDAD_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert any("ledger registration/self-proof" in reason for reason in gate.reasons)
     assert gate.scalar_extension is False
     family = capability_family(WILDAD_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))

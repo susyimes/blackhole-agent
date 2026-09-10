@@ -36,6 +36,7 @@ from blackhole_agent.kernel_health import (
 
 FAILOVER_CLASSES = TRIP_CLASSES
 ARTIFACT_NAMES = (
+    "latest-cursor-run.json",
     "latest-grok-run.json",
     "latest-kimi-run.json",
     "latest-codex-run.json",
@@ -173,11 +174,12 @@ def classify_run_artifact(artifact: dict[str, Any], *, error: str = "") -> Kerne
     )
 
 
-def load_kernel_run_artifact(turn_dir: Path) -> dict[str, Any]:
+def load_kernel_run_artifact(turn_dir: Path, *, kernel: str = "") -> dict[str, Any]:
     kernel_dir = turn_dir / "kernel"
     if not kernel_dir.is_dir():
         return {}
-    for name in ARTIFACT_NAMES:
+    names = (f"latest-{kernel}-run.json",) if kernel in {*CLI_FAILOVER_ORDER, LOCAL_KERNEL} else ARTIFACT_NAMES
+    for name in names:
         path = kernel_dir / name
         if not path.is_file():
             continue
@@ -192,7 +194,12 @@ def load_kernel_run_artifact(turn_dir: Path) -> dict[str, Any]:
 
 
 def installed_first_class_kernels(*, which: Callable[[str], str | None] = shutil.which) -> set[str]:
-    return {name for name in CLI_FAILOVER_ORDER if which(name)}
+    from blackhole_agent.kernels.cursor_cli import resolve_cursor_binary
+
+    installed = {name for name in CLI_FAILOVER_ORDER if name != "cursor" and which(name)}
+    if resolve_cursor_binary(which=which):
+        installed.add("cursor")
+    return installed
 
 
 def select_failover_kernel(
@@ -227,6 +234,7 @@ def empty_decision(**overrides: Any) -> dict[str, Any]:
         "capability_delta": "",
         "outcome_evidence": [],
         "validation": [],
+        "acceptance_probe": "",
         "done_when_met": False,
         "commit_message": "",
         "mission_goal": "",
@@ -295,6 +303,8 @@ def salvage_kernel_failure(
     if not blob:
         blob = str(artifact.get("stdout_tail") or "")
     parsed = try_extract_json_decision(blob)
+    if current_kernel == "cursor" and artifact.get("decision_final") is not True:
+        parsed = None
     if parsed:
         return KernelSalvage(
             class_id="decision_salvaged",
@@ -360,6 +370,8 @@ def _switch_kernel(state: Any, kernel: str) -> None:
         state.kernel = kernel
         state.session_id = ""
         state.session_started = False
+        if hasattr(state, "model"):
+            state.model = None  # Provider-specific model names cannot cross a failover route.
 
 
 def execute_kernel_turn_with_salvage(
@@ -494,7 +506,10 @@ def execute_kernel_turn_with_salvage(
                 state.session_id = kernel_result.session_id or state.session_id
                 state.session_started = bool(state.session_id) or state.session_started
             tried.add(state.kernel)
-            artifact = load_kernel_run_artifact(turn_dir)
+            artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
+            if state.kernel == "cursor" and artifact.get("session_id"):
+                state.session_id = str(artifact["session_id"])
+                state.session_started = True
             salvaged = salvage_kernel_failure(
                 error=error,
                 current_kernel=state.kernel,

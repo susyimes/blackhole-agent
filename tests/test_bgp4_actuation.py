@@ -320,7 +320,6 @@ from blackhole_agent.bgp4_actuation import (
     DEFAULT_BGP4DIGEST,
     DEFAULT_SOURCE,
     EMPTY_BGP4ID,
-    FRAME_DEST,
     FRAME_SOURCE,
     BGP4_ACTUATION_DONE_WHEN,
     BGP4_ACTUATION_GOAL,
@@ -857,7 +856,7 @@ def test_builtin_proof_seals_bgp4_actuation() -> None:
     assert report["checks"]["workflow_records_bgp4digest"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_bgp4"]
+    assert report["checks"]["ledger_only_bgp4_not_auto_bound"]
     assert report["checks"]["catalog_names_addrselect"]
     assert report["checks"]["catalog_names_addrpolicy"]
     assert report["checks"]["catalog_names_firsthop"]
@@ -911,14 +910,15 @@ def test_builtin_proof_seals_bgp4_actuation() -> None:
     assert "update" in capability.tags
 
 
-def test_selection_gate_accepts_bgp4_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_bgp4_outcome(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         BGP4_ACTUATION_GOAL,
         BGP4_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert any("ledger registration/self-proof" in reason for reason in gate.reasons)
     assert gate.scalar_extension is False
     family = capability_family(BGP4_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))

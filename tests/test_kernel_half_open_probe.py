@@ -81,7 +81,7 @@ def test_builtin_proof_pings_half_open_peers_without_hijacking_mission() -> None
     assert report["checks"]["recovers_healthy_peer"]
     assert report["checks"]["retrips_quota_peer"]
     assert report["checks"]["does_not_hijack_requested_kernel"]
-    assert report["checks"]["exhausted_catalog_binds_probe"]
+    assert report["checks"]["ledger_only_probe_not_auto_bound"]
     assert report["mission_goal"] == HALF_OPEN_PROBE_GOAL
     assert report["done_when"] == HALF_OPEN_PROBE_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))
@@ -95,7 +95,7 @@ def test_selection_gate_accepts_peer_probe_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         HALF_OPEN_PROBE_GOAL,
-        HALF_OPEN_PROBE_DONE_WHEN,
+        "A half-open peer recovers after a successful ping, without changing the serving mission kernel.",
         history=(),
     )
     assert gate.accepted is True

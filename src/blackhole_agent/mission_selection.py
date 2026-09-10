@@ -16,6 +16,8 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Sequence
 
+from blackhole_agent.evolution_quality import behavior_family, ledger_only_contract
+
 DEFAULT_HISTORY_LIMIT = 24
 REPETITION_WINDOW = 8
 DIVERSITY_WINDOW = 6
@@ -1011,6 +1013,10 @@ def semantic_signature(text: str) -> str:
 
 
 def capability_family(text: str) -> str:
+    """Lexical catalog label (kept for historical descriptor/proof compatibility).
+
+    Selection uses behavior_family first; a lexical name is not novelty evidence.
+    """
     tokens = semantic_tokens(text)
     token_set = set(tokens)
     domains = [name for name, markers in _DOMAIN_GROUPS if token_set & markers]
@@ -1105,7 +1111,7 @@ def load_recent_mission_history(
                 mission_id=mission_id or path.parent.name,
                 goal=goal,
                 signature=signature,
-                capability_family=capability_family(goal),
+                capability_family=behavior_family(goal) or capability_family(goal),
                 status=str(state.get("status") or ""),
             )
         )
@@ -1128,7 +1134,7 @@ def assess_mission_selection(
     text = " ".join(part for part in (proposed_goal, proposed_done) if part)
     signature = semantic_signature(proposed_goal or proposed_done)
     goal_tokens = semantic_tokens(proposed_goal)
-    family = capability_family(proposed_goal or proposed_done)
+    family = behavior_family(proposed_goal or proposed_done) or capability_family(proposed_goal or proposed_done)
     recent = list(
         history
         if history is not None
@@ -1138,8 +1144,9 @@ def assess_mission_selection(
         entry.mission_id
         for entry in recent[:REPETITION_WINDOW]
         if semantic_similarity(signature, entry.signature) >= 0.82
+        or (behavior_family(proposed_goal) and behavior_family(proposed_goal) == behavior_family(entry.goal))
     )
-    recent_families = tuple(entry.capability_family for entry in recent[:DIVERSITY_WINDOW])
+    recent_families = tuple(behavior_family(entry.goal) or entry.capability_family for entry in recent[:DIVERSITY_WINDOW])
     family_count = sum(1 for item in recent_families if item == family)
     scalar_extension = is_scalar_extension(text)
     lowered = text.lower()
@@ -1163,6 +1170,8 @@ def assess_mission_selection(
         reasons.append("missing_mission_goal")
     if not proposed_done:
         reasons.append("missing_done_when")
+    if ledger_only_contract(proposed_done):
+        reasons.append("marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract")
     if proposed_goal and (len(goal_tokens) < 3 or proposed_goal.lower() in {"none", "mission complete"}):
         reasons.append("marginal_value_gate: mission goal lacks a substantive outcome")
     if repetition_matches:
@@ -1201,6 +1210,8 @@ def render_mission_selection_guard(repo_path: Path) -> str:
             "- Repetition: reject semantic near-duplicates of recent completed missions, even when only numbers or depth change.",
             "- Marginal value: reject scalar-only extensions; require a materially new behavior, operational repair, or measurable outcome.",
             "- Capability diversity: reject families already selected at least three times in the last six missions.",
+            "- Renamed handshake/digest demos are one behavior family, regardless of protocol/RFC names.",
+            "- Ledger existence/proof flags alone cannot be an autonomous done_when; require observable acceptance.",
             f"- Recently saturated capability families: {saturated_text}",
             "Choose a different capability surface and provide an outcome-level, machine-checkable done_when. "
             f"After {SELECTION_REJECTION_LIMIT} consecutive rejected genesis choices, this mission is blocked so the loop can rotate.",

@@ -27,6 +27,13 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.durable_state import durable_overlay_session
+from blackhole_agent.behavior_acceptance import replay_behavior_acceptance
+from blackhole_agent.evolution_quality import (
+    content_fingerprint,
+    find_renamed_implementations,
+    ledger_only_contract,
+    record_local_progress,
+)
 from blackhole_agent.experience_fuel import render_experience_for_genesis
 from blackhole_agent.kernel_resume import (
     bind_create_fields,
@@ -99,6 +106,7 @@ from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.capability_repair import run_repair_plane
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel
+from blackhole_agent.kernels.cursor_cli import CursorCliConfig, CursorCliKernel
 from blackhole_agent.tool_routing import (
     ProviderHarness,
     default_provider_harnesses,
@@ -121,7 +129,7 @@ DEFAULT_CONTINUOUS_INTERVAL_SECONDS = 1800
 WORKTREE_SETUP_TIMEOUT_SECONDS = 15 * 60
 MISSION_STATUSES = frozenset({"active", "complete", "blocked", "stopped"})
 TURN_STATUSES = frozenset({"continue", "milestone", "complete", "blocked"})
-KERNELS = frozenset({"codex", "grok", "kimi"})
+KERNELS = frozenset({"codex", "grok", "kimi", "cursor"})
 AUTO_KERNEL = "auto"
 LOCAL_KERNEL = "local"
 KERNEL_CHOICES = frozenset({*KERNELS, AUTO_KERNEL, LOCAL_KERNEL})
@@ -174,6 +182,9 @@ class UnboundMission:
     next_step: str = ""
     last_summary: str = ""
     last_error: str = ""
+    operator_supplied: bool = False
+    selection_checked: bool = False
+    local_no_progress_count: int = 0
     recent_turns: list[dict[str, Any]] = field(default_factory=list)
     milestones: list[dict[str, Any]] = field(default_factory=list)
 
@@ -199,6 +210,7 @@ class TurnDecision:
     commit_message: str
     mission_goal: str
     done_when: str
+    acceptance_probe: str = ""
 
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "TurnDecision":
@@ -219,6 +231,7 @@ class TurnDecision:
             commit_message=str(payload.get("commit_message") or "").strip(),
             mission_goal=str(payload.get("mission_goal") or "").strip(),
             done_when=str(payload.get("done_when") or "").strip(),
+            acceptance_probe=str(payload.get("acceptance_probe") or "").strip(),
         )
 
 
@@ -727,7 +740,8 @@ def publish_lineage(
 def unbound_kernel_harnesses() -> tuple[ProviderHarness, ...]:
     """First-class CLI kernel harnesses in catalog priority order."""
 
-    return tuple(harness for harness in default_provider_harnesses() if harness.provider in KERNELS)
+    return tuple(harness for harness in default_provider_harnesses()
+                 if harness.provider in KERNELS and harness.name.endswith("-cli"))
 
 
 def resolve_unbound_kernel(
@@ -761,7 +775,7 @@ def resolve_unbound_kernel(
     )
     if selection.selected is None:
         skips = {status.harness.name: list(status.skip_reasons) for status in selection.statuses}
-        raise ValueError(f"no first-class CLI kernel (codex, grok, kimi) is installed: {skips}")
+        raise ValueError(f"no first-class CLI kernel (codex, grok, kimi, cursor) is installed: {skips}")
     resolved = selection.selected.provider
     return resolved, {
         "mode": "auto",
@@ -863,6 +877,7 @@ def create_mission(
 
     repo_path = repo_path.resolve()
     kernel, kernel_resolution = kernel_resolver(kernel)
+    operator_supplied = bool(goal.strip())
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
     run_command(
@@ -931,6 +946,7 @@ def create_mission(
         target_branch=target_branch,
         goal=goal.strip(),
         done_when=done_when.strip(),
+        operator_supplied=operator_supplied,
         status="active",
         stage="execution" if goal.strip() and done_when.strip() else "genesis",
         kernel=kernel,
@@ -1101,6 +1117,8 @@ Operating model:
 - Git, commits, pushes, and restarts are available capabilities, not forbidden actions. The controller records
   milestone commits only when you report a demonstrated capability delta; avoid meaningless checkpoint commits.
 - Tests, lint, documents, and artifacts are supporting evidence. They are not a capability milestone by themselves.
+- Protocol renaming, ledger proof flags and cloned loopback demos are not new capability outcomes.
+- Keep the bound done_when unchanged; show real acceptance evidence instead of weakening the mission contract.
 - Work autonomously now: inspect, edit, run, and validate. Do not return a plan-only answer unless blocked.
 - Keep the final response compact. Repository context should be read on demand instead of copied into the response.
 
@@ -1111,6 +1129,11 @@ Milestone semantics:
 - status=blocked: progress genuinely cannot continue without an external state change.
 - milestone/complete require a non-empty capability_delta, outcome_evidence, and at least one changed behavior path
   outside docs/tests/artifacts. Passing tests alone is not enough.
+- Autonomous milestones also require acceptance_probe: a standalone tests/acceptance/*.py script that prints
+  JSON with boolean passed and nonempty observed (exit 0 for both met and unmet outcomes). The controller runs
+  the SAME probe on the previous milestone's src and candidate src in fresh subprocesses: baseline must report
+  passed=false and candidate passed=true. Crashes/timeouts do not count. Test a user-visible behavior or a reference
+  peer/standard fixture, not a ledger entry, builtin self-proof flag, source path or version. Do not weaken done_when.
 - The controller re-executes every validation command you report with exit_code 0 inside the mission workspace
   before accepting a milestone. A claim that does not reproduce (non-zero exit, timeout) is rejected, so report
   only exact commands you actually ran successfully, and prefer fast targeted commands over full suites.
@@ -1126,6 +1149,7 @@ Return only one JSON object with exactly this shape:
   "capability_delta": "new working ability; empty when none is demonstrated yet",
   "outcome_evidence": ["path, command result, benchmark, or observable behavior"],
   "validation": [{{"command": "exact command", "exit_code": 0, "summary": "what it proved"}}],
+  "acceptance_probe": "tests/acceptance/test_real_outcome.py; required for autonomous milestone/complete",
   "done_when_met": false,
   "commit_message": "semantic milestone message; optional unless milestone/complete"
 }}
@@ -1208,6 +1232,18 @@ def invoke_kernel_turn(
             session_id=result.session_id or state.session_id,
             command=tuple(result.command),
             result_path=str(result.result_path),
+        )
+    if state.kernel == "cursor":
+        cursor_config = CursorCliConfig(
+            model=state.model,
+            resume_session_id=state.session_id if state.session_started and state.session_id else None,
+        )
+        cursor_result = CursorCliKernel(cursor_config, command_runner=command_runner).run(
+            prompt, cwd=workspace, output_dir=kernel_dir, timeout_seconds=state.timeout_seconds,
+        )
+        return KernelTurnResult(
+            kernel="cursor", last_message=cursor_result.last_message, session_id=cursor_result.session_id,
+            command=tuple(cursor_result.command), result_path=str(cursor_result.result_path),
         )
     if state.kernel == "codex":
         config = CodexCliConfig(
@@ -1489,6 +1525,8 @@ def evaluate_milestone(
     kernel: str = "",
     command_runner: Callable[..., Any] | None = None,
     replay_timeout: int | None = None,
+    autonomous: bool = False,
+    baseline_ref: str = "",
 ) -> MilestoneGate:
     # Prefer worktree bytecode after agent edits within this tick.
     cc = reload_worktree_compounder() if workspace is not None else None
@@ -1514,9 +1552,31 @@ def evaluate_milestone(
         from blackhole_agent.kernel_finality import waive_git_milestone_for_local_finality
 
         waive = bool(waive_git_milestone_for_local_finality(decision, kernel))
+        if waive and workspace is not None:
+            from blackhole_agent.kernel_finality import can_finalize_local_campaign
+            from blackhole_agent.local_mission_sovereignty import load_campaign, evaluate_campaign_contract
+
+            campaign = load_campaign(workspace)
+            original_contract = mission_done_when or decision.done_when
+            verified_contract = evaluate_campaign_contract(
+                load_ledger(default_ledger_path(workspace)), original_contract,
+                completed_ids=tuple(campaign.completed_ids),
+                mission_plane_ok=bool((campaign.handoff or {}).get("mission_plane_ok")),
+            )
+            waive = (campaign.done_when == original_contract
+                     and can_finalize_local_campaign(verified_contract, campaign))
     except Exception:  # noqa: BLE001 - missing finality helper must not block the gate
         waive = False
     reasons: list[str] = []
+    if autonomous:
+        # A local campaign may not waive acceptance of an autonomous capability
+        # mission merely by closing an unrelated inventory/program contract.
+        waive = False
+        if ledger_only_contract(mission_done_when or decision.done_when):
+            reasons.append("ledger registration/self-proof alone does not demonstrate the mission outcome")
+        if workspace is not None and behavior_paths:
+            for match in find_renamed_implementations(workspace, behavior_paths, baseline_ref=baseline_ref):
+                reasons.append(f"renamed implementation lacks marginal behavior value: {match}")
     if not changed_paths and not waive:
         reasons.append("no repository change exists since the previous milestone")
     if not behavior_paths and not waive:
@@ -1528,8 +1588,18 @@ def evaluate_milestone(
     if not successful_validation(decision.validation) and not waive:
         reasons.append("no successful exact validation command was reported")
     validation_replays: list[dict[str, Any]] = []
+    if autonomous:
+        if not decision.acceptance_probe:
+            reasons.append("autonomous milestone requires a before/after acceptance_probe under tests/acceptance")
+        elif workspace is not None and not reasons:
+            acceptance = replay_behavior_acceptance(workspace, baseline_ref, decision.acceptance_probe)
+            validation_replays.append({"command": "controller:behavior-acceptance", **acceptance})
+            if not acceptance["ok"]:
+                reasons.append(f"behavior acceptance failed: {acceptance.get('error', 'unknown outcome')}")
+        elif workspace is None:
+            reasons.append("autonomous acceptance requires an actual workspace and baseline commit")
     if workspace is not None and successful_validation(decision.validation) and not waive:
-        validation_replays = reproduce_validation(
+        validation_replays += reproduce_validation(
             workspace,
             decision.validation,
             timeout=replay_timeout if replay_timeout is not None else VALIDATION_REPLAY_TIMEOUT_SECONDS,
@@ -1728,6 +1798,8 @@ def run_unbound_turn(
         turn_dir = state_path.parent / "turns" / f"{iteration:04d}"
         turn_dir.mkdir(parents=True, exist_ok=True)
         snapshot = repository_snapshot(state, command_runner=command_runner)
+        before_paths = changed_paths_since(workspace, state.last_milestone_head, command_runner=command_runner)
+        before_fingerprint = content_fingerprint(workspace, [p for p in before_paths if is_behavior_path(p)])
         prompt = build_turn_prompt(state, snapshot, state_path=state_path)
         (turn_dir / "prompt.md").write_text(prompt, encoding="utf-8")
 
@@ -1742,20 +1814,23 @@ def run_unbound_turn(
 
         selection_gate = None
         selection_rejection_count = 0
-        if state.stage == "genesis":
-            proposed_goal = decision.mission_goal or state.goal
-            proposed_done_when = decision.done_when or state.done_when
+        contract_changed = bool(state.stage == "execution" and state.done_when and decision.done_when
+                                and decision.done_when.strip() != state.done_when.strip())
+        if state.stage == "genesis" or not state.selection_checked:
+            proposed_goal = state.goal or decision.mission_goal
+            proposed_done_when = state.done_when or decision.done_when
             selection_gate = assess_mission_selection(
                 Path(state.repo_path),
                 proposed_goal,
                 proposed_done_when,
                 exclude_mission_id=state.mission_id,
-                forced=bool(state.goal.strip()),
+                forced=state.operator_supplied,
             )
             if selection_gate.accepted:
                 state.goal = proposed_goal
                 state.done_when = proposed_done_when
                 state.stage = "execution"
+                state.selection_checked = True
             else:
                 selection_rejection_count = 1
                 for prior in reversed(state.recent_turns):
@@ -1763,10 +1838,6 @@ def run_unbound_turn(
                     if not isinstance(prior_gate, dict) or prior_gate.get("accepted") is not False:
                         break
                     selection_rejection_count += 1
-        elif decision.done_when:
-            # Execution-stage agents may refine the completion contract (e.g.
-            # to match the outcome-parser grammar); adopt it before gating.
-            state.done_when = decision.done_when
 
         changed_paths = changed_paths_since(
             workspace,
@@ -1779,7 +1850,16 @@ def run_unbound_turn(
             workspace=workspace,
             mission_done_when=state.done_when,
             kernel=kernel_result.kernel,
+            autonomous=not state.operator_supplied,
+            baseline_ref=state.last_milestone_head,
         )
+        if contract_changed:
+            gate = MilestoneGate(
+                requested=gate.requested, accepted=False,
+                reasons=(*gate.reasons, "bound done_when cannot be replaced by an execution-stage decision"),
+                changed_paths=gate.changed_paths, behavior_paths=gate.behavior_paths,
+                validation_replay=gate.validation_replay,
+            )
         effective_status = decision.status
         if selection_gate is not None and not selection_gate.accepted:
             gate = MilestoneGate(
@@ -1793,7 +1873,8 @@ def run_unbound_turn(
             effective_status = "blocked" if selection_rejection_count >= SELECTION_REJECTION_LIMIT else "continue"
         commit_sha = ""
         milestone_number = state.milestone_count + 1
-        skip_commit = gate.accepted and decision.status == "complete" and str(kernel_result.kernel or "") == "local"
+        skip_commit = (gate.accepted and decision.status == "complete"
+                       and str(kernel_result.kernel or "") == "local" and not changed_paths)
         if gate.requested and not gate.accepted:
             effective_status = (
                 "blocked"
@@ -1837,6 +1918,13 @@ def run_unbound_turn(
                     {"event": "mission.milestone", "mission_id": state.mission_id, **milestone},
                 )
 
+        after_fingerprint = content_fingerprint(workspace, [p for p in changed_paths if is_behavior_path(p)])
+        progress = record_local_progress(
+            state, kernel=kernel_result.kernel, before=before_fingerprint,
+            after=after_fingerprint, milestone=bool(commit_sha),
+        )
+        if progress["blocked"] and effective_status != "complete":
+            effective_status = "blocked"
         if effective_status == "complete":
             state.status = "complete"
             try:
@@ -1870,7 +1958,13 @@ def run_unbound_turn(
             state.current_strategy = decision.strategy
             state.next_step = decision.next_step
             state.last_summary = decision.summary
-        state.last_error = ""
+        state.last_error = (
+            f"local fallback made no behavior-content progress for {state.local_no_progress_count} consecutive turns; "
+            "worktree preserved; restore a CLI kernel or revise the mission before resuming"
+            if progress["blocked"] else ""
+        )
+        if progress["blocked"]:
+            state.next_step = state.last_error
 
         record = {
             "schema_version": SCHEMA_VERSION,
@@ -1887,6 +1981,7 @@ def run_unbound_turn(
             "capability_delta": decision.capability_delta,
             "outcome_evidence": list(decision.outcome_evidence),
             "validation": list(decision.validation),
+            "acceptance_probe": decision.acceptance_probe,
             "done_when_met": decision.done_when_met,
             "mission_goal": state.goal,
             "done_when": state.done_when,
@@ -1896,6 +1991,7 @@ def run_unbound_turn(
             "command": list(kernel_result.command),
             "kernel_result_path": kernel_result.result_path,
             "kernel_salvage": salvage_meta,
+            "progress_watchdog": progress,
             "selection_gate": selection_gate.to_dict() if selection_gate is not None else None,
             "selection_rejection_count": selection_rejection_count,
         }
@@ -2752,7 +2848,7 @@ def start(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve."),
     goal: str = typer.Option("", "--goal", help="Mission goal. Leave blank for autonomous genesis."),
     done_when: str = typer.Option("", "--done-when", help="Outcome-level completion contract."),
-    kernel: str = typer.Option(AUTO_KERNEL, "--kernel", help="Execution kernel: auto (detect installed), grok, kimi, or codex."),
+    kernel: str = typer.Option(AUTO_KERNEL, "--kernel", help="Execution kernel: auto (detect installed), grok, kimi, cursor, or codex."),
     model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
     profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
     target_branch: str = typer.Option("main", "--target-branch", help="Branch used as the mission base."),
@@ -2841,7 +2937,7 @@ def run(
 @app.command(help="Continuously run autonomous missions with a delay between completed missions.")
 def loop(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository to evolve continuously."),
-    kernel: str = typer.Option(AUTO_KERNEL, "--kernel", help="Execution kernel: auto (detect installed), grok, kimi, or codex."),
+    kernel: str = typer.Option(AUTO_KERNEL, "--kernel", help="Execution kernel: auto (detect installed), grok, kimi, cursor, or codex."),
     model: str | None = typer.Option(None, "--model", "-m", help="Optional model route."),
     profile: str | None = typer.Option(None, "--profile", help="Optional Codex profile."),
     target_branch: str = typer.Option("main", "--target-branch", help="Initial lineage base."),

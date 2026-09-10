@@ -124,7 +124,6 @@ from blackhole_agent.icmp_actuation import (
     DEFAULT_ICMPDIGEST,
     DEFAULT_ECHO,
     EMPTY_ICMPID,
-    FRAME_REPLY,
     FRAME_ECHO,
     ICMP_ACTUATION_DONE_WHEN,
     ICMP_ACTUATION_GOAL,
@@ -513,7 +512,7 @@ def test_builtin_proof_seals_icmp_actuation() -> None:
     assert report["checks"]["workflow_records_icmpdigest"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_icmp"]
+    assert report["checks"]["ledger_only_icmp_not_auto_bound"]
     assert report["checks"]["catalog_names_icmp"]
     assert report["checks"]["catalog_names_ip"]
     assert report["checks"]["leftover_text_binds_icmp"]
@@ -531,14 +530,15 @@ def test_builtin_proof_seals_icmp_actuation() -> None:
     assert "echo" in capability.tags
 
 
-def test_selection_gate_accepts_icmp_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_icmp_outcome(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         ICMP_ACTUATION_GOAL,
         ICMP_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert any("ledger registration/self-proof" in reason for reason in gate.reasons)
     assert gate.scalar_extension is False
     family = capability_family(ICMP_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))

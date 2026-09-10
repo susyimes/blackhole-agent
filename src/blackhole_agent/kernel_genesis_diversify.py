@@ -17,6 +17,22 @@ This module closes that hole:
 
 from __future__ import annotations
 
+# Compatibility exports used by existing capability proofs. Keep them explicit
+# while the selector's own proof now checks outcomes rather than catalog names.
+from blackhole_agent.kernel_genesis_bind import (
+    KERNEL_GENESIS_BIND_GOAL as KERNEL_GENESIS_BIND_GOAL,
+    PROGRAM_WEAVE_GOAL as PROGRAM_WEAVE_GOAL,
+    PROGRAM_WEAVE_ID as PROGRAM_WEAVE_ID,
+    _State as _State,
+    _unscoped_remaining_campaign as _unscoped_remaining_campaign,
+    _write_forage_history as _write_forage_history,
+    bind_gate_passing_successor as bind_gate_passing_successor,
+)
+from blackhole_agent.kernel_leftover import leftover_marker_ids as leftover_marker_ids
+from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST as LOCAL_DENYLIST
+from blackhole_agent.local_mission_sovereignty import bind_local_mission as bind_local_mission
+from blackhole_agent.mission_selection import semantic_similarity as semantic_similarity
+
 import tempfile
 from pathlib import Path
 from typing import Any, Sequence
@@ -34,7 +50,6 @@ from blackhole_agent.kernel_genesis_bind import (
     COMPOUND_LOOP_ID,
     COMPOSED_PROGRAM_ID,
     CONSUMED_GROWTH_ID,
-    KERNEL_GENESIS_BIND_GOAL,
     KERNEL_GENESIS_BIND_ID,
     PRIMITIVE_COMPOSE_ID,
     PROGRAM_FABRIC_GOAL,
@@ -44,19 +59,12 @@ from blackhole_agent.kernel_genesis_bind import (
     PROGRAM_STACK_ID,
     PROGRAM_TOWER_GOAL,
     PROGRAM_TOWER_ID,
-    PROGRAM_WEAVE_GOAL,
-    PROGRAM_WEAVE_ID,
-    _State,
     _catalog_item_open,
     _consumed_campaign,
     _register_proved,
-    _unscoped_remaining_campaign,
     _write_complete_mission,
-    _write_forage_history,
-    bind_gate_passing_successor,
     genesis_bind_is_needed,
 )
-from blackhole_agent.kernel_leftover import leftover_marker_ids
 from blackhole_agent.kernel_half_open_persist import (
     HALF_OPEN_PERSIST_DONE_WHEN,
     HALF_OPEN_PERSIST_GOAL,
@@ -1232,10 +1240,9 @@ from blackhole_agent.twfec_actuation import (
     TWFEC_ACTUATION_GOAL,
     TWFEC_ACTUATION_ID,
 )
-from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
+from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
-    bind_local_mission,
     load_campaign,
     save_campaign,
 )
@@ -1243,7 +1250,6 @@ from blackhole_agent.mission_selection import (
     assess_mission_selection,
     load_recent_mission_history,
     semantic_signature,
-    semantic_similarity,
 )
 
 SCHEMA_VERSION = 1
@@ -2837,281 +2843,40 @@ def _prepare_exhausted_catalog(root: Path) -> None:
 
 
 def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
-    """Hermetic proof: a rejected compounding successor cannot leave genesis empty."""
+    """Prove behavioral diversity, rather than enumerating protocol names."""
+    from unittest.mock import patch
 
-    from blackhole_agent.kernel_resume import bind_create_fields, hydrate_mission_from_campaign
-    from blackhole_agent.kernel_unscoped_resume import _register_turn_failed_closers
+    from blackhole_agent.mission_selection import MissionHistoryEntry
 
     checks: dict[str, bool] = {}
-    checks["denylists_self"] = GENESIS_DIVERSIFY_ID in LOCAL_DENYLIST
-    checks["leftover_marker"] = leftover_marker_ids(GENESIS_DIVERSIFY_GOAL) == (
-        GENESIS_DIVERSIFY_ID,
-    )
-    checks["memory_marker"] = leftover_marker_ids(MISSION_MEMORY_GOAL) == (MISSION_MEMORY_ID,)
-    checks["not_a_weave_duplicate"] = (
-        semantic_similarity(
-            semantic_signature(GENESIS_DIVERSIFY_GOAL),
-            semantic_signature(PROGRAM_WEAVE_GOAL),
-        )
-        < 0.82
-    )
-    checks["not_a_bind_duplicate"] = (
-        semantic_similarity(
-            semantic_signature(GENESIS_DIVERSIFY_GOAL),
-            semantic_signature(KERNEL_GENESIS_BIND_GOAL),
-        )
-        < 0.82
-    )
-    checks["not_a_fabric_duplicate"] = (
-        semantic_similarity(
-            semantic_signature(GENESIS_DIVERSIFY_GOAL),
-            semantic_signature(PROGRAM_FABRIC_GOAL),
-        )
-        < 0.82
-    )
-    checks["needed_on_consumed"] = genesis_bind_is_needed(_consumed_campaign()) is True
-    checks["not_needed_on_unscoped_remaining"] = (
-        genesis_bind_is_needed(_unscoped_remaining_campaign()) is False
-    )
-
-    with tempfile.TemporaryDirectory(prefix="kernel-genesis-diversify-forage-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="genesis-diversify-quality-") as tmp:
         root = Path(tmp)
-        _write_fixture_ledger(root)
-        _register_turn_failed_closers(root)
-        _write_forage_history(root)
-        _register_compounding_through_fabric(root)
-        save_campaign(root, _consumed_campaign())
-        forage_goal, forage_done, forage_source = bind_gate_passing_successor(root)
-    checks["forage_history_still_binds_weave"] = (
-        forage_goal == PROGRAM_WEAVE_GOAL
-        and PROGRAM_WEAVE_ID in forage_done
-        and forage_source == "genesis_bind_weave"
-    )
-
-    with tempfile.TemporaryDirectory(prefix="kernel-genesis-diversify-live-") as tmp:
-        root = Path(tmp)
-        _prepare_exhausted_catalog(root)
-        weave_gate = assess_mission_selection(
-            root,
-            PROGRAM_WEAVE_GOAL,
-            f"capability_exists:{PROGRAM_WEAVE_ID};capability_proved:{PROGRAM_WEAVE_ID};no_skill_route",
+        campaign = _consumed_campaign()
+        recipe = "Repair {name} handshake: seal a {name}digest and independently poll it with a later reader."
+        history = [
+            MissionHistoryEntry(str(i), recipe.format(name=name), semantic_signature(recipe.format(name=name)), name, "complete")
+            for i, name in enumerate(("bgp4", "pmsi", "wildad"))
+        ]
+        repeated = assess_mission_selection(root, recipe.format(name="another_protocol"), "A reference peer works.", history=history)
+        checks["renaming_is_repetition"] = not repeated.accepted and repeated.repetition_count == 3
+        checks["behavior_family_saturates"] = repeated.recent_family_count == 3
+        checks["ledger_only_contract_rejected"] = not assess_mission_selection(
+            root, GENESIS_DIVERSIFY_GOAL, GENESIS_DIVERSIFY_DONE_WHEN, history=[]
+        ).accepted
+        checks["legacy_catalog_not_auto_accepted"] = bind_diversity_successor(root, campaign=campaign, history=[]) == ("", "", "")
+        goal = "Repair memory retrieval after process restart without losing the original task context."
+        done = "A fresh process answers a fixture question using the previously persisted task context."
+        fixture = (
+            {"id": "capability.fixture-static", "goal": GENESIS_DIVERSIFY_GOAL, "done_when": GENESIS_DIVERSIFY_DONE_WHEN, "source": "static"},
+            {"id": "capability.fixture-outcome", "goal": goal, "done_when": done, "source": "outcome"},
         )
-        diversify_gate = assess_mission_selection(
-            root, GENESIS_DIVERSIFY_GOAL, GENESIS_DIVERSIFY_DONE_WHEN
-        )
-        live_goal, live_done, live_source = bind_gate_passing_successor(root)
-        diversity_goal, diversity_done, diversity_source = bind_diversity_successor(root)
-    checks["live_history_rejects_weave"] = weave_gate.accepted is False
-    checks["live_history_accepts_diversity"] = diversify_gate.accepted is True
-    checks["exhausted_catalog_binds_diversity"] = (
-        live_goal == GENESIS_DIVERSIFY_GOAL
-        and GENESIS_DIVERSIFY_ID in live_done
-        and live_source == "genesis_bind_diversity"
-        and live_goal != PROGRAM_WEAVE_GOAL
-        and bool(live_source)
-    )
-    checks["diversity_helper_matches_bind"] = (
-        diversity_goal == live_goal
-        and diversity_done == live_done
-        and diversity_source == live_source
-    )
-
-    with tempfile.TemporaryDirectory(prefix="kernel-genesis-diversify-hydrate-") as tmp:
-        root = Path(tmp)
-        _prepare_exhausted_catalog(root)
-        empty = _State(root)
-        report = hydrate_mission_from_campaign(empty, persist=True)
-        create_goal, create_done, create_source = bind_create_fields(root)
-        local = bind_local_mission(_State(root), harvest=True)
-    checks["hydrate_fills_diversity"] = (
-        report.get("applied") is True
-        and empty.goal == GENESIS_DIVERSIFY_GOAL
-        and GENESIS_DIVERSIFY_ID in empty.done_when
-        and empty.stage == "execution"
-        and str(report.get("source") or "") == "genesis_bind_diversity"
-    )
-    checks["create_bind_uses_diversity"] = (
-        create_goal == GENESIS_DIVERSIFY_GOAL
-        and GENESIS_DIVERSIFY_ID in create_done
-        and str(create_source) == "genesis_bind_diversity"
-    )
-    checks["local_bind_fills_diversity"] = (
-        local.goal == GENESIS_DIVERSIFY_GOAL
-        and GENESIS_DIVERSIFY_ID in local.done_when
-        and "genesis_bind_diversity" in local.source
-    )
-
-    with tempfile.TemporaryDirectory(prefix="kernel-genesis-diversify-operator-") as tmp:
-        root = Path(tmp)
-        _prepare_exhausted_catalog(root)
-        kept = bind_local_mission(
-            _State(root, goal="Operator growth goal.", done_when="capability_exists:repo.import-health"),
-            harvest=True,
-        )
-    checks["preserves_operator_bind"] = (
-        kept.goal == "Operator growth goal." and "state.goal" in kept.source
-    )
-
-    with tempfile.TemporaryDirectory(prefix="kernel-genesis-diversify-remaining-") as tmp:
-        root = Path(tmp)
-        _write_fixture_ledger(root)
-        _register_turn_failed_closers(root)
-        save_campaign(root, _unscoped_remaining_campaign())
-        remaining = bind_local_mission(_State(root), harvest=True)
-    checks["unscoped_remaining_still_wins"] = (
-        "capability.fixture-local-b" in remaining.goal
-        and "program_passes:capability.fixture-local-b" in remaining.done_when
-        and "unscoped_campaign" in remaining.source
-    )
-
-    with tempfile.TemporaryDirectory(prefix="kernel-genesis-diversify-skip-") as tmp:
-        root = Path(tmp)
-        _prepare_exhausted_catalog(root)
-        _register_proved(root, GENESIS_DIVERSIFY_ID)
-        skip_goal, skip_done, skip_source = bind_gate_passing_successor(root)
-    checks["proved_diversity_skips_to_memory"] = (
-        skip_goal == MISSION_MEMORY_GOAL
-        and MISSION_MEMORY_ID in skip_done
-        and skip_source == "genesis_bind_memory"
-    )
-
-    keep = _State(Path("."), goal="Operator growth goal.")
-    hydrate_mission_from_campaign(keep, persist=False)
-    checks["hydrate_preserves_operator_goal"] = keep.goal == "Operator growth goal."
+        with patch(__name__ + ".DIVERSITY_CATALOG", fixture):
+            chosen = bind_diversity_successor(root, campaign=campaign, history=history)
+        checks["chooses_different_measurable_outcome"] = chosen == (goal, done, "outcome")
     checks["no_skill_route"] = not legacy_pipeline_was_used()
-    checks["schema_version"] = SCHEMA_VERSION == 1
-    checks["catalog_names_memory"] = DIVERSITY_CATALOG[1]["id"] == MISSION_MEMORY_ID
-    checks["catalog_names_half_open"] = DIVERSITY_CATALOG[2]["id"] == HALF_OPEN_PERSIST_ID
-    checks["catalog_names_handshake"] = DIVERSITY_CATALOG[3]["id"] == MCP_HANDSHAKE_ID
-    checks["catalog_names_call"] = DIVERSITY_CATALOG[4]["id"] == MCP_CALL_ID
-    checks["catalog_names_reverse"] = DIVERSITY_CATALOG[5]["id"] == MCP_REVERSE_ID
-    checks["catalog_names_http"] = DIVERSITY_CATALOG[6]["id"] == MCP_HTTP_ID
-    checks["catalog_names_event_stream"] = DIVERSITY_CATALOG[7]["id"] == MCP_HTTP_EVENT_ID
-    checks["catalog_names_publication"] = DIVERSITY_CATALOG[8]["id"] == PUBLICATION_RESILIENCE_ID
-    checks["catalog_names_browser"] = DIVERSITY_CATALOG[9]["id"] == BROWSER_ACTUATION_ID
-    checks["catalog_names_gmail"] = DIVERSITY_CATALOG[10]["id"] == GMAIL_ACTUATION_ID
-    checks["catalog_names_godot"] = DIVERSITY_CATALOG[11]["id"] == GODOT_ACTUATION_ID
-    checks["catalog_names_reconnect"] = DIVERSITY_CATALOG[12]["id"] == MCP_RECONNECT_ID
-    checks["catalog_names_half_open_probe"] = DIVERSITY_CATALOG[13]["id"] == HALF_OPEN_PROBE_ID
-    checks["catalog_names_sampling"] = DIVERSITY_CATALOG[14]["id"] == MCP_SAMPLING_ID
-    checks["catalog_names_resources"] = DIVERSITY_CATALOG[15]["id"] == MCP_RESOURCES_ID
-    checks["catalog_names_prompts"] = DIVERSITY_CATALOG[16]["id"] == MCP_PROMPTS_ID
-    checks["catalog_names_completions"] = DIVERSITY_CATALOG[17]["id"] == MCP_COMPLETIONS_ID
-    checks["catalog_names_logging"] = DIVERSITY_CATALOG[18]["id"] == MCP_LOGGING_ID
-    checks["catalog_names_elicitation"] = DIVERSITY_CATALOG[19]["id"] == MCP_ELICITATION_ID
-    checks["catalog_names_cancellation"] = DIVERSITY_CATALOG[20]["id"] == MCP_CANCELLATION_ID
-    checks["catalog_names_resource_subscribe"] = DIVERSITY_CATALOG[21]["id"] == MCP_SUBSCRIBE_ID
-    checks["catalog_names_roots_list_changed"] = DIVERSITY_CATALOG[22]["id"] == MCP_ROOTS_CHANGED_ID
-    checks["catalog_names_browser_cdp"] = DIVERSITY_CATALOG[23]["id"] == BROWSER_CDP_ID
-    checks["catalog_names_github"] = DIVERSITY_CATALOG[24]["id"] == GITHUB_ACTUATION_ID
-    checks["catalog_names_sqlite"] = DIVERSITY_CATALOG[25]["id"] == SQLITE_ACTUATION_ID
-    checks["catalog_names_webhook"] = DIVERSITY_CATALOG[26]["id"] == WEBHOOK_ACTUATION_ID
-    checks["catalog_names_progress"] = DIVERSITY_CATALOG[27]["id"] == MCP_PROGRESS_ID
-    checks["catalog_names_tools_list_changed"] = (
-        DIVERSITY_CATALOG[28]["id"] == MCP_TOOLS_CHANGED_ID
-    )
-    checks["catalog_names_smtp"] = DIVERSITY_CATALOG[29]["id"] == SMTP_ACTUATION_ID
-    checks["catalog_names_http_auth"] = DIVERSITY_CATALOG[30]["id"] == MCP_HTTP_AUTH_ID
-    checks["catalog_names_imap"] = DIVERSITY_CATALOG[31]["id"] == IMAP_ACTUATION_ID
-    checks["catalog_names_redis"] = DIVERSITY_CATALOG[32]["id"] == REDIS_ACTUATION_ID
-    checks["catalog_names_mqtt"] = DIVERSITY_CATALOG[33]["id"] == MQTT_ACTUATION_ID
-    checks["catalog_names_dns"] = DIVERSITY_CATALOG[34]["id"] == DNS_ACTUATION_ID
-    checks["catalog_names_ldap"] = DIVERSITY_CATALOG[35]["id"] == LDAP_ACTUATION_ID
-    checks["catalog_names_postgres"] = DIVERSITY_CATALOG[36]["id"] == POSTGRES_ACTUATION_ID
-    checks["catalog_names_s3"] = DIVERSITY_CATALOG[37]["id"] == S3_ACTUATION_ID
-    checks["catalog_names_watch"] = DIVERSITY_CATALOG[38]["id"] == WATCH_ACTUATION_ID
-    checks["catalog_names_cursor_pagination"] = DIVERSITY_CATALOG[39]["id"] == MCP_CURSOR_ID
-    checks["catalog_names_structured_output"] = DIVERSITY_CATALOG[40]["id"] == MCP_STRUCTURED_ID
-    checks["catalog_names_websocket"] = DIVERSITY_CATALOG[41]["id"] == WEBSOCKET_ACTUATION_ID
-    checks["catalog_names_ssh"] = DIVERSITY_CATALOG[42]["id"] == SSH_ACTUATION_ID
-    checks["catalog_names_grpc"] = DIVERSITY_CATALOG[43]["id"] == GRPC_ACTUATION_ID
-    checks["catalog_names_amqp"] = DIVERSITY_CATALOG[44]["id"] == AMQP_ACTUATION_ID
-    checks["catalog_names_ftp"] = DIVERSITY_CATALOG[45]["id"] == FTP_ACTUATION_ID
-    checks["catalog_names_tftp"] = DIVERSITY_CATALOG[46]["id"] == TFTP_ACTUATION_ID
-    checks["catalog_names_snmp"] = DIVERSITY_CATALOG[47]["id"] == SNMP_ACTUATION_ID
-    checks["catalog_names_syslog"] = DIVERSITY_CATALOG[48]["id"] == SYSLOG_ACTUATION_ID
-    checks["catalog_names_ntp"] = DIVERSITY_CATALOG[49]["id"] == NTP_ACTUATION_ID
-    checks["catalog_names_radius"] = DIVERSITY_CATALOG[50]["id"] == RADIUS_ACTUATION_ID
-    checks["catalog_names_dhcp"] = DIVERSITY_CATALOG[51]["id"] == DHCP_ACTUATION_ID
-    checks["catalog_names_ike"] = DIVERSITY_CATALOG[52]["id"] == IKE_ACTUATION_ID
-    checks["catalog_names_sip"] = DIVERSITY_CATALOG[53]["id"] == SIP_ACTUATION_ID
-    checks["catalog_names_stun"] = DIVERSITY_CATALOG[54]["id"] == STUN_ACTUATION_ID
-    checks["catalog_names_turn"] = DIVERSITY_CATALOG[55]["id"] == TURN_ACTUATION_ID
-    checks["catalog_names_ice"] = DIVERSITY_CATALOG[56]["id"] == ICE_ACTUATION_ID
-    checks["catalog_names_dtls"] = DIVERSITY_CATALOG[57]["id"] == DTLS_ACTUATION_ID
-    checks["catalog_names_srtp"] = DIVERSITY_CATALOG[58]["id"] == SRTP_ACTUATION_ID
-    checks["catalog_names_sctp"] = DIVERSITY_CATALOG[59]["id"] == SCTP_ACTUATION_ID
-    checks["catalog_names_datachannel"] = DIVERSITY_CATALOG[60]["id"] == DATACHANNEL_ACTUATION_ID
-    checks["catalog_names_quic"] = DIVERSITY_CATALOG[61]["id"] == QUIC_ACTUATION_ID
-    checks["catalog_names_http3"] = DIVERSITY_CATALOG[62]["id"] == HTTP3_ACTUATION_ID
-    checks["catalog_names_webtransport"] = DIVERSITY_CATALOG[63]["id"] == WEBTRANSPORT_ACTUATION_ID
-    checks["catalog_names_datagram"] = DIVERSITY_CATALOG[64]["id"] == DATAGRAM_ACTUATION_ID
-    checks["catalog_names_masque"] = DIVERSITY_CATALOG[65]["id"] == MASQUE_ACTUATION_ID
-    checks["catalog_names_connectip"] = DIVERSITY_CATALOG[66]["id"] == CONNECTIP_ACTUATION_ID
-    checks["catalog_names_ohttp"] = DIVERSITY_CATALOG[67]["id"] == OHTTP_ACTUATION_ID
-    checks["catalog_names_ohsvcb"] = DIVERSITY_CATALOG[68]["id"] == OHSVCB_ACTUATION_ID
-    checks["catalog_names_httpsig"] = DIVERSITY_CATALOG[69]["id"] == HTTPSIG_ACTUATION_ID
-    checks["catalog_names_digestfields"] = DIVERSITY_CATALOG[70]["id"] == DIGESTFIELDS_ACTUATION_ID
-    checks["catalog_names_bhttp"] = DIVERSITY_CATALOG[71]["id"] == BHTTP_ACTUATION_ID
-    checks["catalog_names_http11"] = DIVERSITY_CATALOG[72]["id"] == HTTP11_ACTUATION_ID
-    checks["catalog_names_http2"] = DIVERSITY_CATALOG[73]["id"] == HTTP2_ACTUATION_ID
-    checks["catalog_names_httpcache"] = DIVERSITY_CATALOG[74]["id"] == HTTPCACHE_ACTUATION_ID
-    checks["catalog_names_httpsemantics"] = DIVERSITY_CATALOG[75]["id"] == HTTPSMANTICS_ACTUATION_ID
-    checks["catalog_names_structuredfields"] = DIVERSITY_CATALOG[76]["id"] == STRUCTUREDFIELDS_ACTUATION_ID
-    checks["catalog_names_clienthints"] = DIVERSITY_CATALOG[77]["id"] == CLIENTHINTS_ACTUATION_ID
-    checks["catalog_names_earlyhints"] = DIVERSITY_CATALOG[78]["id"] == EARLYHINTS_ACTUATION_ID
-    checks["catalog_names_encryptedcontent"] = (
-        DIVERSITY_CATALOG[79]["id"] == ENCRYPTEDCONTENT_ACTUATION_ID
-    )
-    checks["catalog_names_altsvc"] = DIVERSITY_CATALOG[80]["id"] == ALTSVC_ACTUATION_ID
-    checks["catalog_names_hsts"] = DIVERSITY_CATALOG[81]["id"] == HSTS_ACTUATION_ID
-    checks["catalog_names_hpkp"] = DIVERSITY_CATALOG[82]["id"] == HPKP_ACTUATION_ID
-    checks["catalog_names_expectct"] = DIVERSITY_CATALOG[83]["id"] == EXPECTCT_ACTUATION_ID
-    checks["catalog_names_xfo"] = DIVERSITY_CATALOG[84]["id"] == XFO_ACTUATION_ID
-    checks["catalog_names_weborigin"] = DIVERSITY_CATALOG[85]["id"] == WEBORIGIN_ACTUATION_ID
-    checks["catalog_names_httpcookie"] = DIVERSITY_CATALOG[86]["id"] == HTTPCOOKIE_ACTUATION_ID
-    checks["catalog_names_contentdisposition"] = (
-        DIVERSITY_CATALOG[87]["id"] == CONTENTDISPOSITION_ACTUATION_ID
-    )
-    checks["catalog_names_weblinking"] = DIVERSITY_CATALOG[88]["id"] == WEBLINKING_ACTUATION_ID
-    checks["catalog_names_extvalue"] = DIVERSITY_CATALOG[89]["id"] == EXTVALUE_ACTUATION_ID
-    checks["catalog_names_stalecontent"] = DIVERSITY_CATALOG[90]["id"] == STALECONTENT_ACTUATION_ID
-    checks["catalog_names_httppatch"] = DIVERSITY_CATALOG[91]["id"] == HTTPPATCH_ACTUATION_ID
-    checks["catalog_names_wellknown"] = DIVERSITY_CATALOG[92]["id"] == WELLKNOWN_ACTUATION_ID
-    checks["catalog_names_webdav"] = DIVERSITY_CATALOG[93]["id"] == WEBDAV_ACTUATION_ID
-    checks["catalog_names_spnego"] = DIVERSITY_CATALOG[94]["id"] == SPNEGO_ACTUATION_ID
-    checks["catalog_names_httptls"] = DIVERSITY_CATALOG[95]["id"] == HTTPTLS_ACTUATION_ID
-    checks["catalog_names_httpauth"] = DIVERSITY_CATALOG[96]["id"] == HTTPAUTH_ACTUATION_ID
-    checks["catalog_names_tcn"] = DIVERSITY_CATALOG[97]["id"] == TCN_ACTUATION_ID
-    checks["catalog_names_hitmeter"] = DIVERSITY_CATALOG[98]["id"] == HITMETER_ACTUATION_ID
-    checks["catalog_names_icp"] = DIVERSITY_CATALOG[99]["id"] == ICP_ACTUATION_ID
-    checks["catalog_names_httpver"] = DIVERSITY_CATALOG[100]["id"] == HTTPVER_ACTUATION_ID
-    checks["catalog_names_httpstate"] = DIVERSITY_CATALOG[101]["id"] == HTTPSTATE_ACTUATION_ID
-    checks["catalog_names_digestauth"] = DIVERSITY_CATALOG[102]["id"] == DIGESTAUTH_ACTUATION_ID
-    checks["catalog_names_http10"] = DIVERSITY_CATALOG[103]["id"] == HTTP10_ACTUATION_ID
-    checks["catalog_names_url"] = DIVERSITY_CATALOG[104]["id"] == URL_ACTUATION_ID
-    checks["catalog_names_uri"] = DIVERSITY_CATALOG[105]["id"] == URI_ACTUATION_ID
-    checks["catalog_names_mime"] = DIVERSITY_CATALOG[106]["id"] == MIME_ACTUATION_ID
-    checks["catalog_names_gopher"] = DIVERSITY_CATALOG[107]["id"] == GOPHER_ACTUATION_ID
-    checks["catalog_names_finger"] = DIVERSITY_CATALOG[108]["id"] == FINGER_ACTUATION_ID
-    checks["catalog_names_lpd"] = DIVERSITY_CATALOG[109]["id"] == LPD_ACTUATION_ID
-    checks["catalog_names_nntp"] = DIVERSITY_CATALOG[110]["id"] == NNTP_ACTUATION_ID
-    checks["catalog_names_telnet"] = DIVERSITY_CATALOG[111]["id"] == TELNET_ACTUATION_ID
-    checks["catalog_names_tcp"] = DIVERSITY_CATALOG[112]["id"] == TCP_ACTUATION_ID
-    checks["catalog_names_udp"] = DIVERSITY_CATALOG[113]["id"] == UDP_ACTUATION_ID
-    checks["catalog_names_icmp"] = DIVERSITY_CATALOG[114]["id"] == ICMP_ACTUATION_ID
-    checks["catalog_names_ip"] = DIVERSITY_CATALOG[115]["id"] == IP_ACTUATION_ID
-
-    ok = all(checks.values())
-    if ok:
-        ensure_genesis_diversify_capability()
     return {
-        "ok": ok,
-        "action": "kernel_genesis_diversify",
-        "checks": checks,
-        "passed_count": sum(1 for value in checks.values() if value),
-        "check_count": len(checks),
+        "ok": all(checks.values()), "action": "kernel_genesis_diversify", "checks": checks,
+        "passed_count": sum(checks.values()), "check_count": len(checks),
         "used_skill_route_discovery": legacy_pipeline_was_used(),
-        "mission_goal": GENESIS_DIVERSIFY_GOAL,
-        "done_when": GENESIS_DIVERSIFY_DONE_WHEN,
+        "mission_goal": GENESIS_DIVERSIFY_GOAL, "done_when": GENESIS_DIVERSIFY_DONE_WHEN,
     }

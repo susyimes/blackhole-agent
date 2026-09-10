@@ -221,6 +221,10 @@ outer loop can rotate instead of spinning locally.
 
 Select `--kernel kimi` instead to run the same mission through Kimi Code CLI.
 
+Cursor Agent CLI is available as `--kernel cursor` (optional `--model`). See
+[quality gates and Cursor setup](docs/quality-gates-and-cursor.md) for discovery,
+session recovery and the new autonomous before/after acceptance probe contract.
+
 Run continuous single-agent self-evolution on a 30-minute outer cadence:
 
 ```bash

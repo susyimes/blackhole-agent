@@ -2185,10 +2185,8 @@ def builtin_icmp_actuation_proof() -> dict[str, Any]:
             if item["id"] != ICMP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_icmp"] = (
-        live_goal == ICMP_ACTUATION_GOAL
-        and ICMP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_icmp"
+    checks["ledger_only_icmp_not_auto_bound"] = (
+        not live_goal and not live_done and not live_source
     )
 
     with tempfile.TemporaryDirectory(prefix="icmp-leftover-") as tmp:

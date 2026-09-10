@@ -20,7 +20,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 LOCAL_KERNEL = "local"
 HEALTH_RELATIVE = Path(".blackhole-agent") / "unbound" / "kernel-health.json"
-CLI_FAILOVER_ORDER = ("codex", "kimi", "grok")
+CLI_FAILOVER_ORDER = ("codex", "kimi", "grok", "cursor")
 FAILOVER_ORDER = (*CLI_FAILOVER_ORDER, LOCAL_KERNEL)
 TRIP_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
 DEFAULT_COOLDOWN_SECONDS = {

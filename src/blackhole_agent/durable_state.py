@@ -109,6 +109,10 @@ def _worktree_root(path: Path) -> Path | None:
 
     start = path if path.is_dir() else path.parent
     for candidate in (start, *start.parents):
+        # A stray .git at a drive/filesystem root must not claim unrelated temp
+        # fixtures (or every durable write on the host) as repository state.
+        if candidate.parent == candidate:
+            break
         if (candidate / ".git").exists():
             return candidate
     return None

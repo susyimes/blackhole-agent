@@ -480,7 +480,9 @@ def invoke_local_capability(capability: Capability) -> dict[str, Any]:
 
 
 def load_tick_ledger(root: Path) -> CapabilityLedger | None:
-    path = default_ledger_path(root)
+    from blackhole_agent.durable_state import durable_read_path
+
+    path = durable_read_path(default_ledger_path(root))
     if not path.is_file():
         return None
     try:

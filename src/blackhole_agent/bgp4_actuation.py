@@ -2970,10 +2970,8 @@ def builtin_bgp4_actuation_proof() -> dict[str, Any]:
             if item["id"] != BGP4_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_bgp4"] = (
-        live_goal == BGP4_ACTUATION_GOAL
-        and BGP4_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_bgp4"
+    checks["ledger_only_bgp4_not_auto_bound"] = (
+        not live_goal and not live_done and not live_source
     )
 
     with tempfile.TemporaryDirectory(prefix="bgp4-leftover-") as tmp:

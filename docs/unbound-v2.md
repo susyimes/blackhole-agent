@@ -11,7 +11,7 @@ One mission owns:
 
 - one persistent goal and outcome-level `done_when`
 - one branch and long-lived sibling Git worktree
-- one Codex, Grok, or Kimi session resumed between turns
+- one Codex, Grok, Kimi, or Cursor Agent session resumed between turns
 - one durable `state.json` and append-only `events.jsonl`
 - zero child agents, delegated workers, or parallel task schedulers
 

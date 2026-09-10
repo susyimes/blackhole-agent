@@ -41,10 +41,10 @@ def test_builtin_proof_binds_diversity_after_catalog_exhaustion() -> None:
     assert report["action"] == "kernel_genesis_diversify"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
-    assert report["checks"]["live_history_rejects_weave"]
-    assert report["checks"]["exhausted_catalog_binds_diversity"]
-    assert report["checks"]["forage_history_still_binds_weave"]
-    assert report["checks"]["proved_diversity_skips_to_memory"]
+    assert report["checks"]["renaming_is_repetition"]
+    assert report["checks"]["behavior_family_saturates"]
+    assert report["checks"]["ledger_only_contract_rejected"]
+    assert report["checks"]["chooses_different_measurable_outcome"]
     assert report["mission_goal"] == GENESIS_DIVERSIFY_GOAL
     assert report["done_when"] == GENESIS_DIVERSIFY_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

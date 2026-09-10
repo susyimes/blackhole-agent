@@ -281,10 +281,10 @@ def builtin_kernel_finality_proof() -> dict[str, Any]:
         recovered.stage = "genesis"
         hydrate = hydrate_mission_from_campaign(recovered, persist=True)
     checks["finalized_campaign_is_not_resumable"] = campaign_is_resumable(finished) is False
-    checks["finalized_campaign_binds_successor"] = (
-        hydrate.get("applied") is True
-        and bool(recovered.goal)
-        and str(hydrate.get("source") or "").startswith("genesis_bind")
+    checks["finalized_campaign_requires_qualified_successor"] = (
+        hydrate.get("applied") is False
+        and not recovered.goal
+        and recovered.stage == "genesis"
     )
 
     payload = {
@@ -356,10 +356,10 @@ def builtin_kernel_finality_proof() -> dict[str, Any]:
         record = run_unbound_turn(state_path, kernel_runner=local_complete_kernel)
         closed = load_mission(state_path)
         after_head = git_head(repo)
-    checks["controller_closes_without_commit"] = (
-        record.get("effective_status") == "complete"
+    checks["controller_rejects_autonomous_inventory_completion"] = (
+        record.get("effective_status") == "continue"
         and record.get("requested_status") == "complete"
-        and closed.status == "complete"
+        and closed.status == "active"
         and after_head == head
         and closed.milestone_count == 0
     )

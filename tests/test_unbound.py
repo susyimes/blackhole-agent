@@ -833,7 +833,7 @@ def test_continuous_loop_retries_failed_publication_before_creating_another_miss
     assert loop_state["last_published_ref"] == publish_attempts[-1]
 
 
-def test_execution_stage_turn_can_refine_done_when_before_gating(tmp_path):
+def test_execution_stage_turn_cannot_weaken_done_when_before_gating(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
     init_repository(repo)
@@ -861,7 +861,7 @@ def test_execution_stage_turn_can_refine_done_when_before_gating(tmp_path):
     state = load_mission(state_path)
 
     assert state.stage == "execution"
-    assert state.done_when == "min_capabilities:1"
+    assert state.done_when == "min_capabilities:999999"
 
 
 def test_kernel_death_records_structured_decision_instead_of_raising(tmp_path):

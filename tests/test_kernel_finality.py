@@ -25,7 +25,7 @@ def test_builtin_proof_closes_met_campaign_contract():
     assert report["checks"]["ledger_static_contract_does_not_complete"]
     assert report["checks"]["execute_402_then_complete"]
     assert report["checks"]["controller_accepts_local_complete_without_git"]
-    assert report["checks"]["controller_closes_without_commit"]
+    assert report["checks"]["controller_rejects_autonomous_inventory_completion"]
     assert LOCAL_KERNEL == "local"
     assert "capability.kernel-finality" in LOCAL_DENYLIST
     assert callable(can_finalize_local_campaign)
