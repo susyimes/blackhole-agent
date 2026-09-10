@@ -1061,6 +1061,7 @@ MLDP_TOOL_PROVIDER = "mldp"
 MVPN_TOOL_PROVIDER = "mvpn"
 PMSI_TOOL_PROVIDER = "pmsi"
 WILDAD_TOOL_PROVIDER = "wildad"
+TWFEC_TOOL_PROVIDER = "twfec"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9433,6 +9434,49 @@ def wildad_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
         session_id=session_id,
         tool_type="function",
     )
+
+
+def twfec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6667 LDP Typed Wildcard FEC TYPED/WILDCARD route.
+
+    Provider ``twfec`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live LDP endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="twfec",
+        description=(
+            "Drive a first-class RFC 6667 LDP session: bind a loopback Label "
+            "Distribution Protocol speaker, send a TYPED PWid FEC Label Mapping "
+            "with a non-empty twfecid (PW ID), lockstep a Typed Wildcard "
+            "WILDCARD that matches only that FEC type, independently poll the "
+            "stored twfecdigest on a later client socket, and read the sealed "
+            "twfecdigest. TWFECID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "typed": {"type": "boolean"},
+                "wildcard": {"type": "boolean"},
+                "twfecdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_twfecid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=TWFEC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
 
 def load_single_file_agent_tool_descriptors(path: Path, *, session_id: str | None = None) -> list[ToolDescriptor]:
     """Load function tool descriptors from a compact single-file agent YAML config."""
