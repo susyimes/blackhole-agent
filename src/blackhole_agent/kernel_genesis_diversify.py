@@ -1222,6 +1222,11 @@ from blackhole_agent.pmsi_actuation import (
     PMSI_ACTUATION_GOAL,
     PMSI_ACTUATION_ID,
 )
+from blackhole_agent.wildad_actuation import (
+    WILDAD_ACTUATION_DONE_WHEN,
+    WILDAD_ACTUATION_GOAL,
+    WILDAD_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2668,6 +2673,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": PMSI_ACTUATION_GOAL,
         "done_when": PMSI_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_pmsi",
+    },
+    {
+        "id": WILDAD_ACTUATION_ID,
+        "goal": WILDAD_ACTUATION_GOAL,
+        "done_when": WILDAD_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_wildad",
     },
 )
 

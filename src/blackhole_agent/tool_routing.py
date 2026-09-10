@@ -1047,6 +1047,7 @@ LILB_TOOL_PROVIDER = "lilb"
 PWST_TOOL_PROVIDER = "pwst"
 MLDP_TOOL_PROVIDER = "mldp"
 MVPN_TOOL_PROVIDER = "mvpn"
+PMSI_TOOL_PROVIDER = "pmsi"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9335,6 +9336,47 @@ def mvpn_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=MVPN_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def pmsi_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6514 BGP Encodings and Procedures for Multicast in MPLS/BGP IP VPNs PMSI/NLRI route.
+
+    Provider ``pmsi`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="pmsi",
+        description=(
+            "Drive a first-class RFC 6514 session: bind a loopback BGP Encodings and Procedures for Multicast in MPLS/BGP IP "
+            "VPNs origin, send a PMSI "
+            "with a non-empty pmsiid, lockstep an NLRI that carries the stored "
+            "pmsidigest, independently poll the stored pmsidigest on a later "
+            "client socket, and read the sealed pmsidigest. PMSIID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "pmsi": {"type": "boolean"},
+                "nlri": {"type": "boolean"},
+                "pmsidigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_pmsiid": {"type": "boolean"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=PMSI_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

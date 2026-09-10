@@ -924,6 +924,10 @@ _SURFACE_TOKENS = frozenset(
         "pmsiid",
         "pmsidigest",
         "nlri",
+        "wildad",
+        "rfc6625",
+        "wildid",
+        "wilddigest",
     }
 )
 _IMPACT_MARKERS = (
