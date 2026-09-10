@@ -1227,6 +1227,11 @@ from blackhole_agent.wildad_actuation import (
     WILDAD_ACTUATION_GOAL,
     WILDAD_ACTUATION_ID,
 )
+from blackhole_agent.twfec_actuation import (
+    TWFEC_ACTUATION_DONE_WHEN,
+    TWFEC_ACTUATION_GOAL,
+    TWFEC_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST, _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2679,6 +2684,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": WILDAD_ACTUATION_GOAL,
         "done_when": WILDAD_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_wildad",
+    },
+    {
+        "id": TWFEC_ACTUATION_ID,
+        "goal": TWFEC_ACTUATION_GOAL,
+        "done_when": TWFEC_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_twfec",
     },
 )
 

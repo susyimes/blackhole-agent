@@ -928,6 +928,10 @@ _SURFACE_TOKENS = frozenset(
         "rfc6625",
         "wildid",
         "wilddigest",
+        "twfec",
+        "rfc6667",
+        "twfecid",
+        "twfecdigest",
     }
 )
 _IMPACT_MARKERS = (
