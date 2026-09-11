@@ -32337,7 +32337,7 @@
         "selection",
         "rebind"
       ],
-      "updated_at": "2026-09-11T06:41:42.710781Z"
+      "updated_at": "2026-09-11T07:55:44.840323Z"
     },
     "capability.leftover-lineage-plane": {
       "behavior_paths": [
@@ -32923,6 +32923,41 @@
       ],
       "updated_at": "2026-08-29T10:01:15.328788Z"
     },
+    "capability.loop-login-task": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/loop_login_repair.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Login schedules the restore helper: an orphaned loop resumes after logon and a live owner pid is not doubled by a second controller.",
+      "created_at": "2026-09-11T07:55:01.122992Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore"
+      ],
+      "description": "A login startup registration schedules the restore helper so an orphaned loop resumes after login without starting a second controller beside a live owner pid.",
+      "entry": "blackhole_agent.loop_login_task:builtin_loop_login_task_proof",
+      "id": "capability.loop-login-task",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T07:55:01.122976Z",
+      "name": "Continuous-loop login-task enablement",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_task import builtin_loop_login_task_proof; r=builtin_loop_login_task_proof(); assert r['ok'] and r.get('action')=='loop_login_task' and r.get('passed_count',0) >= 10 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "schedule"
+      ],
+      "updated_at": "2026-09-11T07:56:56.594394Z"
+    },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
         "src/blackhole_agent/loop_reboot_restore.py",
@@ -32955,7 +32990,7 @@
         "startup",
         "reboot"
       ],
-      "updated_at": "2026-09-11T07:31:27.150920Z"
+      "updated_at": "2026-09-11T07:55:01.234943Z"
     },
     "capability.lpd-actuation": {
       "behavior_paths": [
@@ -47058,5 +47093,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T07:31:27.154565Z"
+  "updated_at": "2026-09-11T07:56:56.597338Z"
 }

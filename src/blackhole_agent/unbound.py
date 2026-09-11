@@ -3149,6 +3149,29 @@ def loop_restore(
     raise typer.Exit(1 if result.get("restore_reason") == "start_failed" else 0)
 
 
+@app.command(help="Register a login startup task that runs the continuous-loop restore helper.")
+def loop_login_enable(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_task import register_loop_restore_at_login
+
+    result = register_loop_restore_at_login(repo_path.resolve(), output_dir)
+    console.print_json(data=result)
+
+
+@app.command(help="Run the registered login startup restore helper.")
+def loop_login_run(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_task import dispatch_login_startup
+
+    result = dispatch_login_startup(repo_path.resolve(), output_dir)
+    console.print_json(data=result)
+    raise typer.Exit(1 if result.get("restore_reason") == "start_failed" else 0)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",
