@@ -32961,7 +32961,7 @@
         "drift",
         "repair"
       ],
-      "updated_at": "2026-09-11T17:53:56.648201Z"
+      "updated_at": "2026-09-11T19:00:08.172051Z"
     },
     "capability.loop-login-repair": {
       "behavior_paths": [
@@ -32998,7 +32998,49 @@
         "restore",
         "repair"
       ],
-      "updated_at": "2026-09-11T17:49:29.548618Z"
+      "updated_at": "2026-09-11T19:00:07.209594Z"
+    },
+    "capability.loop-login-stale": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_stale.py",
+        "src/blackhole_agent/loop_login_drift.py",
+        "src/blackhole_agent/loop_login_repair.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/loop_login_retire.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A stale login registration is re-pointed: a command or launcher that still targets the repo's old location is rewritten at the current path and a live owner pid is not doubled by a second controller.",
+      "created_at": "2026-09-11T18:57:31.431126Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift"
+      ],
+      "description": "A stale login startup registration whose command or launcher points at a moved repo is repaired so the restore helper is scheduled again without starting a second controller beside a live owner pid.",
+      "entry": "blackhole_agent.loop_login_stale:builtin_loop_login_stale_proof",
+      "id": "capability.loop-login-stale",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T18:57:31.431107Z",
+      "name": "Continuous-loop login-task staleness repair",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_stale import builtin_loop_login_stale_proof; r=builtin_loop_login_stale_proof(); assert r['ok'] and r.get('action')=='loop_login_stale' and r.get('passed_count',0) >= 16 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "stale",
+        "repair"
+      ],
+      "updated_at": "2026-09-11T19:03:55.910362Z"
     },
     "capability.loop-login-task": {
       "behavior_paths": [
@@ -33033,7 +33075,7 @@
         "restore",
         "schedule"
       ],
-      "updated_at": "2026-09-11T17:49:29.703090Z"
+      "updated_at": "2026-09-11T19:00:06.237348Z"
     },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
@@ -47170,5 +47212,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T18:21:22.170127Z"
+  "updated_at": "2026-09-11T19:03:55.913347Z"
 }

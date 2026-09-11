@@ -1290,6 +1290,11 @@ from blackhole_agent.loop_login_stale import (
     LOOP_LOGIN_STALE_GOAL,
     LOOP_LOGIN_STALE_ID,
 )
+from blackhole_agent.loop_login_retire import (
+    LOOP_LOGIN_RETIRE_DONE_WHEN,
+    LOOP_LOGIN_RETIRE_GOAL,
+    LOOP_LOGIN_RETIRE_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2806,6 +2811,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LOOP_LOGIN_STALE_GOAL,
         "done_when": LOOP_LOGIN_STALE_DONE_WHEN,
         "source": "genesis_bind_loop_login_stale",
+    },
+    {
+        "id": LOOP_LOGIN_RETIRE_ID,
+        "goal": LOOP_LOGIN_RETIRE_GOAL,
+        "done_when": LOOP_LOGIN_RETIRE_DONE_WHEN,
+        "source": "genesis_bind_loop_login_retire",
     },
 )
 

@@ -1,10 +1,10 @@
-"""Repair a missing, disabled, or drifted login startup registration.
+"""Repair a missing, disabled, drifted, or stale login startup registration.
 
 Login-task enablement can schedule the restore helper, but a deleted,
-disabled, or drifted registration stays broken. This helper rewrites that
-registration so the restore helper is scheduled again. Repair never starts
-a controller, so a live owner pid is not doubled. Dispatch still refuses a
-second controller because it reuses the restore helper.
+disabled, drifted, or stale registration stays broken. This helper rewrites
+that registration so the restore helper is scheduled again. Repair never
+starts a controller, so a live owner pid is not doubled. Dispatch still
+refuses a second controller because it reuses the restore helper.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def repair_login_startup_registration(
     *,
     scheduler: LoginScheduler | None = None,
 ) -> dict[str, Any]:
-    """Recreate a missing, disabled, or drifted logon registration for the helper.
+    """Recreate a missing, disabled, drifted, or stale logon registration for the helper.
 
     This only schedules. It does not start a controller, so a live owner pid
     is never doubled at repair time.
@@ -84,6 +84,10 @@ def repair_login_startup_registration(
     output = DEFAULT_OUTPUT_DIR if output_dir is None else output_dir
     existing = load_login_startup_registration(repo_path, output)
     reason = login_startup_repair_reason(existing)
+    if reason is None:
+        from blackhole_agent.loop_login_stale import login_startup_stale_reason
+
+        reason = login_startup_stale_reason(existing, repo_path, output)
     if reason is None:
         return {
             **existing,
@@ -103,6 +107,8 @@ def repair_login_startup_registration(
         "previous_enabled": None if existing is None else existing.get("enabled"),
         "previous_trigger": None if existing is None else existing.get("trigger"),
         "previous_helper": None if existing is None else existing.get("helper"),
+        "previous_command": None if existing is None else existing.get("command"),
+        "previous_repo_path": None if existing is None else existing.get("repo_path"),
     }
 
 

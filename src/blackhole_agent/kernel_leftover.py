@@ -161,6 +161,8 @@ _MARKERS = (
     ("login-task staleness", "capability.loop-login-stale"),
     ("stale command or launcher", "capability.loop-login-stale"),
     ("operator re-pointing it by hand", "capability.loop-login-stale"),
+    ("login-task retirement", "capability.loop-login-retire"),
+    ("repo was deleted", "capability.loop-login-retire"),
     ("mission-plane", "capability.kernel-mission-plane"),
     ("mission plane", "capability.kernel-mission-plane"),
     ("campaign handoff", "capability.kernel-resume"),

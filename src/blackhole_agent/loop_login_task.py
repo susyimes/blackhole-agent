@@ -77,11 +77,9 @@ def login_startup_launcher_path(repo_path: Path, output_dir: Path | None = None)
 def build_login_restore_command(repo_path: Path, output_dir: Path | None = None) -> list[str]:
     """Argv a logon task runs: the restore helper, not a second controller spawn."""
 
-    from blackhole_agent import unbound
     from blackhole_agent.unbound import DEFAULT_OUTPUT_DIR
 
     output = DEFAULT_OUTPUT_DIR if output_dir is None else output_dir
-    src = Path(unbound.__file__).resolve().parents[1]
     launcher = login_startup_launcher_path(repo_path, output)
     return [sys.executable, "-I", str(launcher)]
 
@@ -222,9 +220,9 @@ def dispatch_login_startup(
 ) -> dict[str, Any]:
     """Run the helper the login registration scheduled.
 
-    Missing, disabled, or non-logon registrations are left alone. A live
-    owner pid is not doubled because restore_orphaned_loop_on_startup refuses
-    to start a second controller.
+    Missing, disabled, non-logon, or stale registrations are left alone. A
+    live owner pid is not doubled because restore_orphaned_loop_on_startup
+    refuses to start a second controller.
     """
 
     from blackhole_agent.loop_reboot_restore import restore_orphaned_loop_on_startup
@@ -261,6 +259,17 @@ def dispatch_login_startup(
             "started": False,
             "action": "skip",
             "restore_reason": "wrong_helper",
+            "scheduled": True,
+        }
+    from blackhole_agent.loop_login_stale import login_startup_stale_reason
+
+    stale_reason = login_startup_stale_reason(registration, repo_path, output)
+    if stale_reason is not None:
+        return {
+            **registration,
+            "started": False,
+            "action": "skip",
+            "restore_reason": stale_reason,
             "scheduled": True,
         }
     result = restore_orphaned_loop_on_startup(

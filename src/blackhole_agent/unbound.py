@@ -3172,7 +3172,7 @@ def loop_login_run(
     raise typer.Exit(1 if result.get("restore_reason") == "start_failed" else 0)
 
 
-@app.command(help="Repair a missing, disabled, or drifted login startup registration for the restore helper.")
+@app.command(help="Repair a missing, disabled, drifted, or stale login startup registration for the restore helper.")
 def loop_login_repair(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
     output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
@@ -3191,6 +3191,17 @@ def loop_login_drift(
     from blackhole_agent.loop_login_drift import repair_login_startup_drift
 
     result = repair_login_startup_drift(repo_path.resolve(), output_dir)
+    console.print_json(data=result)
+
+
+@app.command(help="Repair a stale login startup registration (command or launcher points at a moved repo) for the restore helper.")
+def loop_login_stale(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_stale import repair_login_startup_stale
+
+    result = repair_login_startup_stale(repo_path.resolve(), output_dir)
     console.print_json(data=result)
 
 
