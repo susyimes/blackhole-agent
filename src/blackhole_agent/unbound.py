@@ -3264,6 +3264,22 @@ def loop_login_prune(
     console.print_json(data=result)
 
 
+@app.command(help="Compact long-gone tombstones from the durable login-scrub audit trail so the trail stays small.")
+def loop_login_compact(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose login-scrub audit trail is compacted."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+    retention_days: int = typer.Option(
+        365, "--retention-days", min=1, help="Compact tombstones whose prune time is older than this many days."
+    ),
+) -> None:
+    from blackhole_agent.loop_login_compact import compact_login_audit_tombstones
+
+    result = compact_login_audit_tombstones(
+        mission_root(repo_path.resolve(), output_dir), retention_days=retention_days
+    )
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

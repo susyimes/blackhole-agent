@@ -32967,6 +32967,56 @@
       ],
       "updated_at": "2026-09-11T22:22:16.888174Z"
     },
+    "capability.loop-login-compact": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_compact.py",
+        "src/blackhole_agent/loop_login_tombstone.py",
+        "src/blackhole_agent/loop_login_prune.py",
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A durable login-scrub audit trail stays small: tombstones whose named records are long gone are compacted automatically on every recorded scrub and on demand, recent and unproven tombstones are kept so the trail stays reconcilable, the rewrite is atomic, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T22:58:20.089131Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub",
+        "capability.loop-login-audit",
+        "capability.loop-login-prune",
+        "capability.loop-login-tombstone"
+      ],
+      "description": "A durable login-scrub audit trail's tombstones are compacted once the records they name are long gone so the trail stays small and reconcilable without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_compact:builtin_loop_login_compact_proof",
+      "id": "capability.loop-login-compact",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T22:58:20.089113Z",
+      "name": "Continuous-loop login-tombstone compact",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_compact import builtin_loop_login_compact_proof; r=builtin_loop_login_compact_proof(); assert r['ok'] and r.get('action')=='loop_login_compact' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit",
+        "prune",
+        "tombstone",
+        "compact"
+      ],
+      "updated_at": "2026-09-11T23:04:13.224704Z"
+    },
     "capability.loop-login-drift": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_drift.py",
@@ -33050,7 +33100,7 @@
         "audit",
         "prune"
       ],
-      "updated_at": "2026-09-11T22:22:15.966470Z"
+      "updated_at": "2026-09-11T23:02:06.530377Z"
     },
     "capability.loop-login-repair": {
       "behavior_paths": [
@@ -33338,7 +33388,7 @@
         "prune",
         "tombstone"
       ],
-      "updated_at": "2026-09-11T22:26:23.912536Z"
+      "updated_at": "2026-09-11T23:02:07.376921Z"
     },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
@@ -47475,5 +47525,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T22:26:23.915508Z"
+  "updated_at": "2026-09-11T23:04:13.227760Z"
 }

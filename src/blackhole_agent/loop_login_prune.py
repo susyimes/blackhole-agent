@@ -13,7 +13,9 @@ prune for trails that no longer receive scrubs. Every pruned record is
 replaced in place by a durable tombstone naming what aged out — the task,
 its repo, and the original scrub time — so an operator reconciling the
 bounded trail can tell an aged-out record from one that was never written.
-A tombstone is never stale itself, so later prunes keep it byte-identical.
+A tombstone is never stale itself, so later prunes keep it byte-identical;
+once the record a tombstone names is long gone, the separate compact path
+drops it so the trail stays small.
 The prune only rewrites the
 audit trail file: records it cannot prove stale — fresh records, records
 with an unparseable scrub time, and malformed lines — are kept, and the

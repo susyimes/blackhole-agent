@@ -12,7 +12,9 @@ time, so an operator can see exactly what was scrubbed. Each append prunes
 aged-out records so the trail stays bounded without an operator pruning
 stale entries by hand, and every pruned record leaves a durable tombstone
 naming what aged out so an operator reconciling the bounded trail can tell
-an aged-out record from one that was never written. Only tasks whose
+an aged-out record from one that was never written. Tombstones whose named
+records are long gone are compacted so the trail stays small, while recent
+tombstones stay so the trail remains reconcilable. Only tasks whose
 registration record is gone are ever scrubbed, so only those scrubs are
 recorded: a task whose record still exists belongs to a surviving repo,
 its artifacts are kept, nothing is written for it, and a live owner pid
@@ -123,6 +125,9 @@ def record_login_task_scrub(
     from blackhole_agent.loop_login_prune import prune_login_scrub_audit
 
     prune = prune_login_scrub_audit(root)
+    from blackhole_agent.loop_login_compact import compact_login_audit_tombstones
+
+    compact = compact_login_audit_tombstones(root)
     return {
         "action": "audit_record",
         "recorded": True,
@@ -130,6 +135,8 @@ def record_login_task_scrub(
         "entry": entry,
         "audit_pruned": bool(prune.get("pruned")),
         "audit_pruned_count": int(prune.get("pruned_count") or 0),
+        "audit_tombstones_compacted": bool(compact.get("compacted")),
+        "audit_tombstones_compacted_count": int(compact.get("compacted_count") or 0),
     }
 
 

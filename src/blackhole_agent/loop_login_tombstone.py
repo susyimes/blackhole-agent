@@ -10,7 +10,9 @@ replaced in place by a durable tombstone entry naming what aged out — the
 task, its repo, and the original scrub time — plus the prune time and the
 retention window that aged it out. A tombstone is never stale itself, so
 later prunes keep it byte-identical and the bounded trail stays
-reconcilable. The tombstone rewrite rides the prune's atomic
+reconcilable; once the record a tombstone names is long gone, the compact
+path drops the tombstone so the trail stays small. The tombstone rewrite
+rides the prune's atomic
 temp-file-and-replace, touches only the audit trail, and never touches a
 scheduler entry, launcher, or task XML, so a live owner pid in any
 surviving repo is never disturbed.
