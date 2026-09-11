@@ -47,6 +47,7 @@ from blackhole_agent.loop_login_prune import (
 )
 from blackhole_agent.loop_login_rollup import is_login_audit_rollup
 from blackhole_agent.loop_login_tombstone import is_login_audit_tombstone
+from blackhole_agent.loop_login_verify import verify_login_audit_rollup_records
 
 SCHEMA_VERSION = 1
 LOOP_LOGIN_AUDIT_ID = "capability.loop-login-audit"
@@ -148,7 +149,10 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
     so a partially written trail still shows every intact scrub record.
     Prune tombstones are surfaced in ``tombstone_count`` and the merged
     compaction rollup in ``tombstone_rollup`` so an operator reconciling
-    the bounded trail can see what aged out and what was compacted.
+    the bounded trail can see what aged out and what was compacted. The
+    rollup is verified against the trail it summarizes and the verdict is
+    surfaced in ``tombstone_rollup_verification`` so a drifted rollup is
+    detected on every read.
     """
 
     path = login_audit_log_path(root)
@@ -185,6 +189,7 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
         "entry_count": len(entries),
         "tombstone_count": tombstones,
         "tombstone_rollup": rollup,
+        "tombstone_rollup_verification": verify_login_audit_rollup_records(entries),
         "malformed_count": malformed,
     }
 

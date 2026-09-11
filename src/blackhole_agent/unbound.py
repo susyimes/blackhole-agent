@@ -3280,6 +3280,17 @@ def loop_login_compact(
     console.print_json(data=result)
 
 
+@app.command(help="Verify the durable login-scrub audit trail's compaction rollup against the trail it summarizes.")
+def loop_login_verify(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose login-scrub audit trail rollup is verified."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_verify import verify_login_audit_rollup
+
+    result = verify_login_audit_rollup(mission_root(repo_path.resolve(), output_dir))
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

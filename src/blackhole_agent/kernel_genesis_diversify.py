@@ -1335,6 +1335,11 @@ from blackhole_agent.loop_login_verify import (
     LOOP_LOGIN_VERIFY_GOAL,
     LOOP_LOGIN_VERIFY_ID,
 )
+from blackhole_agent.loop_login_rollup_repair import (
+    LOOP_LOGIN_ROLLUP_REPAIR_DONE_WHEN,
+    LOOP_LOGIN_ROLLUP_REPAIR_GOAL,
+    LOOP_LOGIN_ROLLUP_REPAIR_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2905,6 +2910,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LOOP_LOGIN_VERIFY_GOAL,
         "done_when": LOOP_LOGIN_VERIFY_DONE_WHEN,
         "source": "genesis_bind_loop_login_verify",
+    },
+    {
+        "id": LOOP_LOGIN_ROLLUP_REPAIR_ID,
+        "goal": LOOP_LOGIN_ROLLUP_REPAIR_GOAL,
+        "done_when": LOOP_LOGIN_ROLLUP_REPAIR_DONE_WHEN,
+        "source": "genesis_bind_loop_login_rollup_repair",
     },
 )
 

@@ -33443,6 +33443,60 @@
       ],
       "updated_at": "2026-09-11T23:24:18.066860Z"
     },
+    "capability.loop-login-verify": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_verify.py",
+        "src/blackhole_agent/loop_login_rollup.py",
+        "src/blackhole_agent/loop_login_compact.py",
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A durable login-scrub audit trail's compaction rollup is verified against the trail it summarizes: duplicate rollup lines, invalid counts, an inverted or unparseable span, and any surviving tombstone inside the claimed span are reported as drift, the audit read surfaces the verification, verification is pure read, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T23:50:23.436193Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub",
+        "capability.loop-login-audit",
+        "capability.loop-login-prune",
+        "capability.loop-login-tombstone",
+        "capability.loop-login-compact",
+        "capability.loop-login-rollup"
+      ],
+      "description": "A durable login-scrub audit trail's compaction rollup is verified against the trail it summarizes so a drifted rollup is detected without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_verify:builtin_loop_login_verify_proof",
+      "id": "capability.loop-login-verify",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T23:50:23.436175Z",
+      "name": "Continuous-loop login-rollup verify",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_verify import builtin_loop_login_verify_proof; r=builtin_loop_login_verify_proof(); assert r['ok'] and r.get('action')=='loop_login_verify' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit",
+        "prune",
+        "tombstone",
+        "compact",
+        "rollup",
+        "verify"
+      ],
+      "updated_at": "2026-09-11T23:56:02.084499Z"
+    },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
         "src/blackhole_agent/loop_reboot_restore.py",
@@ -47578,5 +47632,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T23:24:18.973544Z"
+  "updated_at": "2026-09-11T23:56:02.087563Z"
 }
