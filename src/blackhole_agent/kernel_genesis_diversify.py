@@ -1250,6 +1250,11 @@ from blackhole_agent.elbl_actuation import (
     ELBL_ACTUATION_GOAL,
     ELBL_ACTUATION_ID,
 )
+from blackhole_agent.inbld_actuation import (
+    INBLD_ACTUATION_DONE_WHEN,
+    INBLD_ACTUATION_GOAL,
+    INBLD_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2718,6 +2723,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": ELBL_ACTUATION_GOAL,
         "done_when": ELBL_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_elbl",
+    },
+    {
+        "id": INBLD_ACTUATION_ID,
+        "goal": INBLD_ACTUATION_GOAL,
+        "done_when": INBLD_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_inbld",
     },
 )
 

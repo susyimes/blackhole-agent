@@ -1063,6 +1063,7 @@ PMSI_TOOL_PROVIDER = "pmsi"
 WILDAD_TOOL_PROVIDER = "wildad"
 TWFEC_TOOL_PROVIDER = "twfec"
 GTSM_TOOL_PROVIDER = "gtsm"
+ELBL_TOOL_PROVIDER = "elbl"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9518,6 +9519,52 @@ def gtsm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=GTSM_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def elbl_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6790 MPLS EL/ELI route.
+
+    Provider ``elbl`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live MPLS entropy-label endpoint silently executable — a caller must opt
+    the provider in.
+    """
+
+    return ToolDescriptor(
+        name="elbl",
+        description=(
+            "Drive a first-class RFC 6790 MPLS session: bind a loopback Label "
+            "Distribution Protocol speaker, install an Entropy Label with a "
+            "non-empty elblid, lockstep an Entropy Label Indicator (special "
+            "label 7) whose EL TTL is 0 and whose ELI Bottom of Stack bit is "
+            "clear, independently poll the stored elbldigest on a later client "
+            "socket, and read the sealed elbldigest. ELBLID-gated exchanges "
+            "stay sealed as digest-chained actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "el": {"type": "boolean"},
+                "eli": {"type": "boolean"},
+                "elbldigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_elblid": {"type": "boolean"},
+                "el_ttl": {"type": "integer"},
+                "eli_bos": {"type": "boolean"},
+                "eli_label": {"type": "integer"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=ELBL_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

@@ -45,7 +45,6 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.elbl_actuation import (
     ELBL_ACTUATION_GOAL,
     ELBL_ACTUATION_ID,
-    ELBL_LEFTOVER,
 )
 from blackhole_agent.kernel_leftover import leftover_is_open, leftover_marker_ids, leftover_satisfied_by
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
@@ -97,7 +96,10 @@ GTSM_ACTUATION_GOAL = (
     "later poll of the stored gtsmdigest keeps the hole falsifiable. GTSM sessions "
     "stay fail-closed without a gtsmid-gated gtsmdigest."
 )
-GTSM_LEFTOVER = ELBL_LEFTOVER
+GTSM_LEFTOVER = (
+    "Later genesis can take RFC 6790 The Use of Entropy Labels in MPLS "
+    "Forwarding EL/ELI over an elblid-gated elbldigest."
+)
 
 
 class GtsmActuationError(RuntimeError):
