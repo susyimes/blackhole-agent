@@ -1265,6 +1265,11 @@ from blackhole_agent.orphan_loop_reap import (
     ORPHAN_LOOP_REAP_GOAL,
     ORPHAN_LOOP_REAP_ID,
 )
+from blackhole_agent.loop_reboot_restore import (
+    LOOP_REBOOT_RESTORE_DONE_WHEN,
+    LOOP_REBOOT_RESTORE_GOAL,
+    LOOP_REBOOT_RESTORE_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2751,6 +2756,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": ORPHAN_LOOP_REAP_GOAL,
         "done_when": ORPHAN_LOOP_REAP_DONE_WHEN,
         "source": "genesis_bind_orphan_loop",
+    },
+    {
+        "id": LOOP_REBOOT_RESTORE_ID,
+        "goal": LOOP_REBOOT_RESTORE_GOAL,
+        "done_when": LOOP_REBOOT_RESTORE_DONE_WHEN,
+        "source": "genesis_bind_loop_reboot",
     },
 )
 

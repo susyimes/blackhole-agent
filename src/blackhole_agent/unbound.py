@@ -3062,25 +3062,10 @@ def continuous_loop_status_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     A live PID still needs command-line/parent-tree verification by the operator.
     A missing PID is sufficient evidence to reject an active durable status.
     """
-    error = ""
-    try:
-        owner_pid = continuous_loop_owner_pid(payload.get("pid"))
-        alive: bool | None = pid_is_running(owner_pid)
-    except (OSError, ValueError) as exc:
-        alive = None
-        error = f"loop owner PID liveness unavailable: {exc}"
-    active = str(payload.get("status") or "") in {
-        "starting", "running", "creating_mission", "running_mission", "publishing", "sleeping",
-        "sleeping_publish_retry", "sleeping_mission_create_retry",
-    }
-    effective_status = payload.get("status")
-    if active and alive is False:
-        effective_status = "orphaned"
-        error = "durable loop owner PID is missing"
-    elif active and alive is None:
-        effective_status = "unknown"
-    return {**payload, "pid_alive": alive, "checked_at": utc_now_iso(),
-            "effective_status": effective_status, "liveness_error": error}
+
+    from blackhole_agent.orphan_loop_reap import annotate_loop_status
+
+    return annotate_loop_status(payload)
 
 
 def reap_orphaned_continuous_loop(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
@@ -3091,51 +3076,9 @@ def reap_orphaned_continuous_loop(repo_path: Path, output_dir: Path = DEFAULT_OU
     Unknown liveness and live owners are never evidence for reaping.
     """
 
-    state_path = continuous_loop_state_path(repo_path, output_dir)
-    lock_path = continuous_loop_lock_path(repo_path, output_dir)
+    from blackhole_agent.orphan_loop_reap import reap_orphaned_loop
 
-    def snapshot() -> dict[str, Any]:
-        return continuous_loop_status_snapshot(json.loads(state_path.read_text(encoding="utf-8")))
-
-    current = snapshot()
-    if current["effective_status"] != "orphaned" or current.get("status") == "orphaned":
-        return current
-    try:
-        with continuous_loop_guard(lock_path):
-            payload = json.loads(state_path.read_text(encoding="utf-8"))
-            current = continuous_loop_status_snapshot(payload)
-            if current["effective_status"] != "orphaned" or payload.get("status") == "orphaned":
-                return current
-            if lock_path.exists():
-                lock_pid = continuous_loop_owner_pid(lock_path.read_text(encoding="utf-8").strip())
-                if pid_is_running(lock_pid):
-                    return {**current, "reaping_error": f"continuous loop PID lock has a live owner: {lock_pid}"}
-            at = utc_now_iso()
-            previous_status = payload["status"]
-            payload.update(
-                status="orphaned",
-                orphaned_from_status=previous_status,
-                reaped_at=at,
-                reaped_by_pid=os.getpid(),
-                stop_reason="controller_process_missing",
-                next_wake_at="",
-            )
-            save_continuous_loop_state(state_path, payload)
-            append_jsonl(continuous_loop_events_path(repo_path, output_dir), {
-                "event": "continuous_loop.orphaned",
-                "at": at,
-                "loop_id": payload.get("loop_id", ""),
-                "pid": payload["pid"],
-                "previous_status": previous_status,
-                "current_mission_id": payload.get("current_mission_id", ""),
-                "current_state_path": payload.get("current_state_path", ""),
-                "reaped_by_pid": os.getpid(),
-                "reason": "controller_process_missing",
-            })
-            lock_path.unlink(missing_ok=True)
-            return continuous_loop_status_snapshot(payload)
-    except (OSError, ValueError, RuntimeError) as exc:
-        return {**snapshot(), "reaping_error": str(exc)}
+    return reap_orphaned_loop(repo_path, output_dir)
 
 
 @app.command(help="Reap a confirmed dead controller and show loop state plus owner-PID liveness.")

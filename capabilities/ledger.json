@@ -32337,7 +32337,7 @@
         "selection",
         "rebind"
       ],
-      "updated_at": "2026-09-11T04:49:31.997003Z"
+      "updated_at": "2026-09-11T06:41:42.710781Z"
     },
     "capability.leftover-lineage-plane": {
       "behavior_paths": [
@@ -37626,6 +37626,39 @@
         "diversity"
       ],
       "updated_at": "2026-09-06T20:17:34.425294Z"
+    },
+    "capability.orphan-loop-reap": {
+      "behavior_paths": [
+        "src/blackhole_agent/orphan_loop_reap.py",
+        "src/blackhole_agent/unbound.py",
+        "src/blackhole_agent/loop_reboot_restore.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A dead controller pid cannot keep status=running_mission: the reap helper reports effective_status=orphaned and clears the durable status without touching a live owner pid.",
+      "created_at": "2026-09-11T06:25:41.461451Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.leftover-handoff-rebind"
+      ],
+      "description": "A durable continuous loop whose owner pid is gone reports effective_status=orphaned, and reap_orphaned_loop clears status=running_mission without rewriting a live owner pid.",
+      "entry": "blackhole_agent.orphan_loop_reap:builtin_orphan_loop_reap_proof",
+      "id": "capability.orphan-loop-reap",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T06:25:41.461420Z",
+      "name": "Orphaned continuous-loop reaping",
+      "proof_command": "uv run python -c \"from blackhole_agent.orphan_loop_reap import builtin_orphan_loop_reap_proof; r=builtin_orphan_loop_reap_proof(); assert r['ok'] and r.get('action')=='orphan_loop_reap' and r.get('passed_count',0) >= 8 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "orphan",
+        "reap",
+        "liveness"
+      ],
+      "updated_at": "2026-09-11T06:41:36.054451Z"
     },
     "capability.otn-actuation": {
       "behavior_paths": [
@@ -46991,5 +47024,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T06:00:22.588998Z"
+  "updated_at": "2026-09-11T06:41:42.713763Z"
 }
