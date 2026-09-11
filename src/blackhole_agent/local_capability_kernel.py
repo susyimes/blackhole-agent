@@ -53,6 +53,8 @@ LOCAL_DENYLIST = frozenset(
         "capability.kernel-leftover",
         "capability.leftover-lineage-plane",
         "capability.leftover-catalog-handoff",
+        "capability.leftover-handoff-rebind",
+        "capability.orphan-loop-reap",
         "capability.worktree-gc-resilience",
         "capability.kernel-class-closure",
         "capability.kernel-unscoped-resume",

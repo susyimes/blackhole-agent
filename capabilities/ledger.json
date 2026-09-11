@@ -32302,6 +32302,43 @@
       ],
       "updated_at": "2026-09-01T17:37:51.353048Z"
     },
+    "capability.leftover-handoff-rebind": {
+      "behavior_paths": [
+        "src/blackhole_agent/leftover_handoff_rebind.py",
+        "src/blackhole_agent/orphan_loop_reap.py",
+        "src/blackhole_agent/local_mission_sovereignty.py",
+        "src/blackhole_agent/kernel_genesis_diversify.py",
+        "src/blackhole_agent/kernel_leftover.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Consumed leftover campaigns no longer re-enter genesis: the recovering-kernel brief stays empty after leftover satisfaction, and bind fills leftover-handoff-rebind so handshake leftovers cannot stall empty genesis.",
+      "created_at": "2026-09-11T04:46:59.720535Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.kernel-leftover",
+        "capability.kernel-genesis-bind"
+      ],
+      "description": "A consumed leftover whose leftover satisfaction is already closed leaves the recovering-kernel brief, an open leftover still appears, and empty genesis bind ranks a gate-passing nonhandshake successor instead of reopening shipped leftover work.",
+      "entry": "blackhole_agent.leftover_handoff_rebind:builtin_leftover_handoff_rebind_proof",
+      "id": "capability.leftover-handoff-rebind",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T04:46:59.720514Z",
+      "name": "Leftover handoff rebind",
+      "proof_command": "uv run python -c \"from blackhole_agent.leftover_handoff_rebind import builtin_leftover_handoff_rebind_proof; r=builtin_leftover_handoff_rebind_proof(); assert r['ok'] and r.get('action')=='leftover_handoff_rebind' and r.get('passed_count',0) >= 10 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "leftover",
+        "handoff",
+        "genesis",
+        "selection",
+        "rebind"
+      ],
+      "updated_at": "2026-09-11T04:49:31.997003Z"
+    },
     "capability.leftover-lineage-plane": {
       "behavior_paths": [
         "src/blackhole_agent/leftover_lineage.py",
@@ -46954,5 +46991,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T04:21:30.452977Z"
+  "updated_at": "2026-09-11T04:49:31.999946Z"
 }

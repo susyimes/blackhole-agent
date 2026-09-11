@@ -1255,6 +1255,16 @@ from blackhole_agent.inbld_actuation import (
     INBLD_ACTUATION_GOAL,
     INBLD_ACTUATION_ID,
 )
+from blackhole_agent.leftover_handoff_rebind import (
+    LEFTOVER_HANDOFF_REBIND_DONE_WHEN,
+    LEFTOVER_HANDOFF_REBIND_GOAL,
+    LEFTOVER_HANDOFF_REBIND_ID,
+)
+from blackhole_agent.orphan_loop_reap import (
+    ORPHAN_LOOP_REAP_DONE_WHEN,
+    ORPHAN_LOOP_REAP_GOAL,
+    ORPHAN_LOOP_REAP_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2729,6 +2739,18 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": INBLD_ACTUATION_GOAL,
         "done_when": INBLD_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_inbld",
+    },
+    {
+        "id": LEFTOVER_HANDOFF_REBIND_ID,
+        "goal": LEFTOVER_HANDOFF_REBIND_GOAL,
+        "done_when": LEFTOVER_HANDOFF_REBIND_DONE_WHEN,
+        "source": "genesis_bind_leftover_handoff",
+    },
+    {
+        "id": ORPHAN_LOOP_REAP_ID,
+        "goal": ORPHAN_LOOP_REAP_GOAL,
+        "done_when": ORPHAN_LOOP_REAP_DONE_WHEN,
+        "source": "genesis_bind_orphan_loop",
     },
 )
 

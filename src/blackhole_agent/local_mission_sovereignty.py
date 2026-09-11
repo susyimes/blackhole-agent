@@ -447,6 +447,13 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
     campaign = load_campaign(Path(repo_path))
     if campaign.tick_count <= 0:
         return ""
+    try:
+        from blackhole_agent.leftover_handoff_rebind import leftover_handoff_is_stale
+
+        if leftover_handoff_is_stale(campaign, Path(repo_path)):
+            return ""
+    except Exception:  # noqa: BLE001 - brief must still render unknown leftovers
+        pass
     completed = ", ".join(campaign.completed_ids) or "(none)"
     remaining = [
         item
