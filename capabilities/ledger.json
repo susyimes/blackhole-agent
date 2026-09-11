@@ -32965,7 +32965,7 @@
         "restore",
         "audit"
       ],
-      "updated_at": "2026-09-11T21:52:50.709464Z"
+      "updated_at": "2026-09-11T22:22:16.888174Z"
     },
     "capability.loop-login-drift": {
       "behavior_paths": [
@@ -33050,7 +33050,7 @@
         "audit",
         "prune"
       ],
-      "updated_at": "2026-09-11T21:53:53.796396Z"
+      "updated_at": "2026-09-11T22:22:15.966470Z"
     },
     "capability.loop-login-repair": {
       "behavior_paths": [
@@ -33292,6 +33292,53 @@
         "schedule"
       ],
       "updated_at": "2026-09-11T19:00:06.237348Z"
+    },
+    "capability.loop-login-tombstone": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_tombstone.py",
+        "src/blackhole_agent/loop_login_prune.py",
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A pruned login-scrub audit record no longer vanishes: the prune replaces it in place with a durable tombstone naming the task, its repo, and the original scrub time, tombstones are never stale so later prunes keep them byte-identical, the audit read surfaces them, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T22:22:09.848222Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub",
+        "capability.loop-login-audit",
+        "capability.loop-login-prune"
+      ],
+      "description": "A pruned login-scrub audit record leaves a durable tombstone naming what aged out so the bounded trail stays reconcilable without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_tombstone:builtin_loop_login_tombstone_proof",
+      "id": "capability.loop-login-tombstone",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T22:22:09.848204Z",
+      "name": "Continuous-loop login-prune tombstone",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_tombstone import builtin_loop_login_tombstone_proof; r=builtin_loop_login_tombstone_proof(); assert r['ok'] and r.get('action')=='loop_login_tombstone' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit",
+        "prune",
+        "tombstone"
+      ],
+      "updated_at": "2026-09-11T22:25:30.334390Z"
     },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
@@ -47428,5 +47475,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T21:53:53.799316Z"
+  "updated_at": "2026-09-11T22:25:30.337429Z"
 }

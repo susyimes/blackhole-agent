@@ -1,13 +1,15 @@
-"""Acceptance probe: a bounded login-scrub audit trail prunes aged-out records.
+"""Acceptance probe: a pruned login-scrub audit record leaves a tombstone.
 
 A durable login-scrub audit trail that holds a record older than the
-retention window has that stale record pruned once it ages out — on the next
-recorded sweep and on demand — so the trail stays bounded, leaving a durable
-tombstone naming what aged out, while a surviving repo with a live owner pid
-keeps its registration, launcher, task XML, and state bytes untouched.
-Prints JSON with boolean passed and nonempty observed. Exits 0 for both met
-and unmet outcomes so the controller can replay the same probe on baseline
-and candidate source trees.
+retention window has that stale record pruned once it ages out, and the
+pruned record leaves a durable tombstone in the trail naming what aged out
+— the task, its repo, and the original scrub time — so an operator
+reconciling the bounded trail can tell an aged-out record from one that was
+never written. A later prune never drops the tombstone, and a surviving
+repo with a live owner pid keeps its registration, launcher, task XML, and
+state bytes untouched. Prints JSON with boolean passed and nonempty
+observed. Exits 0 for both met and unmet outcomes so the controller can
+replay the same probe on baseline and candidate source trees.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-observed: dict[str, object] = {"family": "loop-login-prune"}
+observed: dict[str, object] = {"family": "loop-login-tombstone"}
 passed = False
 
 try:
@@ -41,13 +43,17 @@ try:
         login_startup_task_xml_path,
         register_loop_restore_at_login,
     )
+    from blackhole_agent.loop_login_tombstone import (
+        LOGIN_AUDIT_TOMBSTONE_EVENT,
+        is_login_audit_tombstone,
+    )
     from blackhole_agent.unbound import (
         continuous_loop_lock_path,
         continuous_loop_state_path,
         pid_is_running,
         save_continuous_loop_state,
     )
-except Exception as error:  # pragma: no cover - baseline missing login prune
+except Exception as error:  # pragma: no cover - baseline missing login tombstone
     observed["error"] = type(error).__name__
     observed["detail"] = str(error)
     print(json.dumps({"passed": False, "observed": observed}, sort_keys=True))
@@ -83,7 +89,7 @@ def _seed_orphaned(repo: Path, *, pid: int, status: str = "orphaned") -> Path:
     save_continuous_loop_state(
         path,
         {
-            "loop_id": "acceptance-login-prune",
+            "loop_id": "acceptance-login-tombstone",
             "status": status,
             "pid": pid,
             "orphaned_from_status": "running_mission" if status == "orphaned" else "",
@@ -101,7 +107,7 @@ def _aged_iso(days: int) -> str:
 
 
 try:
-    dead_pid = 1_000_221
+    dead_pid = 1_000_241
     while pid_is_running(dead_pid):
         dead_pid += 2
     live_pid = os.getpid()
@@ -116,10 +122,11 @@ try:
         )
         return {"started": True, "pid": pid}
 
-    prune_ok = False
+    tombstone_ok = False
+    tombstone_durable = False
     live_ok = False
 
-    with tempfile.TemporaryDirectory(prefix="accept-login-prune-", ignore_cleanup_errors=True) as tmp:
+    with tempfile.TemporaryDirectory(prefix="accept-login-tombstone-", ignore_cleanup_errors=True) as tmp:
         parent = Path(tmp)
         orphan = parent / "orphan-repo"
         orphan.mkdir()
@@ -139,12 +146,14 @@ try:
         orphan_audit_root = login_startup_registration_path(orphan).parent
         surviving_audit_root = login_startup_registration_path(surviving).parent
 
+        scrubbed_at = _aged_iso(DEFAULT_PRUNE_RETENTION_DAYS + 60)
         stale_entry = {
             "event": "login_task_artifacts_scrubbed",
             "task_name": "stale-task",
             "repo_path": str(orphan),
+            "reason": "registration_gone",
             "scrubbed_paths": ["old-launcher", "old-xml"],
-            "scrubbed_at": _aged_iso(DEFAULT_PRUNE_RETENTION_DAYS + 60),
+            "scrubbed_at": scrubbed_at,
         }
         audit_path = login_audit_log_path(orphan_audit_root)
         audit_path.write_text(json.dumps(stale_entry, sort_keys=True) + "\n", encoding="utf-8")
@@ -155,30 +164,40 @@ try:
         swept = sweep_login_tasks_missing_registration(scheduler=scheduler)
         trail = read_login_scrub_audit(orphan_audit_root)
         entries = trail.get("entries") or []
-        names = [str(entry.get("task_name") or "") for entry in entries]
-        tombstone = next(
-            (entry for entry in entries if entry.get("event") == "login_task_audit_record_pruned"),
-            {},
-        )
+        tombstones = [entry for entry in entries if is_login_audit_tombstone(entry)]
+        tombstone = tombstones[0] if tombstones else {}
+        scrub_names = [
+            str(entry.get("task_name") or "")
+            for entry in entries
+            if not is_login_audit_tombstone(entry)
+        ]
 
+        raw_before = audit_path.read_bytes()
         again = prune_login_scrub_audit(orphan_audit_root)
-        surviving_prune = prune_login_scrub_audit(surviving_audit_root)
         result = dispatch_login_startup(surviving, controller_starter=starter)
 
-        prune_ok = (
+        tombstone_ok = (
             swept.get("action") == "sweep"
             and swept.get("swept") == [LOGIN_TASK_NAME]
             and swept.get("audit_recorded") == 1
             and audit_path.is_file()
-            and trail.get("entry_count") == 2
             and trail.get("tombstone_count") == 1
-            and trail.get("malformed_count") == 0
+            and len(tombstones) == 1
+            and tombstone.get("event") == LOGIN_AUDIT_TOMBSTONE_EVENT
             and tombstone.get("task_name") == "stale-task"
-            and names == ["stale-task", LOGIN_TASK_NAME]
-            and again.get("pruned") is False
-            and again.get("pruned_count") == 0
-            and surviving_prune.get("reason") == "no_trail"
+            and tombstone.get("repo_path") == str(orphan)
+            and tombstone.get("aged_out_scrubbed_at") == scrubbed_at
+            and bool(tombstone.get("pruned_at"))
+            and "stale-task" not in scrub_names
+            and LOGIN_TASK_NAME in scrub_names
             and len(starts) == starts_at_sweep
+        )
+        tombstone_durable = (
+            again.get("pruned") is False
+            and again.get("pruned_count") == 0
+            and again.get("reason") == "nothing_stale"
+            and audit_path.read_bytes() == raw_before
+            and read_login_scrub_audit(orphan_audit_root).get("tombstone_count") == 1
         )
         live_ok = (
             LOGIN_TASK_NAME in (swept.get("kept") or [])
@@ -198,14 +217,15 @@ try:
         {
             "dead_pid": dead_pid,
             "live_pid": live_pid,
-            "aged_out_records_pruned_trail_bounded": prune_ok,
+            "pruned_record_leaves_durable_tombstone": tombstone_ok,
+            "tombstone_survives_later_prunes": tombstone_durable,
             "live_owner_not_disturbed": live_ok,
             "controller_starts": len(starts),
-            "sentinel": "BH-LOOP-LOGIN-PRUNE-OK" if prune_ok and live_ok else "",
+            "sentinel": "BH-LOOP-LOGIN-TOMBSTONE-OK" if tombstone_ok and tombstone_durable and live_ok else "",
             "error": "",
         }
     )
-    passed = bool(prune_ok and live_ok)
+    passed = bool(tombstone_ok and tombstone_durable and live_ok)
 except Exception as error:  # pragma: no cover - fixture or helper failure
     observed["error"] = type(error).__name__
     observed["detail"] = str(error)

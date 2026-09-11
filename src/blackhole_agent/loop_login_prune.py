@@ -9,7 +9,12 @@ This module is the prune path: audit records whose scrub time is older than
 the retention window have aged out and are pruned so the trail stays
 bounded. Pruning runs automatically on every recorded scrub (prune-on-append,
 so each sweep keeps the trail bounded) and is also exposed as a standalone
-prune for trails that no longer receive scrubs. The prune only rewrites the
+prune for trails that no longer receive scrubs. Every pruned record is
+replaced in place by a durable tombstone naming what aged out — the task,
+its repo, and the original scrub time — so an operator reconciling the
+bounded trail can tell an aged-out record from one that was never written.
+A tombstone is never stale itself, so later prunes keep it byte-identical.
+The prune only rewrites the
 audit trail file: records it cannot prove stale — fresh records, records
 with an unparseable scrub time, and malformed lines — are kept, and the
 scheduler, launcher, and task XML of any surviving repo are never touched,
@@ -40,6 +45,8 @@ from blackhole_agent.loop_login_tombstone import (
     LOOP_LOGIN_TOMBSTONE_GOAL,
     LOOP_LOGIN_TOMBSTONE_ID,
     LOOP_LOGIN_TOMBSTONE_LEFTOVER,
+    is_login_audit_tombstone,
+    login_audit_tombstone_for,
 )
 
 SCHEMA_VERSION = 1
@@ -87,9 +94,13 @@ def login_audit_record_is_stale(
     """True only when the record's scrub time provably aged out.
 
     A record whose scrub time is missing or unparseable is never stale: the
-    prune must not drop what it cannot prove aged out.
+    prune must not drop what it cannot prove aged out. A tombstone is never
+    stale either: it is the durable trace of an earlier prune, so dropping
+    it would reopen the hole the tombstone closed.
     """
 
+    if is_login_audit_tombstone(entry):
+        return False
     scrubbed_at = _parse_audit_time(entry.get("scrubbed_at"))
     if scrubbed_at is None:
         return False
@@ -105,12 +116,17 @@ def prune_login_scrub_audit(
     """Prune aged-out records from a durable login-scrub audit trail.
 
     Records older than the retention window are dropped so the trail stays
-    bounded. Fresh records, records with an unparseable scrub time, and
-    malformed lines are kept; the rewrite is atomic (temp file + replace) and
-    only happens when something actually aged out, so an intact trail is left
-    byte-identical. A missing trail is reported, never created. Nothing here
-    touches a scheduler entry, launcher, or task XML, so a live owner pid in
-    any surviving repo is never disturbed.
+    bounded, and each dropped record is replaced in place by a durable
+    tombstone naming what aged out — the task, its repo, and the original
+    scrub time — so an operator reconciling the bounded trail can tell an
+    aged-out record from one that was never written. Tombstones are never
+    stale, so a re-prune keeps them byte-identical. Fresh records, records
+    with an unparseable scrub time, and malformed lines are kept; the rewrite
+    is atomic (temp file + replace) and only happens when something actually
+    aged out, so an intact trail is left byte-identical. A missing trail is
+    reported, never created. Nothing here touches a scheduler entry,
+    launcher, or task XML, so a live owner pid in any surviving repo is
+    never disturbed.
     """
 
     from blackhole_agent.loop_login_audit import login_audit_log_path
@@ -125,6 +141,8 @@ def prune_login_scrub_audit(
         "kept_count": 0,
         "undated_count": 0,
         "malformed_count": 0,
+        "tombstones_written": 0,
+        "tombstone_count": 0,
         "retention_days": retention_days,
         "pruned_at": utc_now_iso(),
     }
@@ -153,9 +171,18 @@ def prune_login_scrub_audit(
             report["malformed_count"] += 1
             continue
         if login_audit_record_is_stale(record, now=moment, retention_days=retention_days):
+            tombstone = login_audit_tombstone_for(
+                record,
+                pruned_at=report["pruned_at"],
+                retention_days=retention_days,
+            )
+            kept_lines.append(json.dumps(tombstone, sort_keys=True))
             report["pruned_count"] += 1
+            report["tombstones_written"] += 1
             continue
-        if _parse_audit_time(record.get("scrubbed_at")) is None:
+        if is_login_audit_tombstone(record):
+            report["tombstone_count"] += 1
+        elif _parse_audit_time(record.get("scrubbed_at")) is None:
             report["undated_count"] += 1
         else:
             report["kept_count"] += 1
@@ -442,6 +469,11 @@ def builtin_loop_login_prune_proof() -> dict[str, Any]:
         trail = read_login_scrub_audit(orphan_audit_root)
         entries = trail.get("entries") or []
         names = [str(entry.get("task_name") or "") for entry in entries]
+        scrub_names = [
+            str(entry.get("task_name") or "")
+            for entry in entries
+            if not is_login_audit_tombstone(entry)
+        ]
         raw_lines = [
             line
             for line in audit_path.read_text(encoding="utf-8").splitlines()
@@ -452,11 +484,12 @@ def builtin_loop_login_prune_proof() -> dict[str, Any]:
             and swept.get("swept") == [LOGIN_TASK_NAME]
             and swept.get("scrubbed_count") == 2
             and swept.get("audit_recorded") == 1
-            and "stale-task" not in names
+            and "stale-task" not in scrub_names
             and "fresh-task" in names
             and LOGIN_TASK_NAME in names
-            and trail.get("entry_count") == 3
-            and len(raw_lines) == 4
+            and trail.get("entry_count") == 4
+            and trail.get("tombstone_count") == 1
+            and len(raw_lines) == 5
             and len(starts) == starts_before
         )
         checks["malformed_and_undated_records_survive_prune"] = (
@@ -497,12 +530,19 @@ def builtin_loop_login_prune_proof() -> dict[str, Any]:
         starts_before = len(starts)
         recorded = record_login_task_scrub(task, report, audit_root=root)
         trail = read_login_scrub_audit(root)
-        names = [str(entry.get("task_name") or "") for entry in (trail.get("entries") or [])]
+        entries = trail.get("entries") or []
+        names = [str(entry.get("task_name") or "") for entry in entries]
+        scrub_names = [
+            str(entry.get("task_name") or "")
+            for entry in entries
+            if not is_login_audit_tombstone(entry)
+        ]
         checks["recorded_scrub_prunes_on_append"] = (
             recorded.get("recorded") is True
             and recorded.get("audit_pruned_count") == 1
-            and trail.get("entry_count") == 1
-            and "aged-task" not in names
+            and trail.get("entry_count") == 2
+            and trail.get("tombstone_count") == 1
+            and "aged-task" not in scrub_names
             and LOGIN_TASK_NAME in names
             and len(starts) == starts_before
         )
@@ -538,16 +578,23 @@ def builtin_loop_login_prune_proof() -> dict[str, Any]:
         )
         pruned = prune_login_scrub_audit(root)
         trail = read_login_scrub_audit(root)
-        names = [str(entry.get("task_name") or "") for entry in (trail.get("entries") or [])]
+        entries = trail.get("entries") or []
+        scrub_names = [
+            str(entry.get("task_name") or "")
+            for entry in entries
+            if not is_login_audit_tombstone(entry)
+        ]
         checks["standalone_prune_ages_out_stale_records"] = (
             missing.get("pruned") is False
             and missing.get("reason") == "no_trail"
             and pruned.get("pruned") is True
             and pruned.get("pruned_count") == 1
             and pruned.get("kept_count") == 1
+            and pruned.get("tombstones_written") == 1
             and pruned.get("reason") == "aged_out"
-            and trail.get("entry_count") == 1
-            and names == ["new-task"]
+            and trail.get("entry_count") == 2
+            and trail.get("tombstone_count") == 1
+            and scrub_names == ["new-task"]
         )
 
     checks["next_family_is_not_handshake"] = (

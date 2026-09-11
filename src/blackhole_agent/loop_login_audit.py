@@ -10,7 +10,9 @@ artifacts appends one JSONL entry to a durable audit trail naming the
 task, its repo, the scrubbed launcher and task XML paths, and the scrub
 time, so an operator can see exactly what was scrubbed. Each append prunes
 aged-out records so the trail stays bounded without an operator pruning
-stale entries by hand. Only tasks whose
+stale entries by hand, and every pruned record leaves a durable tombstone
+naming what aged out so an operator reconciling the bounded trail can tell
+an aged-out record from one that was never written. Only tasks whose
 registration record is gone are ever scrubbed, so only those scrubs are
 recorded: a task whose record still exists belongs to a surviving repo,
 its artifacts are kept, nothing is written for it, and a live owner pid
@@ -41,6 +43,7 @@ from blackhole_agent.loop_login_prune import (
     LOOP_LOGIN_PRUNE_ID,
     LOOP_LOGIN_PRUNE_LEFTOVER,
 )
+from blackhole_agent.loop_login_tombstone import is_login_audit_tombstone
 
 SCHEMA_VERSION = 1
 LOOP_LOGIN_AUDIT_ID = "capability.loop-login-audit"
@@ -135,11 +138,14 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
 
     Malformed lines are counted and skipped rather than failing the read,
     so a partially written trail still shows every intact scrub record.
+    Prune tombstones are surfaced in ``tombstone_count`` so an operator
+    reconciling the bounded trail can see what aged out.
     """
 
     path = login_audit_log_path(root)
     entries: list[dict[str, Any]] = []
     malformed = 0
+    tombstones = 0
     if path.is_file():
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -156,6 +162,8 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
                 continue
             if isinstance(record, dict):
                 entries.append(record)
+                if is_login_audit_tombstone(record):
+                    tombstones += 1
             else:
                 malformed += 1
     return {
@@ -163,6 +171,7 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
         "audit_path": str(path),
         "entries": entries,
         "entry_count": len(entries),
+        "tombstone_count": tombstones,
         "malformed_count": malformed,
     }
 
