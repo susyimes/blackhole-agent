@@ -3216,6 +3216,16 @@ def loop_login_retire(
     console.print_json(data=result)
 
 
+@app.command(help="Sweep scheduled login tasks whose registration record is gone so logon stops firing them.")
+def loop_login_sweep(
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_sweep import sweep_login_tasks_missing_registration
+
+    result = sweep_login_tasks_missing_registration(output_dir)
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

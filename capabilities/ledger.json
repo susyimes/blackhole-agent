@@ -33084,6 +33084,48 @@
       ],
       "updated_at": "2026-09-11T19:03:55.910362Z"
     },
+    "capability.loop-login-sweep": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_sweep.py",
+        "src/blackhole_agent/loop_login_retire.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/loop_login_scrub.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A record-gone login task is swept from the scheduler: logon stops firing the dead launcher, a task whose registration record still exists is kept, and a live owner pid in any surviving repo is left untouched.",
+      "created_at": "2026-09-11T20:08:34.436120Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire"
+      ],
+      "description": "A scheduled login task whose registration record is gone is removed from the scheduler so logon stops firing it without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_sweep:builtin_loop_login_sweep_proof",
+      "id": "capability.loop-login-sweep",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T20:08:34.436100Z",
+      "name": "Continuous-loop login-task sweep",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_sweep import builtin_loop_login_sweep_proof; r=builtin_loop_login_sweep_proof(); assert r['ok'] and r.get('action')=='loop_login_sweep' and r.get('passed_count',0) >= 17 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "sweep"
+      ],
+      "updated_at": "2026-09-11T20:12:57.220386Z"
+    },
     "capability.loop-login-task": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_task.py",
@@ -47254,5 +47296,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T19:41:44.744956Z"
+  "updated_at": "2026-09-11T20:12:57.223534Z"
 }
