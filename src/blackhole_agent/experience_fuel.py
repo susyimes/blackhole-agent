@@ -167,8 +167,9 @@ _GENERIC_CLOSER_PREFIXES = (
     "N/A.",
 )
 _COMPLETED_CONTINGENCY = re.compile(
-    r"(?:none[.;]\s*)?mission complete[.;:]\s*"
-    r"later genesis\s+(?:can|may|could)\s+[^.!?;]+?\s+if\s+[^.!?;]+[.!]?",
+    r"(?:none[.;]\s*)?(?:mission complete|controller records the milestone)[.;:]\s*"
+    r"later genesis\s+(?:can|may|could)\s+[^!?;]+?"
+    r"(?:\s+if\s+[^.!?;]+|\s*\([^()]*\))[.!]?",
     re.IGNORECASE,
 )
 
@@ -178,8 +179,9 @@ def leftover_next_step(text: str) -> str:
 
     A closer prefix such as ``None. Mission complete.`` does not hide leftover
     work that follows it. A single conditional later-genesis notice after an
-    explicit completion is deferred advice, not evidence of outstanding work.
-    Mixed or ambiguous notes remain eligible for harvest.
+    explicit completion or milestone recording is deferred advice, not
+    evidence of outstanding work. Mixed or ambiguous notes remain eligible
+    for harvest.
     """
 
     raw = " ".join(str(text or "").split())

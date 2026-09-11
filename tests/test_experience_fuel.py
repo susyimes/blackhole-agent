@@ -108,6 +108,9 @@ def test_builtin_experience_fuel_is_green():
     "None. Mission complete: later genesis could restore the worker if it disappears.",
     "MISSION COMPLETE; LATER GENESIS CAN repair the launcher IF it fails",
     "Mission complete;\n later genesis can repair the backup if\n it becomes unavailable.",
+    "Controller records the milestone; later genesis can take capability.loop-login-stale (stale command/launcher pointing at a moved repo).",
+    "Controller records the milestone. Later genesis may take capability.loop-login-stale (stale launcher pointing at a moved repo).",
+    "None. Controller records the milestone: later genesis could take capability.loop-login-stale (moved repo).",
 ])
 def test_completed_contingency_is_not_outstanding_work(notice):
     assert leftover_next_step(notice) == ""
@@ -124,6 +127,9 @@ def test_completed_contingency_is_not_outstanding_work(notice):
     "Mission complete; later genesis can repair the cache if it fails; follow-on: fix the launcher now.",
     "Follow-on: fix the launcher now. Mission complete; later genesis can repair the cache if it fails.",
     "Mission complete. Later genesis can implement if-expression parsing for the planner.",
+    "Controller records the milestone; later genesis can take login-task repair so stale registrations are re-pointed.",
+    "Controller records the milestone; later genesis can take capability.loop-login-stale (moved repo). Follow-on: re-point the launcher now.",
+    "Controller records the milestone; later genesis must take capability.loop-login-stale (moved repo).",
 ])
 def test_completion_does_not_hide_explicit_or_ambiguous_followup(notice):
     assert leftover_next_step(notice)
