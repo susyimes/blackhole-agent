@@ -32965,7 +32965,7 @@
         "restore",
         "audit"
       ],
-      "updated_at": "2026-09-11T21:20:20.765096Z"
+      "updated_at": "2026-09-11T21:52:50.709464Z"
     },
     "capability.loop-login-drift": {
       "behavior_paths": [
@@ -33006,6 +33006,51 @@
         "repair"
       ],
       "updated_at": "2026-09-11T19:00:08.172051Z"
+    },
+    "capability.loop-login-prune": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_prune.py",
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/loop_login_tombstone.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A durable login-scrub audit trail stays bounded: records whose scrub time aged out are pruned automatically on every recorded scrub and on demand, fresh, undated, and malformed lines are kept, the rewrite is atomic, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T21:50:40.714282Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub",
+        "capability.loop-login-audit"
+      ],
+      "description": "A durable login-scrub audit trail's stale records are pruned once they age out so the trail stays bounded without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_prune:builtin_loop_login_prune_proof",
+      "id": "capability.loop-login-prune",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T21:50:40.714263Z",
+      "name": "Continuous-loop login-audit prune",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_prune import builtin_loop_login_prune_proof; r=builtin_loop_login_prune_proof(); assert r['ok'] and r.get('action')=='loop_login_prune' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit",
+        "prune"
+      ],
+      "updated_at": "2026-09-11T21:53:53.796396Z"
     },
     "capability.loop-login-repair": {
       "behavior_paths": [
@@ -47383,5 +47428,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T21:20:20.768241Z"
+  "updated_at": "2026-09-11T21:53:53.799316Z"
 }

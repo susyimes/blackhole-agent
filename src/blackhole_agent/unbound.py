@@ -3248,6 +3248,22 @@ def loop_login_audit(
     console.print_json(data=result)
 
 
+@app.command(help="Prune aged-out records from the durable login-scrub audit trail so the trail stays bounded.")
+def loop_login_prune(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose login-scrub audit trail is pruned."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+    retention_days: int = typer.Option(
+        30, "--retention-days", min=1, help="Prune records whose scrub time is older than this many days."
+    ),
+) -> None:
+    from blackhole_agent.loop_login_prune import prune_login_scrub_audit
+
+    result = prune_login_scrub_audit(
+        mission_root(repo_path.resolve(), output_dir), retention_days=retention_days
+    )
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

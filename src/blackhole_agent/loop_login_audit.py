@@ -8,7 +8,9 @@ was never scheduled.
 This module is the audit path: every scrub that removes a swept task's
 artifacts appends one JSONL entry to a durable audit trail naming the
 task, its repo, the scrubbed launcher and task XML paths, and the scrub
-time, so an operator can see exactly what was scrubbed. Only tasks whose
+time, so an operator can see exactly what was scrubbed. Each append prunes
+aged-out records so the trail stays bounded without an operator pruning
+stale entries by hand. Only tasks whose
 registration record is gone are ever scrubbed, so only those scrubs are
 recorded: a task whose record still exists belongs to a surviving repo,
 its artifacts are kept, nothing is written for it, and a live owner pid
@@ -115,11 +117,16 @@ def record_login_task_scrub(
             "audit_path": str(path),
             "error": str(error),
         }
+    from blackhole_agent.loop_login_prune import prune_login_scrub_audit
+
+    prune = prune_login_scrub_audit(root)
     return {
         "action": "audit_record",
         "recorded": True,
         "audit_path": str(path),
         "entry": entry,
+        "audit_pruned": bool(prune.get("pruned")),
+        "audit_pruned_count": int(prune.get("pruned_count") or 0),
     }
 
 
