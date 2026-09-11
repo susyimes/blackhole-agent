@@ -32923,6 +32923,43 @@
       ],
       "updated_at": "2026-08-29T10:01:15.328788Z"
     },
+    "capability.loop-login-repair": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_repair.py",
+        "src/blackhole_agent/loop_login_drift.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A missing or disabled login registration is rewritten: the restore helper is scheduled again and a live owner pid is not doubled by a second controller.",
+      "created_at": "2026-09-11T16:43:24.374276Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task"
+      ],
+      "description": "A missing or disabled login startup registration is repaired so the restore helper is scheduled again without starting a second controller beside a live owner pid.",
+      "entry": "blackhole_agent.loop_login_repair:builtin_loop_login_repair_proof",
+      "id": "capability.loop-login-repair",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T16:43:24.374252Z",
+      "name": "Continuous-loop login-task repair",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_repair import builtin_loop_login_repair_proof; r=builtin_loop_login_repair_proof(); assert r['ok'] and r.get('action')=='loop_login_repair' and r.get('passed_count',0) >= 12 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "repair"
+      ],
+      "updated_at": "2026-09-11T17:21:54.214950Z"
+    },
     "capability.loop-login-task": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_task.py",
@@ -47093,5 +47130,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T09:00:33.257337Z"
+  "updated_at": "2026-09-11T17:21:54.217873Z"
 }

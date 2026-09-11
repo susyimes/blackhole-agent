@@ -58,6 +58,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.loop-reboot-restore",
         "capability.loop-login-task",
         "capability.loop-login-repair",
+        "capability.loop-login-drift",
         "capability.worktree-gc-resilience",
         "capability.kernel-class-closure",
         "capability.kernel-unscoped-resume",
