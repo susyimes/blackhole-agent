@@ -32923,6 +32923,40 @@
       ],
       "updated_at": "2026-08-29T10:01:15.328788Z"
     },
+    "capability.loop-reboot-restore": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_reboot_restore.py",
+        "src/blackhole_agent/unbound.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A reaped orphan after login or reboot resumes: the startup helper starts a controller only when no live owner pid exists and refuses to start a second controller beside a live owner pid.",
+      "created_at": "2026-09-11T07:27:51.095359Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap"
+      ],
+      "description": "A reaped orphaned continuous-loop state is restored by a startup helper that starts only when no live owner pid exists and does not start a second controller beside a live owner pid.",
+      "entry": "blackhole_agent.loop_reboot_restore:builtin_loop_reboot_restore_proof",
+      "id": "capability.loop-reboot-restore",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T07:27:51.095339Z",
+      "name": "Continuous-loop reboot restoration",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_reboot_restore import builtin_loop_reboot_restore_proof; r=builtin_loop_reboot_restore_proof(); assert r['ok'] and r.get('action')=='loop_reboot_restore' and r.get('passed_count',0) >= 8 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "orphan",
+        "restore",
+        "startup",
+        "reboot"
+      ],
+      "updated_at": "2026-09-11T07:31:27.150920Z"
+    },
     "capability.lpd-actuation": {
       "behavior_paths": [
         "src/blackhole_agent/lpd_actuation.py",
@@ -37658,7 +37692,7 @@
         "reap",
         "liveness"
       ],
-      "updated_at": "2026-09-11T06:41:36.054451Z"
+      "updated_at": "2026-09-11T07:28:48.577612Z"
     },
     "capability.otn-actuation": {
       "behavior_paths": [
@@ -47024,5 +47058,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T06:41:42.713763Z"
+  "updated_at": "2026-09-11T07:31:27.154565Z"
 }

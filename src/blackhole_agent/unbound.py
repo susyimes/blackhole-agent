@@ -3122,6 +3122,33 @@ def loop_stop(
     console.print(f"stop requested: {stop_path}")
 
 
+def restore_orphaned_continuous_loop(
+    repo_path: Path,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    *,
+    controller_starter: Callable[..., dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Start a reaped orphan at login/reboot without starting a second controller."""
+
+    from blackhole_agent.loop_reboot_restore import restore_orphaned_loop_on_startup
+
+    return restore_orphaned_loop_on_startup(
+        repo_path,
+        output_dir,
+        controller_starter=controller_starter,
+    )
+
+
+@app.command(help="Restore a reaped orphaned continuous loop after login or reboot.")
+def loop_restore(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    result = restore_orphaned_continuous_loop(repo_path.resolve(), output_dir)
+    console.print_json(data=result)
+    raise typer.Exit(1 if result.get("restore_reason") == "start_failed" else 0)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",
