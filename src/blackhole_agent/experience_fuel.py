@@ -9,6 +9,7 @@ missions for the next genesis turn and the next self-evolution plan.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -165,13 +166,20 @@ _GENERIC_CLOSER_PREFIXES = (
     "None.",
     "N/A.",
 )
+_COMPLETED_CONTINGENCY = re.compile(
+    r"(?:none[.;]\s*)?mission complete[.;:]\s*"
+    r"later genesis\s+(?:can|may|could)\s+[^.!?;]+?\s+if\s+[^.!?;]+[.!]?",
+    re.IGNORECASE,
+)
 
 
 def leftover_next_step(text: str) -> str:
     """Return leftover follow-on work, or empty when the next_step is generic/closed.
 
     A closer prefix such as ``None. Mission complete.`` does not hide leftover
-    work that follows it. Harvested missions often write both in one field.
+    work that follows it. A single conditional later-genesis notice after an
+    explicit completion is deferred advice, not evidence of outstanding work.
+    Mixed or ambiguous notes remain eligible for harvest.
     """
 
     raw = " ".join(str(text or "").split())
@@ -179,6 +187,11 @@ def leftover_next_step(text: str) -> str:
         return ""
     lowered = raw.lower()
     if lowered in _CLOSED_NEXT_STEPS:
+        return ""
+    # Match the entire notice so a contingency cannot hide an additional
+    # actionable sentence. Keep the original mission/turn record intact;
+    # subsequent failure evidence remains independently harvestable.
+    if _COMPLETED_CONTINGENCY.fullmatch(raw):
         return ""
     if any(hint in lowered for hint in _CATALOG_HANDOFF_HINTS):
         return ""

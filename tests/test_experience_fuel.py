@@ -1,9 +1,12 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from blackhole_agent.experience_fuel import (
     builtin_experience_fuel,
     harvest_experience,
+    leftover_next_step,
     merge_experience_into_proposals,
     render_experience_for_genesis,
 )
@@ -97,3 +100,30 @@ def test_self_evolution_plan_uses_experience_without_force(tmp_path):
 
 def test_builtin_experience_fuel_is_green():
     assert builtin_experience_fuel()["ok"] is True
+
+
+@pytest.mark.parametrize("notice", [
+    "Mission complete; later genesis can take login-task repair if a registration goes missing or disabled.",
+    "Mission complete. Later genesis may repair the cache if entries expire.",
+    "None. Mission complete: later genesis could restore the worker if it disappears.",
+    "MISSION COMPLETE; LATER GENESIS CAN repair the launcher IF it fails",
+    "Mission complete;\n later genesis can repair the backup if\n it becomes unavailable.",
+])
+def test_completed_contingency_is_not_outstanding_work(notice):
+    assert leftover_next_step(notice) == ""
+
+
+@pytest.mark.parametrize("notice", [
+    "Mission complete; later genesis can take login-task repair so missing registrations are restored.",
+    "Mission complete. Later genesis can repair the registration because it is missing.",
+    "Mission complete. Optional follow-on is joining STEWARDSHIP_STACK as one cross-engine charter.",
+    "None. Mission complete. Optional later work is extending package.submodule support.",
+    "Later genesis can repair the registration if it is missing.",
+    "Mission complete; later genesis must repair the registration if it is missing.",
+    "Mission complete; later genesis can repair the cache if it fails. Follow-on: fix the broken launcher now.",
+    "Mission complete; later genesis can repair the cache if it fails; follow-on: fix the launcher now.",
+    "Follow-on: fix the launcher now. Mission complete; later genesis can repair the cache if it fails.",
+    "Mission complete. Later genesis can implement if-expression parsing for the planner.",
+])
+def test_completion_does_not_hide_explicit_or_ambiguous_followup(notice):
+    assert leftover_next_step(notice)
