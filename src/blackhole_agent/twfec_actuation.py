@@ -45,7 +45,6 @@ from blackhole_agent.capability_compounder import (
 from blackhole_agent.gtsm_actuation import (
     GTSM_ACTUATION_GOAL,
     GTSM_ACTUATION_ID,
-    GTSM_LEFTOVER,
 )
 from blackhole_agent.kernel_leftover import leftover_is_open, leftover_marker_ids, leftover_satisfied_by
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
@@ -99,7 +98,11 @@ TWFEC_ACTUATION_GOAL = (
     "later poll of the stored twfecdigest keeps the hole falsifiable. TWFEC sessions "
     "stay fail-closed without a twfecid-gated twfecdigest."
 )
-TWFEC_LEFTOVER = GTSM_LEFTOVER
+TWFEC_LEFTOVER = (
+    "Later genesis can take RFC 6720 The Generalized TTL Security Mechanism "
+    "(GTSM) for the Label Distribution Protocol (LDP) GTSM/TTL over a "
+    "gtsmid-gated gtsmdigest."
+)
 
 
 class TwfecActuationError(RuntimeError):

@@ -1062,6 +1062,7 @@ MVPN_TOOL_PROVIDER = "mvpn"
 PMSI_TOOL_PROVIDER = "pmsi"
 WILDAD_TOOL_PROVIDER = "wildad"
 TWFEC_TOOL_PROVIDER = "twfec"
+GTSM_TOOL_PROVIDER = "gtsm"
 
 
 def redis_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
@@ -9473,6 +9474,50 @@ def twfec_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
             "additionalProperties": False,
         },
         provider=TWFEC_TOOL_PROVIDER,
+        session_id=session_id,
+        tool_type="function",
+    )
+
+
+def gtsm_tool_descriptor(*, session_id: str | None = None) -> ToolDescriptor:
+    """Descriptor for the first-party RFC 6720 LDP GTSM/TTL route.
+
+    Provider ``gtsm`` is deliberately absent from
+    ``DEFAULT_EXECUTABLE_TOOL_PROVIDERS``: importing the tool never makes a
+    live LDP endpoint silently executable — a caller must opt the provider in.
+    """
+
+    return ToolDescriptor(
+        name="gtsm",
+        description=(
+            "Drive a first-class RFC 6720 LDP session: bind a loopback Label "
+            "Distribution Protocol speaker, send a Basic Discovery Hello with "
+            "the GTSM G flag and a non-empty gtsmid, lockstep a TTL/Hop-Limit "
+            "255 session that only applies after that Hello, independently poll "
+            "the stored gtsmdigest on a later client socket, and read the sealed "
+            "gtsmdigest. GTSMID-gated exchanges stay sealed as digest-chained "
+            "actuation traces."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["bind", "publish", "read", "close"],
+                },
+                "token": {"type": "string"},
+                "gtsm": {"type": "boolean"},
+                "ttl": {"type": "boolean"},
+                "gtsmdigest": {"type": "boolean"},
+                "replay": {"type": "boolean"},
+                "use_gtsmid": {"type": "boolean"},
+                "targeted": {"type": "boolean"},
+                "hop_limit": {"type": "integer"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+        provider=GTSM_TOOL_PROVIDER,
         session_id=session_id,
         tool_type="function",
     )

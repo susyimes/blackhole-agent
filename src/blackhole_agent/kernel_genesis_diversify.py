@@ -1245,6 +1245,11 @@ from blackhole_agent.gtsm_actuation import (
     GTSM_ACTUATION_GOAL,
     GTSM_ACTUATION_ID,
 )
+from blackhole_agent.elbl_actuation import (
+    ELBL_ACTUATION_DONE_WHEN,
+    ELBL_ACTUATION_GOAL,
+    ELBL_ACTUATION_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2707,6 +2712,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": GTSM_ACTUATION_GOAL,
         "done_when": GTSM_ACTUATION_DONE_WHEN,
         "source": "genesis_bind_gtsm",
+    },
+    {
+        "id": ELBL_ACTUATION_ID,
+        "goal": ELBL_ACTUATION_GOAL,
+        "done_when": ELBL_ACTUATION_DONE_WHEN,
+        "source": "genesis_bind_elbl",
     },
 )
 

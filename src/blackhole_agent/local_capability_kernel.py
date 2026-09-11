@@ -283,6 +283,7 @@ LOCAL_DENYLIST = frozenset(
         "capability.wildad-actuation",
         "capability.twfec-actuation",
         "capability.gtsm-actuation",
+        "capability.elbl-actuation",
         "capability.mcp-plugin-reconnect",
         "capability.kernel-half-open-probe",
         "capability.mcp-sampling",
