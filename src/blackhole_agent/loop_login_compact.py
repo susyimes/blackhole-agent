@@ -42,6 +42,11 @@ from blackhole_agent.capability_compounder import (
 )
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
 from blackhole_agent.loop_login_rollup import (
+    is_login_audit_rollup,
+    login_audit_rollup_batch,
+    merge_login_audit_rollup,
+)
+from blackhole_agent.loop_login_rollup import (
     LOOP_LOGIN_ROLLUP_DONE_WHEN,
     LOOP_LOGIN_ROLLUP_GOAL,
     LOOP_LOGIN_ROLLUP_ID,
@@ -107,7 +112,10 @@ def compact_login_audit_tombstones(
     Tombstones whose prune time is older than the compact retention window
     are dropped so the trail stays small; recent tombstones stay so an
     operator reconciling the trail can still tell an aged-out record from
-    one that was never written. The report names the compacted tombstones'
+    one that was never written, and every compaction merges one durable
+    rollup entry naming how many tombstones were compacted and the span
+    they covered so the compacted trail stays reconcilable. The report
+    names the compacted tombstones'
     tasks so the compaction itself leaves immediate evidence. Scrub records
     (fresh or stale — pruning them is the prune's job), tombstones with an
     unparseable prune time, and malformed lines are kept; the rewrite is
@@ -132,6 +140,8 @@ def compact_login_audit_tombstones(
         "tombstone_count": 0,
         "kept_count": 0,
         "malformed_count": 0,
+        "rollup_count": 0,
+        "rollup_updated": False,
         "retention_days": retention_days,
         "compacted_at": utc_now_iso(),
     }
@@ -145,6 +155,8 @@ def compact_login_audit_tombstones(
         report["error"] = str(error)
         return report
     kept_lines: list[str] = []
+    compacted_records: list[dict[str, Any]] = []
+    existing_rollup: dict[str, Any] | None = None
     for line in lines:
         text = line.strip()
         if not text:
@@ -159,9 +171,17 @@ def compact_login_audit_tombstones(
             kept_lines.append(line)
             report["malformed_count"] += 1
             continue
+        if is_login_audit_rollup(record):
+            report["rollup_count"] += 1
+            if existing_rollup is None:
+                existing_rollup = record
+            else:
+                existing_rollup = merge_login_audit_rollup(existing_rollup, record)
+            continue
         if login_audit_tombstone_is_compactable(record, now=moment, retention_days=retention_days):
             report["compacted_count"] += 1
             report["compacted_tasks"].append(str(record.get("task_name") or ""))
+            compacted_records.append(record)
             continue
         if is_login_audit_tombstone(record):
             report["tombstone_count"] += 1
@@ -170,7 +190,14 @@ def compact_login_audit_tombstones(
         kept_lines.append(line)
     if report["compacted_count"] == 0:
         report["reason"] = "nothing_compactable"
+        if existing_rollup is not None:
+            report["rollup"] = existing_rollup
         return report
+    batch = login_audit_rollup_batch(compacted_records, compacted_at=report["compacted_at"])
+    merged_rollup = merge_login_audit_rollup(existing_rollup, batch)
+    kept_lines.append(json.dumps(merged_rollup, sort_keys=True))
+    report["rollup_updated"] = True
+    report["rollup"] = merged_rollup
     try:
         handle, tmp_name = tempfile.mkstemp(
             prefix=path.name + ".", suffix=".tmp", dir=str(path.parent)
@@ -476,7 +503,7 @@ def builtin_loop_login_compact_proof() -> dict[str, Any]:
             and swept.get("swept") == [LOGIN_TASK_NAME]
             and swept.get("scrubbed_count") == 2
             and swept.get("audit_recorded") == 1
-            and trail.get("entry_count") == 3
+            and trail.get("entry_count") == 4
             and trail.get("tombstone_count") == 2
             and tombstone_names == ["recent-task", "stale-task"]
             and "ancient-task" not in names
@@ -537,7 +564,8 @@ def builtin_loop_login_compact_proof() -> dict[str, Any]:
             and compacted.get("compacted_count") == 1
             and compacted.get("compacted_tasks") == ["ancient-task"]
             and compacted.get("reason") == "long_gone"
-            and trail.get("entry_count") == 3
+            and compacted.get("rollup_updated") is True
+            and trail.get("entry_count") == 4
             and trail.get("tombstone_count") == 2
             and "ancient-task" not in names
             and "recent-task" in names
@@ -581,14 +609,13 @@ def builtin_loop_login_compact_proof() -> dict[str, Any]:
         recorded = record_login_task_scrub(task, report, audit_root=root)
         trail = read_login_scrub_audit(root)
         entries = trail.get("entries") or []
-        names = [str(entry.get("task_name") or "") for entry in entries]
         checks["recorded_scrub_compacts_on_append"] = (
             recorded.get("recorded") is True
             and recorded.get("audit_tombstones_compacted") is True
             and recorded.get("audit_tombstones_compacted_count") == 1
-            and trail.get("entry_count") == 1
+            and trail.get("entry_count") == 2
             and trail.get("tombstone_count") == 0
-            and names == [LOGIN_TASK_NAME]
+            and entries[0].get("task_name") == LOGIN_TASK_NAME
             and len(starts) == starts_before
         )
 

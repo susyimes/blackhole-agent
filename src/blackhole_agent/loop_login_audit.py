@@ -45,6 +45,7 @@ from blackhole_agent.loop_login_prune import (
     LOOP_LOGIN_PRUNE_ID,
     LOOP_LOGIN_PRUNE_LEFTOVER,
 )
+from blackhole_agent.loop_login_rollup import is_login_audit_rollup
 from blackhole_agent.loop_login_tombstone import is_login_audit_tombstone
 
 SCHEMA_VERSION = 1
@@ -145,14 +146,16 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
 
     Malformed lines are counted and skipped rather than failing the read,
     so a partially written trail still shows every intact scrub record.
-    Prune tombstones are surfaced in ``tombstone_count`` so an operator
-    reconciling the bounded trail can see what aged out.
+    Prune tombstones are surfaced in ``tombstone_count`` and the merged
+    compaction rollup in ``tombstone_rollup`` so an operator reconciling
+    the bounded trail can see what aged out and what was compacted.
     """
 
     path = login_audit_log_path(root)
     entries: list[dict[str, Any]] = []
     malformed = 0
     tombstones = 0
+    rollup: dict[str, Any] | None = None
     if path.is_file():
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -171,6 +174,8 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
                 entries.append(record)
                 if is_login_audit_tombstone(record):
                     tombstones += 1
+                elif is_login_audit_rollup(record):
+                    rollup = record
             else:
                 malformed += 1
     return {
@@ -179,6 +184,7 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
         "entries": entries,
         "entry_count": len(entries),
         "tombstone_count": tombstones,
+        "tombstone_rollup": rollup,
         "malformed_count": malformed,
     }
 

@@ -32965,7 +32965,7 @@
         "restore",
         "audit"
       ],
-      "updated_at": "2026-09-11T22:22:16.888174Z"
+      "updated_at": "2026-09-11T23:24:18.970239Z"
     },
     "capability.loop-login-compact": {
       "behavior_paths": [
@@ -33015,7 +33015,7 @@
         "tombstone",
         "compact"
       ],
-      "updated_at": "2026-09-11T23:04:13.224704Z"
+      "updated_at": "2026-09-11T23:21:33.187429Z"
     },
     "capability.loop-login-drift": {
       "behavior_paths": [
@@ -33100,7 +33100,7 @@
         "audit",
         "prune"
       ],
-      "updated_at": "2026-09-11T23:02:06.530377Z"
+      "updated_at": "2026-09-11T23:24:17.205406Z"
     },
     "capability.loop-login-repair": {
       "behavior_paths": [
@@ -33180,6 +33180,59 @@
         "retire"
       ],
       "updated_at": "2026-09-11T19:41:44.742008Z"
+    },
+    "capability.loop-login-rollup": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_rollup.py",
+        "src/blackhole_agent/loop_login_compact.py",
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/loop_login_tombstone.py",
+        "src/blackhole_agent/loop_login_prune.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A compacted login-scrub audit trail stays reconcilable: every compaction merges one durable rollup naming how many tombstones were compacted and the prune-time span they covered, the trail keeps exactly one rollup line so it stays small, the audit read surfaces the rollup, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T23:21:23.692269Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub",
+        "capability.loop-login-audit",
+        "capability.loop-login-prune",
+        "capability.loop-login-tombstone",
+        "capability.loop-login-compact"
+      ],
+      "description": "A compacted login-scrub audit trail leaves a durable rollup naming how many tombstones were compacted and the span they covered so the trail stays reconcilable without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_rollup:builtin_loop_login_rollup_proof",
+      "id": "capability.loop-login-rollup",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T23:21:23.692249Z",
+      "name": "Continuous-loop login-tombstone rollup",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_rollup import builtin_loop_login_rollup_proof; r=builtin_loop_login_rollup_proof(); assert r['ok'] and r.get('action')=='loop_login_rollup' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit",
+        "prune",
+        "tombstone",
+        "compact",
+        "rollup"
+      ],
+      "updated_at": "2026-09-11T23:24:08.941131Z"
     },
     "capability.loop-login-scrub": {
       "behavior_paths": [
@@ -33388,7 +33441,7 @@
         "prune",
         "tombstone"
       ],
-      "updated_at": "2026-09-11T23:02:07.376921Z"
+      "updated_at": "2026-09-11T23:24:18.066860Z"
     },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
@@ -47525,5 +47578,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T23:04:13.227760Z"
+  "updated_at": "2026-09-11T23:24:18.973544Z"
 }

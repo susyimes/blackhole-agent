@@ -9,14 +9,9 @@ from blackhole_agent import unbound
 from blackhole_agent.loop_login_audit import (
     login_audit_log_path,
     read_login_scrub_audit,
-    record_login_task_scrub,
 )
 from blackhole_agent.loop_login_compact import (
     DEFAULT_COMPACT_RETENTION_DAYS,
-    LOOP_LOGIN_COMPACT_DONE_WHEN,
-    LOOP_LOGIN_COMPACT_GOAL,
-    LOOP_LOGIN_COMPACT_ID,
-    builtin_loop_login_compact_proof,
     compact_login_audit_tombstones,
 )
 from blackhole_agent.loop_login_prune import (
@@ -24,12 +19,12 @@ from blackhole_agent.loop_login_prune import (
     prune_login_scrub_audit,
 )
 from blackhole_agent.loop_login_rollup import (
+    LOGIN_AUDIT_ROLLUP_EVENT,
+    LOOP_LOGIN_ROLLUP_DONE_WHEN,
     LOOP_LOGIN_ROLLUP_GOAL,
     LOOP_LOGIN_ROLLUP_ID,
-)
-from blackhole_agent.loop_login_tombstone import (
-    LOGIN_AUDIT_TOMBSTONE_EVENT,
-    is_login_audit_tombstone,
+    builtin_loop_login_rollup_proof,
+    is_login_audit_rollup,
 )
 from blackhole_agent.loop_login_task import (
     LOGIN_TASK_NAME,
@@ -41,6 +36,11 @@ from blackhole_agent.loop_login_task import (
     register_loop_restore_at_login,
 )
 from blackhole_agent.loop_login_sweep import sweep_login_tasks_missing_registration
+from blackhole_agent.loop_login_tombstone import LOGIN_AUDIT_TOMBSTONE_EVENT
+from blackhole_agent.loop_login_verify import (
+    LOOP_LOGIN_VERIFY_GOAL,
+    LOOP_LOGIN_VERIFY_ID,
+)
 from blackhole_agent.mission_selection import assess_mission_selection
 
 
@@ -73,7 +73,7 @@ def seed_orphaned(repo: Path, *, pid: int, status: str = "orphaned") -> Path:
     unbound.save_continuous_loop_state(
         path,
         {
-            "loop_id": "login-compact-test",
+            "loop_id": "login-rollup-test",
             "status": status,
             "pid": pid,
             "orphaned_from_status": "running_mission" if status == "orphaned" else "",
@@ -87,7 +87,7 @@ def seed_orphaned(repo: Path, *, pid: int, status: str = "orphaned") -> Path:
     return path
 
 
-def fresh_dead_pid(start: int = 1_000_253) -> int:
+def fresh_dead_pid(start: int = 1_000_283) -> int:
     pid = start
     while unbound.pid_is_running(pid):
         pid += 2
@@ -112,93 +112,116 @@ def ancient_tombstone(task_name: str, *, pruned_days: int) -> dict:
     }
 
 
-def test_builtin_proof_compacts_long_gone_tombstones_without_disturbing_live_owner():
-    report = builtin_loop_login_compact_proof()
+def test_builtin_proof_leaves_durable_rollup_without_disturbing_live_owner():
+    report = builtin_loop_login_rollup_proof()
     assert report["ok"] is True
-    assert report["action"] == "loop_login_compact"
+    assert report["action"] == "loop_login_rollup"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == report["check_count"]
-    assert report["checks"]["sweep_append_compacts_long_gone_tombstones"]
-    assert report["checks"]["standalone_compact_drops_long_gone_tombstones"]
-    assert report["checks"]["compact_keeps_unproven_tombstones_records_and_malformed"]
-    assert report["checks"]["compact_is_idempotent"]
-    assert report["checks"]["recorded_scrub_compacts_on_append"]
+    assert report["checks"]["sweep_compaction_leaves_durable_rollup"]
+    assert report["checks"]["rollup_names_count_and_span"]
+    assert report["checks"]["later_compactions_merge_one_rollup_line"]
+    assert report["checks"]["rollup_trail_stays_byte_identical_without_compaction"]
+    assert report["checks"]["prune_never_drops_rollup"]
+    assert report["checks"]["recorded_scrub_compaction_leaves_rollup"]
     assert report["checks"]["live_owner_not_disturbed"]
-    assert report["checks"]["catalog_names_login_rollup"]
+    assert report["checks"]["catalog_names_login_verify"]
 
 
-def test_selection_accepts_login_compact_and_next_family(tmp_path: Path):
+def test_selection_accepts_login_rollup_and_next_family(tmp_path: Path):
     gate = assess_mission_selection(
         tmp_path,
-        LOOP_LOGIN_COMPACT_GOAL,
-        LOOP_LOGIN_COMPACT_DONE_WHEN,
+        LOOP_LOGIN_ROLLUP_GOAL,
+        LOOP_LOGIN_ROLLUP_DONE_WHEN,
         history=[],
     )
     assert gate.accepted is True
-    assert LOOP_LOGIN_COMPACT_ID not in gate.capability_family
+    assert LOOP_LOGIN_ROLLUP_ID not in gate.capability_family
     nxt = assess_mission_selection(
         tmp_path,
-        LOOP_LOGIN_ROLLUP_GOAL,
-        "A compacted login-scrub audit trail leaves a durable rollup.",
+        LOOP_LOGIN_VERIFY_GOAL,
+        "A durable login-scrub audit trail's compaction rollup is verified.",
         history=[],
     )
     assert nxt.accepted is True
-    assert LOOP_LOGIN_ROLLUP_ID not in nxt.capability_family
+    assert LOOP_LOGIN_VERIFY_ID not in nxt.capability_family
 
 
-def test_compact_drops_tombstone_whose_named_record_is_long_gone(tmp_path: Path):
-    tombstone = ancient_tombstone("ancient-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 10)
+def test_compaction_writes_rollup_naming_count_and_span(tmp_path: Path):
+    older = ancient_tombstone("older-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 60)
+    newer = ancient_tombstone("newer-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 5)
     path = login_audit_log_path(tmp_path)
-    path.write_text(json.dumps(tombstone, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(older, sort_keys=True) + "\n" + json.dumps(newer, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     report = compact_login_audit_tombstones(tmp_path)
     assert report["compacted"] is True
-    assert report["reason"] == "long_gone"
-    assert report["compacted_count"] == 1
-    assert report["compacted_tasks"] == ["ancient-task"]
+    assert report["compacted_count"] == 2
+    assert report["rollup_updated"] is True
 
     trail = read_login_scrub_audit(tmp_path)
     assert trail["entry_count"] == 1
     assert trail["tombstone_count"] == 0
-    assert trail["tombstone_rollup"]["compacted_count"] == 1
-    assert trail["tombstone_rollup"]["compaction_runs"] == 1
+    rollup = trail["tombstone_rollup"]
+    assert rollup["event"] == LOGIN_AUDIT_ROLLUP_EVENT
+    assert rollup["rollup"] is True
+    assert rollup["compacted_count"] == 2
+    assert rollup["compaction_runs"] == 1
+    assert rollup["oldest_pruned_at"] == older["pruned_at"]
+    assert rollup["newest_pruned_at"] == newer["pruned_at"]
+    assert rollup["last_compacted_at"]
 
 
-def test_compact_keeps_recent_and_unproven_tombstones(tmp_path: Path):
-    recent = ancient_tombstone("recent-task", pruned_days=200)
-    undated = ancient_tombstone("undated-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 30)
-    undated["pruned_at"] = "not-a-timestamp"
+def test_later_compactions_merge_into_single_rollup_line(tmp_path: Path):
     path = login_audit_log_path(tmp_path)
     path.write_text(
-        json.dumps(recent, sort_keys=True) + "\n" + json.dumps(undated, sort_keys=True) + "\n",
+        json.dumps(ancient_tombstone("first", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 30), sort_keys=True)
+        + "\n",
         encoding="utf-8",
     )
+    compact_login_audit_tombstones(tmp_path)
+    first_rollup = read_login_scrub_audit(tmp_path)["tombstone_rollup"]
 
-    before = path.read_bytes()
-    report = compact_login_audit_tombstones(tmp_path)
-    assert report["compacted"] is False
-    assert report["reason"] == "nothing_compactable"
-    assert report["compacted_count"] == 0
-    assert report["tombstone_count"] == 2
-    assert path.read_bytes() == before
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(ancient_tombstone("second", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 2), sort_keys=True)
+            + "\n"
+        )
+    compact_login_audit_tombstones(tmp_path)
+
     trail = read_login_scrub_audit(tmp_path)
-    assert trail["tombstone_count"] == 2
+    rollups = [entry for entry in trail["entries"] if is_login_audit_rollup(entry)]
+    assert len(rollups) == 1
+    merged = rollups[0]
+    assert merged["compacted_count"] == 2
+    assert merged["compaction_runs"] == 2
+    assert merged["oldest_pruned_at"] == first_rollup["oldest_pruned_at"]
+    assert merged["newest_pruned_at"] > first_rollup["newest_pruned_at"]
 
 
-def test_prune_still_never_drops_tombstones(tmp_path: Path):
-    tombstone = ancient_tombstone("ancient-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 400)
+def test_rollup_survives_prune_and_idle_compact(tmp_path: Path):
     path = login_audit_log_path(tmp_path)
-    path.write_text(json.dumps(tombstone, sort_keys=True) + "\n", encoding="utf-8")
-
+    path.write_text(
+        json.dumps(ancient_tombstone("gone", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 10), sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+    )
+    compact_login_audit_tombstones(tmp_path)
     before = path.read_bytes()
-    report = prune_login_scrub_audit(tmp_path)
-    assert report["pruned"] is False
-    assert report["reason"] == "nothing_stale"
+
+    pruned = prune_login_scrub_audit(tmp_path)
+    assert pruned["pruned"] is False
+    assert pruned["reason"] == "nothing_stale"
+    compacted = compact_login_audit_tombstones(tmp_path)
+    assert compacted["compacted"] is False
+    assert compacted["reason"] == "nothing_compactable"
     assert path.read_bytes() == before
-    assert read_login_scrub_audit(tmp_path)["tombstone_count"] == 1
+    assert read_login_scrub_audit(tmp_path)["tombstone_rollup"]["compacted_count"] == 1
 
 
-def test_sweep_append_compacts_long_gone_tombstone_and_keeps_live_owner(tmp_path: Path):
+def test_sweep_compaction_leaves_rollup_and_keeps_live_owner(tmp_path: Path):
     starts: list[int] = []
 
     def starter(repo, output_dir=None, payload=None):
@@ -234,12 +257,12 @@ def test_sweep_append_compacts_long_gone_tombstone_and_keeps_live_owner(tmp_path
     before = state_path.read_bytes()
     swept = sweep_login_tasks_missing_registration(scheduler=scheduler)
     assert swept["swept"] == [LOGIN_TASK_NAME]
-    assert swept["audit_recorded"] == 1
     trail = read_login_scrub_audit(orphan_audit_root)
     assert trail["entry_count"] == 2
     assert trail["tombstone_count"] == 0
-    assert trail["entries"][0]["task_name"] == LOGIN_TASK_NAME
-    assert not any(is_login_audit_tombstone(entry) for entry in trail["entries"])
+    rollup = trail["tombstone_rollup"]
+    assert rollup["compacted_count"] == 1
+    assert rollup["compaction_runs"] == 1
 
     result = dispatch_login_startup(surviving, controller_starter=starter)
     assert result["started"] is False
@@ -252,29 +275,7 @@ def test_sweep_append_compacts_long_gone_tombstone_and_keeps_live_owner(tmp_path
     assert starts == []
 
 
-def test_recorded_scrub_reports_compacted_tombstones(tmp_path: Path):
-    task = {"name": LOGIN_TASK_NAME, "repo_path": str(tmp_path / "repo")}
-    report = {
-        "reason": "registration_gone",
-        "scrubbed_paths": [str(tmp_path / "a.py"), str(tmp_path / "b.xml")],
-        "kept_foreign": [],
-    }
-    tombstone = ancient_tombstone("ancient-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 5)
-    login_audit_log_path(tmp_path).write_text(
-        json.dumps(tombstone, sort_keys=True) + "\n", encoding="utf-8"
-    )
-
-    recorded = record_login_task_scrub(task, report, audit_root=tmp_path)
-    assert recorded["recorded"] is True
-    assert recorded["audit_tombstones_compacted"] is True
-    assert recorded["audit_tombstones_compacted_count"] == 1
-    trail = read_login_scrub_audit(tmp_path)
-    assert trail["entry_count"] == 2
-    assert trail["tombstone_count"] == 0
-    assert trail["entries"][0]["task_name"] == LOGIN_TASK_NAME
-
-
-def test_cli_login_compact_reports_compaction(tmp_path: Path):
+def test_cli_login_compact_reports_rollup(tmp_path: Path):
     tombstone = ancient_tombstone("ancient-task", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 10)
     login_audit_log_path(tmp_path).write_text(
         json.dumps(tombstone, sort_keys=True) + "\n", encoding="utf-8"
@@ -286,24 +287,8 @@ def test_cli_login_compact_reports_compaction(tmp_path: Path):
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert payload["compacted"] is True
-    assert payload["compacted_count"] == 1
-    assert payload["compacted_tasks"] == ["ancient-task"]
-    assert payload["reason"] == "long_gone"
+    assert payload["rollup_updated"] is True
+    assert payload["rollup"]["compacted_count"] == 1
+    assert payload["rollup"]["event"] == LOGIN_AUDIT_ROLLUP_EVENT
     trail = read_login_scrub_audit(tmp_path)
-    assert trail["tombstone_count"] == 0
-
-
-def test_cli_login_compact_leaves_intact_trail_byte_identical(tmp_path: Path):
-    tombstone = ancient_tombstone("recent-task", pruned_days=90)
-    path = login_audit_log_path(tmp_path)
-    path.write_text(json.dumps(tombstone, sort_keys=True) + "\n", encoding="utf-8")
-    before = path.read_bytes()
-    result = CliRunner().invoke(
-        unbound.app,
-        ["loop-login-compact", "--repo-path", str(tmp_path), "--output-dir", str(tmp_path)],
-    )
-    assert result.exit_code == 0, result.output
-    payload = json.loads(result.stdout)
-    assert payload["compacted"] is False
-    assert payload["reason"] == "nothing_compactable"
-    assert path.read_bytes() == before
+    assert trail["tombstone_rollup"]["compacted_count"] == 1

@@ -1,14 +1,15 @@
-"""Acceptance probe: long-gone login-audit tombstones are compacted.
+"""Acceptance probe: compaction leaves a durable merged rollup.
 
-A durable login-scrub audit trail that holds a tombstone whose named
-record is long gone — the tombstone's prune time is older than the compact
-retention window — has that tombstone compacted so the trail stays small,
-while recent tombstones stay so the trail remains reconcilable. Compaction
-runs automatically on every recorded scrub, is idempotent, and a surviving
-repo with a live owner pid keeps its registration, launcher, task XML, and
-state bytes untouched. Prints JSON with boolean passed and nonempty
-observed. Exits 0 for both met and unmet outcomes so the controller can
-replay the same probe on baseline and candidate source trees.
+A durable login-scrub audit trail whose long-gone tombstones are compacted
+keeps a durable rollup entry naming how many tombstones were compacted and
+the prune-time span they covered, so an operator reconciling the compacted
+trail can tell a compacted tombstone from a record that was never written.
+Later compactions merge into the same single rollup line so the trail stays
+small, and a surviving repo with a live owner pid keeps its registration,
+launcher, task XML, and state bytes untouched. Prints JSON with boolean
+passed and nonempty observed. Exits 0 for both met and unmet outcomes so
+the controller can replay the same probe on baseline and candidate source
+trees.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-observed: dict[str, object] = {"family": "loop-login-compact"}
+observed: dict[str, object] = {"family": "loop-login-rollup"}
 passed = False
 
 try:
@@ -35,6 +36,10 @@ try:
     from blackhole_agent.loop_login_prune import (
         DEFAULT_PRUNE_RETENTION_DAYS,
     )
+    from blackhole_agent.loop_login_rollup import (
+        LOGIN_AUDIT_ROLLUP_EVENT,
+        is_login_audit_rollup,
+    )
     from blackhole_agent.loop_login_sweep import sweep_login_tasks_missing_registration
     from blackhole_agent.loop_login_task import (
         LOGIN_TASK_NAME,
@@ -47,7 +52,6 @@ try:
     )
     from blackhole_agent.loop_login_tombstone import (
         LOGIN_AUDIT_TOMBSTONE_EVENT,
-        is_login_audit_tombstone,
     )
     from blackhole_agent.unbound import (
         continuous_loop_lock_path,
@@ -55,7 +59,7 @@ try:
         pid_is_running,
         save_continuous_loop_state,
     )
-except Exception as error:  # pragma: no cover - baseline missing login compact
+except Exception as error:  # pragma: no cover - baseline missing login rollup
     observed["error"] = type(error).__name__
     observed["detail"] = str(error)
     print(json.dumps({"passed": False, "observed": observed}, sort_keys=True))
@@ -91,7 +95,7 @@ def _seed_orphaned(repo: Path, *, pid: int, status: str = "orphaned") -> Path:
     save_continuous_loop_state(
         path,
         {
-            "loop_id": "acceptance-login-compact",
+            "loop_id": "acceptance-login-rollup",
             "status": status,
             "pid": pid,
             "orphaned_from_status": "running_mission" if status == "orphaned" else "",
@@ -123,7 +127,7 @@ def _tombstone(task_name: str, repo_path: str, *, pruned_days: int) -> dict:
 
 
 try:
-    dead_pid = 1_000_261
+    dead_pid = 1_000_281
     while pid_is_running(dead_pid):
         dead_pid += 2
     live_pid = os.getpid()
@@ -138,11 +142,11 @@ try:
         )
         return {"started": True, "pid": pid}
 
-    compact_ok = False
-    compact_durable = False
+    rollup_ok = False
+    merge_ok = False
     live_ok = False
 
-    with tempfile.TemporaryDirectory(prefix="accept-login-compact-", ignore_cleanup_errors=True) as tmp:
+    with tempfile.TemporaryDirectory(prefix="accept-login-rollup-", ignore_cleanup_errors=True) as tmp:
         parent = Path(tmp)
         orphan = parent / "orphan-repo"
         orphan.mkdir()
@@ -162,13 +166,14 @@ try:
         orphan_audit_root = login_startup_registration_path(orphan).parent
         surviving_audit_root = login_startup_registration_path(surviving).parent
 
-        ancient = _tombstone(
-            "ancient-task", str(orphan), pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 30
-        )
-        recent = _tombstone("recent-task", str(orphan), pruned_days=100)
         audit_path = login_audit_log_path(orphan_audit_root)
         audit_path.write_text(
-            json.dumps(ancient, sort_keys=True) + "\n" + json.dumps(recent, sort_keys=True) + "\n",
+            json.dumps(_tombstone("ancient-a", str(orphan), pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 40), sort_keys=True)
+            + "\n"
+            + json.dumps(_tombstone("ancient-b", str(orphan), pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 10), sort_keys=True)
+            + "\n"
+            + json.dumps(_tombstone("recent-task", str(orphan), pruned_days=90), sort_keys=True)
+            + "\n",
             encoding="utf-8",
         )
         login_startup_registration_path(orphan).unlink()
@@ -179,31 +184,52 @@ try:
         trail = read_login_scrub_audit(orphan_audit_root)
         entries = trail.get("entries") or []
         names = [str(entry.get("task_name") or "") for entry in entries]
-        tombstones = [entry for entry in entries if is_login_audit_tombstone(entry)]
+        rollups = [entry for entry in entries if is_login_audit_rollup(entry)]
+        rollup = rollups[0] if rollups else {}
 
-        raw_before = audit_path.read_bytes()
-        again = compact_login_audit_tombstones(orphan_audit_root)
+        with audit_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    _tombstone("ancient-c", str(orphan), pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 5),
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+        second = compact_login_audit_tombstones(orphan_audit_root)
+        merged_trail = read_login_scrub_audit(orphan_audit_root)
+        merged_entries = merged_trail.get("entries") or []
+        merged_rollups = [entry for entry in merged_entries if is_login_audit_rollup(entry)]
+        merged = merged_rollups[0] if merged_rollups else {}
         result = dispatch_login_startup(surviving, controller_starter=starter)
 
-        compact_ok = (
+        rollup_ok = (
             swept.get("action") == "sweep"
             and swept.get("swept") == [LOGIN_TASK_NAME]
             and swept.get("audit_recorded") == 1
             and audit_path.is_file()
             and trail.get("tombstone_count") == 1
-            and len(tombstones) == 1
-            and tombstones[0].get("task_name") == "recent-task"
-            and "ancient-task" not in names
+            and len(rollups) == 1
+            and rollup.get("event") == LOGIN_AUDIT_ROLLUP_EVENT
+            and rollup.get("compacted_count") == 2
+            and rollup.get("compaction_runs") == 1
+            and bool(rollup.get("oldest_pruned_at"))
+            and rollup.get("oldest_pruned_at") < str(rollup.get("newest_pruned_at") or "")
+            and bool(rollup.get("last_compacted_at"))
+            and "ancient-a" not in names
+            and "ancient-b" not in names
+            and "recent-task" in names
             and LOGIN_TASK_NAME in names
-            and trail.get("entry_count") == 3
             and len(starts) == starts_at_sweep
         )
-        compact_durable = (
-            again.get("compacted") is False
-            and again.get("compacted_count") == 0
-            and again.get("reason") == "nothing_compactable"
-            and audit_path.read_bytes() == raw_before
-            and read_login_scrub_audit(orphan_audit_root).get("tombstone_count") == 1
+        merge_ok = (
+            second.get("compacted") is True
+            and second.get("compacted_count") == 1
+            and len(merged_rollups) == 1
+            and merged.get("compacted_count") == 3
+            and merged.get("compaction_runs") == 2
+            and merged.get("oldest_pruned_at") == rollup.get("oldest_pruned_at")
+            and merged.get("newest_pruned_at") > str(rollup.get("newest_pruned_at") or "")
+            and merged_trail.get("tombstone_count") == 1
         )
         live_ok = (
             LOGIN_TASK_NAME in (swept.get("kept") or [])
@@ -223,15 +249,15 @@ try:
         {
             "dead_pid": dead_pid,
             "live_pid": live_pid,
-            "long_gone_tombstone_compacted_on_sweep": compact_ok,
-            "compact_is_idempotent": compact_durable,
+            "compaction_leaves_durable_rollup": rollup_ok,
+            "later_compactions_merge_one_rollup_line": merge_ok,
             "live_owner_not_disturbed": live_ok,
             "controller_starts": len(starts),
-            "sentinel": "BH-LOOP-LOGIN-COMPACT-OK" if compact_ok and compact_durable and live_ok else "",
+            "sentinel": "BH-LOOP-LOGIN-ROLLUP-OK" if rollup_ok and merge_ok and live_ok else "",
             "error": "",
         }
     )
-    passed = bool(compact_ok and compact_durable and live_ok)
+    passed = bool(rollup_ok and merge_ok and live_ok)
 except Exception as error:  # pragma: no cover - fixture or helper failure
     observed["error"] = type(error).__name__
     observed["detail"] = str(error)
