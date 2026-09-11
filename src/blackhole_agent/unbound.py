@@ -27,6 +27,7 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.durable_state import durable_overlay_session
+from blackhole_agent.process_capture import run_captured_process
 from blackhole_agent.behavior_acceptance import replay_behavior_acceptance
 from blackhole_agent.evolution_quality import (
     content_fingerprint,
@@ -446,13 +447,12 @@ def run_command(
     timeout: int = 120,
     check: bool = True,
 ) -> subprocess.CompletedProcess:
-    completed = command_runner(
-        command,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+    if command_runner is subprocess.run:
+        completed = run_captured_process(command, cwd=cwd, timeout=timeout)
+    else:
+        completed = command_runner(
+            command, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+        )
     if check and completed.returncode != 0:
         stderr = (completed.stderr or "").strip()
         stdout = (completed.stdout or "").strip()
@@ -2661,6 +2661,15 @@ def run_continuous_loop(
                 should_wait = True
 
                 if current_state_path is None:
+                    loop_state["status"] = "creating_mission"
+                    loop_state["mission_create_started_at"] = utc_now_iso()
+                    loop_state["mission_create_timeout_seconds"] = WORKTREE_SETUP_TIMEOUT_SECONDS
+                    save_continuous_loop_state(state_path, loop_state)
+                    append_jsonl(events_path, {
+                        "event": "continuous_loop.mission_creating", "at": loop_state["mission_create_started_at"],
+                        "loop_id": loop_id, "base_ref": lineage_ref,
+                        "worktree_timeout_seconds": WORKTREE_SETUP_TIMEOUT_SECONDS,
+                    })
                     loop_state["mission_create_attempt_count"] = (
                         int(loop_state["mission_create_attempt_count"]) + 1
                     )
@@ -3011,7 +3020,27 @@ def loop(
     raise typer.Exit(exit_code)
 
 
-@app.command(help="Show durable state for the autonomous continuous loop.")
+def continuous_loop_status_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    """Read-only liveness annotation; durable 'running' is not a health verdict.
+
+    A live PID still needs command-line/parent-tree verification by the operator.
+    A missing PID is sufficient evidence to reject an active durable status.
+    """
+    try:
+        owner_pid = int(payload.get("pid") or 0)
+    except (TypeError, ValueError):
+        owner_pid = 0
+    alive = pid_is_running(owner_pid)
+    active = str(payload.get("status") or "") in {
+        "starting", "running", "creating_mission", "running_mission", "publishing", "sleeping",
+        "sleeping_publish_retry", "sleeping_mission_create_retry",
+    }
+    return {**payload, "pid_alive": alive, "checked_at": utc_now_iso(),
+            "effective_status": "orphaned" if active and not alive else payload.get("status"),
+            "liveness_error": "durable loop owner PID is missing" if active and not alive else ""}
+
+
+@app.command(help="Show durable loop state plus current owner-PID liveness.")
 def loop_status(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
     output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
@@ -3020,7 +3049,7 @@ def loop_status(
     if not state_path.exists():
         raise typer.BadParameter(f"No Unbound continuous loop state exists: {state_path}")
     payload = json.loads(state_path.read_text(encoding="utf-8"))
-    console.print_json(data=payload)
+    console.print_json(data=continuous_loop_status_snapshot(payload))
 
 
 @app.command(help="Request that the continuous loop stop after its current mission returns.")
