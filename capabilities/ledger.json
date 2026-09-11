@@ -32923,6 +32923,46 @@
       ],
       "updated_at": "2026-08-29T10:01:15.328788Z"
     },
+    "capability.loop-login-drift": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_drift.py",
+        "src/blackhole_agent/loop_login_repair.py",
+        "src/blackhole_agent/loop_login_stale.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A drifted login registration is rewritten: the wrong trigger or helper is re-pointed at the restore helper and a live owner pid is not doubled by a second controller.",
+      "created_at": "2026-09-11T17:49:01.162020Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair"
+      ],
+      "description": "A drifted login startup registration with the wrong trigger or helper is repaired so the restore helper is scheduled again without starting a second controller beside a live owner pid.",
+      "entry": "blackhole_agent.loop_login_drift:builtin_loop_login_drift_proof",
+      "id": "capability.loop-login-drift",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T17:49:01.162000Z",
+      "name": "Continuous-loop login-task drift repair",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_drift import builtin_loop_login_drift_proof; r=builtin_loop_login_drift_proof(); assert r['ok'] and r.get('action')=='loop_login_drift' and r.get('passed_count',0) >= 15 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "drift",
+        "repair"
+      ],
+      "updated_at": "2026-09-11T17:53:56.648201Z"
+    },
     "capability.loop-login-repair": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_repair.py",
@@ -32958,7 +32998,7 @@
         "restore",
         "repair"
       ],
-      "updated_at": "2026-09-11T17:21:54.214950Z"
+      "updated_at": "2026-09-11T17:49:29.548618Z"
     },
     "capability.loop-login-task": {
       "behavior_paths": [
@@ -32993,7 +33033,7 @@
         "restore",
         "schedule"
       ],
-      "updated_at": "2026-09-11T07:56:56.594394Z"
+      "updated_at": "2026-09-11T17:49:29.703090Z"
     },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
@@ -47130,5 +47170,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T17:21:54.217873Z"
+  "updated_at": "2026-09-11T17:53:56.651197Z"
 }

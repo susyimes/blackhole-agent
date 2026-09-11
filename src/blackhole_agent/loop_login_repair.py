@@ -1,10 +1,10 @@
-"""Repair a missing or disabled login startup registration.
+"""Repair a missing, disabled, or drifted login startup registration.
 
-Login-task enablement can schedule the restore helper, but a deleted or
-disabled registration stays gone. This helper rewrites that registration so
-the restore helper is scheduled again. Repair never starts a controller, so
-a live owner pid is not doubled. Dispatch still refuses a second controller
-because it reuses the restore helper.
+Login-task enablement can schedule the restore helper, but a deleted,
+disabled, or drifted registration stays broken. This helper rewrites that
+registration so the restore helper is scheduled again. Repair never starts
+a controller, so a live owner pid is not doubled. Dispatch still refuses a
+second controller because it reuses the restore helper.
 """
 
 from __future__ import annotations
@@ -58,7 +58,9 @@ def login_startup_repair_reason(registration: dict[str, Any] | None) -> str | No
         return "missing"
     if registration.get("enabled") is not True:
         return "disabled"
-    return None
+    from blackhole_agent.loop_login_drift import login_startup_drift_reason
+
+    return login_startup_drift_reason(registration)
 
 
 def repair_login_startup_registration(
@@ -67,7 +69,7 @@ def repair_login_startup_registration(
     *,
     scheduler: LoginScheduler | None = None,
 ) -> dict[str, Any]:
-    """Recreate a missing or disabled logon registration for the restore helper.
+    """Recreate a missing, disabled, or drifted logon registration for the helper.
 
     This only schedules. It does not start a controller, so a live owner pid
     is never doubled at repair time.
@@ -99,6 +101,8 @@ def repair_login_startup_registration(
         "scheduled": True,
         "repaired_from": reason,
         "previous_enabled": None if existing is None else existing.get("enabled"),
+        "previous_trigger": None if existing is None else existing.get("trigger"),
+        "previous_helper": None if existing is None else existing.get("helper"),
     }
 
 
