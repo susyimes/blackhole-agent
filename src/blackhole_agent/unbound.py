@@ -9,6 +9,7 @@ treated as capability growth.
 
 from __future__ import annotations
 
+import errno
 import importlib
 import json
 import os
@@ -2094,10 +2095,15 @@ def pid_is_running(pid: int) -> bool:
         close_handle.restype = ctypes.c_int
         handle = open_process(process_query_limited_information, False, pid)
         if not handle:
-            return False
+            error = ctypes.get_last_error()
+            if error == 87:  # ERROR_INVALID_PARAMETER: this PID no longer exists.
+                return False
+            raise ctypes.WinError(error)
         try:
             exit_code = ctypes.c_uint32()
-            return bool(get_exit_code(handle, ctypes.byref(exit_code))) and exit_code.value == still_active
+            if not get_exit_code(handle, ctypes.byref(exit_code)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            return exit_code.value == still_active
         finally:
             close_handle(handle)
     try:
@@ -2106,46 +2112,76 @@ def pid_is_running(pid: int) -> bool:
         return False
     except PermissionError:
         return True
-    except OSError:
-        return False
     return True
 
 
 @contextmanager
-def continuous_loop_lock(lock_path: Path) -> Iterator[None]:
-    """Own one outer evolution loop, reclaiming a lock left by a dead process."""
+def continuous_loop_guard(lock_path: Path) -> Iterator[None]:
+    """Serialize controllers and reapers with an OS lock released on process exit.
+
+    Keep the guard file permanently: unlinking it would let competing openers
+    lock different inodes. The separate PID file remains readable by operators.
+    """
 
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor: int | None = None
-    for _ in range(2):
+    with lock_path.with_suffix(lock_path.suffix + ".guard").open("a+b") as guard:
+        guard.seek(0, os.SEEK_END)
+        if guard.tell() == 0:
+            guard.write(b"\0")
+            guard.flush()
+        guard.seek(0)
+        if os.name == "nt":
+            import msvcrt
+        else:
+            import fcntl
         try:
-            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            break
-        except FileExistsError as error:
+            if os.name == "nt":
+                msvcrt.locking(guard.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            if error.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                raise RuntimeError("Another Unbound controller or reaper owns the continuous loop guard") from error
+            raise
+        try:
+            yield
+        finally:
+            guard.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(guard.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+
+
+def continuous_loop_owner_pid(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError("loop owner PID must be a positive integer")
+    pid = int(value)
+    if not 0 < pid <= 0xFFFFFFFF:
+        raise ValueError("loop owner PID is outside the process ID range")
+    return pid
+
+
+@contextmanager
+def continuous_loop_lock(lock_path: Path) -> Iterator[None]:
+    """Own one outer evolution loop, reclaiming only a known-dead PID lock."""
+
+    with continuous_loop_guard(lock_path):
+        if lock_path.exists():
+            owner_pid = continuous_loop_owner_pid(lock_path.read_text(encoding="utf-8").strip())
+            if pid_is_running(owner_pid):
+                raise RuntimeError(f"Another Unbound continuous loop owns this repository: pid={owner_pid}")
+            lock_path.unlink()
+        with lock_path.open("x", encoding="utf-8") as handle:
+            handle.write(f"{os.getpid()}\n")
+        try:
+            yield
+        finally:
             try:
-                owner_pid = int(lock_path.read_text(encoding="utf-8").strip())
-            except (OSError, ValueError):
-                owner_pid = 0
-            if owner_pid and pid_is_running(owner_pid):
-                raise RuntimeError(
-                    f"Another Unbound continuous loop owns this repository: pid={owner_pid}"
-                ) from error
-            try:
-                lock_path.unlink()
+                if lock_path.read_text(encoding="utf-8").strip() == str(os.getpid()):
+                    lock_path.unlink()
             except FileNotFoundError:
                 pass
-    if descriptor is None:
-        raise RuntimeError(f"Unable to acquire Unbound continuous loop lock: {lock_path}")
-    try:
-        os.write(descriptor, f"{os.getpid()}\n".encode())
-        os.close(descriptor)
-        yield
-    finally:
-        try:
-            if lock_path.read_text(encoding="utf-8").strip() == str(os.getpid()):
-                lock_path.unlink()
-        except FileNotFoundError:
-            pass
 
 
 def save_continuous_loop_state(path: Path, state: dict[str, Any]) -> None:
@@ -3026,30 +3062,97 @@ def continuous_loop_status_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
     A live PID still needs command-line/parent-tree verification by the operator.
     A missing PID is sufficient evidence to reject an active durable status.
     """
+    error = ""
     try:
-        owner_pid = int(payload.get("pid") or 0)
-    except (TypeError, ValueError):
-        owner_pid = 0
-    alive = pid_is_running(owner_pid)
+        owner_pid = continuous_loop_owner_pid(payload.get("pid"))
+        alive: bool | None = pid_is_running(owner_pid)
+    except (OSError, ValueError) as exc:
+        alive = None
+        error = f"loop owner PID liveness unavailable: {exc}"
     active = str(payload.get("status") or "") in {
         "starting", "running", "creating_mission", "running_mission", "publishing", "sleeping",
         "sleeping_publish_retry", "sleeping_mission_create_retry",
     }
+    effective_status = payload.get("status")
+    if active and alive is False:
+        effective_status = "orphaned"
+        error = "durable loop owner PID is missing"
+    elif active and alive is None:
+        effective_status = "unknown"
     return {**payload, "pid_alive": alive, "checked_at": utc_now_iso(),
-            "effective_status": "orphaned" if active and not alive else payload.get("status"),
-            "liveness_error": "durable loop owner PID is missing" if active and not alive else ""}
+            "effective_status": effective_status, "liveness_error": error}
 
 
-@app.command(help="Show durable loop state plus current owner-PID liveness.")
+def reap_orphaned_continuous_loop(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict[str, Any]:
+    """Persist a dead controller's orphaned state without changing its mission.
+
+    Re-read both state and PID lock under the controller's OS guard so concurrent
+    status calls and a successor controller cannot overwrite each other's state.
+    Unknown liveness and live owners are never evidence for reaping.
+    """
+
+    state_path = continuous_loop_state_path(repo_path, output_dir)
+    lock_path = continuous_loop_lock_path(repo_path, output_dir)
+
+    def snapshot() -> dict[str, Any]:
+        return continuous_loop_status_snapshot(json.loads(state_path.read_text(encoding="utf-8")))
+
+    current = snapshot()
+    if current["effective_status"] != "orphaned" or current.get("status") == "orphaned":
+        return current
+    try:
+        with continuous_loop_guard(lock_path):
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+            current = continuous_loop_status_snapshot(payload)
+            if current["effective_status"] != "orphaned" or payload.get("status") == "orphaned":
+                return current
+            if lock_path.exists():
+                lock_pid = continuous_loop_owner_pid(lock_path.read_text(encoding="utf-8").strip())
+                if pid_is_running(lock_pid):
+                    return {**current, "reaping_error": f"continuous loop PID lock has a live owner: {lock_pid}"}
+            at = utc_now_iso()
+            previous_status = payload["status"]
+            payload.update(
+                status="orphaned",
+                orphaned_from_status=previous_status,
+                reaped_at=at,
+                reaped_by_pid=os.getpid(),
+                stop_reason="controller_process_missing",
+                next_wake_at="",
+            )
+            save_continuous_loop_state(state_path, payload)
+            append_jsonl(continuous_loop_events_path(repo_path, output_dir), {
+                "event": "continuous_loop.orphaned",
+                "at": at,
+                "loop_id": payload.get("loop_id", ""),
+                "pid": payload["pid"],
+                "previous_status": previous_status,
+                "current_mission_id": payload.get("current_mission_id", ""),
+                "current_state_path": payload.get("current_state_path", ""),
+                "reaped_by_pid": os.getpid(),
+                "reason": "controller_process_missing",
+            })
+            lock_path.unlink(missing_ok=True)
+            return continuous_loop_status_snapshot(payload)
+    except (OSError, ValueError, RuntimeError) as exc:
+        return {**snapshot(), "reaping_error": str(exc)}
+
+
+@app.command(help="Reap a confirmed dead controller and show loop state plus owner-PID liveness.")
 def loop_status(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
     output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+    read_only: bool = typer.Option(False, "--read-only", help="Only inspect liveness; preserve durable state and locks."),
 ) -> None:
     state_path = continuous_loop_state_path(repo_path.resolve(), output_dir)
     if not state_path.exists():
         raise typer.BadParameter(f"No Unbound continuous loop state exists: {state_path}")
-    payload = json.loads(state_path.read_text(encoding="utf-8"))
-    console.print_json(data=continuous_loop_status_snapshot(payload))
+    if read_only:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+        result = continuous_loop_status_snapshot(payload)
+    else:
+        result = reap_orphaned_continuous_loop(repo_path.resolve(), output_dir)
+    console.print_json(data=result)
 
 
 @app.command(help="Request that the continuous loop stop after its current mission returns.")
@@ -3061,6 +3164,10 @@ def loop_stop(
     state_path = continuous_loop_state_path(repo_path, output_dir)
     if not state_path.exists():
         raise typer.BadParameter(f"No Unbound continuous loop state exists: {state_path}")
+    result = reap_orphaned_continuous_loop(repo_path, output_dir)
+    if result.get("status") == "orphaned":
+        console.print_json(data=result)
+        return
     stop_path = continuous_loop_stop_path(repo_path, output_dir)
     atomic_write_json(
         stop_path,

@@ -1,10 +1,25 @@
 # Continuous loop recovery
 
-`loop-status` now adds a read-only `pid_alive`, `effective_status`, `checked_at`
-and `liveness_error` to the durable state. An active-looking state with no owner
-process is reported as `effective_status=orphaned`; the command does not rewrite
-the evidence on disk. A live PID alone is not health proof: verify its command
-line, creation time and mission/Cursor descendant tree as well.
+`loop-status` checks owner liveness and reaps a confirmed dead controller. It
+persists `status=orphaned`, the previous status, reaping time and reason, removes
+the stale PID lock, and appends one `continuous_loop.orphaned` event. Repeated
+checks leave the receipt unchanged. Mission state, worktrees, lineage references,
+pending publication and existing error diagnostics remain available for recovery.
+`loop-stop` also reaps a dead controller instead of waiting for it to consume a
+stop request. Neither command terminates processes or resumes a mission.
+
+Use `loop-status --read-only` for inspection without changing state or locks.
+Both modes add `pid_alive`, `effective_status`, `checked_at` and `liveness_error`.
+A malformed PID or failed process query produces unknown liveness, not evidence
+of death. A live PID alone is not health proof: verify its command line, creation
+time and mission/Cursor descendant tree as well; PID reuse is treated conservatively.
+
+Controllers and reapers share an OS ownership guard, released automatically when
+the owner process exits. The `.lock.guard` file stays on disk as the stable lock
+target; its existence does not indicate an active controller. Reaping rechecks
+the state and PID lock while holding this guard and refuses live or uncertain
+owners. An unknown PID lock must be investigated before recovery. There is no
+background watcher: reconciliation happens when status or stop is invoked.
 
 Before creating a new mission the loop records `creating_mission`, a start time,
 the checkout timeout and a `continuous_loop.mission_creating` event. A machine
