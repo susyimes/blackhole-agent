@@ -3226,6 +3226,17 @@ def loop_login_sweep(
     console.print_json(data=result)
 
 
+@app.command(help="Scrub leftover launcher and task XML artifacts of login tasks whose registration record is gone.")
+def loop_login_scrub(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose login artifacts are scrubbed."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_scrub import scrub_swept_login_task_artifacts
+
+    result = scrub_swept_login_task_artifacts(mission_root(repo_path.resolve(), output_dir))
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

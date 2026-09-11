@@ -33042,6 +33042,49 @@
       ],
       "updated_at": "2026-09-11T19:41:44.742008Z"
     },
+    "capability.loop-login-scrub": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_scrub.py",
+        "src/blackhole_agent/loop_login_sweep.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A swept login task leaves no on-disk residue: its dead launcher and task XML are scrubbed once the registration record is gone, foreign same-name files and a surviving repo's artifacts are kept, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T20:40:05.955462Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep"
+      ],
+      "description": "A swept login task's leftover launcher and task XML artifacts are scrubbed from disk so a record-gone task leaves no on-disk residue without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_scrub:builtin_loop_login_scrub_proof",
+      "id": "capability.loop-login-scrub",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T20:40:05.955441Z",
+      "name": "Continuous-loop login-task scrub",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_scrub import builtin_loop_login_scrub_proof; r=builtin_loop_login_scrub_proof(); assert r['ok'] and r.get('action')=='loop_login_scrub' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "scrub"
+      ],
+      "updated_at": "2026-09-11T20:45:43.892126Z"
+    },
     "capability.loop-login-stale": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_stale.py",
@@ -47296,5 +47339,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T20:12:57.223534Z"
+  "updated_at": "2026-09-11T20:45:43.895223Z"
 }

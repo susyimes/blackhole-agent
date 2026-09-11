@@ -9,10 +9,11 @@ launcher until an operator deletes the task by hand.
 
 This module is the sweep path: it enumerates the scheduler, and any task
 that targets the restore helper whose registration record is gone is
-unscheduled so logon stops firing it. The sweep only unschedules. It never
-starts a controller, and a task whose record still exists belongs to a
-surviving repo and is kept untouched, so a live owner pid in any surviving
-repo is never disturbed.
+unscheduled so logon stops firing it. A swept task's dead launcher and task
+XML artifacts are scrubbed alongside so a record-gone task leaves no
+on-disk residue. The sweep never starts a controller, and a task whose
+record still exists belongs to a surviving repo and is kept untouched, so
+a live owner pid in any surviving repo is never disturbed.
 """
 
 from __future__ import annotations
@@ -163,10 +164,11 @@ def sweep_login_tasks_missing_registration(
 ) -> dict[str, Any]:
     """Unschedule logon tasks whose registration record is gone.
 
-    This only enumerates and unschedules. It never starts a controller, and
-    it removes only tasks whose registration record is gone, so a live owner
-    pid in any surviving repo is never disturbed: a surviving repo's task
-    still has its record and is kept.
+    This enumerates, unschedules, and scrubs the swept task's dead launcher
+    and task XML artifacts. It never starts a controller, and it removes
+    only tasks whose registration record is gone, so a live owner pid in any
+    surviving repo is never disturbed: a surviving repo's task still has its
+    record and is kept.
     """
 
     from blackhole_agent.unbound import DEFAULT_OUTPUT_DIR
@@ -179,6 +181,8 @@ def sweep_login_tasks_missing_registration(
     swept: list[str] = []
     kept: list[str] = []
     reasons: dict[str, str] = {}
+    scrubbed_artifacts: dict[str, list[str]] = {}
+    kept_foreign: dict[str, list[str]] = {}
     for task in tasks:
         if not isinstance(task, dict):
             continue
@@ -198,6 +202,13 @@ def sweep_login_tasks_missing_registration(
         if applied.get("unscheduled") is not False:
             swept.append(name)
             reasons[name] = reason
+            from blackhole_agent.loop_login_scrub import scrub_login_task_artifacts
+
+            scrub = scrub_login_task_artifacts(task)
+            scrubbed_artifacts[name] = list(scrub.get("scrubbed_paths") or [])
+            foreign = list(scrub.get("kept_foreign") or [])
+            if foreign:
+                kept_foreign[name] = foreign
         else:
             kept.append(name)
     return {
@@ -211,6 +222,9 @@ def sweep_login_tasks_missing_registration(
         "scheduled": bool(kept),
         "unscheduled": bool(swept),
         "listed_count": len(tasks),
+        "scrubbed_artifacts": scrubbed_artifacts,
+        "kept_foreign_artifacts": kept_foreign,
+        "scrubbed_count": sum(len(paths) for paths in scrubbed_artifacts.values()),
         "swept_at": utc_now_iso(),
     }
 
