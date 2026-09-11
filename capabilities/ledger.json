@@ -33338,7 +33338,7 @@
         "prune",
         "tombstone"
       ],
-      "updated_at": "2026-09-11T22:25:30.334390Z"
+      "updated_at": "2026-09-11T22:26:23.912536Z"
     },
     "capability.loop-reboot-restore": {
       "behavior_paths": [
@@ -47475,5 +47475,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T22:25:30.337429Z"
+  "updated_at": "2026-09-11T22:26:23.915508Z"
 }
