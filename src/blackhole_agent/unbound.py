@@ -3237,6 +3237,17 @@ def loop_login_scrub(
     console.print_json(data=result)
 
 
+@app.command(help="Show the durable audit trail of swept login tasks' scrubbed launcher and task XML artifacts.")
+def loop_login_audit(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose login-scrub audit trail is shown."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_audit import read_login_scrub_audit
+
+    result = read_login_scrub_audit(mission_root(repo_path.resolve(), output_dir))
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

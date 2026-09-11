@@ -11,7 +11,9 @@ This module is the sweep path: it enumerates the scheduler, and any task
 that targets the restore helper whose registration record is gone is
 unscheduled so logon stops firing it. A swept task's dead launcher and task
 XML artifacts are scrubbed alongside so a record-gone task leaves no
-on-disk residue. The sweep never starts a controller, and a task whose
+on-disk residue, and the scrub is recorded in the durable login-scrub
+audit trail so an operator can reconcile the deletions. The sweep never
+starts a controller, and a task whose
 record still exists belongs to a surviving repo and is kept untouched, so
 a live owner pid in any surviving repo is never disturbed.
 """
@@ -183,6 +185,8 @@ def sweep_login_tasks_missing_registration(
     reasons: dict[str, str] = {}
     scrubbed_artifacts: dict[str, list[str]] = {}
     kept_foreign: dict[str, list[str]] = {}
+    audit_recorded = 0
+    audit_paths: list[str] = []
     for task in tasks:
         if not isinstance(task, dict):
             continue
@@ -209,6 +213,11 @@ def sweep_login_tasks_missing_registration(
             foreign = list(scrub.get("kept_foreign") or [])
             if foreign:
                 kept_foreign[name] = foreign
+            if scrub.get("audit_recorded"):
+                audit_recorded += 1
+                audit_path = str(scrub.get("audit_path") or "")
+                if audit_path and audit_path not in audit_paths:
+                    audit_paths.append(audit_path)
         else:
             kept.append(name)
     return {
@@ -225,6 +234,8 @@ def sweep_login_tasks_missing_registration(
         "scrubbed_artifacts": scrubbed_artifacts,
         "kept_foreign_artifacts": kept_foreign,
         "scrubbed_count": sum(len(paths) for paths in scrubbed_artifacts.values()),
+        "audit_recorded": audit_recorded,
+        "audit_paths": audit_paths,
         "swept_at": utc_now_iso(),
     }
 

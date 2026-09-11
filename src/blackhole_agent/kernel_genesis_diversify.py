@@ -1310,6 +1310,11 @@ from blackhole_agent.loop_login_audit import (
     LOOP_LOGIN_AUDIT_GOAL,
     LOOP_LOGIN_AUDIT_ID,
 )
+from blackhole_agent.loop_login_prune import (
+    LOOP_LOGIN_PRUNE_DONE_WHEN,
+    LOOP_LOGIN_PRUNE_GOAL,
+    LOOP_LOGIN_PRUNE_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2850,6 +2855,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LOOP_LOGIN_AUDIT_GOAL,
         "done_when": LOOP_LOGIN_AUDIT_DONE_WHEN,
         "source": "genesis_bind_loop_login_audit",
+    },
+    {
+        "id": LOOP_LOGIN_PRUNE_ID,
+        "goal": LOOP_LOGIN_PRUNE_GOAL,
+        "done_when": LOOP_LOGIN_PRUNE_DONE_WHEN,
+        "source": "genesis_bind_loop_login_prune",
     },
 )
 

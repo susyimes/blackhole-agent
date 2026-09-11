@@ -11,7 +11,8 @@ record-gone task leaves no on-disk residue. The scrub only deletes files it
 can prove are ours — the well-known launcher and task XML names with
 restore-helper content — and it never touches a task whose registration
 record still exists, so a live owner pid in any surviving repo is never
-disturbed.
+disturbed. Every scrub that removes artifacts is recorded in the durable
+login-scrub audit trail so an operator can reconcile the deletions.
 """
 
 from __future__ import annotations
@@ -36,6 +37,8 @@ from blackhole_agent.loop_login_audit import (
     LOOP_LOGIN_AUDIT_GOAL,
     LOOP_LOGIN_AUDIT_ID,
     LOOP_LOGIN_AUDIT_LEFTOVER,
+    login_audit_log_path,
+    record_login_task_scrub,
 )
 
 SCHEMA_VERSION = 1
@@ -107,13 +110,20 @@ def _artifact_is_ours(kind: str, path: Path) -> bool:
     return LOGIN_TASK_NAME in text and "<LogonTrigger>" in text
 
 
-def scrub_login_task_artifacts(task: dict[str, Any]) -> dict[str, Any]:
+def scrub_login_task_artifacts(
+    task: dict[str, Any],
+    *,
+    audit_root: Path | None = None,
+) -> dict[str, Any]:
     """Delete a swept task's leftover launcher and task XML artifacts.
 
     Only a task the sweep would remove — a restore-helper logon task whose
     registration record is gone — is scrubbed. A task whose record still
     exists belongs to a surviving repo: its launcher and task XML are kept,
-    so a live owner pid in any surviving repo is never disturbed.
+    so a live owner pid in any surviving repo is never disturbed. A scrub
+    that removes artifacts is recorded in the durable login-scrub audit
+    trail so an operator can reconcile the deletion; a scrub that removes
+    nothing records nothing.
     """
 
     from blackhole_agent.loop_login_sweep import login_task_sweep_reason
@@ -128,6 +138,8 @@ def scrub_login_task_artifacts(task: dict[str, Any]) -> dict[str, Any]:
             "scrubbed_paths": [],
             "kept_foreign": [],
             "scrubbed_count": 0,
+            "audit_recorded": False,
+            "audit_path": "",
         }
     scrubbed: list[str] = []
     kept_foreign: list[str] = []
@@ -148,7 +160,7 @@ def scrub_login_task_artifacts(task: dict[str, Any]) -> dict[str, Any]:
                 continue
             scrubbed.append(str(path))
             removed = True
-    return {
+    report = {
         "action": "scrub",
         "scrubbed": bool(scrubbed),
         "skipped": False,
@@ -157,6 +169,10 @@ def scrub_login_task_artifacts(task: dict[str, Any]) -> dict[str, Any]:
         "kept_foreign": kept_foreign,
         "scrubbed_count": len(scrubbed),
     }
+    audit = record_login_task_scrub(task, report, audit_root=audit_root)
+    report["audit_recorded"] = bool(audit.get("recorded"))
+    report["audit_path"] = str(audit.get("audit_path") or "")
+    return report
 
 
 def scrub_swept_login_task_artifacts(root: Path) -> dict[str, Any]:
@@ -167,7 +183,9 @@ def scrub_swept_login_task_artifacts(root: Path) -> dict[str, Any]:
     entry and the registration record gone, the only trace is the artifact
     pair itself: this scans ``root`` for well-known launcher or task XML
     files whose sibling registration record is missing and scrubs the ones
-    that carry restore-helper content.
+    that carry restore-helper content. Each scrub is recorded in the durable
+    login-scrub audit trail under ``root`` so an operator can reconcile the
+    deletions.
     """
 
     from blackhole_agent.loop_login_task import (
@@ -182,6 +200,7 @@ def scrub_swept_login_task_artifacts(root: Path) -> dict[str, Any]:
     scrubbed: list[str] = []
     kept_foreign: list[str] = []
     seen_dirs: set[str] = set()
+    audit_recorded = 0
     if root.is_dir():
         names = {LAUNCHER_NAME, TASK_XML_NAME}
         for path in sorted(root.rglob("*")):
@@ -199,9 +218,11 @@ def scrub_swept_login_task_artifacts(root: Path) -> dict[str, Any]:
                 "launcher_path": str(path.with_name(LAUNCHER_NAME)),
                 "task_xml_path": str(path.with_name(TASK_XML_NAME)),
             }
-            report = scrub_login_task_artifacts(task)
+            report = scrub_login_task_artifacts(task, audit_root=root)
             scrubbed.extend(report.get("scrubbed_paths") or [])
             kept_foreign.extend(report.get("kept_foreign") or [])
+            if report.get("audit_recorded"):
+                audit_recorded += 1
     return {
         "action": "scrub_residue",
         "started": False,
@@ -210,6 +231,8 @@ def scrub_swept_login_task_artifacts(root: Path) -> dict[str, Any]:
         "scrubbed_paths": scrubbed,
         "kept_foreign": kept_foreign,
         "scrubbed_count": len(scrubbed),
+        "audit_recorded": audit_recorded,
+        "audit_path": str(login_audit_log_path(root)),
         "scrubbed_at": utc_now_iso(),
     }
 

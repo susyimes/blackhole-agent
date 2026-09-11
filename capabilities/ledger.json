@@ -32923,6 +32923,50 @@
       ],
       "updated_at": "2026-08-29T10:01:15.328788Z"
     },
+    "capability.loop-login-audit": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_audit.py",
+        "src/blackhole_agent/loop_login_scrub.py",
+        "src/blackhole_agent/loop_login_sweep.py",
+        "src/blackhole_agent/loop_login_prune.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A swept login task's scrub is reconcilable: the durable audit trail records the task, its repo, the scrubbed launcher and task XML paths, and the scrub time, kept and foreign artifacts record nothing, and a live owner pid is never disturbed.",
+      "created_at": "2026-09-11T21:15:55.832033Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub"
+      ],
+      "description": "A swept login task's scrubbed launcher and task XML removal is recorded in a durable audit trail so an operator can see what was scrubbed without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_audit:builtin_loop_login_audit_proof",
+      "id": "capability.loop-login-audit",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T21:15:55.832013Z",
+      "name": "Continuous-loop login-scrub audit",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_audit import builtin_loop_login_audit_proof; r=builtin_loop_login_audit_proof(); assert r['ok'] and r.get('action')=='loop_login_audit' and r.get('passed_count',0) >= 19 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit"
+      ],
+      "updated_at": "2026-09-11T21:20:20.765096Z"
+    },
     "capability.loop-login-drift": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_drift.py",
@@ -47339,5 +47383,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T20:45:43.895223Z"
+  "updated_at": "2026-09-11T21:20:20.768241Z"
 }
