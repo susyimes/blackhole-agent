@@ -3205,6 +3205,17 @@ def loop_login_stale(
     console.print_json(data=result)
 
 
+@app.command(help="Retire a login startup registration whose repo was deleted so logon stops firing a dead launcher.")
+def loop_login_retire(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository containing loop state."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_retire import retire_login_startup_registration
+
+    result = retire_login_startup_registration(repo_path.resolve(), output_dir)
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

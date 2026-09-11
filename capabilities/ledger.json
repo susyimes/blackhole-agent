@@ -33000,6 +33000,48 @@
       ],
       "updated_at": "2026-09-11T19:00:07.209594Z"
     },
+    "capability.loop-login-retire": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_retire.py",
+        "src/blackhole_agent/loop_login_stale.py",
+        "src/blackhole_agent/loop_login_repair.py",
+        "src/blackhole_agent/loop_login_task.py",
+        "src/blackhole_agent/loop_login_sweep.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "A deleted repo's login registration is unscheduled: logon stops firing the dead launcher, the scheduler entry and registration artifacts are removed, and a live owner pid in any surviving repo is left untouched.",
+      "created_at": "2026-09-11T19:33:36.914223Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale"
+      ],
+      "description": "A login startup registration whose repo was deleted is unscheduled so logon stops firing a dead launcher without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_retire:builtin_loop_login_retire_proof",
+      "id": "capability.loop-login-retire",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-11T19:33:36.914203Z",
+      "name": "Continuous-loop login-task retirement",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_retire import builtin_loop_login_retire_proof; r=builtin_loop_login_retire_proof(); assert r['ok'] and r.get('action')=='loop_login_retire' and r.get('passed_count',0) >= 16 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "retire"
+      ],
+      "updated_at": "2026-09-11T19:41:44.742008Z"
+    },
     "capability.loop-login-stale": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_stale.py",
@@ -47212,5 +47254,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-11T19:03:55.913347Z"
+  "updated_at": "2026-09-11T19:41:44.744956Z"
 }

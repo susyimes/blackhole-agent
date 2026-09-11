@@ -2,9 +2,10 @@
 
 Login-task enablement can schedule the restore helper, but a deleted,
 disabled, drifted, or stale registration stays broken. This helper rewrites
-that registration so the restore helper is scheduled again. Repair never
-starts a controller, so a live owner pid is not doubled. Dispatch still
-refuses a second controller because it reuses the restore helper.
+that registration so the restore helper is scheduled again; a registration
+whose repo was deleted is retired instead of recreated. Repair never starts
+a controller, so a live owner pid is not doubled. Dispatch still refuses a
+second controller because it reuses the restore helper.
 """
 
 from __future__ import annotations
@@ -72,7 +73,8 @@ def repair_login_startup_registration(
     """Recreate a missing, disabled, drifted, or stale logon registration for the helper.
 
     This only schedules. It does not start a controller, so a live owner pid
-    is never doubled at repair time.
+    is never doubled at repair time. A repo that was deleted is retired
+    instead of recreated.
     """
 
     from blackhole_agent.loop_login_task import (
@@ -82,6 +84,10 @@ def repair_login_startup_registration(
     from blackhole_agent.unbound import DEFAULT_OUTPUT_DIR
 
     output = DEFAULT_OUTPUT_DIR if output_dir is None else output_dir
+    if not Path(repo_path).is_dir():
+        from blackhole_agent.loop_login_retire import retire_login_startup_registration
+
+        return retire_login_startup_registration(repo_path, output, scheduler=scheduler)
     existing = load_login_startup_registration(repo_path, output)
     reason = login_startup_repair_reason(existing)
     if reason is None:

@@ -220,9 +220,10 @@ def dispatch_login_startup(
 ) -> dict[str, Any]:
     """Run the helper the login registration scheduled.
 
-    Missing, disabled, non-logon, or stale registrations are left alone. A
-    live owner pid is not doubled because restore_orphaned_loop_on_startup
-    refuses to start a second controller.
+    Missing, disabled, non-logon, or stale registrations are left alone; a
+    registration whose repo was deleted is retired so logon stops firing a
+    dead launcher. A live owner pid is not doubled because
+    restore_orphaned_loop_on_startup refuses to start a second controller.
     """
 
     from blackhole_agent.loop_reboot_restore import restore_orphaned_loop_on_startup
@@ -260,6 +261,20 @@ def dispatch_login_startup(
             "action": "skip",
             "restore_reason": "wrong_helper",
             "scheduled": True,
+        }
+    from blackhole_agent.loop_login_retire import (
+        login_startup_retire_reason,
+        retire_login_startup_registration,
+    )
+
+    retire_reason = login_startup_retire_reason(registration, repo_path, output)
+    if retire_reason is not None:
+        retired = retire_login_startup_registration(repo_path, output)
+        return {
+            **retired,
+            "restore_reason": retire_reason,
+            "login_task": registration.get("name", LOGIN_TASK_NAME),
+            "dispatched_from": "login_startup",
         }
     from blackhole_agent.loop_login_stale import login_startup_stale_reason
 
