@@ -1,0 +1,39 @@
+{
+  "shards": {
+    "0e2666e361723db22e8db9ef968950cb47f09198": {
+      "duration_seconds": 255.383,
+      "exit_code": 1,
+      "status": "failed"
+    },
+    "1b91bd0cb13764aaacfec9cd2aa4e331ae9c2f01": {
+      "duration_seconds": 900.133,
+      "exit_code": null,
+      "status": "timed_out"
+    },
+    "2296c7cf6b5df35fb8f16f9d877e5031005f7203": {
+      "duration_seconds": 900.022,
+      "exit_code": null,
+      "status": "timed_out"
+    },
+    "49be5c2450770e220fdf59b5f329dacbf0917cd1": {
+      "duration_seconds": 900.018,
+      "exit_code": null,
+      "status": "timed_out"
+    },
+    "c2b412b892930e789f8027b36efb3d284ec2f785": {
+      "duration_seconds": 416.677,
+      "exit_code": 1,
+      "status": "failed"
+    },
+    "cc0e8570ced02db0507666e971996dca2455f2cb": {
+      "duration_seconds": 309.63,
+      "exit_code": 1,
+      "status": "failed"
+    },
+    "f98f2523b82f56a5552be7df460ef73924c52425": {
+      "duration_seconds": 900.111,
+      "exit_code": null,
+      "status": "timed_out"
+    }
+  }
+}
