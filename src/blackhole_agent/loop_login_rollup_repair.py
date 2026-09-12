@@ -13,11 +13,11 @@ the minimum the runs imply, inverted or unparseable span edges are
 reordered, and a claimed span that covers a tombstone still in the trail
 is clamped below the survivor's prune time — the rollup may only claim
 what no surviving record contradicts. The corrected rollup records the
-drift it repaired, every repair appends one durable journal entry beside
-the trail naming what the drifted rollup claimed and what was corrected,
+drift it repaired. Every repair syncs a journal receipt beside the trail
+naming all original claims and the correction before replacement,
 the trail is re-verified in memory before any write,
 the rewrite rides the compact's atomic temp-file-and-replace, and only
-the audit trail is touched, so a live owner pid in any surviving repo is
+the audit trail and its journal are touched, so a live owner pid in any surviving repo is
 never disturbed. A trail whose rollup already verifies, has no rollup, or
 is missing is left byte-identical; a rollup whose span cannot be repaired
 without inventing timestamps is reported, never rewritten.
@@ -31,6 +31,7 @@ import tempfile
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -160,9 +161,10 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
     The trail's rollup is verified first; drift is corrected in memory and
     re-verified before anything is written, so a trail whose rollup already
     verifies — or cannot be repaired without inventing timestamps — is left
-    byte-identical. The rewrite is atomic (temp file + replace) and only
-    the audit trail is touched, so a live owner pid in any surviving repo
-    is never disturbed. A missing trail is reported, never created.
+    byte-identical. Every original rollup is synced to the repair journal
+    before atomic replacement. A failed receipt write prevents replacement.
+    Only the audit trail and its journal are touched; owner state, locks,
+    scheduler entries and launch artifacts are never changed.
     """
 
     from blackhole_agent.loop_login_audit import login_audit_log_path
@@ -184,6 +186,7 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
         "rollup": None,
         "repaired_at": "",
         "repair_journaled": False,
+        "repair_journal_completed": False,
     }
     snapshot = _read_login_audit_snapshot(path)
     verdict = _verify_login_audit_snapshot(snapshot)
@@ -213,6 +216,7 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
         corrected,
         repaired_at=utc_now_iso(),
         repair_drift=list(verdict.get("drift") or []),
+        repair_id=uuid4().hex,
     )
     candidate_records = [corrected if isinstance(record, dict) and is_login_audit_rollup(record) else record for record in records]
     seen_rollup = False
@@ -247,6 +251,14 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
             written_rollup = True
             continue
         kept_lines.append(line)
+    from blackhole_agent.loop_login_rollup_journal import (
+        complete_login_rollup_repair,
+        record_login_rollup_repair,
+    )
+
+    prior_rollups = [record for record in records if is_login_audit_rollup(record)]
+    report["corrections"] = corrections
+    report["repair_id"] = corrected["repair_id"]
     try:
         handle, tmp_name = tempfile.mkstemp(
             prefix=path.name + ".", suffix=".tmp", dir=str(path.parent)
@@ -255,13 +267,30 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
             with os.fdopen(handle, "w", encoding="utf-8") as stream:
                 for line in kept_lines:
                     stream.write(line.rstrip("\n") + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            journaled = record_login_rollup_repair(
+                root,
+                drift=report["drift"],
+                corrections=corrections,
+                prior_rollup=prior_rollups[0],
+                prior_rollups=prior_rollups,
+                corrected_rollup=corrected,
+                repaired_at=corrected["repaired_at"],
+                repair_id=corrected["repair_id"],
+                state="prepared",
+            )
+            report["journal_path"] = journaled["journal_path"]
+            if not journaled["journaled"]:
+                report.update(reason="journal_write_failed", error=journaled["error"])
+                return report
+            report["repair_journaled"] = True
             os.replace(tmp_name, path)
-        except BaseException:
+        finally:
             try:
                 os.unlink(tmp_name)
             except OSError:
                 pass
-            raise
     except OSError as error:
         report["reason"] = "audit_write_failed"
         report["error"] = str(error)
@@ -272,17 +301,10 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
     report["rollup"] = corrected
     report["repaired_at"] = corrected["repaired_at"]
     report["post_verification"] = post
-    from blackhole_agent.loop_login_rollup_journal import record_login_rollup_repair
-
-    journaled = record_login_rollup_repair(
-        root,
-        drift=list(verdict.get("drift") or []),
-        corrections=corrections,
-        prior_rollup=verdict.get("rollup") or {},
-        corrected_rollup=corrected,
-        repaired_at=corrected["repaired_at"],
-    )
-    report["repair_journaled"] = bool(journaled.get("journaled"))
+    completed = complete_login_rollup_repair(root, corrected["repair_id"])
+    report["repair_journal_completed"] = completed["journaled"]
+    if not completed["journaled"]:
+        report["journal_completion_error"] = completed["error"]
     return report
 
 

@@ -6,12 +6,13 @@ corrected rollup replaces the drifted line, an operator auditing a
 repaired trail cannot tell what the drifted rollup claimed without
 reconstructing the drifted claims by hand.
 
-This module is the journal path: every repair that rewrites a drifted
-rollup appends one durable journal entry to a separate journal log beside
-the audit trail, naming the drift that was found, the corrections that
-were applied, the drifted rollup's claims, and the corrected rollup that
-replaced them. The journal lives outside the audit trail so the trail
-stays small, an intact or unrepairable trail journals nothing, and only
+This module is the journal path: before replacing a drifted rollup, repair
+flushes and syncs a receipt containing every original rollup and the
+verified replacement. A completion marker follows the atomic replacement;
+an interrupted attempt remains explicitly prepared, with its repair ID
+linking the receipt to the replacement in the trail. The journal lives
+outside the audit trail so the trail stays small, an intact or unrepairable
+trail journals nothing, and only
 the audit root's own files are touched, so a live owner pid in any
 surviving repo is never disturbed.
 """
@@ -19,6 +20,7 @@ surviving repo is never disturbed.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +61,7 @@ LOOP_LOGIN_ROLLUP_JOURNAL_LEFTOVER = (
     "operator reconstructing the drifted claims by hand."
 )
 LOGIN_ROLLUP_REPAIR_JOURNAL_EVENT = "login_audit_rollup_repaired"
+LOGIN_ROLLUP_REPAIR_APPLIED_EVENT = "login_audit_rollup_repair_applied"
 LOGIN_ROLLUP_REPAIR_JOURNAL_NAME = "login-rollup-repair-journal.jsonl"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -89,18 +92,22 @@ def record_login_rollup_repair(
     prior_rollup: dict[str, Any],
     corrected_rollup: dict[str, Any],
     repaired_at: str,
+    prior_rollups: list[dict[str, Any]] | None = None,
+    repair_id: str = "",
+    state: str = "applied",
 ) -> dict[str, Any]:
-    """Append one durable journal entry for a repair of a drifted rollup.
+    """Append the claims and correction for a repair of a drifted rollup.
 
     The entry names the drift that was found, the corrections applied, the
     drifted rollup's claims, and the corrected rollup, so an operator
     auditing a repaired trail can see what the drifted rollup claimed
-    without reconstructing the drifted claims by hand. Only the journal
-    log is appended; nothing else in any repo is touched, so a live owner
+    without reconstructing the drifted claims by hand. Repair calls this
+    with state=prepared before replacement; repaired_at is then the
+    proposed correction time, not proof that replacement completed.
+    Only the journal log is appended; nothing else in any repo is touched, so a live owner
     pid in any surviving repo is never disturbed.
     """
 
-    path = login_rollup_repair_journal_path(root)
     entry = {
         "schema_version": SCHEMA_VERSION,
         "event": LOGIN_ROLLUP_REPAIR_JOURNAL_EVENT,
@@ -108,14 +115,37 @@ def record_login_rollup_repair(
         "drift": [str(code) for code in drift],
         "corrections": [str(correction) for correction in corrections],
         "prior_rollup": dict(prior_rollup),
+        "prior_rollups": [dict(record) for record in (
+            prior_rollups if prior_rollups is not None else [prior_rollup]
+        )],
         "corrected_rollup": dict(corrected_rollup),
+        "repair_id": repair_id,
+        "state": state,
         "repaired_at": str(repaired_at),
         "journaled_at": utc_now_iso(),
     }
+    return _append_repair_journal(root, entry)
+
+
+def _append_repair_journal(root: Path | None, entry: dict[str, Any]) -> dict[str, Any]:
+    """Persist a complete line before allowing any destructive replacement.
+
+    A torn final line is kept as evidence and separated from the new entry.
+    Both flushing and syncing must succeed before the receipt is accepted.
+    """
+
+    path = login_rollup_repair_journal_path(root)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, sort_keys=True) + "\n")
+        with path.open("a+b") as handle:
+            prefix = b""
+            if handle.tell():
+                handle.seek(-1, os.SEEK_END)
+                if handle.read(1) != b"\n":
+                    prefix = b"\n"
+            handle.write(prefix + (json.dumps(entry, sort_keys=True) + "\n").encode("utf-8"))
+            handle.flush()
+            os.fsync(handle.fileno())
     except OSError as error:
         return {
             "action": "rollup_repair_journal",
@@ -127,10 +157,21 @@ def record_login_rollup_repair(
     return {
         "action": "rollup_repair_journal",
         "journaled": True,
-        "reason": "repaired",
+        "reason": "prepared" if entry.get("state") == "prepared" else "repaired",
         "journal_path": str(path),
         "entry": entry,
     }
+
+
+def complete_login_rollup_repair(root: Path | None, repair_id: str) -> dict[str, Any]:
+    """Confirm replacement separately from the receipt saved before it."""
+
+    return _append_repair_journal(root, {
+        "schema_version": SCHEMA_VERSION,
+        "event": LOGIN_ROLLUP_REPAIR_APPLIED_EVENT,
+        "repair_id": repair_id,
+        "applied_at": utc_now_iso(),
+    })
 
 
 def read_login_rollup_repair_journal(root: Path | None = None) -> dict[str, Any]:
@@ -143,32 +184,58 @@ def read_login_rollup_repair_journal(root: Path | None = None) -> dict[str, Any]
 
     path = login_rollup_repair_journal_path(root)
     entries: list[dict[str, Any]] = []
+    prepared: dict[str, dict[str, Any]] = {}
     malformed = 0
-    if path.is_file():
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            lines = []
-        for line in lines:
-            text = line.strip()
-            if not text:
-                continue
-            try:
-                record = json.loads(text)
-            except json.JSONDecodeError:
-                malformed += 1
-                continue
-            if isinstance(record, dict) and is_login_rollup_repair_journal_entry(record):
-                entries.append(record)
-            else:
-                malformed += 1
-    return {
+    report: dict[str, Any] = {
         "action": "rollup_repair_journal_read",
         "journal_path": str(path),
         "entries": entries,
-        "entry_count": len(entries),
-        "malformed_count": malformed,
+        "entry_count": 0,
+        "malformed_count": 0,
+        "reason": "read",
     }
+    try:
+        lines = path.read_bytes().splitlines()
+    except FileNotFoundError:
+        return dict(report, reason="no_journal")
+    except OSError as error:
+        return dict(report, reason="journal_read_failed", error=str(error))
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except (ValueError, UnicodeError, RecursionError):
+            malformed += 1
+            continue
+        if isinstance(record, dict) and is_login_rollup_repair_journal_entry(record):
+            entries.append(record)
+            if record.get("state") == "prepared" and isinstance(record.get("repair_id"), str) and record["repair_id"]:
+                prepared[record["repair_id"]] = record
+        elif (
+            isinstance(record, dict)
+            and record.get("event") == LOGIN_ROLLUP_REPAIR_APPLIED_EVENT
+            and isinstance(record.get("repair_id"), str)
+            and record["repair_id"] in prepared
+        ):
+            prepared[record["repair_id"]].update(state="applied", applied_at=record.get("applied_at"))
+        else:
+            malformed += 1
+    # A process can stop after replacing the trail but before its completion
+    # marker. The exact replacement on disk is sufficient evidence on read;
+    # unresolved preparations must never be presented as completed repairs.
+    pending = [entry for entry in entries if entry.get("state") == "prepared"]
+    if pending:
+        from blackhole_agent.loop_login_audit import login_audit_log_path
+        from blackhole_agent.loop_login_verify import _read_login_audit_snapshot
+
+        snapshot = _read_login_audit_snapshot(login_audit_log_path(root))
+        if snapshot["reason"] == "read" and not snapshot["malformed_lines"]:
+            for entry in pending:
+                if entry.get("repair_id") and entry.get("corrected_rollup") in snapshot["records"]:
+                    entry.update(state="applied", completion_evidence="matching_rollup_in_trail")
+    report.update(entry_count=len(entries), malformed_count=malformed)
+    return report
 
 
 def loop_login_rollup_journal_proof_command() -> str:
@@ -229,12 +296,12 @@ def ensure_loop_login_rollup_journal_capability(*, repo_path: Path | None = None
             "capabilities/ledger.json",
         ),
         capability_delta=(
-            "Every repair of a drifted login-scrub audit trail rollup "
-            "appends one durable journal entry beside the trail naming the "
-            "drift found, the corrections applied, the drifted rollup's "
-            "claims, and the corrected rollup, so a repaired trail stays "
-            "auditable, intact and unrepairable trails journal nothing, "
-            "and a live owner pid is never disturbed."
+            "Repair syncs every original rollup's claims, the drift and "
+            "the verified correction to a journal before replacement; "
+            "journal failure preserves the drifted trail. Repair IDs and "
+            "completion markers distinguish applied and interrupted attempts, "
+            "history survives repeated repairs and compaction, and live "
+            "owner state is never disturbed."
         ),
         tags=("continuous-loop", "login", "startup", "restore", "audit", "rollup", "verify", "repair", "journal"),
         last_proved_at=utc_now_iso(),
@@ -314,10 +381,7 @@ def builtin_loop_login_rollup_journal_proof() -> dict[str, Any]:
         compact_login_audit_tombstones,
     )
     from blackhole_agent.loop_login_prune import DEFAULT_PRUNE_RETENTION_DAYS
-    from blackhole_agent.loop_login_rollup import (
-        LOGIN_AUDIT_ROLLUP_EVENT,
-        is_login_audit_rollup,
-    )
+    from blackhole_agent.loop_login_rollup import is_login_audit_rollup
     from blackhole_agent.loop_login_rollup_repair import (
         LOOP_LOGIN_ROLLUP_REPAIR_ID,
         repair_login_audit_rollup,
@@ -569,6 +633,39 @@ def builtin_loop_login_rollup_journal_proof() -> dict[str, Any]:
         checks["missing_journal_is_reported_never_created"] = (
             missing.get("entry_count") == 0
             and not (root / "no-such-dir").exists()
+        )
+
+    with tempfile.TemporaryDirectory(prefix="loop-login-rollup-journal-write-ahead-") as tmp:
+        root = Path(tmp)
+        path = login_audit_log_path(root)
+        path.write_text(
+            json.dumps(tombstone("old", pruned_days=DEFAULT_COMPACT_RETENTION_DAYS + 50)) + "\n",
+            encoding="utf-8",
+        )
+        compact_login_audit_tombstones(root)
+        drift_rollup(path, count=0)
+        first = json.loads(path.read_text(encoding="utf-8"))
+        second = dict(first, compacted_count=7, claim_note="duplicate claims must survive")
+        path.write_text(json.dumps(first) + "\n" + json.dumps(second) + "\n", encoding="utf-8")
+        before = path.read_bytes()
+        journal_path = login_rollup_repair_journal_path(root)
+        journal_path.mkdir()
+        failed = repair_login_audit_rollup(root)
+        checks["journal_failure_preserves_drifted_trail"] = (
+            failed.get("repaired") is False
+            and failed.get("reason") == "journal_write_failed"
+            and path.read_bytes() == before
+        )
+        journal_path.rmdir()
+        repaired = repair_login_audit_rollup(root)
+        history = read_login_rollup_repair_journal(root)
+        entry = (history.get("entries") or [{}])[0]
+        checks["all_duplicate_claims_are_durable"] = (
+            repaired.get("repaired") is True
+            and entry.get("prior_rollups") == [first, second]
+            and entry.get("corrected_rollup") == repaired.get("rollup")
+            and entry.get("state") == "applied"
+            and entry.get("repair_id") == repaired.get("repair_id")
         )
 
     checks["next_family_is_not_handshake"] = (

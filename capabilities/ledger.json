@@ -33234,6 +33234,61 @@
       ],
       "updated_at": "2026-09-11T23:24:08.941131Z"
     },
+    "capability.loop-login-rollup-journal": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_rollup_journal.py",
+        "src/blackhole_agent/loop_login_rollup_repair.py",
+        "src/blackhole_agent/loop_login_verify.py",
+        "src/blackhole_agent/loop_login_rollup.py",
+        "src/blackhole_agent/unbound.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Repair syncs every original rollup's claims, the drift and the verified correction to a journal before replacement; journal failure preserves the drifted trail. Repair IDs and completion markers distinguish applied and interrupted attempts, history survives repeated repairs and compaction, and live owner state is never disturbed.",
+      "created_at": "2026-09-12T00:49:19.738666Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "unbound.milestone-gate",
+        "capability.orphan-loop-reap",
+        "capability.loop-reboot-restore",
+        "capability.loop-login-task",
+        "capability.loop-login-repair",
+        "capability.loop-login-drift",
+        "capability.loop-login-stale",
+        "capability.loop-login-retire",
+        "capability.loop-login-sweep",
+        "capability.loop-login-scrub",
+        "capability.loop-login-audit",
+        "capability.loop-login-prune",
+        "capability.loop-login-tombstone",
+        "capability.loop-login-compact",
+        "capability.loop-login-rollup",
+        "capability.loop-login-verify",
+        "capability.loop-login-rollup-repair"
+      ],
+      "description": "A repaired login-scrub audit trail rollup leaves a durable record of what the drifted rollup claimed and what was corrected so the repair stays auditable without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_rollup_journal:builtin_loop_login_rollup_journal_proof",
+      "id": "capability.loop-login-rollup-journal",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-12T00:49:19.738647Z",
+      "name": "Continuous-loop login-rollup repair journal",
+      "proof_command": "uv run python -c \"from blackhole_agent.loop_login_rollup_journal import builtin_loop_login_rollup_journal_proof; r=builtin_loop_login_rollup_journal_proof(); assert r['ok'] and r.get('action')=='loop_login_rollup_journal' and r.get('passed_count',0) >= 18 and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "continuous-loop",
+        "login",
+        "startup",
+        "restore",
+        "audit",
+        "rollup",
+        "verify",
+        "repair",
+        "journal"
+      ],
+      "updated_at": "2026-09-12T00:49:19.738666Z"
+    },
     "capability.loop-login-rollup-repair": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_rollup_repair.py",
@@ -47688,5 +47743,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-12T00:07:17.595380Z"
+  "updated_at": "2026-09-12T00:49:19.741717Z"
 }
