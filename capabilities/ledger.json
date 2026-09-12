@@ -32295,6 +32295,37 @@
       ],
       "updated_at": "2026-09-12T21:05:10.313644Z"
     },
+    "capability.ledger-invocation-plane": {
+      "behavior_paths": [
+        "src/blackhole_agent/capability_service.py",
+        "capabilities/ledger.json"
+      ],
+      "capability_delta": "Proved ledger capabilities are callable from outside the proof harness: an external HTTP client can discover the invocable set and execute an absorbed tool end-to-end, with strict input validation and fail-closed refusals for unknown or unproved ids.",
+      "created_at": "2026-09-12T22:21:49.280366Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.absorbed-text-reverser"
+      ],
+      "description": "The compounded ledger answers real HTTP clients: GET /capabilities lists every proved absorbed capability with its requires/provides contract and a listing digest, and POST /invoke executes one absorbed capability as a real subprocess against its vendored tree, returning the declared provides fragment with a response digest. Unknown, unproved, or non-absorbed ids and malformed inputs are refused fail-closed without spawning a subprocess.",
+      "entry": "blackhole_agent.capability_service:builtin_capability_service_proof",
+      "id": "capability.ledger-invocation-plane",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-12T22:21:49.280339Z",
+      "name": "Live HTTP invocation plane for the compounded ledger",
+      "proof_command": "uv run python -c \"from blackhole_agent.capability_service import builtin_capability_service_proof; r=builtin_capability_service_proof(); assert r['ok'] and r.get('action')=='capability_service' and all(r['checks'].values())\"",
+      "source_milestone": null,
+      "source_mission_id": "",
+      "tags": [
+        "ledger",
+        "invocation",
+        "http",
+        "service",
+        "operator-plane"
+      ],
+      "updated_at": "2026-09-12T22:21:49.280366Z"
+    },
     "capability.leftover-catalog-handoff": {
       "behavior_paths": [
         "src/blackhole_agent/leftover_catalog_handoff.py",
@@ -47808,5 +47839,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-12T21:05:10.451578Z"
+  "updated_at": "2026-09-12T22:21:49.283537Z"
 }
