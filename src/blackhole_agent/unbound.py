@@ -3302,6 +3302,17 @@ def loop_login_rollup_repair(
     console.print_json(data=result)
 
 
+@app.command(help="Show the durable journal of login-scrub audit trail rollup repairs.")
+def loop_login_rollup_journal(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose rollup repair journal is shown."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_rollup_journal import read_login_rollup_repair_journal
+
+    result = read_login_rollup_repair_journal(mission_root(repo_path.resolve(), output_dir))
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",

@@ -47,7 +47,7 @@ from blackhole_agent.loop_login_prune import (
 )
 from blackhole_agent.loop_login_rollup import is_login_audit_rollup
 from blackhole_agent.loop_login_tombstone import is_login_audit_tombstone
-from blackhole_agent.loop_login_verify import verify_login_audit_rollup_records
+from blackhole_agent.loop_login_verify import _read_login_audit_snapshot, _verify_login_audit_snapshot
 
 SCHEMA_VERSION = 1
 LOOP_LOGIN_AUDIT_ID = "capability.loop-login-audit"
@@ -145,8 +145,9 @@ def record_login_task_scrub(
 def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
     """Read the durable audit trail so an operator can reconcile deletions.
 
-    Malformed lines are counted and skipped rather than failing the read,
-    so a partially written trail still shows every intact scrub record.
+    Malformed lines are counted and skipped in the displayed entries, so a
+    partially written trail still shows every intact scrub record. They
+    prevent verification from certifying the incomplete trail as intact.
     Prune tombstones are surfaced in ``tombstone_count`` and the merged
     compaction rollup in ``tombstone_rollup`` so an operator reconciling
     the bounded trail can see what aged out and what was compacted. The
@@ -156,32 +157,15 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
     """
 
     path = login_audit_log_path(root)
-    entries: list[dict[str, Any]] = []
-    malformed = 0
+    snapshot = _read_login_audit_snapshot(path)
+    entries = snapshot["records"]
     tombstones = 0
     rollup: dict[str, Any] | None = None
-    if path.is_file():
-        try:
-            lines = path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            lines = []
-        for line in lines:
-            text = line.strip()
-            if not text:
-                continue
-            try:
-                record = json.loads(text)
-            except json.JSONDecodeError:
-                malformed += 1
-                continue
-            if isinstance(record, dict):
-                entries.append(record)
-                if is_login_audit_tombstone(record):
-                    tombstones += 1
-                elif is_login_audit_rollup(record):
-                    rollup = record
-            else:
-                malformed += 1
+    for record in entries:
+        if is_login_audit_tombstone(record):
+            tombstones += 1
+        elif is_login_audit_rollup(record):
+            rollup = record
     return {
         "action": "audit_read",
         "audit_path": str(path),
@@ -189,8 +173,8 @@ def read_login_scrub_audit(root: Path | None = None) -> dict[str, Any]:
         "entry_count": len(entries),
         "tombstone_count": tombstones,
         "tombstone_rollup": rollup,
-        "tombstone_rollup_verification": verify_login_audit_rollup_records(entries),
-        "malformed_count": malformed,
+        "tombstone_rollup_verification": _verify_login_audit_snapshot(snapshot),
+        "malformed_count": len(snapshot["malformed_lines"]),
     }
 
 

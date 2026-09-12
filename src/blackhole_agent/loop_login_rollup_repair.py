@@ -13,7 +13,9 @@ the minimum the runs imply, inverted or unparseable span edges are
 reordered, and a claimed span that covers a tombstone still in the trail
 is clamped below the survivor's prune time — the rollup may only claim
 what no surviving record contradicts. The corrected rollup records the
-drift it repaired, the trail is re-verified in memory before any write,
+drift it repaired, every repair appends one durable journal entry beside
+the trail naming what the drifted rollup claimed and what was corrected,
+the trail is re-verified in memory before any write,
 the rewrite rides the compact's atomic temp-file-and-replace, and only
 the audit trail is touched, so a live owner pid in any surviving repo is
 never disturbed. A trail whose rollup already verifies, has no rollup, or
@@ -165,7 +167,11 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
 
     from blackhole_agent.loop_login_audit import login_audit_log_path
     from blackhole_agent.loop_login_rollup import is_login_audit_rollup
-    from blackhole_agent.loop_login_verify import verify_login_audit_rollup_records
+    from blackhole_agent.loop_login_verify import (
+        _read_login_audit_snapshot,
+        _verify_login_audit_snapshot,
+        verify_login_audit_rollup_records,
+    )
 
     path = login_audit_log_path(root)
     report: dict[str, Any] = {
@@ -177,26 +183,20 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
         "corrections": [],
         "rollup": None,
         "repaired_at": "",
+        "repair_journaled": False,
     }
-    if not path.is_file():
-        return report
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as error:
-        report["reason"] = "audit_read_failed"
-        report["error"] = str(error)
-        return report
-    records: list[Any] = []
-    for line in lines:
-        text = line.strip()
-        if not text:
-            continue
-        try:
-            records.append(json.loads(text))
-        except json.JSONDecodeError:
-            continue
-    verdict = verify_login_audit_rollup_records(records)
+    snapshot = _read_login_audit_snapshot(path)
+    verdict = _verify_login_audit_snapshot(snapshot)
     report["drift"] = list(verdict.get("drift") or [])
+    if snapshot["reason"] != "read":
+        report["reason"] = snapshot["reason"]
+        if "error" in snapshot:
+            report["error"] = snapshot["error"]
+        return report
+    if verdict["malformed_count"]:
+        report.update(reason="audit_incomplete", verification=verdict)
+        return report
+    lines, records = snapshot["lines"], snapshot["records"]
     if not verdict.get("rollup_present"):
         report["reason"] = "no_rollup"
         return report
@@ -272,6 +272,17 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
     report["rollup"] = corrected
     report["repaired_at"] = corrected["repaired_at"]
     report["post_verification"] = post
+    from blackhole_agent.loop_login_rollup_journal import record_login_rollup_repair
+
+    journaled = record_login_rollup_repair(
+        root,
+        drift=list(verdict.get("drift") or []),
+        corrections=corrections,
+        prior_rollup=verdict.get("rollup") or {},
+        corrected_rollup=corrected,
+        repaired_at=corrected["repaired_at"],
+    )
+    report["repair_journaled"] = bool(journaled.get("journaled"))
     return report
 
 

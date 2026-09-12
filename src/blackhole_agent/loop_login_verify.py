@@ -71,7 +71,69 @@ def _as_count(value: Any) -> int | None:
     return None
 
 
-def verify_login_audit_rollup_records(records: Iterable[Any]) -> dict[str, Any]:
+def _audit_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    record: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in record:
+            raise ValueError(f"duplicate audit field: {key}")
+        record[key] = value
+    return record
+
+
+def _invalid_json_constant(value: str) -> Any:
+    raise ValueError(f"invalid JSON constant: {value}")
+
+
+def _read_login_audit_snapshot(path: Path) -> dict[str, Any]:
+    """Read once, retaining evidence of anything that cannot be interpreted.
+
+    Ignoring a broken line could hide either the rollup or a contradicting
+    tombstone. Duplicate JSON keys are ambiguous evidence, too.
+    """
+
+    snapshot: dict[str, Any] = {
+        "lines": [], "records": [], "malformed_lines": [], "reason": "read",
+    }
+    try:
+        snapshot["lines"] = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        snapshot["reason"] = "no_trail"
+        return snapshot
+    except (OSError, UnicodeError) as error:
+        snapshot.update(reason="audit_read_failed", error=str(error))
+        return snapshot
+    for number, line in enumerate(snapshot["lines"], start=1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(
+                line, object_pairs_hook=_audit_json_object, parse_constant=_invalid_json_constant,
+            )
+        except (ValueError, RecursionError):
+            snapshot["malformed_lines"].append(number)
+            continue
+        if not isinstance(record, dict):
+            snapshot["malformed_lines"].append(number)
+            continue
+        snapshot["records"].append(record)
+    return snapshot
+
+
+def _verify_login_audit_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    verdict = verify_login_audit_rollup_records(
+        snapshot["records"], malformed_count=len(snapshot["malformed_lines"]),
+    )
+    verdict["malformed_lines"] = snapshot["malformed_lines"]
+    if snapshot["reason"] != "read":
+        verdict.update(verified=False, reason=snapshot["reason"])
+        if "error" in snapshot:
+            verdict["error"] = snapshot["error"]
+    return verdict
+
+
+def verify_login_audit_rollup_records(
+    records: Iterable[Any], *, malformed_count: int = 0,
+) -> dict[str, Any]:
     """Check a trail's rollup lines against the records they summarize.
 
     Every check is derivable from the surviving trail alone: the merge
@@ -84,8 +146,8 @@ def verify_login_audit_rollup_records(records: Iterable[Any]) -> dict[str, Any]:
     """
 
     from blackhole_agent.loop_login_prune import _parse_audit_time
-    from blackhole_agent.loop_login_rollup import is_login_audit_rollup
-    from blackhole_agent.loop_login_tombstone import is_login_audit_tombstone
+    from blackhole_agent.loop_login_rollup import LOGIN_AUDIT_ROLLUP_EVENT, is_login_audit_rollup
+    from blackhole_agent.loop_login_tombstone import LOGIN_AUDIT_TOMBSTONE_EVENT, is_login_audit_tombstone
 
     drift: list[str] = []
     span_survivors: list[str] = []
@@ -93,11 +155,18 @@ def verify_login_audit_rollup_records(records: Iterable[Any]) -> dict[str, Any]:
     tombstones: list[dict[str, Any]] = []
     for record in records:
         if not isinstance(record, dict):
+            malformed_count += 1
             continue
-        if is_login_audit_rollup(record):
+        if record.get("event") == LOGIN_AUDIT_ROLLUP_EVENT or record.get("rollup") is True:
             rollups.append(record)
-        elif is_login_audit_tombstone(record):
+            if not is_login_audit_rollup(record) and "rollup_identity_invalid" not in drift:
+                drift.append("rollup_identity_invalid")
+        elif record.get("event") == LOGIN_AUDIT_TOMBSTONE_EVENT or record.get("tombstone") is True:
             tombstones.append(record)
+            if not is_login_audit_tombstone(record) and "tombstone_identity_invalid" not in drift:
+                drift.append("tombstone_identity_invalid")
+    if malformed_count:
+        drift.append("trail_malformed")
     result: dict[str, Any] = {
         "verified": False,
         "reason": "no_rollup",
@@ -107,9 +176,12 @@ def verify_login_audit_rollup_records(records: Iterable[Any]) -> dict[str, Any]:
         "drift": drift,
         "span_survivors": span_survivors,
         "rollup": rollups[0] if rollups else None,
+        "malformed_count": malformed_count,
     }
     if not rollups:
-        result["verified"] = True
+        result["verified"] = not drift
+        if drift:
+            result["reason"] = "drift_detected"
         return result
     if len(rollups) > 1:
         drift.append("duplicate_rollup")
@@ -169,24 +241,7 @@ def verify_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
         "rollup": None,
         "verified_at": utc_now_iso(),
     }
-    if not path.is_file():
-        return report
-    records: list[Any] = []
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as error:
-        report["reason"] = "audit_read_failed"
-        report["error"] = str(error)
-        return report
-    for line in lines:
-        text = line.strip()
-        if not text:
-            continue
-        try:
-            records.append(json.loads(text))
-        except json.JSONDecodeError:
-            continue
-    report.update(verify_login_audit_rollup_records(records))
+    report.update(_verify_login_audit_snapshot(_read_login_audit_snapshot(path)))
     return report
 
 
