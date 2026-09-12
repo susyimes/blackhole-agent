@@ -2409,6 +2409,7 @@ def run_continuous_loop(
     mission_runner: Callable[..., int] = run_mission_loop,
     lineage_publisher: Callable[..., PublicationResult] = publish_lineage,
     worktree_reclaimer: Callable[..., dict[str, Any]] = reclaim_mission_worktrees,
+    creation_reconciler: Callable[..., dict[str, Any]] | None = None,
     interval_waiter: Callable[[int, Path], bool] = wait_for_continuous_interval,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> int:
@@ -2488,6 +2489,19 @@ def run_continuous_loop(
             stop_path.unlink()
         except FileNotFoundError:
             pass
+        if creation_reconciler is None:
+            from blackhole_agent.loop_creation_reconcile import (
+                reconcile_interrupted_creations,
+            )
+
+            creation_reconciler = reconcile_interrupted_creations
+        reconcile_report = creation_reconciler(
+            repo_path,
+            output_dir=output_dir,
+            worktree_parent=worktree_parent,
+            command_runner=command_runner,
+        )
+        interrupted_creations = len(reconcile_report.get("new_orphans", []))
         current_state_path: Path | None = None
         lineage_ref = target_branch
         latest = load_latest_mission_if_present(repo_path, output_dir) if resume_latest else None
@@ -2518,6 +2532,7 @@ def run_continuous_loop(
                 "interval_seconds": interval_seconds,
                 "lineage_ref": lineage_ref,
                 "resumed_state_path": str(current_state_path or ""),
+                "interrupted_creations_reconciled": interrupted_creations,
                 "publish_remote": publish_remote,
                 "publish_branch": target_branch,
             },

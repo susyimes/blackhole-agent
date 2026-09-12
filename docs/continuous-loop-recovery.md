@@ -25,7 +25,13 @@ Before creating a new mission the loop records `creating_mission`, a start time,
 the checkout timeout and a `continuous_loop.mission_creating` event. A machine
 restart during checkout can leave an initializing worktree without a mission
 state. Preserve that worktree and branch; do not reset/remove it or treat staged
-deletions caused by a missing index as an agent's completed work.
+deletions caused by a missing index as an agent's completed work. At startup the
+loop reconciles such stateless leftovers before the next creation: every
+worktree-parent directory without a `missions/<id>/state.json` is named, with
+its branch and head, in the durable `orphaned-creations.json` inventory and in
+one `continuous_loop.mission_create_interrupted` event. Reconciliation is
+idempotent, touches nothing with mission state, and never deletes the preserved
+worktree or branch.
 
 Controller commands use file-backed output capture. This avoids Windows
 `subprocess.run(..., capture_output=True)` waiting indefinitely for pipe EOF
