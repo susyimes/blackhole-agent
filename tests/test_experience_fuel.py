@@ -111,6 +111,9 @@ def test_builtin_experience_fuel_is_green():
     "Controller records the milestone; later genesis can take capability.loop-login-stale (stale command/launcher pointing at a moved repo).",
     "Controller records the milestone. Later genesis may take capability.loop-login-stale (stale launcher pointing at a moved repo).",
     "None. Controller records the milestone: later genesis could take capability.loop-login-stale (moved repo).",
+    "Mission contract met; later genesis can decide whether old inventoried orphans become adoptable or reclaimable with operator acknowledgment.",
+    "None. Mission contract met: later genesis may decide whether the bundle is adoptable (pending operator acknowledgment).",
+    "MISSION CONTRACT MET; LATER GENESIS COULD DECIDE WHETHER THE WORKER STAYS IF IT FAILS",
 ])
 def test_completed_contingency_is_not_outstanding_work(notice):
     assert leftover_next_step(notice) == ""
@@ -130,6 +133,9 @@ def test_completed_contingency_is_not_outstanding_work(notice):
     "Controller records the milestone; later genesis can take login-task repair so stale registrations are re-pointed.",
     "Controller records the milestone; later genesis can take capability.loop-login-stale (moved repo). Follow-on: re-point the launcher now.",
     "Controller records the milestone; later genesis must take capability.loop-login-stale (moved repo).",
+    "Mission contract met; later genesis can decide the roadmap.",
+    "Mission contract met. Follow-on: repair the stale launcher registration now.",
+    "Mission contract met; later genesis must decide whether the worker stays.",
 ])
 def test_completion_does_not_hide_explicit_or_ambiguous_followup(notice):
     assert leftover_next_step(notice)

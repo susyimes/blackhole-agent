@@ -163,13 +163,14 @@ _CLOSED_NEXT_STEPS = frozenset({"none.", "none", "n/a", "n/a."})
 _GENERIC_CLOSER_PREFIXES = (
     "None. Mission complete.",
     "Mission complete.",
+    "Mission contract met.",
     "None.",
     "N/A.",
 )
 _COMPLETED_CONTINGENCY = re.compile(
-    r"(?:none[.;]\s*)?(?:mission complete|controller records the milestone)[.;:]\s*"
+    r"(?:none[.;]\s*)?(?:mission complete|mission contract met|controller records the milestone)[.;:]\s*"
     r"later genesis\s+(?:can|may|could)\s+[^!?;]+?"
-    r"(?:\s+if\s+[^.!?;]+|\s*\([^()]*\))[.!]?",
+    r"(?:\s+if\s+[^.!?;]+|\s+whether\s+[^.!?;]+|\s*\([^()]*\))[.!]?",
     re.IGNORECASE,
 )
 
@@ -179,9 +180,10 @@ def leftover_next_step(text: str) -> str:
 
     A closer prefix such as ``None. Mission complete.`` does not hide leftover
     work that follows it. A single conditional later-genesis notice after an
-    explicit completion or milestone recording is deferred advice, not
-    evidence of outstanding work. Mixed or ambiguous notes remain eligible
-    for harvest.
+    explicit completion, contract settlement, or milestone recording is
+    deferred advice, not evidence of outstanding work; a deferred decision
+    (``whether``) counts as conditional the same way an ``if`` clause does.
+    Mixed or ambiguous notes remain eligible for harvest.
     """
 
     raw = " ".join(str(text or "").split())
