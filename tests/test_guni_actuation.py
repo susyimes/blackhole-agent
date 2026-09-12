@@ -1160,14 +1160,17 @@ def test_builtin_proof_seals_guni_actuation() -> None:
     assert "unin" in capability.tags
 
 
-def test_selection_gate_accepts_guni_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_guni_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         GUNI_ACTUATION_GOAL,
         GUNI_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(GUNI_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))

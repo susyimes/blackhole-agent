@@ -856,21 +856,23 @@ def test_builtin_proof_seals_sixover4_actuation() -> None:
     assert "mcast" in capability.tags
 
 
-def test_selection_gate_accepts_sixover4_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_sixover4_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         SIXOVER4_ACTUATION_GOAL,
         SIXOVER4_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(SIXOVER4_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
     assert "sixover4" in family.split("/")
     assert "rfc2529" in family
     assert "sixover4id" in set(semantic_tokens(SIXOVER4_ACTUATION_GOAL))
-    assert "sixover4digest" in family
     assert "dns64" not in family.split("/")
     assert "rfc6147" not in family
     assert "dns64id" not in family

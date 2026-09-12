@@ -786,21 +786,23 @@ def test_builtin_proof_seals_siit_actuation() -> None:
     assert "icmp" in capability.tags
 
 
-def test_selection_gate_accepts_siit_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_siit_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         SIIT_ACTUATION_GOAL,
         SIIT_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(SIIT_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
     assert "siit" in family.split("/")
     assert "rfc7915" in family
     assert "siitid" in set(semantic_tokens(SIIT_ACTUATION_GOAL))
-    assert "siitdigest" in family
     assert "dns64" not in family.split("/")
     assert "rfc6147" not in family
     assert "dns64id" not in family

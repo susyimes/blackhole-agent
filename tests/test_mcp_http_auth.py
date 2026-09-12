@@ -161,14 +161,17 @@ def test_builtin_proof_seals_http_auth() -> None:
     assert "bearer" in capability.tags
 
 
-def test_selection_gate_accepts_http_auth_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_http_auth_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         MCP_HTTP_AUTH_GOAL,
         MCP_HTTP_AUTH_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(MCP_HTTP_AUTH_GOAL)
     assert "bearer" in family

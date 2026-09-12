@@ -981,14 +981,17 @@ def test_builtin_proof_seals_dfe_actuation() -> None:
     assert "ndf" in capability.tags
 
 
-def test_selection_gate_accepts_dfe_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_dfe_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         DFE_ACTUATION_GOAL,
         DFE_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(DFE_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))

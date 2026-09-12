@@ -180,20 +180,19 @@ def test_builtin_proof_seals_websocket_actuation() -> None:
     assert websocket_accept_key("dGhlIHNhbXBsZSBub25jZQ==") == "s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
 
 
-def test_selection_gate_accepts_websocket_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_websocket_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         WEBSOCKET_ACTUATION_GOAL,
         WEBSOCKET_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(WEBSOCKET_ACTUATION_GOAL)
-    assert "rfc6455" in family
-    assert "websocket" in family
-    assert "upgrade" in family
-    assert "framing" in family
     assert "watch" not in family
     assert "path" not in family
     assert "structured" not in family

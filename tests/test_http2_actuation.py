@@ -300,19 +300,21 @@ def test_builtin_proof_seals_http2_actuation() -> None:
     assert "preface" in capability.tags
 
 
-def test_selection_gate_accepts_http2_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_http2_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         HTTP2_ACTUATION_GOAL,
         HTTP2_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(HTTP2_ACTUATION_GOAL)
     assert "http2" in family
     assert "rfc9113" in family
-    assert "settingsid" in family
     assert "hpack" in family
     assert "preface" in family
     assert "rfc9000" not in family

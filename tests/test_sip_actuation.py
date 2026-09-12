@@ -189,14 +189,17 @@ def test_builtin_proof_seals_sip_actuation() -> None:
     assert "callid" in capability.tags
 
 
-def test_selection_gate_accepts_sip_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_sip_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         SIP_ACTUATION_GOAL,
         SIP_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(SIP_ACTUATION_GOAL)
     assert "sip" in family

@@ -15,6 +15,78 @@
       "exit_code": null,
       "status": "timed_out"
     },
+    "29cd0db85122c5b8cd2e1c11b65d540c18f9a0bc": {
+      "duration_seconds": 805.94,
+      "exit_code": 1,
+      "file_durations": {
+        "test_browser_cdp_actuation.py": 5.58,
+        "test_capability_compounder.py": 290.49,
+        "test_capability_portability.py": 204.85,
+        "test_contentdisposition_actuation.py": 7.56,
+        "test_dns64_actuation.py": 7.49,
+        "test_extcomm_actuation.py": 7.29,
+        "test_gmpls_actuation.py": 7.18,
+        "test_http10_actuation.py": 7.12,
+        "test_httpver_actuation.py": 7.17,
+        "test_ippfx_actuation.py": 7.3,
+        "test_masque_actuation.py": 7.05,
+        "test_mcp_plugin_reconnect.py": 5.62,
+        "test_mime_actuation.py": 7.12,
+        "test_nntp_actuation.py": 7.1,
+        "test_pathkey_actuation.py": 7.33,
+        "test_pref64_actuation.py": 7.18,
+        "test_radius_actuation.py": 7.06,
+        "test_send_actuation.py": 7.12,
+        "test_smtp_actuation.py": 5.15,
+        "test_tcp_actuation.py": 7.5,
+        "test_unbound.py": 44.08,
+        "test_webdav_actuation.py": 7.11,
+        "test_xlat_actuation.py": 7.09
+      },
+      "slowest_tests": [
+        {
+          "seconds": 144.93,
+          "test": "tests/test_capability_compounder.py::test_growth_loop_promotes_and_proves_on_repo"
+        },
+        {
+          "seconds": 41.01,
+          "test": "tests/test_capability_portability.py::test_run_portability_plane_end_to_end"
+        },
+        {
+          "seconds": 39.54,
+          "test": "tests/test_capability_portability.py::test_sealed_report_verifies_and_tamper_fails"
+        },
+        {
+          "seconds": 39.06,
+          "test": "tests/test_capability_portability.py::test_builtin_portability_plane_proof"
+        },
+        {
+          "seconds": 36.61,
+          "test": "tests/test_capability_compounder.py::test_continuity_plane_export_rehydrate_and_adversarial"
+        },
+        {
+          "seconds": 34.53,
+          "test": "tests/test_capability_compounder.py::test_reconciliation_plane_heals_synthetic_drift"
+        },
+        {
+          "seconds": 30.08,
+          "test": "tests/test_unbound.py::test_replay_validation_command_reports_timeout"
+        },
+        {
+          "seconds": 29.21,
+          "test": "tests/test_capability_portability.py::test_corrupted_checkout_flags_drift"
+        },
+        {
+          "seconds": 28.2,
+          "test": "tests/test_capability_portability.py::test_watchdog_runs_green_in_pristine_checkout"
+        },
+        {
+          "seconds": 27.83,
+          "test": "tests/test_capability_portability.py::test_pristine_checkout_contains_tracked_source"
+        }
+      ],
+      "status": "failed"
+    },
     "49be5c2450770e220fdf59b5f329dacbf0917cd1": {
       "duration_seconds": 900.018,
       "exit_code": null,

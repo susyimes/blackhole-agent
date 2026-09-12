@@ -108,14 +108,17 @@ def test_builtin_proof_speaks_argument_completion() -> None:
     assert "mcp" in capability.tags
 
 
-def test_selection_gate_accepts_completions_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_completions_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         MCP_COMPLETIONS_GOAL,
         MCP_COMPLETIONS_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(MCP_COMPLETIONS_GOAL)
     assert "completion" in family

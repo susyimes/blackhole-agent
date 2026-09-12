@@ -121,14 +121,17 @@ def test_builtin_proof_seals_javascript_cdp_actuation() -> None:
     assert "javascript" in capability.tags
 
 
-def test_selection_gate_accepts_browser_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_browser_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         BROWSER_CDP_GOAL,
         BROWSER_CDP_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(BROWSER_CDP_GOAL)
     assert "browser" in family

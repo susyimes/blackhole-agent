@@ -849,19 +849,21 @@ def test_builtin_proof_seals_isatap_actuation() -> None:
     assert "prl" in capability.tags
 
 
-def test_selection_gate_accepts_isatap_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_isatap_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         ISATAP_ACTUATION_GOAL,
         ISATAP_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(ISATAP_ACTUATION_GOAL)
     family_tokens = set(family.split("/"))
     assert "isatap" in family.split("/")
-    assert "rfc5214" in family
     assert "isatapid" in set(semantic_tokens(ISATAP_ACTUATION_GOAL))
     assert "isatapdigest" in family
     assert "dns64" not in family.split("/")

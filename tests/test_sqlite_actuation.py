@@ -121,14 +121,17 @@ def test_builtin_proof_seals_sqlite_actuation() -> None:
     assert "transaction" in capability.tags
 
 
-def test_selection_gate_accepts_sqlite_family(tmp_path: Path) -> None:
+def test_selection_gate_rejects_ledger_only_sqlite_family(tmp_path: Path) -> None:
     gate = assess_mission_selection(
         tmp_path,
         SQLITE_ACTUATION_GOAL,
         SQLITE_ACTUATION_DONE_WHEN,
         history=(),
     )
-    assert gate.accepted is True
+    assert gate.accepted is False
+    assert gate.reasons == (
+        "marginal_value_gate: ledger registration/self-proof alone is not an outcome acceptance contract",
+    )
     assert gate.scalar_extension is False
     family = capability_family(SQLITE_ACTUATION_GOAL)
     assert "sqlite" in family

@@ -1,0 +1,981 @@
+........F............................................................... [ 29%]
+F..F.......................FFFFFF...F...F..........F...F...F...F...F..F. [ 59%]
+.FF............F....F..F...F.......F...F...F...F...F.................... [ 89%]
+...................F...F.                                                [100%]
+================================== FAILURES ===================================
+______________ test_builtin_proof_seals_javascript_cdp_actuation ______________
+
+    def test_builtin_proof_seals_javascript_cdp_actuation() -> None:
+        report = builtin_browser_cdp_actuation_proof()
+>       assert report["ok"] is True, report.get("checks")
+E       AssertionError: {'catalog_names_browser_cdp': True, 'cdp_evaluate_unlocks': True, 'cdp_goal_is_not_roots': True, 'cdp_goal_is_not_static_browser': True, ...}
+E       assert False is True
+
+tests\test_browser_cdp_actuation.py:100: AssertionError
+________________ test_cli_integrity_and_budget_grow_exit_zero _________________
+
+    def test_cli_integrity_and_budget_grow_exit_zero():
+        repo = Path(__file__).resolve().parents[1]
+        env = {
+            **dict(**{k: v for k, v in __import__("os").environ.items()}),
+            "PYTHONPATH": str(repo / "src"),
+        }
+        integrity = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "blackhole_agent.unbound",
+                "capability",
+                "integrity",
+                "--repo-path",
+                str(repo),
+                "--limit",
+                "8",
+            ],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=180,
+        )
+>       assert integrity.returncode == 0, integrity.stdout + integrity.stderr
+E       AssertionError: {
+E           "ok": false,
+E           "action": "ledger_integrity",
+E           "count": 651,
+E           "ordered": 8,
+E           "proved_ok": [
+E             "repo.import-health",
+E             "capability.ledger-inventory",
+E             "unbound.milestone-gate",
+E             "capability.ablation-proof",
+E             "capability.absorbed-text-reverser"
+E           ],
+E           "proved_count": 5,
+E           "failed": [
+E             {
+E               "id": "capability.absorbed-apache-airflow-providers-amazon",
+E               "exit_code": 1,
+E               "summary": "Traceback (most recent call last):"
+E             },
+E             {
+E               "id": "capability.absorbed-snake-case",
+E               "exit_code": 1,
+E               "summary": "Traceback (most recent call last):"
+E             }
+E           ],
+E           "failed_count": 2,
+E           "skipped": [
+E             {
+E               "id": "capability.absorbed-composition-bridge",
+E               "blocked_by": [
+E                 "capability.absorbed-snake-case"
+E               ]
+E             }
+E           ],
+E           "skipped_count": 1,
+E           "score": 0.7143,
+E           "ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260912T172718Z-c4704ffa\\capabilities\\ledger.json",
+E           "used_skill_route_discovery": false
+E         }
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260912T172718Z-...\\\\20260912T172718Z-c4704ffa\\\\capabilities\\\\ledger.json",\n  "used_skill_route_discovery": false\n}\n', stderr='').returncode
+
+tests\test_capability_compounder.py:567: AssertionError
+_____________ test_autonomic_cycle_novelty_grow_distill_integrity _____________
+
+    def test_autonomic_cycle_novelty_grow_distill_integrity():
+        """Closed autonomic plane: novelty grow → distill → integrity without skill-route."""
+    
+        from blackhole_agent.capability_compounder import (
+            ensure_seeded_ledger,
+            run_autonomic_cycle,
+        )
+    
+        repo = Path(__file__).resolve().parents[1]
+        path, ledger = ensure_seeded_ledger(repo)
+        assert "capability.frontier-novelty" in ledger.capabilities
+        assert "capability.distill-ledger" in ledger.capabilities
+        assert "capability.autonomic-cycle" in ledger.capabilities
+    
+        result = run_autonomic_cycle(
+            repo,
+            budget=2,
+            distill_remove=False,
+            integrity_limit=8,
+            timeout=240,
+        )
+>       assert result["ok"] is True, result
+E       AssertionError: {'action': 'autonomic_cycle', 'advanced': False, 'after_count': 651, 'after_unique_coverage_sets': 34, ...}
+E       assert False is True
+
+tests\test_capability_compounder.py:677: AssertionError
+_______________ test_pristine_checkout_contains_tracked_source ________________
+
+tmp_path = WindowsPath('C:/Users/svmes/AppData/Local/Temp/pytest-of-svmes/pytest-2408/test_pristine_checkout_contain0')
+
+    def test_pristine_checkout_contains_tracked_source(tmp_path: Path) -> None:
+>       result = checkout_pristine_source(tmp_path / "checkout")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_capability_portability.py:20: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\blackhole_agent\capability_portability.py:76: in checkout_pristine_source
+    subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = b'pax_global_header\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0...00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+capture_output = True, timeout = None, check = True
+popenargs = (['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\pytest-of-svmes\\pytest-2408\\test_pristine_checkout_contain0\\checkout'],)
+kwargs = {'stderr': -1, 'stdin': -1, 'stdout': -1}
+process = <Popen: returncode: 1 args: ['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\...>
+stdout = b''
+stderr = b'capabilities/absorbed/django/django-6.1/tests/staticfiles_tests/apps/test/static/test/\xe2\x8a\x97.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n'
+retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\pytest-of-svmes\\pytest-2408\\test_pristine_checkout_contain0\\checkout']' returned non-zero exit status 1.
+
+..\..\..\..\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:577: CalledProcessError
+________________ test_watchdog_runs_green_in_pristine_checkout ________________
+
+tmp_path = WindowsPath('C:/Users/svmes/AppData/Local/Temp/pytest-of-svmes/pytest-2408/test_watchdog_runs_green_in_pr0')
+
+    def test_watchdog_runs_green_in_pristine_checkout(tmp_path: Path) -> None:
+        checkout = tmp_path / "checkout"
+>       checkout_pristine_source(checkout)
+
+tests\test_capability_portability.py:29: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\blackhole_agent\capability_portability.py:76: in checkout_pristine_source
+    subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = b'pax_global_header\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0...00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+capture_output = True, timeout = None, check = True
+popenargs = (['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\pytest-of-svmes\\pytest-2408\\test_watchdog_runs_green_in_pr0\\checkout'],)
+kwargs = {'stderr': -1, 'stdin': -1, 'stdout': -1}
+process = <Popen: returncode: 1 args: ['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\...>
+stdout = b''
+stderr = b'capabilities/absorbed/django/django-6.1/tests/staticfiles_tests/apps/test/static/test/\xe2\x8a\x97.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n'
+retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\pytest-of-svmes\\pytest-2408\\test_watchdog_runs_green_in_pr0\\checkout']' returned non-zero exit status 1.
+
+..\..\..\..\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:577: CalledProcessError
+_____________________ test_corrupted_checkout_flags_drift _____________________
+
+tmp_path = WindowsPath('C:/Users/svmes/AppData/Local/Temp/pytest-of-svmes/pytest-2408/test_corrupted_checkout_flags_0')
+
+    def test_corrupted_checkout_flags_drift(tmp_path: Path) -> None:
+        checkout = tmp_path / "checkout"
+>       checkout_pristine_source(checkout)
+
+tests\test_capability_portability.py:38: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\blackhole_agent\capability_portability.py:76: in checkout_pristine_source
+    subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = b'pax_global_header\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0...00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+capture_output = True, timeout = None, check = True
+popenargs = (['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\pytest-of-svmes\\pytest-2408\\test_corrupted_checkout_flags_0\\checkout'],)
+kwargs = {'stderr': -1, 'stdin': -1, 'stdout': -1}
+process = <Popen: returncode: 1 args: ['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\...>
+stdout = b''
+stderr = b'capabilities/absorbed/django/django-6.1/tests/staticfiles_tests/apps/test/static/test/\xe2\x8a\x97.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n'
+retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\pytest-of-svmes\\pytest-2408\\test_corrupted_checkout_flags_0\\checkout']' returned non-zero exit status 1.
+
+..\..\..\..\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:577: CalledProcessError
+____________________ test_run_portability_plane_end_to_end ____________________
+
+    def test_run_portability_plane_end_to_end() -> None:
+>       report = run_portability_plane()
+                 ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_capability_portability.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\blackhole_agent\capability_portability.py:168: in run_portability_plane
+    archive_a = checkout_pristine_source(checkout_a)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\blackhole_agent\capability_portability.py:76: in checkout_pristine_source
+    subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = b'pax_global_header\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0...00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+capture_output = True, timeout = None, check = True
+popenargs = (['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-klgybpqp\\checkout-a'],)
+kwargs = {'stderr': -1, 'stdin': -1, 'stdout': -1}
+process = <Popen: returncode: 1 args: ['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\...>
+stdout = b''
+stderr = b'capabilities/absorbed/django/django-6.1/tests/staticfiles_tests/apps/test/static/test/\xe2\x8a\x97.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n'
+retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-klgybpqp\\checkout-a']' returned non-zero exit status 1.
+
+..\..\..\..\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:577: CalledProcessError
+________________ test_sealed_report_verifies_and_tamper_fails _________________
+
+tmp_path = WindowsPath('C:/Users/svmes/AppData/Local/Temp/pytest-of-svmes/pytest-2408/test_sealed_report_verifies_an0')
+
+    def test_sealed_report_verifies_and_tamper_fails(tmp_path: Path) -> None:
+>       report = run_portability_plane()
+                 ^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_capability_portability.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\blackhole_agent\capability_portability.py:168: in run_portability_plane
+    archive_a = checkout_pristine_source(checkout_a)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\blackhole_agent\capability_portability.py:76: in checkout_pristine_source
+    subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = b'pax_global_header\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0...00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+capture_output = True, timeout = None, check = True
+popenargs = (['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-lntzaizr\\checkout-a'],)
+kwargs = {'stderr': -1, 'stdin': -1, 'stdout': -1}
+process = <Popen: returncode: 1 args: ['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\...>
+stdout = b''
+stderr = b'capabilities/absorbed/django/django-6.1/tests/staticfiles_tests/apps/test/static/test/\xe2\x8a\x97.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n'
+retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-lntzaizr\\checkout-a']' returned non-zero exit status 1.
+
+..\..\..\..\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:577: CalledProcessError
+____________________ test_builtin_portability_plane_proof _____________________
+
+    def test_builtin_portability_plane_proof() -> None:
+>       result = builtin_portability_plane()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_capability_portability.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+src\blackhole_agent\capability_portability.py:334: in builtin_portability_plane
+    report = run_portability_plane()
+             ^^^^^^^^^^^^^^^^^^^^^^^
+src\blackhole_agent\capability_portability.py:168: in run_portability_plane
+    archive_a = checkout_pristine_source(checkout_a)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\blackhole_agent\capability_portability.py:76: in checkout_pristine_source
+    subprocess.run(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = b'pax_global_header\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0...00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+capture_output = True, timeout = None, check = True
+popenargs = (['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-_vq4y489\\checkout-a'],)
+kwargs = {'stderr': -1, 'stdin': -1, 'stdout': -1}
+process = <Popen: returncode: 1 args: ['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\...>
+stdout = b''
+stderr = b'capabilities/absorbed/django/django-6.1/tests/staticfiles_tests/apps/test/static/test/\xe2\x8a\x97.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n'
+retcode = 1
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['tar', '-x', '-C', 'C:\\Users\\svmes\\AppData\\Local\\Temp\\capability-portability-_vq4y489\\checkout-a']' returned non-zero exit status 1.
+
+..\..\..\..\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\subprocess.py:577: CalledProcessError
+____________ test_builtin_proof_seals_contentdisposition_actuation ____________
+
+    def test_builtin_proof_seals_contentdisposition_actuation() -> None:
+        report = builtin_contentdisposition_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_contentdisposition']
+E       assert False is True
+
+tests\test_contentdisposition_actuation.py:357: AssertionError
+__________________ test_builtin_proof_seals_dns64_actuation ___________________
+
+    def test_builtin_proof_seals_dns64_actuation() -> None:
+        report = builtin_dns64_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_dns64']
+E       assert False is True
+
+tests\test_dns64_actuation.py:658: AssertionError
+_________________ test_builtin_proof_seals_extcomm_actuation __________________
+
+    def test_builtin_proof_seals_extcomm_actuation() -> None:
+        report = builtin_extcomm_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_extcomm']
+E       assert False is True
+
+tests\test_extcomm_actuation.py:853: AssertionError
+__________________ test_builtin_proof_seals_gmpls_actuation ___________________
+
+    def test_builtin_proof_seals_gmpls_actuation() -> None:
+        report = builtin_gmpls_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_gmpls']
+E       assert False is True
+
+tests\test_gmpls_actuation.py:1039: AssertionError
+__________________ test_builtin_proof_seals_http10_actuation __________________
+
+    def test_builtin_proof_seals_http10_actuation() -> None:
+        report = builtin_http10_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_http10']
+E       assert False is True
+
+tests\test_http10_actuation.py:442: AssertionError
+_________________ test_builtin_proof_seals_httpver_actuation __________________
+
+    def test_builtin_proof_seals_httpver_actuation() -> None:
+        report = builtin_httpver_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_httpver']
+E       assert False is True
+
+tests\test_httpver_actuation.py:416: AssertionError
+__________________ test_builtin_proof_seals_ippfx_actuation ___________________
+
+    def test_builtin_proof_seals_ippfx_actuation() -> None:
+        report = builtin_ippfx_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['family_is_rfc9136', 'exhausted_catalog_binds_ippfx']
+E       assert False is True
+
+tests\test_ippfx_actuation.py:913: AssertionError
+_________ test_builtin_proof_binds_diversity_after_catalog_exhaustion _________
+
+    def test_builtin_proof_binds_diversity_after_catalog_exhaustion() -> None:
+        report = builtin_kernel_genesis_diversify_proof()
+>       assert report["ok"] is True, report.get("checks")
+E       AssertionError: {'behavior_family_saturates': True, 'chooses_different_measurable_outcome': True, 'ledger_only_contract_rejected': True, 'legacy_catalog_not_auto_accepted': False, ...}
+E       assert False is True
+
+tests\test_kernel_genesis_diversify.py:40: AssertionError
+___________ test_hydrate_consumed_campaign_binds_weave_after_fabric ___________
+
+tmp_path = WindowsPath('C:/Users/svmes/AppData/Local/Temp/pytest-of-svmes/pytest-2408/test_hydrate_consumed_campaign0')
+
+    def test_hydrate_consumed_campaign_binds_weave_after_fabric(tmp_path: Path):
+        save_campaign(
+            tmp_path,
+            LocalCampaign(
+                mission_id="prior",
+                goal="Resume remaining durable campaign work after class_closed left genesis unscoped: capability.ledger-attestation",
+                done_when="program_passes:capability.ledger-attestation;no_skill_route",
+                bound_from="class_closed",
+                tick_count=3,
+                last_contract_met=True,
+                consumed_at="2026-08-29T08:32:38Z",
+                last_summary="Local program-fabric minted and proved capability.program-fabric-deadbeef in-process so recovered kernels keep compounding weaves instead of probing cheap inventory.",
+            ),
+        )
+        state = UnboundMission(
+            schema_version=1,
+            mission_id="mission-1",
+            created_at="2026-08-29T00:00:00Z",
+            updated_at="2026-08-29T00:00:00Z",
+            repo_path=str(tmp_path),
+            workspace_path=str(tmp_path),
+            branch="unbound/test",
+            target_branch="main",
+            goal="",
+            done_when="",
+            stage="genesis",
+            base_head="abc",
+            last_milestone_head="abc",
+        )
+        prompt = build_turn_prompt(
+            state,
+            {"head": "abc", "status": "", "diff_stat": "", "recent_commits": "abc seed"},
+            state_path=tmp_path / "state.json",
+        )
+        assert "Mission genesis is still open" not in prompt
+>       assert (
+            PROGRAM_WEAVE_GOAL in prompt
+            or PROGRAM_FABRIC_GOAL in prompt
+            or KERNEL_GENESIS_BIND_ID in (state.done_when or prompt)
+        )
+E       assert ('After program fabrics fill unique coverage, repair stalled tapestry compounding: raise a ready program weave in-process so recovered kernels keep compounding tapestries instead of falling through to cheap inventory.' in 'You are Blackhole Unbound, the single long-running agent responsible for this mission.\n\nThere are no child agents i...",\n  "done_when_met": false,\n  "commit_message": "semantic milestone message; optional unless milestone/complete"\n}' or 'When unique program-lattice coverage saturates, repair stalled weave compounding: mint a ready program fabric of lattices in-process so recovered kernels keep compounding weaves instead of probing cheap inventory.' in 'You are Blackhole Unbound, the single long-running agent responsible for this mission.\n\nThere are no child agents i...",\n  "done_when_met": false,\n  "commit_message": "semantic milestone message; optional unless milestone/complete"\n}' or 'capability.kernel-genesis-bind' in (('A consumed leftover whose leftover satisfaction is already closed no longer appears in the recovering-kernel brief; b... a nonhandshake successor that assess_mission_selection accepts; an open leftover campaign still appears in the brief.')))
+E        +  where 'A consumed leftover whose leftover satisfaction is already closed no longer appears in the recovering-kernel brief; b... a nonhandshake successor that assess_mission_selection accepts; an open leftover campaign still appears in the brief.' = UnboundMission(schema_version=1, mission_id='mission-1', created_at='2026-08-29T00:00:00Z', updated_at='2026-08-29T00:..._error='', operator_supplied=False, selection_checked=False, local_no_progress_count=0, recent_turns=[], milestones=[]).done_when
+
+tests\test_kernel_program_weave.py:117: AssertionError
+___________________ test_builtin_proof_raises_program_weave ___________________
+
+    def test_builtin_proof_raises_program_weave():
+        report = builtin_kernel_program_weave_proof()
+>       assert report["ok"] is True, report.get("checks")
+E       AssertionError: {'bound_weave_needs_compose_after_primitives': True, 'bound_weave_needs_fabric_after_lattices': True, 'bound_weave_needs_lattice_after_towers': True, 'bound_weave_needs_program_after_compositions': True, ...}
+E       assert False is True
+
+tests\test_kernel_program_weave.py:127: AssertionError
+__________________ test_builtin_proof_seals_masque_actuation __________________
+
+    def test_builtin_proof_seals_masque_actuation() -> None:
+        report = builtin_masque_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_masque']
+E       assert False is True
+
+tests\test_masque_actuation.py:211: AssertionError
+_______________ test_builtin_proof_reconnects_closed_initialize _______________
+
+    def test_builtin_proof_reconnects_closed_initialize() -> None:
+        report = builtin_mcp_plugin_reconnect_proof()
+>       assert report["ok"] is True, report.get("checks")
+E       AssertionError: {'already_live_reconnect_is_noop': True, 'always_dead_reconnect_stays_isolated': True, 'bounded_attempts': True, 'catalog_names_reconnect': True, ...}
+E       assert False is True
+
+tests\test_mcp_plugin_reconnect.py:87: AssertionError
+___________________ test_builtin_proof_seals_mime_actuation ___________________
+
+    def test_builtin_proof_seals_mime_actuation() -> None:
+        report = builtin_mime_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_mime']
+E       assert False is True
+
+tests\test_mime_actuation.py:458: AssertionError
+___________________ test_builtin_proof_seals_nntp_actuation ___________________
+
+    def test_builtin_proof_seals_nntp_actuation() -> None:
+        report = builtin_nntp_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_nntp']
+E       assert False is True
+
+tests\test_nntp_actuation.py:482: AssertionError
+__________________ test_builtin_proof_seals_pref64_actuation __________________
+
+    def test_builtin_proof_seals_pref64_actuation() -> None:
+        report = builtin_pref64_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_pref64']
+E       assert False is True
+
+tests\test_pref64_actuation.py:642: AssertionError
+__________________ test_builtin_proof_seals_radius_actuation __________________
+
+    def test_builtin_proof_seals_radius_actuation() -> None:
+        report = builtin_radius_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_radius']
+E       assert False is True
+
+tests\test_radius_actuation.py:163: AssertionError
+___________________ test_builtin_proof_seals_send_actuation ___________________
+
+    def test_builtin_proof_seals_send_actuation() -> None:
+        report = builtin_send_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_send']
+E       assert False is True
+
+tests\test_send_actuation.py:585: AssertionError
+___________________ test_builtin_proof_seals_smtp_actuation ___________________
+
+    def test_builtin_proof_seals_smtp_actuation() -> None:
+        report = builtin_smtp_actuation_proof()
+>       assert report["ok"] is True, report.get("checks")
+E       AssertionError: {'catalog_names_smtp': True, 'default_smtp_provider_is_unsupported': True, 'denylists_self': True, 'exhausted_catalog_binds_smtp': False, ...}
+E       assert False is True
+
+tests\test_smtp_actuation.py:112: AssertionError
+___________________ test_builtin_proof_seals_tcp_actuation ____________________
+
+    def test_builtin_proof_seals_tcp_actuation() -> None:
+        report = builtin_tcp_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_tcp']
+E       assert False is True
+
+tests\test_tcp_actuation.py:482: AssertionError
+__________________ test_builtin_proof_seals_webdav_actuation __________________
+
+    def test_builtin_proof_seals_webdav_actuation() -> None:
+        report = builtin_webdav_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_webdav']
+E       assert False is True
+
+tests\test_webdav_actuation.py:389: AssertionError
+___________________ test_builtin_proof_seals_xlat_actuation ___________________
+
+    def test_builtin_proof_seals_xlat_actuation() -> None:
+        report = builtin_xlat_actuation_proof()
+>       assert report["ok"] is True, report.get("failed") or report.get("checks")
+E       AssertionError: ['exhausted_catalog_binds_xlat']
+E       assert False is True
+
+tests\test_xlat_actuation.py:668: AssertionError
+============================ slowest 40 durations =============================
+144.93s call     tests/test_capability_compounder.py::test_growth_loop_promotes_and_proves_on_repo
+41.01s call     tests/test_capability_portability.py::test_run_portability_plane_end_to_end
+39.54s call     tests/test_capability_portability.py::test_sealed_report_verifies_and_tamper_fails
+39.06s call     tests/test_capability_portability.py::test_builtin_portability_plane_proof
+36.61s call     tests/test_capability_compounder.py::test_continuity_plane_export_rehydrate_and_adversarial
+34.53s call     tests/test_capability_compounder.py::test_reconciliation_plane_heals_synthetic_drift
+30.08s call     tests/test_unbound.py::test_replay_validation_command_reports_timeout
+29.21s call     tests/test_capability_portability.py::test_corrupted_checkout_flags_drift
+28.20s call     tests/test_capability_portability.py::test_watchdog_runs_green_in_pristine_checkout
+27.83s call     tests/test_capability_portability.py::test_pristine_checkout_contains_tracked_source
+16.03s call     tests/test_capability_compounder.py::test_lineage_plane_chain_drift_and_adversarial
+13.81s call     tests/test_capability_compounder.py::test_sovereignty_plane_certificate_issue_and_verify
+12.65s call     tests/test_capability_compounder.py::test_assurance_plane_ablation_transfer_and_adversarial
+12.35s call     tests/test_capability_compounder.py::test_actuation_plane_effects_and_adversarial
+7.56s call     tests/test_contentdisposition_actuation.py::test_builtin_proof_seals_contentdisposition_actuation
+7.50s call     tests/test_tcp_actuation.py::test_builtin_proof_seals_tcp_actuation
+7.49s call     tests/test_dns64_actuation.py::test_builtin_proof_seals_dns64_actuation
+7.33s call     tests/test_pathkey_actuation.py::test_builtin_proof_seals_pathkey_actuation
+7.30s call     tests/test_ippfx_actuation.py::test_builtin_proof_seals_ippfx_actuation
+7.29s call     tests/test_extcomm_actuation.py::test_builtin_proof_seals_extcomm_actuation
+7.26s call     tests/test_capability_compounder.py::test_finality_plane_multi_epoch_seal_and_adversarial
+7.18s call     tests/test_pref64_actuation.py::test_builtin_proof_seals_pref64_actuation
+7.18s call     tests/test_gmpls_actuation.py::test_builtin_proof_seals_gmpls_actuation
+7.17s call     tests/test_httpver_actuation.py::test_builtin_proof_seals_httpver_actuation
+7.12s call     tests/test_mime_actuation.py::test_builtin_proof_seals_mime_actuation
+7.12s call     tests/test_send_actuation.py::test_builtin_proof_seals_send_actuation
+7.12s call     tests/test_http10_actuation.py::test_builtin_proof_seals_http10_actuation
+7.11s call     tests/test_webdav_actuation.py::test_builtin_proof_seals_webdav_actuation
+7.10s call     tests/test_nntp_actuation.py::test_builtin_proof_seals_nntp_actuation
+7.09s call     tests/test_xlat_actuation.py::test_builtin_proof_seals_xlat_actuation
+7.06s call     tests/test_radius_actuation.py::test_builtin_proof_seals_radius_actuation
+7.05s call     tests/test_masque_actuation.py::test_builtin_proof_seals_masque_actuation
+6.25s call     tests/test_capability_compounder.py::test_cli_integrity_and_budget_grow_exit_zero
+6.07s call     tests/test_capability_compounder.py::test_autonomic_cycle_novelty_grow_distill_integrity
+5.62s call     tests/test_mcp_plugin_reconnect.py::test_builtin_proof_reconnects_closed_initialize
+5.58s call     tests/test_browser_cdp_actuation.py::test_builtin_proof_seals_javascript_cdp_actuation
+5.15s call     tests/test_smtp_actuation.py::test_builtin_proof_seals_smtp_actuation
+4.96s call     tests/test_unbound.py::test_continuing_work_persists_without_commit_until_capability_milestone
+4.61s call     tests/test_unbound.py::test_genesis_rejects_repetitive_scalar_mission_and_blocks_after_three_attempts
+4.43s call     tests/test_unbound.py::test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads
+=========================== short test summary info ===========================
+FAILED tests/test_browser_cdp_actuation.py::test_builtin_proof_seals_javascript_cdp_actuation
+FAILED tests/test_capability_compounder.py::test_cli_integrity_and_budget_grow_exit_zero
+FAILED tests/test_capability_compounder.py::test_autonomic_cycle_novelty_grow_distill_integrity
+FAILED tests/test_capability_portability.py::test_pristine_checkout_contains_tracked_source
+FAILED tests/test_capability_portability.py::test_watchdog_runs_green_in_pristine_checkout
+FAILED tests/test_capability_portability.py::test_corrupted_checkout_flags_drift
+FAILED tests/test_capability_portability.py::test_run_portability_plane_end_to_end
+FAILED tests/test_capability_portability.py::test_sealed_report_verifies_and_tamper_fails
+FAILED tests/test_capability_portability.py::test_builtin_portability_plane_proof
+FAILED tests/test_contentdisposition_actuation.py::test_builtin_proof_seals_contentdisposition_actuation
+FAILED tests/test_dns64_actuation.py::test_builtin_proof_seals_dns64_actuation
+FAILED tests/test_extcomm_actuation.py::test_builtin_proof_seals_extcomm_actuation
+FAILED tests/test_gmpls_actuation.py::test_builtin_proof_seals_gmpls_actuation
+FAILED tests/test_http10_actuation.py::test_builtin_proof_seals_http10_actuation
+FAILED tests/test_httpver_actuation.py::test_builtin_proof_seals_httpver_actuation
+FAILED tests/test_ippfx_actuation.py::test_builtin_proof_seals_ippfx_actuation
+FAILED tests/test_kernel_genesis_diversify.py::test_builtin_proof_binds_diversity_after_catalog_exhaustion
+FAILED tests/test_kernel_program_weave.py::test_hydrate_consumed_campaign_binds_weave_after_fabric
+FAILED tests/test_kernel_program_weave.py::test_builtin_proof_raises_program_weave
+FAILED tests/test_masque_actuation.py::test_builtin_proof_seals_masque_actuation
+FAILED tests/test_mcp_plugin_reconnect.py::test_builtin_proof_reconnects_closed_initialize
+FAILED tests/test_mime_actuation.py::test_builtin_proof_seals_mime_actuation
+FAILED tests/test_nntp_actuation.py::test_builtin_proof_seals_nntp_actuation
+FAILED tests/test_pref64_actuation.py::test_builtin_proof_seals_pref64_actuation
+FAILED tests/test_radius_actuation.py::test_builtin_proof_seals_radius_actuation
+FAILED tests/test_send_actuation.py::test_builtin_proof_seals_send_actuation
+FAILED tests/test_smtp_actuation.py::test_builtin_proof_seals_smtp_actuation
+FAILED tests/test_tcp_actuation.py::test_builtin_proof_seals_tcp_actuation - ...
+FAILED tests/test_webdav_actuation.py::test_builtin_proof_seals_webdav_actuation
+FAILED tests/test_xlat_actuation.py::test_builtin_proof_seals_xlat_actuation
+30 failed, 211 passed in 805.94s (0:13:25)
+exit=1
