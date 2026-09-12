@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import json
+import io
+import os
+import tarfile
 from pathlib import Path
 
+import pytest
+
 from blackhole_agent.capability_portability import (
+    _extract_archive,
     _stamp_capability_red,
     _watchdog_summary,
     builtin_portability_plane,
@@ -14,6 +20,46 @@ from blackhole_agent.capability_portability import (
     verify_portability_report,
     write_portability_report,
 )
+
+
+@pytest.mark.parametrize("name", ["../outside", "/outside", "C:/outside", "C:outside", "a\\..\\outside", "a:stream"])
+def test_checkout_rejects_escaping_archive_members(tmp_path: Path, name: str) -> None:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        info = tarfile.TarInfo(name)
+        info.size = 4
+        archive.addfile(info, io.BytesIO(b"data"))
+    with pytest.raises(ValueError, match="unsupported archive path"):
+        _extract_archive(buffer.getvalue(), tmp_path / "checkout")
+    assert not (tmp_path / "outside").exists()
+
+
+def test_checkout_refuses_existing_content_and_archive_links(tmp_path: Path) -> None:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        info = tarfile.TarInfo("link")
+        info.type = tarfile.SYMTYPE
+        info.linkname = "../outside"
+        archive.addfile(info)
+    with pytest.raises(ValueError, match="unsupported archive path or link"):
+        _extract_archive(buffer.getvalue(), tmp_path / "checkout")
+    marker = tmp_path / "checkout" / "keep.txt"
+    marker.write_text("keep", encoding="utf-8")
+    with pytest.raises(FileExistsError, match="must be empty"):
+        _extract_archive(buffer.getvalue(), marker.parent)
+    assert marker.read_text(encoding="utf-8") == "keep"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX executable bit")
+def test_checkout_preserves_executable_files(tmp_path: Path) -> None:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        info = tarfile.TarInfo("run.sh")
+        info.mode = 0o755
+        info.size = 7
+        archive.addfile(info, io.BytesIO(b"exit 0\n"))
+    _extract_archive(buffer.getvalue(), tmp_path / "checkout")
+    assert (tmp_path / "checkout" / "run.sh").stat().st_mode & 0o777 == 0o755
 
 
 def test_pristine_checkout_contains_tracked_source(tmp_path: Path) -> None:

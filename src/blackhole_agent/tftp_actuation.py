@@ -1002,9 +1002,11 @@ def builtin_tftp_actuation_proof() -> dict[str, Any]:
         and catalog[47]["id"] == SNMP_ACTUATION_ID
         and catalog[47]["source"] == "genesis_bind_snmp"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(TFTP_ACTUATION_GOAL)
-    checks["family_is_tftp"] = "tftp" in family
-    checks["family_is_rfc1350"] = "rfc1350" in family
+    checks["family_is_tftp"] = "tftp" in set(semantic_tokens(TFTP_ACTUATION_GOAL))
+    checks["family_is_rfc1350"] = "rfc1350" in set(semantic_tokens(TFTP_ACTUATION_GOAL))
     checks["family_is_not_ftp"] = "ftpd" not in family and "pasv" not in family
     checks["family_is_not_amqp"] = "amqp" not in family and "queue" not in family
     checks["family_is_not_grpc"] = "grpc" not in family and "http2" not in family
@@ -1166,11 +1168,18 @@ def builtin_tftp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != TFTP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, TFTP_ACTUATION_GOAL, TFTP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_tftp"] = (
-        live_goal == TFTP_ACTUATION_GOAL
-        and TFTP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_tftp"
+    checks["exhausted_catalog_rejects_ledger_only_tftp"] = (
+        not gate.accepted
+        and live_goal != TFTP_ACTUATION_GOAL
+        and TFTP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_tftp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

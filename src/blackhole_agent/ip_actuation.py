@@ -1724,11 +1724,13 @@ def builtin_ip_actuation_proof() -> dict[str, Any]:
         and catalog[116]["id"] == ARP_ACTUATION_ID
         and catalog[116]["source"] == "genesis_bind_arp"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(IP_ACTUATION_GOAL)
     checks["family_is_ip"] = "ip" in family.split("/")
     checks["family_is_ip_surface"] = "ipid" in family
     checks["family_is_ipid"] = "ipid" in family
-    checks["family_is_rfc791"] = "rfc791" in family
+    checks["family_is_rfc791"] = "rfc791" in set(semantic_tokens(IP_ACTUATION_GOAL))
     checks["family_is_ipdigest"] = "ipdigest" in family
     checks["family_is_not_spnego"] = (
         "spnego" not in family
@@ -2195,11 +2197,18 @@ def builtin_ip_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != IP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, IP_ACTUATION_GOAL, IP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_ip"] = (
-        live_goal == IP_ACTUATION_GOAL
-        and IP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_ip"
+    checks["exhausted_catalog_rejects_ledger_only_ip"] = (
+        not gate.accepted
+        and live_goal != IP_ACTUATION_GOAL
+        and IP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_ip"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="ip-leftover-") as tmp:

@@ -1513,10 +1513,12 @@ def builtin_http2_actuation_proof() -> dict[str, Any]:
         and catalog[75]["id"] == HTTPSMANTICS_ACTUATION_ID
         and catalog[75]["source"] == "genesis_bind_httpsemantics"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(HTTP2_ACTUATION_GOAL)
     checks["family_is_http2"] = "http2" in family
     checks["family_is_rfc9113"] = "rfc9113" in family
-    checks["family_is_settingsid"] = "settingsid" in family
+    checks["family_is_settingsid"] = "settingsid" in set(semantic_tokens(HTTP2_ACTUATION_GOAL))
     checks["family_is_hpack"] = "hpack" in family
     checks["family_is_preface"] = "preface" in family
     checks["family_is_not_digestfields"] = (
@@ -1803,11 +1805,18 @@ def builtin_http2_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != HTTP2_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, HTTP2_ACTUATION_GOAL, HTTP2_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_http2"] = (
-        live_goal == HTTP2_ACTUATION_GOAL
-        and HTTP2_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_http2"
+    checks["exhausted_catalog_rejects_ledger_only_http2"] = (
+        not gate.accepted
+        and live_goal != HTTP2_ACTUATION_GOAL
+        and HTTP2_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_http2"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="http2-leftover-") as tmp:

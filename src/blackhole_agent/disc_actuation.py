@@ -1887,11 +1887,13 @@ def builtin_disc_actuation_proof() -> dict[str, Any]:
         and catalog[138]["id"] == DSLITE_ACTUATION_ID
         and catalog[138]["source"] == "genesis_bind_dslite"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(DISC_ACTUATION_GOAL)
     checks["family_is_disc"] = "disc" in family.split("/")
     checks["family_is_disc_surface"] = "discid" in family
     checks["family_is_discid"] = "discid" in family
-    checks["family_is_rfc7050"] = "rfc7050" in family
+    checks["family_is_rfc7050"] = "rfc7050" in set(semantic_tokens(DISC_ACTUATION_GOAL))
     checks["family_is_discdigest"] = "discdigest" in family
     checks["family_is_not_spnego"] = (
         "spnego" not in family
@@ -2490,11 +2492,18 @@ def builtin_disc_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != DISC_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, DISC_ACTUATION_GOAL, DISC_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_disc"] = (
-        live_goal == DISC_ACTUATION_GOAL
-        and DISC_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_disc"
+    checks["exhausted_catalog_rejects_ledger_only_disc"] = (
+        not gate.accepted
+        and live_goal != DISC_ACTUATION_GOAL
+        and DISC_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_disc"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="disc-leftover-") as tmp:

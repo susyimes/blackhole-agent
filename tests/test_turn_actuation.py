@@ -173,7 +173,8 @@ def test_builtin_proof_seals_turn_actuation() -> None:
     assert report["checks"]["workflow_records_nonce"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_turn"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_turn"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_ice"]
     assert report["mission_goal"] == TURN_ACTUATION_GOAL
     assert report["done_when"] == TURN_ACTUATION_DONE_WHEN

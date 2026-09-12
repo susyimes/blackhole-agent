@@ -2596,11 +2596,18 @@ def builtin_ucpe_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != UCPE_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, UCPE_ACTUATION_GOAL, UCPE_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_ucpe"] = (
-        live_goal == UCPE_ACTUATION_GOAL
-        and UCPE_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_ucpe"
+    checks["exhausted_catalog_rejects_ledger_only_ucpe"] = (
+        not gate.accepted
+        and live_goal != UCPE_ACTUATION_GOAL
+        and UCPE_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_ucpe"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="ucpe-leftover-") as tmp:

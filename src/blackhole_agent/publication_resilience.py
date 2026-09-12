@@ -432,11 +432,18 @@ def builtin_publication_resilience_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != PUBLICATION_RESILIENCE_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, PUBLICATION_RESILIENCE_GOAL, PUBLICATION_RESILIENCE_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_publication"] = (
-        live_goal == PUBLICATION_RESILIENCE_GOAL
-        and PUBLICATION_RESILIENCE_ID in live_done
-        and live_source == "genesis_bind_publication"
+    checks["exhausted_catalog_rejects_ledger_only_publication"] = (
+        not gate.accepted
+        and live_goal != PUBLICATION_RESILIENCE_GOAL
+        and PUBLICATION_RESILIENCE_ID not in live_done
+        and live_source != "genesis_bind_publication"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["schema_version"] = SCHEMA_VERSION == 1
     checks["no_skill_route"] = not legacy_pipeline_was_used()

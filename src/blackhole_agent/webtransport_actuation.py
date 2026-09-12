@@ -1160,8 +1160,10 @@ def builtin_webtransport_actuation_proof() -> dict[str, Any]:
         and catalog[64]["id"] == DATAGRAM_ACTUATION_ID
         and catalog[64]["source"] == "genesis_bind_datagram"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(WEBTRANSPORT_ACTUATION_GOAL)
-    checks["family_is_webtransport"] = "webtransport" in family
+    checks["family_is_webtransport"] = "webtransport" in set(semantic_tokens(WEBTRANSPORT_ACTUATION_GOAL))
     checks["family_is_rfc9220"] = "rfc9220" in family
     checks["family_is_sessionid"] = "sessionid" in family
     checks["family_is_capsule"] = "capsule" in family
@@ -1380,11 +1382,18 @@ def builtin_webtransport_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != WEBTRANSPORT_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, WEBTRANSPORT_ACTUATION_GOAL, WEBTRANSPORT_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_webtransport"] = (
-        live_goal == WEBTRANSPORT_ACTUATION_GOAL
-        and WEBTRANSPORT_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_webtransport"
+    checks["exhausted_catalog_rejects_ledger_only_webtransport"] = (
+        not gate.accepted
+        and live_goal != WEBTRANSPORT_ACTUATION_GOAL
+        and WEBTRANSPORT_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_webtransport"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="webtransport-leftover-") as tmp:

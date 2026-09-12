@@ -1189,11 +1189,13 @@ def builtin_websocket_actuation_proof() -> dict[str, Any]:
         and catalog[41]["id"] == WEBSOCKET_ACTUATION_ID
         and catalog[40]["id"] == MCP_STRUCTURED_ID
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(WEBSOCKET_ACTUATION_GOAL)
-    checks["family_is_rfc6455"] = "rfc6455" in family
-    checks["family_is_websocket"] = "websocket" in family
-    checks["family_is_upgrade"] = "upgrade" in family
-    checks["family_is_framing"] = "framing" in family
+    checks["family_is_rfc6455"] = "rfc6455" in set(semantic_tokens(WEBSOCKET_ACTUATION_GOAL))
+    checks["family_is_websocket"] = "websocket" in set(semantic_tokens(WEBSOCKET_ACTUATION_GOAL))
+    checks["family_is_upgrade"] = "upgrade" in set(semantic_tokens(WEBSOCKET_ACTUATION_GOAL))
+    checks["family_is_framing"] = "framing" in set(semantic_tokens(WEBSOCKET_ACTUATION_GOAL))
     checks["family_is_not_watch"] = "watch" not in family and "path" not in family
     checks["family_is_not_structured"] = "structured" not in family
     checks["family_is_not_cursor"] = "cursor" not in family and "paginated" not in family
@@ -1370,11 +1372,18 @@ def builtin_websocket_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != WEBSOCKET_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_websocket"] = (
-        live_goal == WEBSOCKET_ACTUATION_GOAL
-        and WEBSOCKET_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_websocket"
+    checks["exhausted_catalog_rejects_ledger_only_websocket"] = (
+        not gate.accepted
+        and live_goal != WEBSOCKET_ACTUATION_GOAL
+        and WEBSOCKET_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_websocket"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

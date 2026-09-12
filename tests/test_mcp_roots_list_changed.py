@@ -127,7 +127,8 @@ def test_builtin_proof_speaks_worktree_roots_plane() -> None:
     assert report["checks"]["empty_roots_fail_closed"]
     assert report["checks"]["sibling_echo_still_serves"]
     assert report["checks"]["skip_notify_stays_on_plane"]
-    assert report["checks"]["exhausted_catalog_binds_roots_changed"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_roots_changed"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_ROOTS_CHANGED_GOAL
     assert report["done_when"] == MCP_ROOTS_CHANGED_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

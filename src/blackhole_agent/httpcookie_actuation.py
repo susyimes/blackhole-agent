@@ -1602,11 +1602,13 @@ def builtin_httpcookie_actuation_proof() -> dict[str, Any]:
         and catalog[87]["id"] == CONTENTDISPOSITION_ACTUATION_ID
         and catalog[87]["source"] == "genesis_bind_contentdisposition"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(HTTPCOOKIE_ACTUATION_GOAL)
     checks["family_is_httpcookie"] = "httpcookie" in family
     checks["family_is_httpcookie_surface"] = "httpcookie" in family
     checks["family_is_cookieid"] = "cookieid" in family
-    checks["family_is_rfc6265"] = "rfc6265" in family
+    checks["family_is_rfc6265"] = "rfc6265" in set(semantic_tokens(HTTPCOOKIE_ACTUATION_GOAL))
     checks["family_is_cookiedigest"] = "cookiedigest" in family
     checks["family_is_not_contentdisposition"] = (
         "contentdisposition" not in family
@@ -1954,11 +1956,18 @@ def builtin_httpcookie_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != HTTPCOOKIE_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, HTTPCOOKIE_ACTUATION_GOAL, HTTPCOOKIE_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_httpcookie"] = (
-        live_goal == HTTPCOOKIE_ACTUATION_GOAL
-        and HTTPCOOKIE_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_httpcookie"
+    checks["exhausted_catalog_rejects_ledger_only_httpcookie"] = (
+        not gate.accepted
+        and live_goal != HTTPCOOKIE_ACTUATION_GOAL
+        and HTTPCOOKIE_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_httpcookie"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="httpcookie-leftover-") as tmp:

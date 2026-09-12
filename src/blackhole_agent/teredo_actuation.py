@@ -2095,7 +2095,7 @@ def builtin_teredo_actuation_proof() -> dict[str, Any]:
     checks["family_is_teredo_surface"] = "teredo" in family.split("/") and "teredoid" in set(semantic_tokens(TEREDO_ACTUATION_GOAL))
     checks["family_is_teredoid"] = "teredoid" in set(semantic_tokens(TEREDO_ACTUATION_GOAL))
     checks["family_is_rfc4380"] = "rfc4380" in family
-    checks["family_is_teredodigest"] = "teredodigest" in family
+    checks["family_is_teredodigest"] = "teredodigest" in set(semantic_tokens(TEREDO_ACTUATION_GOAL))
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
         and "rfc8026" not in family
@@ -2793,11 +2793,18 @@ def builtin_teredo_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != TEREDO_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, TEREDO_ACTUATION_GOAL, TEREDO_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_teredo"] = (
-        live_goal == TEREDO_ACTUATION_GOAL
-        and TEREDO_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_teredo"
+    checks["exhausted_catalog_rejects_ledger_only_teredo"] = (
+        not gate.accepted
+        and live_goal != TEREDO_ACTUATION_GOAL
+        and TEREDO_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_teredo"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="teredo-leftover-") as tmp:

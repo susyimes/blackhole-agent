@@ -118,7 +118,8 @@ def test_builtin_proof_speaks_tools_list_changed() -> None:
     assert report["checks"]["echo_advertises_list_changed"]
     assert report["checks"]["sibling_echo_still_serves"]
     assert report["checks"]["skip_refresh_stays_on_plane"]
-    assert report["checks"]["exhausted_catalog_binds_tools_changed"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_tools_changed"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_TOOLS_CHANGED_GOAL
     assert report["done_when"] == MCP_TOOLS_CHANGED_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

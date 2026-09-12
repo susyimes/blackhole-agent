@@ -128,7 +128,8 @@ def test_builtin_proof_answers_stdio_elicitation() -> None:
     assert report["checks"]["decline_stays_fail_closed"]
     assert report["checks"]["sibling_echo_still_serves"]
     assert report["checks"]["unanswered_elicitation_is_isolated"]
-    assert report["checks"]["exhausted_catalog_binds_elicitation"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_elicitation"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_ELICITATION_GOAL
     assert report["done_when"] == MCP_ELICITATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

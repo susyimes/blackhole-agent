@@ -1712,10 +1712,12 @@ def builtin_udp_actuation_proof() -> dict[str, Any]:
         and catalog[114]["id"] == ICMP_ACTUATION_ID
         and catalog[114]["source"] == "genesis_bind_icmp"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(UDP_ACTUATION_GOAL)
     checks["family_is_udp"] = "udp" in family
     checks["family_is_udp_surface"] = "udp" in family
-    checks["family_is_udpid"] = "udpid" in family
+    checks["family_is_udpid"] = "udpid" in set(semantic_tokens(UDP_ACTUATION_GOAL))
     checks["family_is_rfc768"] = "rfc768" in family
     checks["family_is_udpdigest"] = "udpdigest" in family
     checks["family_is_not_spnego"] = (
@@ -2172,11 +2174,18 @@ def builtin_udp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != UDP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, UDP_ACTUATION_GOAL, UDP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_udp"] = (
-        live_goal == UDP_ACTUATION_GOAL
-        and UDP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_udp"
+    checks["exhausted_catalog_rejects_ledger_only_udp"] = (
+        not gate.accepted
+        and live_goal != UDP_ACTUATION_GOAL
+        and UDP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_udp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="udp-leftover-") as tmp:

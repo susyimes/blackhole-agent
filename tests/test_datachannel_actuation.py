@@ -203,7 +203,8 @@ def test_builtin_proof_seals_datachannel_actuation() -> None:
     assert report["checks"]["workflow_records_dcep"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_datachannel"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_datachannel"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_quic"]
     assert report["mission_goal"] == DATACHANNEL_ACTUATION_GOAL
     assert report["done_when"] == DATACHANNEL_ACTUATION_DONE_WHEN

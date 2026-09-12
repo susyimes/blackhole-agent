@@ -174,7 +174,8 @@ def test_builtin_proof_seals_amqp_actuation() -> None:
     assert report["checks"]["workflow_writes_sealed_file"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_amqp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_amqp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["frame_roundtrip"]
     assert report["checks"]["plain_roundtrip"]
     assert report["mission_goal"] == AMQP_ACTUATION_GOAL

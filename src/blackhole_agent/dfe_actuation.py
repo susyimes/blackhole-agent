@@ -3153,11 +3153,18 @@ def builtin_dfe_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != DFE_ACTUATION_ID:
                 register_catalog_proved(df, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(df, DFE_ACTUATION_GOAL, DFE_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(df)
-    checks["exhausted_catalog_binds_dfe"] = (
-        live_goal == DFE_ACTUATION_GOAL
-        and DFE_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_dfe"
+    checks["exhausted_catalog_rejects_ledger_only_dfe"] = (
+        not gate.accepted
+        and live_goal != DFE_ACTUATION_GOAL
+        and DFE_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_dfe"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="dfe-leftover-") as tmp:

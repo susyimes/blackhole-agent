@@ -126,7 +126,8 @@ def test_builtin_proof_speaks_cursor_pagination() -> None:
     assert report["checks"]["echo_paginate_is_single_page"]
     assert report["checks"]["sibling_echo_still_serves"]
     assert report["checks"]["skip_cursor_stays_on_plane"]
-    assert report["checks"]["exhausted_catalog_binds_cursor"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_cursor"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_CURSOR_GOAL
     assert report["done_when"] == MCP_CURSOR_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

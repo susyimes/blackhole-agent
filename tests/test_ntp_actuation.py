@@ -182,7 +182,8 @@ def test_builtin_proof_seals_ntp_actuation() -> None:
     assert report["checks"]["workflow_records_origin"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_ntp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_ntp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_radius"]
     assert report["checks"]["catalog_names_dhcp"]
     assert report["mission_goal"] == NTP_ACTUATION_GOAL

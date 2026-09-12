@@ -596,13 +596,20 @@ def builtin_mcp_http_event_stream_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != MCP_HTTP_EVENT_ID:
                 _register_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, MCP_HTTP_EVENT_GOAL, MCP_HTTP_EVENT_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_event_stream"] = (
-        live_goal == MCP_HTTP_EVENT_GOAL
-        and MCP_HTTP_EVENT_ID in live_done
-        and live_source == "genesis_bind_http_event_stream"
+    checks["exhausted_catalog_rejects_ledger_only_event_stream"] = (
+        not gate.accepted
+        and live_goal != MCP_HTTP_EVENT_GOAL
+        and MCP_HTTP_EVENT_ID not in live_done
+        and live_source != "genesis_bind_http_event_stream"
         and live_goal != MCP_HTTP_GOAL
         and live_goal != MCP_REVERSE_GOAL
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

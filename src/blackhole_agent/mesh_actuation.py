@@ -2159,7 +2159,7 @@ def builtin_mesh_actuation_proof() -> dict[str, Any]:
     checks["family_is_mesh"] = "mesh" in family.split("/")
     checks["family_is_mesh_surface"] = "mesh" in family.split("/") and "meshid" in set(semantic_tokens(MESH_ACTUATION_GOAL))
     checks["family_is_meshid"] = "meshid" in set(semantic_tokens(MESH_ACTUATION_GOAL))
-    checks["family_is_rfc5565"] = "rfc5565" in family
+    checks["family_is_rfc5565"] = "rfc5565" in set(semantic_tokens(MESH_ACTUATION_GOAL))
     checks["family_is_meshdigest"] = "meshdigest" in family
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
@@ -2898,11 +2898,18 @@ def builtin_mesh_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != MESH_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, MESH_ACTUATION_GOAL, MESH_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_mesh"] = (
-        live_goal == MESH_ACTUATION_GOAL
-        and MESH_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_mesh"
+    checks["exhausted_catalog_rejects_ledger_only_mesh"] = (
+        not gate.accepted
+        and live_goal != MESH_ACTUATION_GOAL
+        and MESH_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_mesh"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="mesh-leftover-") as tmp:

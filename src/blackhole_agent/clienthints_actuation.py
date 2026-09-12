@@ -1553,12 +1553,14 @@ def builtin_clienthints_actuation_proof() -> dict[str, Any]:
         and catalog[78]["id"] == EARLYHINTS_ACTUATION_ID
         and catalog[78]["source"] == "genesis_bind_earlyhints"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(CLIENTHINTS_ACTUATION_GOAL)
     checks["family_is_clienthints"] = "clienthint" in family
     checks["family_is_acceptch"] = "acceptch" in family
     checks["family_is_chid"] = "chid" in family
     checks["family_is_critch"] = "critch" in family
-    checks["family_is_hintsdigest"] = "hintsdigest" in family
+    checks["family_is_hintsdigest"] = "hintsdigest" in set(semantic_tokens(CLIENTHINTS_ACTUATION_GOAL))
     checks["family_is_not_earlyhints"] = (
         "earlyhint" not in family
         and "rfc8297" not in family
@@ -1863,11 +1865,18 @@ def builtin_clienthints_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != CLIENTHINTS_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, CLIENTHINTS_ACTUATION_GOAL, CLIENTHINTS_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_clienthints"] = (
-        live_goal == CLIENTHINTS_ACTUATION_GOAL
-        and CLIENTHINTS_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_clienthints"
+    checks["exhausted_catalog_rejects_ledger_only_clienthints"] = (
+        not gate.accepted
+        and live_goal != CLIENTHINTS_ACTUATION_GOAL
+        and CLIENTHINTS_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_clienthints"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="clienthints-leftover-") as tmp:

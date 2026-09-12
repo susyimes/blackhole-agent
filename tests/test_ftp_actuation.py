@@ -159,7 +159,8 @@ def test_builtin_proof_seals_ftp_actuation() -> None:
     assert report["checks"]["workflow_records_dual_channel"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_ftp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_ftp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["pasv_tuple_roundtrip"]
     assert report["mission_goal"] == FTP_ACTUATION_GOAL
     assert report["done_when"] == FTP_ACTUATION_DONE_WHEN

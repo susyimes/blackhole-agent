@@ -1,55 +1,425 @@
 {
   "kind": "absorption_reseal_receipt",
-  "ok": true,
+  "ok": false,
   "persisted": true,
-  "receipt_digest": "07fdf113d2b48c0b3ca15cba9a868b624e04bebc1cc47318fce3a127059615d8",
-  "record_count": 10,
-  "refusals": [],
+  "receipt_digest": "495c65cc880ea1b9268d34ae9bb0d54daa8aebe30c409acfd7b0dd089ec499e5",
+  "record_count": 74,
+  "refusals": [
+    {
+      "actual_tree_digest": "2b7600146a91394fe2024c24f94eb67d9595fb378f9b30e3539ffd3f430c045a",
+      "reason": "frozen cases fail against the drifted tree",
+      "sealed_tree_digest": "32363b7e57dfa6082a5553276c00a71dbc9c66e6c4d5f3941a4f372d93db8bf6",
+      "slug": "google-ads"
+    },
+    {
+      "actual_tree_digest": "6b3ddc7c8179b35d7e86bff02e25fe6d5cb5e8d19c9dd50fc9e22b6047406976",
+      "reason": "frozen cases fail against the drifted tree",
+      "sealed_tree_digest": "88493ed8f6f5747930e181a3cecc7570853eeb1ddaff16f195dc6cad16ed25a1",
+      "slug": "virtualenv"
+    }
+  ],
   "resealed": [
     {
       "case_count": 4,
-      "previous_tree_digest": "6d42b5ce2c00dd9cbfd3e57b64a2a83669f4b3374392a29474fe5f2957b54f89",
-      "resealed_tree_digest": "61b26d58485937277ec74f44ede0883d095293e7b103fe2d56adc8539730322a",
+      "previous_tree_digest": "ba3f7f0c6d73a9235d3bd6c31acae7ed2c4d8b33d6320aedb057237d90a24a1f",
+      "resealed_tree_digest": "9dd580b2dafc0e8ac78fa8b1e0912048b80f99099e4467ae4f6c0b67ce695d69",
+      "slug": "apache-airflow-providers-amazon"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "efed4cd1491c5916fa2dc6df9719e4075997a31d5e42e8eb70b77f1027a10fe6",
+      "resealed_tree_digest": "753561558dbbf1e4d7aa82307644ea12cdff71a0347aa712db2b51d622f91422",
+      "slug": "django"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "7989f33be45c052e96ef28b12478953d01c61b6d7ca1df7ba25e7ab7137b4c42",
+      "resealed_tree_digest": "54f3b567990e9830c2af9493ddb1a0a148bd0ba98dec93ce53007591293deff1",
+      "slug": "docutils"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "64390e0ca70e9b7f4c7d669d1cecdc606890b99d094d10e8b0773491007b74ee",
+      "resealed_tree_digest": "e40526bdd81fb94b62edd41954a73ace06f15bda322e75ffe694b8f4a9cd6ef1",
+      "slug": "docutils-utils-math-mathml-elements-math-e"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "ef7fae9771374dee2de27cdc71d98261e31a00757f1348e9f1bf669cc7ac45aa",
+      "resealed_tree_digest": "ed4038d73a782915108e4d1adb4ae7d093284ba78384a8bb146b336cc61b1892",
+      "slug": "docutils-utils-math-mathml-elements-math-r"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "0c84ae0d2dcfea8c97e4d7c08e5a2686e52e9790d4ba8468923981270456e27c",
+      "resealed_tree_digest": "67922347760d8bb72a5f79f151792ec2f5171bb674aa2fa41031b7e0a4a8a18e",
+      "slug": "eta"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "ce5144dcff51546864d4a573708a5e5e0916b8975991be591479021e7a2471ce",
+      "resealed_tree_digest": "a8b4dcd7a793787a55bcedf29a76d74aa05d51b44cc2bb91e20ba244244de1f2",
+      "slug": "eta-eta-compile-to-string"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "00f05fbfaeee447f7434bc1fa42466be2dd2f2220678e699c37e867ea7f371b1",
+      "resealed_tree_digest": "5a6fb99deb65e3319afd5e91a19593406a8980bef6648b267e22aad09885f50f",
+      "slug": "eta-eta-render-string"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "b9a7217534876cc8b0a3bf36043677cc5c368f28a3e32c1bb74c17999308a75f",
+      "resealed_tree_digest": "d0fca38d7540f43681628f7694f495ad8abf20419fbd1861aca2e557d5903957",
+      "slug": "fast-xml-parser"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "5390f22de38fca2c943d809660bc2c105f6b7d54f9c1285f446c86764c320794",
+      "resealed_tree_digest": "157e8de3bdfc00b681ddd8a8cbedd7db9c67d928024c23d65bca35186e82cc00",
+      "slug": "fast-xml-parser-xmlbuilder-close-tag"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "e6e9087cb07cf281770ff060450668008742e753fe95929f537fcb4a58793b89",
+      "resealed_tree_digest": "26e9226616aa2a46e77edfa9d586896f29e1caf1504949da72d3b8624b778f05",
+      "slug": "fast-xml-parser-xmlbuilder-replace-entitie"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "3a91aa5a96d8722ba8f9fd99b9471c81a12eb4d97905d916a0009db99dfcc56c",
+      "resealed_tree_digest": "b502cd0ffd06911773858d6202e463bcd893c7c039584371a9c6d57b4b75bfec",
+      "slug": "forage-flip"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "7a7ee8ff1291e61c575578b45865a36e280781b399f9ed5b676a7dd0c3026de2",
+      "resealed_tree_digest": "ba20fa95d3e3e44c9cf373b65ca411bd3f7e53b2d71207417e6403e7e6215e93",
+      "slug": "forage-js"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "f6a891ac6dfacfd66ac54666863ebeff900541fa5c99941ab8d194b275911e6a",
+      "resealed_tree_digest": "39c6f0e94362f2f396401c8c080c48cc17811adf92c69d5073fbc8822bee5215",
+      "slug": "forage-js-needs-two"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "f34959f91eac46836aaefccd0c8c0a966bd30936e23f68ddfe86b5d3894c9e3f",
+      "resealed_tree_digest": "096e47e4049b0e226513ad54af81f4c88f2911c7150f90036911ed41e0d6b53d",
+      "slug": "forage-js-whisper"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "55219e808bb079635469ba5f13d6573e97b41f22b389b16dd70fd2d43867daec",
+      "resealed_tree_digest": "cfffbc98c357b70a8486fa11738e90d699d7dcc26966e4416dd6e180605dd4e7",
       "slug": "forage-lab"
     },
     {
       "case_count": 4,
-      "previous_tree_digest": "2ccd048b5d3e31585eb7faa356986af2bb4eb5ec9faa265973b823d1f2a9befe",
-      "resealed_tree_digest": "80136ddf1b0fbe24c661ea78850171485adb1202696fcc79d7faad63df1fee2a",
-      "slug": "markdown-foraged"
-    },
-    {
-      "case_count": 3,
-      "previous_tree_digest": "3125fa6f628517cc442567cd0b27f4a5c0a4c9b805cfac711ca4bba0cb86cb42",
-      "resealed_tree_digest": "0a4287a195aa31a20f9216ec400504fb620d5b0602ea7138b8e8e43c6fc8a94c",
-      "slug": "marked-renderer"
-    },
-    {
-      "case_count": 3,
-      "previous_tree_digest": "859429f965447b2f46aff75b46bdd15e011ae6c8fc47b9781fbd8bdb2b999823",
-      "resealed_tree_digest": "886c7f1a77b17153d1033f79619d29bfb73e4e376cc913fbe729c9096c574826",
-      "slug": "python-markdown"
+      "previous_tree_digest": "97ee671072bdd79720d23c5677f4cb76a62a04397c42b571f777d536e7b1f8af",
+      "resealed_tree_digest": "cd1b490c9cebdf1f8984fbd6c4fa6731fe4ac934283aac94afc49b384e6a94c5",
+      "slug": "forage-pick"
     },
     {
       "case_count": 4,
-      "previous_tree_digest": "f6b700e2f583c5317683e4b9c56ca143b6ea481840a11938cb3ab3a9c0583b32",
-      "resealed_tree_digest": "13c8dcef7b29926954e832233925276426293dc951ee91cb89ba7fc3327d8cef",
+      "previous_tree_digest": "55f6b2d1485bbcf88f4561550d0064d4d4f1872f8de03bce76657f46d89a532c",
+      "resealed_tree_digest": "56493d490a215d1775a8ebc541628afdd9d651efb27c8856de89135d9c574ba8",
+      "slug": "forage-rotate"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "b04c7181555f50c334549b1640dae037fa2829f6002f0019fbe5d205ce948b7d",
+      "resealed_tree_digest": "72a3a7e14e05136d1da24e995ff1386429476ab13cd797d80b40cff4c971b06d",
+      "slug": "html5lib"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "4233836eaae5d11eb23fc4ccf3d1afd01d7b3cc0992243ef9e78348ae2e27bdb",
+      "resealed_tree_digest": "844077ff64d9e8273455d827f9178bfcc5b23e56c78e9f50266fb613ec045d95",
+      "slug": "html5lib-filters-sanitizer-filter-sanitize"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "edc526407d68ef66cf6955cc76a2b5017d82d2c2f1eea2ecd07fc072a1a8fb2d",
+      "resealed_tree_digest": "81ccecf22655d19f960957eaee556768bf54af05be8b37335fe36ee833480617",
+      "slug": "html5lib-get-tree-walker"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "8be971f21b630d07bedf9100d498fb93ba5d9d9b6ee0017426994981b4d6615d",
+      "resealed_tree_digest": "512654e576062fdb4cbf15f97c171425f70f73a6837e73ff3caecc4d20e56437",
+      "slug": "humanize-string"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "b8f97089f23d22594bd0a291310c5a31d16bfbd45d36902d2b933156e3303f61",
+      "resealed_tree_digest": "d86e15d05f969713cdf221e1e0f0e9e715d4c6151e24133250d414865d31fdec",
+      "slug": "ip-address"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "d7686c06aa82679cb9b777b002c17c49ca0748ff34d3e181aeac043f69544362",
+      "resealed_tree_digest": "feb25a5b57d6df0c98086f4f1fd5597a1412214597b342111ffa8970d25fa57e",
+      "slug": "ip-address-address6-is-valid"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "efb8d0d1b335cd7d94eb052520643167cafe001b03d912f74ec2eb10930184bf",
+      "resealed_tree_digest": "839e9432bcc51ffe85392c4514be6d2f71c4beb4e8729862546f8fdf3aaee7ef",
+      "slug": "isbnlib"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "4583a27062bbfe6c9d991bc7ef15708d3a963b69209d04a7571d9f9d486a9e45",
+      "resealed_tree_digest": "1aa34fd1eba97fec4dc17c4ad986fa61920e20f0f3e41361204668fcaad35d12",
+      "slug": "isbnlib-dev-helpers-file-isfile"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "9a6fc184425b9387c881f286d81f698a18677b999763251f82f218be7ec6a459",
+      "resealed_tree_digest": "560f2f7ad35075ae479b6fd0cf78c454043b17aa3d2208660708e319687041e3",
+      "slug": "isbnlib-dev-helpers-file-mkwinsafe"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "54e7117a7e6560069c9dab9201a9360cbdf63dbb2367f0c516bafd9a12c92af5",
+      "resealed_tree_digest": "8fde7317f6815be99c06c7bde835f8cf991f8a256ee714f8bef10d92d577f0e2",
+      "slug": "mako"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "af66aaecb97a0e04b5cd564b62b6f884f25e196a0d3492a45e7f490deef30ced",
+      "resealed_tree_digest": "62f81642a099be667b186b7b07b6473b98077e8545571706212bb9e5fa20fcd0",
+      "slug": "mako-cmd-template-lookup-has-template"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "a5006d3bf9dd3e136037815455862ff7fc1b76d01ee5d0aa6ca8020665b0fe7c",
+      "resealed_tree_digest": "7e92b4b9898b073f674c090bfe3f0a26a16008ebd6f370695a3e6eff3f1010d9",
+      "slug": "mako-lookup-template-has-def"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "983a3563df4293b22c2b99d5dfd7501814838c3e4c9cecceaef456d89dbbc207",
+      "resealed_tree_digest": "dd7bda883d291d3296be6fba3697daaa4f99c66c8054aea07ce1c548eb023b40",
+      "slug": "markdown-foraged"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "e9d0addd45ba04c354c289fc2183325e5623e5cb1dc84a185fc901900240b600",
+      "resealed_tree_digest": "f765b22648c6404c49d9447c81d162a12f08b4927cce1a507a00bb5885d1b6af",
+      "slug": "markdown-it"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "ba1caad334861bcc30fdd14efdedaa4cf150868491a2dc66024256ce71dacce2",
+      "resealed_tree_digest": "d6886e987074971ad9cb0182cd96ab276ef06845002b12b7b9a82ecfcbc2555f",
+      "slug": "markdown-it-py"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "2ca057d6e7953ab568e2e483f300eedd8a32c739bf199fd2d923ffa54987bc20",
+      "resealed_tree_digest": "1d49fe94c1fbc02b3bdad0e8e7b4005e59d353074611f89bc0e55453576e5267",
+      "slug": "markdown-it-py-markdown-it-normalize-link"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "0a5552c45a68d5725ba0771525ea9b04c1aa094469f25ccba4a97ec16674e5b2",
+      "resealed_tree_digest": "c5a91b0f5726ba3b6ac505e9f8aabc4a6dea36a3f78a4449912f1fafe79fa5dc",
+      "slug": "markdown-it-py-markdown-it-render"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "266b89e1e7de06528ef3957fc8603e948d11ceb9d5c7e88fd2c5b12195a4f5ec",
+      "resealed_tree_digest": "dd9eeb15c90cb827855a77421534ba30939f1a1b343e2eb7541bbf72663d8fc6",
+      "slug": "markdown-it-render-inline"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "10336d3a55035bfb627824a4d7058ba39138c77ee93c6f8a227933ab3bcd8d78",
+      "resealed_tree_digest": "043bedaceb64ecca1c7ae7ddab0d7831531f1b0ec6932b4340424ab9aff670fe",
+      "slug": "marked"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "ad8c7c1aced58b0cfed85475ff486b770cd84b32c6c03be8baf7d384f3117d52",
+      "resealed_tree_digest": "b4ffe201e892bc88d8e5b09b2a0e8f95f5967f64ac17d1811f782308af854598",
+      "slug": "marked-parse"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "06f4f8f8a9c7a772cfbfa9a92495079175bfca535adfd892fcf9b240bf53f691",
+      "resealed_tree_digest": "9563fd6955e69438503696f387c80b7a85401c0117de3b47be7f896b2251e1c9",
+      "slug": "marked-parse-inline"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "5999cba5214e2adda718589880d3b8ce01b437649572f9aa6e372787827778f3",
+      "resealed_tree_digest": "056828c35a8aea5f6075f0db6e7640d9c66d30c769aeb22912fcf2d72edb12f8",
+      "slug": "marko"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "fa265f6787e40a93383624f4a9b434440bb1788b7b975cc0f232de0a14a88d75",
+      "resealed_tree_digest": "55b436b2ea85b72188b2dd9bcd187defd34f89e6fc274370620cc9b501d5a40f",
+      "slug": "marko-convert"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "091a56cb660de1fa93638464fe67b1ef801ca66f286ed6711296f14044a50b7a",
+      "resealed_tree_digest": "2cea0cb3d24531bc16cd4f8f0d369d7f49783f0720483a327a7c0a76e5b56d92",
+      "slug": "marko-htmlrenderer-escape-url"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "3b3436c5280bc94ecc434ed9d04c2c807f9d835a921dab81c6a65ea2bc90ee7e",
+      "resealed_tree_digest": "59a2f8904aab1d45dda60dcc91038a10c114a0099f3c9855ebfb0a218fab6280",
+      "slug": "oauthlib"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "fb22e18eeda6f49a7fc3afee8614203603e9b8415e3bfa63b0bc22f43464531f",
+      "resealed_tree_digest": "8a1cb7ede924861285fbaaa67e024235fc4488011b6a19eb5f544e03b55a2e06",
+      "slug": "oauthlib-openid-connect-core-grant-types-b"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "b5685a2e386e5e40dc81b92a0954660fc60c9bc0100862218ae1fdcf9741388b",
+      "resealed_tree_digest": "fe1ad2568d278eb29cca8deddf420998320a9c9ddfec2fd27c766b73db14b961",
+      "slug": "packaging"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "4d0d6d140ba500833e1a98585859e2a81c328723322a4bdd2e3beae22cdec639",
+      "resealed_tree_digest": "3c2bd6f81938f25fc95570ab9471ea6a22b3a36c607aef9e62ecc5fe380f78a4",
+      "slug": "packaging-utils-is-normalized-name"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "786755c7a8eae0a554448262147925066a2cd00abde902e035b063911ff0add1",
+      "resealed_tree_digest": "dc47a5606821675e234159c6ded2b496d94322d4a9b129627a879a63d7aa720f",
+      "slug": "packaging-version-normalize-pre"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "f3fae35cfa9759ada3ffe1a5bdc585ca8477d87b1564efa9424879bf1b20b5e0",
+      "resealed_tree_digest": "7c86dce97ee0b5732a1ef6163064d10e7bb27119ba77db3aa55580613d7f773c",
+      "slug": "python-slugify"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "7f94033645bfa0988184bd2f540a3f151f271c5c15b0cf9259e06c6ff1dadba5",
+      "resealed_tree_digest": "d59428339e9050c2ef7fefa6d07e53d8a073f755aecdfdf9c088daafc17de3d7",
+      "slug": "python-slugify-smart-truncate"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "f96e4d06015b29b063022691d79189fdd84f70b3cf14464bdb9ee1184f41006a",
+      "resealed_tree_digest": "2744ecd31718ea2e251817bbd9ea4b983be0dd34153ee065e14cee9160538f3b",
+      "slug": "python-stdnum"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "2593c561df9ddf18261d490563722b473c658e5ec107c3fff0fab28230936a7e",
+      "resealed_tree_digest": "2e429594d02f39e23d64e01487f3036f90b4e83a00f5eebad532de40d1544b7d",
+      "slug": "python-stdnum-ad-nrt-is-valid"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "fdaae2b8e5ffcb081de4a9ca3fba57a5d6e3193310081799315280b2da0f4e63",
+      "resealed_tree_digest": "e85876cedb8ba8c37f0efe4525524ef6eb02a56a4e37d3734daa39fbf81449b4",
+      "slug": "python-stdnum-al-nipt-compact"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "eab1ded5fbcc2153db3fcb722f1db11f69dc6629c2116953b4fa716334a98788",
+      "resealed_tree_digest": "5d5f36a39f28426ac4cd4019fab0e67c57d93a2f38e397739b4a1168575617b4",
+      "slug": "query-string"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "8e81a5a94fb44181c2271cb1e26c4d13fc6a2ba39ff3f2a44d1c9cce850dea14",
+      "resealed_tree_digest": "400b0ee548ac70d90ad5c00fc0634d23b3cee3c04afa42d11edabf3a58b7180f",
+      "slug": "query-string-parse"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "9abe5781752b9a41ce6762f2abd6576204602f3542fcc265d34c40a34922ac49",
+      "resealed_tree_digest": "d1c987f6d1fdf74dc6e4201d93df749e88f3a184d491d30878e904a83330ad36",
+      "slug": "query-string-parse-url"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "49567a28c73fc58c3944f64ef3eb6ea4527b8846324a42a4e99cc0a51ed7a03c",
+      "resealed_tree_digest": "4b107643e30d5a1a98f9a96780eeeb45b175e95807d4d98601bbfbeba45b0074",
+      "slug": "snake-case"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "c429d47b894fe69ae9e6131ffa9b974d18f23cb0f1fa3f54db262b84c573a574",
+      "resealed_tree_digest": "d562b428f7ee665bba6d918ebd157e72e653ed87d0703b7e95530fac47282996",
+      "slug": "spark-md5"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "1996bb3fbd488bb4d592dd6a57b77db9c6537e3698a0b801556aae64b44d8ca6",
+      "resealed_tree_digest": "91f798c5d9468285f2ebcc9230ed61f36e5fa4435ee48306a6385dd2e6fde618",
+      "slug": "spark-md5-end"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "1e9e6d15555f69f340dbafe496c90babb956a6b30a431e17421c298a337b6c9b",
+      "resealed_tree_digest": "926e12d2a9c96b3262d68c8167aa2dc66099434bd49ff073ecd91d2fecde8833",
+      "slug": "spark-md5-hash-binary"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "62628abc7b84e25060f5f7b52afd9a482e0ab8f19ecee758b4c3728eef99972b",
+      "resealed_tree_digest": "7b4966667c470a352d07d06b5aed6a0198bba0d147bdb2f05546302eaaa60c25",
+      "slug": "titlecase"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "ee74b1a228ba659cd7e921bd3b639f9ac83691c7e0b87c8033dd7adaf520c301",
+      "resealed_tree_digest": "9085fdc9acd29a07bd30673445ffb83f1ff16242b0f2ffa642a87e855d2cdc9a",
+      "slug": "tomli"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "365efcbe420a7ca000394c6739acd5efb0096a2b451042e8855b6070e4d5255b",
+      "resealed_tree_digest": "47d7303f21bb76bd6cc0003680872e63754476b91c9c86e2c9177b785607a1c1",
       "slug": "tomli-foraged"
     },
     {
-      "case_count": 3,
-      "previous_tree_digest": "4761e4afd5f456a0c62da810e3590bf8cd3cb5cd756878909e086adfa737b878",
-      "resealed_tree_digest": "00242ab421a81ebd2bdf0badc14d844afb451041b6d9a788ea2e852273162a0a",
-      "slug": "tomli-parser"
+      "case_count": 4,
+      "previous_tree_digest": "5cccce1c63c5ea7345c397d7dfc246fa424d1b0eedaa4eebf0d1d524a31c9db5",
+      "resealed_tree_digest": "fcbae7865fd3b873538be56f4d4938af0aa8f1859aee60bf53e597adc0b0d75c",
+      "slug": "tomlkit"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "cb018fb6bde6ebdf4e03d9605acdaea57bc9bd13e502bccb2320b3b2e69898ac",
+      "resealed_tree_digest": "43aa03137ee0dafe353d10e4dbb3ed9ab84a2c2c02baa50fd7a258a626a5f372",
+      "slug": "tomlkit-items-string-from-raw"
+    },
+    {
+      "case_count": 4,
+      "previous_tree_digest": "d0cf21e7cc218b400b0dc51648bf667ab4a51ff784b69db8cdfd2f573b0da807",
+      "resealed_tree_digest": "2446e77e4a1504c332ad32026966f277dcc4bf81345a2f456047aeda82120376",
+      "slug": "tomlkit-parser-string-from-raw"
     }
   ],
-  "resealed_at": "2026-08-22T21:16:50.296602Z",
+  "resealed_at": "2026-09-12T18:59:30.032234Z",
   "schema_version": 1,
   "unchanged": [
     "inflection",
     "json-indenter",
+    "marked-renderer",
     "mistune-markdown",
-    "text-reverser"
+    "python-markdown",
+    "text-reverser",
+    "tomli-parser"
   ],
   "used_skill_route_discovery": false
 }

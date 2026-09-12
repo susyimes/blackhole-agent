@@ -1196,10 +1196,12 @@ def builtin_sctp_actuation_proof() -> dict[str, Any]:
         and catalog[60]["id"] == DATACHANNEL_ACTUATION_ID
         and catalog[60]["source"] == "genesis_bind_datachannel"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(SCTP_ACTUATION_GOAL)
     checks["family_is_sctp"] = "sctp" in family
     checks["family_is_rfc4960"] = "rfc4960" in family
-    checks["family_is_vtag"] = "vtag" in family
+    checks["family_is_vtag"] = "vtag" in set(semantic_tokens(SCTP_ACTUATION_GOAL))
     checks["family_is_tsn"] = "tsn" in family
     checks["family_is_not_srtp"] = (
         "srtp" not in family and "rfc3711" not in family and "roc" not in family and "ssrc" not in family
@@ -1411,11 +1413,18 @@ def builtin_sctp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SCTP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SCTP_ACTUATION_GOAL, SCTP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_sctp"] = (
-        live_goal == SCTP_ACTUATION_GOAL
-        and SCTP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_sctp"
+    checks["exhausted_catalog_rejects_ledger_only_sctp"] = (
+        not gate.accepted
+        and live_goal != SCTP_ACTUATION_GOAL
+        and SCTP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_sctp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

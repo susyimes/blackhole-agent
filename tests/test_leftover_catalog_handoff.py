@@ -37,8 +37,9 @@ def test_builtin_proof_drops_handoff_and_binds_tftp() -> None:
     assert report["checks"]["harvest_drops_catalog_handoff"]
     assert report["checks"]["unrelated_leftover_stays_open"]
     assert report["checks"]["proved_closer_consumes_handoff"]
-    assert report["checks"]["exhausted_catalog_binds_tftp"]
-    assert report["checks"]["local_bind_fills_tftp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_tftp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
+    assert report["checks"]["local_bind_rejects_ledger_only_tftp"]
     assert report["mission_goal"] == LEFTOVER_CATALOG_HANDOFF_GOAL
     assert report["done_when"] == LEFTOVER_CATALOG_HANDOFF_DONE_WHEN
     assert LEFTOVER_CATALOG_HANDOFF_ID in LOCAL_DENYLIST

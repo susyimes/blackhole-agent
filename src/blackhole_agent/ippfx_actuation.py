@@ -2354,7 +2354,7 @@ def builtin_ippfx_actuation_proof() -> dict[str, Any]:
     checks["family_is_ippfx"] = "ippfx" in family.split("/")
     checks["family_is_ippfx_surface"] = "ippfx" in family.split("/") and "ippfxid" in set(semantic_tokens(IPPFX_ACTUATION_GOAL))
     checks["family_is_ippfxid"] = "ippfxid" in set(semantic_tokens(IPPFX_ACTUATION_GOAL))
-    checks["family_is_rfc9136"] = "rfc9136" in family
+    checks["family_is_rfc9136"] = "rfc9136" in set(semantic_tokens(IPPFX_ACTUATION_GOAL))
     checks["family_is_ippfxdigest"] = "ippfxdigest" in family
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
@@ -3189,11 +3189,18 @@ def builtin_ippfx_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != IPPFX_ACTUATION_ID:
                 register_catalog_proved(ippfx, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(ippfx, IPPFX_ACTUATION_GOAL, IPPFX_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(ippfx)
-    checks["exhausted_catalog_binds_ippfx"] = (
-        live_goal == IPPFX_ACTUATION_GOAL
-        and IPPFX_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_ippfx"
+    checks["exhausted_catalog_rejects_ledger_only_ippfx"] = (
+        not gate.accepted
+        and live_goal != IPPFX_ACTUATION_GOAL
+        and IPPFX_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_ippfx"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="ippfx-leftover-") as tmp:

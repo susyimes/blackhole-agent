@@ -1,0 +1,11 @@
+Timeout (0:02:00)!
+Thread 0x00006b44 (most recent call first):
+  File "C:\Users\svmes\AppData\Roaming\uv\python\cpython-3.13-windows-x86_64-none\Lib\tarfile.py", line 702 in read
+  <invalid frame>
+.                                                                        [100%]
+============================= slowest 3 durations =============================
+148.95s call     tests/test_capability_portability.py::test_run_portability_plane_end_to_end
+0.03s setup    tests/test_capability_portability.py::test_run_portability_plane_end_to_end
+
+(1 durations < 0.005s hidden.  Use -vv to show these durations.)
+1 passed in 149.09s (0:02:29)

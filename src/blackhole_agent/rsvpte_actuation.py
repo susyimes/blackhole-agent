@@ -3531,11 +3531,18 @@ def builtin_rsvpte_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != RSVPTE_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, RSVPTE_ACTUATION_GOAL, RSVPTE_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_rsvpte"] = (
-        live_goal == RSVPTE_ACTUATION_GOAL
-        and RSVPTE_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_rsvpte"
+    checks["exhausted_catalog_rejects_ledger_only_rsvpte"] = (
+        not gate.accepted
+        and live_goal != RSVPTE_ACTUATION_GOAL
+        and RSVPTE_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_rsvpte"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="rsvpte-leftover-") as tmp:

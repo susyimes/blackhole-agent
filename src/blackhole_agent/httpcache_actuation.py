@@ -1488,12 +1488,14 @@ def builtin_httpcache_actuation_proof() -> dict[str, Any]:
         and catalog[76]["id"] == STRUCTUREDFIELDS_ACTUATION_ID
         and catalog[76]["source"] == "genesis_bind_structuredfields"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(HTTPCACHE_ACTUATION_GOAL)
     checks["family_is_httpcache"] = "httpcache" in family
     checks["family_is_rfc9111"] = "rfc9111" in family
     checks["family_is_cacheid"] = "cacheid" in family
     checks["family_is_freshness"] = "freshness" in family
-    checks["family_is_validator"] = "validator" in family
+    checks["family_is_validator"] = "validator" in set(semantic_tokens(HTTPCACHE_ACTUATION_GOAL))
     checks["family_is_not_httpsemantics"] = (
         "httpsemantic" not in family
         and "rfc9110" not in family
@@ -1784,11 +1786,18 @@ def builtin_httpcache_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != HTTPCACHE_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, HTTPCACHE_ACTUATION_GOAL, HTTPCACHE_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_httpcache"] = (
-        live_goal == HTTPCACHE_ACTUATION_GOAL
-        and HTTPCACHE_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_httpcache"
+    checks["exhausted_catalog_rejects_ledger_only_httpcache"] = (
+        not gate.accepted
+        and live_goal != HTTPCACHE_ACTUATION_GOAL
+        and HTTPCACHE_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_httpcache"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="httpcache-leftover-") as tmp:

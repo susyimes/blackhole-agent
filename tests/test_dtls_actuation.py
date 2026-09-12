@@ -195,7 +195,8 @@ def test_builtin_proof_seals_dtls_actuation() -> None:
     assert report["checks"]["workflow_records_cookie"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_dtls"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_dtls"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_srtp"]
     assert report["mission_goal"] == DTLS_ACTUATION_GOAL
     assert report["done_when"] == DTLS_ACTUATION_DONE_WHEN

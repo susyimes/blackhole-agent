@@ -547,11 +547,8 @@ def builtin_kernel_program_weave_proof() -> dict[str, Any]:
         _write_forage_history,
         bind_gate_passing_successor,
     )
-    from blackhole_agent.kernel_genesis_diversify import (
-        GENESIS_DIVERSIFY_DONE_WHEN,
-        GENESIS_DIVERSIFY_GOAL,
-        GENESIS_DIVERSIFY_ID,
-    )
+    from blackhole_agent.kernel_genesis_diversify import GENESIS_DIVERSIFY_GOAL
+    from blackhole_agent.evolution_quality import ledger_only_contract
     from blackhole_agent.kernel_leftover import leftover_marker_ids
     from blackhole_agent.kernel_primitive_compose import (
         primitive_compose_is_needed,
@@ -1159,24 +1156,21 @@ def builtin_kernel_program_weave_proof() -> dict[str, Any]:
         save_campaign(root, campaign)
         tick = local_mission_tick(_State(root), root)
         live = load_campaign(root)
-        invoked = tick.get("invoked") or []
-        invoked_id = invoked[0]["capability_id"] if invoked else ""
         grown = load_tick_ledger(root)
         unit = None if grown is None else grown.capabilities.get(first_weave)
-        checks["tick_after_saturated_fabrics_runs_weave"] = (
-            invoked_id == first_weave
-            and bool(invoked)
-            and invoked[0].get("ok") is True
-            and first_weave in live.completed_ids
-            and unit is not None
-            and unit.last_proof_exit_code == 0
-            and is_primitive_capability(unit) is False
-            and {first_leaf, second_leaf, third_leaf, fourth_leaf, fifth_leaf, sixth_leaf, seventh_leaf}
-            <= primitive_coverage(grown, first_weave)
-            and str((live.handoff or {}).get("program_weave_unit") or "") == first_weave
+        binding = tick.get("binding") or {}
+        # The marginal-value gate rejects the ledger-only weave contract, so
+        # after saturated fabrics the tick must bind a gate-passing successor
+        # instead of auto-raising another self-proof weave.
+        checks["tick_after_saturated_fabrics_rejects_ledger_only_weave"] = (
+            str(binding.get("source") or "") != "genesis_bind_weave"
+            and first_weave not in live.completed_ids
+            and unit is None
         )
-        checks["tick_bound_from_weave"] = "genesis_bind" in str(
-            (tick.get("binding") or {}).get("source") or live.bound_from
+        checks["tick_after_saturated_fabrics_binds_gate_passing_successor"] = (
+            bool(str(binding.get("goal") or ""))
+            and not ledger_only_contract(str(binding.get("done_when") or ""))
+            and "genesis_bind" in str(binding.get("source") or live.bound_from)
         )
 
     with tempfile.TemporaryDirectory(prefix="kernel-program-weave-operator-") as tmp:
@@ -1221,17 +1215,19 @@ def builtin_kernel_program_weave_proof() -> dict[str, Any]:
         save_campaign(root, _consumed_campaign())
         empty = _State(root)
         report = hydrate_mission_from_campaign(empty, persist=True)
-        checks["hydrate_fills_program_weave"] = (
+        checks["hydrate_fills_gate_passing_successor"] = (
             report.get("applied") is True
-            and empty.goal == KERNEL_PROGRAM_WEAVE_GOAL
-            and KERNEL_PROGRAM_WEAVE_ID in empty.done_when
+            and bool(empty.goal)
+            and empty.goal != KERNEL_PROGRAM_WEAVE_GOAL
+            and not ledger_only_contract(empty.done_when or "")
             and empty.stage == "execution"
             and str(report.get("source") or "").startswith("genesis_bind")
         )
         create_goal, create_done, create_source = bind_create_fields(root)
-        checks["create_bind_uses_program_weave"] = (
-            create_goal == KERNEL_PROGRAM_WEAVE_GOAL
-            and KERNEL_PROGRAM_WEAVE_ID in create_done
+        checks["create_bind_uses_gate_passing_successor"] = (
+            bool(create_goal)
+            and create_goal != KERNEL_PROGRAM_WEAVE_GOAL
+            and not ledger_only_contract(create_done or "")
             and str(create_source).startswith("genesis_bind")
         )
 
@@ -1252,11 +1248,15 @@ def builtin_kernel_program_weave_proof() -> dict[str, Any]:
         _register_proved(root, KERNEL_PROGRAM_WEAVE_ID)
         save_campaign(root, _consumed_campaign())
         skip_goal, skip_done, skip_source = bind_gate_passing_successor(root)
-        checks["proved_weave_skips_to_diversity"] = (
-            skip_goal == GENESIS_DIVERSIFY_GOAL
-            and GENESIS_DIVERSIFY_ID in skip_done
-            and skip_source == "genesis_bind_diversity"
-            and GENESIS_DIVERSIFY_DONE_WHEN == skip_done
+        # With the weave proved, the remaining ledger-only contracts (including
+        # the diversity mission) stay gate-rejected; the binder moves on to the
+        # next gate-passing non-ledger-only successor.
+        checks["proved_weave_skips_ledger_only_catalog"] = (
+            bool(skip_goal)
+            and skip_goal != GENESIS_DIVERSIFY_GOAL
+            and skip_goal != KERNEL_PROGRAM_WEAVE_GOAL
+            and not ledger_only_contract(skip_done or "")
+            and str(skip_source).startswith("genesis_bind")
         )
 
     keep = _State(Path("."), goal="Operator growth goal.")

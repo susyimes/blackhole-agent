@@ -2183,7 +2183,7 @@ def builtin_mpbgp_actuation_proof() -> dict[str, Any]:
     checks["family_is_mpbgp"] = "mpbgp" in family.split("/")
     checks["family_is_mpbgp_surface"] = "mpbgp" in family.split("/") and "mpbgpid" in set(semantic_tokens(MPBGP_ACTUATION_GOAL))
     checks["family_is_mpbgpid"] = "mpbgpid" in set(semantic_tokens(MPBGP_ACTUATION_GOAL))
-    checks["family_is_rfc4760"] = "rfc4760" in family
+    checks["family_is_rfc4760"] = "rfc4760" in set(semantic_tokens(MPBGP_ACTUATION_GOAL))
     checks["family_is_mpbgpdigest"] = "mpbgpdigest" in family
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
@@ -2934,11 +2934,18 @@ def builtin_mpbgp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != MPBGP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, MPBGP_ACTUATION_GOAL, MPBGP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_mpbgp"] = (
-        live_goal == MPBGP_ACTUATION_GOAL
-        and MPBGP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_mpbgp"
+    checks["exhausted_catalog_rejects_ledger_only_mpbgp"] = (
+        not gate.accepted
+        and live_goal != MPBGP_ACTUATION_GOAL
+        and MPBGP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_mpbgp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="mpbgp-leftover-") as tmp:

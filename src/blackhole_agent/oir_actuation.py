@@ -3316,11 +3316,18 @@ def builtin_oir_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != OIR_ACTUATION_ID:
                 register_catalog_proved(oir, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(oir, OIR_ACTUATION_GOAL, OIR_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(oir)
-    checks["exhausted_catalog_binds_oir"] = (
-        live_goal == OIR_ACTUATION_GOAL
-        and OIR_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_oir"
+    checks["exhausted_catalog_rejects_ledger_only_oir"] = (
+        not gate.accepted
+        and live_goal != OIR_ACTUATION_GOAL
+        and OIR_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_oir"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="oir-leftover-") as tmp:

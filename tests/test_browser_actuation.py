@@ -74,7 +74,8 @@ def test_builtin_proof_seals_browser_actuation() -> None:
     assert report["checks"]["workflow_echoes_note"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_browser"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_browser"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == BROWSER_ACTUATION_GOAL
     assert report["done_when"] == BROWSER_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

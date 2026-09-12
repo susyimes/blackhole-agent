@@ -82,7 +82,8 @@ def test_builtin_proof_serves_streamable_http() -> None:
     assert report["checks"]["http_json_initialize_serves"]
     assert report["checks"]["http_sse_initialize_serves"]
     assert report["checks"]["mixed_http_and_stdio_serve"]
-    assert report["checks"]["exhausted_catalog_binds_http"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_http"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_HTTP_GOAL
     assert report["done_when"] == MCP_HTTP_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

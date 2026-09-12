@@ -1519,11 +1519,18 @@ def builtin_digestfields_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != DIGESTFIELDS_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, DIGESTFIELDS_ACTUATION_GOAL, DIGESTFIELDS_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_digestfields"] = (
-        live_goal == DIGESTFIELDS_ACTUATION_GOAL
-        and DIGESTFIELDS_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_digestfields"
+    checks["exhausted_catalog_rejects_ledger_only_digestfields"] = (
+        not gate.accepted
+        and live_goal != DIGESTFIELDS_ACTUATION_GOAL
+        and DIGESTFIELDS_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_digestfields"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="digestfields-leftover-") as tmp:

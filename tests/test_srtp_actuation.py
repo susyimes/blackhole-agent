@@ -193,7 +193,8 @@ def test_builtin_proof_seals_srtp_actuation() -> None:
     assert report["checks"]["workflow_records_roc"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_srtp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_srtp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_sctp"]
     assert report["mission_goal"] == SRTP_ACTUATION_GOAL
     assert report["done_when"] == SRTP_ACTUATION_DONE_WHEN

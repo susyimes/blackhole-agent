@@ -3105,7 +3105,12 @@ def builtin_kernel_genesis_diversify_proof() -> dict[str, Any]:
         checks["ledger_only_contract_rejected"] = not assess_mission_selection(
             root, GENESIS_DIVERSIFY_GOAL, GENESIS_DIVERSIFY_DONE_WHEN, history=[]
         ).accepted
-        checks["legacy_catalog_not_auto_accepted"] = bind_diversity_successor(root, campaign=campaign, history=[]) == ("", "", "")
+        legacy_only = (
+            {"id": "capability.fixture-static", "goal": GENESIS_DIVERSIFY_GOAL, "done_when": GENESIS_DIVERSIFY_DONE_WHEN, "source": "static"},
+        )
+        with patch(__name__ + ".DIVERSITY_CATALOG", legacy_only):
+            legacy_bind = bind_diversity_successor(root, campaign=campaign, history=[])
+        checks["legacy_catalog_not_auto_accepted"] = legacy_bind == ("", "", "")
         goal = "Repair memory retrieval after process restart without losing the original task context."
         done = "A fresh process answers a fixture question using the previously persisted task context."
         fixture = (

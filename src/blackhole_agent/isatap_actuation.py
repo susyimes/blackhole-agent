@@ -2106,7 +2106,7 @@ def builtin_isatap_actuation_proof() -> dict[str, Any]:
     checks["family_is_isatap"] = "isatap" in family.split("/")
     checks["family_is_isatap_surface"] = "isatap" in family.split("/") and "isatapid" in set(semantic_tokens(ISATAP_ACTUATION_GOAL))
     checks["family_is_isatapid"] = "isatapid" in set(semantic_tokens(ISATAP_ACTUATION_GOAL))
-    checks["family_is_rfc5214"] = "rfc5214" in family
+    checks["family_is_rfc5214"] = "rfc5214" in set(semantic_tokens(ISATAP_ACTUATION_GOAL))
     checks["family_is_isatapdigest"] = "isatapdigest" in family
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
@@ -2811,11 +2811,18 @@ def builtin_isatap_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != ISATAP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, ISATAP_ACTUATION_GOAL, ISATAP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_isatap"] = (
-        live_goal == ISATAP_ACTUATION_GOAL
-        and ISATAP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_isatap"
+    checks["exhausted_catalog_rejects_ledger_only_isatap"] = (
+        not gate.accepted
+        and live_goal != ISATAP_ACTUATION_GOAL
+        and ISATAP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_isatap"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="isatap-leftover-") as tmp:

@@ -2840,11 +2840,18 @@ def builtin_sixin4_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SIXIN4_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SIXIN4_ACTUATION_GOAL, SIXIN4_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_sixin4"] = (
-        live_goal == SIXIN4_ACTUATION_GOAL
-        and SIXIN4_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_sixin4"
+    checks["exhausted_catalog_rejects_ledger_only_sixin4"] = (
+        not gate.accepted
+        and live_goal != SIXIN4_ACTUATION_GOAL
+        and SIXIN4_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_sixin4"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="sixin4-leftover-") as tmp:

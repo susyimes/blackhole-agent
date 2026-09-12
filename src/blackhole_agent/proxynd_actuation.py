@@ -2366,7 +2366,7 @@ def builtin_proxynd_actuation_proof() -> dict[str, Any]:
     checks["family_is_proxynd"] = "proxynd" in family.split("/")
     checks["family_is_proxynd_surface"] = "proxynd" in family.split("/") and "proxyndid" in set(semantic_tokens(PROXYND_ACTUATION_GOAL))
     checks["family_is_proxyndid"] = "proxyndid" in set(semantic_tokens(PROXYND_ACTUATION_GOAL))
-    checks["family_is_rfc9161"] = "rfc9161" in family
+    checks["family_is_rfc9161"] = "rfc9161" in set(semantic_tokens(PROXYND_ACTUATION_GOAL))
     checks["family_is_proxynddigest"] = "proxynddigest" in family
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
@@ -3207,11 +3207,18 @@ def builtin_proxynd_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != PROXYND_ACTUATION_ID:
                 register_catalog_proved(proxynd, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(proxynd, PROXYND_ACTUATION_GOAL, PROXYND_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(proxynd)
-    checks["exhausted_catalog_binds_proxynd"] = (
-        live_goal == PROXYND_ACTUATION_GOAL
-        and PROXYND_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_proxynd"
+    checks["exhausted_catalog_rejects_ledger_only_proxynd"] = (
+        not gate.accepted
+        and live_goal != PROXYND_ACTUATION_GOAL
+        and PROXYND_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_proxynd"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="proxynd-leftover-") as tmp:

@@ -1044,11 +1044,18 @@ def builtin_watch_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != WATCH_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, WATCH_ACTUATION_GOAL, WATCH_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_watch"] = (
-        live_goal == WATCH_ACTUATION_GOAL
-        and WATCH_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_watch"
+    checks["exhausted_catalog_rejects_ledger_only_watch"] = (
+        not gate.accepted
+        and live_goal != WATCH_ACTUATION_GOAL
+        and WATCH_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_watch"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

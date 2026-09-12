@@ -344,11 +344,18 @@ def builtin_mcp_progress_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != MCP_PROGRESS_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, MCP_PROGRESS_GOAL, MCP_PROGRESS_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_progress"] = (
-        live_goal == MCP_PROGRESS_GOAL
-        and MCP_PROGRESS_ID in live_done
-        and live_source == "genesis_bind_progress"
+    checks["exhausted_catalog_rejects_ledger_only_progress"] = (
+        not gate.accepted
+        and live_goal != MCP_PROGRESS_GOAL
+        and MCP_PROGRESS_ID not in live_done
+        and live_source != "genesis_bind_progress"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

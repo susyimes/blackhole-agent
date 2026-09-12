@@ -30,12 +30,15 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from blackhole_agent.durable_state import durable_read_path
 from typing import Any, Mapping, Sequence
@@ -63,6 +66,69 @@ def _digest(payload: Any) -> str:
     return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
 
 
+def _native_path(path: Path) -> Path:
+    """Use extended-length paths for filesystem operations on Windows."""
+
+    absolute = str(path.resolve())
+    if os.name == "nt" and not absolute.startswith("\\\\?\\"):
+        absolute = "\\\\?\\UNC\\" + absolute[2:] if absolute.startswith("\\\\") else "\\\\?\\" + absolute
+    return Path(absolute)
+
+
+def _safe_member_parts(name: str) -> tuple[str, ...] | None:
+    """Relative path parts of an archive member, or None when unsafe."""
+
+    path = PurePosixPath(name)
+    parts = path.parts
+    if (
+        not parts
+        or path.is_absolute()
+        or PureWindowsPath(name).drive
+        or "\\" in name
+        or any(part == ".." or ":" in part for part in parts)
+    ):
+        return None
+    return parts
+
+
+def _extract_archive(data: bytes, dest: Path) -> None:
+    """Extract a git-archive tarball without depending on the host tar.
+
+    bsdtar on Windows refuses valid UTF-8 pathnames (e.g. the absorbed
+    django tree's ⊗.txt fixture), and deep vendored trees (absorbed
+    ``.forage-deps``) exceed MAX_PATH when ``dest`` sits in a deep
+    temporary directory — so members are written through the stdlib with
+    the extended-length path prefix on Windows.
+    """
+
+    root = _native_path(dest)
+    root.mkdir(parents=True, exist_ok=True)
+    if any(root.iterdir()):
+        raise FileExistsError("pristine checkout destination must be empty")
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:") as bundle:
+        for member in bundle:
+            parts = _safe_member_parts(member.name)
+            if parts is None or member.islnk() or member.issym():
+                raise ValueError(f"unsupported archive path or link: {member.name!r}")
+            if not (member.isdir() or member.isreg()):
+                raise ValueError(f"unsupported archive member: {member.name!r}")
+            # The root starts empty and archive links are rejected, so validated
+            # relative components cannot traverse a pre-existing symlink. Avoid
+            # resolving every member through the filesystem in large vendor trees.
+            target = root.joinpath(*parts)
+            if member.isdir():
+                os.makedirs(target, exist_ok=True)
+                continue
+            os.makedirs(str(Path(target).parent), exist_ok=True)
+            source = bundle.extractfile(member)
+            if source is None:
+                raise ValueError(f"archive member has no data: {member.name!r}")
+            with source, open(target, "wb") as out:
+                shutil.copyfileobj(source, out)
+            if os.name != "nt":
+                os.chmod(target, member.mode & 0o777)
+
+
 def checkout_pristine_source(dest: Path) -> dict[str, Any]:
     """Materialize the tracked source of HEAD into ``dest`` via git archive."""
 
@@ -73,13 +139,8 @@ def checkout_pristine_source(dest: Path) -> dict[str, Any]:
         check=True,
     )
     dest.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["tar", "-x", "-C", str(dest)],
-        input=archive.stdout,
-        capture_output=True,
-        check=True,
-    )
-    file_count = sum(1 for path in dest.rglob("*") if path.is_file())
+    _extract_archive(archive.stdout, dest)
+    file_count = sum(1 for path in _native_path(dest).rglob("*") if path.is_file())
     return {"dest": str(dest), "file_count": file_count}
 
 
@@ -159,7 +220,9 @@ def _stamp_capability_red(checkout: Path, capability_id: str) -> None:
 def run_portability_plane() -> dict[str, Any]:
     """Prove the goal stack on pristine checkouts, plus a corrupted one."""
 
-    with tempfile.TemporaryDirectory(prefix="capability-portability-") as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="capability-portability-", dir=_native_path(Path(tempfile.gettempdir()))
+    ) as tmp:
         base = Path(tmp)
         checkout_a = base / "checkout-a"
         checkout_b = base / "checkout-b"

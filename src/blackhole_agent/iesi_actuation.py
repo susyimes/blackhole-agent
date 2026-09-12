@@ -3334,11 +3334,18 @@ def builtin_iesi_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != IESI_ACTUATION_ID:
                 register_catalog_proved(iesi, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(iesi, IESI_ACTUATION_GOAL, IESI_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(iesi)
-    checks["exhausted_catalog_binds_iesi"] = (
-        live_goal == IESI_ACTUATION_GOAL
-        and IESI_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_iesi"
+    checks["exhausted_catalog_rejects_ledger_only_iesi"] = (
+        not gate.accepted
+        and live_goal != IESI_ACTUATION_GOAL
+        and IESI_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_iesi"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="iesi-leftover-") as tmp:

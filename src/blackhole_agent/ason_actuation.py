@@ -3658,11 +3658,18 @@ def builtin_ason_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != ASON_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, ASON_ACTUATION_GOAL, ASON_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_ason"] = (
-        live_goal == ASON_ACTUATION_GOAL
-        and ASON_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_ason"
+    checks["exhausted_catalog_rejects_ledger_only_ason"] = (
+        not gate.accepted
+        and live_goal != ASON_ACTUATION_GOAL
+        and ASON_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_ason"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="ason-leftover-") as tmp:

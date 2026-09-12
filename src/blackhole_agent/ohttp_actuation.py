@@ -1411,11 +1411,18 @@ def builtin_ohttp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != OHTTP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, OHTTP_ACTUATION_GOAL, OHTTP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_ohttp"] = (
-        live_goal == OHTTP_ACTUATION_GOAL
-        and OHTTP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_ohttp"
+    checks["exhausted_catalog_rejects_ledger_only_ohttp"] = (
+        not gate.accepted
+        and live_goal != OHTTP_ACTUATION_GOAL
+        and OHTTP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_ohttp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="ohttp-leftover-") as tmp:

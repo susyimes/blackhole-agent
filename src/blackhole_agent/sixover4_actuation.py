@@ -2119,7 +2119,7 @@ def builtin_sixover4_actuation_proof() -> dict[str, Any]:
     checks["family_is_sixover4_surface"] = "sixover4" in family.split("/") and "sixover4id" in set(semantic_tokens(SIXOVER4_ACTUATION_GOAL))
     checks["family_is_sixover4id"] = "sixover4id" in set(semantic_tokens(SIXOVER4_ACTUATION_GOAL))
     checks["family_is_rfc2529"] = "rfc2529" in family
-    checks["family_is_sixover4digest"] = "sixover4digest" in family
+    checks["family_is_sixover4digest"] = "sixover4digest" in set(semantic_tokens(SIXOVER4_ACTUATION_GOAL))
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
         and "rfc8026" not in family
@@ -2829,11 +2829,18 @@ def builtin_sixover4_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SIXOVER4_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SIXOVER4_ACTUATION_GOAL, SIXOVER4_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_sixover4"] = (
-        live_goal == SIXOVER4_ACTUATION_GOAL
-        and SIXOVER4_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_sixover4"
+    checks["exhausted_catalog_rejects_ledger_only_sixover4"] = (
+        not gate.accepted
+        and live_goal != SIXOVER4_ACTUATION_GOAL
+        and SIXOVER4_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_sixover4"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="sixover4-leftover-") as tmp:

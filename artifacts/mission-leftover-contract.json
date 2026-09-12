@@ -1,0 +1,44 @@
+{
+  "ok": true,
+  "action": "evaluate_outcome_contract",
+  "met": true,
+  "machine_checkable": true,
+  "passed_count": 2,
+  "failed_count": 0,
+  "predicate_count": 2,
+  "results": [
+    {
+      "kind": "program_passes",
+      "arg": "capability.recovery-loop",
+      "source": "program_passes:capability.recovery-loop",
+      "passed": true,
+      "detail": "program_ok=True passed=1 failed=0"
+    },
+    {
+      "kind": "no_skill_route",
+      "arg": "",
+      "source": "no_skill_route",
+      "passed": true,
+      "detail": "used_skill_route_discovery=False"
+    }
+  ],
+  "failed": [],
+  "notes": [],
+  "parse": {
+    "predicate_count": 2,
+    "notes": [],
+    "raw": "program_passes:capability.recovery-loop;no_skill_route"
+  },
+  "metrics": {
+    "count": 617,
+    "primitive_count": 617,
+    "unique_composed_coverage_sets": 0,
+    "proved_count": 617,
+    "proved_ratio": 1.0,
+    "novel_ready_count": 7,
+    "integrity_score": null,
+    "used_skill_route_discovery": false
+  },
+  "ledger_path": "C:\\Users\\svmes\\Documents\\Playground\\.blackhole-agent-unbound-worktrees\\20260912T181339Z-47f10307\\capabilities\\ledger.json",
+  "used_skill_route_discovery": false
+}

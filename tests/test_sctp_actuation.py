@@ -200,7 +200,8 @@ def test_builtin_proof_seals_sctp_actuation() -> None:
     assert report["checks"]["workflow_records_tsn"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_sctp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_sctp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_datachannel"]
     assert report["mission_goal"] == SCTP_ACTUATION_GOAL
     assert report["done_when"] == SCTP_ACTUATION_DONE_WHEN

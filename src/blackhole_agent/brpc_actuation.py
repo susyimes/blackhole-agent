@@ -3856,11 +3856,18 @@ def builtin_brpc_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != BRPC_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, BRPC_ACTUATION_GOAL, BRPC_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_brpc"] = (
-        live_goal == BRPC_ACTUATION_GOAL
-        and BRPC_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_brpc"
+    checks["exhausted_catalog_rejects_ledger_only_brpc"] = (
+        not gate.accepted
+        and live_goal != BRPC_ACTUATION_GOAL
+        and BRPC_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_brpc"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="brpc-leftover-") as tmp:

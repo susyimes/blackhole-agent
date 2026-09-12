@@ -2318,7 +2318,7 @@ def builtin_nvo_actuation_proof() -> dict[str, Any]:
     checks["family_is_nvo"] = "nvo" in family.split("/")
     checks["family_is_nvo_surface"] = "nvo" in family.split("/") and "nvoid" in set(semantic_tokens(NVO_ACTUATION_GOAL))
     checks["family_is_nvoid"] = "nvoid" in set(semantic_tokens(NVO_ACTUATION_GOAL))
-    checks["family_is_rfc8365"] = "rfc8365" in family
+    checks["family_is_rfc8365"] = "rfc8365" in set(semantic_tokens(NVO_ACTUATION_GOAL))
     checks["family_is_nvodigest"] = "nvodigest" in family
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
@@ -3135,11 +3135,18 @@ def builtin_nvo_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != NVO_ACTUATION_ID:
                 register_catalog_proved(nve, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(nve, NVO_ACTUATION_GOAL, NVO_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(nve)
-    checks["exhausted_catalog_binds_nvo"] = (
-        live_goal == NVO_ACTUATION_GOAL
-        and NVO_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_nvo"
+    checks["exhausted_catalog_rejects_ledger_only_nvo"] = (
+        not gate.accepted
+        and live_goal != NVO_ACTUATION_GOAL
+        and NVO_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_nvo"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="nvo-leftover-") as tmp:

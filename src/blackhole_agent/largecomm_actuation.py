@@ -3025,11 +3025,18 @@ def builtin_largecomm_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != LARGECOMM_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, LARGECOMM_ACTUATION_GOAL, LARGECOMM_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_largecomm"] = (
-        live_goal == LARGECOMM_ACTUATION_GOAL
-        and LARGECOMM_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_largecomm"
+    checks["exhausted_catalog_rejects_ledger_only_largecomm"] = (
+        not gate.accepted
+        and live_goal != LARGECOMM_ACTUATION_GOAL
+        and LARGECOMM_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_largecomm"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="largecomm-leftover-") as tmp:

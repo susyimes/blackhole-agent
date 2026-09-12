@@ -2160,11 +2160,18 @@ def builtin_telnet_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != TELNET_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, TELNET_ACTUATION_GOAL, TELNET_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_telnet"] = (
-        live_goal == TELNET_ACTUATION_GOAL
-        and TELNET_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_telnet"
+    checks["exhausted_catalog_rejects_ledger_only_telnet"] = (
+        not gate.accepted
+        and live_goal != TELNET_ACTUATION_GOAL
+        and TELNET_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_telnet"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="telnet-leftover-") as tmp:

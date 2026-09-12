@@ -260,18 +260,24 @@ def builtin_leftover_catalog_handoff_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != TFTP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, TFTP_ACTUATION_GOAL, TFTP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
         local = bind_local_mission(_State(root), harvest=True)
-    checks["exhausted_catalog_binds_tftp"] = (
-        live_goal == TFTP_ACTUATION_GOAL
-        and TFTP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_tftp"
-        and live_done == TFTP_ACTUATION_DONE_WHEN
+    checks["exhausted_catalog_rejects_ledger_only_tftp"] = (
+        not gate.accepted
+        and live_goal != TFTP_ACTUATION_GOAL
+        and TFTP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_tftp"
+        and live_done != TFTP_ACTUATION_DONE_WHEN
     )
-    checks["local_bind_fills_tftp"] = (
-        local.goal == TFTP_ACTUATION_GOAL
-        and TFTP_ACTUATION_ID in local.done_when
-        and "genesis_bind_tftp" in local.source
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
+    )
+    checks["local_bind_rejects_ledger_only_tftp"] = (
+        local.goal != TFTP_ACTUATION_GOAL
+        and TFTP_ACTUATION_ID not in (local.done_when or "")
     )
 
     with tempfile.TemporaryDirectory(prefix="leftover-handoff-operator-") as tmp:

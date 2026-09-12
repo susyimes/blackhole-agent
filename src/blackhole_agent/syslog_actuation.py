@@ -1238,11 +1238,18 @@ def builtin_syslog_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SYSLOG_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SYSLOG_ACTUATION_GOAL, SYSLOG_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_syslog"] = (
-        live_goal == SYSLOG_ACTUATION_GOAL
-        and SYSLOG_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_syslog"
+    checks["exhausted_catalog_rejects_ledger_only_syslog"] = (
+        not gate.accepted
+        and live_goal != SYSLOG_ACTUATION_GOAL
+        and SYSLOG_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_syslog"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

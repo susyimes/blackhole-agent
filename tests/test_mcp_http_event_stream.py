@@ -87,7 +87,8 @@ def test_builtin_proof_answers_http_elicitation() -> None:
     assert report["checks"]["elicitation_was_answered"]
     assert report["checks"]["progress_notification_on_get_stream"]
     assert report["checks"]["mixed_http_event_stream_and_stdio_serve"]
-    assert report["checks"]["exhausted_catalog_binds_event_stream"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_event_stream"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_HTTP_EVENT_GOAL
     assert report["done_when"] == MCP_HTTP_EVENT_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

@@ -103,7 +103,8 @@ def test_builtin_proof_seals_github_actuation() -> None:
     assert report["checks"]["workflow_closes_labelled_issue"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_github"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_github"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == GITHUB_ACTUATION_GOAL
     assert report["done_when"] == GITHUB_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

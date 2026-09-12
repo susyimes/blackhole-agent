@@ -75,7 +75,8 @@ def test_builtin_proof_answers_sampling_create_message() -> None:
     assert report["checks"]["sampling_answered_create_message"]
     assert report["checks"]["sibling_echo_still_serves"]
     assert report["checks"]["unanswered_sampling_is_isolated"]
-    assert report["checks"]["exhausted_catalog_binds_sampling"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_sampling"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_SAMPLING_GOAL
     assert report["done_when"] == MCP_SAMPLING_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

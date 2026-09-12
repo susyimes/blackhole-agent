@@ -3622,11 +3622,18 @@ def builtin_lwdm_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != LWDM_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, LWDM_ACTUATION_GOAL, LWDM_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_lwdm"] = (
-        live_goal == LWDM_ACTUATION_GOAL
-        and LWDM_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_lwdm"
+    checks["exhausted_catalog_rejects_ledger_only_lwdm"] = (
+        not gate.accepted
+        and live_goal != LWDM_ACTUATION_GOAL
+        and LWDM_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_lwdm"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="lwdm-leftover-") as tmp:

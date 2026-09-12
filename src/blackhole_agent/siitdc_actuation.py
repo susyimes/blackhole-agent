@@ -2684,11 +2684,18 @@ def builtin_siitdc_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SIITDC_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SIITDC_ACTUATION_GOAL, SIITDC_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_siitdc"] = (
-        live_goal == SIITDC_ACTUATION_GOAL
-        and SIITDC_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_siitdc"
+    checks["exhausted_catalog_rejects_ledger_only_siitdc"] = (
+        not gate.accepted
+        and live_goal != SIITDC_ACTUATION_GOAL
+        and SIITDC_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_siitdc"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="siitdc-leftover-") as tmp:

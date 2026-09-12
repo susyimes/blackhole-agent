@@ -3874,11 +3874,18 @@ def builtin_dsct_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != DSCT_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, DSCT_ACTUATION_GOAL, DSCT_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_dsct"] = (
-        live_goal == DSCT_ACTUATION_GOAL
-        and DSCT_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_dsct"
+    checks["exhausted_catalog_rejects_ledger_only_dsct"] = (
+        not gate.accepted
+        and live_goal != DSCT_ACTUATION_GOAL
+        and DSCT_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_dsct"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="dsct-leftover-") as tmp:

@@ -2456,11 +2456,18 @@ def builtin_dns64_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != DNS64_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, DNS64_ACTUATION_GOAL, DNS64_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_dns64"] = (
-        live_goal == DNS64_ACTUATION_GOAL
-        and DNS64_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_dns64"
+    checks["exhausted_catalog_rejects_ledger_only_dns64"] = (
+        not gate.accepted
+        and live_goal != DNS64_ACTUATION_GOAL
+        and DNS64_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_dns64"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="dns64-leftover-") as tmp:

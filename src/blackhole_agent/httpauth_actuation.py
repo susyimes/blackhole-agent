@@ -1633,11 +1633,13 @@ def builtin_httpauth_actuation_proof() -> dict[str, Any]:
         and catalog[97]["id"] == TCN_ACTUATION_ID
         and catalog[97]["source"] == "genesis_bind_tcn"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(HTTPAUTH_ACTUATION_GOAL)
     checks["family_is_httpauth"] = "httpauth" in family
     checks["family_is_httpauth_surface"] = "httpauth" in family
     checks["family_is_nonceid"] = "nonceid" in family
-    checks["family_is_rfc2617"] = "rfc2617" in family
+    checks["family_is_rfc2617"] = "rfc2617" in set(semantic_tokens(HTTPAUTH_ACTUATION_GOAL))
     checks["family_is_authdigest"] = "authdigest" in family
     checks["family_is_not_spnego"] = (
         "spnego" not in family
@@ -2022,11 +2024,18 @@ def builtin_httpauth_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != HTTPAUTH_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, HTTPAUTH_ACTUATION_GOAL, HTTPAUTH_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_httpauth"] = (
-        live_goal == HTTPAUTH_ACTUATION_GOAL
-        and HTTPAUTH_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_httpauth"
+    checks["exhausted_catalog_rejects_ledger_only_httpauth"] = (
+        not gate.accepted
+        and live_goal != HTTPAUTH_ACTUATION_GOAL
+        and HTTPAUTH_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_httpauth"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="httpauth-leftover-") as tmp:

@@ -2056,11 +2056,18 @@ def builtin_httpstate_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != HTTPSTATE_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, HTTPSTATE_ACTUATION_GOAL, HTTPSTATE_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_httpstate"] = (
-        live_goal == HTTPSTATE_ACTUATION_GOAL
-        and HTTPSTATE_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_httpstate"
+    checks["exhausted_catalog_rejects_ledger_only_httpstate"] = (
+        not gate.accepted
+        and live_goal != HTTPSTATE_ACTUATION_GOAL
+        and HTTPSTATE_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_httpstate"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="httpstate-leftover-") as tmp:

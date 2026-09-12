@@ -1831,11 +1831,13 @@ def builtin_rdnss_actuation_proof() -> dict[str, Any]:
         and catalog[133]["id"] == PREF64_ACTUATION_ID
         and catalog[133]["source"] == "genesis_bind_pref64"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(RDNSS_ACTUATION_GOAL)
     checks["family_is_rdnss"] = "rdnss" in family.split("/")
     checks["family_is_rdnss_surface"] = "rdnssid" in family
     checks["family_is_rdnssid"] = "rdnssid" in family
-    checks["family_is_rfc8106"] = "rfc8106" in family
+    checks["family_is_rfc8106"] = "rfc8106" in set(semantic_tokens(RDNSS_ACTUATION_GOAL))
     checks["family_is_rdnssdigest"] = "rdnssdigest" in family
     checks["family_is_not_spnego"] = (
         "spnego" not in family
@@ -2404,11 +2406,18 @@ def builtin_rdnss_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != RDNSS_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, RDNSS_ACTUATION_GOAL, RDNSS_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_rdnss"] = (
-        live_goal == RDNSS_ACTUATION_GOAL
-        and RDNSS_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_rdnss"
+    checks["exhausted_catalog_rejects_ledger_only_rdnss"] = (
+        not gate.accepted
+        and live_goal != RDNSS_ACTUATION_GOAL
+        and RDNSS_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_rdnss"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="rdnss-leftover-") as tmp:

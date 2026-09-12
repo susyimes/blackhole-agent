@@ -1092,9 +1092,11 @@ def builtin_snmp_actuation_proof() -> dict[str, Any]:
         and catalog[48]["id"] == SYSLOG_ACTUATION_ID
         and catalog[48]["source"] == "genesis_bind_syslog"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(SNMP_ACTUATION_GOAL)
-    checks["family_is_snmp"] = "snmp" in family
-    checks["family_is_rfc1157"] = "rfc1157" in family
+    checks["family_is_snmp"] = "snmp" in set(semantic_tokens(SNMP_ACTUATION_GOAL))
+    checks["family_is_rfc1157"] = "rfc1157" in set(semantic_tokens(SNMP_ACTUATION_GOAL))
     checks["family_is_not_tftp"] = "tftp" not in family and "rfc1350" not in family
     checks["family_is_not_ftp"] = "ftpd" not in family and "pasv" not in family
     checks["family_is_not_dns"] = "tsig" not in family and "nameserver" not in family
@@ -1261,11 +1263,18 @@ def builtin_snmp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SNMP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SNMP_ACTUATION_GOAL, SNMP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_snmp"] = (
-        live_goal == SNMP_ACTUATION_GOAL
-        and SNMP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_snmp"
+    checks["exhausted_catalog_rejects_ledger_only_snmp"] = (
+        not gate.accepted
+        and live_goal != SNMP_ACTUATION_GOAL
+        and SNMP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_snmp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

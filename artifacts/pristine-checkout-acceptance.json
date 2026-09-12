@@ -1,0 +1,53 @@
+{
+  "ok": true,
+  "baseline_ref": "3cf8de0803d6879fee57d64b76edf33db4c103d6",
+  "probe": "tests/acceptance/test_pristine_checkout_extraction.py",
+  "probe_sha256": "c3a16621546021afa6e9574f5646c91fbeaae340d699a0fb6e1197e7935b56c2",
+  "baseline": {
+    "exit_code": 0,
+    "stdout_tail": "{\"observed\": {\"checkout_completed\": false, \"checkout_error\": \"Command '['tar', '-x', '-C', 'C:\\\\\\\\Users\\\\\\\\svmes\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\accept-checkout-sfyjt0tc\\\\\\\\checkout']' returned non-zero exit status 1.\", \"fixture_matches\": {\"capabilities/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/asset.js\": true, \"pyproject.toml\": true, \"schemas/example.json\": true, \"src/package/__init__.py\": true, \"tests/fixtures/static/\\u2297.txt\": false}, \"longest_checkout_path\": 305, \"mismatches\": {\"tests/fixtures/static/\\u2297.txt\": \"[Errno 2] No such file or directory: '\\\\\\\\\\\\\\\\?\\\\\\\\C:\\\\\\\\Users\\\\\\\\svmes\\\\\\\\AppData\\\\\\\\Local\\\\\\\\Temp\\\\\\\\accept-checkout-sfyjt0tc\\\\\\\\checkout\\\\\\\\tests\\\\\\\\fixtures\\\\\\\\static\\\\\\\\\\u2297.txt'\"}, \"operation\": \"checkout_pristine_source\", \"stderr\": \"tests/fixtures/static/\\u2297.txt: Invalid empty pathname: Unknown error\\r\\ntar: Error exit delayed from previous errors\\r\\n\"}, \"passed\": false}\n",
+    "stderr_tail": "",
+    "outcome": {
+      "observed": {
+        "checkout_completed": false,
+        "checkout_error": "Command '['tar', '-x', '-C', 'C:\\\\Users\\\\svmes\\\\AppData\\\\Local\\\\Temp\\\\accept-checkout-sfyjt0tc\\\\checkout']' returned non-zero exit status 1.",
+        "fixture_matches": {
+          "capabilities/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/asset.js": true,
+          "pyproject.toml": true,
+          "schemas/example.json": true,
+          "src/package/__init__.py": true,
+          "tests/fixtures/static/\u2297.txt": false
+        },
+        "longest_checkout_path": 305,
+        "mismatches": {
+          "tests/fixtures/static/\u2297.txt": "[Errno 2] No such file or directory: '\\\\\\\\?\\\\C:\\\\Users\\\\svmes\\\\AppData\\\\Local\\\\Temp\\\\accept-checkout-sfyjt0tc\\\\checkout\\\\tests\\\\fixtures\\\\static\\\\\u2297.txt'"
+        },
+        "operation": "checkout_pristine_source",
+        "stderr": "tests/fixtures/static/\u2297.txt: Invalid empty pathname: Unknown error\r\ntar: Error exit delayed from previous errors\r\n"
+      },
+      "passed": false
+    }
+  },
+  "candidate": {
+    "exit_code": 0,
+    "stdout_tail": "{\"observed\": {\"checkout_completed\": true, \"file_count\": 5, \"fixture_matches\": {\"capabilities/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/asset.js\": true, \"pyproject.toml\": true, \"schemas/example.json\": true, \"src/package/__init__.py\": true, \"tests/fixtures/static/\\u2297.txt\": true}, \"longest_checkout_path\": 305, \"mismatches\": {}, \"operation\": \"checkout_pristine_source\"}, \"passed\": true}\n",
+    "stderr_tail": "",
+    "outcome": {
+      "observed": {
+        "checkout_completed": true,
+        "file_count": 5,
+        "fixture_matches": {
+          "capabilities/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/deepdirdeepdirdeepdirdeepdirdeepdir/asset.js": true,
+          "pyproject.toml": true,
+          "schemas/example.json": true,
+          "src/package/__init__.py": true,
+          "tests/fixtures/static/\u2297.txt": true
+        },
+        "longest_checkout_path": 305,
+        "mismatches": {},
+        "operation": "checkout_pristine_source"
+      },
+      "passed": true
+    }
+  }
+}

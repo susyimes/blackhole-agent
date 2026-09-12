@@ -1,0 +1,8 @@
+........                                                                 [100%]
+============================= slowest 5 durations =============================
+5.78s call     tests/test_leftover_catalog_handoff.py::test_builtin_proof_drops_handoff_and_binds_tftp
+3.97s call     tests/test_kernel_program_weave.py::test_builtin_proof_raises_program_weave
+0.24s call     tests/test_kernel_program_weave.py::test_hydrate_consumed_campaign_binds_gate_passing_successor_after_fabric
+0.10s call     tests/test_kernel_genesis_diversify.py::test_builtin_proof_binds_diversity_after_catalog_exhaustion
+0.01s setup    tests/test_kernel_genesis_diversify.py::test_goal_binds_genesis_diversify_plane
+8 passed in 10.96s

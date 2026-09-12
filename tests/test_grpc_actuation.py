@@ -171,7 +171,8 @@ def test_builtin_proof_seals_grpc_actuation() -> None:
     assert report["checks"]["workflow_writes_sealed_file"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_grpc"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_grpc"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["hpack_literal_roundtrip"]
     assert report["checks"]["grpc_envelope_roundtrip"]
     assert report["mission_goal"] == GRPC_ACTUATION_GOAL

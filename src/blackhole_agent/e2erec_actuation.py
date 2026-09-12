@@ -3694,11 +3694,18 @@ def builtin_e2erec_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != E2EREC_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, E2EREC_ACTUATION_GOAL, E2EREC_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_e2erec"] = (
-        live_goal == E2EREC_ACTUATION_GOAL
-        and E2EREC_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_e2erec"
+    checks["exhausted_catalog_rejects_ledger_only_e2erec"] = (
+        not gate.accepted
+        and live_goal != E2EREC_ACTUATION_GOAL
+        and E2EREC_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_e2erec"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="e2erec-leftover-") as tmp:

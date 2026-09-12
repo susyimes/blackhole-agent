@@ -1998,7 +1998,7 @@ def builtin_siit_actuation_proof() -> dict[str, Any]:
     checks["family_is_siit_surface"] = "siit" in family.split("/") and "siitid" in set(semantic_tokens(SIIT_ACTUATION_GOAL))
     checks["family_is_siitid"] = "siitid" in set(semantic_tokens(SIIT_ACTUATION_GOAL))
     checks["family_is_rfc7915"] = "rfc7915" in family
-    checks["family_is_siitdigest"] = "siitdigest" in family
+    checks["family_is_siitdigest"] = "siitdigest" in set(semantic_tokens(SIIT_ACTUATION_GOAL))
     checks["family_is_not_ucpe"] = (
         "ucpe" not in family.split("/")
         and "rfc8026" not in family
@@ -2648,11 +2648,18 @@ def builtin_siit_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != SIIT_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, SIIT_ACTUATION_GOAL, SIIT_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_siit"] = (
-        live_goal == SIIT_ACTUATION_GOAL
-        and SIIT_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_siit"
+    checks["exhausted_catalog_rejects_ledger_only_siit"] = (
+        not gate.accepted
+        and live_goal != SIIT_ACTUATION_GOAL
+        and SIIT_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_siit"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="siit-leftover-") as tmp:

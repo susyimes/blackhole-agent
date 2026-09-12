@@ -98,7 +98,8 @@ def test_builtin_proof_speaks_resource_data_plane() -> None:
     assert report["checks"]["resource_gated_call_succeeds"]
     assert report["checks"]["sibling_echo_still_serves"]
     assert report["checks"]["skip_read_stays_on_plane"]
-    assert report["checks"]["exhausted_catalog_binds_resources"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_resources"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == MCP_RESOURCES_GOAL
     assert report["done_when"] == MCP_RESOURCES_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

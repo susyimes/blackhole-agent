@@ -179,7 +179,8 @@ def test_builtin_proof_seals_dhcp_actuation() -> None:
     assert report["checks"]["workflow_records_yiaddr"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_dhcp"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_dhcp"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["checks"]["catalog_names_ike"]
     assert report["mission_goal"] == DHCP_ACTUATION_GOAL
     assert report["done_when"] == DHCP_ACTUATION_DONE_WHEN

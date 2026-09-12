@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from blackhole_agent.evolution_quality import ledger_only_contract
 from blackhole_agent.kernel_class_closure import class_closure_ids
 from blackhole_agent.kernel_consumed_growth import is_cheap_inventory_id
 from blackhole_agent.kernel_genesis_bind import (
@@ -79,7 +80,7 @@ def test_weave_goal_is_not_a_fabric_near_duplicate():
     assert PROGRAM_WEAVE_ID not in leftover_marker_ids(PROGRAM_FABRIC_GOAL)
 
 
-def test_hydrate_consumed_campaign_binds_weave_after_fabric(tmp_path: Path):
+def test_hydrate_consumed_campaign_binds_gate_passing_successor_after_fabric(tmp_path: Path):
     save_campaign(
         tmp_path,
         LocalCampaign(
@@ -114,11 +115,11 @@ def test_hydrate_consumed_campaign_binds_weave_after_fabric(tmp_path: Path):
         state_path=tmp_path / "state.json",
     )
     assert "Mission genesis is still open" not in prompt
-    assert (
-        PROGRAM_WEAVE_GOAL in prompt
-        or PROGRAM_FABRIC_GOAL in prompt
-        or KERNEL_GENESIS_BIND_ID in (state.done_when or prompt)
-    )
+    assert state.goal
+    assert state.done_when
+    assert not ledger_only_contract(state.done_when)
+    assert PROGRAM_WEAVE_DONE_WHEN not in state.done_when
+    assert PROGRAM_FABRIC_GOAL not in state.goal
     assert state.stage == "execution"
 
 
@@ -129,15 +130,16 @@ def test_builtin_proof_raises_program_weave():
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
     assert report["checks"]["promote_registers_unique_weave_coverage"]
-    assert report["checks"]["tick_after_saturated_fabrics_runs_weave"]
-    assert report["checks"]["proved_weave_skips_to_diversity"]
+    assert report["checks"]["tick_after_saturated_fabrics_rejects_ledger_only_weave"]
+    assert report["checks"]["tick_after_saturated_fabrics_binds_gate_passing_successor"]
+    assert report["checks"]["proved_weave_skips_ledger_only_catalog"]
     assert PROGRAM_WEAVE_ID in LOCAL_DENYLIST
     assert class_closure_ids(GENESIS_SELECTION_BLOCKED) == (KERNEL_GENESIS_BIND_ID,)
     assert PROGRAM_WEAVE_ID in leftover_marker_ids(PROGRAM_WEAVE_GOAL)
     assert PROGRAM_WEAVE_DONE_WHEN in report["done_when"]
     assert GENESIS_DIVERSIFY_GOAL
     assert LOCAL_KERNEL == "local"
-    assert report["checks"]["hydrate_fills_program_weave"]
+    assert report["checks"]["hydrate_fills_gate_passing_successor"]
     assert report["checks"]["unscoped_remaining_still_wins"]
     assert report["checks"]["preserves_operator_bind"]
     assert report["checks"]["novelty_ranks_pair_first"]

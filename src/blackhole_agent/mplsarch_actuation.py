@@ -3495,11 +3495,18 @@ def builtin_mplsarch_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != MPLSARCH_ACTUATION_ID:
                 register_catalog_proved(pbb, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(pbb, MPLSARCH_ACTUATION_GOAL, MPLSARCH_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(pbb)
-    checks["exhausted_catalog_binds_mplsarch"] = (
-        live_goal == MPLSARCH_ACTUATION_GOAL
-        and MPLSARCH_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_mplsarch"
+    checks["exhausted_catalog_rejects_ledger_only_mplsarch"] = (
+        not gate.accepted
+        and live_goal != MPLSARCH_ACTUATION_GOAL
+        and MPLSARCH_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_mplsarch"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="mplsarch-leftover-") as tmp:

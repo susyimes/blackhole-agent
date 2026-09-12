@@ -1304,11 +1304,13 @@ def builtin_grpc_actuation_proof() -> dict[str, Any]:
         and catalog[43]["id"] == GRPC_ACTUATION_ID
         and catalog[42]["id"] == SSH_ACTUATION_ID
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(GRPC_ACTUATION_GOAL)
-    checks["family_is_grpc"] = "grpc" in family
+    checks["family_is_grpc"] = "grpc" in set(semantic_tokens(GRPC_ACTUATION_GOAL))
     checks["family_is_http2"] = "http2" in family
-    checks["family_is_length"] = "length" in family
-    checks["family_is_prefixed"] = "prefixed" in family
+    checks["family_is_length"] = "length" in set(semantic_tokens(GRPC_ACTUATION_GOAL))
+    checks["family_is_prefixed"] = "prefixed" in set(semantic_tokens(GRPC_ACTUATION_GOAL))
     checks["family_is_not_openssh"] = "openssh" not in family and "ssh" not in family
     checks["family_is_not_websocket"] = "websocket" not in family and "rfc6455" not in family
     checks["family_is_not_watch"] = "watch" not in family and "path" not in family
@@ -1482,11 +1484,18 @@ def builtin_grpc_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != GRPC_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, GRPC_ACTUATION_GOAL, GRPC_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_grpc"] = (
-        live_goal == GRPC_ACTUATION_GOAL
-        and GRPC_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_grpc"
+    checks["exhausted_catalog_rejects_ledger_only_grpc"] = (
+        not gate.accepted
+        and live_goal != GRPC_ACTUATION_GOAL
+        and GRPC_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_grpc"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 

@@ -1424,11 +1424,13 @@ def builtin_http11_actuation_proof() -> dict[str, Any]:
         and catalog[74]["id"] == HTTPCACHE_ACTUATION_ID
         and catalog[74]["source"] == "genesis_bind_httpcache"
     )
+    from blackhole_agent.mission_selection import semantic_tokens
+
     family = capability_family(HTTP11_ACTUATION_GOAL)
     checks["family_is_http11"] = "http11" in family
     checks["family_is_rfc9112"] = "rfc9112" in family
     checks["family_is_requestid"] = "requestid" in family
-    checks["family_is_startline"] = "startline" in family
+    checks["family_is_startline"] = "startline" in set(semantic_tokens(HTTP11_ACTUATION_GOAL))
     checks["family_is_httpmessage"] = "httpmessage" in family
     checks["family_is_not_digestfields"] = (
         "digestfield" not in family
@@ -1708,11 +1710,18 @@ def builtin_http11_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != HTTP11_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, HTTP11_ACTUATION_GOAL, HTTP11_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_http11"] = (
-        live_goal == HTTP11_ACTUATION_GOAL
-        and HTTP11_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_http11"
+    checks["exhausted_catalog_rejects_ledger_only_http11"] = (
+        not gate.accepted
+        and live_goal != HTTP11_ACTUATION_GOAL
+        and HTTP11_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_http11"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="http11-leftover-") as tmp:

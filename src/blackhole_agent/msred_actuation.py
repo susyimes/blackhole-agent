@@ -3280,11 +3280,18 @@ def builtin_msred_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != MSRED_ACTUATION_ID:
                 register_catalog_proved(msred, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(msred, MSRED_ACTUATION_GOAL, MSRED_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(msred)
-    checks["exhausted_catalog_binds_msred"] = (
-        live_goal == MSRED_ACTUATION_GOAL
-        and MSRED_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_msred"
+    checks["exhausted_catalog_rejects_ledger_only_msred"] = (
+        not gate.accepted
+        and live_goal != MSRED_ACTUATION_GOAL
+        and MSRED_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_msred"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="msred-leftover-") as tmp:

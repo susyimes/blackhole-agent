@@ -156,7 +156,8 @@ def test_builtin_proof_seals_s3_actuation() -> None:
     assert report["checks"]["workflow_writes_sealed_file"]
     assert report["checks"]["sealed_trace_verifies"]
     assert report["checks"]["tampered_trace_fails"]
-    assert report["checks"]["exhausted_catalog_binds_s3"]
+    assert report["checks"]["exhausted_catalog_rejects_ledger_only_s3"]
+    assert report["checks"]["exhausted_catalog_stays_unbound_without_gate_passing_successor"]
     assert report["mission_goal"] == S3_ACTUATION_GOAL
     assert report["done_when"] == S3_ACTUATION_DONE_WHEN
     ledger = load_ledger(default_ledger_path(Path(".")))

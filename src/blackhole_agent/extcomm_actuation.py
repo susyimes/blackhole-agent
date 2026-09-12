@@ -3007,11 +3007,18 @@ def builtin_extcomm_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != EXTCOMM_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, EXTCOMM_ACTUATION_GOAL, EXTCOMM_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_extcomm"] = (
-        live_goal == EXTCOMM_ACTUATION_GOAL
-        and EXTCOMM_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_extcomm"
+    checks["exhausted_catalog_rejects_ledger_only_extcomm"] = (
+        not gate.accepted
+        and live_goal != EXTCOMM_ACTUATION_GOAL
+        and EXTCOMM_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_extcomm"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
 
     with tempfile.TemporaryDirectory(prefix="extcomm-leftover-") as tmp:

@@ -1566,11 +1566,18 @@ def builtin_amqp_actuation_proof() -> dict[str, Any]:
         for item in catalog:
             if item["id"] != AMQP_ACTUATION_ID:
                 register_catalog_proved(root, item["id"])
+        from blackhole_agent.mission_selection import assess_mission_selection
+
+        gate = assess_mission_selection(root, AMQP_ACTUATION_GOAL, AMQP_ACTUATION_DONE_WHEN, history=[])
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
-    checks["exhausted_catalog_binds_amqp"] = (
-        live_goal == AMQP_ACTUATION_GOAL
-        and AMQP_ACTUATION_ID in live_done
-        and live_source == "genesis_bind_amqp"
+    checks["exhausted_catalog_rejects_ledger_only_amqp"] = (
+        not gate.accepted
+        and live_goal != AMQP_ACTUATION_GOAL
+        and AMQP_ACTUATION_ID not in live_done
+        and live_source != "genesis_bind_amqp"
+    )
+    checks["exhausted_catalog_stays_unbound_without_gate_passing_successor"] = (
+        (live_goal, live_done, live_source) == ("", "", "")
     )
     checks["no_skill_route"] = not legacy_pipeline_was_used()
 
