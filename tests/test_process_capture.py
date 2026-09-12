@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 import subprocess
 import sys
 import time
@@ -22,6 +24,92 @@ def test_capture_preserves_stdout_stderr_and_exit_code(tmp_path):
 def test_capture_decodes_invalid_utf8_without_crashing(tmp_path):
     result = run_captured_process([sys.executable, "-c", "import os;os.write(1,b'hello\\xff')"], cwd=tmp_path, timeout=5)
     assert result.stdout == "hello\ufffd"
+
+
+def test_capture_reports_missing_executable(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        run_captured_process([str(tmp_path / "missing-command.exe")], cwd=tmp_path, timeout=5)
+
+
+def test_bootstrap_preserves_command_arguments_cwd_environment_and_stdin(tmp_path, monkeypatch):
+    monkeypatch.setenv("BLACKHOLE_COMMAND_TEST", "inherited-value")
+    argument = 'Unicode \u4f60\u597d with spaces "quotes" and \\slashes'
+    code = (
+        "import json,os,sys;"
+        "print(json.dumps([sys.argv[1],os.getcwd(),os.environ['BLACKHOLE_COMMAND_TEST'],sys.stdin.read()]))"
+    )
+    result = run_captured_process([sys.executable, "-c", code, argument], cwd=tmp_path, timeout=5)
+    assert result.returncode == 0
+    assert json.loads(result.stdout) == [argument, str(tmp_path), "inherited-value", ""]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows DWORD status")
+def test_capture_preserves_windows_crash_status(tmp_path):
+    result = run_captured_process(
+        [sys.executable, "-c", "import ctypes;ctypes.windll.kernel32.ExitProcess(3221225477)"],
+        cwd=tmp_path, timeout=5,
+    )
+    assert result.returncode == 3221225477
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows job assignment")
+def test_job_assignment_failure_cannot_start_the_requested_command(tmp_path, monkeypatch):
+    from blackhole_agent._windows_job import WindowsJob
+
+    marker = tmp_path / "must-not-start"
+    job = WindowsJob()
+    monkeypatch.setattr(job.api, "AssignProcessToJobObject", lambda *_: False)
+    try:
+        with pytest.raises(OSError):
+            job.start(
+                [sys.executable, "-c", f"from pathlib import Path;Path({str(marker)!r}).touch()"],
+                cwd=tmp_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                error_path=tmp_path / "startup-error",
+            )
+        assert not marker.exists()
+    finally:
+        job.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows kill-on-job-close")
+def test_controller_death_stops_its_command_without_touching_other_processes(tmp_path):
+    import blackhole_agent.process_capture as capture
+
+    marker = tmp_path / "owned.pid"
+    worker = (
+        "import os,time;from pathlib import Path;"
+        f"Path({str(marker)!r}).write_text(str(os.getpid()));"
+        "time.sleep(15)"
+    )
+    owner_code = (
+        f"import sys;sys.path.insert(0,{str(Path(capture.__file__).resolve().parents[1])!r});"
+        "from pathlib import Path;from blackhole_agent.process_capture import run_captured_process;"
+        f"run_captured_process({[sys.executable, '-c', worker]!r},cwd=Path({str(tmp_path)!r}),timeout=30)"
+    )
+    unrelated = subprocess.Popen([sys.executable, "-c", "import time;time.sleep(15)"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    owner = subprocess.Popen([sys.executable, "-I", "-c", owner_code],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        deadline = time.monotonic() + 8
+        while not marker.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert marker.exists(), "owned command did not start"
+        pid = int(marker.read_text())
+        assert pid_is_running(pid)
+        owner.kill()
+        owner.wait(timeout=5)
+        deadline = time.monotonic() + 3
+        while pid_is_running(pid) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert not pid_is_running(pid)
+        assert unrelated.poll() is None
+    finally:
+        if owner.poll() is None:
+            owner.kill()
+        owner.wait(timeout=5)
+        unrelated.kill()
+        unrelated.wait(timeout=5)
 
 
 def test_timeout_terminates_owned_parent_and_child_without_pipe_eof_wait(tmp_path):
