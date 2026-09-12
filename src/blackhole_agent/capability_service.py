@@ -20,14 +20,24 @@ module turns the ledger into a service:
   (isolated subprocesses against the ledger's own entries), and the verdict
   carries per-predicate results, the skill-route attestation, and a contract
   digest binding the done_when text to the evaluated predicates and verdict.
+- ``POST /solve`` answers a *declarative goal* instead of a named capability:
+  the client supplies only an initial state and a list of goal state keys, a
+  BFS planner derives a minimal program over the invocable ledger whose
+  ``requires``/``provides`` chain covers the goal, every step executes for
+  real through the same fail-closed subprocess machinery with threaded
+  state, and the response carries the per-step digests and a plan digest
+  binding initial state, goal, program, and outcome. Goals no proved
+  capability chain covers return an honest ``solved: false`` verdict without
+  spawning a subprocess; goals already satisfied by the initial state solve
+  with an empty plan.
 - The plane is fail-closed: unknown, unproved, or non-absorbed capability
-  ids, malformed bodies, missing/extra input keys, and empty or
-  non-machine-checkable done_when texts all return a non-2xx JSON error and
-  never spawn a subprocess.
+  ids, malformed bodies, missing/extra input keys, empty or
+  non-machine-checkable done_when texts, and malformed solve requests all
+  return a non-2xx JSON error and never spawn a subprocess.
 
-Determinism contract: listing digests and response digests are pure
-functions of ledger content and invocation payload; durations and
-timestamps are excluded.
+Determinism contract: listing digests, response digests, plans, and plan
+digests are pure functions of ledger content and request payload; durations
+and timestamps are excluded.
 """
 
 from __future__ import annotations
@@ -39,6 +49,7 @@ import os
 import subprocess
 import sys
 import threading
+from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -64,6 +75,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ABSORBED_ID_PREFIX = "capability.absorbed-"
 INVOKE_TIMEOUT_SECONDS = 30
 CONTRACT_TIMEOUT_SECONDS = 120
+SOLVE_MAX_STEPS = 8
 MAX_BODY_BYTES = 1 << 20
 
 
@@ -271,6 +283,128 @@ def evaluate_contract_request(
     return verdict
 
 
+def plan_goal_program(
+    invocable: Mapping[str, Mapping[str, Any]],
+    initial_keys: set[str],
+    goal_keys: Sequence[str],
+    *,
+    max_steps: int = SOLVE_MAX_STEPS,
+) -> list[str] | None:
+    """BFS for a minimal invocable-capability program covering the goal keys.
+
+    A step is applicable when every declared ``requires`` key is already
+    available; applying it adds its declared ``provides`` keys. BFS over
+    monotone key-set growth yields shortest programs first, and the sorted
+    capability order makes the derived program deterministic. Returns
+    ``None`` when no program exists — an honest unsolvable, never a
+    fabricated sequence.
+    """
+
+    goal = set(goal_keys)
+    start = frozenset(initial_keys)
+    if goal <= start:
+        return []
+    queue: deque[tuple[frozenset[str], tuple[str, ...]]] = deque([(start, ())])
+    visited = {start}
+    while queue:
+        available, program = queue.popleft()
+        if len(program) >= max_steps:
+            continue
+        for capability_id in sorted(invocable):
+            if capability_id in program:
+                continue
+            item = invocable[capability_id]
+            if not set(item["requires"]) <= available:
+                continue
+            new_available = available | frozenset(item["provides"])
+            new_program = program + (capability_id,)
+            if goal <= new_available:
+                return list(new_program)
+            if new_available not in visited:
+                visited.add(new_available)
+                queue.append((new_available, new_program))
+    return None
+
+
+def solve_goal_request(
+    root: Path,
+    initial_state: Any,
+    goal: Any,
+    *,
+    timeout: int = INVOKE_TIMEOUT_SECONDS,
+    max_steps: int = SOLVE_MAX_STEPS,
+) -> dict[str, Any]:
+    """Derive and execute a capability program for a declarative goal.
+
+    The request names no capability: the planner derives a minimal program
+    from the served ledger's ``requires``/``provides`` contracts, and every
+    planned step executes for real through :func:`invoke_capability` with
+    state threaded from step outputs into downstream inputs. Unsolvable
+    goals return an honest ``solved: false`` verdict without spawning a
+    subprocess; malformed requests are refused before planning.
+    """
+
+    if not isinstance(initial_state, dict) or not all(
+        isinstance(key, str) for key in initial_state
+    ):
+        raise InvocationError(422, "initial_state must be a JSON object keyed by state keys")
+    if (
+        not isinstance(goal, list)
+        or not goal
+        or not all(isinstance(key, str) and key.strip() for key in goal)
+    ):
+        raise InvocationError(422, "goal must be a non-empty list of state keys")
+    goal_keys = list(dict.fromkeys(str(key).strip() for key in goal))
+    invocable = load_invocable_capabilities(root)
+    program = plan_goal_program(
+        invocable, set(initial_state), goal_keys, max_steps=max_steps
+    )
+    if program is None:
+        return {
+            "ok": True,
+            "solved": False,
+            "goal": goal_keys,
+            "plan": None,
+            "reason": "no proved capability program covers the goal",
+        }
+    state = dict(initial_state)
+    steps: list[dict[str, Any]] = []
+    for capability_id in program:
+        item = invocable[capability_id]
+        step_input = {key: state[key] for key in item["requires"]}
+        result = invoke_capability(root, capability_id, step_input, timeout=timeout)
+        state.update(result["output"])
+        steps.append(
+            {
+                "capability_id": capability_id,
+                "input": step_input,
+                "output": result["output"],
+                "response_digest": result["response_digest"],
+            }
+        )
+    outcome = {key: state[key] for key in goal_keys}
+    return {
+        "ok": True,
+        "solved": True,
+        "goal": goal_keys,
+        "plan": program,
+        "steps": steps,
+        "outcome": outcome,
+        "plan_digest": _digest(
+            {
+                "initial_state": initial_state,
+                "goal": goal_keys,
+                "plan": program,
+                "steps": [
+                    {"capability_id": step["capability_id"], "response_digest": step["response_digest"]}
+                    for step in steps
+                ],
+                "outcome": outcome,
+            }
+        ),
+    }
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any]) -> None:
     body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
     handler.send_response(status)
@@ -301,7 +435,7 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
             _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path not in {"/invoke", "/contract"}:
+            if self.path not in {"/invoke", "/contract", "/solve"}:
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
             try:
@@ -323,6 +457,10 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
             try:
                 if self.path == "/contract":
                     result = evaluate_contract_request(service_root, body.get("done_when"))
+                elif self.path == "/solve":
+                    result = solve_goal_request(
+                        service_root, body.get("initial_state"), body.get("goal")
+                    )
                 else:
                     result = invoke_capability(
                         service_root, body.get("capability_id"), body.get("input")
@@ -466,6 +604,50 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         checks["non_machine_contract_refused"] = (
             status == 422 and isinstance(free_text, dict) and not free_text.get("ok")
         )
+        status, solved = _http_request(
+            "POST",
+            f"{base}/solve",
+            {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+        )
+        checks["solve_derives_and_executes"] = (
+            status == 200
+            and isinstance(solved, dict)
+            and solved.get("solved") is True
+            and solved.get("plan") == [target_id]
+            and solved.get("outcome", {}).get("reversed_text") == "elohkcalb"
+            and bool(solved.get("plan_digest"))
+            and len(solved.get("steps") or []) == 1
+        )
+        detail["solved"] = solved
+        status, unsolved = _http_request(
+            "POST",
+            f"{base}/solve",
+            {"initial_state": {"raw_text": "blackhole"}, "goal": ["no_such_key"]},
+        )
+        checks["unsolvable_goal_honest"] = (
+            status == 200
+            and isinstance(unsolved, dict)
+            and unsolved.get("solved") is False
+            and unsolved.get("plan") is None
+        )
+        status, satisfied = _http_request(
+            "POST",
+            f"{base}/solve",
+            {"initial_state": {"reversed_text": "elohkcalb"}, "goal": ["reversed_text"]},
+        )
+        checks["satisfied_goal_empty_plan"] = (
+            status == 200
+            and isinstance(satisfied, dict)
+            and satisfied.get("solved") is True
+            and satisfied.get("plan") == []
+            and satisfied.get("steps") == []
+        )
+        status, malformed = _http_request(
+            "POST", f"{base}/solve", {"initial_state": {}, "goal": []}
+        )
+        checks["malformed_solve_refused"] = (
+            status == 422 and isinstance(malformed, dict) and not malformed.get("ok")
+        )
     finally:
         server.shutdown()
         server.server_close()
@@ -505,7 +687,15 @@ def ensure_capability_service_capability(*, repo_path: Path | None = None) -> Ca
             "digest, and POST /contract machine-evaluates a done_when outcome "
             "contract with real program_passes execution, per-predicate "
             "verdicts, skill-route attestation, and a contract digest. "
-            "Unknown, unproved, or non-absorbed ids, malformed inputs, and "
+            "POST /solve answers a declarative goal: the client names no "
+            "capability, a BFS planner derives a minimal requires/provides "
+            "program over the served ledger, every step executes for real "
+            "with threaded state, and the response carries per-step digests "
+            "and a plan digest binding goal, program, and outcome; goals no "
+            "proved program covers return an honest solved=false verdict "
+            "without spawning a subprocess. "
+            "Unknown, unproved, or non-absorbed ids, malformed inputs, "
+            "malformed solve requests, and "
             "empty or non-machine-checkable contracts are refused fail-closed "
             "without spawning a subprocess."
         ),
@@ -524,13 +714,17 @@ def ensure_capability_service_capability(*, repo_path: Path | None = None) -> Ca
         capability_delta=(
             "Proved ledger capabilities are callable from outside the proof "
             "harness: an external HTTP client can discover the invocable set, "
-            "execute an absorbed tool end-to-end, and machine-check a "
+            "execute an absorbed tool end-to-end, machine-check a "
             "done_when outcome contract with real program_passes execution "
-            "and skill-route attestation, with strict input validation and "
-            "fail-closed refusals for unknown or unproved ids and for empty "
-            "or non-machine-checkable contracts."
+            "and skill-route attestation, and submit a declarative goal "
+            "(initial state plus goal keys) that the plane turns into a "
+            "derived minimal capability program executed as real subprocesses "
+            "with threaded state and a digest-bound outcome - goals no proved "
+            "program covers are honestly reported unsolved without spawning a "
+            "subprocess, and malformed or unknown requests are refused "
+            "fail-closed."
         ),
-        tags=("ledger", "invocation", "contract", "http", "service", "operator-plane"),
+        tags=("ledger", "invocation", "contract", "planning", "http", "service", "operator-plane"),
         last_proved_at=utc_now_iso(),
         last_proof_exit_code=0,
     )

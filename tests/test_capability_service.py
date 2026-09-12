@@ -16,6 +16,8 @@ from blackhole_agent.capability_service import (
     evaluate_contract_request,
     invoke_capability,
     load_invocable_capabilities,
+    plan_goal_program,
+    solve_goal_request,
     InvocationError,
 )
 
@@ -27,8 +29,23 @@ _TOOL = (
 
 _FAILING_TOOL = "import sys\nsys.exit(3)\n"
 
+_CHAIN_TOOL = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "print(json.dumps({'loud_text': state['reversed_text'].upper()}))\n"
+)
 
-def _write_tool(root: Path, slug: str, tool_source: str = _TOOL) -> None:
+
+def _write_tool(
+    root: Path,
+    slug: str,
+    tool_source: str = _TOOL,
+    *,
+    requires: list[str] | None = None,
+    provides: list[str] | None = None,
+) -> None:
+    requires = requires or ["raw_text"]
+    provides = provides or ["reversed_text"]
     tool_dir = root / "capabilities" / "absorbed" / slug
     tool_dir.mkdir(parents=True)
     (tool_dir / "tool.py").write_text(tool_source, encoding="utf-8")
@@ -37,14 +54,33 @@ def _write_tool(root: Path, slug: str, tool_source: str = _TOOL) -> None:
         "slug": slug,
         "name": f"fixture {slug}",
         "command": ["python", "tool.py"],
-        "requires": ["raw_text"],
-        "provides": ["reversed_text"],
+        "requires": requires,
+        "provides": provides,
         "cases": [
-            {"input": {"raw_text": "ab"}, "expect": {"reversed_text": "ba"}},
-            {"input": {"raw_text": "cd"}, "expect": {"reversed_text": "dc"}},
+            {
+                "input": {key: value for key in requires},
+                "expect": {key: "x" for key in provides},
+            }
+            for value in ("ab", "cd")
         ],
     }
     (tool_dir / "absorption.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def _write_chain_tool(root: Path) -> None:
+    _write_tool(
+        root,
+        "loud-shouter",
+        _CHAIN_TOOL,
+        requires=["reversed_text"],
+        provides=["loud_text"],
+    )
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-loud-shouter"] = _ledger_entry(
+        "capability.absorbed-loud-shouter"
+    )
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
 
 
 def _ledger_entry(capability_id: str, *, proved: bool = True) -> dict:
@@ -70,8 +106,10 @@ def _fixture_root(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     root.mkdir()
     _write_tool(root, "text-reverser")
-    _write_tool(root, "snake-case")
-    _write_tool(root, "broken-tool", _FAILING_TOOL)
+    _write_tool(root, "snake-case", requires=["raw_text"], provides=["snake_text"])
+    _write_tool(
+        root, "broken-tool", _FAILING_TOOL, requires=["raw_text"], provides=["broken_text"]
+    )
     capabilities = {
         "capability.absorbed-text-reverser": _ledger_entry("capability.absorbed-text-reverser"),
         "capability.absorbed-snake-case": _ledger_entry("capability.absorbed-snake-case"),
@@ -284,3 +322,120 @@ def test_evaluate_contract_request_direct(tmp_path: Path) -> None:
     with pytest.raises(InvocationError) as excinfo:
         evaluate_contract_request(root, "no machine predicates here")
     assert excinfo.value.status == 422
+
+
+def test_solve_derives_and_executes_single_step(server) -> None:
+    _, base = server
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+    )
+    assert status == 200
+    assert result["ok"] is True and result["solved"] is True
+    assert result["plan"] == ["capability.absorbed-text-reverser"]
+    assert result["outcome"] == {"reversed_text": "elohkcalb"}
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["response_digest"]
+    assert result["plan_digest"]
+
+
+def test_solve_derives_multi_step_chain_with_threaded_state(server) -> None:
+    root, base = server
+    _write_chain_tool(root)
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["loud_text"]},
+    )
+    assert status == 200
+    assert result["solved"] is True
+    assert result["plan"] == [
+        "capability.absorbed-text-reverser",
+        "capability.absorbed-loud-shouter",
+    ]
+    assert result["outcome"] == {"loud_text": "ELOHKCALB"}
+    assert result["steps"][1]["input"] == {"reversed_text": "elohkcalb"}
+    assert len({step["response_digest"] for step in result["steps"]}) == 2
+
+
+def test_solve_reports_unsolvable_goal_honestly(server) -> None:
+    _, base = server
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["no_such_key"]},
+    )
+    assert status == 200
+    assert result["ok"] is True and result["solved"] is False
+    assert result["plan"] is None
+    assert "steps" not in result
+
+
+def test_solve_satisfied_goal_needs_no_subprocess(server) -> None:
+    _, base = server
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"reversed_text": "elohkcalb"}, "goal": ["reversed_text"]},
+    )
+    assert status == 200
+    assert result["solved"] is True
+    assert result["plan"] == [] and result["steps"] == []
+    assert result["outcome"] == {"reversed_text": "elohkcalb"}
+
+
+def test_solve_refuses_malformed_requests(server) -> None:
+    _, base = server
+    for payload in (
+        {},
+        {"initial_state": {"raw_text": "a"}},
+        {"goal": ["reversed_text"]},
+        {"initial_state": "raw", "goal": ["reversed_text"]},
+        {"initial_state": {}, "goal": []},
+        {"initial_state": {}, "goal": ["  "]},
+        {"initial_state": {}, "goal": "reversed_text"},
+    ):
+        status, result = _request("POST", f"{base}/solve", payload)
+        assert status == 422, payload
+        assert result["ok"] is False
+
+
+def test_solve_ignores_unproved_capabilities(server) -> None:
+    _, base = server
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+    )
+    assert status == 200
+    assert "capability.absorbed-unproved" not in result["plan"]
+
+
+def test_solve_goal_request_direct_and_digest_stability(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    first = solve_goal_request(root, {"raw_text": "unbound"}, ["reversed_text"])
+    second = solve_goal_request(root, {"raw_text": "unbound"}, ["reversed_text"])
+    assert first["solved"] is True
+    assert first["outcome"] == {"reversed_text": "dnuobnu"}
+    assert first["plan_digest"] == second["plan_digest"]
+    with pytest.raises(InvocationError) as excinfo:
+        solve_goal_request(root, {"raw_text": "a"}, [])
+    assert excinfo.value.status == 422
+
+
+def test_plan_goal_program_minimality_and_honesty(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    _write_chain_tool(root)
+    invocable = load_invocable_capabilities(root)
+    direct = plan_goal_program(invocable, {"raw_text"}, ["reversed_text"])
+    assert direct == ["capability.absorbed-text-reverser"]
+    chained = plan_goal_program(invocable, {"raw_text"}, ["loud_text"])
+    assert chained == [
+        "capability.absorbed-text-reverser",
+        "capability.absorbed-loud-shouter",
+    ]
+    assert plan_goal_program(invocable, {"raw_text"}, ["missing_key"]) is None
+    assert plan_goal_program(invocable, {"reversed_text"}, ["reversed_text"]) == []
+    bounded = plan_goal_program(invocable, {"raw_text"}, ["loud_text"], max_steps=1)
+    assert bounded is None
