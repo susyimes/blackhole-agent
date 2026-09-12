@@ -42,6 +42,14 @@ worktree creation failure handling then records the error and waits the configur
 900 seconds before retrying. No repository files or locks are deleted by this
 timeout handler.
 
+Kernel turns use the same owned, file-backed capture. The per-turn Kimi, Grok,
+Codex, and Cursor CLI processes spawn their own tool descendants, so a turn that
+exceeds its `timeout_seconds` budget terminates that invocation's process tree
+instead of waiting on inherited-pipe EOF or leaving descendants writing to the
+workspace after the turn returns. Because the stream is captured to files, the
+timed-out turn's run artifacts still carry any streamed session id, so the next
+turn resumes the session rather than starting over.
+
 On 2026-09-11 the missing Cursor loop was found after Windows servicing reboots
 at 2026-09-10 21:33-21:34 +08. Its last durable update was 19:16, during a checkout
 that remained `locked initializing`; no exception/exit receipt established why

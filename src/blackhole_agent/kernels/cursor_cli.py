@@ -12,6 +12,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from blackhole_agent.process_capture import run_captured_process
+
+_DEFAULT_COMMAND_RUNNER = subprocess.run
+
 
 def resolve_cursor_binary(
     binary: str | None = None,
@@ -193,16 +197,19 @@ class CursorCliKernel:
             if not preflight["ok"]:
                 raise ValueError("; ".join(preflight["diagnostics"]))
             command = build_cursor_command(self.config, binary=preflight["binary"], cwd=cwd)
-            completed = self._command_runner(
-                command,
-                cwd=cwd,
-                input=task,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout_seconds,
-            )
+            if self._command_runner is _DEFAULT_COMMAND_RUNNER:
+                completed = run_captured_process(command, cwd=cwd, timeout=timeout_seconds, input=task)
+            else:
+                completed = self._command_runner(
+                    command,
+                    cwd=cwd,
+                    input=task,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout_seconds,
+                )
             returncode, stdout, stderr = int(completed.returncode), _text(completed.stdout), _text(completed.stderr)
         except subprocess.TimeoutExpired as exc:
             returncode, timed_out = 124, True

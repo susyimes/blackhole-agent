@@ -38,7 +38,13 @@ def _terminate_owned_tree(process: subprocess.Popen, job=None) -> str:
     return "; ".join(errors)
 
 
-def run_captured_process(command: list[str], *, cwd: Path, timeout: float) -> subprocess.CompletedProcess[str]:
+def run_captured_process(
+    command: list[str],
+    *,
+    cwd: Path,
+    timeout: float,
+    input: str | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace."""
     if timeout <= 0:
         raise ValueError("timeout must be positive")
@@ -50,6 +56,9 @@ def run_captured_process(command: list[str], *, cwd: Path, timeout: float) -> su
     ):
         job = None
         startup_error = Path(scratch) / "startup-error.json"
+        stdin_path = Path(scratch) / "stdin.txt"
+        if input is not None:
+            stdin_path.write_text(input, encoding="utf-8")
         timed_out = False
         cleanup_error = ""
         try:
@@ -57,12 +66,24 @@ def run_captured_process(command: list[str], *, cwd: Path, timeout: float) -> su
                 from blackhole_agent._windows_job import WindowsJob
 
                 job = WindowsJob()
-                process = job.start(command, cwd=cwd, stdout=stdout, stderr=stderr, error_path=startup_error)
-            else:
-                process = subprocess.Popen(
-                    command, cwd=cwd, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
-                    start_new_session=True,
+                process = job.start(
+                    command,
+                    cwd=cwd,
+                    stdout=stdout,
+                    stderr=stderr,
+                    error_path=startup_error,
+                    stdin_path=stdin_path if input is not None else None,
                 )
+            else:
+                stdin = open(stdin_path, "rb") if input is not None else subprocess.DEVNULL
+                try:
+                    process = subprocess.Popen(
+                        command, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr,
+                        start_new_session=True,
+                    )
+                finally:
+                    if input is not None:
+                        stdin.close()
             try:
                 process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:

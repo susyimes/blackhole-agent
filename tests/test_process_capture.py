@@ -26,6 +26,15 @@ def test_capture_decodes_invalid_utf8_without_crashing(tmp_path):
     assert result.stdout == "hello\ufffd"
 
 
+def test_capture_pipes_stdin_input(tmp_path):
+    result = run_captured_process(
+        [sys.executable, "-c", "import sys;sys.stdout.write(sys.stdin.read())"],
+        cwd=tmp_path, timeout=5, input="seeded prompt \u4f60\u597d",
+    )
+    assert result.returncode == 0
+    assert result.stdout == "seeded prompt \u4f60\u597d"
+
+
 def test_capture_reports_missing_executable(tmp_path):
     with pytest.raises(FileNotFoundError):
         run_captured_process([str(tmp_path / "missing-command.exe")], cwd=tmp_path, timeout=5)

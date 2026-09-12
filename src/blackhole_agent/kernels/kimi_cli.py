@@ -11,6 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from blackhole_agent.process_capture import run_captured_process
+
+# Bound at import time: tests that monkeypatch the subprocess module attribute
+# must not reroute the production default away from owned capture.
+_DEFAULT_COMMAND_RUNNER = subprocess.run
+
 
 @dataclass(frozen=True)
 class KimiCliConfig:
@@ -83,15 +89,21 @@ class KimiCliKernel:
         recorded_command = redact_prompt_argument(invocation_command, task_path=task_path)
         timed_out = False
         try:
-            completed = self._command_runner(
-                invocation_command,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout_seconds,
-            )
+            if self._command_runner is _DEFAULT_COMMAND_RUNNER:
+                # Production path: own the kernel process tree and capture to
+                # files so a timed-out turn cannot hang on an inherited-pipe
+                # EOF wait or leave descendants writing after return.
+                completed = run_captured_process(invocation_command, cwd=cwd, timeout=timeout_seconds)
+            else:
+                completed = self._command_runner(
+                    invocation_command,
+                    cwd=cwd,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout_seconds,
+                )
             returncode = int(completed.returncode)
             stdout = completed.stdout or ""
             stderr = completed.stderr or ""

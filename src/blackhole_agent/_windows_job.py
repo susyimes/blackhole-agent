@@ -86,7 +86,16 @@ class WindowsJob:
             self.close()
             raise error
 
-    def start(self, command: list[str], *, cwd: Path, stdout, stderr, error_path: Path) -> subprocess.Popen:
+    def start(
+        self,
+        command: list[str],
+        *,
+        cwd: Path,
+        stdout,
+        stderr,
+        error_path: Path,
+        stdin_path: Path | None = None,
+    ) -> subprocess.Popen:
         # A venv redirector can spawn the real interpreter before assignment.
         # Start the base interpreter directly; the bootstrap needs only stdlib.
         interpreter = getattr(sys, "_base_executable", None) or sys.executable
@@ -99,7 +108,8 @@ class WindowsJob:
             if not self.api.AssignProcessToJobObject(self.handle, int(process._handle)):
                 raise ctypes.WinError(ctypes.get_last_error())
             # Nothing in the requested command runs before job membership exists.
-            process.stdin.write(json.dumps(command).encode("utf-8"))
+            payload = {"command": command, "stdin": str(stdin_path) if stdin_path is not None else None}
+            process.stdin.write(json.dumps(payload).encode("utf-8"))
             process.stdin.close()
         except BaseException:
             process.kill()
@@ -170,15 +180,24 @@ def _bootstrap() -> int:
     raw = sys.stdin.buffer.read()
     if not raw:  # Controller disappeared before granting ownership.
         return 1
-    command = json.loads(raw.decode("utf-8"))
+    payload = json.loads(raw.decode("utf-8"))
+    if isinstance(payload, list):  # Legacy payload: bare command list.
+        command, stdin_source = payload, None
+    else:
+        command, stdin_source = payload["command"], payload.get("stdin")
+    stdin = open(stdin_source, "rb") if stdin_source else subprocess.DEVNULL
     try:
-        child = subprocess.Popen(command, stdin=subprocess.DEVNULL)
+        child = subprocess.Popen(command, stdin=stdin)
     except OSError as error:
+        if stdin is not subprocess.DEVNULL:
+            stdin.close()
         Path(sys.argv[1]).write_text(json.dumps({
             "errno": error.errno, "message": error.strerror,
             "filename": error.filename, "winerror": error.winerror,
         }), encoding="utf-8")
         return 1
+    if stdin is not subprocess.DEVNULL:
+        stdin.close()
     return child.wait()
 
 

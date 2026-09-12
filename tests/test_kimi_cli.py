@@ -130,6 +130,28 @@ def test_kimi_kernel_preserves_failure_artifact_before_raising(tmp_path, monkeyp
     assert payload["session_id"] == ""
 
 
+def test_kimi_default_runner_uses_owned_bounded_capture(tmp_path, monkeypatch):
+    monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.shutil.which", lambda _: "C:/tools/kimi.exe")
+    seen = {}
+
+    def capture(command, *, cwd, timeout, input=None):
+        seen["command"] = command
+        seen["cwd"] = cwd
+        seen["timeout"] = timeout
+        return subprocess.CompletedProcess(command, 0, stdout=kimi_stream("Owned turn."), stderr="")
+
+    monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.run_captured_process", capture)
+    result = KimiCliKernel(KimiCliConfig(model="kimi-model")).run(
+        "Turn task.", cwd=tmp_path, output_dir=tmp_path / "out", timeout_seconds=42,
+    )
+
+    assert result.returncode == 0
+    assert result.last_message == "Owned turn."
+    assert result.session_id == "session-kimi-123"
+    assert seen["cwd"] == tmp_path
+    assert seen["timeout"] == 42
+
+
 def test_kimi_preflight_requires_binary_and_explicit_model(monkeypatch):
     monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.shutil.which", lambda _: None)
     preflight = build_kimi_provider_preflight(KimiCliConfig(require_explicit_route=True), env={})

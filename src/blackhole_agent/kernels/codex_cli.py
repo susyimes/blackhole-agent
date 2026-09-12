@@ -16,6 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from blackhole_agent.process_capture import run_captured_process
+
+_DEFAULT_COMMAND_RUNNER = subprocess.run
+
 
 LOGGER = logging.getLogger(__name__)
 PLACEHOLDER_SECRET_VALUES = frozenset(
@@ -202,14 +206,17 @@ class CodexCliKernel:
         )
         timed_out = False
         try:
-            completed = self._command_runner(
-                command,
-                cwd=cwd,
-                input=task,
-                capture_output=True,
-                text=True,
-                timeout=timeout_seconds,
-            )
+            if self._command_runner is _DEFAULT_COMMAND_RUNNER:
+                completed = run_captured_process(command, cwd=cwd, timeout=timeout_seconds, input=task)
+            else:
+                completed = self._command_runner(
+                    command,
+                    cwd=cwd,
+                    input=task,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_seconds,
+                )
             returncode = int(completed.returncode)
             stdout = completed.stdout or ""
             stderr = completed.stderr or ""

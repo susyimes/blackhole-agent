@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from blackhole_agent.process_capture import run_captured_process
+
+_DEFAULT_COMMAND_RUNNER = subprocess.run
+
 
 @dataclass(frozen=True)
 class GrokCliConfig:
@@ -85,15 +89,18 @@ class GrokCliKernel:
         command = build_grok_command(self.config, cwd=cwd, prompt_file=task_path)
         timed_out = False
         try:
-            completed = self._command_runner(
-                command,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=timeout_seconds,
-            )
+            if self._command_runner is _DEFAULT_COMMAND_RUNNER:
+                completed = run_captured_process(command, cwd=cwd, timeout=timeout_seconds)
+            else:
+                completed = self._command_runner(
+                    command,
+                    cwd=cwd,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout_seconds,
+                )
             returncode = int(completed.returncode)
             stdout = completed.stdout or ""
             stderr = completed.stderr or ""
