@@ -1340,6 +1340,11 @@ from blackhole_agent.loop_login_rollup_repair import (
     LOOP_LOGIN_ROLLUP_REPAIR_GOAL,
     LOOP_LOGIN_ROLLUP_REPAIR_ID,
 )
+from blackhole_agent.loop_login_rollup_journal import (
+    LOOP_LOGIN_ROLLUP_JOURNAL_DONE_WHEN,
+    LOOP_LOGIN_ROLLUP_JOURNAL_GOAL,
+    LOOP_LOGIN_ROLLUP_JOURNAL_ID,
+)
 from blackhole_agent.local_capability_kernel import _write_fixture_ledger
 from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
@@ -2916,6 +2921,12 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "goal": LOOP_LOGIN_ROLLUP_REPAIR_GOAL,
         "done_when": LOOP_LOGIN_ROLLUP_REPAIR_DONE_WHEN,
         "source": "genesis_bind_loop_login_rollup_repair",
+    },
+    {
+        "id": LOOP_LOGIN_ROLLUP_JOURNAL_ID,
+        "goal": LOOP_LOGIN_ROLLUP_JOURNAL_GOAL,
+        "done_when": LOOP_LOGIN_ROLLUP_JOURNAL_DONE_WHEN,
+        "source": "genesis_bind_loop_login_rollup_journal",
     },
 )
 

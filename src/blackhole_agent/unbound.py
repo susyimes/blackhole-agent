@@ -3291,6 +3291,17 @@ def loop_login_verify(
     console.print_json(data=result)
 
 
+@app.command(help="Correct a drifted login-scrub audit trail rollup against the trail it summarizes.")
+def loop_login_rollup_repair(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository whose login-scrub audit trail rollup is repaired."),
+    output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable Unbound state root."),
+) -> None:
+    from blackhole_agent.loop_login_rollup_repair import repair_login_audit_rollup
+
+    result = repair_login_audit_rollup(mission_root(repo_path.resolve(), output_dir))
+    console.print_json(data=result)
+
+
 @app.command(
     "worktrees-gc",
     help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",
