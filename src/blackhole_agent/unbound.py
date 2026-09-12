@@ -932,6 +932,14 @@ def create_mission(
         worktree_setup_recovered = True
     base_head = git_head(workspace, command_runner=command_runner)
     ensure_git_longpaths(workspace, command_runner=command_runner)
+    try:
+        from blackhole_agent.validation_env import ensure_validation_environment
+
+        ensure_validation_environment(workspace, command_runner=command_runner)
+    except Exception:
+        # tooling repair must never block mission creation; the validation
+        # replay path retries it before re-executing reported commands
+        pass
     root = mission_root(repo_path, output_dir)
     mission_dir = root / "missions" / mission_id
     state_path = mission_dir / "state.json"
@@ -1442,6 +1450,15 @@ def reproduce_validation(
     """
 
     from blackhole_agent.validation_replay import WITNESS_TIMEOUT_SECONDS, reproduce_resilient
+
+    try:
+        from blackhole_agent.validation_env import ensure_validation_environment
+
+        ensure_validation_environment(workspace, command_runner=command_runner)
+    except Exception:
+        # replay still proceeds; a genuinely broken environment fails the
+        # replayed command, which is itself the honest verdict
+        pass
 
     return reproduce_resilient(
         workspace,
