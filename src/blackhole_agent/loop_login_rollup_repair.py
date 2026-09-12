@@ -285,6 +285,7 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
                 report.update(reason="journal_write_failed", error=journaled["error"])
                 return report
             report["repair_journaled"] = True
+            report["journal_prune"] = journaled.get("journal_prune")
             os.replace(tmp_name, path)
         finally:
             try:
@@ -303,6 +304,7 @@ def repair_login_audit_rollup(root: Path | None = None) -> dict[str, Any]:
     report["post_verification"] = post
     completed = complete_login_rollup_repair(root, corrected["repair_id"])
     report["repair_journal_completed"] = completed["journaled"]
+    report["journal_completion_prune"] = completed.get("journal_prune")
     if not completed["journaled"]:
         report["journal_completion_error"] = completed["error"]
     return report

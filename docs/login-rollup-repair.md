@@ -36,7 +36,39 @@ Readback does not modify files. Torn or invalid journal lines are counted
 in `malformed_count`; appending a later repair preserves the torn bytes
 and starts a new line. Unreadable journals report `journal_read_failed`.
 
-Repeated repairs append history. Later trail compaction leaves that history
-intact. Already verified, missing, malformed, or unrepairable trails add no
-receipt. Repair touches the selected audit trail and journal; it does not
-change owner state, owner locks, registrations, launchers, or scheduled tasks.
+Each successful receipt or completion append also prunes completed repairs
+older than **365 days**. Age is measured from the latest receipt or completion
+timestamp, not from the dates inside the drifted claims. The exact cutoff
+day is retained. A receipt and its completion markers expire together, so
+completion markers cannot accumulate on their own. Legacy applied receipts
+without a state or repair ID also expire.
+
+Recent repairs, unresolved `prepared` attempts, ambiguous duplicate IDs,
+unknown schemas, invalid or missing dates, unrelated records, and malformed
+bytes are preserved. This bounds normal repair history by age; unresolved or
+uninterpretable evidence requires operator investigation and is not subject
+to a hard size cap. Retained lines remain byte-identical. Readback stays
+read-only, and trail compaction does not modify the journal.
+
+For an idle journal, or a custom retention window of at least one day:
+
+```powershell
+uv run blackhole-unbound loop-login-journal-prune --repo-path C:\repo --output-dir C:\repo\login-state --retention-days 365
+```
+
+The prune report includes `pruned_count` (receipts), `pruned_marker_count`,
+`kept_count`, and `reason`. Repair exposes the append's maintenance reports
+as `journal_prune` and `journal_completion_prune`. A maintenance write failure
+reports `journal_write_failed` without invalidating a receipt already synced
+or a repair already applied. Retry pruning after storage recovers.
+
+Pruning syncs a temporary file before atomic replacement. Appends and pruning
+share the dedicated `login-rollup-repair-journal.jsonl.guard` OS lock; this
+constant-size file must remain in place to serialize writers. A process exit
+releases the OS lock automatically; contention waits up to five seconds and
+then reports a failure for retry. No PID lock is acquired or changed.
+
+Already verified, missing, malformed, or unrepairable trails add no receipt.
+Repair and retention touch only the selected audit trail, journal, and journal
+guard; they do not change owner state, owner locks, registrations, launchers,
+or scheduled tasks, and never follow repo paths recorded in old claims.

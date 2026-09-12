@@ -33057,6 +33057,38 @@
       ],
       "updated_at": "2026-09-11T19:00:08.172051Z"
     },
+    "capability.loop-login-journal-prune": {
+      "behavior_paths": [
+        "src/blackhole_agent/loop_login_journal_prune.py",
+        "src/blackhole_agent/loop_login_rollup_journal.py",
+        "src/blackhole_agent/loop_login_rollup_repair.py",
+        "src/blackhole_agent/unbound.py"
+      ],
+      "capability_delta": "Every receipt/completion append expires completed repair groups older than 365 days; standalone pruning supports idle journals and custom retention. Atomic guarded replacement preserves concurrent appends, recent and uncertain evidence, and live-owner files.",
+      "created_at": "2026-09-12T01:17:31.927507Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.loop-login-rollup-journal"
+      ],
+      "description": "A login-scrub audit trail's rollup repair journal is pruned of aged repair records so the journal stays bounded without disturbing a live owner pid in any surviving repo.",
+      "entry": "blackhole_agent.loop_login_journal_prune:prune_login_rollup_repair_journal",
+      "id": "capability.loop-login-journal-prune",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-09-12T01:17:31.927484Z",
+      "name": "Login rollup repair journal retention",
+      "proof_command": "uv run python -c \"import runpy; r=runpy.run_path('tests/acceptance/test_loop_login_journal_prune.py')['probe'](); print(r); assert r['passed']\"",
+      "source_milestone": 1,
+      "source_mission_id": "20260912T010619Z-22322382",
+      "tags": [
+        "login",
+        "audit",
+        "journal",
+        "retention"
+      ],
+      "updated_at": "2026-09-12T01:17:31.927507Z"
+    },
     "capability.loop-login-prune": {
       "behavior_paths": [
         "src/blackhole_agent/loop_login_prune.py",
@@ -47743,5 +47775,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-09-12T00:49:19.741717Z"
+  "updated_at": "2026-09-12T01:17:31.930538Z"
 }

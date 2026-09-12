@@ -14,15 +14,19 @@ linking the receipt to the replacement in the trail. The journal lives
 outside the audit trail so the trail stays small, an intact or unrepairable
 trail journals nothing, and only
 the audit root's own files are touched, so a live owner pid in any
-surviving repo is never disturbed.
+surviving repo is never disturbed. Appends expire aged completed receipts
+and markers; recent, unresolved and uncertain evidence remains intact.
 """
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -84,6 +88,41 @@ def is_login_rollup_repair_journal_entry(record: dict[str, Any]) -> bool:
     )
 
 
+@contextmanager
+def repair_journal_guard(path: Path) -> Iterator[None]:
+    """Serialize journal appends/replacement without acquiring owner locks.
+
+    This constant-size sidecar stays in place so competing processes always
+    lock the same inode. The OS releases the lock if its holder exits.
+    """
+    with path.with_suffix(path.suffix + ".guard").open("a+b") as guard:
+        if os.name == "nt":
+            import msvcrt
+        else:
+            import fcntl
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                guard.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(guard.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as error:
+                if error.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK} or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.01)
+        try:
+            yield
+        finally:
+            guard.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(guard.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+
+
 def record_login_rollup_repair(
     root: Path | None,
     *,
@@ -104,8 +143,8 @@ def record_login_rollup_repair(
     without reconstructing the drifted claims by hand. Repair calls this
     with state=prepared before replacement; repaired_at is then the
     proposed correction time, not proof that replacement completed.
-    Only the journal log is appended; nothing else in any repo is touched, so a live owner
-    pid in any surviving repo is never disturbed.
+    The journal is appended and aged completed repairs are pruned under a
+    dedicated journal guard; live-owner state and PID locks are untouched.
     """
 
     entry = {
@@ -137,15 +176,16 @@ def _append_repair_journal(root: Path | None, entry: dict[str, Any]) -> dict[str
     path = login_rollup_repair_journal_path(root)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a+b") as handle:
-            prefix = b""
-            if handle.tell():
-                handle.seek(-1, os.SEEK_END)
-                if handle.read(1) != b"\n":
-                    prefix = b"\n"
-            handle.write(prefix + (json.dumps(entry, sort_keys=True) + "\n").encode("utf-8"))
-            handle.flush()
-            os.fsync(handle.fileno())
+        with repair_journal_guard(path):
+            with path.open("a+b") as handle:
+                prefix = b""
+                if handle.tell():
+                    handle.seek(-1, os.SEEK_END)
+                    if handle.read(1) != b"\n":
+                        prefix = b"\n"
+                handle.write(prefix + (json.dumps(entry, sort_keys=True) + "\n").encode("utf-8"))
+                handle.flush()
+                os.fsync(handle.fileno())
     except OSError as error:
         return {
             "action": "rollup_repair_journal",
@@ -154,12 +194,18 @@ def _append_repair_journal(root: Path | None, entry: dict[str, Any]) -> dict[str
             "journal_path": str(path),
             "error": str(error),
         }
+    from blackhole_agent.loop_login_journal_prune import prune_login_rollup_repair_journal
+
+    # Retention failure cannot invalidate the receipt already synced above.
+    # A prepared receipt stays protected until completion, even if backdated.
+    prune = prune_login_rollup_repair_journal(root)
     return {
         "action": "rollup_repair_journal",
         "journaled": True,
         "reason": "prepared" if entry.get("state") == "prepared" else "repaired",
         "journal_path": str(path),
         "entry": entry,
+        "journal_prune": prune,
     }
 
 
