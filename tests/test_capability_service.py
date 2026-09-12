@@ -13,6 +13,7 @@ import pytest
 from blackhole_agent.capability_service import (
     build_server,
     capability_listing,
+    evaluate_contract_request,
     invoke_capability,
     load_invocable_capabilities,
     InvocationError,
@@ -50,6 +51,7 @@ def _ledger_entry(capability_id: str, *, proved: bool = True) -> dict:
     return {
         "id": capability_id,
         "name": capability_id,
+        "description": f"fixture {capability_id}",
         "kind": "python",
         "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
         "proof_command": "uv run python -c \"pass\"",
@@ -212,3 +214,73 @@ def test_listing_digest_is_stable(tmp_path: Path) -> None:
     first = capability_listing(root)
     second = capability_listing(root)
     assert first["listing_digest"] == second["listing_digest"]
+
+
+def _write_program_capability(root: Path) -> None:
+    (root / "fixture_unit_cap.py").write_text(
+        "def run():\n    return {'ok': True, 'echo': 'fixture'}\n", encoding="utf-8"
+    )
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    entry = _ledger_entry("capability.fixture-program")
+    entry["entry"] = "fixture_unit_cap:run"
+    ledger["capabilities"]["capability.fixture-program"] = entry
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
+
+def test_contract_endpoint_machine_checks_done_when(server) -> None:
+    root, base = server
+    _write_program_capability(root)
+    status, verdict = _request(
+        "POST",
+        f"{base}/contract",
+        {"done_when": "program_passes:capability.fixture-program;no_skill_route"},
+    )
+    assert status == 200
+    assert verdict["met"] is True
+    assert verdict["used_skill_route_discovery"] is False
+    assert verdict["contract_digest"]
+    by_kind = {item["kind"]: item["passed"] for item in verdict["results"]}
+    assert by_kind == {"program_passes": True, "no_skill_route": True}
+
+
+def test_contract_endpoint_reports_unmet_program(server) -> None:
+    _, base = server
+    status, verdict = _request(
+        "POST",
+        f"{base}/contract",
+        {"done_when": "program_passes:capability.absorbed-does-not-exist;no_skill_route"},
+    )
+    assert status == 200
+    assert verdict["met"] is False
+    assert verdict["failed_count"] == 1
+
+
+def test_contract_endpoint_refuses_non_machine_contracts(server) -> None:
+    _, base = server
+    for payload in (
+        {"done_when": ""},
+        {"done_when": "   "},
+        {"done_when": "the ledger feels healthy"},
+        {"done_when": 42},
+        {},
+    ):
+        status, result = _request("POST", f"{base}/contract", payload)
+        assert status == 422, payload
+        assert result["ok"] is False
+
+
+def test_evaluate_contract_request_direct(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    _write_program_capability(root)
+    verdict = evaluate_contract_request(
+        root, "program_passes:capability.fixture-program;no_skill_route"
+    )
+    assert verdict["met"] is True
+    assert verdict["ok"] is True
+    with pytest.raises(InvocationError) as excinfo:
+        evaluate_contract_request(root, "")
+    assert excinfo.value.status == 422
+    with pytest.raises(InvocationError) as excinfo:
+        evaluate_contract_request(root, "no machine predicates here")
+    assert excinfo.value.status == 422

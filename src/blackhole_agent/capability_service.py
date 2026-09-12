@@ -15,9 +15,15 @@ module turns the ledger into a service:
   command runs as a real subprocess against the vendored tree, and the
   declared ``provides`` fragment is returned with a response digest binding
   capability id, input, and output.
+- ``POST /contract`` machine-evaluates a semicolon-separated done_when outcome
+  contract against the served ledger: ``program_passes`` steps execute for real
+  (isolated subprocesses against the ledger's own entries), and the verdict
+  carries per-predicate results, the skill-route attestation, and a contract
+  digest binding the done_when text to the evaluated predicates and verdict.
 - The plane is fail-closed: unknown, unproved, or non-absorbed capability
-  ids, malformed bodies, and missing/extra input keys all return a non-2xx
-  JSON error and never spawn a subprocess.
+  ids, malformed bodies, missing/extra input keys, and empty or
+  non-machine-checkable done_when texts all return a non-2xx JSON error and
+  never spawn a subprocess.
 
 Determinism contract: listing digests and response digests are pure
 functions of ledger content and invocation payload; durations and
@@ -44,6 +50,7 @@ from blackhole_agent.capability_absorption import (
 from blackhole_agent.capability_compounder import (
     Capability,
     default_ledger_path,
+    evaluate_outcome_contract,
     load_ledger,
     register_capability,
     save_ledger,
@@ -56,6 +63,7 @@ SERVICE_CAPABILITY_NAME = "Live HTTP invocation plane for the compounded ledger"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ABSORBED_ID_PREFIX = "capability.absorbed-"
 INVOKE_TIMEOUT_SECONDS = 30
+CONTRACT_TIMEOUT_SECONDS = 120
 MAX_BODY_BYTES = 1 << 20
 
 
@@ -220,6 +228,49 @@ def invoke_capability(
     }
 
 
+def evaluate_contract_request(
+    root: Path,
+    done_when: Any,
+    *,
+    timeout: int = CONTRACT_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """Machine-evaluate a done_when outcome contract against the served ledger.
+
+    ``program_passes`` predicates execute for real via the outcome-contract
+    evaluator; the response distills the verdict and binds it with a digest.
+    Empty or non-machine-checkable contracts are refused before any program
+    step runs.
+    """
+
+    if not isinstance(done_when, str) or not done_when.strip():
+        raise InvocationError(422, "done_when must be a non-empty string")
+    text = done_when.strip()
+    result = evaluate_outcome_contract(
+        Path(root).resolve(), text, run_programs=True, timeout=timeout
+    )
+    if not result.get("machine_checkable"):
+        raise InvocationError(422, "done_when has no machine-checkable predicates")
+    verdict = {
+        "ok": bool(result.get("ok")) and not result.get("used_skill_route_discovery"),
+        "done_when": text,
+        "met": result.get("met"),
+        "passed_count": result.get("passed_count"),
+        "failed_count": result.get("failed_count"),
+        "predicate_count": result.get("predicate_count"),
+        "results": result.get("results") or [],
+        "used_skill_route_discovery": bool(result.get("used_skill_route_discovery")),
+    }
+    verdict["contract_digest"] = _digest(
+        {
+            "done_when": text,
+            "met": verdict["met"],
+            "results": verdict["results"],
+            "used_skill_route_discovery": verdict["used_skill_route_discovery"],
+        }
+    )
+    return verdict
+
+
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any]) -> None:
     body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
     handler.send_response(status)
@@ -250,7 +301,7 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
             _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path != "/invoke":
+            if self.path not in {"/invoke", "/contract"}:
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
             try:
@@ -270,9 +321,12 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                 _json_response(self, 400, {"ok": False, "error": "body must be a JSON object"})
                 return
             try:
-                result = invoke_capability(
-                    service_root, body.get("capability_id"), body.get("input")
-                )
+                if self.path == "/contract":
+                    result = evaluate_contract_request(service_root, body.get("done_when"))
+                else:
+                    result = invoke_capability(
+                        service_root, body.get("capability_id"), body.get("input")
+                    )
             except InvocationError as exc:
                 _json_response(self, exc.status, {"ok": False, "error": exc.error})
                 return
@@ -309,22 +363,30 @@ def serve(root: Path, *, port: int = 0, host: str = "127.0.0.1") -> int:
     return 0
 
 
-def _http_request(method: str, url: str, payload: Mapping[str, Any] | None = None) -> tuple[int, Any]:
+def _http_request(
+    method: str,
+    url: str,
+    payload: Mapping[str, Any] | None = None,
+    *,
+    timeout: int = 30,
+) -> tuple[int, Any]:
     from urllib import request as urlrequest
-    from urllib.error import HTTPError
+    from urllib.error import HTTPError, URLError
 
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     req = urlrequest.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
     try:
-        with urlrequest.urlopen(req, timeout=30) as response:
+        with urlrequest.urlopen(req, timeout=timeout) as response:
             return response.status, json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         try:
             return exc.code, json.loads(exc.read().decode("utf-8"))
         except json.JSONDecodeError:
             return exc.code, None
+    except (URLError, TimeoutError, OSError):
+        return 0, None
 
 
 def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]:
@@ -370,6 +432,40 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
             {"capability_id": target_id, "input": {"wrong_key": "x"}},
         )
         checks["bad_input_refused"] = status == 422 and isinstance(bad_keys, dict) and not bad_keys.get("ok")
+        status, contract = _http_request(
+            "POST",
+            f"{base}/contract",
+            {"done_when": "program_passes:capability.ledger-inventory;no_skill_route"},
+            timeout=CONTRACT_TIMEOUT_SECONDS + 30,
+        )
+        checks["contract_met"] = (
+            status == 200
+            and isinstance(contract, dict)
+            and contract.get("met") is True
+            and contract.get("used_skill_route_discovery") is False
+            and bool(contract.get("contract_digest"))
+        )
+        detail["contract"] = contract
+        status, unmet = _http_request(
+            "POST",
+            f"{base}/contract",
+            {"done_when": "program_passes:capability.absorbed-does-not-exist;no_skill_route"},
+        )
+        checks["unmet_contract_reported"] = (
+            status == 200 and isinstance(unmet, dict) and unmet.get("met") is False
+        )
+        status, refused_contract = _http_request("POST", f"{base}/contract", {"done_when": "  "})
+        checks["empty_contract_refused"] = (
+            status == 422
+            and isinstance(refused_contract, dict)
+            and not refused_contract.get("ok")
+        )
+        status, free_text = _http_request(
+            "POST", f"{base}/contract", {"done_when": "the ledger is healthy"}
+        )
+        checks["non_machine_contract_refused"] = (
+            status == 422 and isinstance(free_text, dict) and not free_text.get("ok")
+        )
     finally:
         server.shutdown()
         server.server_close()
@@ -403,11 +499,15 @@ def ensure_capability_service_capability(*, repo_path: Path | None = None) -> Ca
         description=(
             "The compounded ledger answers real HTTP clients: GET /capabilities "
             "lists every proved absorbed capability with its requires/provides "
-            "contract and a listing digest, and POST /invoke executes one "
+            "contract and a listing digest, POST /invoke executes one "
             "absorbed capability as a real subprocess against its vendored "
             "tree, returning the declared provides fragment with a response "
-            "digest. Unknown, unproved, or non-absorbed ids and malformed "
-            "inputs are refused fail-closed without spawning a subprocess."
+            "digest, and POST /contract machine-evaluates a done_when outcome "
+            "contract with real program_passes execution, per-predicate "
+            "verdicts, skill-route attestation, and a contract digest. "
+            "Unknown, unproved, or non-absorbed ids, malformed inputs, and "
+            "empty or non-machine-checkable contracts are refused fail-closed "
+            "without spawning a subprocess."
         ),
         kind="python",
         entry="blackhole_agent.capability_service:builtin_capability_service_proof",
@@ -423,11 +523,14 @@ def ensure_capability_service_capability(*, repo_path: Path | None = None) -> Ca
         ),
         capability_delta=(
             "Proved ledger capabilities are callable from outside the proof "
-            "harness: an external HTTP client can discover the invocable set "
-            "and execute an absorbed tool end-to-end, with strict input "
-            "validation and fail-closed refusals for unknown or unproved ids."
+            "harness: an external HTTP client can discover the invocable set, "
+            "execute an absorbed tool end-to-end, and machine-check a "
+            "done_when outcome contract with real program_passes execution "
+            "and skill-route attestation, with strict input validation and "
+            "fail-closed refusals for unknown or unproved ids and for empty "
+            "or non-machine-checkable contracts."
         ),
-        tags=("ledger", "invocation", "http", "service", "operator-plane"),
+        tags=("ledger", "invocation", "contract", "http", "service", "operator-plane"),
         last_proved_at=utc_now_iso(),
         last_proof_exit_code=0,
     )
