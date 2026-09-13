@@ -147,6 +147,59 @@ def test_import_refuses_duplicate_registration(tmp_path: Path) -> None:
     assert again["ok"] is True
 
 
+def _reseal(payload: dict) -> dict:
+    import hashlib
+
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return {**payload, "bundle_digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest()}
+
+
+def test_import_reproves_in_target_and_records_evidence(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    _source_workspace(source)
+    export_capability_bundle(source, "capability.absorbed-text-reverser", tmp_path / "bundle.json")
+
+    outcome = import_capability_bundle(tmp_path / "bundle.json", target)
+    assert outcome["reproof"] == {"cases_passed": 2, "cases_total": 2}
+    ledger = json.loads((target / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    entry = ledger["capabilities"]["capability.absorbed-text-reverser"]
+    assert entry["import_reproof"]["cases_passed"] == entry["import_reproof"]["cases_total"] == 2
+
+
+def test_import_refuses_sealed_but_misbehaving_bundle(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    _source_workspace(source)
+    export_capability_bundle(source, "capability.absorbed-text-reverser", tmp_path / "bundle.json")
+
+    import base64
+    import hashlib
+
+    bundle = json.loads((tmp_path / "bundle.json").read_text(encoding="utf-8"))
+    payload = {key: value for key, value in bundle.items() if key != "bundle_digest"}
+    # A legitimately sealed bundle whose tool contradicts its frozen cases:
+    # it echoes the input instead of reversing it.
+    bad_tool = b"import json,sys\nprint(json.dumps({'reversed_text': json.loads(sys.stdin.read())['raw_text']}))\n"
+    payload["files"]["tool.py"] = {
+        "sha256": hashlib.sha256(bad_tool).hexdigest(),
+        "content_b64": base64.b64encode(bad_tool).decode("ascii"),
+    }
+    (tmp_path / "misbehaving.json").write_text(json.dumps(_reseal(payload)), encoding="utf-8")
+
+    with pytest.raises(BundleError) as caught:
+        import_capability_bundle(tmp_path / "misbehaving.json", target)
+    assert caught.value.verdict == "reproof_failed"
+    assert not (target / "capabilities" / "ledger.json").exists()
+    assert not (target / "capabilities" / "absorbed" / "text-reverser").exists()
+    leftover_staging = list((target / "capabilities" / "absorbed").glob(".bundle-staging-*"))
+    assert leftover_staging == []
+
+
 def test_import_refuses_traversal_paths(tmp_path: Path) -> None:
     source = tmp_path / "source"
     target = tmp_path / "target"

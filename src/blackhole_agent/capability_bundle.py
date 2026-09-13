@@ -14,12 +14,15 @@ carries everything a bare checkout needs to serve the capability:
   capability twice from the same tree yields the same digest.
 - ``import_capability_bundle`` verifies the seal and every per-file digest
   *before writing anything*, refuses duplicate registrations and path
-  traversal, materializes the vendored tree under the target's
-  ``capabilities/absorbed/<slug>/``, and only then registers the capability
-  in the target ledger (proved, with import provenance). A crash between
-  tree materialization and ledger registration leaves an unregistered tree —
-  never an invocable-but-untracked capability, because invocability requires
-  both.
+  traversal, and then **re-proves the capability in the target checkout**:
+  the bundle is staged in a temporary sibling tree, its manifest is
+  re-validated, and every frozen case is re-executed for real under the
+  plane's governed resource bounds. Only when all cases pass does the staged
+  tree move into ``capabilities/absorbed/<slug>/`` and the target ledger
+  register the capability — proved status in the target is earned by local
+  execution, not copied from the source ledger. A sealed-but-misbehaving
+  bundle (valid digests, wrong behavior) is refused with a ``reproof_failed``
+  verdict and the target is left exactly as it was.
 - Imported capabilities are immediately invocable through the existing
   governed machinery (:func:`blackhole_agent.capability_service.invoke_capability`)
   — same scrubbed environment, same resource limits — because import
@@ -36,13 +39,27 @@ import argparse
 import base64
 import hashlib
 import json
+import shutil
 import sys
+import tempfile
 from pathlib import Path, PurePosixPath
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from blackhole_agent.capability_absorption import load_manifest
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
-from blackhole_agent.capability_service import ABSORBED_ID_PREFIX, absorbed_root
+from blackhole_agent.capability_service import (
+    ABSORBED_ID_PREFIX,
+    absorbed_root,
+    _run_governed_case,
+)
+from blackhole_agent.process_capture import ResourceLimits
+
+REPROOF_TIMEOUT_SECONDS = 30
+REPROOF_LIMITS = ResourceLimits(
+    memory_bytes=256 << 20,
+    max_processes=32,
+    cpu_seconds=25,
+)
 
 BUNDLE_SCHEMA_VERSION = 1
 BUNDLE_KIND = "capability-bundle"
@@ -200,15 +217,35 @@ def verify_capability_bundle(bundle_path: Path) -> dict[str, Any]:
     }
 
 
+def _reproof_staged_tree(staging: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+    """Re-execute every frozen case in the staged tree under governed bounds."""
+
+    results = [
+        _run_governed_case(
+            staging, manifest["command"], case, REPROOF_LIMITS, REPROOF_TIMEOUT_SECONDS
+        )
+        for case in manifest["cases"]
+    ]
+    failures = [
+        {"case": index, "error": result.get("error", "unknown")}
+        for index, result in enumerate(results)
+        if not result.get("ok")
+    ]
+    return {"cases_passed": len(results) - len(failures), "cases_total": len(results), "failures": failures}
+
+
 def import_capability_bundle(
     bundle_path: Path, target_root: Path, *, overwrite: bool = False
 ) -> dict[str, Any]:
     """Import a verified bundle into a bare target checkout, fail-closed.
 
     Verification (seal, per-file digests, path safety, duplicate policy)
-    completes before anything is written; the vendored tree is materialized
-    before the ledger entry so an interrupted import never leaves an
-    invocable capability that the target ledger does not track.
+    completes before anything is written. The vendored tree is then staged
+    in a temporary sibling directory and re-proved locally — every frozen
+    manifest case re-executes under the plane's governed resource bounds —
+    so the target's proved status is earned by its own execution evidence.
+    Only a fully re-proved tree moves into place and registers in the
+    target ledger; any earlier failure leaves the target untouched.
     """
 
     summary = verify_capability_bundle(bundle_path)
@@ -220,19 +257,34 @@ def import_capability_bundle(
     document = _load_ledger_document(target_root)
     if capability_id in document["capabilities"] and not overwrite:
         raise BundleError("duplicate", f"target ledger already registers {capability_id}")
-    tool_root = absorbed_root(target_root) / slug
-    tool_root.mkdir(parents=True, exist_ok=True)
-    for relative, record in payload["files"].items():
-        destination = tool_root / PurePosixPath(relative)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(base64.b64decode(record["content_b64"]))
-    # Re-validate the materialized manifest against the absorption schema so a
-    # bundle whose files hash correctly but describe an invalid tool still
-    # fails closed before registration.
+    parent = absorbed_root(target_root)
+    parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=".bundle-staging-", dir=parent))
     try:
-        load_manifest(tool_root)
-    except ValueError as exc:
-        raise BundleError("manifest_invalid", f"materialized manifest is invalid: {exc}")
+        for relative, record in payload["files"].items():
+            destination = staging / PurePosixPath(relative)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(base64.b64decode(record["content_b64"]))
+        # Re-validate the staged manifest against the absorption schema so a
+        # bundle whose files hash correctly but describe an invalid tool still
+        # fails closed before registration.
+        try:
+            manifest = load_manifest(staging)
+        except ValueError as exc:
+            raise BundleError("manifest_invalid", f"staged manifest is invalid: {exc}")
+        reproof = _reproof_staged_tree(staging, manifest)
+        if reproof["failures"]:
+            raise BundleError(
+                "reproof_failed",
+                f"import-time re-proof failed in target checkout: {reproof['failures']}",
+            )
+        tool_root = parent / slug
+        if tool_root.exists():
+            shutil.rmtree(tool_root)
+        staging.replace(tool_root)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
     registration = dict(payload["registration"])
     registration.update(
         {
@@ -240,6 +292,11 @@ def import_capability_bundle(
             "last_proof_exit_code": 0,
             "origin": "capability-bundle-import",
             "imported_bundle_digest": summary["bundle_digest"],
+            "import_reproof": {
+                "cases_passed": reproof["cases_passed"],
+                "cases_total": reproof["cases_total"],
+                "proved_at": utc_now_iso(),
+            },
             "imported_at": utc_now_iso(),
             "updated_at": utc_now_iso(),
         }
@@ -253,6 +310,7 @@ def import_capability_bundle(
         "target_root": str(target_root),
         "bundle_digest": summary["bundle_digest"],
         "file_count": summary["file_count"],
+        "reproof": {"cases_passed": reproof["cases_passed"], "cases_total": reproof["cases_total"]},
     }
 
 

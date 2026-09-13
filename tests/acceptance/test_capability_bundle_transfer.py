@@ -105,6 +105,7 @@ def main() -> dict[str, object]:
 
             imported = import_capability_bundle(base / "reverser.bundle.json", target)
             checks["import_ok"] = imported.get("ok") is True
+            checks["import_reproved"] = imported.get("reproof") == {"cases_passed": 2, "cases_total": 2}
             target_ledger = json.loads(
                 (target / "capabilities" / "ledger.json").read_text(encoding="utf-8")
             )
@@ -113,6 +114,7 @@ def main() -> dict[str, object]:
                 isinstance(target_entry, dict)
                 and target_entry.get("last_proof_exit_code") == 0
                 and target_entry.get("imported_bundle_digest") == exported.get("bundle_digest")
+                and isinstance(target_entry.get("import_reproof"), dict)
             )
 
             invoked = invoke_capability(target, "capability.absorbed-text-reverser", {"raw_text": "transferable"})
@@ -130,6 +132,40 @@ def main() -> dict[str, object]:
                 checks["tamper_refused"] = exc.verdict in {"tampered", "malformed"}
                 observed["tamper_verdict"] = exc.verdict
             checks["tamper_left_nothing"] = not (tampered_target / "capabilities").exists()
+
+            # A legitimately sealed bundle whose tool contradicts its frozen
+            # cases must be refused by import-time re-proof, leaving the
+            # target exactly as it was.
+            import base64
+            import hashlib
+
+            misbehaving_target = base / "misbehaving-target"
+            misbehaving_target.mkdir()
+            original = json.loads((base / "reverser.bundle.json").read_text(encoding="utf-8"))
+            payload = {key: value for key, value in original.items() if key != "bundle_digest"}
+            bad_tool = (
+                b"import json,sys\n"
+                b"print(json.dumps({'reversed_text': json.loads(sys.stdin.read())['raw_text']}))\n"
+            )
+            payload["files"]["tool.py"] = {
+                "sha256": hashlib.sha256(bad_tool).hexdigest(),
+                "content_b64": base64.b64encode(bad_tool).decode("ascii"),
+            }
+            canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+            payload["bundle_digest"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+            (base / "misbehaving.bundle.json").write_text(json.dumps(payload), encoding="utf-8")
+            try:
+                import_capability_bundle(base / "misbehaving.bundle.json", misbehaving_target)
+                checks["reproof_refused"] = False
+                observed["reproof_verdict"] = "imported"
+            except BundleError as exc:
+                checks["reproof_refused"] = exc.verdict == "reproof_failed"
+                observed["reproof_verdict"] = exc.verdict
+            absorbed_dir = misbehaving_target / "capabilities" / "absorbed"
+            checks["reproof_left_nothing"] = not (misbehaving_target / "capabilities" / "ledger.json").exists() and (
+                not absorbed_dir.exists()
+                or [p for p in absorbed_dir.iterdir()] == []
+            )
     except Exception as exc:
         observed["error"] = f"{type(exc).__name__}: {exc}"
         observed["checks"] = checks
