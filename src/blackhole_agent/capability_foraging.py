@@ -2819,8 +2819,14 @@ def forage_package(
     *,
     repo_root: Path = REPO_ROOT,
     output_dir: Path | None = None,
+    scenario: bool = True,
 ) -> dict[str, Any]:
-    """Forage one package into proved ledger capabilities, zero human spec."""
+    """Forage one package into proved ledger capabilities, zero human spec.
+
+    ``scenario=False`` skips the sealed per-capability honesty scenario —
+    goal-driven foraging supplies its own end-to-end honesty (the goal
+    either plans and executes post-acquisition or it does not).
+    """
 
     name = str(request["name"])
     slug = str(request.get("slug") or slugify_capability_id(name))
@@ -2902,7 +2908,7 @@ def forage_package(
                     spec,
                     repo_root=repo_root,
                     output_dir=output_dir,
-                    scenario=index == 0,
+                    scenario=scenario and index == 0,
                 )
             except (ValueError, OSError) as exc:
                 acquisition = {

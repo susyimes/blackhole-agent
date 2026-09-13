@@ -84,6 +84,29 @@ PERSIST_PATH = REPO_ROOT / "capabilities" / "absorbed-steps.json"
 MANIFEST_NAME = "absorption.json"
 FIXTURE_TOOL = REPO_ROOT / "tests" / "fixtures" / "external_tools" / "text-reverser"
 
+REPO_ROOT_ENV = "BLACKHOLE_REPO_ROOT"
+
+
+def _default_repo_root() -> Path:
+    """Root for default absorbed-state paths.
+
+    Goal-driven foraging absorbs into a caller-chosen workspace; proof
+    subprocesses (``uv run python -c ...``) re-import this module fresh, so
+    the root travels through the environment instead of call arguments.
+    """
+
+    override = os.environ.get(REPO_ROOT_ENV, "").strip()
+    return Path(override) if override else REPO_ROOT
+
+
+def default_absorbed_root() -> Path:
+    return _default_repo_root() / "capabilities" / "absorbed"
+
+
+def default_persist_path() -> Path:
+    return _default_repo_root() / "capabilities" / "absorbed-steps.json"
+
+
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
 _STATE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _TREE_SKIP_DIRS = {
@@ -371,7 +394,7 @@ def record_digest(record: Mapping[str, Any]) -> str:
 
 
 def load_persisted_records(path: Path | None = None) -> list[dict[str, Any]]:
-    persist_path = durable_read_path(path or PERSIST_PATH)
+    persist_path = durable_read_path(path or default_persist_path())
     if not persist_path.is_file():
         return []
     payload = json.loads(persist_path.read_text(encoding="utf-8"))
@@ -384,7 +407,7 @@ def load_persisted_records(path: Path | None = None) -> list[dict[str, Any]]:
 def _write_persisted_records(records: Sequence[Mapping[str, Any]], path: Path | None = None) -> bool:
     """Idempotently persist absorbed-step records. Returns True when rewritten."""
 
-    persist_path = path or PERSIST_PATH
+    persist_path = path or default_persist_path()
     body = [dict(record) for record in records]
     if persist_path.is_file():
         existing = json.loads(persist_path.read_text(encoding="utf-8"))
@@ -493,7 +516,7 @@ def prove_absorbed_capability(
             "tree_digest_match": False,
             "cases_pass": False,
         }
-    vendored_dir = durable_read_path((vendored_root or ABSORBED_ROOT) / slug)
+    vendored_dir = durable_read_path((vendored_root or default_absorbed_root()) / slug)
     return _prove_record(record, vendored_dir)
 
 
@@ -531,7 +554,7 @@ def reseal_absorbed_records(
     """
 
     records = load_persisted_records(persist_path)
-    root = vendored_root or ABSORBED_ROOT
+    root = vendored_root or default_absorbed_root()
     rewritten: list[dict[str, Any]] = []
     refusals: list[dict[str, Any]] = []
     unchanged: list[str] = []
@@ -808,7 +831,7 @@ def load_persisted_absorbed_steps(path: Path | None = None) -> dict[str, Applica
         command = [str(part) for part in record["command"]]
         requires = tuple(str(key) for key in record["requires"])
         provides = tuple(str(key) for key in record["provides"])
-        vendored_dir = durable_read_path(ABSORBED_ROOT / slug)
+        vendored_dir = durable_read_path(default_absorbed_root() / slug)
 
         def invoke(
             state: Mapping[str, Any],
@@ -895,7 +918,7 @@ def run_absorption_scenario(slug: str, output_dir: Path | None = None) -> dict[s
     capability_id = str(record["capability_id"])
     task = _absorption_task(record)
 
-    ledger = load_ledger(default_ledger_path(REPO_ROOT))
+    ledger = load_ledger(default_ledger_path(_default_repo_root()))
 
     # Pre-absorption honesty: with the absorbed capability hidden, no plan exists.
     base_registry = build_application_registry(
@@ -920,7 +943,7 @@ def run_absorption_scenario(slug: str, output_dir: Path | None = None) -> dict[s
     # Tamper: corrupt a copy of the vendored tree; the proof must fail.
     with tempfile.TemporaryDirectory(prefix="blackhole-absorption-tamper-") as tmp:
         tampered_root = Path(tmp) / "absorbed"
-        shutil.copytree(durable_read_path(ABSORBED_ROOT / slug), tampered_root / slug)
+        shutil.copytree(durable_read_path(default_absorbed_root() / slug), tampered_root / slug)
         victim = _first_vendored_file(tampered_root / slug)
         victim.write_bytes(victim.read_bytes() + b"\n# tampered\n")
         tamper_proof = prove_absorbed_capability(slug, vendored_root=tampered_root)
@@ -1030,7 +1053,7 @@ def verify_absorption_plane(report_dir: Path, *, slug: str | None = None) -> dic
     records = {str(item.get("slug")): item for item in load_persisted_records()}
     record = records.get(slug)
     if record is not None and record_digest(record) == report.get("record_digest"):
-        ledger = load_ledger(default_ledger_path(REPO_ROOT))
+        ledger = load_ledger(default_ledger_path(_default_repo_root()))
         task = _absorption_task(record)
         grown_registry = build_application_registry(
             ledger, include_synthesized=True, include_absorbed=True
