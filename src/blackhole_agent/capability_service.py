@@ -31,6 +31,16 @@ module turns the ledger into a service:
   capability chain covers return an honest ``solved: false`` verdict without
   spawning a subprocess; goals already satisfied by the initial state solve
   with an empty plan.
+- ``POST /sessions`` upgrades one-shot solves into durable, interactive goal
+  sessions (:mod:`blackhole_agent.capability_sessions`): when the goal needs
+  state keys no invocable capability provides, an elicitation planner names
+  exactly the minimal external keys the client must supply (answered as
+  ``awaiting_input`` with per-key consumers, no subprocess spawned);
+  ``POST /sessions/{id}/input`` resumes execution with the supplied keys;
+  execution runs on a background thread whose transitions are persisted
+  atomically, so a server restart recovers sessions — mid-execution ones as
+  resumable ``interrupted`` — and ``DELETE /sessions/{id}`` cancels a
+  running session by terminating the tool's entire owned process tree.
 - The plane is fail-closed: unknown, unproved, or non-absorbed capability
   ids, malformed bodies, missing/extra input keys, empty or
   non-machine-checkable done_when texts, and malformed solve requests all
@@ -100,7 +110,11 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
-from blackhole_agent.process_capture import ResourceLimits, run_captured_process
+from blackhole_agent.process_capture import (
+    ProcessCancelled,
+    ResourceLimits,
+    run_captured_process,
+)
 
 SCHEMA_VERSION = 1
 SERVICE_CAPABILITY_ID = "capability.ledger-invocation-plane"
@@ -549,8 +563,13 @@ def invoke_capability(
     provided_input: Any,
     *,
     timeout: int = INVOKE_TIMEOUT_SECONDS,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
-    """Execute one proved absorbed capability against its vendored tree."""
+    """Execute one proved absorbed capability against its vendored tree.
+
+    When ``cancel_event`` is given and becomes set while the tool runs, the
+    tool's owned process tree is terminated and :class:`ProcessCancelled`
+    propagates to the caller (goal sessions use this for ``DELETE``)."""
 
     if not isinstance(capability_id, str) or not capability_id.strip():
         raise InvocationError(400, "capability_id must be a non-empty string")
@@ -589,7 +608,10 @@ def invoke_capability(
             input=json.dumps(provided_input),
             env=_tool_env(),
             resource_limits=limits,
+            cancel_event=cancel_event,
         )
+    except ProcessCancelled:
+        raise
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         raise InvocationError(502, f"tool execution failed: {type(exc).__name__}: {exc}") from exc
     if completed.returncode != 0:
@@ -840,6 +862,10 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
     service_root = Path(root).resolve()
+    from blackhole_agent.capability_sessions import SessionManager
+
+    sessions = SessionManager(service_root)
+    sessions.recover()
 
     class CapabilityHandler(BaseHTTPRequestHandler):
         server_version = "blackhole-capability-service/1"
@@ -847,17 +873,61 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             return
 
+        def _session_id(self, prefix: str) -> str | None:
+            path = self.path.split("?", 1)[0]
+            if not path.startswith(prefix):
+                return None
+            rest = path[len(prefix):]
+            if rest and "/" not in rest:
+                return rest
+            return None
+
         def do_GET(self) -> None:  # noqa: N802
-            if self.path == "/health":
+            path = self.path.split("?", 1)[0]
+            if path == "/health":
                 _json_response(self, 200, {"ok": True, "schema_version": SCHEMA_VERSION})
                 return
-            if self.path == "/capabilities":
+            if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
+                return
+            if path == "/sessions":
+                _json_response(self, 200, sessions.list_sessions())
+                return
+            session_id = self._session_id("/sessions/")
+            if session_id is not None:
+                try:
+                    result = sessions.get_session(session_id)
+                except InvocationError as exc:
+                    _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
+                    return
+                _json_response(self, 200, result)
                 return
             _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
 
+        def do_DELETE(self) -> None:  # noqa: N802
+            session_id = self._session_id("/sessions/")
+            if session_id is None:
+                _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
+                return
+            try:
+                result = sessions.cancel_session(session_id)
+            except InvocationError as exc:
+                _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
+                return
+            _json_response(self, 200, result)
+
         def do_POST(self) -> None:  # noqa: N802
-            if self.path not in {"/invoke", "/contract", "/solve", "/reproof"}:
+            path = self.path.split("?", 1)[0]
+            session_id = self._session_id("/sessions/")
+            session_action = None
+            if session_id is None and path.startswith("/sessions/"):
+                rest = path[len("/sessions/"):]
+                parts = rest.split("/")
+                if len(parts) == 2 and parts[0] and parts[1] in {"input", "resume"}:
+                    session_id, session_action = parts[0], parts[1]
+            if path not in {"/invoke", "/contract", "/solve", "/reproof", "/sessions"} and not (
+                session_id and session_action
+            ):
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
             try:
@@ -877,14 +947,20 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                 _json_response(self, 400, {"ok": False, "error": "body must be a JSON object"})
                 return
             try:
-                if self.path == "/contract":
+                if path == "/contract":
                     result = evaluate_contract_request(service_root, body.get("done_when"))
-                elif self.path == "/solve":
+                elif path == "/solve":
                     result = solve_goal_request(
                         service_root, body.get("initial_state"), body.get("goal")
                     )
-                elif self.path == "/reproof":
+                elif path == "/reproof":
                     result = reproof_capability(service_root, body.get("capability_id"))
+                elif path == "/sessions":
+                    result = sessions.create_session(body.get("initial_state"), body.get("goal"))
+                elif session_action == "input":
+                    result = sessions.supply_input(session_id, body.get("input"))
+                elif session_action == "resume":
+                    result = sessions.resume_session(session_id)
                 else:
                     result = invoke_capability(
                         service_root, body.get("capability_id"), body.get("input")

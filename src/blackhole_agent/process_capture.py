@@ -14,8 +14,14 @@ import os
 import signal
 import subprocess
 import tempfile
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
+
+
+class ProcessCancelled(RuntimeError):
+    """Raised when a caller-supplied cancel event stops the owned tree."""
 
 
 @dataclass(frozen=True)
@@ -85,6 +91,7 @@ def run_captured_process(
     env: dict[str, str] | None = None,
     resource_limits: ResourceLimits | None = None,
     shell: bool = False,
+    cancel_event: threading.Event | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
 
@@ -93,7 +100,9 @@ def run_captured_process(
     attribute with peak committed memory and job termination accounting.
     ``shell=True`` passes a raw command string to the platform shell exactly
     like ``subprocess.run(shell=True)`` — required for embedded quoting on
-    Windows.
+    Windows. When ``cancel_event`` is given and becomes set while the tree
+    runs, the owned tree is terminated and :class:`ProcessCancelled` is raised
+    instead of waiting for the command to finish.
     """
     if timeout <= 0:
         raise ValueError("timeout must be positive")
@@ -109,6 +118,7 @@ def run_captured_process(
         if input is not None:
             stdin_path.write_text(input, encoding="utf-8")
         timed_out = False
+        cancelled = False
         cleanup_error = ""
         job_stats = None
         try:
@@ -148,9 +158,25 @@ def run_captured_process(
                     if input is not None:
                         stdin.close()
             try:
-                process.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                timed_out = True
+                if cancel_event is None:
+                    try:
+                        process.wait(timeout=timeout)
+                    except subprocess.TimeoutExpired:
+                        timed_out = True
+                else:
+                    deadline = time.monotonic() + timeout
+                    while True:
+                        remaining = deadline - time.monotonic()
+                        try:
+                            process.wait(timeout=min(0.2, max(remaining, 0.0)))
+                            break
+                        except subprocess.TimeoutExpired:
+                            if cancel_event.is_set():
+                                cancelled = True
+                                break
+                            if remaining <= 0:
+                                timed_out = True
+                                break
             finally:
                 if job is not None:
                     try:
@@ -169,6 +195,10 @@ def run_captured_process(
             err += f"\nProcess cleanup: {cleanup_error}"
         if timed_out:
             raise subprocess.TimeoutExpired(command, timeout, output=out, stderr=err)
+        if cancelled:
+            raise ProcessCancelled(
+                f"command tree cancelled by caller (exit {process.returncode}): {command!r}"
+            )
         if cleanup_error:
             raise RuntimeError(f"Command descendants could not be stopped: {cleanup_error}")
         if startup_error.is_file():
