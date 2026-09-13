@@ -18,6 +18,15 @@ packs shards longest-processing-time first from those recorded weights
 instead of round-robin, so a skewed profile (slow growth/actuation files
 concentrated into one 900s-bound shard) is spread under the bound.
 
+Mission workspaces are bare uv venvs (runtime dependencies only), so the
+ambient interpreter usually cannot run pytest at all; historically every
+shard was then recorded as failed and the resumable suite never assembled.
+The runner therefore preflights ``import pytest`` once per invocation and,
+when it fails, runs shards through an ephemeral uv tool environment
+(``uv run --python <current X.Y> --with pytest --no-project``) instead of
+the ambient interpreter. The workspace venv is never mutated; when neither
+ambient pytest nor uv is available the shard failure stays honest.
+
 CLI: ``python -m blackhole_agent.suite_shards [--repo PATH]
 [--shards N] [--shard-timeout SECONDS] [--ledger PATH] [--no-resume]
 [--no-balance]`` prints the aggregate report and exits 0 only when every
@@ -32,6 +41,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,6 +52,7 @@ from typing import Any, Mapping, Sequence
 DEFAULT_SHARD_COUNT = 8
 DEFAULT_SHARD_TIMEOUT = 600
 DEFAULT_LEDGER = Path("artifacts") / "suite-shards-ledger.json"
+PYTEST_PREFLIGHT_TIMEOUT = 60
 
 
 def list_test_files(repo_root: Path) -> list[Path]:
@@ -171,13 +182,66 @@ def _save_ledger(path: Path, ledger: dict[str, Any]) -> None:
     os.replace(scratch, path)
 
 
-def _run_shard(repo_root: Path, files: Sequence[Path], *, timeout: int, env: dict[str, str]) -> dict[str, Any]:
+def _ambient_pytest_available() -> bool:
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", "import pytest"],
+            capture_output=True,
+            timeout=PYTEST_PREFLIGHT_TIMEOUT,
+        )
+    except Exception:
+        return False
+    return completed.returncode == 0
+
+
+def _locked_pytest_spec() -> str:
+    """Pin the ephemeral pytest to the owning project's locked version when known."""
+
+    try:
+        text = (Path(__file__).resolve().parents[2] / "uv.lock").read_text(encoding="utf-8", errors="replace")
+    except (OSError, IndexError):
+        return "pytest"
+    match = re.search(r'(?ms)^\[\[package\]\]\s*^name = "pytest"\s*^version = "([^"]+)"', text)
+    return f"pytest=={match.group(1)}" if match else "pytest"
+
+
+def resolve_pytest_command() -> tuple[list[str], str]:
+    """Return (pytest command prefix, mode) for shard subprocesses.
+
+    ``ambient`` reuses the current interpreter when it can import pytest.
+    ``uv-ephemeral`` runs pytest from a cached uv tool environment pinned to
+    the current interpreter's Python version, leaving the workspace venv
+    untouched. ``ambient-missing-pytest`` means neither is available; shard
+    failures then stay honest instead of fabricating a runner.
+    """
+
+    ambient = [sys.executable, "-m", "pytest"]
+    if _ambient_pytest_available():
+        return ambient, "ambient"
+    uv = shutil.which("uv")
+    if uv is None:
+        return ambient, "ambient-missing-pytest"
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    return (
+        [uv, "run", "--python", version, "--with", _locked_pytest_spec(), "--no-project", "--", "python", "-m", "pytest"],
+        "uv-ephemeral",
+    )
+
+
+def _run_shard(
+    repo_root: Path,
+    files: Sequence[Path],
+    *,
+    timeout: int,
+    env: dict[str, str],
+    pytest_command: Sequence[str],
+) -> dict[str, Any]:
     record: dict[str, Any] = {"status": "", "exit_code": None, "duration_seconds": 0.0, "output_tail": ""}
     relpaths = [str(path.resolve().relative_to(Path(repo_root).resolve())) for path in files]
     started = time.monotonic()
     try:
         completed = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "--durations=0", *relpaths],
+            [*pytest_command, "-q", "--durations=0", *relpaths],
             cwd=str(repo_root),
             env=env,
             capture_output=True,
@@ -240,6 +304,7 @@ def run_suite_shards(
     weights = ledger_file_weights(ledger) if balance else {}
     files = list_test_files(root)
     shards = shard_files(files, shard_count, weights=weights or None)
+    pytest_command, pytest_runner = resolve_pytest_command()
     env = dict(os.environ)
     records: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="blackhole-suite-shards-") as overlay:
@@ -251,6 +316,7 @@ def run_suite_shards(
                 "files": len(files),
                 "digest": key,
                 "resumed": False,
+                "pytest_runner": pytest_runner,
             }
             if weights:
                 entry["estimated_seconds"] = round(sum(weights.get(path.name, 0.0) for path in files), 3)
@@ -265,7 +331,7 @@ def run_suite_shards(
                     }
                 )
             else:
-                entry.update(_run_shard(root, files, timeout=shard_timeout, env=env))
+                entry.update(_run_shard(root, files, timeout=shard_timeout, env=env, pytest_command=pytest_command))
                 ledger["shards"][key] = {
                     "status": entry["status"],
                     "exit_code": entry["exit_code"],
@@ -285,6 +351,7 @@ def run_suite_shards(
         "shards_timed_out": sum(1 for record in records if record["status"] == "timed_out"),
         "shards_resumed": sum(1 for record in records if record["resumed"]),
         "balanced": bool(weights),
+        "pytest_runner": pytest_runner,
         "duration_seconds": round(sum(float(record.get("duration_seconds") or 0) for record in records), 3),
         "ledger_path": str(ledger_file),
         "shards": records,

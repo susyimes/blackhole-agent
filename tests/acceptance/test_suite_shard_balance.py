@@ -12,11 +12,19 @@ checks that packing spreads the heavy files and that the end-to-end run
 records per-shard estimates. Prints JSON with boolean passed and
 nonempty observed; exits 0 for both met and unmet outcomes so the
 controller can replay the same probe on baseline and candidate trees.
+
+The end-to-end leg runs under a self-built bare ambient interpreter (a
+``--without-pip`` venv, mirroring real mission workspaces) so the
+contrast does not depend on whether the replay host's own interpreter
+happens to carry pytest: baseline source cannot execute the shards,
+candidate source must self-serve a pytest runner.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -24,6 +32,19 @@ from pathlib import Path
 _PASSING_TEST = """def test_ok_{index}():
     assert {index} == {index}
 """
+
+
+def _bare_interpreter(parent: Path) -> str:
+    """Create a venv with no installed packages and return its interpreter."""
+
+    venv_dir = parent / "bare-venv"
+    subprocess.run(
+        [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)],
+        check=True,
+        capture_output=True,
+        timeout=180,
+    )
+    return str(venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
 
 
 def _load(shard: list[Path], weights: dict[str, float]) -> float:
@@ -65,13 +86,20 @@ def main() -> dict[str, object]:
         )
 
         # end-to-end: a ledger seeded with the skewed profile (as recorded
-        # from a timed-out shard) must drive the runner's packing
+        # from a timed-out shard) must drive the runner's packing, under a
+        # bare ambient interpreter the runner must self-serve past
         ledger = repo / "ledger.json"
         ledger.write_text(
             json.dumps({"shards": {"seed": {"status": "timed_out", "file_durations": weights}}}),
             encoding="utf-8",
         )
-        report = run_suite_shards(repo, shard_count=4, shard_timeout=120, ledger_path=ledger)
+        bare = _bare_interpreter(repo)
+        real_executable = sys.executable
+        sys.executable = bare
+        try:
+            report = run_suite_shards(repo, shard_count=4, shard_timeout=120, ledger_path=ledger)
+        finally:
+            sys.executable = real_executable
         estimates = [
             record.get("estimated_seconds")
             for record in report.get("shards", [])
@@ -85,6 +113,7 @@ def main() -> dict[str, object]:
         "packing_covers_same_files": {p.name for s in balanced for p in s}
         == {p.name for s in round_robin for p in s},
         "end_to_end_green": report.get("ok") is True,
+        "self_served_pytest_runner": report.get("pytest_runner") == "uv-ephemeral",
         "report_marked_balanced": report.get("balanced") is True,
         "estimates_recorded": len(estimates) == 4
         and all(isinstance(value, (int, float)) for value in estimates)
@@ -96,6 +125,7 @@ def main() -> dict[str, object]:
             "round_robin_loads": rr_loads,
             "balanced_loads": balanced_loads,
             "estimated_seconds": estimates,
+            "pytest_runner": report.get("pytest_runner"),
             "sentinel": "BH-SHARD-BALANCE-OK" if all(checks.values()) else "",
         }
     )
