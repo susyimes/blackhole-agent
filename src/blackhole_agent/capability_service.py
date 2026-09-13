@@ -17,7 +17,8 @@ module turns the ledger into a service:
   capability id, input, and output.
 - ``POST /contract`` machine-evaluates a semicolon-separated done_when outcome
   contract against the served ledger: ``program_passes`` steps execute for real
-  (isolated subprocesses against the ledger's own entries), and the verdict
+  as governed command trees (bounded memory and process count — a runaway
+  proof command fails its step instead of harming the host), and the verdict
   carries per-predicate results, the skill-route attestation, and a contract
   digest binding the done_when text to the evaluated predicates and verdict.
 - ``POST /solve`` answers a *declarative goal* instead of a named capability:
@@ -118,6 +119,13 @@ MAX_BODY_BYTES = 1 << 20
 INVOKE_MEMORY_LIMIT_BYTES = 256 << 20
 INVOKE_MAX_PROCESSES = 32
 INVOKE_CPU_SECONDS = 25
+# Contract program steps (``program_passes``) execute ledger run/proof
+# commands — potentially heavy build/test harnesses, and for absorbed
+# capabilities they end up running vendored third-party code. They get
+# headroom over single-tool invocations but are still bounded: the era of
+# ungoverned contract execution is over.
+CONTRACT_MEMORY_LIMIT_BYTES = 512 << 20
+CONTRACT_MAX_PROCESSES = 64
 # Peak committed memory within this ratio of the limit marks a violation even
 # when the tool masks its MemoryError with an ordinary nonzero exit.
 MEMORY_VIOLATION_PEAK_RATIO = 0.80
@@ -616,6 +624,34 @@ def invoke_capability(
     }
 
 
+def governed_command_runner(limits: ResourceLimits):
+    """subprocess.run-compatible command runner that enforces resource bounds.
+
+    Accepts both shell-string and argv-list commands exactly as
+    ``capability_compounder`` calls ``subprocess.run``; the whole command tree
+    runs owned and bounded via :func:`run_captured_process`. A wall-clock
+    timeout surfaces as exit code 124 (a failed step) instead of an
+    exception escaping the contract evaluator.
+    """
+
+    def run(command, *, cwd, timeout=None, env=None, shell=False, **kwargs):  # noqa: A002
+        argv = command if isinstance(command, str) else [str(part) for part in command]
+        try:
+            return run_captured_process(
+                argv,
+                cwd=Path(cwd),
+                timeout=float(timeout or 120),
+                env=({str(key): str(value) for key, value in env.items()} if env else None),
+                resource_limits=limits,
+                shell=isinstance(command, str) or shell,
+            )
+        except subprocess.TimeoutExpired as exc:
+            stderr = (exc.stderr or "") + "\nwall-clock timeout"
+            return subprocess.CompletedProcess(argv, 124, exc.output or "", stderr)
+
+    return run
+
+
 def evaluate_contract_request(
     root: Path,
     done_when: Any,
@@ -625,16 +661,26 @@ def evaluate_contract_request(
     """Machine-evaluate a done_when outcome contract against the served ledger.
 
     ``program_passes`` predicates execute for real via the outcome-contract
-    evaluator; the response distills the verdict and binds it with a digest.
-    Empty or non-machine-checkable contracts are refused before any program
-    step runs.
+    evaluator — under the plane's governance: every program step's command
+    tree runs owned and bounded (:data:`CONTRACT_MEMORY_LIMIT_BYTES`,
+    :data:`CONTRACT_MAX_PROCESSES`), so a runaway proof command is a failed
+    step, not a host-level incident. The response distills the verdict and
+    binds it with a digest. Empty or non-machine-checkable contracts are
+    refused before any program step runs.
     """
 
     if not isinstance(done_when, str) or not done_when.strip():
         raise InvocationError(422, "done_when must be a non-empty string")
     text = done_when.strip()
+    contract_limits = ResourceLimits(
+        memory_bytes=CONTRACT_MEMORY_LIMIT_BYTES, max_processes=CONTRACT_MAX_PROCESSES
+    )
     result = evaluate_outcome_contract(
-        Path(root).resolve(), text, run_programs=True, timeout=timeout
+        Path(root).resolve(),
+        text,
+        run_programs=True,
+        timeout=timeout,
+        command_runner=governed_command_runner(contract_limits),
     )
     if not result.get("machine_checkable"):
         raise InvocationError(422, "done_when has no machine-checkable predicates")

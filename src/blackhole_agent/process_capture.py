@@ -77,19 +77,23 @@ def _terminate_owned_tree(process: subprocess.Popen, job=None) -> str:
 
 
 def run_captured_process(
-    command: list[str],
+    command: list[str] | str,
     *,
     cwd: Path,
     timeout: float,
     input: str | None = None,
     env: dict[str, str] | None = None,
     resource_limits: ResourceLimits | None = None,
+    shell: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
 
     When ``resource_limits`` is given, the whole command tree runs under hard
     bounds; on Windows the returned CompletedProcess carries a ``job_stats``
     attribute with peak committed memory and job termination accounting.
+    ``shell=True`` passes a raw command string to the platform shell exactly
+    like ``subprocess.run(shell=True)`` — required for embedded quoting on
+    Windows.
     """
     if timeout <= 0:
         raise ValueError("timeout must be positive")
@@ -124,6 +128,7 @@ def run_captured_process(
                     error_path=startup_error,
                     stdin_path=stdin_path if input is not None else None,
                     env=env,
+                    shell=shell,
                 )
             else:
                 stdin = open(stdin_path, "rb") if input is not None else subprocess.DEVNULL
@@ -132,6 +137,7 @@ def run_captured_process(
                         command, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr,
                         start_new_session=True,
                         env=env,
+                        shell=shell,
                         preexec_fn=(
                             _posix_limit_preexec(resource_limits)
                             if os.name == "posix" and resource_limits and resource_limits.enabled()

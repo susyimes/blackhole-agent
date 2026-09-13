@@ -111,7 +111,7 @@ class WindowsJob:
 
     def start(
         self,
-        command: list[str],
+        command: list[str] | str,
         *,
         cwd: Path,
         stdout,
@@ -119,6 +119,7 @@ class WindowsJob:
         error_path: Path,
         stdin_path: Path | None = None,
         env: dict | None = None,
+        shell: bool = False,
     ) -> subprocess.Popen:
         # A venv redirector can spawn the real interpreter before assignment.
         # Start the base interpreter directly; the bootstrap needs only stdlib.
@@ -133,7 +134,11 @@ class WindowsJob:
             if not self.api.AssignProcessToJobObject(self.handle, int(process._handle)):
                 raise ctypes.WinError(ctypes.get_last_error())
             # Nothing in the requested command runs before job membership exists.
-            payload = {"command": command, "stdin": str(stdin_path) if stdin_path is not None else None}
+            payload = {
+                "command": command,
+                "stdin": str(stdin_path) if stdin_path is not None else None,
+                "shell": shell,
+            }
             process.stdin.write(json.dumps(payload).encode("utf-8"))
             process.stdin.close()
         except BaseException:
@@ -228,12 +233,14 @@ def _bootstrap() -> int:
         return 1
     payload = json.loads(raw.decode("utf-8"))
     if isinstance(payload, list):  # Legacy payload: bare command list.
-        command, stdin_source = payload, None
+        command, stdin_source, use_shell = payload, None, False
     else:
-        command, stdin_source = payload["command"], payload.get("stdin")
+        command = payload["command"]
+        stdin_source = payload.get("stdin")
+        use_shell = bool(payload.get("shell"))
     stdin = open(stdin_source, "rb") if stdin_source else subprocess.DEVNULL
     try:
-        child = subprocess.Popen(command, stdin=stdin)
+        child = subprocess.Popen(command, stdin=stdin, shell=use_shell)
     except OSError as error:
         if stdin is not subprocess.DEVNULL:
             stdin.close()

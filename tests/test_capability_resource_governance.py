@@ -371,3 +371,64 @@ def test_run_captured_process_enforces_cpu_limit(tmp_path: Path) -> None:
     assert stats["total_terminated_processes"] > 0
     violation = service.detect_resource_violation(completed, limits)
     assert violation is not None and violation["resource"] == "cpu_time"
+
+
+def test_governed_command_runner_handles_shell_and_argv(tmp_path: Path) -> None:
+    runner = service.governed_command_runner(ResourceLimits(memory_bytes=256 << 20))
+    completed = runner(
+        [sys.executable, "-c", "print('list-ok')"], cwd=tmp_path, timeout=30
+    )
+    assert completed.returncode == 0 and "list-ok" in completed.stdout
+    # Embedded quoting must survive exactly like subprocess.run(shell=True).
+    quoted = "print('shell-ok')".replace("'", "'")
+    shell_cmd = f'"{sys.executable}" -c "{quoted}"'
+    completed = runner(shell_cmd, cwd=tmp_path, shell=True, timeout=30)
+    assert completed.returncode == 0 and "shell-ok" in completed.stdout
+
+
+def _command_entry(capability_id: str, command: str) -> dict:
+    return {
+        "id": capability_id,
+        "name": capability_id,
+        "description": "fixture",
+        "kind": "command",
+        "entry": command,
+        "proof_command": "python -c \"print('p')\"",
+        "dependencies": [],
+        "behavior_paths": [],
+        "capability_delta": "",
+        "tags": [],
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "last_proved_at": "2026-01-01T00:00:00Z",
+        "last_proof_exit_code": 0,
+    }
+
+
+def test_contract_program_execution_is_governed(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    (root / "capabilities").mkdir(parents=True)
+    ok_id = "capability.probe-ok-command"
+    hog_id = "capability.probe-hog-command"
+    hog_command = (
+        "python -c \"b=bytearray(768*1024*1024);mv=memoryview(b);"
+        "mv[::4096]=b'x'*(768*1024*1024//4096);print('ok')\""
+    )
+    (root / "capabilities" / "ledger.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "updated_at": "",
+                "capabilities": {
+                    ok_id: _command_entry(ok_id, "python -c \"print('ok')\""),
+                    hog_id: _command_entry(hog_id, hog_command),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    healthy = service.evaluate_contract_request(root, f"program_passes:{ok_id}")
+    assert healthy["met"] is True
+    if sys.platform == "win32":
+        hog = service.evaluate_contract_request(root, f"program_passes:{hog_id}")
+        assert hog["met"] is False  # killed by the governed memory bound
