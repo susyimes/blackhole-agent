@@ -123,6 +123,13 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.invocation_history import (
+    load_capability_stats,
+    monotonic_ms,
+    plan_evidence,
+    rank_programs,
+    record_invocation,
+)
 from blackhole_agent.process_capture import (
     ProcessCancelled,
     ResourceLimits,
@@ -137,6 +144,10 @@ ABSORBED_ID_PREFIX = "capability.absorbed-"
 INVOKE_TIMEOUT_SECONDS = 30
 CONTRACT_TIMEOUT_SECONDS = 120
 SOLVE_MAX_STEPS = 8
+# When several minimal programs cover a goal, the planner enumerates at most
+# this many of them and ranks by recorded invocation evidence (failures,
+# then mean duration), keeping selection bounded and deterministic.
+SOLVE_PLAN_CANDIDATES = 8
 # Self-healing solves re-prove at most this many quarantined blockers per
 # request: supervised re-proof re-executes frozen cases for real, so the
 # healing budget is bounded like every other governed execution.
@@ -617,6 +628,13 @@ def invoke_capability(
         raise InvocationError(422, "; ".join(problems))
     command = _normalized_command(item["command"])
     limits = effective_resource_limits(item)
+    started_ms = monotonic_ms()
+
+    def record(ok: bool, error: str | None = None) -> None:
+        record_invocation(
+            root, capability_id, duration_ms=monotonic_ms() - started_ms, ok=ok, error=error
+        )
+
     try:
         completed = run_captured_process(
             command,
@@ -630,10 +648,12 @@ def invoke_capability(
     except ProcessCancelled:
         raise
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        record(False, f"{type(exc).__name__}: {exc}")
         raise InvocationError(502, f"tool execution failed: {type(exc).__name__}: {exc}") from exc
     if completed.returncode != 0:
         violation = detect_resource_violation(completed, limits)
         if violation is not None:
+            record(False, violation["reason"])
             record_resource_quarantine(root, capability_id, violation)
             raise InvocationError(
                 502,
@@ -642,17 +662,22 @@ def invoke_capability(
             )
         stderr = (completed.stderr or "").strip().splitlines()
         detail = stderr[0] if stderr else "no stderr"
+        record(False, f"exited {completed.returncode}: {detail}")
         raise InvocationError(502, f"tool exited {completed.returncode}: {detail}")
     try:
         fragment = json.loads(completed.stdout or "")
     except json.JSONDecodeError as exc:
+        record(False, "stdout is not a JSON fragment")
         raise InvocationError(502, f"tool stdout is not a JSON fragment: {exc}") from exc
     if not isinstance(fragment, dict):
+        record(False, "stdout is not a JSON object")
         raise InvocationError(502, "tool stdout must be a JSON object")
     missing_provides = [key for key in item["provides"] if key not in fragment]
     if missing_provides:
+        record(False, f"missing provides keys: {missing_provides}")
         raise InvocationError(502, f"tool output missing provides keys: {missing_provides}")
     output = {key: fragment[key] for key in item["provides"]}
+    record(True)
     return {
         "ok": True,
         "capability_id": capability_id,
@@ -787,6 +812,58 @@ def plan_goal_program(
     return None
 
 
+def plan_goal_programs(
+    invocable: Mapping[str, Mapping[str, Any]],
+    initial_keys: set[str],
+    goal_keys: Sequence[str],
+    *,
+    max_steps: int = SOLVE_MAX_STEPS,
+    max_candidates: int = SOLVE_PLAN_CANDIDATES,
+) -> list[list[str]] | None:
+    """Enumerate up to ``max_candidates`` minimal-length programs for a goal.
+
+    Same BFS as :func:`plan_goal_program`, but instead of stopping at the
+    first covering program it collects every covering program at the
+    shallowest depth (up to the cap), in deterministic lexicographic order.
+    The caller ranks these candidates; with one candidate the choice is the
+    same program the single-plan BFS would return. Returns ``None`` when no
+    program exists — an honest unsolvable, never a fabricated sequence.
+    """
+
+    goal = set(goal_keys)
+    start = frozenset(initial_keys)
+    if goal <= start:
+        return []
+    queue: deque[tuple[frozenset[str], tuple[str, ...]]] = deque([(start, ())])
+    visited = {start}
+    found: list[list[str]] = []
+    found_depth: int | None = None
+    while queue:
+        available, program = queue.popleft()
+        if found_depth is not None and len(program) >= found_depth:
+            break
+        if len(program) >= max_steps:
+            continue
+        for capability_id in sorted(invocable):
+            if capability_id in program:
+                continue
+            item = invocable[capability_id]
+            if not set(item["requires"]) <= available:
+                continue
+            new_available = available | frozenset(item["provides"])
+            new_program = program + (capability_id,)
+            if goal <= new_available:
+                found_depth = len(new_program)
+                found.append(list(new_program))
+                if len(found) >= max_candidates:
+                    return found
+                continue
+            if new_available not in visited:
+                visited.add(new_available)
+                queue.append((new_available, new_program))
+    return found or None
+
+
 def heal_quarantined_blockers(
     root: Path,
     invocable: Mapping[str, Mapping[str, Any]],
@@ -846,12 +923,17 @@ def solve_goal_request(
 ) -> dict[str, Any]:
     """Derive and execute a capability program for a declarative goal.
 
-    The request names no capability: the planner derives a minimal program
-    from the served ledger's ``requires``/``provides`` contracts, and every
-    planned step executes for real through :func:`invoke_capability` with
-    state threaded from step outputs into downstream inputs. Unsolvable
-    goals return an honest ``solved: false`` verdict without spawning a
-    subprocess; malformed requests are refused before planning.
+    The request names no capability: the planner derives minimal candidate
+    programs from the served ledger's ``requires``/``provides`` contracts and
+    ranks them by the workspace's recorded invocation evidence (fewest
+    recorded failures, then lowest recorded mean duration, then deterministic
+    order — degenerating to plain lexicographic order when no evidence
+    exists). The chosen program executes for real through
+    :func:`invoke_capability` with state threaded from step outputs into
+    downstream inputs, and the response's ``plan_evidence`` trace records
+    every considered candidate with the measured stats that decided.
+    Unsolvable goals return an honest ``solved: false`` verdict without
+    spawning a subprocess; malformed requests are refused before planning.
 
     Quarantined capabilities are excluded from planning. When the only
     program for a goal runs through quarantined steps, the solve heals
@@ -890,10 +972,28 @@ def solve_goal_request(
     def healthy_subset(pool: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
         return {cid: item for cid, item in pool.items() if not item.get("quarantine")}
 
+    def evidence_ranked_plan(
+        pool: Mapping[str, Mapping[str, Any]], state_keys: set[str], goals: list[str]
+    ) -> tuple[list[str] | None, dict[str, Any] | None]:
+        """Pick the best minimal program by recorded invocation evidence.
+
+        Several proved programs often cover the same goal; a purely syntactic
+        planner cannot tell a route that fails every third run from one that
+        never has. Candidates are ranked by the workspace's invocation
+        journal (fewest recorded failures, then lowest recorded mean
+        duration, then deterministic order); with no journal the choice
+        degenerates to the previous lexicographic order.
+        """
+
+        candidates = plan_goal_programs(pool, state_keys, goals, max_steps=max_steps)
+        if not candidates:
+            return (None, None) if candidates is None else ([], None)
+        stats = load_capability_stats(root)
+        ranked = rank_programs(candidates, stats)
+        return ranked[0], plan_evidence(ranked, stats, selected=ranked[0])
+
     healthy = healthy_subset(invocable)
-    program = plan_goal_program(
-        healthy, set(initial_state), goal_keys, max_steps=max_steps
-    )
+    program, evidence = evidence_ranked_plan(healthy, set(initial_state), goal_keys)
     if program is None:
         # No healthy program. When a program exists only through quarantined
         # capabilities, heal instead of giving up: re-prove exactly the
@@ -910,9 +1010,7 @@ def solve_goal_request(
             if any(entry["reinstated"] for entry in entries):
                 invocable = load_invocable_capabilities(root)
                 healthy = healthy_subset(invocable)
-                program = plan_goal_program(
-                    healthy, set(initial_state), goal_keys, max_steps=max_steps
-                )
+                program, evidence = evidence_ranked_plan(healthy, set(initial_state), goal_keys)
     if program is None:
         result: dict[str, Any] = {
             "ok": True,
@@ -996,6 +1094,7 @@ def solve_goal_request(
         "steps": steps,
         "outcome": outcome,
         "healing": healing,
+        "plan_evidence": evidence,
         "plan_digest": _digest(
             {
                 "initial_state": initial_state,
