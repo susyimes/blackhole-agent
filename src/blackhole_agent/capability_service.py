@@ -40,6 +40,15 @@ module turns the ledger into a service:
   operator credentials in the plane's own process environment are never
   visible to vendored tools; anything a tool legitimately needs must arrive
   through its declared ``requires`` input keys.
+- Tool execution is resource-governed, not just scrubbed: each invocation
+  runs as an owned process tree under hard bounds (256 MiB committed memory
+  for the whole tree, 32 active processes, plus the wall-clock timeout). A
+  tool that exceeds the memory limit is attributed deterministically — via
+  job peak-memory accounting, with a visible MemoryError as fallback — is
+  answered with a distinct ``resource_limit`` violation verdict, and is
+  durably quarantined in the ledger: later invocations are refused with a
+  ``resource_quarantined`` verdict before any subprocess is spawned, while
+  unaffected capabilities keep serving.
 
 Determinism contract: listing digests, response digests, plans, and plan
 digests are pure functions of ledger content and request payload; durations
@@ -51,7 +60,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import subprocess
 import sys
 import threading
@@ -67,6 +75,7 @@ from blackhole_agent.capability_absorption import (
 )
 from blackhole_agent.capability_compounder import (
     Capability,
+    atomic_write_json,
     default_ledger_path,
     evaluate_outcome_contract,
     load_ledger,
@@ -74,6 +83,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.process_capture import ResourceLimits, run_captured_process
 
 SCHEMA_VERSION = 1
 SERVICE_CAPABILITY_ID = "capability.ledger-invocation-plane"
@@ -84,6 +94,14 @@ INVOKE_TIMEOUT_SECONDS = 30
 CONTRACT_TIMEOUT_SECONDS = 120
 SOLVE_MAX_STEPS = 8
 MAX_BODY_BYTES = 1 << 20
+# Untrusted tools run under hard tree-wide resource bounds: 256 MiB committed
+# memory (comfortably above an interpreter's baseline, far below host RAM) and
+# 32 simultaneously active processes.
+INVOKE_MEMORY_LIMIT_BYTES = 256 << 20
+INVOKE_MAX_PROCESSES = 32
+# Peak committed memory within this ratio of the limit marks a violation even
+# when the tool masks its MemoryError with an ordinary nonzero exit.
+MEMORY_VIOLATION_PEAK_RATIO = 0.80
 
 
 def _canonical(payload: Any) -> str:
@@ -131,6 +149,11 @@ def load_invocable_capabilities(root: Path) -> dict[str, dict[str, Any]]:
             "provides": [str(key) for key in manifest["provides"]],
             "command": [str(part) for part in manifest["command"]],
             "tool_root": str(tool_root),
+            "quarantine": (
+                dict(entry["resource_quarantine"])
+                if isinstance(entry.get("resource_quarantine"), dict)
+                else None
+            ),
         }
     return invocable
 
@@ -174,10 +197,77 @@ def _tool_env() -> dict[str, str]:
 class InvocationError(Exception):
     """Fail-closed refusal raised before or during tool execution."""
 
-    def __init__(self, status: int, error: str) -> None:
+    def __init__(self, status: int, error: str, *, extra: Mapping[str, Any] | None = None) -> None:
         super().__init__(error)
         self.status = status
         self.error = error
+        self.extra = dict(extra or {})
+
+
+def detect_resource_violation(
+    completed: subprocess.CompletedProcess[str], limits: ResourceLimits
+) -> dict[str, Any] | None:
+    """Attribute a failed tool run to a resource limit, or return None.
+
+    Windows job accounting is the primary signal: when peak committed memory
+    reaches the enforced job limit the failure is a resource violation even if
+    the tool disguised it as an ordinary nonzero exit. A visible MemoryError
+    under a memory limit is the portable fallback signal.
+    """
+
+    stats = getattr(completed, "job_stats", None) or {}
+    peak = int(stats.get("peak_job_memory_bytes") or 0)
+    stderr = completed.stderr or ""
+    if limits.memory_bytes:
+        if peak >= int(limits.memory_bytes * MEMORY_VIOLATION_PEAK_RATIO):
+            return {
+                "resource": "memory",
+                "reason": (
+                    f"peak committed memory {peak} bytes reached the enforced "
+                    f"{limits.memory_bytes}-byte tree limit"
+                ),
+                "limit_bytes": limits.memory_bytes,
+                "peak_job_memory_bytes": peak,
+            }
+        if "MemoryError" in stderr:
+            return {
+                "resource": "memory",
+                "reason": "tool raised MemoryError under the enforced memory limit",
+                "limit_bytes": limits.memory_bytes,
+                "peak_job_memory_bytes": peak,
+            }
+    return None
+
+
+def record_resource_quarantine(
+    root: Path, capability_id: str, violation: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """Durably quarantine a resource-violating capability in the live ledger.
+
+    The edit is made on the raw ledger document (not a dataclass round-trip)
+    so quarantine works for any ledger entry shape and never rewrites other
+    entries.
+    """
+
+    path = default_ledger_path(Path(root).resolve())
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    entries = document.get("capabilities")
+    if not isinstance(entries, dict) or not isinstance(entries.get(capability_id), dict):
+        return None
+    quarantine = {
+        "reason": str(violation.get("reason") or "resource limit violated"),
+        "resource": str(violation.get("resource") or "unknown"),
+        "limit_bytes": violation.get("limit_bytes"),
+        "peak_job_memory_bytes": violation.get("peak_job_memory_bytes"),
+        "quarantined_at": utc_now_iso(),
+    }
+    entries[capability_id]["resource_quarantine"] = quarantine
+    document["updated_at"] = utc_now_iso()
+    atomic_write_json(path, document)
+    return quarantine
 
 
 def invoke_capability(
@@ -195,6 +285,14 @@ def invoke_capability(
     item = invocable.get(capability_id)
     if item is None:
         raise InvocationError(404, f"unknown or non-invocable capability: {capability_id}")
+    if item.get("quarantine"):
+        quarantine = item["quarantine"]
+        raise InvocationError(
+            409,
+            "capability quarantined after resource violation: "
+            f"{quarantine.get('reason', 'resource limit violated')}",
+            extra={"violation": "resource_quarantined", "quarantine": quarantine},
+        )
     if not isinstance(provided_input, dict):
         raise InvocationError(422, "input must be a JSON object")
     requires = set(item["requires"])
@@ -209,20 +307,29 @@ def invoke_capability(
             problems.append(f"unexpected keys: {extra}")
         raise InvocationError(422, "; ".join(problems))
     command = _normalized_command(item["command"])
+    limits = ResourceLimits(
+        memory_bytes=INVOKE_MEMORY_LIMIT_BYTES, max_processes=INVOKE_MAX_PROCESSES
+    )
     try:
-        completed = subprocess.run(
+        completed = run_captured_process(
             command,
-            input=json.dumps(provided_input),
-            capture_output=True,
-            text=True,
-            cwd=item["tool_root"],
-            env=_tool_env(),
+            cwd=Path(item["tool_root"]),
             timeout=timeout,
-            check=False,
+            input=json.dumps(provided_input),
+            env=_tool_env(),
+            resource_limits=limits,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         raise InvocationError(502, f"tool execution failed: {type(exc).__name__}: {exc}") from exc
     if completed.returncode != 0:
+        violation = detect_resource_violation(completed, limits)
+        if violation is not None:
+            record_resource_quarantine(root, capability_id, violation)
+            raise InvocationError(
+                502,
+                f"tool violated the enforced resource limits: {violation['reason']}",
+                extra={"violation": "resource_limit", "resource": violation, "quarantined": True},
+            )
         stderr = (completed.stderr or "").strip().splitlines()
         detail = stderr[0] if stderr else "no stderr"
         raise InvocationError(502, f"tool exited {completed.returncode}: {detail}")
@@ -472,7 +579,7 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                         service_root, body.get("capability_id"), body.get("input")
                     )
             except InvocationError as exc:
-                _json_response(self, exc.status, {"ok": False, "error": exc.error})
+                _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
                 return
             _json_response(self, 200, result)
 

@@ -69,12 +69,15 @@ class Capability:
     source_milestone: int | None = None
     last_proved_at: str = ""
     last_proof_exit_code: int | None = None
+    resource_quarantine: dict | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["dependencies"] = list(self.dependencies)
         payload["behavior_paths"] = list(self.behavior_paths)
         payload["tags"] = list(self.tags)
+        if self.resource_quarantine is None:
+            payload.pop("resource_quarantine")
         return payload
 
     @classmethod
@@ -97,6 +100,8 @@ class Capability:
                     values[key] = None
                 else:
                     values[key] = int(value)
+            elif key == "resource_quarantine":
+                values[key] = dict(value) if isinstance(value, Mapping) else None
             else:
                 values[key] = str(value) if value is not None and key != "kind" else value
                 if key in {

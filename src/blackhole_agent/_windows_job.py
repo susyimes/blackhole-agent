@@ -56,7 +56,17 @@ class _Accounting(ctypes.Structure):
 
 
 class WindowsJob:
-    def __init__(self) -> None:
+    # JOB_OBJECT_LIMIT_* flags (winnt.h).
+    LIMIT_ACTIVE_PROCESS = 0x0008
+    LIMIT_JOB_MEMORY = 0x0200
+    LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+
+    def __init__(
+        self,
+        *,
+        memory_bytes: int | None = None,
+        max_processes: int | None = None,
+    ) -> None:
         self.api = ctypes.WinDLL("kernel32", use_last_error=True)
         signatures = {
             "CreateJobObjectW": ([ctypes.c_void_p, wintypes.LPCWSTR], wintypes.HANDLE),
@@ -80,7 +90,14 @@ class WindowsJob:
         if not self.handle:
             raise ctypes.WinError(ctypes.get_last_error())
         limits = _ExtendedLimits()
-        limits.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        flags = self.LIMIT_KILL_ON_JOB_CLOSE
+        if memory_bytes is not None and memory_bytes > 0:
+            limits.JobMemoryLimit = memory_bytes
+            flags |= self.LIMIT_JOB_MEMORY
+        if max_processes is not None and max_processes > 0:
+            limits.BasicLimitInformation.ActiveProcessLimit = max_processes
+            flags |= self.LIMIT_ACTIVE_PROCESS
+        limits.BasicLimitInformation.LimitFlags = flags
         if not self.api.SetInformationJobObject(self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
             error = ctypes.WinError(ctypes.get_last_error())
             self.close()
@@ -95,6 +112,7 @@ class WindowsJob:
         stderr,
         error_path: Path,
         stdin_path: Path | None = None,
+        env: dict | None = None,
     ) -> subprocess.Popen:
         # A venv redirector can spawn the real interpreter before assignment.
         # Start the base interpreter directly; the bootstrap needs only stdlib.
@@ -103,6 +121,7 @@ class WindowsJob:
             [interpreter, "-I", str(Path(__file__).resolve()), str(error_path)],
             cwd=cwd, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr,
             creationflags=subprocess.CREATE_NO_WINDOW,
+            env=env,
         )
         try:
             if not self.api.AssignProcessToJobObject(self.handle, int(process._handle)):
@@ -117,6 +136,26 @@ class WindowsJob:
             process.stdin.close()
             raise
         return process
+
+    def stats(self) -> dict[str, int]:
+        """Resource accounting: peak committed memory and termination count."""
+
+        limits = _ExtendedLimits()
+        if not self.api.QueryInformationJobObject(
+            self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits), None
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        accounting = _Accounting()
+        if not self.api.QueryInformationJobObject(
+            self.handle, 1, ctypes.byref(accounting), ctypes.sizeof(accounting), None
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return {
+            "peak_job_memory_bytes": int(limits.PeakJobMemoryUsed),
+            "peak_process_memory_bytes": int(limits.PeakProcessMemoryUsed),
+            "total_terminated_processes": int(accounting.TotalTerminatedProcesses),
+            "active_processes": int(accounting.ActiveProcesses),
+        }
 
     def terminate(self) -> None:
         handles = self._member_handles()
