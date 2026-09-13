@@ -17,6 +17,7 @@ from blackhole_agent.capability_service import (
     invoke_capability,
     load_invocable_capabilities,
     plan_goal_program,
+    record_resource_quarantine,
     solve_goal_request,
     InvocationError,
 )
@@ -436,6 +437,109 @@ def test_solve_ignores_unproved_capabilities(server) -> None:
     )
     assert status == 200
     assert "capability.absorbed-unproved" not in result["plan"]
+
+
+_HEAL_TOOL = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "print(json.dumps({'healed_text': state['raw_text'][::-1]}))\n"
+)
+
+
+def _write_healable_tool(root: Path) -> str:
+    tool_dir = root / "capabilities" / "absorbed" / "heal-reverser"
+    tool_dir.mkdir(parents=True)
+    (tool_dir / "tool.py").write_text(_HEAL_TOOL, encoding="utf-8")
+    (tool_dir / "absorption.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "slug": "heal-reverser",
+                "name": "fixture heal-reverser",
+                "command": ["python", "tool.py"],
+                "requires": ["raw_text"],
+                "provides": ["healed_text"],
+                "cases": [
+                    {"input": {"raw_text": "ab"}, "expect": {"healed_text": "ba"}},
+                    {"input": {"raw_text": "cd"}, "expect": {"healed_text": "dc"}},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    capability_id = "capability.absorbed-heal-reverser"
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"][capability_id] = _ledger_entry(capability_id)
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    return capability_id
+
+
+def _quarantine(root: Path, capability_id: str) -> None:
+    record_resource_quarantine(
+        root,
+        capability_id,
+        {"resource": "memory", "reason": "fixture violation", "limit_bytes": 1},
+    )
+
+
+def test_solve_self_heals_quarantined_blocker(server) -> None:
+    root, base = server
+    capability_id = _write_healable_tool(root)
+    _quarantine(root, capability_id)
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "unbound"}, "goal": ["healed_text"]},
+    )
+    assert status == 200
+    assert result["solved"] is True
+    assert result["plan"] == [capability_id]
+    assert result["outcome"] == {"healed_text": "dnuobnu"}
+    assert result["healing"] == [
+        {
+            "capability_id": capability_id,
+            "reinstated": True,
+            "case_count": 2,
+            "cases_pass": True,
+        }
+    ]
+    ledger = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    entry = ledger["capabilities"][capability_id]
+    assert "resource_quarantine" not in entry
+    assert entry["resource_reproof"]["cases_pass"] is True
+
+
+def test_solve_unhealable_blocker_keeps_quarantine(server) -> None:
+    root, base = server
+    capability_id = "capability.absorbed-broken-tool"
+    _quarantine(root, capability_id)
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "unbound"}, "goal": ["broken_text"]},
+    )
+    assert status == 200
+    assert result["solved"] is False
+    assert capability_id in result["reason"]
+    assert result["healing"][0]["capability_id"] == capability_id
+    assert result["healing"][0]["reinstated"] is False
+    assert result["healing"][0]["cases_pass"] is False
+    ledger = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    assert "resource_quarantine" in ledger["capabilities"][capability_id]
+
+
+def test_solve_healthy_goal_reports_no_healing(server) -> None:
+    _, base = server
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+    )
+    assert status == 200
+    assert result["solved"] is True
+    assert result["healing"] == []
+
 
 
 def test_solve_goal_request_direct_and_digest_stability(tmp_path: Path) -> None:

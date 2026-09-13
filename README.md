@@ -40,7 +40,11 @@ It does not create child agents.
 
 The HTTP capability service supports [durable invocation retries](docs/durable-invocation.md):
 clients can recover saved results by request key across restarts without
-repeating a tool's side effects.
+repeating a tool's side effects. Declarative goal solving is self-healing:
+when the only program for a goal runs through quarantined capabilities,
+`POST /solve` re-proves the blockers under governed re-execution of their
+frozen cases, replans, and answers in one request — with a healing trace,
+and an honest `solved: false` when a blocker's cases genuinely fail.
 
 ## Control Loop
 
