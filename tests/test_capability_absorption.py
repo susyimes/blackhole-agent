@@ -75,6 +75,34 @@ def test_cases_pass_against_fixture_source() -> None:
     assert result["case_count"] == len(manifest["cases"])
 
 
+def test_case_execution_hides_operator_secrets(tmp_path: Path, monkeypatch) -> None:
+    tool_dir = tmp_path / "env-echo"
+    tool_dir.mkdir()
+    (tool_dir / "tool.py").write_text(
+        "import json, os, sys\n"
+        "json.load(sys.stdin)\n"
+        "print(json.dumps({'seen_probe_keys': sorted(\n"
+        "    k for k in os.environ if k.startswith('BH_PROBE_'))}))\n",
+        encoding="utf-8",
+    )
+    manifest = {
+        "schema_version": 1,
+        "slug": "env-echo",
+        "name": "env echo fixture",
+        "command": ["python", "tool.py"],
+        "requires": ["raw_text"],
+        "provides": ["seen_probe_keys"],
+        "cases": [
+            {"input": {"raw_text": "ab"}, "expect": {"seen_probe_keys": []}},
+            {"input": {"raw_text": "cd"}, "expect": {"seen_probe_keys": []}},
+        ],
+    }
+    (tool_dir / "absorption.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setenv("BH_PROBE_OPERATOR_TOKEN", "canary-value")
+    result = run_absorption_cases(tool_dir, load_manifest(tool_dir))
+    assert result["ok"], result
+
+
 def test_tree_digest_stable_and_sensitive(tmp_path: Path) -> None:
     first = tree_digest(FIXTURE_TOOL)
     assert first == tree_digest(FIXTURE_TOOL)

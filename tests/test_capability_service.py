@@ -35,6 +35,32 @@ _CHAIN_TOOL = (
     "print(json.dumps({'loud_text': state['reversed_text'].upper()}))\n"
 )
 
+_ENV_ECHO_TOOL = (
+    "import json, os, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "print(json.dumps({\n"
+    "    'reversed_text': state['raw_text'][::-1],\n"
+    "    'seen_probe_keys': sorted(k for k in os.environ if k.startswith('BH_PROBE_')),\n"
+    "    'has_path': bool(os.environ.get('PATH')),\n"
+    "}))\n"
+)
+
+
+def _write_env_echo_tool(root: Path) -> None:
+    _write_tool(
+        root,
+        "env-echo",
+        _ENV_ECHO_TOOL,
+        requires=["raw_text"],
+        provides=["reversed_text", "seen_probe_keys", "has_path"],
+    )
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-env-echo"] = _ledger_entry(
+        "capability.absorbed-env-echo"
+    )
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
 
 def _write_tool(
     root: Path,
@@ -439,3 +465,36 @@ def test_plan_goal_program_minimality_and_honesty(tmp_path: Path) -> None:
     assert plan_goal_program(invocable, {"reversed_text"}, ["reversed_text"]) == []
     bounded = plan_goal_program(invocable, {"raw_text"}, ["loud_text"], max_steps=1)
     assert bounded is None
+
+
+def test_tool_execution_env_scrubs_ambient_secrets(monkeypatch) -> None:
+    from blackhole_agent.capability_absorption import TOOL_ENV_PASSTHROUGH, tool_execution_env
+
+    monkeypatch.setenv("BH_PROBE_SECRET", "canary-value")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "canary-secret")
+    env = tool_execution_env()
+    assert "BH_PROBE_SECRET" not in env
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+    assert env.get("PATH")
+    assert env["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert env["PYTHONIOENCODING"] == "utf-8"
+    leaked = [key for key in env if key not in TOOL_ENV_PASSTHROUGH]
+    assert sorted(leaked) == ["PYTHONDONTWRITEBYTECODE", "PYTHONIOENCODING"]
+    with_extra = tool_execution_env({"BH_PROBE_DELIBERATE": "declared"})
+    assert with_extra["BH_PROBE_DELIBERATE"] == "declared"
+    assert "BH_PROBE_SECRET" not in with_extra
+
+
+def test_invoke_hides_operator_secrets_from_tool(server, monkeypatch) -> None:
+    root, base = server
+    _write_env_echo_tool(root)
+    monkeypatch.setenv("BH_PROBE_OPERATOR_TOKEN", "canary-value")
+    status, result = _request(
+        "POST",
+        f"{base}/invoke",
+        {"capability_id": "capability.absorbed-env-echo", "input": {"raw_text": "blackhole"}},
+    )
+    assert status == 200
+    assert result["output"]["reversed_text"] == "elohkcalb"
+    assert result["output"]["seen_probe_keys"] == []
+    assert result["output"]["has_path"] is True

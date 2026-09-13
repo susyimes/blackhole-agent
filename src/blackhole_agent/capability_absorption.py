@@ -236,13 +236,58 @@ def _normalized_command(command: Sequence[str]) -> list[str]:
     return parts
 
 
-def _case_env() -> dict[str, str]:
-    env = dict(os.environ)
-    # Never let a proof run litter the vendored tree with bytecode caches:
-    # the tree digest must be stable across runs.
+# ---------------------------------------------------------------------------
+# Execution environment for untrusted tool code.
+# ---------------------------------------------------------------------------
+
+# Vendored third-party tools are arbitrary code absorbed from package
+# registries. They must never inherit the operator's process environment:
+# API tokens, credentials, and session material live there, and a tool that
+# can read them can exfiltrate them. Only the minimal runtime surface a
+# subprocess needs to start and do local work passes through; anything else
+# a tool legitimately needs must arrive through its declared input keys.
+TOOL_ENV_PASSTHROUGH: tuple[str, ...] = (
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "WINDIR",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "HOME",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "USERPROFILE",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+)
+
+
+def tool_execution_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Scrubbed environment for executing vendored third-party tool code.
+
+    Only ``TOOL_ENV_PASSTHROUGH`` variables are inherited from the operator
+    process; bytecode caches and stdio encoding stay pinned so vendored tree
+    digests remain stable across runs. ``extra`` lets a caller pass explicit,
+    deliberate additions - never a copy of the ambient environment.
+    """
+
+    env = {key: os.environ[key] for key in TOOL_ENV_PASSTHROUGH if key in os.environ}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
+    if extra:
+        env.update({str(key): str(value) for key, value in extra.items()})
     return env
+
+
+def _case_env() -> dict[str, str]:
+    # Never let a proof run litter the vendored tree with bytecode caches:
+    # the tree digest must be stable across runs. Never leak operator secrets:
+    # case execution runs vendored third-party code.
+    return tool_execution_env()
 
 
 # ---------------------------------------------------------------------------

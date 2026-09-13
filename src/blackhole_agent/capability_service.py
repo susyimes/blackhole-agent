@@ -34,6 +34,12 @@ module turns the ledger into a service:
   ids, malformed bodies, missing/extra input keys, empty or
   non-machine-checkable done_when texts, and malformed solve requests all
   return a non-2xx JSON error and never spawn a subprocess.
+- Executed tools are untrusted third-party code: every subprocess runs with
+  a scrubbed allowlist environment
+  (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
+  operator credentials in the plane's own process environment are never
+  visible to vendored tools; anything a tool legitimately needs must arrive
+  through its declared ``requires`` input keys.
 
 Determinism contract: listing digests, response digests, plans, and plan
 digests are pure functions of ledger content and request payload; durations
@@ -57,6 +63,7 @@ from typing import Any, Mapping, Sequence
 from blackhole_agent.capability_absorption import (
     capability_id_for_slug,
     load_manifest,
+    tool_execution_env,
 )
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -159,10 +166,9 @@ def _normalized_command(command: Sequence[str]) -> list[str]:
 
 
 def _tool_env() -> dict[str, str]:
-    env = dict(os.environ)
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["PYTHONIOENCODING"] = "utf-8"
-    return env
+    # Vendored tools are untrusted third-party code: run them with the
+    # scrubbed allowlist environment, never the operator's ambient secrets.
+    return tool_execution_env()
 
 
 class InvocationError(Exception):

@@ -54,6 +54,7 @@ from blackhole_agent.capability_absorption import (
     absorb_external_capability,
     capability_id_for_slug,
     load_manifest,
+    tool_execution_env,
     prove_absorbed_capability,
     run_absorption_case,
     run_absorption_scenario,
@@ -655,9 +656,7 @@ def _run_probe(
     if executable in {"python", "python3", "python.exe"}:
         executable = sys.executable
     command = [executable, str(adapter_path)]
-    env = dict(os.environ)
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["PYTHONIOENCODING"] = "utf-8"
+    env = tool_execution_env()
     try:
         completed = subprocess.run(
             command,
