@@ -29,6 +29,7 @@ blackhole = "blackhole_agent.cli:app"
 blackhole-agent = "blackhole_agent.cli:app"
 blackhole-supervisor = "blackhole_agent.supervisor:app"
 blackhole-unbound = "blackhole_agent.unbound:app"
+blackhole-mcp-server = "blackhole_agent.mcp_capability_server:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "blackhole_agent.__version__"}
