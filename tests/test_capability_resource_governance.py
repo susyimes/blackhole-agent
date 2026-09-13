@@ -128,6 +128,122 @@ def test_quarantine_recorded_and_refused_fail_closed(tmp_path: Path) -> None:
     assert caught.value.extra["violation"] == "resource_quarantined"
 
 
+def _fixture_repo(tmp_path: Path, slug: str, tool_source: str, cases: list,
+                  *, quarantined: bool = False) -> tuple[Path, str]:
+    root = tmp_path / "repo"
+    tool_dir = root / "capabilities" / "absorbed" / slug
+    tool_dir.mkdir(parents=True)
+    (tool_dir / "tool.py").write_text(tool_source, encoding="utf-8")
+    (tool_dir / "absorption.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "slug": slug,
+                "name": slug,
+                "command": ["python", "tool.py"],
+                "requires": ["seed"],
+                "provides": ["done"],
+                "cases": cases,
+            }
+        ),
+        encoding="utf-8",
+    )
+    capability_id = f"capability.absorbed-{slug}"
+    entry = {
+        "id": capability_id,
+        "name": slug,
+        "last_proved_at": "2026-01-01T00:00:00Z",
+        "last_proof_exit_code": 0,
+    }
+    if quarantined:
+        entry["resource_quarantine"] = {
+            "reason": "earlier run exceeded the memory limit",
+            "resource": "memory",
+            "limit_bytes": 1,
+            "peak_job_memory_bytes": 1,
+            "quarantined_at": "2026-01-01T00:00:00Z",
+        }
+    (root / "capabilities" / "ledger.json").write_text(
+        json.dumps({"schema_version": 1, "updated_at": "", "capabilities": {capability_id: entry}}),
+        encoding="utf-8",
+    )
+    return root, capability_id
+
+
+_OK_TOOL = "import json, sys\njson.load(sys.stdin)\nprint('{\"done\": 1}')\n"
+_FAIL_TOOL = "import sys\nsys.exit(3)\n"
+
+
+def test_reproof_reinstates_quarantined_capability(tmp_path: Path) -> None:
+    root, capability_id = _fixture_repo(
+        tmp_path,
+        "reform",
+        _OK_TOOL,
+        [
+            {"input": {"seed": "a"}, "expect": {"done": 1}},
+            {"input": {"seed": "b"}, "expect": {"done": 1}},
+        ],
+        quarantined=True,
+    )
+    with pytest.raises(service.InvocationError) as caught:
+        service.invoke_capability(root, capability_id, {"seed": "a"})
+    assert caught.value.status == 409
+
+    verdict = service.reproof_capability(root, capability_id)
+    assert verdict["reinstated"] is True
+    assert verdict["cases_pass"] is True
+    assert verdict["reproof_digest"]
+
+    document = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    entry = document["capabilities"][capability_id]
+    assert "resource_quarantine" not in entry
+    assert entry["resource_reproof"]["cases_pass"] is True
+
+    result = service.invoke_capability(root, capability_id, {"seed": "a"})
+    assert result["ok"] is True and result["output"] == {"done": 1}
+
+
+def test_reproof_keeps_quarantine_when_cases_fail(tmp_path: Path) -> None:
+    root, capability_id = _fixture_repo(
+        tmp_path,
+        "broken",
+        _FAIL_TOOL,
+        [
+            {"input": {"seed": "a"}, "expect": {"done": 1}},
+            {"input": {"seed": "b"}, "expect": {"done": 1}},
+        ],
+        quarantined=True,
+    )
+    verdict = service.reproof_capability(root, capability_id)
+    assert verdict["reinstated"] is False
+    assert verdict["cases_pass"] is False
+    document = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    quarantine = document["capabilities"][capability_id]["resource_quarantine"]
+    assert "re-proof failed" in quarantine["reason"]
+
+    with pytest.raises(service.InvocationError) as caught:
+        service.invoke_capability(root, capability_id, {"seed": "a"})
+    assert caught.value.status == 409
+
+
+def test_reproof_refuses_non_quarantined_and_unknown(tmp_path: Path) -> None:
+    root, capability_id = _fixture_repo(
+        tmp_path,
+        "healthy",
+        _OK_TOOL,
+        [
+            {"input": {"seed": "a"}, "expect": {"done": 1}},
+            {"input": {"seed": "b"}, "expect": {"done": 1}},
+        ],
+    )
+    with pytest.raises(service.InvocationError) as caught:
+        service.reproof_capability(root, capability_id)
+    assert caught.value.status == 409
+    with pytest.raises(service.InvocationError) as caught:
+        service.reproof_capability(root, "capability.absorbed-missing")
+    assert caught.value.status == 404
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="job memory limits are enforced via Windows job objects")
 def test_run_captured_process_enforces_memory_limit(tmp_path: Path) -> None:
     script = tmp_path / "hog.py"

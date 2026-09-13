@@ -49,6 +49,14 @@ module turns the ledger into a service:
   durably quarantined in the ledger: later invocations are refused with a
   ``resource_quarantined`` verdict before any subprocess is spawned, while
   unaffected capabilities keep serving.
+- Quarantine lifts only through supervised re-proof: ``POST /reproof``
+  re-executes the quarantined capability's own frozen absorption cases for
+  real under the same enforced memory/process limits; all cases passing
+  reinstates the capability (recorded as ``resource_reproof`` on the ledger
+  entry, with a digest-bound verdict), while any failure or renewed
+  violation keeps the quarantine in force with a refreshed reason.
+  Non-quarantined capabilities are refused — re-proof is never a general
+  proof shortcut.
 
 Determinism contract: listing digests, response digests, plans, and plan
 digests are pure functions of ledger content and request payload; durations
@@ -268,6 +276,150 @@ def record_resource_quarantine(
     document["updated_at"] = utc_now_iso()
     atomic_write_json(path, document)
     return quarantine
+
+
+def clear_resource_quarantine(
+    root: Path, capability_id: str, reproof: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """Lift a quarantine after a supervised re-proof, recording the event."""
+
+    path = default_ledger_path(Path(root).resolve())
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    entries = document.get("capabilities")
+    if not isinstance(entries, dict) or not isinstance(entries.get(capability_id), dict):
+        return None
+    entry = entries[capability_id]
+    if not isinstance(entry.get("resource_quarantine"), dict):
+        return None
+    entry.pop("resource_quarantine")
+    entry["resource_reproof"] = {
+        "reinstated_at": utc_now_iso(),
+        "case_count": int(reproof.get("case_count") or 0),
+        "cases_pass": bool(reproof.get("cases_pass")),
+    }
+    document["updated_at"] = utc_now_iso()
+    atomic_write_json(path, document)
+    return entry["resource_reproof"]
+
+
+def _run_governed_case(
+    tool_root: Path,
+    command: Sequence[str],
+    case: Mapping[str, Any],
+    limits: ResourceLimits,
+    timeout: int,
+) -> dict[str, Any]:
+    """Execute one frozen proof case under the plane's enforced resource bounds."""
+
+    resolved = _normalized_command(command)
+    try:
+        completed = run_captured_process(
+            resolved,
+            cwd=Path(tool_root),
+            timeout=timeout,
+            input=json.dumps(case["input"]),
+            env=_tool_env(),
+            resource_limits=limits,
+        )
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    if completed.returncode != 0:
+        violation = detect_resource_violation(completed, limits)
+        if violation is not None:
+            return {"ok": False, "error": violation["reason"], "violation": violation}
+        stderr = (completed.stderr or "").strip().splitlines()
+        detail = stderr[0] if stderr else "no stderr"
+        return {"ok": False, "error": f"exit {completed.returncode}: {detail}"}
+    try:
+        fragment = json.loads(completed.stdout or "")
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "error": f"tool stdout is not a JSON fragment: {exc}"}
+    if not isinstance(fragment, dict):
+        return {"ok": False, "error": "tool stdout must be a JSON object"}
+    expect = case["expect"]
+    mismatched = {key: fragment.get(key) for key in expect if fragment.get(key) != expect[key]}
+    if mismatched:
+        return {"ok": False, "error": f"output mismatch on keys: {sorted(mismatched)}"}
+    return {"ok": True, "output": {key: fragment[key] for key in expect}}
+
+
+def reproof_capability(
+    root: Path,
+    capability_id: Any,
+    *,
+    timeout: int = INVOKE_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
+    """Reinstate a quarantined capability only when its frozen cases pass governed.
+
+    Quarantine is lifted exclusively through supervised re-proof: the
+    capability's own frozen absorption cases re-execute for real under the
+    same enforced memory/process limits that govern live invocations. Every
+    case passing lifts the quarantine (recorded as ``resource_reproof`` on the
+    ledger entry); any failure or renewed resource violation keeps the
+    quarantine in force with a refreshed reason. Non-quarantined capabilities
+    are refused — re-proof is not a general proof shortcut.
+    """
+
+    if not isinstance(capability_id, str) or not capability_id.strip():
+        raise InvocationError(400, "capability_id must be a non-empty string")
+    capability_id = capability_id.strip()
+    invocable = load_invocable_capabilities(root)
+    item = invocable.get(capability_id)
+    if item is None:
+        raise InvocationError(404, f"unknown or non-invocable capability: {capability_id}")
+    if not item.get("quarantine"):
+        raise InvocationError(409, f"capability is not quarantined: {capability_id}")
+    manifest = load_manifest(Path(item["tool_root"]))
+    limits = ResourceLimits(
+        memory_bytes=INVOKE_MEMORY_LIMIT_BYTES, max_processes=INVOKE_MAX_PROCESSES
+    )
+    case_results = [
+        _run_governed_case(Path(item["tool_root"]), manifest["command"], case, limits, timeout)
+        for case in manifest["cases"]
+    ]
+    cases_pass = all(result["ok"] for result in case_results)
+    reproof_summary = {"case_count": len(case_results), "cases_pass": cases_pass}
+    if cases_pass:
+        clear_resource_quarantine(root, capability_id, reproof_summary)
+        reinstated = True
+    else:
+        first_failure = next(
+            (result for result in case_results if not result["ok"]), {"error": "unknown"}
+        )
+        record_resource_quarantine(
+            root,
+            capability_id,
+            {
+                "resource": (first_failure.get("violation") or {}).get("resource", "unknown"),
+                "reason": f"re-proof failed under enforced limits: {first_failure['error']}",
+                "limit_bytes": (first_failure.get("violation") or {}).get(
+                    "limit_bytes", INVOKE_MEMORY_LIMIT_BYTES
+                ),
+                "peak_job_memory_bytes": (first_failure.get("violation") or {}).get(
+                    "peak_job_memory_bytes"
+                ),
+            },
+        )
+        reinstated = False
+    verdict = {
+        "ok": True,
+        "capability_id": capability_id,
+        "reinstated": reinstated,
+        "case_count": len(case_results),
+        "cases_pass": cases_pass,
+        "case_results": case_results,
+    }
+    verdict["reproof_digest"] = _digest(
+        {
+            "capability_id": capability_id,
+            "reinstated": reinstated,
+            "case_results": case_results,
+        }
+    )
+    return verdict
 
 
 def invoke_capability(
@@ -548,7 +700,7 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
             _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path not in {"/invoke", "/contract", "/solve"}:
+            if self.path not in {"/invoke", "/contract", "/solve", "/reproof"}:
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
             try:
@@ -574,6 +726,8 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                     result = solve_goal_request(
                         service_root, body.get("initial_state"), body.get("goal")
                     )
+                elif self.path == "/reproof":
+                    result = reproof_capability(service_root, body.get("capability_id"))
                 else:
                     result = invoke_capability(
                         service_root, body.get("capability_id"), body.get("input")
