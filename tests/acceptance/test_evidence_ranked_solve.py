@@ -7,9 +7,12 @@ slower and previously failed, while ``z-fast-route`` is recorded fast and
 reliable. Acceptance is that POST /solve selects the evidence-preferred
 program instead of the lexicographic one, and that the response carries an
 auditable plan_evidence trace naming both candidates with their measured
-stats. On baseline src (syntactic planner) the lexicographic route is
-chosen and no plan_evidence exists, so the probe reports passed=false.
-Exit 0 either way.
+stats. When the evidence-preferred fast route then fails mid-execution on a
+hostile input, the same request must fall back to the next-ranked viable
+program and still solve, with the fallback recorded in the response trace.
+On baseline src (syntactic planner) the lexicographic route is chosen, no
+plan_evidence exists, and no fallback trace can ever be produced, so the
+probe reports passed=false. Exit 0 either way.
 """
 
 from __future__ import annotations
@@ -29,14 +32,24 @@ REVERSER = (
     "print(json.dumps({'goal_text': state['raw_text'][::-1]}))\n"
 )
 
+# The evidence-preferred fast route is proved on benign frozen cases but
+# fails at execution time on the 'failme' input.
+FLAKY_REVERSER = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "if state['raw_text'] == 'failme':\n"
+    "    sys.exit(3)\n"
+    "print(json.dumps({'goal_text': state['raw_text'][::-1]}))\n"
+)
+
 FAST_ID = "capability.absorbed-z-fast-route"
 SLOW_ID = "capability.absorbed-a-slow-route"
 
 
-def write_tool(root: Path, slug: str) -> str:
+def write_tool(root: Path, slug: str, source: str = REVERSER) -> str:
     tool = root / "capabilities" / "absorbed" / slug
     tool.mkdir(parents=True)
-    (tool / "tool.py").write_text(REVERSER, encoding="utf-8")
+    (tool / "tool.py").write_text(source, encoding="utf-8")
     (tool / "absorption.json").write_text(json.dumps({
         "schema_version": 1, "slug": slug, "name": slug,
         "command": [sys.executable, "tool.py"],
@@ -50,7 +63,7 @@ def write_tool(root: Path, slug: str) -> str:
 
 
 def fixture(root: Path) -> None:
-    ids = [write_tool(root, "a-slow-route"), write_tool(root, "z-fast-route")]
+    ids = [write_tool(root, "a-slow-route"), write_tool(root, "z-fast-route", FLAKY_REVERSER)]
     (root / "capabilities").mkdir(exist_ok=True)
     (root / "capabilities" / "ledger.json").write_text(json.dumps({
         "schema_version": 1,
@@ -173,6 +186,32 @@ def main() -> dict:
                 "solved": solved.get("solved"),
                 "plan": solved.get("plan"),
                 "plan_evidence": evidence,
+            }
+
+            # (b) the evidence-preferred fast route fails mid-execution on
+            # the 'failme' input: the same request must fall back to the
+            # next-ranked viable program (the slow route) and still solve,
+            # with the fallback recorded in the response trace.
+            status, fell_back = request(server.base, "/solve", {
+                "initial_state": {"raw_text": "failme"}, "goal": ["goal_text"],
+            })
+            fallback_trace = fell_back.get("fallbacks") or []
+            checks["fallback_still_solves"] = (
+                status == 200
+                and fell_back.get("solved") is True
+                and fell_back.get("outcome") == {"goal_text": "emliaf"}
+            )
+            checks["mid_execution_fallback_recorded"] = any(
+                entry.get("capability_id") == FAST_ID
+                and entry.get("replaced_by") == [SLOW_ID]
+                for entry in fallback_trace
+            )
+            checks["fallback_completed_by_slow_route"] = fell_back.get("plan") == [SLOW_ID]
+            observed["fallback_solve"] = {
+                "status": status,
+                "solved": fell_back.get("solved"),
+                "plan": fell_back.get("plan"),
+                "fallbacks": fallback_trace,
             }
 
             # A goal solvable by exactly one route still solves, and the

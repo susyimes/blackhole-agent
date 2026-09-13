@@ -163,3 +163,65 @@ def test_solve_without_history_keeps_lexicographic_order(tmp_path: Path) -> None
     assert result["solved"] is True
     assert result["plan"] == [slow]
     assert result["plan_evidence"]["candidates_considered"] == 2
+
+
+_FLAKY_TOOL = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "if state['raw_text'] == 'failme':\n"
+    "    sys.exit(3)\n"
+    "print(json.dumps({'goal_text': state['raw_text'][::-1]}))\n"
+)
+
+
+def _flaky_two_route_root(tmp_path: Path) -> tuple[Path, str, str]:
+    root, slow, fast = _two_route_root(tmp_path)
+    (root / "capabilities" / "absorbed" / "z-fast-route" / "tool.py").write_text(
+        _FLAKY_TOOL, encoding="utf-8"
+    )
+    return root, slow, fast
+
+
+def test_mid_execution_failure_falls_back_to_next_ranked_program(tmp_path: Path) -> None:
+    root, slow, fast = _flaky_two_route_root(tmp_path)
+    for _ in range(3):
+        record_invocation(root, slow, duration_ms=800.0, ok=True)
+        record_invocation(root, fast, duration_ms=30.0, ok=True)
+    result = solve_goal_request(root, {"raw_text": "failme"}, ["goal_text"])
+    assert result["solved"] is True
+    assert result["plan"] == [slow]
+    assert result["outcome"] == {"goal_text": "emliaf"}
+    assert result["fallbacks"] == [
+        {"capability_id": fast, "error": result["fallbacks"][0]["error"], "replaced_by": [slow]}
+    ]
+    assert "exited 3" in result["fallbacks"][0]["error"]
+    # The failure itself was journaled, penalizing the route in future rankings.
+    stats = load_capability_stats(root)
+    assert stats[fast]["failures"] == 1
+
+
+def test_failed_capability_is_never_retried_within_one_request(tmp_path: Path) -> None:
+    root, slow, fast = _flaky_two_route_root(tmp_path)
+    # Make the slow route fail too: no viable program remains after the
+    # fast route's failure, so the original error propagates honestly.
+    (root / "capabilities" / "absorbed" / "a-slow-route" / "tool.py").write_text(
+        "import sys\nsys.exit(3)\n", encoding="utf-8"
+    )
+    record_invocation(root, fast, duration_ms=30.0, ok=True)
+    record_invocation(root, slow, duration_ms=800.0, ok=True)
+    import pytest
+
+    from blackhole_agent.capability_service import InvocationError
+
+    with pytest.raises(InvocationError):
+        solve_goal_request(root, {"raw_text": "failme"}, ["goal_text"])
+    stats = load_capability_stats(root)
+    # Fast failed once (not retried); slow failed once as the fallback attempt.
+    assert stats[fast]["failures"] == 1
+    assert stats[slow]["failures"] == 1
+
+
+def test_successful_solve_reports_empty_fallbacks(tmp_path: Path) -> None:
+    root, slow, fast = _two_route_root(tmp_path)
+    result = solve_goal_request(root, {"raw_text": "unbound"}, ["goal_text"])
+    assert result["fallbacks"] == []

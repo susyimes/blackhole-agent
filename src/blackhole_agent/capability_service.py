@@ -152,6 +152,10 @@ SOLVE_PLAN_CANDIDATES = 8
 # request: supervised re-proof re-executes frozen cases for real, so the
 # healing budget is bounded like every other governed execution.
 SOLVE_MAX_HEALED = 4
+# A failing planned step falls back to the next-ranked viable program for
+# the remaining goal; the fallback budget is bounded like the healing one
+# and a capability is never retried within one request.
+SOLVE_MAX_FALLBACKS = 4
 MAX_BODY_BYTES = 1 << 20
 # Untrusted tools run under hard tree-wide resource bounds: 256 MiB committed
 # memory (comfortably above an interpreter's baseline, far below host RAM),
@@ -946,7 +950,14 @@ def solve_goal_request(
     the same way and the remaining goal is replanned from the threaded
     state. The response's ``healing`` trace records every attempt with its
     case verdicts; a blocker whose cases genuinely fail keeps its
-    quarantine and yields an honest ``solved: false`` naming it.
+    quarantine and yields an honest ``solved: false`` naming it. A step
+    that fails mid-execution with an ordinary tool error (or an unhealable
+    quarantine while alternatives remain) falls back within the same
+    request: the remaining goal is replanned evidence-ranked over the
+    healthy pool minus the failed capabilities, and the response's
+    ``fallbacks`` trace records each failed step and the program that
+    replaced it. A capability is never retried within one request, and the
+    fallback budget is bounded by :data:`SOLVE_MAX_FALLBACKS`.
 
     ``cancel_event`` terminates the in-flight step's owned process tree
     (``ProcessCancelled`` propagates). ``step_observer(index, total,
@@ -1031,6 +1042,8 @@ def solve_goal_request(
     state = dict(initial_state)
     steps: list[dict[str, Any]] = []
     executed_program: list[str] = []
+    fallbacks: list[dict[str, Any]] = []
+    failed_steps: set[str] = set()
     remaining = list(program)
     while remaining:
         capability_id = remaining[0]
@@ -1041,35 +1054,61 @@ def solve_goal_request(
                 root, capability_id, step_input, timeout=timeout, cancel_event=cancel_event
             )
         except InvocationError as exc:
-            # Mid-execution quarantine (a concurrent request's violation, or a
-            # violation attributed to this step): heal once and replan the
-            # remaining goal from the threaded state instead of dying.
             violation = (exc.extra or {}).get("violation")
+            # Mid-execution quarantine (a concurrent request's violation, or a
+            # violation attributed to this step): heal once, then replan the
+            # remaining goal evidence-ranked from the threaded state.
             if (
-                violation not in {"resource_quarantined", "resource_limit"}
-                or capability_id in attempted
-                or len(attempted) >= SOLVE_MAX_HEALED
+                violation in {"resource_quarantined", "resource_limit"}
+                and capability_id not in attempted
+                and len(attempted) < SOLVE_MAX_HEALED
             ):
+                # The quarantine was recorded after this request's planning
+                # snapshot; reload so the healer can see it.
+                invocable = load_invocable_capabilities(root)
+                entries = heal_quarantined_blockers(
+                    root, invocable, [capability_id], timeout=timeout, attempted=attempted
+                )
+                healing.extend(entries)
+                if entries and entries[-1]["reinstated"]:
+                    invocable = load_invocable_capabilities(root)
+                    replanned, replanned_evidence = evidence_ranked_plan(
+                        healthy_subset(invocable),
+                        set(state),
+                        [key for key in goal_keys if key not in state],
+                    )
+                    if replanned is not None:
+                        if replanned_evidence is not None:
+                            evidence = replanned_evidence
+                        remaining = replanned
+                        continue
+            # Ordinary mid-execution failure (or an unhealable quarantine
+            # with alternatives left): the failed step's provides never
+            # entered the threaded state, so fall back to the next-ranked
+            # viable program for the remaining goal instead of dying.
+            if capability_id in failed_steps or len(fallbacks) >= SOLVE_MAX_FALLBACKS:
                 raise
-            # The quarantine was recorded after this request's planning
-            # snapshot; reload so the healer can see it.
+            failed_steps.add(capability_id)
             invocable = load_invocable_capabilities(root)
-            entries = heal_quarantined_blockers(
-                root, invocable, [capability_id], timeout=timeout, attempted=attempted
-            )
-            healing.extend(entries)
-            if not entries or not entries[-1]["reinstated"]:
-                raise
-            invocable = load_invocable_capabilities(root)
-            healthy = healthy_subset(invocable)
-            replanned = plan_goal_program(
-                healthy,
-                set(state),
-                [key for key in goal_keys if key not in state],
-                max_steps=max_steps,
+            pool = {
+                cid: candidate
+                for cid, candidate in healthy_subset(invocable).items()
+                if cid not in failed_steps
+            }
+            replanned, replanned_evidence = evidence_ranked_plan(
+                pool, set(state), [key for key in goal_keys if key not in state]
             )
             if replanned is None:
                 raise
+            fallbacks.append(
+                {
+                    "capability_id": capability_id,
+                    "error": exc.error,
+                    "replaced_by": list(replanned),
+                }
+            )
+            if replanned_evidence is not None:
+                evidence = replanned_evidence
             remaining = replanned
             continue
         state.update(result["output"])
@@ -1094,6 +1133,7 @@ def solve_goal_request(
         "steps": steps,
         "outcome": outcome,
         "healing": healing,
+        "fallbacks": fallbacks,
         "plan_evidence": evidence,
         "plan_digest": _digest(
             {
