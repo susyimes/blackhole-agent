@@ -45,6 +45,12 @@ module turns the ledger into a service:
   ids, malformed bodies, missing/extra input keys, empty or
   non-machine-checkable done_when texts, and malformed solve requests all
   return a non-2xx JSON error and never spawn a subprocess.
+- ``GET /console`` (also ``/``) serves the operator console
+  (:mod:`blackhole_agent.capability_console`): one self-contained HTML
+  page with the live catalog embedded and inline JavaScript driving
+  ``/health``, ``/capabilities``, ``/sessions``, ``/invoke`` and
+  ``/solve`` — a browser with zero client installation can inspect the
+  plane and execute real capabilities and goals.
 - Executed tools are untrusted third-party code: every subprocess runs with
   a scrubbed allowlist environment
   (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
@@ -777,6 +783,8 @@ def solve_goal_request(
     *,
     timeout: int = INVOKE_TIMEOUT_SECONDS,
     max_steps: int = SOLVE_MAX_STEPS,
+    cancel_event: threading.Event | None = None,
+    step_observer: Any = None,
 ) -> dict[str, Any]:
     """Derive and execute a capability program for a declarative goal.
 
@@ -786,6 +794,11 @@ def solve_goal_request(
     state threaded from step outputs into downstream inputs. Unsolvable
     goals return an honest ``solved: false`` verdict without spawning a
     subprocess; malformed requests are refused before planning.
+
+    ``cancel_event`` terminates the in-flight step's owned process tree
+    (``ProcessCancelled`` propagates). ``step_observer(index, total,
+    capability_id)`` is invoked after each completed step so streaming
+    transports (the MCP capability server) can report per-step progress.
     """
 
     if not isinstance(initial_state, dict) or not all(
@@ -813,10 +826,13 @@ def solve_goal_request(
         }
     state = dict(initial_state)
     steps: list[dict[str, Any]] = []
-    for capability_id in program:
+    total = len(program)
+    for index, capability_id in enumerate(program, start=1):
         item = invocable[capability_id]
         step_input = {key: state[key] for key in item["requires"]}
-        result = invoke_capability(root, capability_id, step_input, timeout=timeout)
+        result = invoke_capability(
+            root, capability_id, step_input, timeout=timeout, cancel_event=cancel_event
+        )
         state.update(result["output"])
         steps.append(
             {
@@ -826,6 +842,8 @@ def solve_goal_request(
                 "response_digest": result["response_digest"],
             }
         )
+        if step_observer is not None:
+            step_observer(index, total, capability_id)
     outcome = {key: state[key] for key in goal_keys}
     return {
         "ok": True,
@@ -884,6 +902,16 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
 
         def do_GET(self) -> None:  # noqa: N802
             path = self.path.split("?", 1)[0]
+            if path in {"/", "/console"}:
+                from blackhole_agent.capability_console import console_html
+
+                body = console_html(service_root).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             if path == "/health":
                 _json_response(self, 200, {"ok": True, "schema_version": SCHEMA_VERSION})
                 return

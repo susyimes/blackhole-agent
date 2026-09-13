@@ -181,6 +181,10 @@ def _check_fixture_server(src_root: Path, observed: dict) -> bool:
             )
 
             tools = _paginate_tools(client)
+            # Meta-tools (solve_goal) are served alongside the per-capability
+            # tools; the per-capability assertions exclude them. On baseline
+            # source they are absent, so the filter is a no-op there.
+            tools = [tool for tool in tools if tool.get("name") != "solve_goal"]
             names = [tool.get("name") for tool in tools]
             observed["fixture_tools"] = names
             listing_ok = names == ["text-reverser"]
@@ -251,6 +255,10 @@ def _check_real_ledger(src_root: Path, observed: dict) -> bool:
             },
         )
         tools = _paginate_tools(client)
+        # Meta-tools served alongside the per-capability tools (solve_goal)
+        # are excluded from the one-tool-per-ledger-capability count; on
+        # baseline source they are absent, so the filter is a no-op there.
+        tools = [tool for tool in tools if tool.get("name") != "solve_goal"]
         names = [str(tool.get("name") or "") for tool in tools]
         observed["real_tool_count"] = len(names)
         observed["real_names_spec_legal"] = all(_NAME_PATTERN.match(name) for name in names)

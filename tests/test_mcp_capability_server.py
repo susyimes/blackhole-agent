@@ -90,12 +90,15 @@ def test_tool_names_are_spec_legal_and_unique() -> None:
 def test_catalog_lists_only_proved_invocable(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)
     catalog = CapabilityCatalog(root)
-    assert [tool["name"] for tool in catalog.tools] == ["text-reverser"]
+    assert [tool["name"] for tool in catalog.tools] == ["text-reverser", "solve_goal"]
     tool = catalog.tools[0]
     assert tool["inputSchema"]["required"] == ["raw_text"]
     assert tool["inputSchema"]["additionalProperties"] is False
     assert tool["outputSchema"]["required"] == ["reversed_text"]
     assert tool["outputSchema"]["properties"]["reversed_text"] == {"type": "string"}
+    solve = catalog.tools[-1]
+    assert solve["inputSchema"]["required"] == ["initial_state", "goal"]
+    assert "solve_goal" not in catalog.by_name
 
 
 def test_catalog_pagination_has_no_gaps_or_duplicates(tmp_path: Path) -> None:
@@ -112,8 +115,8 @@ def test_catalog_pagination_has_no_gaps_or_duplicates(tmp_path: Path) -> None:
         if not cursor:
             break
     assert pages == 3
-    assert len(collected) == 5
-    assert len(set(collected)) == 5
+    assert len(collected) == 6
+    assert len(set(collected)) == 6
     with pytest.raises(ValueError):
         catalog.list_page("not-a-cursor", 2)
     with pytest.raises(ValueError):
@@ -123,14 +126,14 @@ def test_catalog_pagination_has_no_gaps_or_duplicates(tmp_path: Path) -> None:
 def test_catalog_tracks_ledger_changes(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)
     catalog = CapabilityCatalog(root)
-    assert len(catalog.tools) == 1
+    assert len(catalog.tools) == 2
     _fixture_root(tmp_path, extra_slugs=2)
     ledger_path = root / "capabilities" / "ledger.json"
     import os
 
     os.utime(ledger_path, (ledger_path.stat().st_atime, ledger_path.stat().st_mtime + 5))
     catalog.refresh()
-    assert len(catalog.tools) == 3
+    assert len(catalog.tools) == 4
 
 
 def test_handle_message_protocol_surface(tmp_path: Path) -> None:
@@ -156,7 +159,7 @@ def test_live_session_executes_real_capability(tmp_path: Path) -> None:
         assert session.protocol_version == PROTOCOL_VERSION
         listing = session.paginate_tools()
         names = [tool["name"] for tool in listing["tools"]]
-        assert names == ["text-reverser"]
+        assert names == ["text-reverser", "solve_goal"]
         result = session.call_tool("text-reverser", {"raw_text": "unbound"})
         assert result.get("isError") is False
         assert result.get("structuredContent") == {"reversed_text": "dnuobnu"}
@@ -164,6 +167,36 @@ def test_live_session_executes_real_capability(tmp_path: Path) -> None:
         assert refused.get("isError") is True
         with pytest.raises(McpProtocolError, match="unknown tool"):
             session.call_tool("no-such-tool", {})
+    finally:
+        session.kill()
+
+
+def test_live_session_solves_declarative_goal(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    session = McpStdioSession(
+        [sys.executable, "-m", "blackhole_agent.mcp_capability_server", "--root", str(root)],
+        timeout_seconds=30,
+    )
+    try:
+        session.start()
+        result = session.call_tool(
+            "solve_goal",
+            {"initial_state": {"raw_text": "unbound"}, "goal": ["reversed_text"]},
+        )
+        assert result.get("isError") is False
+        structured = result["structuredContent"]
+        assert structured["solved"] is True
+        assert structured["plan"] == ["capability.absorbed-text-reverser"]
+        assert structured["outcome"] == {"reversed_text": "dnuobnu"}
+        assert structured["plan_digest"]
+        unsolvable = session.call_tool(
+            "solve_goal", {"initial_state": {}, "goal": ["no_such_state_key"]}
+        )
+        assert unsolvable.get("isError") is False
+        assert unsolvable["structuredContent"]["solved"] is False
+        assert unsolvable["structuredContent"]["plan"] is None
+        malformed = session.call_tool("solve_goal", {"initial_state": {}, "goal": []})
+        assert malformed.get("isError") is True
     finally:
         session.kill()
 

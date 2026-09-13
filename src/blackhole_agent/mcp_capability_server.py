@@ -29,6 +29,17 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
   answers the request with JSON-RPC ``-32800`` — the acknowledgement
   real MCP hosts (and this repository's own client) expect before they
   reuse the session.
+- The catalog also serves one meta-tool, ``solve_goal``: the client
+  names no capability, only an ``initial_state`` object and a list of
+  ``goal`` state keys. The server derives a minimal multi-capability
+  program over the live ledger (:func:`plan_goal_program`), executes
+  every step for real with threaded state, emits per-step
+  ``notifications/progress`` when a progress token is attached, honors
+  ``notifications/cancelled`` mid-plan, and returns a digest-bound
+  ``structuredContent`` outcome (``solved``, ``plan``, per-step
+  response digests, ``outcome``, ``plan_digest``). Goals no proved
+  program covers return an honest ``solved: false``; they are not
+  errors.
 
 Tool names are derived from the absorption slug, sanitized to the MCP
 name grammar (``^[A-Za-z0-9_-]{1,64}$``) with a digest suffix when a
@@ -53,17 +64,19 @@ from blackhole_agent.capability_service import (
     InvocationError,
     invoke_capability,
     load_invocable_capabilities,
+    solve_goal_request,
 )
 from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.0.0"}
+SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.1.0"}
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PAGE_SIZE = 128
 MAX_PAGE_SIZE = 512
 TOOL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 TOOL_NAME_LIMIT = 64
+SOLVE_TOOL_NAME = "solve_goal"
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 PARSE_ERROR = -32700
@@ -174,6 +187,49 @@ def _tool_descriptor(capability_id: str, item: Mapping[str, Any], tool_name: str
     return descriptor
 
 
+def _solve_tool_descriptor() -> dict[str, Any]:
+    return {
+        "name": SOLVE_TOOL_NAME,
+        "description": (
+            "Solve a declarative goal over the served capability ledger: "
+            "supply an initial_state object and the goal state keys; the "
+            "server derives a minimal capability program, executes every "
+            "step for real with threaded state, and returns the outcome "
+            "with a plan digest."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "initial_state": {
+                    "type": "object",
+                    "description": "state keys the caller already holds",
+                },
+                "goal": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "state keys the derived program must provide",
+                },
+            },
+            "required": ["initial_state", "goal"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "solved": {"type": "boolean"},
+                "goal": {"type": "array", "items": {"type": "string"}},
+                "plan": {"type": ["array", "null"], "items": {"type": "string"}},
+                "steps": {"type": "array"},
+                "outcome": {"type": "object"},
+                "plan_digest": {"type": "string"},
+                "reason": {"type": "string"},
+            },
+            "required": ["ok", "solved", "goal"],
+        },
+    }
+
+
 class CapabilityCatalog:
     """Live view of the invocable ledger, rebuilt when ledger.json changes."""
 
@@ -206,6 +262,7 @@ class CapabilityCatalog:
             tool_name = tool_name_for_slug(str(item["slug"]), taken)
             tools.append(_tool_descriptor(capability_id, item, tool_name))
             by_name[tool_name] = capability_id
+        tools.append(_solve_tool_descriptor())
         self.tools = tools
         self.by_name = by_name
         self._ledger_mtime_ns = mtime_ns
@@ -233,13 +290,16 @@ class CapabilityCatalog:
         arguments: Any,
         *,
         cancel_event: threading.Event | None = None,
+        progress: Any = None,
     ) -> dict[str, Any]:
         self.refresh()
+        if not isinstance(arguments, Mapping):
+            arguments = {}
+        if name == SOLVE_TOOL_NAME:
+            return self._solve(arguments, cancel_event=cancel_event, progress=progress)
         capability_id = self.by_name.get(name)
         if capability_id is None:
             raise ToolCallError(name)
-        if not isinstance(arguments, Mapping):
-            arguments = {}
         try:
             result = invoke_capability(
                 self.root, capability_id, dict(arguments), cancel_event=cancel_event
@@ -255,6 +315,38 @@ class CapabilityCatalog:
                 {"type": "text", "text": json.dumps(output, sort_keys=True, ensure_ascii=True)}
             ],
             "structuredContent": output,
+            "isError": False,
+        }
+
+    def _solve(
+        self,
+        arguments: Mapping[str, Any],
+        *,
+        cancel_event: threading.Event | None = None,
+        progress: Any = None,
+    ) -> dict[str, Any]:
+        def _step(index: int, total: int, capability_id: str) -> None:
+            if progress is not None:
+                progress(index, f"step {index}/{total}: {capability_id}", total=total)
+
+        try:
+            result = solve_goal_request(
+                self.root,
+                arguments.get("initial_state"),
+                arguments.get("goal"),
+                cancel_event=cancel_event,
+                step_observer=_step,
+            )
+        except InvocationError as exc:
+            return {
+                "content": [{"type": "text", "text": f"solve refused ({exc.status}): {exc.error}"}],
+                "isError": True,
+            }
+        return {
+            "content": [
+                {"type": "text", "text": json.dumps(result, sort_keys=True, ensure_ascii=True)}
+            ],
+            "structuredContent": result,
             "isError": False,
         }
 
@@ -338,13 +430,21 @@ def serve_stdio(root: Path) -> int:
     def _run_call(request_id: Any, params: Mapping[str, Any]) -> None:
         token = _progress_token(params)
         try:
-            if token is not None:
-                _notify_progress(token, 0, "call started")
             name = str(params.get("name") or "")
+            is_solve = name == SOLVE_TOOL_NAME
+            if token is not None:
+                _notify_progress(token, 0, "solve started" if is_solve else "call started")
+            progress = None
+            if token is not None and is_solve:
+                progress = lambda p, msg, total=None: _notify_progress(  # noqa: E731
+                    token, p, msg, total=total
+                )
             with registry_lock:
                 cancel_event = in_flight.get(request_id)
             try:
-                result = catalog.call(name, params.get("arguments"), cancel_event=cancel_event)
+                result = catalog.call(
+                    name, params.get("arguments"), cancel_event=cancel_event, progress=progress
+                )
             except ToolCallError:
                 _write(
                     {
@@ -366,7 +466,7 @@ def serve_stdio(root: Path) -> int:
                     }
                 )
                 return
-            if token is not None:
+            if token is not None and not is_solve:
                 _notify_progress(token, 1, "call completed", total=1)
             _write({"jsonrpc": "2.0", "id": request_id, "result": result})
         finally:
