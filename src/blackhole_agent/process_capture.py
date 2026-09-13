@@ -25,14 +25,17 @@ class ResourceLimits:
     ``memory_bytes`` caps committed memory for the whole tree (Windows job
     memory limit; POSIX ``RLIMIT_AS`` per process). ``max_processes`` caps the
     number of simultaneously active processes in the tree (Windows job active
-    process limit; POSIX ``RLIMIT_NPROC`` best effort).
+    process limit; POSIX ``RLIMIT_NPROC`` best effort). ``cpu_seconds`` caps
+    total user-mode CPU time for the tree (Windows job time limit; POSIX
+    ``RLIMIT_CPU`` per process).
     """
 
     memory_bytes: int | None = None
     max_processes: int | None = None
+    cpu_seconds: int | None = None
 
     def enabled(self) -> bool:
-        return bool(self.memory_bytes) or bool(self.max_processes)
+        return bool(self.memory_bytes) or bool(self.max_processes) or bool(self.cpu_seconds)
 
 
 def _posix_limit_preexec(limits: ResourceLimits):
@@ -46,6 +49,8 @@ def _posix_limit_preexec(limits: ResourceLimits):
                 resource.setrlimit(resource.RLIMIT_NPROC, (limits.max_processes, limits.max_processes))
             except (ValueError, OSError):
                 pass  # RLIMIT_NPROC is unsupported on some POSIX hosts.
+        if limits.cpu_seconds:
+            resource.setrlimit(resource.RLIMIT_CPU, (limits.cpu_seconds, limits.cpu_seconds))
 
     return apply
 
@@ -109,6 +114,7 @@ def run_captured_process(
                 job = WindowsJob(
                     memory_bytes=(resource_limits.memory_bytes if resource_limits else None),
                     max_processes=(resource_limits.max_processes if resource_limits else None),
+                    cpu_seconds=(resource_limits.cpu_seconds if resource_limits else None),
                 )
                 process = job.start(
                     command,

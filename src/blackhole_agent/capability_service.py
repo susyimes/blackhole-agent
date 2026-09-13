@@ -42,11 +42,12 @@ module turns the ledger into a service:
   through its declared ``requires`` input keys.
 - Tool execution is resource-governed, not just scrubbed: each invocation
   runs as an owned process tree under hard bounds (256 MiB committed memory
-  for the whole tree, 32 active processes, plus the wall-clock timeout). A
-  tool that exceeds the memory limit is attributed deterministically — via
-  job peak-memory accounting, with a visible MemoryError as fallback — is
-  answered with a distinct ``resource_limit`` violation verdict, and is
-  durably quarantined in the ledger: later invocations are refused with a
+  for the whole tree, 32 active processes, 25 CPU-seconds, plus the
+  wall-clock timeout). A tool that exceeds the memory or CPU limit is
+  attributed deterministically — via job peak-memory and user-time/termination
+  accounting, with a visible MemoryError as fallback — is answered with a
+  distinct ``resource_limit`` violation verdict, and is durably quarantined
+  in the ledger: later invocations are refused with a
   ``resource_quarantined`` verdict before any subprocess is spawned, while
   unaffected capabilities keep serving.
 - Quarantine lifts only through supervised re-proof: ``POST /reproof``
@@ -110,10 +111,13 @@ CONTRACT_TIMEOUT_SECONDS = 120
 SOLVE_MAX_STEPS = 8
 MAX_BODY_BYTES = 1 << 20
 # Untrusted tools run under hard tree-wide resource bounds: 256 MiB committed
-# memory (comfortably above an interpreter's baseline, far below host RAM) and
-# 32 simultaneously active processes.
+# memory (comfortably above an interpreter's baseline, far below host RAM),
+# 32 simultaneously active processes, and 25 CPU-seconds (below the 30s
+# wall-clock timeout, so CPU hogs are attributed as resource violations
+# rather than plain timeouts).
 INVOKE_MEMORY_LIMIT_BYTES = 256 << 20
 INVOKE_MAX_PROCESSES = 32
+INVOKE_CPU_SECONDS = 25
 # Peak committed memory within this ratio of the limit marks a violation even
 # when the tool masks its MemoryError with an ordinary nonzero exit.
 MEMORY_VIOLATION_PEAK_RATIO = 0.80
@@ -192,6 +196,9 @@ def _validated_limits_override(raw: Any) -> dict[str, int] | None:
     processes = raw.get("max_processes")
     if isinstance(processes, int) and 1 <= processes <= 256:
         override["max_processes"] = processes
+    cpu = raw.get("cpu_seconds")
+    if isinstance(cpu, int) and 1 <= cpu <= 3600:
+        override["cpu_seconds"] = cpu
     return override or None
 
 
@@ -202,6 +209,7 @@ def effective_resource_limits(item: Mapping[str, Any]) -> ResourceLimits:
     return ResourceLimits(
         memory_bytes=int(override.get("memory_bytes") or INVOKE_MEMORY_LIMIT_BYTES),
         max_processes=int(override.get("max_processes") or INVOKE_MAX_PROCESSES),
+        cpu_seconds=int(override.get("cpu_seconds") or INVOKE_CPU_SECONDS),
     )
 
 
@@ -265,6 +273,24 @@ def detect_resource_violation(
     stats = getattr(completed, "job_stats", None) or {}
     peak = int(stats.get("peak_job_memory_bytes") or 0)
     stderr = completed.stderr or ""
+    if limits.cpu_seconds:
+        user_time_100ns = int(stats.get("total_user_time_100ns") or 0)
+        terminated = int(stats.get("total_terminated_processes") or 0)
+        budget_100ns = limits.cpu_seconds * 10_000_000
+        # A CPU-limit kill terminates every active process in the job; the
+        # accounting pair (time at budget, processes terminated by the job)
+        # distinguishes it from an ordinary crash or a wall-clock timeout.
+        if terminated > 0 and user_time_100ns >= int(budget_100ns * 0.85):
+            return {
+                "resource": "cpu_time",
+                "reason": (
+                    f"tree consumed its enforced {limits.cpu_seconds}-second "
+                    f"CPU budget ({user_time_100ns // 10_000_000}s user time) and "
+                    f"was terminated by the job"
+                ),
+                "limit_cpu_seconds": limits.cpu_seconds,
+                "user_time_seconds": user_time_100ns // 10_000_000,
+            }
     if limits.memory_bytes:
         if peak >= int(limits.memory_bytes * MEMORY_VIOLATION_PEAK_RATIO):
             return {
@@ -309,6 +335,8 @@ def record_resource_quarantine(
         "resource": str(violation.get("resource") or "unknown"),
         "limit_bytes": violation.get("limit_bytes"),
         "peak_job_memory_bytes": violation.get("peak_job_memory_bytes"),
+        "limit_cpu_seconds": violation.get("limit_cpu_seconds"),
+        "user_time_seconds": violation.get("user_time_seconds"),
         "quarantined_at": utc_now_iso(),
     }
     entries[capability_id]["resource_quarantine"] = quarantine
@@ -491,7 +519,11 @@ def reproof_capability(
         "cases_pass": cases_pass,
         "case_results": case_results,
         "resource_profile": profile,
-        "enforced_limits": {"memory_bytes": limits.memory_bytes, "max_processes": limits.max_processes},
+        "enforced_limits": {
+            "memory_bytes": limits.memory_bytes,
+            "max_processes": limits.max_processes,
+            "cpu_seconds": limits.cpu_seconds,
+        },
     }
     verdict["reproof_digest"] = _digest(
         {

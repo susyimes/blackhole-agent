@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,25 @@ def test_peak_memory_at_limit_is_violation() -> None:
     assert violation is not None
     assert violation["resource"] == "memory"
     assert violation["peak_job_memory_bytes"] == stats["peak_job_memory_bytes"]
+
+
+def test_cpu_budget_exhaustion_is_violation() -> None:
+    limits = ResourceLimits(cpu_seconds=3)
+    stats = {"total_user_time_100ns": int(3 * 10_000_000 * 0.95), "total_terminated_processes": 2}
+    violation = service.detect_resource_violation(_completed(1, job_stats=stats), limits)
+    assert violation is not None
+    assert violation["resource"] == "cpu_time"
+    assert violation["limit_cpu_seconds"] == 3
+
+
+def test_ordinary_crash_is_not_cpu_violation() -> None:
+    limits = ResourceLimits(cpu_seconds=3)
+    # Well under budget even though the job terminated a crashing process.
+    stats = {"total_user_time_100ns": int(10_000_000 * 0.5), "total_terminated_processes": 0}
+    assert service.detect_resource_violation(_completed(1, job_stats=stats), limits) is None
+    # No termination accounting: a plain nonzero exit is not a budget kill.
+    stats = {"total_user_time_100ns": 3 * 10_000_000, "total_terminated_processes": 0}
+    assert service.detect_resource_violation(_completed(1, job_stats=stats), limits) is None
 
 
 def test_memory_error_stderr_is_violation_fallback() -> None:
@@ -250,21 +270,25 @@ def test_limits_override_validation() -> None:
     assert service._validated_limits_override({"memory_bytes": 1}) is None  # below floor
     assert service._validated_limits_override({"memory_bytes": 1 << 40}) is None  # above ceiling
     assert service._validated_limits_override({"max_processes": 0}) is None
+    assert service._validated_limits_override({"cpu_seconds": 0}) is None
+    assert service._validated_limits_override({"cpu_seconds": 99999}) is None
     override = service._validated_limits_override(
-        {"memory_bytes": 64 << 20, "max_processes": 8}
+        {"memory_bytes": 64 << 20, "max_processes": 8, "cpu_seconds": 5}
     )
-    assert override == {"memory_bytes": 64 << 20, "max_processes": 8}
+    assert override == {"memory_bytes": 64 << 20, "max_processes": 8, "cpu_seconds": 5}
 
 
 def test_effective_limits_resolution() -> None:
     default = service.effective_resource_limits({})
     assert default.memory_bytes == service.INVOKE_MEMORY_LIMIT_BYTES
     assert default.max_processes == service.INVOKE_MAX_PROCESSES
+    assert default.cpu_seconds == service.INVOKE_CPU_SECONDS
     override = service.effective_resource_limits(
-        {"limits_override": {"memory_bytes": 64 << 20, "max_processes": 8}}
+        {"limits_override": {"memory_bytes": 64 << 20, "max_processes": 8, "cpu_seconds": 5}}
     )
     assert override.memory_bytes == 64 << 20
     assert override.max_processes == 8
+    assert override.cpu_seconds == 5
     ignored = service.effective_resource_limits({"limits_override": {"memory_bytes": 1}})
     assert ignored.memory_bytes == service.INVOKE_MEMORY_LIMIT_BYTES
 
@@ -326,3 +350,24 @@ def test_run_captured_process_unlimited_still_works(tmp_path: Path) -> None:
     )
     assert completed.returncode == 0
     assert "hello" in completed.stdout
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="job CPU limits are enforced via Windows job objects")
+def test_run_captured_process_enforces_cpu_limit(tmp_path: Path) -> None:
+    script = tmp_path / "spin.py"
+    script.write_text("x = 0\nwhile True:\n    x += 1\n", encoding="utf-8")
+    limits = ResourceLimits(cpu_seconds=3)
+    started = time.monotonic()
+    completed = run_captured_process(
+        [sys.executable, str(script)],
+        cwd=tmp_path,
+        timeout=60,
+        resource_limits=limits,
+    )
+    elapsed = time.monotonic() - started
+    assert completed.returncode != 0
+    assert elapsed < 30  # budget kill, not the wall-clock timeout
+    stats = completed.job_stats  # type: ignore[attr-defined]
+    assert stats["total_terminated_processes"] > 0
+    violation = service.detect_resource_violation(completed, limits)
+    assert violation is not None and violation["resource"] == "cpu_time"

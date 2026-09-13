@@ -57,6 +57,7 @@ class _Accounting(ctypes.Structure):
 
 class WindowsJob:
     # JOB_OBJECT_LIMIT_* flags (winnt.h).
+    LIMIT_JOB_TIME = 0x0004
     LIMIT_ACTIVE_PROCESS = 0x0008
     LIMIT_JOB_MEMORY = 0x0200
     LIMIT_KILL_ON_JOB_CLOSE = 0x2000
@@ -66,6 +67,7 @@ class WindowsJob:
         *,
         memory_bytes: int | None = None,
         max_processes: int | None = None,
+        cpu_seconds: int | None = None,
     ) -> None:
         self.api = ctypes.WinDLL("kernel32", use_last_error=True)
         signatures = {
@@ -97,6 +99,10 @@ class WindowsJob:
         if max_processes is not None and max_processes > 0:
             limits.BasicLimitInformation.ActiveProcessLimit = max_processes
             flags |= self.LIMIT_ACTIVE_PROCESS
+        if cpu_seconds is not None and cpu_seconds > 0:
+            # 100-nanosecond units; the budget is shared by the whole tree.
+            limits.BasicLimitInformation.PerJobUserTimeLimit = cpu_seconds * 10_000_000
+            flags |= self.LIMIT_JOB_TIME
         limits.BasicLimitInformation.LimitFlags = flags
         if not self.api.SetInformationJobObject(self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
             error = ctypes.WinError(ctypes.get_last_error())
@@ -153,6 +159,7 @@ class WindowsJob:
         return {
             "peak_job_memory_bytes": int(limits.PeakJobMemoryUsed),
             "peak_process_memory_bytes": int(limits.PeakProcessMemoryUsed),
+            "total_user_time_100ns": int(accounting.TotalUserTime),
             "total_terminated_processes": int(accounting.TotalTerminatedProcesses),
             "active_processes": int(accounting.ActiveProcesses),
         }
