@@ -244,6 +244,53 @@ def test_reproof_refuses_non_quarantined_and_unknown(tmp_path: Path) -> None:
     assert caught.value.status == 404
 
 
+def test_limits_override_validation() -> None:
+    assert service._validated_limits_override(None) is None
+    assert service._validated_limits_override("bogus") is None
+    assert service._validated_limits_override({"memory_bytes": 1}) is None  # below floor
+    assert service._validated_limits_override({"memory_bytes": 1 << 40}) is None  # above ceiling
+    assert service._validated_limits_override({"max_processes": 0}) is None
+    override = service._validated_limits_override(
+        {"memory_bytes": 64 << 20, "max_processes": 8}
+    )
+    assert override == {"memory_bytes": 64 << 20, "max_processes": 8}
+
+
+def test_effective_limits_resolution() -> None:
+    default = service.effective_resource_limits({})
+    assert default.memory_bytes == service.INVOKE_MEMORY_LIMIT_BYTES
+    assert default.max_processes == service.INVOKE_MAX_PROCESSES
+    override = service.effective_resource_limits(
+        {"limits_override": {"memory_bytes": 64 << 20, "max_processes": 8}}
+    )
+    assert override.memory_bytes == 64 << 20
+    assert override.max_processes == 8
+    ignored = service.effective_resource_limits({"limits_override": {"memory_bytes": 1}})
+    assert ignored.memory_bytes == service.INVOKE_MEMORY_LIMIT_BYTES
+
+
+def test_reproof_reports_enforced_limits_and_profile(tmp_path: Path) -> None:
+    root, capability_id = _fixture_repo(
+        tmp_path,
+        "policy",
+        _OK_TOOL,
+        [
+            {"input": {"seed": "a"}, "expect": {"done": 1}},
+            {"input": {"seed": "b"}, "expect": {"done": 1}},
+        ],
+        quarantined=True,
+    )
+    verdict = service.reproof_capability(root, capability_id)
+    assert verdict["reinstated"] is True
+    assert verdict["enforced_limits"]["memory_bytes"] == service.INVOKE_MEMORY_LIMIT_BYTES
+    if sys.platform == "win32":
+        assert verdict["resource_profile"]["peak_job_memory_bytes"] > 0
+        document = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+        profile = document["capabilities"][capability_id]["resource_profile"]
+        assert profile["peak_job_memory_bytes"] > 0
+        assert profile["observed_under_limit_bytes"] == service.INVOKE_MEMORY_LIMIT_BYTES
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="job memory limits are enforced via Windows job objects")
 def test_run_captured_process_enforces_memory_limit(tmp_path: Path) -> None:
     script = tmp_path / "hog.py"

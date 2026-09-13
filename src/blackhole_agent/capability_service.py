@@ -57,6 +57,13 @@ module turns the ledger into a service:
   violation keeps the quarantine in force with a refreshed reason.
   Non-quarantined capabilities are refused — re-proof is never a general
   proof shortcut.
+- Resource policy is per-capability and evidence-based: a ledger entry may
+  declare ``resource_limits`` (``memory_bytes``/``max_processes``) which the
+  plane enforces in place of the defaults for both live invocations and
+  re-proofs (sanity-bounded to a host-safety envelope), and every successful
+  re-proof records a ``resource_profile`` — the peak committed memory the
+  frozen cases actually needed under the enforced limit — so policies are
+  set from observation, not guesswork.
 
 Determinism contract: listing digests, response digests, plans, and plan
 digests are pure functions of ledger content and request payload; durations
@@ -162,8 +169,40 @@ def load_invocable_capabilities(root: Path) -> dict[str, dict[str, Any]]:
                 if isinstance(entry.get("resource_quarantine"), dict)
                 else None
             ),
+            "limits_override": _validated_limits_override(entry.get("resource_limits")),
         }
     return invocable
+
+
+# Absolute ceiling for operator-declared per-capability limits: a policy can
+# relax or tighten the defaults, never escape the host-safety envelope.
+MAX_LIMIT_OVERRIDE_BYTES = 4 << 30
+MIN_LIMIT_OVERRIDE_BYTES = 16 << 20
+
+
+def _validated_limits_override(raw: Any) -> dict[str, int] | None:
+    """Sanity-check an operator-declared ``resource_limits`` ledger field."""
+
+    if not isinstance(raw, dict):
+        return None
+    override: dict[str, int] = {}
+    memory = raw.get("memory_bytes")
+    if isinstance(memory, int) and MIN_LIMIT_OVERRIDE_BYTES <= memory <= MAX_LIMIT_OVERRIDE_BYTES:
+        override["memory_bytes"] = memory
+    processes = raw.get("max_processes")
+    if isinstance(processes, int) and 1 <= processes <= 256:
+        override["max_processes"] = processes
+    return override or None
+
+
+def effective_resource_limits(item: Mapping[str, Any]) -> ResourceLimits:
+    """Per-capability policy when declared and valid, else the plane defaults."""
+
+    override = _validated_limits_override(item.get("limits_override")) or {}
+    return ResourceLimits(
+        memory_bytes=int(override.get("memory_bytes") or INVOKE_MEMORY_LIMIT_BYTES),
+        max_processes=int(override.get("max_processes") or INVOKE_MAX_PROCESSES),
+    )
 
 
 def capability_listing(root: Path) -> dict[str, Any]:
@@ -333,6 +372,7 @@ def _run_governed_case(
         stderr = (completed.stderr or "").strip().splitlines()
         detail = stderr[0] if stderr else "no stderr"
         return {"ok": False, "error": f"exit {completed.returncode}: {detail}"}
+    peak = int((getattr(completed, "job_stats", None) or {}).get("peak_job_memory_bytes") or 0)
     try:
         fragment = json.loads(completed.stdout or "")
     except json.JSONDecodeError as exc:
@@ -343,7 +383,42 @@ def _run_governed_case(
     mismatched = {key: fragment.get(key) for key in expect if fragment.get(key) != expect[key]}
     if mismatched:
         return {"ok": False, "error": f"output mismatch on keys: {sorted(mismatched)}"}
-    return {"ok": True, "output": {key: fragment[key] for key in expect}}
+    return {
+        "ok": True,
+        "output": {key: fragment[key] for key in expect},
+        "peak_job_memory_bytes": peak,
+    }
+
+
+def record_resource_profile(
+    root: Path, capability_id: str, peak_job_memory_bytes: int, limits: ResourceLimits
+) -> dict[str, Any] | None:
+    """Record the proof-time resource profile observed under governed execution.
+
+    The profile is evidence for operator limit policies: it captures the peak
+    committed memory the capability's frozen cases actually needed, so a
+    ``resource_limits`` override can be set from observation rather than guesswork.
+    """
+
+    if peak_job_memory_bytes <= 0:
+        return None
+    path = default_ledger_path(Path(root).resolve())
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    entries = document.get("capabilities")
+    if not isinstance(entries, dict) or not isinstance(entries.get(capability_id), dict):
+        return None
+    profile = {
+        "peak_job_memory_bytes": int(peak_job_memory_bytes),
+        "observed_at": utc_now_iso(),
+        "observed_under_limit_bytes": limits.memory_bytes,
+    }
+    entries[capability_id]["resource_profile"] = profile
+    document["updated_at"] = utc_now_iso()
+    atomic_write_json(path, document)
+    return profile
 
 
 def reproof_capability(
@@ -373,9 +448,7 @@ def reproof_capability(
     if not item.get("quarantine"):
         raise InvocationError(409, f"capability is not quarantined: {capability_id}")
     manifest = load_manifest(Path(item["tool_root"]))
-    limits = ResourceLimits(
-        memory_bytes=INVOKE_MEMORY_LIMIT_BYTES, max_processes=INVOKE_MAX_PROCESSES
-    )
+    limits = effective_resource_limits(item)
     case_results = [
         _run_governed_case(Path(item["tool_root"]), manifest["command"], case, limits, timeout)
         for case in manifest["cases"]
@@ -383,7 +456,12 @@ def reproof_capability(
     cases_pass = all(result["ok"] for result in case_results)
     reproof_summary = {"case_count": len(case_results), "cases_pass": cases_pass}
     if cases_pass:
+        peak = max(
+            (int(result.get("peak_job_memory_bytes") or 0) for result in case_results),
+            default=0,
+        )
         clear_resource_quarantine(root, capability_id, reproof_summary)
+        profile = record_resource_profile(root, capability_id, peak, limits)
         reinstated = True
     else:
         first_failure = next(
@@ -404,6 +482,7 @@ def reproof_capability(
             },
         )
         reinstated = False
+        profile = None
     verdict = {
         "ok": True,
         "capability_id": capability_id,
@@ -411,6 +490,8 @@ def reproof_capability(
         "case_count": len(case_results),
         "cases_pass": cases_pass,
         "case_results": case_results,
+        "resource_profile": profile,
+        "enforced_limits": {"memory_bytes": limits.memory_bytes, "max_processes": limits.max_processes},
     }
     verdict["reproof_digest"] = _digest(
         {
@@ -459,9 +540,7 @@ def invoke_capability(
             problems.append(f"unexpected keys: {extra}")
         raise InvocationError(422, "; ".join(problems))
     command = _normalized_command(item["command"])
-    limits = ResourceLimits(
-        memory_bytes=INVOKE_MEMORY_LIMIT_BYTES, max_processes=INVOKE_MAX_PROCESSES
-    )
+    limits = effective_resource_limits(item)
     try:
         completed = run_captured_process(
             command,
