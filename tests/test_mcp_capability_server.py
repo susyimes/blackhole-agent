@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import queue
+import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -162,3 +166,155 @@ def test_live_session_executes_real_capability(tmp_path: Path) -> None:
             session.call_tool("no-such-tool", {})
     finally:
         session.kill()
+
+
+_SLOW_TOOL = (
+    "import json, time\n"
+    "time.sleep(30)\n"
+    "print(json.dumps({'done': True}))\n"
+)
+
+
+def _add_slow_tool(root: Path, *, sleep_seconds: int = 30) -> None:
+    body = _SLOW_TOOL.replace("30", str(sleep_seconds), 1)
+    tool_dir = root / "capabilities" / "absorbed" / "slow-tool"
+    tool_dir.mkdir(parents=True, exist_ok=True)
+    (tool_dir / "tool.py").write_text(body, encoding="utf-8")
+    manifest = {
+        "schema_version": 1,
+        "slug": "slow-tool",
+        "name": "probe slow tool",
+        "command": ["python", "tool.py"],
+        "requires": [],
+        "provides": ["done"],
+        "cases": [
+            {"input": {}, "expect": {"done": True}},
+            {"input": {}, "expect": {"done": True}},
+        ],
+    }
+    (tool_dir / "absorption.json").write_text(json.dumps(manifest), encoding="utf-8")
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-slow-tool"] = {
+        "id": "capability.absorbed-slow-tool",
+        "name": "probe slow tool",
+        "kind": "python",
+        "last_proved_at": "2026-01-01T00:00:00Z",
+        "last_proof_exit_code": 0,
+    }
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
+
+def _session(root: Path, timeout: float = 30.0) -> McpStdioSession:
+    return McpStdioSession(
+        [sys.executable, "-m", "blackhole_agent.mcp_capability_server", "--root", str(root)],
+        timeout_seconds=timeout,
+    )
+
+
+def test_cancelled_call_terminates_tool_and_releases_session(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    _add_slow_tool(root)
+    session = _session(root)
+    try:
+        session.start()
+        started = time.monotonic()
+        with pytest.raises(McpProtocolError, match="-32800"):
+            session.call_tool("slow-tool", {}, cancel_after=0.5)
+        elapsed = time.monotonic() - started
+        assert elapsed < 10, f"cancelled call took {elapsed:.1f}s; tool tree was not terminated"
+        assert session.cancelled_request_ids, "client never sent notifications/cancelled"
+        result = session.call_tool("text-reverser", {"raw_text": "after"})
+        assert result.get("structuredContent") == {"reversed_text": "retfa"}
+    finally:
+        session.kill()
+
+
+def test_progress_notifications_wrap_progress_token_calls(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    session = _session(root)
+    try:
+        session.start()
+        result = session.call_tool("text-reverser", {"raw_text": "tok"}, progress_token="probe-token")
+        assert result.get("isError") is False
+        progress = [
+            note
+            for note in session.server_notifications
+            if note.get("method") == "notifications/progress"
+            and (note.get("params") or {}).get("progressToken") == "probe-token"
+        ]
+        assert progress, f"no progress notifications seen: {session.server_notifications!r}"
+        assert progress[0]["params"]["progress"] == 0
+        assert progress[-1]["params"]["progress"] == 1
+    finally:
+        session.kill()
+
+
+def test_sibling_requests_answered_while_call_in_flight(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    _add_slow_tool(root)
+    process = subprocess.Popen(
+        [sys.executable, "-m", "blackhole_agent.mcp_capability_server", "--root", str(root)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    replies: dict[int, dict] = {}
+    lines: queue.Queue[str | None] = queue.Queue()
+    try:
+        assert process.stdin is not None and process.stdout is not None
+
+        def pump() -> None:
+            assert process.stdout is not None
+            for line in process.stdout:
+                lines.put(line)
+            lines.put(None)
+
+        threading.Thread(target=pump, daemon=True).start()
+
+        def send(message: dict) -> None:
+            process.stdin.write(json.dumps(message) + "\n")
+            process.stdin.flush()
+
+        def read_until(request_id: int, timeout: float) -> dict:
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if request_id in replies:
+                    return replies[request_id]
+                try:
+                    line = lines.get(timeout=max(0.05, deadline - time.monotonic()))
+                except queue.Empty:
+                    break
+                if line is None:
+                    raise AssertionError("server stdout closed")
+                payload = json.loads(line)
+                if isinstance(payload, dict) and "id" in payload:
+                    replies[payload["id"]] = payload
+            raise AssertionError(f"no reply for id={request_id} within {timeout}s")
+
+        send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        read_until(1, 10)
+        send({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "slow-tool", "arguments": {}}})
+        time.sleep(0.5)
+        ping_at = time.monotonic()
+        send({"jsonrpc": "2.0", "id": 3, "method": "ping"})
+        ping_reply = read_until(3, 5)
+        ping_elapsed = time.monotonic() - ping_at
+        assert ping_reply.get("result") == {}
+        assert ping_elapsed < 5, f"ping blocked {ping_elapsed:.1f}s behind the in-flight call"
+        send({"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": {}})
+        listing = read_until(4, 5)
+        names = [tool["name"] for tool in listing["result"]["tools"]]
+        assert "slow-tool" in names
+        send(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/cancelled",
+                "params": {"requestId": 2, "reason": "probe done"},
+            }
+        )
+        cancelled = read_until(2, 5)
+        assert (cancelled.get("error") or {}).get("code") == -32800
+    finally:
+        process.kill()

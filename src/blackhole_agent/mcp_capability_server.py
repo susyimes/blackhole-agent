@@ -20,7 +20,15 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
   output as ``structuredContent`` plus a JSON text block. Invocation
   failures (unknown input keys, tool exit errors, resource-limit
   quarantine) come back as ``isError`` results; unknown tool names are
-  protocol-level JSON-RPC errors.
+  protocol-level JSON-RPC errors. Calls run on worker threads, so a
+  slow capability never head-of-line blocks sibling requests: ``ping``
+  and ``tools/list`` keep answering while a call is in flight. A call
+  carrying ``_meta.progressToken`` emits ``notifications/progress``
+  (start and completion), and ``notifications/cancelled`` targeting an
+  in-flight request terminates the tool's owned process tree and
+  answers the request with JSON-RPC ``-32800`` — the acknowledgement
+  real MCP hosts (and this repository's own client) expect before they
+  reuse the session.
 
 Tool names are derived from the absorption slug, sanitized to the MCP
 name grammar (``^[A-Za-z0-9_-]{1,64}$``) with a digest suffix when a
@@ -37,6 +45,7 @@ import hashlib
 import json
 import re
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -45,6 +54,7 @@ from blackhole_agent.capability_service import (
     invoke_capability,
     load_invocable_capabilities,
 )
+from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
@@ -57,6 +67,7 @@ TOOL_NAME_LIMIT = 64
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 PARSE_ERROR = -32700
+REQUEST_CANCELLED = -32800
 
 
 class ToolCallError(KeyError):
@@ -169,11 +180,16 @@ class CapabilityCatalog:
     def __init__(self, root: Path) -> None:
         self.root = Path(root)
         self._ledger_mtime_ns: int | None = None
+        self._lock = threading.Lock()
         self.tools: list[dict[str, Any]] = []
         self.by_name: dict[str, str] = {}
         self.refresh()
 
     def refresh(self) -> None:
+        with self._lock:
+            self._refresh_locked()
+
+    def _refresh_locked(self) -> None:
         ledger_path = self.root / "capabilities" / "ledger.json"
         try:
             mtime_ns = ledger_path.stat().st_mtime_ns
@@ -211,7 +227,13 @@ class CapabilityCatalog:
             result["nextCursor"] = str(offset + size)
         return result
 
-    def call(self, name: str, arguments: Any) -> dict[str, Any]:
+    def call(
+        self,
+        name: str,
+        arguments: Any,
+        *,
+        cancel_event: threading.Event | None = None,
+    ) -> dict[str, Any]:
         self.refresh()
         capability_id = self.by_name.get(name)
         if capability_id is None:
@@ -219,7 +241,9 @@ class CapabilityCatalog:
         if not isinstance(arguments, Mapping):
             arguments = {}
         try:
-            result = invoke_capability(self.root, capability_id, dict(arguments))
+            result = invoke_capability(
+                self.root, capability_id, dict(arguments), cancel_event=cancel_event
+            )
         except InvocationError as exc:
             return {
                 "content": [{"type": "text", "text": f"invocation refused ({exc.status}): {exc.error}"}],
@@ -236,7 +260,11 @@ class CapabilityCatalog:
 
 
 def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Handle one JSON-RPC message; return the response or None for notifications."""
+    """Handle one non-call JSON-RPC message; None for notifications.
+
+    ``tools/call`` is dispatched by :func:`serve_stdio` onto worker threads
+    so long-running capabilities never block this synchronous surface.
+    """
 
     method = message.get("method")
     if method == "notifications/initialized" or method is None and "id" not in message:
@@ -257,17 +285,6 @@ def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> di
             result = {}
         elif method == "tools/list":
             result = catalog.list_page(str(params.get("cursor") or ""), DEFAULT_PAGE_SIZE)
-        elif method == "tools/call":
-            name = str(params.get("name") or "")
-            arguments = params.get("arguments")
-            try:
-                result = catalog.call(name, arguments)
-            except ToolCallError:
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "error": {"code": INVALID_PARAMS, "message": f"unknown tool: {name}"},
-                }
         else:
             return {
                 "jsonrpc": "2.0",
@@ -283,12 +300,79 @@ def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> di
     return {"jsonrpc": "2.0", "id": request_id, "result": result}
 
 
+def _progress_token(params: Mapping[str, Any]) -> Any:
+    meta = params.get("_meta")
+    if isinstance(meta, Mapping):
+        return meta.get("progressToken")
+    return None
+
+
 def serve_stdio(root: Path) -> int:
-    """Serve NDJSON JSON-RPC on stdin/stdout until EOF; never prints to stdout."""
+    """Serve NDJSON JSON-RPC on stdin/stdout until EOF; never prints to stdout.
+
+    ``tools/call`` requests run on daemon worker threads so a slow
+    capability never head-of-line blocks sibling traffic. Every in-flight
+    call carries a cancellation event: ``notifications/cancelled`` sets
+    it, the invocation plane terminates the tool's owned process tree, and
+    the request is answered with JSON-RPC ``-32800``.
+    """
 
     catalog = CapabilityCatalog(Path(root))
     stdin = sys.stdin
     stdout = sys.stdout
+    write_lock = threading.Lock()
+    registry_lock = threading.Lock()
+    in_flight: dict[Any, threading.Event] = {}
+
+    def _write(payload: Mapping[str, Any]) -> None:
+        with write_lock:
+            stdout.write(json.dumps(payload) + "\n")
+            stdout.flush()
+
+    def _notify_progress(token: Any, progress: int, message: str, *, total: int | None = None) -> None:
+        params: dict[str, Any] = {"progressToken": token, "progress": progress, "message": message}
+        if total is not None:
+            params["total"] = total
+        _write({"jsonrpc": "2.0", "method": "notifications/progress", "params": params})
+
+    def _run_call(request_id: Any, params: Mapping[str, Any]) -> None:
+        token = _progress_token(params)
+        try:
+            if token is not None:
+                _notify_progress(token, 0, "call started")
+            name = str(params.get("name") or "")
+            with registry_lock:
+                cancel_event = in_flight.get(request_id)
+            try:
+                result = catalog.call(name, params.get("arguments"), cancel_event=cancel_event)
+            except ToolCallError:
+                _write(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {"code": INVALID_PARAMS, "message": f"unknown tool: {name}"},
+                    }
+                )
+                return
+            except ProcessCancelled:
+                _write(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": REQUEST_CANCELLED,
+                            "message": f"request {request_id} cancelled by client",
+                        },
+                    }
+                )
+                return
+            if token is not None:
+                _notify_progress(token, 1, "call completed", total=1)
+            _write({"jsonrpc": "2.0", "id": request_id, "result": result})
+        finally:
+            with registry_lock:
+                in_flight.pop(request_id, None)
+
     for raw_line in stdin:
         line = raw_line.strip()
         if not line:
@@ -296,35 +380,47 @@ def serve_stdio(root: Path) -> int:
         try:
             message = json.loads(line)
         except json.JSONDecodeError:
-            stdout.write(
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": None,
-                        "error": {"code": PARSE_ERROR, "message": "line is not valid JSON"},
-                    }
-                )
-                + "\n"
+            _write(
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": PARSE_ERROR, "message": "line is not valid JSON"},
+                }
             )
-            stdout.flush()
             continue
         if not isinstance(message, dict):
-            stdout.write(
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": None,
-                        "error": {"code": PARSE_ERROR, "message": "message is not a JSON object"},
-                    }
-                )
-                + "\n"
+            _write(
+                {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": PARSE_ERROR, "message": "message is not a JSON object"},
+                }
             )
-            stdout.flush()
+            continue
+        method = message.get("method")
+        if method == "notifications/cancelled" and "id" not in message:
+            params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+            target = params.get("requestId")
+            with registry_lock:
+                event = in_flight.get(target)
+            if event is not None:
+                event.set()
+            continue
+        if method == "tools/call" and "id" in message:
+            params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+            with registry_lock:
+                in_flight[message["id"]] = threading.Event()
+            threading.Thread(
+                target=_run_call, args=(message["id"], params), daemon=True
+            ).start()
             continue
         response = handle_message(catalog, message)
         if response is not None:
-            stdout.write(json.dumps(response) + "\n")
-            stdout.flush()
+            _write(response)
+    with registry_lock:
+        pending = list(in_flight.values())
+    for event in pending:
+        event.set()
     return 0
 
 
