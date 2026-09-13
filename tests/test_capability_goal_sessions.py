@@ -194,6 +194,140 @@ def test_external_state_keys_excludes_provided(tmp_path: Path) -> None:
 
 # -- session lifecycle over HTTP --------------------------------------------
 
+_HEALER = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "print(json.dumps({'healed_text': state['raw_text'][::-1]}))\n"
+)
+
+
+def _write_healable_tool(root: Path) -> str:
+    tool_dir = root / "capabilities" / "absorbed" / "heal-reverser"
+    tool_dir.mkdir(parents=True)
+    (tool_dir / "tool.py").write_text(_HEALER, encoding="utf-8")
+    (tool_dir / "absorption.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "slug": "heal-reverser",
+                "name": "fixture heal-reverser",
+                "command": ["python", "tool.py"],
+                "requires": ["raw_text"],
+                "provides": ["healed_text"],
+                "cases": [
+                    {"input": {"raw_text": "ab"}, "expect": {"healed_text": "ba"}},
+                    {"input": {"raw_text": "cd"}, "expect": {"healed_text": "dc"}},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    capability_id = "capability.absorbed-heal-reverser"
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"][capability_id] = _ledger_entry(capability_id)
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    return capability_id
+
+
+def _quarantine(root: Path, capability_id: str) -> None:
+    from blackhole_agent.capability_service import record_resource_quarantine
+
+    record_resource_quarantine(
+        root, capability_id, {"resource": "memory", "reason": "fixture violation", "limit_bytes": 1}
+    )
+
+
+def test_session_heals_quarantined_blocker(server) -> None:
+    root, base = server
+    capability_id = _write_healable_tool(root)
+    _quarantine(root, capability_id)
+    status, created = _request(
+        "POST",
+        f"{base}/sessions",
+        {"initial_state": {"raw_text": "abc"}, "goal": ["healed_text"]},
+    )
+    assert status == 200
+    final = _wait_status(base, created["session"]["session_id"], {"solved"})
+    assert final["outcome"] == {"healed_text": "cba"}
+    assert final["healing"] == [
+        {
+            "capability_id": capability_id,
+            "reinstated": True,
+            "case_count": 2,
+            "cases_pass": True,
+        }
+    ]
+    assert "healed" in [transition["kind"] for transition in final["transitions"]]
+    ledger = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    assert "resource_quarantine" not in ledger["capabilities"][capability_id]
+
+
+def test_session_unhealable_blocker_stays_quarantined(server) -> None:
+    root, base = server
+    capability_id = "capability.absorbed-text-reverser"
+    # The fixture's frozen cases expect "x" while the tool reverses, so its
+    # supervised re-proof genuinely fails.
+    _quarantine(root, capability_id)
+    status, created = _request(
+        "POST",
+        f"{base}/sessions",
+        {"initial_state": {"raw_text": "abc"}, "goal": ["reversed_text"]},
+    )
+    assert status == 200
+    session = created["session"]
+    # Healing failed, so the plane falls back to the healthy plan: the goal
+    # key is honestly elicited from the client instead of faking a solve.
+    assert session["status"] == "awaiting_input"
+    assert session["pending_keys"] == ["reversed_text"]
+    assert session["healing"][0]["capability_id"] == capability_id
+    assert session["healing"][0]["reinstated"] is False
+    ledger = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    assert "resource_quarantine" in ledger["capabilities"][capability_id]
+
+
+def test_session_heals_mid_execution_quarantine(server) -> None:
+    root, base = server
+    taint_source = (
+        "import json, sys\n"
+        "state = json.load(sys.stdin)\n"
+        "with open(state['ledger_path'], encoding='utf-8') as handle:\n"
+        "    ledger = json.load(handle)\n"
+        "ledger['capabilities'][state['victim']]['resource_quarantine'] = {\n"
+        "    'reason': 'taint', 'resource': 'memory', 'quarantined_at': '2026-01-01T00:00:00Z'}\n"
+        "with open(state['ledger_path'], 'w', encoding='utf-8') as handle:\n"
+        "    handle.write(json.dumps(ledger))\n"
+        "print(json.dumps({'raw_text': state['start_text']}))\n"
+    )
+    _write_tool(
+        root, "tainter", taint_source, ["start_text", "ledger_path", "victim"], ["raw_text"]
+    )
+    capability_id = "capability.absorbed-heal-reverser"
+    _write_healable_tool(root)
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-tainter"] = _ledger_entry(
+        "capability.absorbed-tainter"
+    )
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    status, created = _request(
+        "POST",
+        f"{base}/sessions",
+        {
+            "initial_state": {
+                "start_text": "abc",
+                "ledger_path": str(ledger_path),
+                "victim": capability_id,
+            },
+            "goal": ["healed_text"],
+        },
+    )
+    assert status == 200
+    final = _wait_status(base, created["session"]["session_id"], {"solved"})
+    assert final["outcome"] == {"healed_text": "cba"}
+    assert final["healing"][-1]["capability_id"] == capability_id
+    assert final["healing"][-1]["reinstated"] is True
+
 
 def test_session_elicits_then_solves(server) -> None:
     _, base = server

@@ -787,6 +787,53 @@ def plan_goal_program(
     return None
 
 
+def heal_quarantined_blockers(
+    root: Path,
+    invocable: Mapping[str, Mapping[str, Any]],
+    program: Sequence[str],
+    *,
+    timeout: int = INVOKE_TIMEOUT_SECONDS,
+    attempted: set[str] | None = None,
+    max_healed: int = SOLVE_MAX_HEALED,
+) -> list[dict[str, Any]]:
+    """Re-proof the quarantined members of ``program`` under governed frozen-case execution.
+
+    Shared by one-shot solves and durable sessions: each quarantined blocker
+    goes through the same supervised re-proof ``POST /reproof`` performs.
+    ``attempted`` carries ids already tried within the request/session so a
+    capability is never healed twice on one goal, and the total attempt count
+    stays bounded by ``max_healed``. Every attempt is returned with its case
+    verdicts, reinstated or not.
+    """
+
+    tried = attempted if attempted is not None else set()
+    budget = max_healed - len(tried)
+    blockers = [
+        capability_id
+        for capability_id in dict.fromkeys(program)
+        if isinstance(invocable.get(capability_id), Mapping)
+        and invocable[capability_id].get("quarantine")
+        and capability_id not in tried
+    ]
+    healing: list[dict[str, Any]] = []
+    for capability_id in blockers[: max(budget, 0)]:
+        tried.add(capability_id)
+        try:
+            verdict = reproof_capability(root, capability_id, timeout=timeout)
+        except InvocationError as exc:
+            verdict = {"reinstated": False, "error": exc.error}
+        entry: dict[str, Any] = {
+            "capability_id": capability_id,
+            "reinstated": bool(verdict.get("reinstated")),
+            "case_count": verdict.get("case_count"),
+            "cases_pass": verdict.get("cases_pass"),
+        }
+        if verdict.get("error"):
+            entry["error"] = verdict["error"]
+        healing.append(entry)
+    return healing
+
+
 def solve_goal_request(
     root: Path,
     initial_state: Any,
@@ -812,9 +859,12 @@ def solve_goal_request(
     :data:`SOLVE_MAX_HEALED`) is re-proved inline through supervised
     governed re-execution of its frozen absorption cases — the same
     re-proof ``POST /reproof`` performs — and the goal is replanned against
-    the reloaded ledger. The response's ``healing`` trace records every
-    attempt with its case verdicts; a blocker whose cases genuinely fail
-    keeps its quarantine and yields an honest ``solved: false`` naming it.
+    the reloaded ledger. A capability quarantined *mid-execution* (a
+    concurrent violation, or one attributed to the running step) is healed
+    the same way and the remaining goal is replanned from the threaded
+    state. The response's ``healing`` trace records every attempt with its
+    case verdicts; a blocker whose cases genuinely fail keeps its
+    quarantine and yields an honest ``solved: false`` naming it.
 
     ``cancel_event`` terminates the in-flight step's owned process tree
     (``ProcessCancelled`` propagates). ``step_observer(index, total,
@@ -835,11 +885,12 @@ def solve_goal_request(
     goal_keys = list(dict.fromkeys(str(key).strip() for key in goal))
     invocable = load_invocable_capabilities(root)
     healing: list[dict[str, Any]] = []
-    healthy = {
-        capability_id: item
-        for capability_id, item in invocable.items()
-        if not item.get("quarantine")
-    }
+    attempted: set[str] = set()
+
+    def healthy_subset(pool: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+        return {cid: item for cid, item in pool.items() if not item.get("quarantine")}
+
+    healthy = healthy_subset(invocable)
     program = plan_goal_program(
         healthy, set(initial_state), goal_keys, max_steps=max_steps
     )
@@ -847,38 +898,18 @@ def solve_goal_request(
         # No healthy program. When a program exists only through quarantined
         # capabilities, heal instead of giving up: re-prove exactly the
         # quarantined blockers under governed re-execution of their frozen
-        # cases, then replan against the reloaded ledger. Healing is bounded
-        # (SOLVE_MAX_HEALED) and every attempt is recorded, reinstated or not.
+        # cases, then replan against the reloaded ledger.
         blocked_program = plan_goal_program(
             invocable, set(initial_state), goal_keys, max_steps=max_steps
         )
         if blocked_program is not None:
-            blockers = [
-                capability_id
-                for capability_id in dict.fromkeys(blocked_program)
-                if invocable[capability_id].get("quarantine")
-            ][:SOLVE_MAX_HEALED]
-            for capability_id in blockers:
-                try:
-                    verdict = reproof_capability(root, capability_id, timeout=timeout)
-                except InvocationError as exc:
-                    verdict = {"reinstated": False, "error": exc.error}
-                entry: dict[str, Any] = {
-                    "capability_id": capability_id,
-                    "reinstated": bool(verdict.get("reinstated")),
-                    "case_count": verdict.get("case_count"),
-                    "cases_pass": verdict.get("cases_pass"),
-                }
-                if verdict.get("error"):
-                    entry["error"] = verdict["error"]
-                healing.append(entry)
-            if any(entry["reinstated"] for entry in healing):
+            entries = heal_quarantined_blockers(
+                root, invocable, blocked_program, timeout=timeout, attempted=attempted
+            )
+            healing.extend(entries)
+            if any(entry["reinstated"] for entry in entries):
                 invocable = load_invocable_capabilities(root)
-                healthy = {
-                    capability_id: item
-                    for capability_id, item in invocable.items()
-                    if not item.get("quarantine")
-                }
+                healthy = healthy_subset(invocable)
                 program = plan_goal_program(
                     healthy, set(initial_state), goal_keys, max_steps=max_steps
                 )
@@ -901,14 +932,51 @@ def solve_goal_request(
         return result
     state = dict(initial_state)
     steps: list[dict[str, Any]] = []
-    total = len(program)
-    for index, capability_id in enumerate(program, start=1):
+    executed_program: list[str] = []
+    remaining = list(program)
+    while remaining:
+        capability_id = remaining[0]
         item = invocable[capability_id]
         step_input = {key: state[key] for key in item["requires"]}
-        result = invoke_capability(
-            root, capability_id, step_input, timeout=timeout, cancel_event=cancel_event
-        )
+        try:
+            result = invoke_capability(
+                root, capability_id, step_input, timeout=timeout, cancel_event=cancel_event
+            )
+        except InvocationError as exc:
+            # Mid-execution quarantine (a concurrent request's violation, or a
+            # violation attributed to this step): heal once and replan the
+            # remaining goal from the threaded state instead of dying.
+            violation = (exc.extra or {}).get("violation")
+            if (
+                violation not in {"resource_quarantined", "resource_limit"}
+                or capability_id in attempted
+                or len(attempted) >= SOLVE_MAX_HEALED
+            ):
+                raise
+            # The quarantine was recorded after this request's planning
+            # snapshot; reload so the healer can see it.
+            invocable = load_invocable_capabilities(root)
+            entries = heal_quarantined_blockers(
+                root, invocable, [capability_id], timeout=timeout, attempted=attempted
+            )
+            healing.extend(entries)
+            if not entries or not entries[-1]["reinstated"]:
+                raise
+            invocable = load_invocable_capabilities(root)
+            healthy = healthy_subset(invocable)
+            replanned = plan_goal_program(
+                healthy,
+                set(state),
+                [key for key in goal_keys if key not in state],
+                max_steps=max_steps,
+            )
+            if replanned is None:
+                raise
+            remaining = replanned
+            continue
         state.update(result["output"])
+        executed_program.append(capability_id)
+        remaining.pop(0)
         steps.append(
             {
                 "capability_id": capability_id,
@@ -918,13 +986,13 @@ def solve_goal_request(
             }
         )
         if step_observer is not None:
-            step_observer(index, total, capability_id)
+            step_observer(len(steps), len(steps) + len(remaining), capability_id)
     outcome = {key: state[key] for key in goal_keys}
     return {
         "ok": True,
         "solved": True,
         "goal": goal_keys,
-        "plan": program,
+        "plan": executed_program,
         "steps": steps,
         "outcome": outcome,
         "healing": healing,
@@ -932,7 +1000,7 @@ def solve_goal_request(
             {
                 "initial_state": initial_state,
                 "goal": goal_keys,
-                "plan": program,
+                "plan": executed_program,
                 "steps": [
                     {"capability_id": step["capability_id"], "response_digest": step["response_digest"]}
                     for step in steps

@@ -26,6 +26,13 @@ killing the server. Goal sessions close those three gaps:
   /sessions/{id}`` sets the event and the running tool's entire owned
   process tree (Windows job object or POSIX process group) is terminated —
   not just the launcher.
+- **Self-healing.** Planning excludes quarantined capabilities; when the
+  only program runs through quarantined steps — at creation, after input,
+  or mid-execution — exactly those blockers are re-proved inline under
+  governed frozen-case re-execution (the same re-proof ``POST /reproof``
+  performs), bounded per session and never attempted twice for the same
+  capability. Every attempt is a ``healed`` transition on the digest-bound
+  record; an unhealable blocker fails the session honestly.
 
 Every state transition recomputes a ``session_digest`` over the goal,
 initial state, transition kinds, and per-step response digests (timestamps
@@ -44,9 +51,11 @@ from typing import Any, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
 from blackhole_agent.capability_service import (
+    SOLVE_MAX_HEALED,
     SOLVE_MAX_STEPS,
     InvocationError,
     _digest,
+    heal_quarantined_blockers,
     invoke_capability,
     load_invocable_capabilities,
 )
@@ -229,6 +238,7 @@ class SessionManager:
         record = json.loads(path.read_text(encoding="utf-8"))
         if record.get("schema_version") != SESSION_SCHEMA_VERSION:
             raise InvocationError(409, f"session {session_id} has an unsupported schema")
+        record.setdefault("healing", [])
         return record
 
     def _persist(self, record: dict[str, Any]) -> dict[str, Any]:
@@ -246,6 +256,54 @@ class SessionManager:
                 "detail": detail,
             }
         )
+
+    # -- planning ---------------------------------------------------------
+
+    def _plan_with_healing(
+        self, record: dict[str, Any], state_keys: set[str]
+    ) -> dict[str, Any] | None:
+        """Plan over healthy capabilities; heal quarantined blockers when needed.
+
+        Quarantined capabilities are excluded from the first pass. When a
+        program through quarantined steps is strictly better (solvable when
+        the healthy planner failed, or needing fewer elicited keys), exactly
+        those blockers are re-proved inline (bounded, never re-attempted
+        within the session), the ledger is reloaded, and the goal is
+        replanned. Every attempt lands on the record's ``healing`` trace and
+        as a ``healed`` transition, so the session digest binds the healing
+        history. An unhealable blocker leaves the healthy plan untouched.
+        """
+
+        invocable = load_invocable_capabilities(self.root)
+        healthy = {cid: item for cid, item in invocable.items() if not item.get("quarantine")}
+        planned = plan_goal_with_elicitation(healthy, state_keys, record["goal"])
+        blocked = None
+        if planned is None or planned["elicited_keys"]:
+            candidate = plan_goal_with_elicitation(invocable, state_keys, record["goal"])
+            if candidate is not None and (
+                planned is None
+                or len(candidate["elicited_keys"]) < len(planned["elicited_keys"])
+            ):
+                blocked = candidate
+        if blocked is None:
+            return planned
+        attempted = {entry["capability_id"] for entry in record["healing"]}
+        entries = heal_quarantined_blockers(
+            self.root, invocable, blocked["program"], attempted=attempted
+        )
+        if entries:
+            record["healing"].extend(entries)
+            self._transition(record, "healed", {"healing": entries})
+        if not any(entry["reinstated"] for entry in entries):
+            return planned
+        invocable = load_invocable_capabilities(self.root)
+        healthy = {cid: item for cid, item in invocable.items() if not item.get("quarantine")}
+        healed_plan = plan_goal_with_elicitation(healthy, state_keys, record["goal"])
+        if healed_plan is not None and (
+            planned is None or len(healed_plan["elicited_keys"]) < len(planned["elicited_keys"])
+        ):
+            return healed_plan
+        return planned
 
     # -- recovery ---------------------------------------------------------
 
@@ -307,8 +365,6 @@ class SessionManager:
         ):
             raise InvocationError(422, "goal must be a non-empty list of state keys")
         goal_keys = list(dict.fromkeys(str(key).strip() for key in goal))
-        invocable = load_invocable_capabilities(self.root)
-        planned = plan_goal_with_elicitation(invocable, set(initial_state), goal_keys)
         session_id = uuid.uuid4().hex[:16]
         record: dict[str, Any] = {
             "schema_version": SESSION_SCHEMA_VERSION,
@@ -325,10 +381,12 @@ class SessionManager:
             "steps": [],
             "outcome": None,
             "error": None,
+            "healing": [],
             "transitions": [],
             "plan_digest": None,
         }
         self._transition(record, "created", {"goal": goal_keys})
+        planned = self._plan_with_healing(record, set(initial_state))
         if planned is None:
             self._transition(record, "unsolvable", "no bounded capability program covers the goal")
             return {"ok": True, "session": self._persist(record)}
@@ -368,8 +426,7 @@ class SessionManager:
         record["state"].update(supplied)
         record["pending_keys"] = []
         self._transition(record, "input_accepted", {"keys": sorted(keys)})
-        invocable = load_invocable_capabilities(self.root)
-        planned = plan_goal_with_elicitation(invocable, set(record["state"]), record["goal"])
+        planned = self._plan_with_healing(record, set(record["state"]))
         if planned is None:
             record["status"] = "unsolvable"
             self._transition(record, "unsolvable", "no bounded capability program covers the goal")
@@ -443,9 +500,37 @@ class SessionManager:
                 if item is None:
                     raise InvocationError(502, f"planned capability is no longer invocable: {capability_id}")
                 step_input = {key: state[key] for key in item["requires"]}
-                result = invoke_capability(
-                    self.root, capability_id, step_input, cancel_event=cancel_event
-                )
+                try:
+                    result = invoke_capability(
+                        self.root, capability_id, step_input, cancel_event=cancel_event
+                    )
+                except InvocationError as exc:
+                    # Quarantined between planning and execution (a concurrent
+                    # violation, or one attributed to this step): heal once
+                    # under supervised re-proof and retry, like /solve does.
+                    violation = (exc.extra or {}).get("violation")
+                    attempted = {entry["capability_id"] for entry in record["healing"]}
+                    if (
+                        violation not in {"resource_quarantined", "resource_limit"}
+                        or capability_id in attempted
+                        or len(attempted) >= SOLVE_MAX_HEALED
+                    ):
+                        raise
+                    # The quarantine was recorded after this session's
+                    # planning snapshot; reload so the healer can see it.
+                    invocable = load_invocable_capabilities(self.root)
+                    entries = heal_quarantined_blockers(
+                        self.root, invocable, [capability_id], attempted=attempted
+                    )
+                    record["healing"].extend(entries)
+                    self._transition(record, "healed", {"healing": entries})
+                    self._persist(record)
+                    if not entries or not entries[-1]["reinstated"]:
+                        raise
+                    invocable = load_invocable_capabilities(self.root)
+                    result = invoke_capability(
+                        self.root, capability_id, step_input, cancel_event=cancel_event
+                    )
                 state.update(result["output"])
                 record["state"] = state
                 record["steps"].append(

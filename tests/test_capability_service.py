@@ -541,6 +541,104 @@ def test_solve_healthy_goal_reports_no_healing(server) -> None:
     assert result["healing"] == []
 
 
+_TAINT_TOOL = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "with open(state['ledger_path'], encoding='utf-8') as handle:\n"
+    "    ledger = json.load(handle)\n"
+    "ledger['capabilities'][state['victim']]['resource_quarantine'] = {\n"
+    "    'reason': 'mid-execution taint', 'resource': 'memory',\n"
+    "    'quarantined_at': '2026-01-01T00:00:00Z'}\n"
+    "with open(state['ledger_path'], 'w', encoding='utf-8') as handle:\n"
+    "    handle.write(json.dumps(ledger))\n"
+    "print(json.dumps({'tainted_text': state['raw_text']}))\n"
+)
+
+_LATE_TOOL = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "print(json.dumps({'final_text': state['tainted_text'][::-1]}))\n"
+)
+
+
+def _write_midexec_chain(root: Path) -> None:
+    taint_dir = root / "capabilities" / "absorbed" / "tainter"
+    taint_dir.mkdir(parents=True)
+    (taint_dir / "tool.py").write_text(_TAINT_TOOL, encoding="utf-8")
+    (taint_dir / "absorption.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "slug": "tainter",
+                "name": "fixture tainter",
+                "command": ["python", "tool.py"],
+                "requires": ["raw_text", "ledger_path", "victim"],
+                "provides": ["tainted_text"],
+                "cases": [
+                    {
+                        "input": {"raw_text": v, "ledger_path": "x", "victim": "x"},
+                        "expect": {"tainted_text": v},
+                    }
+                    for v in ("ab", "cd")
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    late_dir = root / "capabilities" / "absorbed" / "late-reverser"
+    late_dir.mkdir(parents=True)
+    (late_dir / "tool.py").write_text(_LATE_TOOL, encoding="utf-8")
+    (late_dir / "absorption.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "slug": "late-reverser",
+                "name": "fixture late-reverser",
+                "command": ["python", "tool.py"],
+                "requires": ["tainted_text"],
+                "provides": ["final_text"],
+                "cases": [
+                    {"input": {"tainted_text": "ab"}, "expect": {"final_text": "ba"}},
+                    {"input": {"tainted_text": "cd"}, "expect": {"final_text": "dc"}},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    for slug in ("tainter", "late-reverser"):
+        capability_id = f"capability.absorbed-{slug}"
+        ledger["capabilities"][capability_id] = _ledger_entry(capability_id)
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+
+
+def test_solve_heals_mid_execution_quarantine(server) -> None:
+    root, base = server
+    _write_midexec_chain(root)
+    status, result = _request(
+        "POST",
+        f"{base}/solve",
+        {
+            "initial_state": {
+                "raw_text": "ab",
+                "ledger_path": str(root / "capabilities" / "ledger.json"),
+                "victim": "capability.absorbed-late-reverser",
+            },
+            "goal": ["final_text"],
+        },
+    )
+    assert status == 200
+    assert result["solved"] is True
+    assert result["plan"] == ["capability.absorbed-tainter", "capability.absorbed-late-reverser"]
+    assert result["outcome"] == {"final_text": "ba"}
+    healed = result["healing"][-1]
+    assert healed["capability_id"] == "capability.absorbed-late-reverser"
+    assert healed["reinstated"] is True
+    ledger = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    assert "resource_quarantine" not in ledger["capabilities"]["capability.absorbed-late-reverser"]
+
+
 
 def test_solve_goal_request_direct_and_digest_stability(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)

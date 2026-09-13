@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -27,6 +28,25 @@ REVERSER = (
 )
 
 BROKEN = "import sys\nsys.exit(3)\n"
+
+TAINTER = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "with open(state['ledger_path'], encoding='utf-8') as handle:\n"
+    "    ledger = json.load(handle)\n"
+    "ledger['capabilities'][state['victim']]['resource_quarantine'] = {\n"
+    "    'reason': 'mid-execution taint', 'resource': 'memory',\n"
+    "    'quarantined_at': '2026-01-01T00:00:00Z'}\n"
+    "with open(state['ledger_path'], 'w', encoding='utf-8') as handle:\n"
+    "    handle.write(json.dumps(ledger))\n"
+    "print(json.dumps({'tainted_text': state['start_text']}))\n"
+)
+
+LATE = (
+    "import json, sys\n"
+    "state = json.load(sys.stdin)\n"
+    "print(json.dumps({'final_text': state['tainted_text'][::-1]}))\n"
+)
 
 
 def write_tool(root: Path, slug: str, source: str, provides: str, good_cases: bool) -> str:
@@ -58,6 +78,33 @@ def fixture(root: Path) -> dict[str, str]:
         "plain": write_tool(root, "plain-reverser", REVERSER.replace(
             "healed_text", "plain_text"), "plain_text", True),
     }
+    taint = root / "capabilities" / "absorbed" / "tainter"
+    taint.mkdir(parents=True, exist_ok=True)
+    (taint / "tool.py").write_text(TAINTER, encoding="utf-8")
+    (taint / "absorption.json").write_text(json.dumps({
+        "schema_version": 1, "slug": "tainter", "name": "tainter",
+        "command": [sys.executable, "tool.py"],
+        "requires": ["start_text", "ledger_path", "victim"], "provides": ["tainted_text"],
+        "cases": [
+            {"input": {"start_text": v, "ledger_path": "x", "victim": "x"},
+             "expect": {"tainted_text": v}}
+            for v in ("ab", "cd")
+        ],
+    }), encoding="utf-8")
+    late = root / "capabilities" / "absorbed" / "late-reverser"
+    late.mkdir(parents=True, exist_ok=True)
+    (late / "tool.py").write_text(LATE, encoding="utf-8")
+    (late / "absorption.json").write_text(json.dumps({
+        "schema_version": 1, "slug": "late-reverser", "name": "late-reverser",
+        "command": [sys.executable, "tool.py"],
+        "requires": ["tainted_text"], "provides": ["final_text"],
+        "cases": [
+            {"input": {"tainted_text": "ab"}, "expect": {"final_text": "ba"}},
+            {"input": {"tainted_text": "cd"}, "expect": {"final_text": "dc"}},
+        ],
+    }), encoding="utf-8")
+    ids["tainter"] = "capability.absorbed-tainter"
+    ids["late"] = "capability.absorbed-late-reverser"
     (root / "capabilities").mkdir(exist_ok=True)
     (root / "capabilities" / "ledger.json").write_text(json.dumps({
         "schema_version": 1,
@@ -95,6 +142,16 @@ def request(base: str, path: str, payload: dict) -> tuple[int, dict]:
     req = Request(base + path, data=data, headers={"Content-Type": "application/json"}, method="POST")
     try:
         with urlopen(req, timeout=30) as response:
+            return response.status, json.loads(response.read())
+    except HTTPError as exc:
+        return exc.code, json.loads(exc.read())
+    except (OSError, URLError) as exc:
+        return 0, {"transport_error": type(exc).__name__}
+
+
+def get(base: str, path: str) -> tuple[int, dict]:
+    try:
+        with urlopen(base + path, timeout=15) as response:
             return response.status, json.loads(response.read())
     except HTTPError as exc:
         return exc.code, json.loads(exc.read())
@@ -200,8 +257,68 @@ def main() -> dict:
                 "healing": healthy.get("healing"),
             }
 
+            # (d) a capability quarantined mid-execution (by a concurrent
+            # violation, simulated here by the first step's side effect) is
+            # healed inline and the remaining goal replanned.
+            ledger_path = str(root / "capabilities" / "ledger.json")
+            status, midexec = request(server.base, "/solve", {
+                "initial_state": {
+                    "start_text": "ab", "ledger_path": ledger_path, "victim": ids["late"],
+                },
+                "goal": ["final_text"],
+            })
+            checks["mid_execution_heals"] = (
+                status == 200
+                and midexec.get("solved") is True
+                and midexec.get("outcome") == {"final_text": "ba"}
+            )
+            checks["mid_execution_trace"] = any(
+                entry.get("capability_id") == ids["late"] and entry.get("reinstated") is True
+                for entry in (midexec.get("healing") or [])
+            )
+            observed["mid_execution_solve"] = {
+                "status": status, "solved": midexec.get("solved"),
+                "outcome": midexec.get("outcome"), "healing": midexec.get("healing"),
+            }
+
+            # (e) a durable goal session blocked by a quarantined capability
+            # heals at planning time and reaches a solved terminal state.
+            quarantine(root, ids["healer"])
+            status, created = request(server.base, "/sessions", {
+                "initial_state": {"raw_text": "abc"}, "goal": ["healed_text"],
+            })
+            session = (created or {}).get("session") or {}
+            session_id = session.get("session_id", "")
+            deadline = time.monotonic() + 30
+            final = session
+            while session_id and final.get("status") not in {
+                "solved", "unsolvable", "failed", "cancelled",
+            } and time.monotonic() < deadline:
+                time.sleep(0.1)
+                code, body = get(server.base, f"/sessions/{session_id}")
+                if code == 200:
+                    final = body.get("session") or final
+            checks["session_heals_blocker"] = (
+                final.get("status") == "solved"
+                and final.get("outcome") == {"healed_text": "cba"}
+            )
+            checks["session_healing_trace"] = any(
+                entry.get("capability_id") == ids["healer"] and entry.get("reinstated") is True
+                for entry in (final.get("healing") or [])
+            )
+            observed["session_heal"] = {
+                "status": final.get("status"), "outcome": final.get("outcome"),
+                "healing": final.get("healing"),
+            }
+
             observed["checks"] = checks
-            return {"passed": all(checks.values()), "observed": observed}
+            verdict = {"passed": all(checks.values()), "observed": observed}
+            # Stop the server (and its session threads) before the temporary
+            # directory is torn down: on Windows an open session record would
+            # otherwise fail the cleanup with a locking error.
+            server.stop()
+            server = None
+            return verdict
     except Exception as exc:
         observed["error"] = f"{type(exc).__name__}: {exc}"
         return {"passed": False, "observed": observed}
