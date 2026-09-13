@@ -1,0 +1,144 @@
+{
+  "requested": true,
+  "accepted": true,
+  "reasons": [],
+  "changed_paths": [
+    "README.md",
+    "docs/durable-invocation.md",
+    "src/blackhole_agent/capability_service.py",
+    "src/blackhole_agent/invocation_receipts.py",
+    "tests/acceptance/test_durable_invocation.py",
+    "tests/test_invocation_receipts.py",
+    "src/blackhole_agent/capability_compounder.py",
+    "tests/test_execution_contract_inference.py"
+  ],
+  "behavior_paths": [
+    "src/blackhole_agent/capability_service.py",
+    "src/blackhole_agent/invocation_receipts.py",
+    "src/blackhole_agent/capability_compounder.py"
+  ],
+  "validation_replay": [
+    {
+      "command": "controller:behavior-acceptance",
+      "ok": true,
+      "baseline_ref": "54c6d857d932d09e70bfc7ba91d12328da8a14c1",
+      "probe": "tests/acceptance/test_durable_invocation.py",
+      "probe_sha256": "4701fc7b86ad74d6ec351675016f9f5ee6275a4821436ed6b8531023839728fd",
+      "baseline": {
+        "exit_code": 0,
+        "stdout_tail": "{\"observed\": {\"checks\": {\"concurrent_admission\": false, \"crash_outcome_reconciliation\": false, \"cross_process_replay\": false, \"failed_effect_not_retried\": false, \"independent_key_progress\": true, \"invalid_key_refusal\": false, \"lost_response_recovery\": false, \"multiple_key_refusal\": false, \"payload_conflict\": false, \"post_crash_progress\": true, \"restart_error_replay\": false, \"restart_response_replay\": false, \"unkeyed_compatibility\": true, \"unsupported_route_refusal\": false}, \"concurrent_append_count\": 7, \"crash_append_count\": 2, \"crash_retry\": {\"code\": null, \"status\": 200}, \"duplicate_statuses\": [200, 200, 200, 200, 200, 200], \"family\": \"durable-idempotent-side-effects\"}, \"passed\": false}\n",
+        "stderr_tail": "",
+        "outcome": {
+          "observed": {
+            "checks": {
+              "concurrent_admission": false,
+              "crash_outcome_reconciliation": false,
+              "cross_process_replay": false,
+              "failed_effect_not_retried": false,
+              "independent_key_progress": true,
+              "invalid_key_refusal": false,
+              "lost_response_recovery": false,
+              "multiple_key_refusal": false,
+              "payload_conflict": false,
+              "post_crash_progress": true,
+              "restart_error_replay": false,
+              "restart_response_replay": false,
+              "unkeyed_compatibility": true,
+              "unsupported_route_refusal": false
+            },
+            "concurrent_append_count": 7,
+            "crash_append_count": 2,
+            "crash_retry": {
+              "code": null,
+              "status": 200
+            },
+            "duplicate_statuses": [
+              200,
+              200,
+              200,
+              200,
+              200,
+              200
+            ],
+            "family": "durable-idempotent-side-effects"
+          },
+          "passed": false
+        }
+      },
+      "candidate": {
+        "exit_code": 0,
+        "stdout_tail": "{\"observed\": {\"checks\": {\"concurrent_admission\": true, \"crash_outcome_reconciliation\": true, \"cross_process_replay\": true, \"failed_effect_not_retried\": true, \"independent_key_progress\": true, \"invalid_key_refusal\": true, \"lost_response_recovery\": true, \"multiple_key_refusal\": true, \"payload_conflict\": true, \"post_crash_progress\": true, \"restart_error_replay\": true, \"restart_response_replay\": true, \"unkeyed_compatibility\": true, \"unsupported_route_refusal\": true}, \"concurrent_append_count\": 1, \"crash_append_count\": 1, \"crash_retry\": {\"code\": \"outcome_unknown\", \"status\": 409}, \"duplicate_statuses\": [409, 409, 409, 409, 409, 409], \"family\": \"durable-idempotent-side-effects\"}, \"passed\": true}\n",
+        "stderr_tail": "",
+        "outcome": {
+          "observed": {
+            "checks": {
+              "concurrent_admission": true,
+              "crash_outcome_reconciliation": true,
+              "cross_process_replay": true,
+              "failed_effect_not_retried": true,
+              "independent_key_progress": true,
+              "invalid_key_refusal": true,
+              "lost_response_recovery": true,
+              "multiple_key_refusal": true,
+              "payload_conflict": true,
+              "post_crash_progress": true,
+              "restart_error_replay": true,
+              "restart_response_replay": true,
+              "unkeyed_compatibility": true,
+              "unsupported_route_refusal": true
+            },
+            "concurrent_append_count": 1,
+            "crash_append_count": 1,
+            "crash_retry": {
+              "code": "outcome_unknown",
+              "status": 409
+            },
+            "duplicate_statuses": [
+              409,
+              409,
+              409,
+              409,
+              409,
+              409
+            ],
+            "family": "durable-idempotent-side-effects"
+          },
+          "passed": true
+        }
+      }
+    },
+    {
+      "command": "uv run python tests/acceptance/test_durable_invocation.py",
+      "reported_exit_code": 0,
+      "reproduced_exit_code": 0,
+      "timed_out": false,
+      "ok": true,
+      "witnessed": false
+    },
+    {
+      "command": "uv run --extra dev pytest tests/test_invocation_receipts.py tests/test_capability_service.py -q",
+      "reported_exit_code": 0,
+      "reproduced_exit_code": 0,
+      "timed_out": false,
+      "ok": true,
+      "witnessed": false
+    },
+    {
+      "command": "uv run --extra dev pytest tests/test_capability_goal_sessions.py -q -p no:cacheprovider",
+      "reported_exit_code": 0,
+      "reproduced_exit_code": 0,
+      "timed_out": false,
+      "ok": true,
+      "witnessed": false
+    },
+    {
+      "command": "uv run --extra dev ruff check src/blackhole_agent/invocation_receipts.py src/blackhole_agent/capability_service.py tests/test_invocation_receipts.py tests/acceptance/test_durable_invocation.py",
+      "reported_exit_code": 0,
+      "reproduced_exit_code": 0,
+      "timed_out": false,
+      "ok": true,
+      "witnessed": false
+    }
+  ],
+  "auto_declined": false
+}

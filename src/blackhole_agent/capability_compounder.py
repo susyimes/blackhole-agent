@@ -1947,10 +1947,17 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
         and ("valid" in lower or "verify" in lower or "ok" in lower)
     ):
         found.append({"kind": "finality_cert_valid", "arg": "", "source": chunk})
-    if (
-        re.search(r"\bexecution", lower)
-        and ("ok" in lower or "pass" in lower or "plane" in lower or "succeed" in lower)
-    ) or re.search(r"\bexecution_ok\b", lower):
+    # A positive execution requirement must name its outcome in the same
+    # clause. Matching "execution" and "succeed" anywhere in a paragraph
+    # misreads "refuse re-execution while fresh work succeeds" as a request
+    # for the unrelated world-state execution plane. Keep explicit predicate
+    # tokens authoritative and recognize only affirmative clause starts.
+    if re.search(r"\bexecution_ok\b", lower) or re.match(
+        r"(?:the\s+)?execution(?:[- ]plane)?\s+"
+        r"(?:(?:is|must(?:\s+be)?|should(?:\s+be)?)\s+)?"
+        r"(?:ok|pass(?:es)?|succeed(?:s)?|successful)\b",
+        lower,
+    ):
         found.append({"kind": "execution_ok", "arg": "", "source": chunk})
     if re.search(r"\bstate_applied_ok\b", lower) or (
         "state" in lower

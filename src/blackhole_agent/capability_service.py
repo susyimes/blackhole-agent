@@ -15,6 +15,13 @@ module turns the ledger into a service:
   command runs as a real subprocess against the vendored tree, and the
   declared ``provides`` fragment is returned with a response digest binding
   capability id, input, and output.
+- ``POST /invoke`` with ``Idempotency-Key`` durably reserves that key before
+  execution and persists the HTTP response before sending it. Identical
+  retries replay the saved response across restarts; conflicting payloads
+  and unresolved executions return 409 without executing again. ``GET
+  /invocations/{key}`` retrieves the response or the in-progress/unknown
+  outcome. Receipts do not expire: a crash may occur after a side effect but
+  before a response is recorded, so unknown outcomes require reconciliation.
 - ``POST /contract`` machine-evaluates a semicolon-separated done_when outcome
   contract against the served ledger: ``program_passes`` steps execute for real
   as governed command trees (bounded memory and process count — a runaway
@@ -867,11 +874,16 @@ def solve_goal_request(
     }
 
 
-def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any]) -> None:
+def _json_response(
+    handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any],
+    *, replayed: bool | None = None,
+) -> None:
     body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
+    if replayed is not None:
+        handler.send_header("Idempotency-Replayed", "true" if replayed else "false")
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -881,9 +893,11 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
 
     service_root = Path(root).resolve()
     from blackhole_agent.capability_sessions import SessionManager
+    from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
 
     sessions = SessionManager(service_root)
     sessions.recover()
+    receipts = InvocationReceipts(service_root)
 
     class CapabilityHandler(BaseHTTPRequestHandler):
         server_version = "blackhole-capability-service/1"
@@ -917,6 +931,15 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                 return
             if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
+                return
+            invocation_key = self._session_id("/invocations/")
+            if invocation_key is not None:
+                try:
+                    result = receipts.lookup(invocation_key)
+                except ReceiptError as exc:
+                    _json_response(self, exc.status, exc.payload)
+                    return
+                _json_response(self, 200, result)
                 return
             if path == "/sessions":
                 _json_response(self, 200, sessions.list_sessions())
@@ -973,6 +996,31 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                 return
             if not isinstance(body, dict):
                 _json_response(self, 400, {"ok": False, "error": "body must be a JSON object"})
+                return
+            keys = self.headers.get_all("Idempotency-Key", [])
+            if keys:
+                if path != "/invoke" or len(keys) != 1:
+                    _json_response(self, 400, {
+                        "ok": False, "error": "one Idempotency-Key is supported only on POST /invoke",
+                    })
+                    return
+
+                def operation() -> tuple[int, dict[str, Any]]:
+                    try:
+                        return 200, invoke_capability(
+                            service_root, body.get("capability_id"), body.get("input")
+                        )
+                    except InvocationError as exc:
+                        return exc.status, {"ok": False, "error": exc.error, **exc.extra}
+
+                try:
+                    status, result, replayed = receipts.execute(
+                        keys[0], body.get("capability_id"), body.get("input"), operation
+                    )
+                except ReceiptError as exc:
+                    _json_response(self, exc.status, exc.payload)
+                    return
+                _json_response(self, status, result, replayed=replayed)
                 return
             try:
                 if path == "/contract":

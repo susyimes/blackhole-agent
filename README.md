@@ -38,6 +38,10 @@ legacy proposal loop. It gives one agent a persistent mission worktree, durable
 session, compact context, broad local authority, and outcome-level milestones.
 It does not create child agents.
 
+The HTTP capability service supports [durable invocation retries](docs/durable-invocation.md):
+clients can recover saved results by request key across restarts without
+repeating a tool's side effects.
+
 ## Control Loop
 
 ```text
