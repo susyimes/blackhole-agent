@@ -127,7 +127,7 @@ def test_milestone_gate_rejects_paperwork_and_accepts_behavior_change():
         )
     )
 
-    rejected = evaluate_milestone(
+    declined = evaluate_milestone(
         decision,
         changed_paths=["docs/design.md", "tests/test_design.py", "artifacts/report.json"],
     )
@@ -136,9 +136,15 @@ def test_milestone_gate_rejects_paperwork_and_accepts_behavior_change():
         changed_paths=["src/blackhole_agent/unbound.py", "tests/test_unbound.py"],
     )
 
-    assert rejected.accepted is False
-    assert "changes are limited to docs, tests, artifacts, or controller state" in rejected.reasons
+    assert declined.requested is False
+    assert declined.accepted is False
+    assert declined.auto_declined is True
+    assert any(
+        "changes are limited to docs, tests, artifacts, or controller state" in reason
+        for reason in declined.reasons
+    )
     assert accepted.accepted is True
+    assert accepted.auto_declined is False
     assert accepted.behavior_paths == ("src/blackhole_agent/unbound.py",)
 
 

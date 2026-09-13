@@ -14,7 +14,8 @@ kernel process, no network — and asserts the contract at every transition:
 - milestone turns are committed only when a behavior path changed and every
   reported validation command reproduces under controller replay;
 - fabricated validations (exit 0 claimed, real exit non-zero) are rejected;
-- paperwork-only milestones (docs/tests/artifacts) are rejected;
+- paperwork-only milestones (docs/tests/artifacts) are auto-declined at
+  intake and recorded as continue, never as a rejected milestone class;
 - resume reloads state.json from disk and keeps iteration/session continuity;
 - complete requires done_when_met and passes machine-checkable contracts;
 - the reload boundary is real: ``run_reloadable_tick`` runs the tick in a
@@ -416,6 +417,17 @@ def scenario_paperwork_milestone_rejected(controller: ModuleType, scratch: Path)
     _check(checks, "paperwork gate rejected", gate.get("accepted") is False)
     reasons = "; ".join(gate.get("reasons") or [])
     _check(checks, "docs-only reason reported", "docs, tests, artifacts" in reasons, reasons)
+    _check(checks, "request declined at intake", gate.get("requested") is False,
+           f"requested={gate.get('requested')}")
+    _check(checks, "auto-decline marked", gate.get("auto_declined") is True,
+           f"auto_declined={gate.get('auto_declined')}")
+    _check(checks, "status downgraded to continue", record.get("effective_status") == "continue",
+           str(record.get("effective_status")))
+    from blackhole_agent.pattern_register import classify_unbound_turn
+
+    class_events = classify_unbound_turn(record)
+    _check(checks, "no failure-class occurrence recorded", not class_events,
+           json.dumps(class_events)[:200])
     _check(checks, "no commit recorded", not record.get("commit_sha"), str(record.get("commit_sha")))
     _check(checks, "workspace head unchanged", _git(workspace, "rev-parse", "HEAD") == base_head)
     return _scenario_result("paperwork_milestone_rejected", checks)

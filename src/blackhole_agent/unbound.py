@@ -258,6 +258,7 @@ class MilestoneGate:
     changed_paths: tuple[str, ...]
     behavior_paths: tuple[str, ...]
     validation_replay: tuple[dict[str, Any], ...] = ()
+    auto_declined: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -1069,6 +1070,13 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
         }
         if item.get("selection_gate"):
             row["selection_gate"] = item.get("selection_gate")
+        gate_row = item.get("milestone_gate")
+        if isinstance(gate_row, dict):
+            gate_reasons = [str(reason) for reason in (gate_row.get("reasons") or [])]
+            if gate_row.get("auto_declined"):
+                row["gate_feedback"] = "paperwork milestone auto-declined at intake: " + "; ".join(gate_reasons)
+            elif gate_row.get("requested") and not gate_row.get("accepted"):
+                row["gate_feedback"] = "milestone rejected: " + "; ".join(gate_reasons)
         history.append(row)
     ledger_block = capability_ledger_for_prompt(Path(state.workspace_path))
     try:
@@ -1138,6 +1146,9 @@ Milestone semantics:
 - status=blocked: progress genuinely cannot continue without an external state change.
 - milestone/complete require a non-empty capability_delta, outcome_evidence, and at least one changed behavior path
   outside docs/tests/artifacts. Passing tests alone is not enough.
+- A milestone/complete request whose diff since the last milestone has no behavior path outside
+  docs/tests/artifacts is auto-declined at intake and the turn is recorded as continue; it never
+  reaches the milestone gate, so do not request one until a behavior-path delta actually exists.
 - Autonomous milestones also require acceptance_probe: a standalone tests/acceptance/*.py script that prints
   JSON with boolean passed and nonempty observed (exit 0 for both met and unmet outcomes). The controller runs
   the SAME probe on the previous milestone's src and candidate src in fresh subprocesses: baseline must report
@@ -1595,10 +1606,27 @@ def evaluate_milestone(
         if workspace is not None and behavior_paths:
             for match in find_renamed_implementations(workspace, behavior_paths, baseline_ref=baseline_ref):
                 reasons.append(f"renamed implementation lacks marginal behavior value: {match}")
-    if not changed_paths and not waive:
-        reasons.append("no repository change exists since the previous milestone")
-    if not behavior_paths and not waive:
-        reasons.append("changes are limited to docs, tests, artifacts, or controller state")
+    if not waive and not behavior_paths:
+        # Class-level repair for paperwork_milestone: a milestone/complete
+        # request without a behavior-path delta is declined at intake, before
+        # it can become a gate rejection. The turn is recorded as continue,
+        # so the paperwork failure class cannot recur through the gate.
+        return MilestoneGate(
+            requested=False,
+            accepted=False,
+            reasons=(
+                "paperwork milestone request auto-declined at intake: "
+                + (
+                    "no repository change exists since the previous milestone"
+                    if not changed_paths
+                    else "changes are limited to docs, tests, artifacts, or controller state"
+                )
+                + "; a milestone requires a behavior-path delta and is recorded as continue instead",
+            ),
+            changed_paths=tuple(changed_paths),
+            behavior_paths=(),
+            auto_declined=True,
+        )
     if not decision.capability_delta:
         reasons.append("capability_delta is empty")
     if not decision.outcome_evidence:
@@ -1877,6 +1905,7 @@ def run_unbound_turn(
                 reasons=(*gate.reasons, "bound done_when cannot be replaced by an execution-stage decision"),
                 changed_paths=gate.changed_paths, behavior_paths=gate.behavior_paths,
                 validation_replay=gate.validation_replay,
+                auto_declined=gate.auto_declined,
             )
         effective_status = decision.status
         if selection_gate is not None and not selection_gate.accepted:
@@ -1887,8 +1916,13 @@ def run_unbound_turn(
                 changed_paths=gate.changed_paths,
                 behavior_paths=gate.behavior_paths,
                 validation_replay=gate.validation_replay,
+                auto_declined=gate.auto_declined,
             )
             effective_status = "blocked" if selection_rejection_count >= SELECTION_REJECTION_LIMIT else "continue"
+        if gate.auto_declined and (selection_gate is None or selection_gate.accepted):
+            # A paperwork-only request never reaches the milestone pipeline;
+            # the turn continues instead of recording a rejected milestone.
+            effective_status = "continue"
         commit_sha = ""
         milestone_number = state.milestone_count + 1
         skip_commit = (gate.accepted and decision.status == "complete"

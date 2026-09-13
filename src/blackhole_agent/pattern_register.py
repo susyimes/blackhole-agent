@@ -66,7 +66,11 @@ PATTERN_CLASSES: dict[str, dict[str, str]] = {
     "paperwork_milestone": {
         "name": "Paperwork-only milestone",
         "root_cause": "A milestone claimed docs/tests/artifacts as capability growth.",
-        "structural_fix": "Require a behavior-path delta; stop treating paperwork as a milestone class.",
+        "structural_fix": (
+            "Auto-decline milestone requests without a behavior-path delta at decision "
+            "intake: the turn is recorded as continue with prompt feedback, so paperwork "
+            "never reaches the gate as a rejected milestone class."
+        ),
     },
     "validation_replay_failed": {
         "name": "Validation replay failed",
