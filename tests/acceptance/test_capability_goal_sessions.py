@@ -255,7 +255,7 @@ def main() -> dict[str, object]:
             )
 
             # interrupted resume fixture: a slow session mid-execution at kill time
-            resume_marker = Path(directory) / "resume-marker.txt"
+            resume_marker = root / "capabilities" / "absorbed" / "slow-marker" / "resume-marker.txt"
             status, slow_created = _request(
                 "POST",
                 f"{base}/sessions",
@@ -340,7 +340,7 @@ def main() -> dict[str, object]:
             )
 
             # 4. cancellation: DELETE kills the running tool's whole tree
-            cancel_marker = Path(directory) / "cancel-marker.txt"
+            cancel_marker = root / "capabilities" / "absorbed" / "slow-marker" / "cancel-marker.txt"
             cancel_started = time.monotonic()
             status, cancel_created = _request(
                 "POST",

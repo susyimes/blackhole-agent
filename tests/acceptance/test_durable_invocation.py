@@ -127,12 +127,13 @@ def main() -> dict:
         with tempfile.TemporaryDirectory(prefix="invocation-acceptance-") as directory:
             root = Path(directory)
             fixture(root)
-            events = root / "effects.txt"
+            tool_dir = root / "capabilities" / "absorbed" / "append-event"
+            events = tool_dir / "effects.txt"
 
             def payload(label, mode="ok"):
                 return {"capability_id": "capability.absorbed-append-event", "input": {
                     "events": str(events), "label": label,
-                    "gate": str(root / (label + ".release")), "mode": mode,
+                    "gate": str(tool_dir / (label + ".release")), "mode": mode,
                 }}
 
             server = Server(src, root)
@@ -150,7 +151,7 @@ def main() -> dict:
                 independent = request(peer.base, "POST", "/invoke", payload("independent"), "independent-key")
                 early = wait_for(lambda: all(f.done() for f in duplicates), seconds=3)
                 active = request(server.base, "GET", "/invocations/shared-key")
-                (root / "concurrent.release").touch()
+                (tool_dir / "concurrent.release").touch()
                 original = first.result(15)
                 duplicates = [f.result(15) for f in duplicates]
                 replay = request(peer.base, "POST", "/invoke", held, "shared-key")
@@ -200,7 +201,7 @@ def main() -> dict:
                 crash_started = wait_for(lambda: counts(events, "crash") >= 1)
                 server.stop()
                 peer.stop()
-                (root / "crash.release").touch()
+                (tool_dir / "crash.release").touch()
                 pending.result(15)
                 server = Server(src, root)
                 servers.append(server)

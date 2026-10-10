@@ -114,7 +114,7 @@ def test_http_client_disconnected_detects_peer_close() -> None:
 
 def test_aborting_invoke_stops_heartbeat_and_plane_stays_up(tmp_path: Path) -> None:
     root = _fixture(tmp_path)
-    heartbeat = root / "heartbeat.txt"
+    heartbeat = root / "capabilities" / "absorbed" / "heartbeat-hold" / "heartbeat.txt"
     httpd = build_server(root, port=0)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()

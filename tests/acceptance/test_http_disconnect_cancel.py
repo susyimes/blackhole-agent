@@ -170,7 +170,7 @@ def main() -> dict[str, object]:
     try:
         base = Path(scratch.name)
         root = _build_fixture_root(base)
-        heartbeat = root / "heartbeat.txt"
+        heartbeat = root / "capabilities" / "absorbed" / "heartbeat-hold" / "heartbeat.txt"
         env = dict(os.environ)
         env["PYTHONPATH"] = str(src_root)
         env["PYTHONIOENCODING"] = "utf-8"

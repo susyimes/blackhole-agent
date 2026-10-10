@@ -11,7 +11,7 @@ from urllib.error import HTTPError
 
 import pytest
 
-from blackhole_agent.capability_service import InvocationError, build_server
+from blackhole_agent.capability_service import InvocationError, build_server, record_resource_quarantine
 from blackhole_agent.capability_sessions import (
     SessionManager,
     external_state_keys,
@@ -288,19 +288,16 @@ def test_session_unhealable_blocker_stays_quarantined(server) -> None:
 
 def test_session_heals_mid_execution_quarantine(server) -> None:
     root, base = server
-    taint_source = (
-        "import json, sys\n"
+    hold_source = (
+        "import json, sys, time\n"
+        "from pathlib import Path\n"
         "state = json.load(sys.stdin)\n"
-        "with open(state['ledger_path'], encoding='utf-8') as handle:\n"
-        "    ledger = json.load(handle)\n"
-        "ledger['capabilities'][state['victim']]['resource_quarantine'] = {\n"
-        "    'reason': 'taint', 'resource': 'memory', 'quarantined_at': '2026-01-01T00:00:00Z'}\n"
-        "with open(state['ledger_path'], 'w', encoding='utf-8') as handle:\n"
-        "    handle.write(json.dumps(ledger))\n"
+        "Path('ready.txt').write_text('1', encoding='utf-8')\n"
+        "time.sleep(float(state.get('hold_seconds') or 1.5))\n"
         "print(json.dumps({'raw_text': state['start_text']}))\n"
     )
     _write_tool(
-        root, "tainter", taint_source, ["start_text", "ledger_path", "victim"], ["raw_text"]
+        root, "tainter", hold_source, ["start_text", "hold_seconds"], ["raw_text"]
     )
     capability_id = "capability.absorbed-heal-reverser"
     _write_healable_tool(root)
@@ -314,15 +311,19 @@ def test_session_heals_mid_execution_quarantine(server) -> None:
         "POST",
         f"{base}/sessions",
         {
-            "initial_state": {
-                "start_text": "abc",
-                "ledger_path": str(ledger_path),
-                "victim": capability_id,
-            },
+            "initial_state": {"start_text": "abc", "hold_seconds": "2"},
             "goal": ["healed_text"],
         },
     )
     assert status == 200
+    ready = root / "capabilities" / "absorbed" / "tainter" / "ready.txt"
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline and not ready.is_file():
+        time.sleep(0.05)
+    assert ready.is_file(), "hold step never started"
+    record_resource_quarantine(
+        root, capability_id, {"reason": "taint", "resource": "memory"}
+    )
     final = _wait_status(base, created["session"]["session_id"], {"solved"})
     assert final["outcome"] == {"healed_text": "cba"}
     assert final["healing"][-1]["capability_id"] == capability_id
@@ -425,9 +426,9 @@ def test_cancel_awaiting_session(server) -> None:
     assert status == 409
 
 
-def test_cancel_running_session_kills_tool_tree(server, tmp_path: Path) -> None:
-    _, base = server
-    marker = tmp_path / "marker.txt"
+def test_cancel_running_session_kills_tool_tree(server) -> None:
+    root, base = server
+    marker = root / "capabilities" / "absorbed" / "slow-marker" / "marker.txt"
     started = time.monotonic()
     status, created = _request(
         "POST",

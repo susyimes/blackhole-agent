@@ -30,15 +30,11 @@ REVERSER = (
 BROKEN = "import sys\nsys.exit(3)\n"
 
 TAINTER = (
-    "import json, sys\n"
+    "import json, sys, time\n"
+    "from pathlib import Path\n"
     "state = json.load(sys.stdin)\n"
-    "with open(state['ledger_path'], encoding='utf-8') as handle:\n"
-    "    ledger = json.load(handle)\n"
-    "ledger['capabilities'][state['victim']]['resource_quarantine'] = {\n"
-    "    'reason': 'mid-execution taint', 'resource': 'memory',\n"
-    "    'quarantined_at': '2026-01-01T00:00:00Z'}\n"
-    "with open(state['ledger_path'], 'w', encoding='utf-8') as handle:\n"
-    "    handle.write(json.dumps(ledger))\n"
+    "Path('ready.txt').write_text('1', encoding='utf-8')\n"
+    "time.sleep(float(state.get('hold_seconds') or 1.5))\n"
     "print(json.dumps({'tainted_text': state['start_text']}))\n"
 )
 
@@ -84,9 +80,9 @@ def fixture(root: Path) -> dict[str, str]:
     (taint / "absorption.json").write_text(json.dumps({
         "schema_version": 1, "slug": "tainter", "name": "tainter",
         "command": [sys.executable, "tool.py"],
-        "requires": ["start_text", "ledger_path", "victim"], "provides": ["tainted_text"],
+        "requires": ["start_text", "hold_seconds"], "provides": ["tainted_text"],
         "cases": [
-            {"input": {"start_text": v, "ledger_path": "x", "victim": "x"},
+            {"input": {"start_text": v, "hold_seconds": "0"},
              "expect": {"tainted_text": v}}
             for v in ("ab", "cd")
         ],
@@ -258,15 +254,28 @@ def main() -> dict:
             }
 
             # (d) a capability quarantined mid-execution (by a concurrent
-            # violation, simulated here by the first step's side effect) is
-            # healed inline and the remaining goal replanned.
-            ledger_path = str(root / "capabilities" / "ledger.json")
-            status, midexec = request(server.base, "/solve", {
-                "initial_state": {
-                    "start_text": "ab", "ledger_path": ledger_path, "victim": ids["late"],
-                },
-                "goal": ["final_text"],
-            })
+            # violation, simulated here by the probe process writing the
+            # ledger while the first step holds) is healed inline and the
+            # remaining goal replanned.
+            ready = root / "capabilities" / "absorbed" / "tainter" / "ready.txt"
+            box: dict[str, object] = {}
+
+            def _midexec() -> None:
+                box["status"], box["body"] = request(server.base, "/solve", {
+                    "initial_state": {"start_text": "ab", "hold_seconds": "2"},
+                    "goal": ["final_text"],
+                })
+
+            worker = threading.Thread(target=_midexec)
+            worker.start()
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and not ready.is_file():
+                time.sleep(0.05)
+            if ready.is_file():
+                quarantine(root, ids["late"])
+            worker.join(timeout=30)
+            status = int(box.get("status") or 0)
+            midexec = box.get("body") if isinstance(box.get("body"), dict) else {}
             checks["mid_execution_heals"] = (
                 status == 200
                 and midexec.get("solved") is True

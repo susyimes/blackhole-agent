@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from pathlib import Path
 from urllib import request as urlrequest
 from urllib.error import HTTPError
@@ -541,16 +542,12 @@ def test_solve_healthy_goal_reports_no_healing(server) -> None:
     assert result["healing"] == []
 
 
-_TAINT_TOOL = (
-    "import json, sys\n"
+_HOLD_TOOL = (
+    "import json, sys, time\n"
+    "from pathlib import Path\n"
     "state = json.load(sys.stdin)\n"
-    "with open(state['ledger_path'], encoding='utf-8') as handle:\n"
-    "    ledger = json.load(handle)\n"
-    "ledger['capabilities'][state['victim']]['resource_quarantine'] = {\n"
-    "    'reason': 'mid-execution taint', 'resource': 'memory',\n"
-    "    'quarantined_at': '2026-01-01T00:00:00Z'}\n"
-    "with open(state['ledger_path'], 'w', encoding='utf-8') as handle:\n"
-    "    handle.write(json.dumps(ledger))\n"
+    "Path('ready.txt').write_text('1', encoding='utf-8')\n"
+    "time.sleep(float(state.get('hold_seconds') or 1.5))\n"
     "print(json.dumps({'tainted_text': state['raw_text']}))\n"
 )
 
@@ -564,7 +561,7 @@ _LATE_TOOL = (
 def _write_midexec_chain(root: Path) -> None:
     taint_dir = root / "capabilities" / "absorbed" / "tainter"
     taint_dir.mkdir(parents=True)
-    (taint_dir / "tool.py").write_text(_TAINT_TOOL, encoding="utf-8")
+    (taint_dir / "tool.py").write_text(_HOLD_TOOL, encoding="utf-8")
     (taint_dir / "absorption.json").write_text(
         json.dumps(
             {
@@ -572,11 +569,11 @@ def _write_midexec_chain(root: Path) -> None:
                 "slug": "tainter",
                 "name": "fixture tainter",
                 "command": ["python", "tool.py"],
-                "requires": ["raw_text", "ledger_path", "victim"],
+                "requires": ["raw_text", "hold_seconds"],
                 "provides": ["tainted_text"],
                 "cases": [
                     {
-                        "input": {"raw_text": v, "ledger_path": "x", "victim": "x"},
+                        "input": {"raw_text": v, "hold_seconds": "0"},
                         "expect": {"tainted_text": v},
                     }
                     for v in ("ab", "cd")
@@ -616,18 +613,33 @@ def _write_midexec_chain(root: Path) -> None:
 def test_solve_heals_mid_execution_quarantine(server) -> None:
     root, base = server
     _write_midexec_chain(root)
-    status, result = _request(
-        "POST",
-        f"{base}/solve",
-        {
-            "initial_state": {
-                "raw_text": "ab",
-                "ledger_path": str(root / "capabilities" / "ledger.json"),
-                "victim": "capability.absorbed-late-reverser",
+    ready = root / "capabilities" / "absorbed" / "tainter" / "ready.txt"
+    box: dict[str, object] = {}
+
+    def _solve() -> None:
+        box["status"], box["result"] = _request(
+            "POST",
+            f"{base}/solve",
+            {
+                "initial_state": {"raw_text": "ab", "hold_seconds": "2"},
+                "goal": ["final_text"],
             },
-            "goal": ["final_text"],
-        },
+        )
+
+    worker = threading.Thread(target=_solve)
+    worker.start()
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline and not ready.is_file():
+        time.sleep(0.05)
+    assert ready.is_file(), "hold step never started"
+    record_resource_quarantine(
+        root,
+        "capability.absorbed-late-reverser",
+        {"reason": "mid-execution taint", "resource": "memory"},
     )
+    worker.join(timeout=30)
+    status = box.get("status")
+    result = box.get("result") or {}
     assert status == 200
     assert result["solved"] is True
     assert result["plan"] == ["capability.absorbed-tainter", "capability.absorbed-late-reverser"]

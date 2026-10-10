@@ -3,8 +3,10 @@
 AppContainer tokens cannot open host files unless the container SID is on
 the path's ACL. The invocation plane grants only the vendored tool tree, a
 per-invocation scratch directory, and the interpreter prefix; everything
-else — operator secrets, SSH keys, sibling temp files — stays
-PermissionError.
+else — operator secrets, SSH keys, the served checkout, sibling temp
+files — stays PermissionError. The profile name is versioned so leftover
+NTFS ACEs from an earlier allowlist that included the workspace root do
+not keep the checkout writable.
 
 This module is imported by the job bootstrap (``python -I _windows_job.py``)
 after the bootstrap inserts its own directory on ``sys.path``. It also
@@ -32,7 +34,7 @@ STD_ERROR_HANDLE = wintypes.DWORD(-12).value
 HANDLE_FLAG_INHERIT = 0x00000001
 INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
 
-PROFILE_NAME = "bh.unbound.tool"
+PROFILE_NAME = "bh.unbound.tool.v2"
 
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 userenv = ctypes.WinDLL("userenv", use_last_error=True)

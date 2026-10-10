@@ -88,11 +88,11 @@ module turns the ledger into a service:
   unaffected capabilities keep serving.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
-  vendored tool tree, the served workspace root, a per-invocation scratch
-  directory, and the interpreter prefix. A tool that opens a host path
-  outside that allowlist — operator home files, SSH keys, sibling secrets
-  — receives ``PermissionError``; writes beside those secrets do not land.
-  Declared behavior that stays inside the workspace still runs.
+  vendored tool tree, a per-invocation scratch directory, and the
+  interpreter prefix. The served checkout is host-owned: a tool that
+  opens ledger.json, source, or a workspace canary outside its vendored
+  tree receives ``PermissionError``, and writes there do not land.
+  Declared stdin/stdout behavior still runs.
 - Quarantine lifts only through supervised re-proof: ``POST /reproof``
   re-executes the quarantined capability's own frozen absorption cases for
   real under the same enforced memory/process limits; all cases passing
@@ -327,9 +327,20 @@ def _tool_env() -> dict[str, str]:
 
 
 def _sandbox_roots(root: Path, tool_root: Path) -> list[Path]:
-    """Allow the vendored tree and the served workspace; nothing else on the host."""
+    """Allow the vendored tree; never the served checkout.
 
-    return [Path(tool_root).resolve(), Path(root).resolve()]
+    The capture layer still adds a per-invocation scratch directory and the
+    interpreter prefix. The workspace root used to be on this allowlist, so
+    a live POST /invoke could rewrite ledger.json or plant files beside
+    source. That path is now host-owned: untrusted tools cannot read or
+    write it even when they are given the absolute path as input.
+    """
+
+    workspace = Path(root).resolve()
+    vendored = Path(tool_root).resolve()
+    if vendored == workspace:
+        raise ValueError("vendored tool tree must not be the served checkout root")
+    return [vendored]
 
 
 class InvocationError(Exception):
