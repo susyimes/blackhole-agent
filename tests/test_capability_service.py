@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import threading
 import time
 from pathlib import Path
@@ -809,16 +810,19 @@ def test_mcp_streamable_http_executes_absorbed_tool_and_keeps_rest(server) -> No
     assert solved["result"]["structuredContent"]["solved"] is True
     assert solved["result"]["structuredContent"]["outcome"]["reversed_text"] == probe_text[::-1]
 
+    status, get_mcp = _request("GET", mcp)
+    assert status == 404
+    assert get_mcp["error"] == "mcp_session_unknown"
+    status, get_no_sse = _request("GET", mcp, headers=hdr)
+    assert status == 406
+    assert get_no_sse["error"] == "mcp_get_requires_event_stream"
+
     status, closed = _request("DELETE", mcp, headers=hdr)
     assert status == 200 and closed["closed"] is True
     status, after = _request(
         "POST", mcp, {"jsonrpc": "2.0", "id": 7, "method": "ping", "params": {}}, headers=hdr
     )
     assert status == 404
-
-    status, get_mcp = _request("GET", mcp)
-    assert status == 405
-    assert get_mcp["error"] == "mcp_streamable_http_is_post_only"
 
     status, invoked = _request(
         "POST",
@@ -877,6 +881,207 @@ def test_mcp_streamable_http_requires_bearer_when_configured(tmp_path: Path) -> 
         metadata = json.loads(response["result"]["messages"][1]["content"]["resource"]["text"])
         assert metadata["requires"] == ["raw_text"]
         assert metadata["tool"]["name"] == "text-reverser"
+        get_status, get_body = _request("GET", mcp, headers=session_headers)
+        assert get_status == 401
+        get_status, get_body = _request("GET", mcp, headers=authorized_headers)
+        assert get_status == 406
+        assert get_body["error"] == "mcp_get_requires_event_stream"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=10)
+
+
+def _read_http_headers(sock: socket.socket) -> tuple[int, bytes]:
+    buf = b""
+    while b"\r\n\r\n" not in buf:
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        buf += chunk
+    header, rest = buf.split(b"\r\n\r\n", 1) if b"\r\n\r\n" in buf else (buf, b"")
+    status_line = header.split(b"\r\n", 1)[0].decode("ascii", errors="replace")
+    parts = status_line.split(" ", 2)
+    status = int(parts[1]) if len(parts) >= 2 else 0
+    return status, rest
+
+
+def test_mcp_http_get_sse_progress_and_cross_post_cancel(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    slow = (
+        "import json, sys, time\n"
+        "from pathlib import Path\n"
+        "state = json.load(sys.stdin)\n"
+        "path = Path(state['heartbeat_path'])\n"
+        "deadline = time.monotonic() + 25\n"
+        "n = 0\n"
+        "while time.monotonic() < deadline:\n"
+        "    n += 1\n"
+        "    path.write_text(str(n), encoding='utf-8')\n"
+        "    time.sleep(0.05)\n"
+        "print(json.dumps({'beats': n}))\n"
+    )
+    _write_tool(
+        root,
+        "heartbeat-hold",
+        slow,
+        requires=["heartbeat_path"],
+        provides=["beats"],
+    )
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-heartbeat-hold"] = _ledger_entry(
+        "capability.absorbed-heartbeat-hold"
+    )
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    heartbeat = root / "capabilities" / "absorbed" / "heartbeat-hold" / "heartbeat.txt"
+
+    httpd = build_server(root, port=0)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host = "127.0.0.1"
+        port = httpd.server_address[1]
+        mcp = f"http://{host}:{port}/mcp"
+        status, handshake, headers = _request_full(
+            "POST",
+            mcp,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "pytest", "version": "1"},
+                },
+            },
+        )
+        session = headers.get("mcp-session-id") or ""
+        assert status == 200 and session
+        hdr = {"Mcp-Session-Id": session}
+
+        sse_sock = socket.create_connection((host, port), timeout=10)
+        sse_sock.sendall(
+            (
+                f"GET /mcp HTTP/1.1\r\n"
+                f"Host: {host}:{port}\r\n"
+                f"Accept: text/event-stream\r\n"
+                f"Mcp-Session-Id: {session}\r\n"
+                f"Connection: keep-alive\r\n"
+                f"\r\n"
+            ).encode("ascii")
+        )
+        sse_status, pending = _read_http_headers(sse_sock)
+        assert sse_status == 200
+        events: list[dict] = []
+        stop_sse = threading.Event()
+
+        def _collect() -> None:
+            buf = pending
+            while not stop_sse.is_set():
+                sse_sock.settimeout(0.4)
+                try:
+                    chunk = sse_sock.recv(4096)
+                except TimeoutError:
+                    continue
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                buf += chunk
+                while b"\n\n" in buf:
+                    raw, buf = buf.split(b"\n\n", 1)
+                    data_lines = [
+                        line[5:].lstrip()
+                        for line in raw.decode("utf-8", errors="replace").splitlines()
+                        if line.startswith("data:")
+                    ]
+                    if not data_lines:
+                        continue
+                    try:
+                        payload = json.loads("\n".join(data_lines))
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(payload, dict):
+                        events.append(payload)
+
+        collector = threading.Thread(target=_collect, daemon=True)
+        collector.start()
+
+        call_box: dict[str, object] = {}
+
+        def _call() -> None:
+            call_box["status"], call_box["body"] = _request(
+                "POST",
+                mcp,
+                {
+                    "jsonrpc": "2.0",
+                    "id": 42,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "heartbeat-hold",
+                        "arguments": {"heartbeat_path": str(heartbeat)},
+                        "_meta": {"progressToken": "probe-progress"},
+                    },
+                },
+                headers=hdr,
+            )
+
+        caller = threading.Thread(target=_call, daemon=True)
+        caller.start()
+        started = time.monotonic()
+        first_beat = 0
+        while time.monotonic() - started < 15:
+            try:
+                first_beat = int(heartbeat.read_text(encoding="utf-8").strip() or "0")
+            except (OSError, ValueError):
+                first_beat = 0
+            if first_beat >= 1 and any(
+                item.get("method") == "notifications/progress" for item in events
+            ):
+                break
+            time.sleep(0.05)
+        assert first_beat >= 1, "heartbeat tool never started"
+        assert any(item.get("method") == "notifications/progress" for item in events)
+
+        status, accepted = _request(
+            "POST",
+            mcp,
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/cancelled",
+                "params": {"requestId": 42},
+            },
+            headers=hdr,
+        )
+        assert status == 202
+        caller.join(timeout=15)
+        assert call_box.get("status") == 200
+        body = call_box.get("body")
+        assert isinstance(body, dict)
+        assert body.get("error", {}).get("code") == -32800
+
+        time.sleep(0.8)
+        sample_a = int(heartbeat.read_text(encoding="utf-8").strip() or "0")
+        time.sleep(0.6)
+        sample_b = int(heartbeat.read_text(encoding="utf-8").strip() or "0")
+        assert sample_b == sample_a
+
+        status, invoked = _request(
+            "POST",
+            f"http://{host}:{port}/invoke",
+            {"capability_id": "capability.absorbed-text-reverser", "input": {"raw_text": "blackhole"}},
+        )
+        assert status == 200
+        assert invoked["output"]["reversed_text"] == "elohkcalb"
+        stop_sse.set()
+        try:
+            sse_sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        sse_sock.close()
+        collector.join(timeout=2)
     finally:
         httpd.shutdown()
         httpd.server_close()

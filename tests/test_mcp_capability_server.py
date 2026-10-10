@@ -18,6 +18,7 @@ from blackhole_agent.mcp_capability_server import (
     PROTOCOL_VERSION,
     SERVER_INFO,
     CapabilityCatalog,
+    McpHttpSession,
     capability_resource_uri,
     handle_http_rpc,
     handle_message,
@@ -307,6 +308,41 @@ def test_handle_http_rpc_executes_tools_call(tmp_path: Path) -> None:
     assert unknown["error"]["code"] == -32602
     assert handle_http_rpc(
         catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    ) is None
+
+
+def test_handle_http_rpc_publishes_progress_on_session(tmp_path: Path) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    session = McpHttpSession()
+    listener = session.subscribe()
+    reply = handle_http_rpc(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {
+                "name": "text-reverser",
+                "arguments": {"raw_text": "sse"},
+                "_meta": {"progressToken": "unit-progress"},
+            },
+        },
+        session=session,
+    )
+    assert reply["result"]["structuredContent"] == {"reversed_text": "ess"}
+    published = []
+    while True:
+        try:
+            published.append(listener.get_nowait())
+        except queue.Empty:
+            break
+    methods = [item.get("method") for item in published if isinstance(item, dict)]
+    assert methods == ["notifications/progress", "notifications/progress"]
+    assert published[0]["params"]["progressToken"] == "unit-progress"
+    assert handle_http_rpc(
+        catalog,
+        {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 11}},
+        session=session,
     ) is None
 
 

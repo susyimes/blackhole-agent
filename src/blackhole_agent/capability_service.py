@@ -74,11 +74,16 @@ module turns the ledger into a service:
   MCP host completes ``initialize``, lists invocable absorbed tools, and
   ``tools/call`` executes them through the governed plane (sandbox, resource
   bounds, disconnect-cancel). Sessions are identified by ``Mcp-Session-Id``;
-  ``DELETE /mcp`` ends one. ``GET /mcp`` is not an event stream (405) so
-  POST-only clients stay on the plane. REST ``POST /invoke`` is unchanged.
-  The same catalog also exposes MCP resources (public contracts and tool
-  schemas) and a ``prepare_capability_call`` prompt with an embedded live
-  contract; retrieving metadata never executes a capability.
+  ``DELETE /mcp`` ends one. ``GET /mcp`` with that session and
+  ``Accept: text/event-stream`` is the reverse channel: progress
+  notifications for a ``progressToken`` ``tools/call`` are written as SSE,
+  and a concurrent ``POST /mcp`` of ``notifications/cancelled`` reaps the
+  in-flight tool tree so the original POST answers JSON-RPC ``-32800``.
+  GET without a session is 404; GET that does not accept the event stream
+  is 406. REST ``POST /invoke`` is unchanged. The same catalog also exposes
+  MCP resources (public contracts and tool schemas) and a
+  ``prepare_capability_call`` prompt with an embedded live contract;
+  retrieving metadata never executes a capability.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``
@@ -140,6 +145,7 @@ import hashlib
 import hmac
 import json
 import os
+import queue
 import select
 import socket
 import subprocess
@@ -1333,6 +1339,11 @@ def _mcp_http_path(path: str) -> bool:
     return path.split("?", 1)[0].rstrip("/") == MCP_HTTP_PATH
 
 
+def _encode_mcp_sse(payload: Mapping[str, Any]) -> bytes:
+    data = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
+    return f"event: message\ndata: {data}\n\n".encode("utf-8")
+
+
 def _write_mcp_rpc(
     handler: BaseHTTPRequestHandler,
     payload: Mapping[str, Any],
@@ -1343,8 +1354,7 @@ def _write_mcp_rpc(
     accept = (handler.headers.get("Accept") or "").lower()
     prefer_sse = "text/event-stream" in accept and "application/json" not in accept
     if prefer_sse:
-        data = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
-        body = f"event: message\ndata: {data}\n\n".encode("utf-8")
+        body = _encode_mcp_sse(payload)
         content_type = "text/event-stream"
     else:
         body = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True).encode("utf-8")
@@ -1400,36 +1410,49 @@ def build_server(
     sessions = SessionManager(service_root)
     sessions.recover()
     receipts = InvocationReceipts(service_root)
-    from blackhole_agent.mcp_capability_server import CapabilityCatalog, handle_http_rpc
+    from blackhole_agent.mcp_capability_server import (
+        CapabilityCatalog,
+        McpHttpSession,
+        handle_http_rpc,
+    )
 
     mcp_catalog = CapabilityCatalog(service_root)
-    mcp_sessions: OrderedDict[str, None] = OrderedDict()
+    mcp_sessions: OrderedDict[str, McpHttpSession] = OrderedDict()
     mcp_session_lock = threading.Lock()
 
     def _mint_mcp_session() -> str:
         token = uuid.uuid4().hex
+        state = McpHttpSession()
+        evicted: list[McpHttpSession] = []
         with mcp_session_lock:
             while len(mcp_sessions) >= MAX_MCP_HTTP_SESSIONS:
-                mcp_sessions.popitem(last=False)
-            mcp_sessions[token] = None
+                _, old = mcp_sessions.popitem(last=False)
+                evicted.append(old)
+            mcp_sessions[token] = state
+        for old in evicted:
+            old.close()
         return token
 
-    def _touch_mcp_session(token: str) -> bool:
+    def _touch_mcp_session(token: str) -> McpHttpSession | None:
         with mcp_session_lock:
-            if token not in mcp_sessions:
-                return False
+            state = mcp_sessions.get(token)
+            if state is None:
+                return None
             mcp_sessions.move_to_end(token)
-            return True
+            return state
 
     def _drop_mcp_session(token: str) -> bool:
         with mcp_session_lock:
-            if token not in mcp_sessions:
-                return False
-            del mcp_sessions[token]
-            return True
+            state = mcp_sessions.pop(token, None)
+        if state is None:
+            return False
+        state.close()
+        return True
 
     class CapabilityHandler(BaseHTTPRequestHandler):
         server_version = "blackhole-capability-service/1"
+        disable_nagle_algorithm = True
+        wbufsize = 0
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             return
@@ -1482,15 +1505,50 @@ def build_server(
             if not self._authorize():
                 return
             if _mcp_http_path(path):
-                self.send_response(405)
-                self.send_header("Allow", "POST, DELETE")
-                self.send_header("Content-Type", "application/json")
-                body = json.dumps(
-                    {"ok": False, "error": "mcp_streamable_http_is_post_only"}
-                ).encode("utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
+                state = _touch_mcp_session(offered) if offered else None
+                if not offered or state is None:
+                    _json_response(self, 404, {"ok": False, "error": "mcp_session_unknown"})
+                    return
+                accept = (self.headers.get("Accept") or "").lower()
+                if "text/event-stream" not in accept:
+                    _json_response(
+                        self,
+                        406,
+                        {"ok": False, "error": "mcp_get_requires_event_stream"},
+                    )
+                    return
+                listener = state.subscribe()
+                try:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Connection", "keep-alive")
+                    self.send_header("Mcp-Session-Id", offered)
+                    self.end_headers()
+                    try:
+                        self.wfile.flush()
+                    except OSError:
+                        return
+                    sock = getattr(self, "connection", None)
+                    while not state.closed:
+                        if http_client_disconnected(sock):
+                            break
+                        try:
+                            item = listener.get(timeout=DISCONNECT_POLL_SECONDS)
+                        except queue.Empty:
+                            continue
+                        if item is None:
+                            break
+                        try:
+                            self.wfile.write(_encode_mcp_sse(item))
+                            self.wfile.flush()
+                        except OSError:
+                            break
+                except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+                    return
+                finally:
+                    state.unsubscribe(listener)
                 return
             if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
@@ -1680,16 +1738,23 @@ def build_server(
             method = str(message.get("method") or "")
             offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
             session = offered
+            session_state = None
             if method == "initialize":
                 session = _mint_mcp_session()
-            elif not offered or not _touch_mcp_session(offered):
-                _json_response(self, 404, {"ok": False, "error": "mcp_session_unknown"})
-                return
+                session_state = _touch_mcp_session(session)
+            else:
+                session_state = _touch_mcp_session(offered) if offered else None
+                if session_state is None:
+                    _json_response(self, 404, {"ok": False, "error": "mcp_session_unknown"})
+                    return
             cancel_event, stop_watch = arm_http_disconnect_cancel(self)
             try:
                 try:
                     response = handle_http_rpc(
-                        mcp_catalog, message, cancel_event=cancel_event
+                        mcp_catalog,
+                        message,
+                        cancel_event=cancel_event,
+                        session=session_state,
                     )
                 except ProcessCancelled:
                     _write_cancelled(self)

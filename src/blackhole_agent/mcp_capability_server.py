@@ -62,6 +62,11 @@ Only JSON-RPC traffic is written to stdout; diagnostics go to stderr.
 The live HTTP invocation plane also serves this catalog over Streamable HTTP
 at ``POST /mcp`` (same governed ``tools/call`` path, session-scoped
 ``Mcp-Session-Id``). HTTP-only MCP hosts do not need a stdio child.
+``GET /mcp`` with that session id and ``Accept: text/event-stream`` opens
+the reverse channel: ``notifications/progress`` for a ``progressToken``
+call is written as SSE, and a concurrent ``POST`` of
+``notifications/cancelled`` reaps the in-flight tool tree so the original
+``tools/call`` POST answers JSON-RPC ``-32800``.
 """
 
 from __future__ import annotations
@@ -69,6 +74,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import queue
 import re
 import sys
 import threading
@@ -105,6 +111,69 @@ REQUEST_CANCELLED = -32800
 
 class ToolCallError(KeyError):
     """Raised when a tools/call names a tool outside the live catalog."""
+
+
+class McpHttpSession:
+    """One Streamable-HTTP MCP session: in-flight calls and GET SSE listeners."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.in_flight: dict[Any, threading.Event] = {}
+        self._listeners: list[queue.Queue[Any]] = []
+        self.closed = False
+
+    def register_call(self, request_id: Any, event: threading.Event) -> None:
+        with self._lock:
+            if self.closed:
+                event.set()
+                return
+            self.in_flight[request_id] = event
+
+    def finish_call(self, request_id: Any) -> None:
+        with self._lock:
+            self.in_flight.pop(request_id, None)
+
+    def cancel(self, request_id: Any) -> bool:
+        with self._lock:
+            event = self.in_flight.get(request_id)
+        if event is None:
+            return False
+        event.set()
+        return True
+
+    def subscribe(self) -> queue.Queue[Any]:
+        listener: queue.Queue[Any] = queue.Queue()
+        with self._lock:
+            if self.closed:
+                listener.put_nowait(None)
+                return listener
+            self._listeners.append(listener)
+        return listener
+
+    def unsubscribe(self, listener: queue.Queue[Any]) -> None:
+        with self._lock:
+            try:
+                self._listeners.remove(listener)
+            except ValueError:
+                return
+
+    def publish(self, payload: Mapping[str, Any]) -> None:
+        message = dict(payload)
+        with self._lock:
+            listeners = list(self._listeners)
+        for listener in listeners:
+            listener.put_nowait(message)
+
+    def close(self) -> None:
+        with self._lock:
+            self.closed = True
+            pending = list(self.in_flight.values())
+            listeners = list(self._listeners)
+            self._listeners.clear()
+        for event in pending:
+            event.set()
+        for listener in listeners:
+            listener.put_nowait(None)
 
 
 class ResourceNotFoundError(KeyError):
@@ -516,6 +585,7 @@ def handle_http_rpc(
     message: Mapping[str, Any],
     *,
     cancel_event: threading.Event | None = None,
+    session: McpHttpSession | None = None,
 ) -> dict[str, Any] | None:
     """Handle one Streamable-HTTP JSON-RPC message.
 
@@ -523,17 +593,51 @@ def handle_http_rpc(
     ``tools/call`` runs on the request thread (ThreadingHTTPServer already
     isolates concurrent POSTs) through the same governed catalog used by
     stdio. A hung-up HTTP client sets ``cancel_event`` and is answered
-    with JSON-RPC ``-32800``.
+    with JSON-RPC ``-32800``. A concurrent POST of
+    ``notifications/cancelled`` for an in-flight request id sets the same
+    event through ``session``. Progress notifications for a
+    ``progressToken`` are published onto that session's GET SSE listeners.
     """
 
     method = message.get("method")
+    if method == "notifications/cancelled" and "id" not in message:
+        params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+        if session is not None:
+            session.cancel(params.get("requestId"))
+        return None
     if method == "tools/call" and "id" in message:
         request_id = message["id"]
         params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
         name = str(params.get("name") or "")
+        token = _progress_token(params)
+        call_cancel = cancel_event if cancel_event is not None else threading.Event()
+        if session is not None:
+            session.register_call(request_id, call_cancel)
+
+        def _notify_progress(progress: int, text: str, *, total: int | None = None) -> None:
+            if token is None or session is None:
+                return
+            payload: dict[str, Any] = {
+                "progressToken": token,
+                "progress": progress,
+                "message": text,
+            }
+            if total is not None:
+                payload["total"] = total
+            session.publish(
+                {"jsonrpc": "2.0", "method": "notifications/progress", "params": payload}
+            )
+
         try:
+            if token is not None:
+                _notify_progress(0, "solve started" if name == SOLVE_TOOL_NAME else "call started")
+            progress = None
+            if token is not None and name == SOLVE_TOOL_NAME:
+                progress = lambda p, msg, total=None: _notify_progress(  # noqa: E731
+                    p, msg, total=total
+                )
             result = catalog.call(
-                name, params.get("arguments"), cancel_event=cancel_event
+                name, params.get("arguments"), cancel_event=call_cancel, progress=progress
             )
         except ToolCallError:
             return {
@@ -550,7 +654,13 @@ def handle_http_rpc(
                     "message": f"request {request_id} cancelled by client",
                 },
             }
-        return {"jsonrpc": "2.0", "id": request_id, "result": result}
+        else:
+            if token is not None and name != SOLVE_TOOL_NAME:
+                _notify_progress(1, "call completed", total=1)
+            return {"jsonrpc": "2.0", "id": request_id, "result": result}
+        finally:
+            if session is not None:
+                session.finish_call(request_id)
     return handle_message(catalog, message)
 
 

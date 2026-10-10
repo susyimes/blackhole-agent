@@ -4,8 +4,14 @@ The capability server exposes tools, resources, and prompts over both stdio
 (`python -m blackhole_agent.mcp_capability_server --root PATH`) and the
 invocation plane's Streamable HTTP endpoint (`POST /mcp`). An HTTP client
 initializes a session and sends its returned `Mcp-Session-Id` on later
-requests. When an operator token is configured, every MCP request also
-requires `Authorization: Bearer TOKEN`, including metadata reads.
+requests. `GET /mcp` with that session and `Accept: text/event-stream`
+opens the reverse channel: `notifications/progress` for a `progressToken`
+`tools/call` is written as SSE, and a concurrent `POST` of
+`notifications/cancelled` reaps the in-flight tool tree so the original
+POST answers JSON-RPC `-32800`. GET without a session is 404; GET that
+does not accept the event stream is 406. When an operator token is
+configured, every MCP request also requires `Authorization: Bearer TOKEN`,
+including metadata reads and the GET stream.
 
 Hosts can discover the JSON catalog with `resources/list`, then request:
 
