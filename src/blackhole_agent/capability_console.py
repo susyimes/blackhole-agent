@@ -13,7 +13,9 @@ document served at ``GET /console`` (and ``/``):
   ``/health``, ``/capabilities`` and ``/sessions``, invokes any selected
   capability through ``POST /invoke`` with a JSON input form, and submits
   declarative goals through ``POST /solve``, rendering the derived plan,
-  per-step outputs, and the plan digest;
+  per-step outputs, and the plan digest. In-flight invoke/solve fetches
+  use AbortController; the cancel buttons (and closing the tab) hang up
+  the HTTP socket so the plane can terminate the owned tool tree;
 - durable goal sessions are listed with their status so an operator can
   see in-flight, awaiting-input, solved, failed, and cancelled goals.
 
@@ -68,7 +70,7 @@ __ROWS__
 <p>capability id: <input id="invoke-id" list="cap-ids" placeholder="capability.absorbed-…"><datalist id="cap-ids">__OPTIONS__</datalist></p>
 <p>input (JSON object):</p>
 <textarea id="invoke-input" rows="3">{}</textarea>
-<p><button onclick="invokeCapability()">invoke</button></p>
+<p><button onclick="invokeCapability()">invoke</button> <button onclick="cancelInvoke()">cancel</button></p>
 <pre id="invoke-result"></pre>
 </section>
 <section>
@@ -76,7 +78,7 @@ __ROWS__
 <p>initial state (JSON object):</p>
 <textarea id="solve-state" rows="3">{}</textarea>
 <p>goal state keys (comma separated): <input id="solve-goal" placeholder="reversed_text"></p>
-<p><button onclick="solveGoal()">solve</button></p>
+<p><button onclick="solveGoal()">solve</button> <button onclick="cancelSolve()">cancel</button></p>
 <pre id="solve-result"></pre>
 </section>
 <section>
@@ -85,11 +87,14 @@ __ROWS__
 <p><button onclick="loadSessions()">refresh</button></p>
 </section>
 <script>
-async function postJSON(path, body) {
+let invokeAbort = null;
+let solveAbort = null;
+async function postJSON(path, body, controller) {
   const response = await fetch(path, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: controller ? controller.signal : undefined
   });
   return response.json();
 }
@@ -104,15 +109,27 @@ async function loadSessions() {
   const response = await fetch("/sessions");
   show("sessions", await response.json());
 }
+function cancelInvoke() {
+  if (invokeAbort) invokeAbort.abort();
+}
+function cancelSolve() {
+  if (solveAbort) solveAbort.abort();
+}
 async function invokeCapability() {
   let input;
   try { input = JSON.parse(document.getElementById("invoke-input").value); }
   catch (error) { show("invoke-result", {error: String(error)}); return; }
-  const result = await postJSON("/invoke", {
-    capability_id: document.getElementById("invoke-id").value,
-    input: input
-  });
-  show("invoke-result", result);
+  cancelInvoke();
+  invokeAbort = new AbortController();
+  try {
+    const result = await postJSON("/invoke", {
+      capability_id: document.getElementById("invoke-id").value,
+      input: input
+    }, invokeAbort);
+    show("invoke-result", result);
+  } catch (error) {
+    show("invoke-result", {error: String(error), cancelled: error.name === "AbortError"});
+  }
 }
 async function solveGoal() {
   let state;
@@ -120,8 +137,14 @@ async function solveGoal() {
   catch (error) { show("solve-result", {error: String(error)}); return; }
   const goal = document.getElementById("solve-goal").value.split(",")
     .map(key => key.trim()).filter(key => key.length > 0);
-  const result = await postJSON("/solve", {initial_state: state, goal: goal});
-  show("solve-result", result);
+  cancelSolve();
+  solveAbort = new AbortController();
+  try {
+    const result = await postJSON("/solve", {initial_state: state, goal: goal}, solveAbort);
+    show("solve-result", result);
+  } catch (error) {
+    show("solve-result", {error: String(error), cancelled: error.name === "AbortError"});
+  }
 }
 loadHealth();
 loadSessions();

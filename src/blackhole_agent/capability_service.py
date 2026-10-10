@@ -57,7 +57,19 @@ module turns the ledger into a service:
   page with the live catalog embedded and inline JavaScript driving
   ``/health``, ``/capabilities``, ``/sessions``, ``/invoke`` and
   ``/solve`` — a browser with zero client installation can inspect the
-  plane and execute real capabilities and goals.
+  plane and execute real capabilities and goals. In-flight ``/invoke``
+  and ``/solve`` fetches carry an AbortController; cancelling them (or
+  closing the tab) hangs up the HTTP socket so the plane can reap the
+  tool tree.
+- Dropped HTTP clients do not leak tool processes: ``POST /invoke`` and
+  ``POST /solve`` watch the request socket while the owned command tree
+  runs. A hang-up, reset, or aborted curl sets the same cancel event
+  goal sessions and the MCP server already thread into
+  :func:`run_captured_process`, so the Windows job / POSIX process group
+  is terminated instead of running out the wall-clock timeout. The
+  aborted request answers ``499`` with ``cancelled: true`` when the
+  client is still writable; a follow-up invoke on the same server still
+  works.
 - Executed tools are untrusted third-party code: every subprocess runs with
   a scrubbed allowlist environment
   (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
@@ -107,13 +119,15 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import select
+import socket
 import subprocess
 import sys
 import threading
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.capability_absorption import (
     capability_id_for_slug,
@@ -151,6 +165,8 @@ ABSORBED_ID_PREFIX = "capability.absorbed-"
 INVOKE_TIMEOUT_SECONDS = 30
 CONTRACT_TIMEOUT_SECONDS = 120
 SOLVE_MAX_STEPS = 8
+CLIENT_DISCONNECTED_STATUS = 499
+DISCONNECT_POLL_SECONDS = 0.05
 # When several minimal programs cover a goal, the planner enumerates at most
 # this many of them and ranks by recorded invocation evidence (failures,
 # then mean duration), keeping selection bounded and deterministic.
@@ -1169,6 +1185,70 @@ def solve_goal_request(
     }
 
 
+def http_client_disconnected(sock: socket.socket | None) -> bool:
+    """True when the HTTP peer has closed or reset the request socket."""
+
+    if sock is None:
+        return True
+    try:
+        readable, _, errored = select.select([sock], [], [sock], 0)
+    except (OSError, ValueError, TypeError):
+        return True
+    if errored:
+        return True
+    if not readable:
+        return False
+    try:
+        peeked = sock.recv(1, socket.MSG_PEEK)
+    except BlockingIOError:
+        return False
+    except (ConnectionResetError, ConnectionAbortedError, ConnectionRefusedError, OSError):
+        return True
+    return peeked == b""
+
+
+def arm_http_disconnect_cancel(
+    handler: BaseHTTPRequestHandler,
+) -> tuple[threading.Event, Callable[[], None]]:
+    """Cancel an in-flight tool tree when the HTTP client hangs up.
+
+    Returns ``(cancel_event, stop)``. ``stop`` must run after the invocation
+    returns so the watcher thread does not outlive the request.
+    """
+
+    cancel_event = threading.Event()
+    stop_watch = threading.Event()
+    sock = getattr(handler, "connection", None)
+
+    def watch() -> None:
+        while not stop_watch.wait(DISCONNECT_POLL_SECONDS):
+            if http_client_disconnected(sock):
+                cancel_event.set()
+                return
+
+    threading.Thread(target=watch, daemon=True, name="bh-http-disconnect").start()
+
+    def stop() -> None:
+        stop_watch.set()
+
+    return cancel_event, stop
+
+
+def _write_cancelled(handler: BaseHTTPRequestHandler) -> None:
+    try:
+        _json_response(
+            handler,
+            CLIENT_DISCONNECTED_STATUS,
+            {
+                "ok": False,
+                "cancelled": True,
+                "error": "invocation cancelled because the HTTP client disconnected",
+            },
+        )
+    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError, TimeoutError):
+        return
+
+
 def _json_response(
     handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any],
     *, replayed: bool | None = None,
@@ -1300,46 +1380,69 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                     })
                     return
 
-                def operation() -> tuple[int, dict[str, Any]]:
-                    try:
-                        return 200, invoke_capability(
-                            service_root, body.get("capability_id"), body.get("input")
-                        )
-                    except InvocationError as exc:
-                        return exc.status, {"ok": False, "error": exc.error, **exc.extra}
-
-                try:
-                    status, result, replayed = receipts.execute(
-                        keys[0], body.get("capability_id"), body.get("input"), operation
-                    )
-                except ReceiptError as exc:
-                    _json_response(self, exc.status, exc.payload)
-                    return
-                _json_response(self, status, result, replayed=replayed)
-                return
+            cancel_event: threading.Event | None = None
+            stop_watch: Callable[[], None] | None = None
+            if path in {"/invoke", "/solve"}:
+                cancel_event, stop_watch = arm_http_disconnect_cancel(self)
             try:
-                if path == "/contract":
-                    result = evaluate_contract_request(service_root, body.get("done_when"))
-                elif path == "/solve":
-                    result = solve_goal_request(
-                        service_root, body.get("initial_state"), body.get("goal")
-                    )
-                elif path == "/reproof":
-                    result = reproof_capability(service_root, body.get("capability_id"))
-                elif path == "/sessions":
-                    result = sessions.create_session(body.get("initial_state"), body.get("goal"))
-                elif session_action == "input":
-                    result = sessions.supply_input(session_id, body.get("input"))
-                elif session_action == "resume":
-                    result = sessions.resume_session(session_id)
-                else:
-                    result = invoke_capability(
-                        service_root, body.get("capability_id"), body.get("input")
-                    )
-            except InvocationError as exc:
-                _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
-                return
-            _json_response(self, 200, result)
+                if keys:
+                    def operation() -> tuple[int, dict[str, Any]]:
+                        try:
+                            return 200, invoke_capability(
+                                service_root,
+                                body.get("capability_id"),
+                                body.get("input"),
+                                cancel_event=cancel_event,
+                            )
+                        except InvocationError as exc:
+                            return exc.status, {"ok": False, "error": exc.error, **exc.extra}
+
+                    try:
+                        status, result, replayed = receipts.execute(
+                            keys[0], body.get("capability_id"), body.get("input"), operation
+                        )
+                    except ReceiptError as exc:
+                        _json_response(self, exc.status, exc.payload)
+                        return
+                    _json_response(self, status, result, replayed=replayed)
+                    return
+                try:
+                    if path == "/contract":
+                        result = evaluate_contract_request(service_root, body.get("done_when"))
+                    elif path == "/solve":
+                        result = solve_goal_request(
+                            service_root,
+                            body.get("initial_state"),
+                            body.get("goal"),
+                            cancel_event=cancel_event,
+                        )
+                    elif path == "/reproof":
+                        result = reproof_capability(service_root, body.get("capability_id"))
+                    elif path == "/sessions":
+                        result = sessions.create_session(body.get("initial_state"), body.get("goal"))
+                    elif session_action == "input":
+                        result = sessions.supply_input(session_id, body.get("input"))
+                    elif session_action == "resume":
+                        result = sessions.resume_session(session_id)
+                    else:
+                        result = invoke_capability(
+                            service_root,
+                            body.get("capability_id"),
+                            body.get("input"),
+                            cancel_event=cancel_event,
+                        )
+                except InvocationError as exc:
+                    _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
+                    return
+                except ProcessCancelled:
+                    _write_cancelled(self)
+                    return
+                _json_response(self, 200, result)
+            except ProcessCancelled:
+                _write_cancelled(self)
+            finally:
+                if stop_watch is not None:
+                    stop_watch()
 
     server = ThreadingHTTPServer((host, port), CapabilityHandler)
     server.daemon_threads = True
