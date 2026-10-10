@@ -26,6 +26,12 @@ killing the server. Goal sessions close those three gaps:
   /sessions/{id}`` sets the event and the running tool's entire owned
   process tree (Windows job object or POSIX process group) is terminated —
   not just the launcher.
+- **Live events.** ``GET /sessions/{id}/events`` with ``Accept:
+  text/event-stream`` streams each persisted transition (snapshot first)
+  so a browser operator can watch elicitation, running, solved, and
+  cancelled without polling. Unknown ids are 404; a GET that does not
+  accept the event stream is 406. The stream closes after a terminal
+  status.
 - **Self-healing.** Planning excludes quarantined capabilities; when the
   only program runs through quarantined steps — at creation, after input,
   or mid-execution — exactly those blockers are re-proved inline under
@@ -44,6 +50,7 @@ from __future__ import annotations
 
 import heapq
 import json
+import queue
 import threading
 import uuid
 from pathlib import Path
@@ -203,6 +210,25 @@ def _compute_session_digest(record: Mapping[str, Any]) -> str:
     )
 
 
+def session_event_payload(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Compact session snapshot for the live event stream."""
+
+    transitions = list(record.get("transitions") or [])
+    return {
+        "session_id": record.get("session_id"),
+        "status": record.get("status"),
+        "goal": record.get("goal"),
+        "pending_keys": list(record.get("pending_keys") or []),
+        "key_consumers": dict(record.get("key_consumers") or {}),
+        "elicited_keys": list(record.get("elicited_keys") or []),
+        "plan": record.get("plan"),
+        "outcome": record.get("outcome"),
+        "error": record.get("error"),
+        "session_digest": record.get("session_digest"),
+        "transition": transitions[-1] if transitions else None,
+    }
+
+
 def _plan_digest(record: Mapping[str, Any]) -> str:
     return _digest(
         {
@@ -226,6 +252,7 @@ class SessionManager:
         self._lock = threading.Lock()
         self._cancel_events: dict[str, threading.Event] = {}
         self._threads: dict[str, threading.Thread] = {}
+        self._event_listeners: dict[str, list[queue.Queue]] = {}
 
     # -- persistence ------------------------------------------------------
 
@@ -245,7 +272,37 @@ class SessionManager:
         record["updated_at"] = utc_now_iso()
         record["session_digest"] = _compute_session_digest(record)
         atomic_write_json(_session_path(self.root, record["session_id"]), record)
+        self._publish(record)
         return record
+
+    def _publish(self, record: Mapping[str, Any]) -> None:
+        event = session_event_payload(record)
+        with self._lock:
+            listeners = list(self._event_listeners.get(str(record.get("session_id") or "")) or [])
+        for listener in listeners:
+            listener.put(event)
+
+    def subscribe_events(self, session_id: str) -> queue.Queue:
+        """Register a live listener and enqueue the current snapshot."""
+
+        record = self._load(session_id)
+        listener: queue.Queue = queue.Queue()
+        with self._lock:
+            self._event_listeners.setdefault(session_id, []).append(listener)
+        listener.put(session_event_payload(record))
+        return listener
+
+    def unsubscribe_events(self, session_id: str, listener: queue.Queue) -> None:
+        with self._lock:
+            listeners = self._event_listeners.get(session_id)
+            if not listeners:
+                return
+            try:
+                listeners.remove(listener)
+            except ValueError:
+                return
+            if not listeners:
+                self._event_listeners.pop(session_id, None)
 
     def _transition(self, record: dict[str, Any], kind: str, detail: Any = None) -> None:
         record["transitions"].append(

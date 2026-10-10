@@ -57,10 +57,20 @@ module turns the ledger into a service:
   page with the live catalog embedded and inline JavaScript driving
   ``/health``, ``/capabilities``, ``/sessions``, ``/invoke`` and
   ``/solve`` — a browser with zero client installation can inspect the
-  plane and execute real capabilities and goals. In-flight ``/invoke``
+  plane and execute real capabilities and goals. The same page creates
+  durable goal sessions, answers elicitation for missing external keys,
+  resumes interrupted sessions, cancels running ones, and watches
+  ``GET /sessions/{id}/events``. In-flight ``/invoke``
   and ``/solve`` fetches carry an AbortController; cancelling them (or
   closing the tab) hangs up the HTTP socket so the plane can reap the
   tool tree.
+- ``GET /sessions/{id}/events`` with ``Accept: text/event-stream`` is
+  the session reverse channel: each persisted transition is written as
+  SSE (snapshot first) so a browser can watch ``awaiting_input`` through
+  ``solved`` or ``cancelled`` without polling. GET without a known
+  session is 404; GET that does not accept the event stream is 406. The
+  stream closes after a terminal status. REST ``POST /invoke`` is
+  unchanged.
 - Dropped HTTP clients do not leak tool processes: ``POST /invoke`` and
   ``POST /solve`` watch the request socket while the owned command tree
   runs. A hang-up, reset, or aborted curl sets the same cancel event
@@ -1344,6 +1354,11 @@ def _encode_mcp_sse(payload: Mapping[str, Any]) -> bytes:
     return f"event: message\ndata: {data}\n\n".encode("utf-8")
 
 
+def _encode_session_sse(payload: Mapping[str, Any]) -> bytes:
+    data = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
+    return f"event: session\ndata: {data}\n\n".encode("utf-8")
+
+
 def _write_mcp_rpc(
     handler: BaseHTTPRequestHandler,
     payload: Mapping[str, Any],
@@ -1404,7 +1419,7 @@ def build_server(
 
     service_root = Path(root).resolve()
     invocation_token = resolve_invocation_token(token)
-    from blackhole_agent.capability_sessions import SessionManager
+    from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager
     from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
 
     sessions = SessionManager(service_root)
@@ -1462,6 +1477,17 @@ def build_server(
             if not path.startswith(prefix):
                 return None
             rest = path[len(prefix):]
+            if rest and "/" not in rest:
+                return rest
+            return None
+
+        def _session_events_id(self) -> str | None:
+            path = self.path.split("?", 1)[0]
+            prefix = "/sessions/"
+            suffix = "/events"
+            if not path.startswith(prefix) or not path.endswith(suffix):
+                return None
+            rest = path[len(prefix) : -len(suffix)]
             if rest and "/" not in rest:
                 return rest
             return None
@@ -1564,6 +1590,54 @@ def build_server(
                 return
             if path == "/sessions":
                 _json_response(self, 200, sessions.list_sessions())
+                return
+            events_id = self._session_events_id()
+            if events_id is not None:
+                try:
+                    sessions.get_session(events_id)
+                except InvocationError as exc:
+                    _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
+                    return
+                accept = (self.headers.get("Accept") or "").lower()
+                if "text/event-stream" not in accept:
+                    _json_response(
+                        self,
+                        406,
+                        {"ok": False, "error": "session_get_events_requires_event_stream"},
+                    )
+                    return
+                listener = sessions.subscribe_events(events_id)
+                try:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Connection", "keep-alive")
+                    self.end_headers()
+                    try:
+                        self.wfile.flush()
+                    except OSError:
+                        return
+                    sock = getattr(self, "connection", None)
+                    while True:
+                        if http_client_disconnected(sock):
+                            break
+                        try:
+                            item = listener.get(timeout=DISCONNECT_POLL_SECONDS)
+                        except queue.Empty:
+                            continue
+                        if item is None:
+                            break
+                        try:
+                            self.wfile.write(_encode_session_sse(item))
+                            self.wfile.flush()
+                        except OSError:
+                            break
+                        if str(item.get("status") or "") in TERMINAL_STATUSES:
+                            break
+                except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+                    return
+                finally:
+                    sessions.unsubscribe_events(events_id, listener)
                 return
             session_id = self._session_id("/sessions/")
             if session_id is not None:

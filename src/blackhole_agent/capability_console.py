@@ -19,8 +19,14 @@ document served at ``GET /console`` (and ``/``):
   field keeps the historical open-loopback calls. In-flight invoke/solve
   fetches use AbortController; the cancel buttons (and closing the tab)
   hang up the HTTP socket so the plane can terminate the owned tool tree;
-- durable goal sessions are listed with their status so an operator can
-  see in-flight, awaiting-input, solved, failed, and cancelled goals.
+- durable goal sessions are created, elicited, resumed, cancelled, and
+  watched from the same page: ``POST /sessions`` starts a session,
+  ``POST /sessions/{id}/input`` supplies pending external keys,
+  ``POST /sessions/{id}/resume`` continues an interrupted session,
+  ``DELETE /sessions/{id}`` cancels a running one, and
+  ``GET /sessions/{id}/events`` with ``Accept: text/event-stream``
+  streams live status transitions so awaiting-input sessions no longer
+  stall without a custom HTTP client.
 
 The page talks only to the same origin it was served from; all fetch
 targets are literal relative paths so an independent client can replay the
@@ -60,7 +66,7 @@ pre { background: #0b0e11; padding: 0.75rem; border-radius: 4px; overflow: auto;
 </section>
 <section>
 <h2>operator token</h2>
-<p>Bearer token sent as <code>Authorization</code> on invoke, solve, and session fetches. Leave empty when the plane is open.</p>
+<p>Bearer token sent as <code>Authorization</code> on invoke, solve, session, and event-stream fetches. Leave empty when the plane is open.</p>
 <input id="operator-token" type="password" autocomplete="off" placeholder="BLACKHOLE_INVOCATION_TOKEN">
 </section>
 <section>
@@ -90,12 +96,28 @@ __ROWS__
 </section>
 <section>
 <h2>goal sessions</h2>
+<p>initial state (JSON object):</p>
+<textarea id="session-state" rows="3">{}</textarea>
+<p>goal state keys (comma separated): <input id="session-goal" placeholder="reversed_text"></p>
+<p><button onclick="createSession()">create session</button></p>
+<pre id="session-create-result"></pre>
+<p>session id: <input id="session-id" placeholder="from create or list"></p>
+<p>elicited input (JSON object of pending keys):</p>
+<textarea id="session-input" rows="3">{}</textarea>
+<p>
+<button onclick="supplySessionInput()">supply input</button>
+<button onclick="resumeSession()">resume</button>
+<button onclick="cancelSession()">cancel</button>
+<button onclick="watchSessionEvents()">watch events</button>
+<button onclick="loadSessions()">refresh list</button>
+</p>
 <pre id="sessions">loading…</pre>
-<p><button onclick="loadSessions()">refresh</button></p>
+<pre id="session-events"></pre>
 </section>
 <script>
 let invokeAbort = null;
 let solveAbort = null;
+let sessionEventAbort = null;
 function operatorToken() {
   const node = document.getElementById("operator-token");
   return node ? node.value.trim() : "";
@@ -116,6 +138,19 @@ async function postJSON(path, body, controller) {
 }
 function show(id, payload) {
   document.getElementById(id).textContent = JSON.stringify(payload, null, 2);
+}
+function parseGoalKeys(raw) {
+  return raw.split(",").map(key => key.trim()).filter(key => key.length > 0);
+}
+function adoptSession(session) {
+  if (!session || !session.session_id) return;
+  document.getElementById("session-id").value = session.session_id;
+  const pending = session.pending_keys || [];
+  if (pending.length) {
+    const blank = {};
+    pending.forEach(key => { blank[key] = ""; });
+    document.getElementById("session-input").value = JSON.stringify(blank, null, 2);
+  }
 }
 async function loadHealth() {
   const response = await fetch("/health");
@@ -151,8 +186,7 @@ async function solveGoal() {
   let state;
   try { state = JSON.parse(document.getElementById("solve-state").value); }
   catch (error) { show("solve-result", {error: String(error)}); return; }
-  const goal = document.getElementById("solve-goal").value.split(",")
-    .map(key => key.trim()).filter(key => key.length > 0);
+  const goal = parseGoalKeys(document.getElementById("solve-goal").value);
   cancelSolve();
   solveAbort = new AbortController();
   try {
@@ -160,6 +194,95 @@ async function solveGoal() {
     show("solve-result", result);
   } catch (error) {
     show("solve-result", {error: String(error), cancelled: error.name === "AbortError"});
+  }
+}
+async function createSession() {
+  let state;
+  try { state = JSON.parse(document.getElementById("session-state").value); }
+  catch (error) { show("session-create-result", {error: String(error)}); return; }
+  const goal = parseGoalKeys(document.getElementById("session-goal").value);
+  const result = await postJSON("/sessions", {initial_state: state, goal: goal});
+  show("session-create-result", result);
+  adoptSession(result.session || {});
+  if ((result.session || {}).session_id) watchSessionEvents();
+  loadSessions();
+}
+async function supplySessionInput() {
+  let input;
+  try { input = JSON.parse(document.getElementById("session-input").value); }
+  catch (error) { show("session-create-result", {error: String(error)}); return; }
+  const id = document.getElementById("session-id").value.trim();
+  const result = await postJSON(`/sessions/${id}/input`, {input: input});
+  show("session-create-result", result);
+  adoptSession(result.session || {});
+  loadSessions();
+}
+async function resumeSession() {
+  const id = document.getElementById("session-id").value.trim();
+  const result = await postJSON(`/sessions/${id}/resume`, {});
+  show("session-create-result", result);
+  adoptSession(result.session || {});
+  loadSessions();
+}
+async function cancelSession() {
+  const id = document.getElementById("session-id").value.trim();
+  const response = await fetch(`/sessions/${id}`, {
+    method: "DELETE",
+    headers: withAuth({})
+  });
+  const result = await response.json();
+  show("session-create-result", result);
+  loadSessions();
+}
+async function watchSessionEvents() {
+  const id = document.getElementById("session-id").value.trim();
+  if (!id) return;
+  if (sessionEventAbort) sessionEventAbort.abort();
+  sessionEventAbort = new AbortController();
+  const node = document.getElementById("session-events");
+  node.textContent = "watching…";
+  try {
+    const response = await fetch(`/sessions/${id}/events`, {
+      headers: withAuth({"Accept": "text/event-stream"}),
+      signal: sessionEventAbort.signal
+    });
+    if (!response.ok) {
+      show("session-events", {status: response.status, body: await response.text()});
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    const events = [];
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      while (true) {
+        const idx = buf.indexOf("\\n\\n");
+        if (idx < 0) break;
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let payload = null;
+        for (const line of raw.split("\\n")) {
+          if (line.startsWith("data:")) {
+            try { payload = JSON.parse(line.slice(5).trim()); }
+            catch (error) { payload = line.slice(5).trim(); }
+          }
+        }
+        if (payload) {
+          events.push(payload);
+          node.textContent = JSON.stringify(events, null, 2);
+          adoptSession(payload);
+          if (payload.status === "solved" || payload.status === "cancelled" || payload.status === "failed" || payload.status === "unsolvable") {
+            loadSessions();
+            return;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    show("session-events", {error: String(error), cancelled: error.name === "AbortError"});
   }
 }
 loadHealth();

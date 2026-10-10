@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import socket
 import threading
 import time
 from pathlib import Path
@@ -535,6 +536,129 @@ def test_resume_rejected_when_not_interrupted(server) -> None:
     status, body = _request("POST", f"{base}/sessions/{session_id}/resume", {"input": {}})
     assert status == 409
     assert body["ok"] is False
+
+
+def _read_http_headers(sock: socket.socket) -> tuple[int, bytes]:
+    buf = b""
+    sock.settimeout(10)
+    while b"\r\n\r\n" not in buf:
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        buf += chunk
+    header, rest = buf.split(b"\r\n\r\n", 1) if b"\r\n\r\n" in buf else (buf, b"")
+    status_line = header.split(b"\r\n", 1)[0].decode("ascii", errors="replace")
+    parts = status_line.split(" ", 2)
+    status = int(parts[1]) if len(parts) >= 2 else 0
+    return status, rest
+
+
+def _parse_sse_frames(buf: bytes) -> tuple[list[dict], bytes]:
+    events: list[dict] = []
+    while b"\n\n" in buf:
+        raw, buf = buf.split(b"\n\n", 1)
+        payload = None
+        for line in raw.decode("utf-8", errors="replace").replace("\r", "").split("\n"):
+            if line.startswith("data:"):
+                payload = json.loads(line[5:].strip())
+        if payload is not None:
+            events.append(payload)
+    return events, buf
+
+
+def test_session_event_stream_requires_accept_and_known_id(server) -> None:
+    _, base = server
+    status, body = _request("GET", f"{base}/sessions/missing-session/events")
+    assert status == 404
+    assert body["ok"] is False
+    _, created = _request("POST", f"{base}/sessions", {"initial_state": {}, "goal": ["loud_text"]})
+    session_id = created["session"]["session_id"]
+    status, body = _request("GET", f"{base}/sessions/{session_id}/events")
+    assert status == 406
+    assert body["error"] == "session_get_events_requires_event_stream"
+
+
+def test_session_event_stream_elicits_then_solves(server) -> None:
+    _, base = server
+    host, port_s = base.rsplit(":", 1)
+    host = host.split("://", 1)[1]
+    port = int(port_s)
+    status, created = _request("POST", f"{base}/sessions", {"initial_state": {}, "goal": ["loud_text"]})
+    assert status == 200
+    session_id = created["session"]["session_id"]
+    assert created["session"]["status"] == "awaiting_input"
+    assert created["session"]["pending_keys"] == ["raw_text"]
+
+    sock = socket.create_connection((host, port), timeout=10)
+    try:
+        sock.sendall(
+            (
+                f"GET /sessions/{session_id}/events HTTP/1.1\r\n"
+                f"Host: {host}:{port}\r\n"
+                f"Accept: text/event-stream\r\n"
+                f"Connection: keep-alive\r\n"
+                f"\r\n"
+            ).encode("ascii")
+        )
+        sse_status, pending = _read_http_headers(sock)
+        assert sse_status == 200
+        events: list[dict] = []
+        stop = threading.Event()
+
+        def collect() -> None:
+            buf = pending
+            sock.settimeout(0.2)
+            while not stop.is_set():
+                try:
+                    chunk = sock.recv(4096)
+                except socket.timeout:
+                    continue
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                frames, buf = _parse_sse_frames(buf + chunk)
+                events.extend(frames)
+
+        collector = threading.Thread(target=collect, daemon=True)
+        collector.start()
+        status, supplied = _request(
+            "POST",
+            f"{base}/sessions/{session_id}/input",
+            {"input": {"raw_text": "blackhole"}},
+        )
+        assert status == 200
+        deadline = time.monotonic() + 20
+        solved = None
+        while time.monotonic() < deadline and solved is None:
+            for payload in list(events):
+                if payload.get("status") == "solved":
+                    solved = payload
+                    break
+            if solved is None:
+                time.sleep(0.05)
+        stop.set()
+        assert solved is not None
+        assert solved["outcome"] == {"loud_text": "ELOHKCALB"}
+        assert any(payload.get("status") == "awaiting_input" for payload in events)
+    finally:
+        try:
+            sock.close()
+        except OSError:
+            pass
+
+
+def test_console_html_drives_session_elicitation(tmp_path: Path) -> None:
+    from blackhole_agent.capability_console import console_html
+
+    root = _fixture_root(tmp_path)
+    page = console_html(root)
+    assert "function createSession()" in page
+    assert "function supplySessionInput()" in page
+    assert "function watchSessionEvents()" in page
+    assert 'postJSON("/sessions"' in page
+    assert "text/event-stream" in page
+    assert "/events" in page
 
 
 def test_manager_rejects_malformed_requests(tmp_path: Path) -> None:
