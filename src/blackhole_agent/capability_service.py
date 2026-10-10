@@ -70,10 +70,16 @@ module turns the ledger into a service:
   aborted request answers ``499`` with ``cancelled: true`` when the
   client is still writable; a follow-up invoke on the same server still
   works.
+- The same process serves Streamable HTTP MCP at ``POST /mcp``: an HTTP-only
+  MCP host completes ``initialize``, lists invocable absorbed tools, and
+  ``tools/call`` executes them through the governed plane (sandbox, resource
+  bounds, disconnect-cancel). Sessions are identified by ``Mcp-Session-Id``;
+  ``DELETE /mcp`` ends one. ``GET /mcp`` is not an event stream (405) so
+  POST-only clients stay on the plane. REST ``POST /invoke`` is unchanged.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
-  reads, every mutating route, and invocation-receipt lookups require
-  ``Authorization: Bearer``. A missing or malformed header answers
+  reads, every mutating route, invocation-receipt lookups, and ``/mcp``
+  require ``Authorization: Bearer``. A missing or malformed header answers
   ``401`` with ``WWW-Authenticate`` and never spawns a subprocess; a
   wrong token answers ``403`` the same way. ``GET /health`` and the
   operator console document stay reachable without a token so liveness
@@ -136,7 +142,8 @@ import socket
 import subprocess
 import sys
 import threading
-from collections import deque
+import uuid
+from collections import OrderedDict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
@@ -194,6 +201,8 @@ SOLVE_MAX_FALLBACKS = 4
 MAX_BODY_BYTES = 1 << 20
 INVOCATION_TOKEN_ENV = "BLACKHOLE_INVOCATION_TOKEN"
 WWW_AUTHENTICATE = 'Bearer realm="blackhole-invocation-plane"'
+MCP_HTTP_PATH = "/mcp"
+MAX_MCP_HTTP_SESSIONS = 1024
 # Untrusted tools run under hard tree-wide resource bounds: 256 MiB committed
 # memory (comfortably above an interpreter's baseline, far below host RAM),
 # 32 simultaneously active processes, and 25 CPU-seconds (below the 30s
@@ -1300,6 +1309,60 @@ def _write_cancelled(handler: BaseHTTPRequestHandler) -> None:
         return
 
 
+def _drain_request_body(handler: BaseHTTPRequestHandler, *, limit: int = MAX_BODY_BYTES) -> None:
+    """Consume a POST body so a fail-closed reply does not RST the client."""
+
+    try:
+        length = int(handler.headers.get("Content-Length") or 0)
+    except (TypeError, ValueError):
+        return
+    if length <= 0:
+        return
+    remaining = min(length, limit)
+    while remaining > 0:
+        chunk = handler.rfile.read(min(remaining, 65536))
+        if not chunk:
+            return
+        remaining -= len(chunk)
+
+
+def _mcp_http_path(path: str) -> bool:
+    return path.split("?", 1)[0].rstrip("/") == MCP_HTTP_PATH
+
+
+def _write_mcp_rpc(
+    handler: BaseHTTPRequestHandler,
+    payload: Mapping[str, Any],
+    *,
+    status: int = 200,
+    session: str = "",
+) -> None:
+    accept = (handler.headers.get("Accept") or "").lower()
+    prefer_sse = "text/event-stream" in accept and "application/json" not in accept
+    if prefer_sse:
+        data = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
+        body = f"event: message\ndata: {data}\n\n".encode("utf-8")
+        content_type = "text/event-stream"
+    else:
+        body = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        content_type = "application/json"
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(body)))
+    if session:
+        handler.send_header("Mcp-Session-Id", session)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _write_mcp_accepted(handler: BaseHTTPRequestHandler, *, session: str = "") -> None:
+    handler.send_response(202)
+    handler.send_header("Content-Length", "0")
+    if session:
+        handler.send_header("Mcp-Session-Id", session)
+    handler.end_headers()
+
+
 def _json_response(
     handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any],
     *, replayed: bool | None = None, headers: Mapping[str, str] | None = None,
@@ -1334,6 +1397,33 @@ def build_server(
     sessions = SessionManager(service_root)
     sessions.recover()
     receipts = InvocationReceipts(service_root)
+    from blackhole_agent.mcp_capability_server import CapabilityCatalog, handle_http_rpc
+
+    mcp_catalog = CapabilityCatalog(service_root)
+    mcp_sessions: OrderedDict[str, None] = OrderedDict()
+    mcp_session_lock = threading.Lock()
+
+    def _mint_mcp_session() -> str:
+        token = uuid.uuid4().hex
+        with mcp_session_lock:
+            while len(mcp_sessions) >= MAX_MCP_HTTP_SESSIONS:
+                mcp_sessions.popitem(last=False)
+            mcp_sessions[token] = None
+        return token
+
+    def _touch_mcp_session(token: str) -> bool:
+        with mcp_session_lock:
+            if token not in mcp_sessions:
+                return False
+            mcp_sessions.move_to_end(token)
+            return True
+
+    def _drop_mcp_session(token: str) -> bool:
+        with mcp_session_lock:
+            if token not in mcp_sessions:
+                return False
+            del mcp_sessions[token]
+            return True
 
     class CapabilityHandler(BaseHTTPRequestHandler):
         server_version = "blackhole-capability-service/1"
@@ -1355,6 +1445,8 @@ def build_server(
                 return True
             offered = parse_bearer_token(self.headers.get("Authorization"))
             if offered is None:
+                if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
+                    _drain_request_body(self)
                 _json_response(
                     self,
                     401,
@@ -1363,6 +1455,8 @@ def build_server(
                 )
                 return False
             if not bearer_token_matches(offered, invocation_token):
+                if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
+                    _drain_request_body(self)
                 _json_response(self, 403, {"ok": False, "error": "authorization_rejected"})
                 return False
             return True
@@ -1383,6 +1477,17 @@ def build_server(
                 _json_response(self, 200, {"ok": True, "schema_version": SCHEMA_VERSION})
                 return
             if not self._authorize():
+                return
+            if _mcp_http_path(path):
+                self.send_response(405)
+                self.send_header("Allow", "POST, DELETE")
+                self.send_header("Content-Type", "application/json")
+                body = json.dumps(
+                    {"ok": False, "error": "mcp_streamable_http_is_post_only"}
+                ).encode("utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
                 return
             if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
@@ -1413,6 +1518,13 @@ def build_server(
         def do_DELETE(self) -> None:  # noqa: N802
             if not self._authorize():
                 return
+            if _mcp_http_path(self.path):
+                offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
+                if not offered or not _drop_mcp_session(offered):
+                    _json_response(self, 404, {"ok": False, "error": "mcp_session_unknown"})
+                    return
+                _json_response(self, 200, {"ok": True, "closed": True})
+                return
             session_id = self._session_id("/sessions/")
             if session_id is None:
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
@@ -1428,6 +1540,9 @@ def build_server(
             if not self._authorize():
                 return
             path = self.path.split("?", 1)[0]
+            if _mcp_http_path(path):
+                self._handle_mcp_post()
+                return
             session_id = self._session_id("/sessions/")
             session_action = None
             if session_id is None and path.startswith("/sessions/"):
@@ -1438,6 +1553,7 @@ def build_server(
             if path not in {"/invoke", "/contract", "/solve", "/reproof", "/sessions"} and not (
                 session_id and session_action
             ):
+                _drain_request_body(self)
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
             try:
@@ -1528,6 +1644,62 @@ def build_server(
                 if stop_watch is not None:
                     stop_watch()
 
+        def _handle_mcp_post(self) -> None:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                _json_response(self, 400, {"ok": False, "error": "invalid Content-Length"})
+                return
+            if length <= 0 or length > MAX_BODY_BYTES:
+                _json_response(self, 400, {"ok": False, "error": "missing or oversized body"})
+                return
+            raw = self.rfile.read(length)
+            try:
+                message = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                _write_mcp_rpc(
+                    self,
+                    {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}},
+                    status=400,
+                )
+                return
+            if not isinstance(message, dict):
+                _write_mcp_rpc(
+                    self,
+                    {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {"code": -32600, "message": "invalid request"},
+                    },
+                    status=400,
+                )
+                return
+            method = str(message.get("method") or "")
+            offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
+            session = offered
+            if method == "initialize":
+                session = _mint_mcp_session()
+            elif not offered or not _touch_mcp_session(offered):
+                _json_response(self, 404, {"ok": False, "error": "mcp_session_unknown"})
+                return
+            cancel_event, stop_watch = arm_http_disconnect_cancel(self)
+            try:
+                try:
+                    response = handle_http_rpc(
+                        mcp_catalog, message, cancel_event=cancel_event
+                    )
+                except ProcessCancelled:
+                    _write_cancelled(self)
+                    return
+                if response is None:
+                    _write_mcp_accepted(self, session=session)
+                    return
+                _write_mcp_rpc(self, response, session=session)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+                return
+            finally:
+                stop_watch()
+
     server = ThreadingHTTPServer((host, port), CapabilityHandler)
     server.daemon_threads = True
     return server
@@ -1554,6 +1726,7 @@ def serve(
                 "invocable_count": listing["count"],
                 "listing_digest": listing["listing_digest"],
                 "auth_required": bool(invocation_token),
+                "mcp_path": MCP_HTTP_PATH,
             }
         ),
         flush=True,
@@ -1573,7 +1746,22 @@ def _http_request(
     payload: Mapping[str, Any] | None = None,
     *,
     timeout: int = 30,
+    headers: Mapping[str, str] | None = None,
 ) -> tuple[int, Any]:
+    status, body, _hdrs = _http_request_ex(
+        method, url, payload, timeout=timeout, headers=headers
+    )
+    return status, body
+
+
+def _http_request_ex(
+    method: str,
+    url: str,
+    payload: Mapping[str, Any] | None = None,
+    *,
+    timeout: int = 30,
+    headers: Mapping[str, str] | None = None,
+) -> tuple[int, Any, dict[str, str]]:
     from urllib import request as urlrequest
     from urllib.error import HTTPError, URLError
 
@@ -1581,16 +1769,26 @@ def _http_request(
     req = urlrequest.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json, text/event-stream")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
     try:
         with urlrequest.urlopen(req, timeout=timeout) as response:
-            return response.status, json.loads(response.read().decode("utf-8"))
+            captured = {key.lower(): value for key, value in response.headers.items()}
+            raw = response.read().decode("utf-8")
+            try:
+                parsed: Any = json.loads(raw) if raw else None
+            except json.JSONDecodeError:
+                parsed = raw
+            return response.status, parsed, captured
     except HTTPError as exc:
+        captured = {key.lower(): value for key, value in (exc.headers.items() if exc.headers else [])}
         try:
-            return exc.code, json.loads(exc.read().decode("utf-8"))
-        except json.JSONDecodeError:
-            return exc.code, None
+            return exc.code, json.loads(exc.read().decode("utf-8")), captured
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+            return exc.code, None, captured
     except (URLError, TimeoutError, OSError):
-        return 0, None
+        return 0, None, {}
 
 
 def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]:
@@ -1713,6 +1911,134 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["malformed_solve_refused"] = (
             status == 422 and isinstance(malformed, dict) and not malformed.get("ok")
+        )
+        mcp_url = f"{base}{MCP_HTTP_PATH}"
+        status, handshake, mcp_headers = _http_request_ex(
+            "POST",
+            mcp_url,
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "capability-service-proof", "version": "1"},
+                },
+            },
+        )
+        mcp_session = str(mcp_headers.get("mcp-session-id") or "")
+        handshake_result = handshake.get("result") if isinstance(handshake, dict) else None
+        checks["mcp_initialize"] = (
+            status == 200
+            and isinstance(handshake_result, dict)
+            and bool(mcp_session)
+            and "serverInfo" in handshake_result
+        )
+        mcp_hdr = {"Mcp-Session-Id": mcp_session} if mcp_session else None
+        tool_names: list[str] = []
+        cursor = ""
+        list_status = 0
+        for page_id in range(16):
+            params: dict[str, Any] = {"cursor": cursor} if cursor else {}
+            list_status, listed_rpc = _http_request(
+                "POST",
+                mcp_url,
+                {"jsonrpc": "2.0", "id": 2 + page_id, "method": "tools/list", "params": params},
+                headers=mcp_hdr,
+            )
+            page = listed_rpc.get("result") if isinstance(listed_rpc, dict) else None
+            listed_tools = page.get("tools") if isinstance(page, dict) else None
+            if isinstance(listed_tools, list):
+                tool_names.extend(
+                    str(item.get("name"))
+                    for item in listed_tools
+                    if isinstance(item, dict) and item.get("name")
+                )
+            cursor = str((page or {}).get("nextCursor") or "") if isinstance(page, dict) else ""
+            if not cursor or "text-reverser" in tool_names:
+                break
+        checks["mcp_lists_reverser"] = list_status == 200 and "text-reverser" in tool_names
+        probe_text = "mcp-http-plane"
+        status, called = _http_request(
+            "POST",
+            mcp_url,
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "text-reverser",
+                    "arguments": {"raw_text": probe_text},
+                },
+            },
+            headers=mcp_hdr,
+        )
+        call_result = called.get("result") if isinstance(called, dict) else None
+        structured = (
+            call_result.get("structuredContent") if isinstance(call_result, dict) else None
+        )
+        checks["mcp_tools_call_executes"] = (
+            status == 200
+            and isinstance(structured, dict)
+            and structured.get("reversed_text") == probe_text[::-1]
+            and call_result.get("isError") is False
+        )
+        detail["mcp_call"] = called
+        status, unknown_tool = _http_request(
+            "POST",
+            mcp_url,
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {"name": "not-a-real-tool", "arguments": {}},
+            },
+            headers=mcp_hdr,
+        )
+        unknown_error = unknown_tool.get("error") if isinstance(unknown_tool, dict) else None
+        checks["mcp_unknown_tool_rpc"] = (
+            status == 200
+            and isinstance(unknown_error, dict)
+            and unknown_error.get("code") == -32602
+        )
+        status, missing_session = _http_request(
+            "POST",
+            mcp_url,
+            {"jsonrpc": "2.0", "id": 5, "method": "tools/list", "params": {}},
+        )
+        checks["mcp_session_required"] = (
+            status == 404
+            and isinstance(missing_session, dict)
+            and missing_session.get("error") == "mcp_session_unknown"
+        )
+        status, solved_mcp = _http_request(
+            "POST",
+            mcp_url,
+            {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {
+                    "name": "solve_goal",
+                    "arguments": {
+                        "initial_state": {"raw_text": probe_text},
+                        "goal": ["reversed_text"],
+                    },
+                },
+            },
+            headers=mcp_hdr,
+        )
+        solve_structured = (
+            (solved_mcp.get("result") or {}).get("structuredContent")
+            if isinstance(solved_mcp, dict)
+            else None
+        )
+        checks["mcp_solve_goal"] = (
+            status == 200
+            and isinstance(solve_structured, dict)
+            and solve_structured.get("solved") is True
+            and solve_structured.get("outcome", {}).get("reversed_text") == probe_text[::-1]
         )
     finally:
         server.shutdown()

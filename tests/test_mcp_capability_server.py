@@ -16,6 +16,7 @@ from blackhole_agent.mcp_capability_server import (
     PROTOCOL_VERSION,
     SERVER_INFO,
     CapabilityCatalog,
+    handle_http_rpc,
     handle_message,
     tool_name_for_slug,
 )
@@ -145,6 +146,35 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     assert handle_message(catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     unknown = handle_message(catalog, {"jsonrpc": "2.0", "id": 3, "method": "resources/list"})
     assert unknown["error"]["code"] == -32601
+
+
+def test_handle_http_rpc_executes_tools_call(tmp_path: Path) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    reply = handle_http_rpc(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {"name": "text-reverser", "arguments": {"raw_text": "http-mcp"}},
+        },
+    )
+    assert reply["id"] == 9
+    assert reply["result"]["isError"] is False
+    assert reply["result"]["structuredContent"] == {"reversed_text": "pcm-ptth"}
+    unknown = handle_http_rpc(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {"name": "missing-tool", "arguments": {}},
+        },
+    )
+    assert unknown["error"]["code"] == -32602
+    assert handle_http_rpc(
+        catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    ) is None
 
 
 def test_live_session_executes_real_capability(tmp_path: Path) -> None:

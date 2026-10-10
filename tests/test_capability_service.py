@@ -153,16 +153,42 @@ def _fixture_root(tmp_path: Path) -> Path:
     return root
 
 
-def _request(method: str, url: str, payload: dict | None = None) -> tuple[int, dict]:
+def _request(
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[int, dict]:
+    status, body, _captured = _request_full(method, url, payload, headers=headers)
+    return status, body
+
+
+def _request_full(
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[int, dict, dict[str, str]]:
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     req = urlrequest.Request(url, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
+        req.add_header("Accept", "application/json, text/event-stream")
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
     try:
         with urlrequest.urlopen(req, timeout=30) as response:
-            return response.status, json.loads(response.read().decode("utf-8"))
+            captured = {key.lower(): value for key, value in response.headers.items()}
+            raw = response.read().decode("utf-8")
+            return response.status, json.loads(raw) if raw else {}, captured
     except HTTPError as exc:
-        return exc.code, json.loads(exc.read().decode("utf-8"))
+        captured = {key.lower(): value for key, value in (exc.headers.items() if exc.headers else [])}
+        raw = exc.read().decode("utf-8")
+        try:
+            body = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            body = {"raw": raw}
+        return exc.code, body, captured
 
 
 @pytest.fixture()
@@ -697,6 +723,143 @@ def test_tool_execution_env_scrubs_ambient_secrets(monkeypatch) -> None:
     with_extra = tool_execution_env({"BH_PROBE_DELIBERATE": "declared"})
     assert with_extra["BH_PROBE_DELIBERATE"] == "declared"
     assert "BH_PROBE_SECRET" not in with_extra
+
+
+def test_mcp_streamable_http_executes_absorbed_tool_and_keeps_rest(server) -> None:
+    _, base = server
+    mcp = f"{base}/mcp"
+    status, handshake, headers = _request_full(
+        "POST",
+        mcp,
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "pytest", "version": "1"},
+            },
+        },
+    )
+    session = headers.get("mcp-session-id") or ""
+    assert status == 200
+    assert session
+    assert handshake["result"]["serverInfo"]["name"] == "blackhole-capability-mcp"
+    hdr = {"Mcp-Session-Id": session}
+
+    status, listed = _request(
+        "POST", mcp, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, headers=hdr
+    )
+    names = [item["name"] for item in listed["result"]["tools"]]
+    assert "text-reverser" in names
+    assert "solve_goal" in names
+
+    probe_text = "mcp-http-92080663"
+    status, called = _request(
+        "POST",
+        mcp,
+        {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "text-reverser", "arguments": {"raw_text": probe_text}},
+        },
+        headers=hdr,
+    )
+    assert status == 200
+    assert called["result"]["isError"] is False
+    assert called["result"]["structuredContent"] == {"reversed_text": probe_text[::-1]}
+
+    status, unknown = _request(
+        "POST",
+        mcp,
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "not-a-real-tool", "arguments": {}},
+        },
+        headers=hdr,
+    )
+    assert status == 200
+    assert unknown["error"]["code"] == -32602
+
+    status, missing = _request(
+        "POST", mcp, {"jsonrpc": "2.0", "id": 5, "method": "tools/list", "params": {}}
+    )
+    assert status == 404
+    assert missing["error"] == "mcp_session_unknown"
+
+    status, solved = _request(
+        "POST",
+        mcp,
+        {
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "solve_goal",
+                "arguments": {"initial_state": {"raw_text": probe_text}, "goal": ["reversed_text"]},
+            },
+        },
+        headers=hdr,
+    )
+    assert status == 200
+    assert solved["result"]["structuredContent"]["solved"] is True
+    assert solved["result"]["structuredContent"]["outcome"]["reversed_text"] == probe_text[::-1]
+
+    status, closed = _request("DELETE", mcp, headers=hdr)
+    assert status == 200 and closed["closed"] is True
+    status, after = _request(
+        "POST", mcp, {"jsonrpc": "2.0", "id": 7, "method": "ping", "params": {}}, headers=hdr
+    )
+    assert status == 404
+
+    status, get_mcp = _request("GET", mcp)
+    assert status == 405
+    assert get_mcp["error"] == "mcp_streamable_http_is_post_only"
+
+    status, invoked = _request(
+        "POST",
+        f"{base}/invoke",
+        {"capability_id": "capability.absorbed-text-reverser", "input": {"raw_text": probe_text}},
+    )
+    assert status == 200
+    assert invoked["output"] == {"reversed_text": probe_text[::-1]}
+
+
+def test_mcp_streamable_http_requires_bearer_when_configured(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    httpd = build_server(root, port=0, token="mcp-plane-token")
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{httpd.server_address[1]}"
+        mcp = f"{base}/mcp"
+        payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {}},
+        }
+        status, body = _request("POST", mcp, payload)
+        assert status == 401
+        assert body["error"] == "authorization_required"
+        status, body = _request(
+            "POST", mcp, payload, headers={"Authorization": "Bearer wrong-token"}
+        )
+        assert status == 403
+        status, handshake, headers = _request_full(
+            "POST", mcp, payload, headers={"Authorization": "Bearer mcp-plane-token"}
+        )
+        assert status == 200
+        assert headers.get("mcp-session-id")
+        assert handshake["result"]["serverInfo"]["name"] == "blackhole-capability-mcp"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=10)
 
 
 def test_invoke_hides_operator_secrets_from_tool(server, monkeypatch) -> None:

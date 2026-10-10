@@ -47,6 +47,10 @@ truncation or collision needs disambiguation.
 
 Run with ``python -m blackhole_agent.mcp_capability_server [--root PATH]``.
 Only JSON-RPC traffic is written to stdout; diagnostics go to stderr.
+
+The live HTTP invocation plane also serves this catalog over Streamable HTTP
+at ``POST /mcp`` (same governed ``tools/call`` path, session-scoped
+``Mcp-Session-Id``). HTTP-only MCP hosts do not need a stdio child.
 """
 
 from __future__ import annotations
@@ -349,6 +353,49 @@ class CapabilityCatalog:
             "structuredContent": result,
             "isError": False,
         }
+
+
+def handle_http_rpc(
+    catalog: CapabilityCatalog,
+    message: Mapping[str, Any],
+    *,
+    cancel_event: threading.Event | None = None,
+) -> dict[str, Any] | None:
+    """Handle one Streamable-HTTP JSON-RPC message.
+
+    Notifications return ``None`` so the HTTP layer can answer 202.
+    ``tools/call`` runs on the request thread (ThreadingHTTPServer already
+    isolates concurrent POSTs) through the same governed catalog used by
+    stdio. A hung-up HTTP client sets ``cancel_event`` and is answered
+    with JSON-RPC ``-32800``.
+    """
+
+    method = message.get("method")
+    if method == "tools/call" and "id" in message:
+        request_id = message["id"]
+        params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+        name = str(params.get("name") or "")
+        try:
+            result = catalog.call(
+                name, params.get("arguments"), cancel_event=cancel_event
+            )
+        except ToolCallError:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": INVALID_PARAMS, "message": f"unknown tool: {name}"},
+            }
+        except ProcessCancelled:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": REQUEST_CANCELLED,
+                    "message": f"request {request_id} cancelled by client",
+                },
+            }
+        return {"jsonrpc": "2.0", "id": request_id, "result": result}
+    return handle_message(catalog, message)
 
 
 def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> dict[str, Any] | None:
