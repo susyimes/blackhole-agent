@@ -182,6 +182,40 @@ def test_complete_gate_rejects_failed_machine_checkable_done_when():
     assert accepted.accepted is True
 
 
+def test_complete_gate_does_not_invent_mission_plane_ok_from_pre_mission_prose():
+    """Bound FS-sandbox done_when must not false-fail as empty mission_plane_ok."""
+
+    repo = Path(__file__).resolve().parents[1]
+    done_when = (
+        "tests/acceptance/test_tool_fs_sandbox.py exits 0 reporting passed=true on candidate src "
+        "and passed=false on the previous milestone's src, demonstrating over the live HTTP "
+        "invocation plane that a fixture absorbed tool invoked via POST /invoke cannot read a "
+        "host canary file placed outside the sandbox allowlist, cannot create a file beside "
+        "that canary, still reads a file inside its vendored tree, and still returns the "
+        "correct declared output. The pre-mission plane reads the canary successfully."
+    )
+    decision = TurnDecision.from_payload(
+        json.loads(
+            decision_payload(
+                "complete",
+                capability_delta="OS-enforced filesystem sandbox for untrusted tools.",
+                outcome_evidence=["POST /invoke cannot read a host canary"],
+                validation=[{"command": f'"{sys.executable}" -c "pass"', "exit_code": 0, "summary": "ok"}],
+                done_when_met=True,
+                done_when=done_when,
+            )
+        )
+    )
+    accepted = evaluate_milestone(
+        decision,
+        changed_paths=["src/blackhole_agent/process_capture.py"],
+        workspace=repo,
+        mission_done_when=done_when,
+    )
+    assert accepted.accepted is True, accepted.reasons
+    assert not any("mission_plane_ok" in reason for reason in accepted.reasons)
+
+
 def test_milestone_gate_replays_validation_and_rejects_fabricated_claims(tmp_path):
     """Controller replay must catch a validation claim that does not reproduce."""
 

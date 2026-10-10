@@ -120,6 +120,7 @@ class WindowsJob:
         stdin_path: Path | None = None,
         env: dict | None = None,
         shell: bool = False,
+        sandbox: dict | None = None,
     ) -> subprocess.Popen:
         # A venv redirector can spawn the real interpreter before assignment.
         # Start the base interpreter directly; the bootstrap needs only stdlib.
@@ -139,6 +140,8 @@ class WindowsJob:
                 "stdin": str(stdin_path) if stdin_path is not None else None,
                 "shell": shell,
             }
+            if sandbox:
+                payload["sandbox"] = sandbox
             process.stdin.write(json.dumps(payload).encode("utf-8"))
             process.stdin.close()
         except BaseException:
@@ -238,6 +241,27 @@ def _bootstrap() -> int:
         command = payload["command"]
         stdin_source = payload.get("stdin")
         use_shell = bool(payload.get("shell"))
+    sandbox = payload.get("sandbox") if isinstance(payload, dict) else None
+    if sandbox:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from _windows_appcontainer import spawn_and_wait
+
+        try:
+            return spawn_and_wait(
+                command,
+                cwd=Path.cwd(),
+                stdin_path=stdin_source,
+                shell=use_shell,
+                rw_paths=[str(path) for path in (sandbox.get("rw_paths") or [])],
+                rx_paths=[str(path) for path in (sandbox.get("rx_paths") or [])],
+            )
+        except OSError as error:
+            Path(sys.argv[1]).write_text(json.dumps({
+                "errno": error.errno, "message": error.strerror,
+                "filename": error.filename, "winerror": getattr(error, "winerror", None),
+            }), encoding="utf-8")
+            return 1
+
     stdin = open(stdin_source, "rb") if stdin_source else subprocess.DEVNULL
     try:
         child = subprocess.Popen(command, stdin=stdin, shell=use_shell)

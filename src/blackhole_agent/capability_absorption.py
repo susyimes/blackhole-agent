@@ -73,6 +73,7 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.durable_state import durable_read_path, durable_write_path
+from blackhole_agent.process_capture import run_captured_process
 
 SCHEMA_VERSION = 1
 
@@ -329,15 +330,13 @@ def run_absorption_case(
 
     resolved = _normalized_command(command)
     try:
-        completed = subprocess.run(
+        completed = run_captured_process(
             resolved,
-            input=json.dumps(case["input"]),
-            capture_output=True,
-            text=True,
-            cwd=tool_root,
-            env=_case_env(),
+            cwd=Path(tool_root),
             timeout=timeout,
-            check=False,
+            input=json.dumps(case["input"]),
+            env=_case_env(),
+            sandbox_roots=[Path(tool_root)],
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -842,15 +841,13 @@ def load_persisted_absorbed_steps(path: Path | None = None) -> dict[str, Applica
         ) -> dict[str, Any]:
             case = {"input": {key: state[key] for key in _requires}}
             resolved = _normalized_command(_command)
-            completed = subprocess.run(
+            completed = run_captured_process(
                 resolved,
-                input=json.dumps(case["input"]),
-                capture_output=True,
-                text=True,
-                cwd=_dir,
-                env=_case_env(),
+                cwd=Path(_dir),
                 timeout=CASE_TIMEOUT_SECONDS,
-                check=False,
+                input=json.dumps(case["input"]),
+                env=_case_env(),
+                sandbox_roots=[Path(_dir)],
             )
             if completed.returncode != 0:
                 raise RuntimeError(f"absorbed tool exited {completed.returncode}: {completed.stderr.strip()}")

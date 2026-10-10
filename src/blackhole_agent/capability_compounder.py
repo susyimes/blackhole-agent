@@ -1719,6 +1719,28 @@ def parse_outcome_contract(done_when: str) -> dict[str, Any]:
     }
 
 
+def _has_affirmative_plane_outcome(text: str, plane: str) -> bool:
+    """True when prose requires that named plane to be ok, not an incidental mention.
+
+    Substring pairing of ``"<plane> plane"`` with ``pass``/``succeed`` anywhere in a
+    paragraph misreads contracts such as ``The pre-mission plane reads the canary
+    successfully`` plus ``passed=true`` as ``mission_plane_ok``. Require the
+    explicit token or an adjacent affirmative clause, and ignore ``pre-<plane>``.
+    """
+
+    if re.search(rf"\b{re.escape(plane)}_plane_ok\b", text):
+        return True
+    masked = re.sub(rf"\bpre-{re.escape(plane)}\b", f"pre_{plane}", text)
+    return bool(
+        re.search(
+            rf"(?:the\s+)?{re.escape(plane)}(?:[- _]plane)?\s+"
+            rf"(?:(?:is|must(?:\s+be)?|should(?:\s+be)?)\s+)?"
+            rf"(?:ok|pass(?:es|ed)?|succeed(?:s|ed)?|successful)\b",
+            masked,
+        )
+    )
+
+
 def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     """Extract common prose phrases into structured predicates."""
 
@@ -1761,11 +1783,11 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     )
     if m:
         found.append({"kind": "capability_exists", "arg": m.group(1), "source": chunk})
-    if "mission plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
+    if _has_affirmative_plane_outcome(lower, "mission"):
         found.append({"kind": "mission_plane_ok", "arg": "", "source": chunk})
-    if "contract plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
+    if _has_affirmative_plane_outcome(lower, "contract"):
         found.append({"kind": "contract_plane_ok", "arg": "", "source": chunk})
-    if "assurance plane" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower):
+    if _has_affirmative_plane_outcome(lower, "assurance"):
         found.append({"kind": "assurance_plane_ok", "arg": "", "source": chunk})
     if "sovereignty" in lower and ("ok" in lower or "pass" in lower or "succeed" in lower or "certif" in lower):
         found.append({"kind": "sovereignty_ok", "arg": "", "source": chunk})

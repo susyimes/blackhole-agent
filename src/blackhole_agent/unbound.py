@@ -54,6 +54,8 @@ from blackhole_agent.pattern_register import (
 )
 from blackhole_agent.protected_paths import evaluate_candidate_protected_paths
 from blackhole_agent.capability_compounder import (
+    CONTEXT_ONLY_OUTCOME_KINDS,
+    OUTCOME_PREDICATE_PATTERN,
     Capability,
     absorb_domain_surface,
     absorb_second_wave_domains,
@@ -1565,6 +1567,12 @@ def evaluate_milestone(
     eval_contract = (
         cc.evaluate_outcome_contract if cc is not None else evaluate_outcome_contract
     )
+    context_only_kinds = (
+        cc.CONTEXT_ONLY_OUTCOME_KINDS if cc is not None else CONTEXT_ONLY_OUTCOME_KINDS
+    )
+    predicate_pattern = (
+        cc.OUTCOME_PREDICATE_PATTERN if cc is not None else OUTCOME_PREDICATE_PATTERN
+    )
 
     requested = decision.status in {"milestone", "complete"}
     behavior_paths = [path for path in changed_paths if is_behavior_path(path)]
@@ -1693,13 +1701,23 @@ def evaluate_milestone(
         if contract_text:
             try:
                 parsed = parse_contract(contract_text)
-                # Drop soft-extract accidents like capability_proved:unhealed.
+                # Drop soft-extract accidents like capability_proved:unhealed
+                # and context-only plane tokens invented from incidental prose
+                # ("The pre-mission plane reads the canary successfully").
                 predicates = []
                 for item in parsed.get("predicates") or []:
                     kind = str(item.get("kind") or "")
                     arg = str(item.get("arg") or "").strip()
                     if kind in {"capability_proved", "capability_exists", "ledger_has"}:
                         if "." not in arg:
+                            continue
+                    if kind in context_only_kinds:
+                        source = str(item.get("source") or "").strip()
+                        expected = f"{kind}:{arg}" if arg else kind
+                        explicit = source.lower() == expected.lower() or bool(
+                            predicate_pattern.match(source)
+                        )
+                        if not explicit:
                             continue
                     predicates.append(item)
                 parsed = {**parsed, "predicates": predicates, "predicate_count": len(predicates)}

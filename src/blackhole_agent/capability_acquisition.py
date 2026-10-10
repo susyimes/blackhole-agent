@@ -48,18 +48,14 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from blackhole_agent.capability_absorption import (
-    ABSORBED_ROOT,
     SLUG_PATTERN,
     _STATE_KEY_PATTERN,
     absorb_external_capability,
-    capability_id_for_slug,
     load_manifest,
     tool_execution_env,
     prove_absorbed_capability,
     run_absorption_case,
     run_absorption_scenario,
-    tree_digest,
-    verify_absorption_plane,
     _digest,
 )
 from blackhole_agent.capability_compounder import (
@@ -72,6 +68,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.process_capture import run_captured_process
 
 SCHEMA_VERSION = 1
 
@@ -657,16 +654,15 @@ def _run_probe(
         executable = sys.executable
     command = [executable, str(adapter_path)]
     env = tool_execution_env()
+    workdir = Path(cwd or staged_dir)
     try:
-        completed = subprocess.run(
+        completed = run_captured_process(
             command,
-            input=json.dumps(dict(probe)),
-            capture_output=True,
-            text=True,
-            cwd=str(cwd or staged_dir),
+            cwd=workdir,
             timeout=180,
-            check=False,
+            input=json.dumps(dict(probe)),
             env=env,
+            sandbox_roots=[workdir],
         )
     except subprocess.TimeoutExpired as exc:
         stderr = ((exc.stderr or b"") if isinstance(exc.stderr, (bytes, bytearray)) else str(exc.stderr or "")).strip()

@@ -74,6 +74,13 @@ module turns the ledger into a service:
   in the ledger: later invocations are refused with a
   ``resource_quarantined`` verdict before any subprocess is spawned, while
   unaffected capabilities keep serving.
+- Tool execution is filesystem-sandboxed: the owned tree runs inside an
+  OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
+  vendored tool tree, the served workspace root, a per-invocation scratch
+  directory, and the interpreter prefix. A tool that opens a host path
+  outside that allowlist — operator home files, SSH keys, sibling secrets
+  — receives ``PermissionError``; writes beside those secrets do not land.
+  Declared behavior that stays inside the workspace still runs.
 - Quarantine lifts only through supervised re-proof: ``POST /reproof``
   re-executes the quarantined capability's own frozen absorption cases for
   real under the same enforced memory/process limits; all cases passing
@@ -303,6 +310,12 @@ def _tool_env() -> dict[str, str]:
     return tool_execution_env()
 
 
+def _sandbox_roots(root: Path, tool_root: Path) -> list[Path]:
+    """Allow the vendored tree and the served workspace; nothing else on the host."""
+
+    return [Path(tool_root).resolve(), Path(root).resolve()]
+
+
 class InvocationError(Exception):
     """Fail-closed refusal raised before or during tool execution."""
 
@@ -432,6 +445,8 @@ def _run_governed_case(
     case: Mapping[str, Any],
     limits: ResourceLimits,
     timeout: int,
+    *,
+    root: Path,
 ) -> dict[str, Any]:
     """Execute one frozen proof case under the plane's enforced resource bounds."""
 
@@ -444,6 +459,7 @@ def _run_governed_case(
             input=json.dumps(case["input"]),
             env=_tool_env(),
             resource_limits=limits,
+            sandbox_roots=_sandbox_roots(root, tool_root),
         )
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -532,7 +548,9 @@ def reproof_capability(
     manifest = load_manifest(Path(item["tool_root"]))
     limits = effective_resource_limits(item)
     case_results = [
-        _run_governed_case(Path(item["tool_root"]), manifest["command"], case, limits, timeout)
+        _run_governed_case(
+            Path(item["tool_root"]), manifest["command"], case, limits, timeout, root=root
+        )
         for case in manifest["cases"]
     ]
     cases_pass = all(result["ok"] for result in case_results)
@@ -648,6 +666,7 @@ def invoke_capability(
             env=_tool_env(),
             resource_limits=limits,
             cancel_event=cancel_event,
+            sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
         )
     except ProcessCancelled:
         raise

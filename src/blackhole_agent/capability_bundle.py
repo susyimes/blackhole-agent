@@ -222,7 +222,12 @@ def _reproof_staged_tree(staging: Path, manifest: Mapping[str, Any]) -> dict[str
 
     results = [
         _run_governed_case(
-            staging, manifest["command"], case, REPROOF_LIMITS, REPROOF_TIMEOUT_SECONDS
+            staging,
+            manifest["command"],
+            case,
+            REPROOF_LIMITS,
+            REPROOF_TIMEOUT_SECONDS,
+            root=staging,
         )
         for case in manifest["cases"]
     ]
