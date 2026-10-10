@@ -70,6 +70,16 @@ module turns the ledger into a service:
   aborted request answers ``499`` with ``cancelled: true`` when the
   client is still writable; a follow-up invoke on the same server still
   works.
+- Operator authentication is fail-closed when a token is configured
+  (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
+  reads, every mutating route, and invocation-receipt lookups require
+  ``Authorization: Bearer``. A missing or malformed header answers
+  ``401`` with ``WWW-Authenticate`` and never spawns a subprocess; a
+  wrong token answers ``403`` the same way. ``GET /health`` and the
+  operator console document stay reachable without a token so liveness
+  probes and the page itself still load; the console attaches the
+  operator token to the invoke/solve/session fetches it already makes.
+  An unset token keeps the historical open loopback plane.
 - Executed tools are untrusted third-party code: every subprocess runs with
   a scrubbed allowlist environment
   (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
@@ -118,7 +128,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
+import os
 import select
 import socket
 import subprocess
@@ -180,6 +192,8 @@ SOLVE_MAX_HEALED = 4
 # and a capability is never retried within one request.
 SOLVE_MAX_FALLBACKS = 4
 MAX_BODY_BYTES = 1 << 20
+INVOCATION_TOKEN_ENV = "BLACKHOLE_INVOCATION_TOKEN"
+WWW_AUTHENTICATE = 'Bearer realm="blackhole-invocation-plane"'
 # Untrusted tools run under hard tree-wide resource bounds: 256 MiB committed
 # memory (comfortably above an interpreter's baseline, far below host RAM),
 # 32 simultaneously active processes, and 25 CPU-seconds (below the 30s
@@ -206,6 +220,32 @@ def _canonical(payload: Any) -> str:
 
 def _digest(payload: Any) -> str:
     return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+
+
+def resolve_invocation_token(explicit: str | None = None) -> str:
+    """Return the operator bearer token from ``--token`` or the process env."""
+
+    if explicit is not None:
+        return str(explicit).strip()
+    return str(os.environ.get(INVOCATION_TOKEN_ENV, "") or "").strip()
+
+
+def parse_bearer_token(header: str | None) -> str | None:
+    """Return the offered bearer token, or None when the header is not Bearer."""
+
+    if not header:
+        return None
+    scheme, separator, rest = header.strip().partition(" ")
+    if separator != " " or scheme.lower() != "bearer":
+        return None
+    offered = rest.strip()
+    return offered or None
+
+
+def bearer_token_matches(offered: str, expected: str) -> bool:
+    """Constant-time compare of utf-8 bearer tokens."""
+
+    return hmac.compare_digest(offered.encode("utf-8"), expected.encode("utf-8"))
 
 
 def absorbed_root(root: Path) -> Path:
@@ -1262,7 +1302,7 @@ def _write_cancelled(handler: BaseHTTPRequestHandler) -> None:
 
 def _json_response(
     handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any],
-    *, replayed: bool | None = None,
+    *, replayed: bool | None = None, headers: Mapping[str, str] | None = None,
 ) -> None:
     body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
     handler.send_response(status)
@@ -1270,14 +1310,24 @@ def _json_response(
     handler.send_header("Content-Length", str(len(body)))
     if replayed is not None:
         handler.send_header("Idempotency-Replayed", "true" if replayed else "false")
+    if headers:
+        for key, value in headers.items():
+            handler.send_header(key, value)
     handler.end_headers()
     handler.wfile.write(body)
 
 
-def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> ThreadingHTTPServer:
+def build_server(
+    root: Path,
+    *,
+    host: str = "127.0.0.1",
+    port: int = 0,
+    token: str | None = None,
+) -> ThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
     service_root = Path(root).resolve()
+    invocation_token = resolve_invocation_token(token)
     from blackhole_agent.capability_sessions import SessionManager
     from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
 
@@ -1300,6 +1350,23 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                 return rest
             return None
 
+        def _authorize(self) -> bool:
+            if not invocation_token:
+                return True
+            offered = parse_bearer_token(self.headers.get("Authorization"))
+            if offered is None:
+                _json_response(
+                    self,
+                    401,
+                    {"ok": False, "error": "authorization_required"},
+                    headers={"WWW-Authenticate": WWW_AUTHENTICATE},
+                )
+                return False
+            if not bearer_token_matches(offered, invocation_token):
+                _json_response(self, 403, {"ok": False, "error": "authorization_rejected"})
+                return False
+            return True
+
         def do_GET(self) -> None:  # noqa: N802
             path = self.path.split("?", 1)[0]
             if path in {"/", "/console"}:
@@ -1314,6 +1381,8 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
                 return
             if path == "/health":
                 _json_response(self, 200, {"ok": True, "schema_version": SCHEMA_VERSION})
+                return
+            if not self._authorize():
                 return
             if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
@@ -1342,6 +1411,8 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
             _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if not self._authorize():
+                return
             session_id = self._session_id("/sessions/")
             if session_id is None:
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
@@ -1354,6 +1425,8 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
             _json_response(self, 200, result)
 
         def do_POST(self) -> None:  # noqa: N802
+            if not self._authorize():
+                return
             path = self.path.split("?", 1)[0]
             session_id = self._session_id("/sessions/")
             session_action = None
@@ -1460,10 +1533,17 @@ def build_server(root: Path, *, host: str = "127.0.0.1", port: int = 0) -> Threa
     return server
 
 
-def serve(root: Path, *, port: int = 0, host: str = "127.0.0.1") -> int:
+def serve(
+    root: Path,
+    *,
+    port: int = 0,
+    host: str = "127.0.0.1",
+    token: str | None = None,
+) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
-    server = build_server(root, host=host, port=port)
+    invocation_token = resolve_invocation_token(token)
+    server = build_server(root, host=host, port=port, token=invocation_token)
     bound_host, bound_port = server.server_address[0], server.server_address[1]
     listing = capability_listing(Path(root).resolve())
     print(
@@ -1473,6 +1553,7 @@ def serve(root: Path, *, port: int = 0, host: str = "127.0.0.1") -> int:
                 "host": bound_host,
                 "invocable_count": listing["count"],
                 "listing_digest": listing["listing_digest"],
+                "auth_required": bool(invocation_token),
             }
         ),
         flush=True,
@@ -1725,12 +1806,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     serve_parser.add_argument("--port", type=int, default=0, help="0 picks an ephemeral port")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--root", type=Path, default=REPO_ROOT)
+    serve_parser.add_argument(
+        "--token",
+        default=None,
+        help="operator bearer token; defaults to BLACKHOLE_INVOCATION_TOKEN",
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
     args = parser.parse_args(argv)
     if args.command == "serve":
-        return serve(args.root, port=args.port, host=args.host)
+        return serve(args.root, port=args.port, host=args.host, token=args.token)
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)
         print(json.dumps(result, indent=2, sort_keys=True))

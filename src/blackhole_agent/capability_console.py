@@ -13,9 +13,12 @@ document served at ``GET /console`` (and ``/``):
   ``/health``, ``/capabilities`` and ``/sessions``, invokes any selected
   capability through ``POST /invoke`` with a JSON input form, and submits
   declarative goals through ``POST /solve``, rendering the derived plan,
-  per-step outputs, and the plan digest. In-flight invoke/solve fetches
-  use AbortController; the cancel buttons (and closing the tab) hang up
-  the HTTP socket so the plane can terminate the owned tool tree;
+  per-step outputs, and the plan digest. When the operator fills the
+  bearer-token field, those mutating fetches send
+  ``Authorization: Bearer`` so a token-gated plane executes; an empty
+  field keeps the historical open-loopback calls. In-flight invoke/solve
+  fetches use AbortController; the cancel buttons (and closing the tab)
+  hang up the HTTP socket so the plane can terminate the owned tool tree;
 - durable goal sessions are listed with their status so an operator can
   see in-flight, awaiting-input, solved, failed, and cancelled goals.
 
@@ -27,7 +30,6 @@ exact calls the page makes.
 from __future__ import annotations
 
 import html
-import json
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +57,11 @@ pre { background: #0b0e11; padding: 0.75rem; border-radius: 4px; overflow: auto;
 <section>
 <h2>service health</h2>
 <pre id="health">loading…</pre>
+</section>
+<section>
+<h2>operator token</h2>
+<p>Bearer token sent as <code>Authorization</code> on invoke, solve, and session fetches. Leave empty when the plane is open.</p>
+<input id="operator-token" type="password" autocomplete="off" placeholder="BLACKHOLE_INVOCATION_TOKEN">
 </section>
 <section>
 <h2>invocable catalog (<span id="count">__COUNT__</span>, listing digest <code>__DIGEST__</code>)</h2>
@@ -89,10 +96,19 @@ __ROWS__
 <script>
 let invokeAbort = null;
 let solveAbort = null;
+function operatorToken() {
+  const node = document.getElementById("operator-token");
+  return node ? node.value.trim() : "";
+}
+function withAuth(headers) {
+  const token = operatorToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+  return headers;
+}
 async function postJSON(path, body, controller) {
   const response = await fetch(path, {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: withAuth({"Content-Type": "application/json"}),
     body: JSON.stringify(body),
     signal: controller ? controller.signal : undefined
   });
@@ -106,7 +122,7 @@ async function loadHealth() {
   show("health", await response.json());
 }
 async function loadSessions() {
-  const response = await fetch("/sessions");
+  const response = await fetch("/sessions", {headers: withAuth({})});
   show("sessions", await response.json());
 }
 function cancelInvoke() {
