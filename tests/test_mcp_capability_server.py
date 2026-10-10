@@ -13,9 +13,12 @@ from pathlib import Path
 import pytest
 
 from blackhole_agent.mcp_capability_server import (
+    CATALOG_URI,
+    PREPARE_PROMPT_NAME,
     PROTOCOL_VERSION,
     SERVER_INFO,
     CapabilityCatalog,
+    capability_resource_uri,
     handle_http_rpc,
     handle_message,
     tool_name_for_slug,
@@ -142,10 +145,140 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     reply = handle_message(catalog, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert reply["result"]["protocolVersion"] == PROTOCOL_VERSION
     assert reply["result"]["serverInfo"] == SERVER_INFO
+    assert reply["result"]["capabilities"]["resources"] == {"subscribe": False, "listChanged": False}
+    assert reply["result"]["capabilities"]["prompts"] == {"listChanged": False}
     assert handle_message(catalog, {"jsonrpc": "2.0", "id": 2, "method": "ping"})["result"] == {}
     assert handle_message(catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
-    unknown = handle_message(catalog, {"jsonrpc": "2.0", "id": 3, "method": "resources/list"})
+    unknown = handle_message(catalog, {"jsonrpc": "2.0", "id": 3, "method": "unknown/method"})
     assert unknown["error"]["code"] == -32601
+
+
+def test_resources_and_prompt_expose_only_public_contract_without_execution(tmp_path: Path, monkeypatch) -> None:
+    root = _fixture_root(tmp_path)
+    catalog = CapabilityCatalog(root)
+
+    def refuse_execution(*args, **kwargs):
+        pytest.fail("metadata retrieval executed a tool")
+
+    monkeypatch.setattr("blackhole_agent.mcp_capability_server.invoke_capability", refuse_execution)
+    capability_id = "capability.absorbed-text-reverser"
+    uri = capability_resource_uri(capability_id)
+    listing = catalog.list_resources()
+    assert [item["uri"] for item in listing["resources"]] == [CATALOG_URI, uri]
+    content = catalog.read_resource(uri)["contents"][0]
+    assert content["mimeType"] == "application/json"
+    metadata = json.loads(content["text"])
+    assert metadata["id"] == capability_id
+    assert metadata["requires"] == ["raw_text"]
+    assert metadata["provides"] == ["reversed_text"]
+    assert metadata["available"] is True
+    assert metadata["tool"] == catalog.tools[0]
+    index = json.loads(catalog.read_resource(CATALOG_URI)["contents"][0]["text"])
+    assert index["count"] == 1
+    assert index["capabilities"] == [metadata]
+    assert len(index["catalog_digest"]) == 64
+    for private in ("tool_root", "command", "proof_command", "cases", str(root), "last_proof_exit_code"):
+        assert private not in json.dumps(index)
+    prompts = catalog.list_prompts()["prompts"]
+    assert len(prompts) == 1 and prompts[0]["name"] == PREPARE_PROMPT_NAME
+    prompt = catalog.get_prompt(PREPARE_PROMPT_NAME, {"capability_id": capability_id, "task": "reverse hello"})
+    assert prompt["messages"][1] == {"role": "user", "content": {"type": "resource", "resource": content}}
+    assert prompt["messages"][2]["content"]["text"] == "reverse hello"
+    assert catalog.tools[0]["name"] in prompt["messages"][0]["content"]["text"]
+    template = catalog.list_resource_templates()["resourceTemplates"][0]
+    assert template["uriTemplate"].replace("{capability_id}", capability_id) == uri
+
+
+def test_resources_paginate_and_refresh_availability(tmp_path: Path) -> None:
+    import os
+
+    root = _fixture_root(tmp_path, extra_slugs=3)
+    catalog = CapabilityCatalog(root)
+    before = catalog.read_resource(CATALOG_URI)
+    cursor, uris = "", []
+    while True:
+        page = catalog.list_resources(cursor, 2)
+        uris.extend(item["uri"] for item in page["resources"])
+        if "nextCursor" not in page:
+            break
+        cursor = page["nextCursor"]
+    assert len(uris) == len(set(uris)) == 5
+    ledger_path = root / "capabilities" / "ledger.json"
+    document = json.loads(ledger_path.read_text(encoding="utf-8"))
+    capability_id = "capability.absorbed-text-reverser"
+    document["capabilities"][capability_id]["resource_quarantine"] = {"reason": "private host path"}
+    del document["capabilities"]["capability.absorbed-extra-tool-000"]
+    ledger_path.write_text(json.dumps(document), encoding="utf-8")
+    os.utime(ledger_path, (ledger_path.stat().st_atime, ledger_path.stat().st_mtime + 5))
+    after = catalog.read_resource(CATALOG_URI)
+    assert before != after
+    metadata = json.loads(catalog.read_resource(capability_resource_uri(capability_id))["contents"][0]["text"])
+    assert metadata["available"] is False
+    assert metadata["unavailable_reason"] == "resource_quarantined"
+    assert "private host path" not in json.dumps(after)
+    assert len(catalog.list_resources()["resources"]) == 4
+    with pytest.raises(ValueError, match="not available"):
+        catalog.get_prompt(PREPARE_PROMPT_NAME, {"capability_id": capability_id})
+    removed = handle_message(catalog, {
+        "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+        "params": {"uri": capability_resource_uri("capability.absorbed-extra-tool-000")},
+    })
+    assert removed["error"]["code"] == -32002
+    ledger_path.unlink()
+    assert json.loads(catalog.read_resource(CATALOG_URI)["contents"][0]["text"])["count"] == 0
+
+
+@pytest.mark.parametrize(("method", "params", "error"), [
+    ("resources/read", {"uri": "file:///etc/passwd"}, -32002),
+    ("resources/read", {"uri": CATALOG_URI + "/../ledger.json"}, -32002),
+    ("resources/read", {"uri": CATALOG_URI + "/%2e%2e/ledger.json"}, -32002),
+    ("resources/read", {"uri": CATALOG_URI + "/capability.absorbed-unproved-tool"}, -32002),
+    ("resources/read", {}, -32602),
+    ("resources/read", {"uri": []}, -32602),
+    ("resources/list", {"cursor": -1}, -32602),
+    ("resources/list", {"cursor": "-1"}, -32602),
+    ("resources/list", {"cursor": "999"}, -32602),
+    ("resources/list", {"cursor": "not-a-cursor"}, -32602),
+    ("resources/templates/list", {"cursor": []}, -32602),
+    ("prompts/list", {"cursor": True}, -32602),
+    ("prompts/list", {"cursor": "2"}, -32602),
+    ("prompts/get", {"name": "missing"}, -32602),
+    ("prompts/get", {"name": PREPARE_PROMPT_NAME}, -32602),
+    ("prompts/get", {"name": PREPARE_PROMPT_NAME, "arguments": []}, -32602),
+    ("prompts/get", {"name": PREPARE_PROMPT_NAME, "arguments": {"capability_id": []}}, -32602),
+    ("prompts/get", {"name": PREPARE_PROMPT_NAME, "arguments": {"capability_id": "missing"}}, -32602),
+    ("prompts/get", {"name": PREPARE_PROMPT_NAME, "arguments": {"capability_id": "x", "extra": "y"}}, -32602),
+    ("resources/list", [], -32602),
+])
+def test_metadata_protocol_errors_are_structured(tmp_path: Path, method: str, params, error: int) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    reply = handle_message(catalog, {"jsonrpc": "2.0", "id": 42, "method": method, "params": params})
+    assert reply["id"] == 42
+    assert reply["error"]["code"] == error
+    assert handle_message(catalog, {"jsonrpc": "2.0", "id": 43, "method": "ping"})["result"] == {}
+
+
+def test_live_stdio_metadata_prepares_an_invocable_tool(tmp_path: Path) -> None:
+    session = McpStdioSession(
+        [sys.executable, "-m", "blackhole_agent.mcp_capability_server", "--root", str(_fixture_root(tmp_path))],
+        timeout_seconds=30,
+    )
+    try:
+        session.start()
+        assert "resources" in session.server_capabilities
+        assert "prompts" in session.server_capabilities
+        assert len(session.list_resources()["resources"]) == 2
+        assert session.list_resource_templates()["resourceTemplates"]
+        catalog = json.loads(session.read_resource(CATALOG_URI)["contents"][0]["text"])
+        metadata = catalog["capabilities"][0]
+        prompt_name = session.list_prompts()["prompts"][0]["name"]
+        prompt = session.get_prompt(prompt_name, {"capability_id": metadata["id"]})
+        embedded = json.loads(prompt["messages"][1]["content"]["resource"]["text"])
+        assert embedded == metadata
+        called = session.call_tool(embedded["tool"]["name"], {embedded["requires"][0]: "metadata-client"})
+        assert called["structuredContent"] == {embedded["provides"][0]: "tneilc-atadatem"}
+    finally:
+        session.kill()
 
 
 def test_handle_http_rpc_executes_tools_call(tmp_path: Path) -> None:

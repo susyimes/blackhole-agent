@@ -76,6 +76,9 @@ module turns the ledger into a service:
   bounds, disconnect-cancel). Sessions are identified by ``Mcp-Session-Id``;
   ``DELETE /mcp`` ends one. ``GET /mcp`` is not an event stream (405) so
   POST-only clients stay on the plane. REST ``POST /invoke`` is unchanged.
+  The same catalog also exposes MCP resources (public contracts and tool
+  schemas) and a ``prepare_capability_call`` prompt with an embedded live
+  contract; retrieving metadata never executes a capability.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``

@@ -856,6 +856,27 @@ def test_mcp_streamable_http_requires_bearer_when_configured(tmp_path: Path) -> 
         assert status == 200
         assert headers.get("mcp-session-id")
         assert handshake["result"]["serverInfo"]["name"] == "blackhole-capability-mcp"
+        session_headers = {"Mcp-Session-Id": headers["mcp-session-id"]}
+        authorized_headers = {**session_headers, "Authorization": "Bearer mcp-plane-token"}
+        for method, params in (
+            ("resources/list", {}),
+            ("resources/read", {"uri": "blackhole://capabilities/capability.absorbed-text-reverser"}),
+            ("resources/templates/list", {}),
+            ("prompts/list", {}),
+            ("prompts/get", {
+                "name": "prepare_capability_call", "arguments": {"capability_id": "capability.absorbed-text-reverser"},
+            }),
+        ):
+            rpc = {"jsonrpc": "2.0", "id": 2, "method": method, "params": params}
+            assert _request("POST", mcp, rpc, headers=session_headers)[0] == 401
+            assert _request("POST", mcp, rpc, headers={
+                **session_headers, "Authorization": "Bearer wrong-token",
+            })[0] == 403
+            status, response = _request("POST", mcp, rpc, headers=authorized_headers)
+            assert status == 200 and "result" in response, response
+        metadata = json.loads(response["result"]["messages"][1]["content"]["resource"]["text"])
+        assert metadata["requires"] == ["raw_text"]
+        assert metadata["tool"]["name"] == "text-reverser"
     finally:
         httpd.shutdown()
         httpd.server_close()
