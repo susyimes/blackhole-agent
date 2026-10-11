@@ -38,6 +38,7 @@ HANDLE_FLAG_INHERIT = 0x00000001
 INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
 
 PROFILE_NAME = "bh.unbound.tool.v3"
+PLUGIN_PROFILE_NAME = "bh.unbound.plugin.v1"
 
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 userenv = ctypes.WinDLL("userenv", use_last_error=True)
@@ -162,10 +163,11 @@ def _hresult_code(hr: int) -> int:
     return hr & 0xFFFFFFFF
 
 
-def ensure_profile_sid() -> PSID:
+def ensure_profile_sid(profile_name: str = PROFILE_NAME) -> PSID:
+    name = str(profile_name or PROFILE_NAME)
     sid = PSID()
     hr = userenv.CreateAppContainerProfile(
-        PROFILE_NAME, PROFILE_NAME, PROFILE_NAME, None, 0, ctypes.byref(sid)
+        name, name, name, None, 0, ctypes.byref(sid)
     )
     code = _hresult_code(hr)
     if code == 0:
@@ -173,7 +175,7 @@ def ensure_profile_sid() -> PSID:
     if code == ERROR_ALREADY_EXISTS or hr == -2147024713:
         sid = PSID()
         derived = userenv.DeriveAppContainerSidFromAppContainerName(
-            PROFILE_NAME, ctypes.byref(sid)
+            name, ctypes.byref(sid)
         )
         if _hresult_code(derived) != 0:
             raise OSError(
@@ -224,6 +226,7 @@ def spawn_and_wait(
     shell: bool,
     rw_paths: list[str],
     rx_paths: list[str],
+    profile_name: str = PROFILE_NAME,
 ) -> int:
     """Create an AppContainer child, wait, and return its exit code.
 
@@ -233,7 +236,7 @@ def spawn_and_wait(
     (CreateProcess rejects some constructed Unicode blocks with error 203).
     """
 
-    sid = ensure_profile_sid()
+    sid = ensure_profile_sid(profile_name)
     sid_text = sid_string(sid)
     for raw in rw_paths:
         grant_path(sid_text, Path(raw), "(OI)(CI)(F)")

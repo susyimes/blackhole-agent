@@ -135,9 +135,12 @@ module turns the ledger into a service:
   the plugin's ``tools/call``. A plane without a plugin does not list or
   execute those ids (HTTP 404). Sibling absorbed tools keep serving.
   Hosted plugin processes start under a scrubbed environment, an isolated
-  scratch cwd, and a resource job so they cannot inherit operator secrets
-  or write the repository. ``GET /health`` reports ``mcp_plugin_invoke``,
-  ``mcp_plugin_count``, and ``mcp_plugin_sandbox``.
+  scratch cwd, a resource job, and the OS filesystem sandbox (AppContainer
+  on Windows, Landlock on Linux) so they cannot inherit operator secrets,
+  write the repository, read host files by absolute path, or open TCP
+  sockets to exfiltrate tool arguments. ``GET /health`` reports
+  ``mcp_plugin_invoke``, ``mcp_plugin_count``, ``mcp_plugin_sandbox``,
+  and ``mcp_plugin_os_sandbox``.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``

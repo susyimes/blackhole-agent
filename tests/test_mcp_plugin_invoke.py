@@ -158,6 +158,7 @@ def test_health_advertises_mcp_plugin_sandbox_without_plugin(tmp_path: Path) -> 
         status, health = _request("GET", f"{base}/health")
         assert status == 200
         assert health["mcp_plugin_sandbox"] is True
+        assert health["mcp_plugin_os_sandbox"] is True
         assert health["mcp_plugin_invoke"] is False
     finally:
         httpd.shutdown()

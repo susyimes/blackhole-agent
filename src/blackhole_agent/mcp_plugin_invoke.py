@@ -15,8 +15,9 @@ This module closes that hole:
 - sibling absorbed tools keep serving
 - HTTP disconnect cancel is forwarded as ``notifications/cancelled``
 - hosted plugin processes start under a scrubbed environment, an isolated
-  scratch cwd, and a resource job so they cannot read operator secrets or
-  write the repository
+  scratch cwd, a resource job, and the OS filesystem sandbox (AppContainer
+  or Landlock) so they cannot read operator files by absolute path or open
+  TCP sockets to exfiltrate arguments
 """
 
 from __future__ import annotations
@@ -344,10 +345,13 @@ def active_mcp_plugin_plane() -> McpPluginPlane | None:
 def mcp_plugin_health() -> dict[str, Any]:
     plane = active_mcp_plugin_plane()
     ready = bool(plane is not None and plane.ready)
+    from blackhole_agent.process_capture import filesystem_sandbox_available
+
     return {
         "mcp_plugin_invoke": ready,
         "mcp_plugin_count": int(plane.tool_count) if ready and plane is not None else 0,
         "mcp_plugin_sandbox": True,
+        "mcp_plugin_os_sandbox": bool(filesystem_sandbox_available()),
     }
 
 
