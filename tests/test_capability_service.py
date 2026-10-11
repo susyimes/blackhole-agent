@@ -304,6 +304,9 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["loopback_host_origin"] is True
     assert health["tls"] is False
     assert int(health["max_scratch_bytes"]) > 0
+    assert health["http_connection_limits"] is True
+    assert int(health["http_request_timeout_seconds"]) > 0
+    assert int(health["max_http_connections"]) > 0
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})

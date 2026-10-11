@@ -205,6 +205,18 @@ module turns the ledger into a service:
   file is deleted with the scratch directory and never echoed. ``GET
   /health`` reports ``max_scratch_bytes``. A small scratch write still
   succeeds. Kernel and git subprocesses omit the cap.
+- HTTP occupancy is bounded independently of untrusted-tool admission.
+  Every accepted socket has a request timeout
+  (``BLACKHOLE_HTTP_REQUEST_TIMEOUT``, default 15s) so a client that
+  never finishes headers or a body is dropped instead of occupying a
+  worker forever. Concurrent HTTP connections are capped
+  (``BLACKHOLE_MAX_HTTP_CONNECTIONS``, default 256); excess sockets are
+  answered ``503`` with ``violation: connection_limited`` on the accept
+  thread and never start a handler or a tool. ``GET /health`` reports
+  ``http_connection_limits``, ``http_request_timeout_seconds``,
+  ``max_http_connections``, and live ``http_connections``. A complete
+  ``POST /invoke`` still executes. Long SSE reverse channels keep
+  working: the timeout only fires on blocking socket I/O.
 - ``POST /invoke`` with ``Accept: text/event-stream`` (and without
   ``application/json``) streams captured stdout and stderr as SSE
   ``output`` events while the owned tree is still running, then a
@@ -270,7 +282,7 @@ import sys
 import threading
 import uuid
 from collections import OrderedDict, deque
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import urlparse
@@ -289,6 +301,14 @@ from blackhole_agent.capability_compounder import (
     register_capability,
     save_ledger,
     utc_now_iso,
+)
+from blackhole_agent.http_connection_limits import (
+    HTTP_CONNECTIONS,
+    HTTP_REQUEST_TIMEOUT_ENV,
+    MAX_HTTP_CONNECTIONS_ENV,
+    BoundedThreadingHTTPServer,
+    configure_http_request_timeout,
+    current_http_request_timeout,
 )
 from blackhole_agent.invocation_admission import (
     ADMISSION,
@@ -1730,6 +1750,18 @@ def solve_goal_request(
     }
 
 
+def http_occupancy_health() -> dict[str, Any]:
+    """Live HTTP occupancy snapshot for ``GET /health`` and the readiness line."""
+
+    snapshot = HTTP_CONNECTIONS.snapshot()
+    return {
+        "http_connection_limits": True,
+        "http_request_timeout_seconds": current_http_request_timeout(),
+        "http_connections": snapshot["http_connections"],
+        "max_http_connections": snapshot["max_http_connections"],
+    }
+
+
 def http_client_disconnected(sock: socket.socket | None) -> bool:
     """True when the HTTP peer has closed or reset the request socket."""
 
@@ -1745,11 +1777,28 @@ def http_client_disconnected(sock: socket.socket | None) -> bool:
         return False
     try:
         peeked = sock.recv(1, socket.MSG_PEEK)
-    except BlockingIOError:
+    except (BlockingIOError, TimeoutError):
         return False
     except (ConnectionResetError, ConnectionAbortedError, ConnectionRefusedError, OSError):
         return True
     return peeked == b""
+
+
+def release_request_deadline(handler: BaseHTTPRequestHandler) -> None:
+    """Drop the header/body socket timeout before long-running handlers.
+
+    Incomplete requests still die on the request timeout. Once the body is
+    in, invoke/SSE/disconnect-watch must not treat a timed-out peek as a
+    hang-up.
+    """
+
+    sock = getattr(handler, "connection", None)
+    if sock is None:
+        return
+    try:
+        sock.settimeout(None)
+    except OSError:
+        return
 
 
 def arm_http_disconnect_cancel(
@@ -1761,6 +1810,7 @@ def arm_http_disconnect_cancel(
     returns so the watcher thread does not outlive the request.
     """
 
+    release_request_deadline(handler)
     cancel_event = threading.Event()
     stop_watch = threading.Event()
     sock = getattr(handler, "connection", None)
@@ -1958,7 +2008,7 @@ def build_server(
     token: str | None = None,
     tls_cert: str | Path | None = None,
     tls_key: str | Path | None = None,
-) -> ThreadingHTTPServer:
+) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
     service_root = Path(root).resolve()
@@ -2043,6 +2093,10 @@ def build_server(
         server_version = "blackhole-capability-service/1"
         disable_nagle_algorithm = True
         wbufsize = 0
+
+        def setup(self) -> None:
+            self.timeout = current_http_request_timeout()
+            super().setup()
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
             return
@@ -2156,6 +2210,7 @@ def build_server(
                         "non_loopback_requires_token": True,
                         "loopback_host_origin": True,
                         "tls": bool(getattr(self.server, "tls_enabled", False)),
+                        **http_occupancy_health(),
                     },
                 )
                 return
@@ -2177,6 +2232,7 @@ def build_server(
                     return
                 listener = state.subscribe()
                 try:
+                    release_request_deadline(self)
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream")
                     self.send_header("Cache-Control", "no-cache")
@@ -2239,6 +2295,7 @@ def build_server(
                     return
                 listener = sessions.subscribe_events(events_id)
                 try:
+                    release_request_deadline(self)
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream")
                     self.send_header("Cache-Control", "no-cache")
@@ -2510,7 +2567,7 @@ def build_server(
             finally:
                 stop_watch()
 
-    server = ThreadingHTTPServer((host, port), CapabilityHandler)
+    server = BoundedThreadingHTTPServer((host, port), CapabilityHandler)
     server.daemon_threads = True
     server.bind_host = host
     server.tls_enabled = False
@@ -2536,6 +2593,8 @@ def serve(
     max_inflight: int | None = None,
     max_output_bytes: int | None = None,
     max_scratch_bytes: int | None = None,
+    http_request_timeout: int | None = None,
+    max_http_connections: int | None = None,
     tls_cert: str | Path | None = None,
     tls_key: str | Path | None = None,
 ) -> int:
@@ -2545,6 +2604,8 @@ def serve(
         ADMISSION.configure(max_inflight)
     configure_max_output_bytes(max_output_bytes)
     configure_max_scratch_bytes(max_scratch_bytes)
+    configure_http_request_timeout(http_request_timeout)
+    HTTP_CONNECTIONS.configure(max_http_connections)
     reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
     try:
@@ -2580,6 +2641,7 @@ def serve(
                 "non_loopback_requires_token": True,
                 "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),
+                **http_occupancy_health(),
             }
         ),
         flush=True,
@@ -2791,6 +2853,13 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["loopback_host_origin_health"] = (
             status == 200 and isinstance(health, dict) and health.get("loopback_host_origin") is True
+        )
+        checks["http_connection_limits_health"] = (
+            status == 200
+            and isinstance(health, dict)
+            and health.get("http_connection_limits") is True
+            and int(health.get("http_request_timeout_seconds") or 0) > 0
+            and int(health.get("max_http_connections") or 0) > 0
         )
         status, preview = _http_request(
             "POST",
@@ -3109,6 +3178,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
     )
     serve_parser.add_argument(
+        "--http-request-timeout",
+        type=int,
+        default=None,
+        help=(
+            "seconds a client may block sending headers or a body; defaults to "
+            f"{HTTP_REQUEST_TIMEOUT_ENV} or 15"
+        ),
+    )
+    serve_parser.add_argument(
+        "--max-http-connections",
+        type=int,
+        default=None,
+        help=(
+            "cap concurrent HTTP sockets including SSE; defaults to "
+            f"{MAX_HTTP_CONNECTIONS_ENV} or 256"
+        ),
+    )
+    serve_parser.add_argument(
         "--tls-cert",
         default=None,
         help=f"PEM certificate to serve HTTPS; defaults to {TLS_CERT_ENV}",
@@ -3131,6 +3218,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_inflight=args.max_inflight,
             max_output_bytes=args.max_output_bytes,
             max_scratch_bytes=args.max_scratch_bytes,
+            http_request_timeout=args.http_request_timeout,
+            max_http_connections=args.max_http_connections,
             tls_cert=args.tls_cert,
             tls_key=args.tls_key,
         )
