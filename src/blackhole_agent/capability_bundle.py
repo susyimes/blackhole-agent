@@ -217,7 +217,9 @@ def verify_capability_bundle(bundle_path: Path) -> dict[str, Any]:
     }
 
 
-def _reproof_staged_tree(staging: Path, manifest: Mapping[str, Any]) -> dict[str, Any]:
+def _reproof_staged_tree(
+    staging: Path, manifest: Mapping[str, Any], *, root: Path
+) -> dict[str, Any]:
     """Re-execute every frozen case in the staged tree under governed bounds."""
 
     results = [
@@ -227,7 +229,7 @@ def _reproof_staged_tree(staging: Path, manifest: Mapping[str, Any]) -> dict[str
             case,
             REPROOF_LIMITS,
             REPROOF_TIMEOUT_SECONDS,
-            root=staging,
+            root=root,
         )
         for case in manifest["cases"]
     ]
@@ -239,25 +241,20 @@ def _reproof_staged_tree(staging: Path, manifest: Mapping[str, Any]) -> dict[str
     return {"cases_passed": len(results) - len(failures), "cases_total": len(results), "failures": failures}
 
 
-def import_capability_bundle(
-    bundle_path: Path, target_root: Path, *, overwrite: bool = False
+def import_capability_bundle_document(
+    bundle: Any, target_root: Path, *, overwrite: bool = False
 ) -> dict[str, Any]:
-    """Import a verified bundle into a bare target checkout, fail-closed.
+    """Import a verified in-memory bundle, fail-closed.
 
-    Verification (seal, per-file digests, path safety, duplicate policy)
-    completes before anything is written. The vendored tree is then staged
-    in a temporary sibling directory and re-proved locally — every frozen
-    manifest case re-executes under the plane's governed resource bounds —
-    so the target's proved status is earned by its own execution evidence.
-    Only a fully re-proved tree moves into place and registers in the
-    target ledger; any earlier failure leaves the target untouched.
+    Same contract as :func:`import_capability_bundle`, but the payload is
+    already a JSON object so the live invocation plane can POST it without
+    a staging file. Verification completes before anything is written.
     """
 
-    summary = verify_capability_bundle(bundle_path)
-    bundle = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
-    payload = {key: value for key, value in bundle.items() if key != "bundle_digest"}
-    capability_id = payload["capability_id"]
-    slug = payload["slug"]
+    payload = _verify_bundle(bundle)
+    seal = str(bundle.get("bundle_digest") or "")
+    capability_id = str(payload["capability_id"])
+    slug = str(payload["slug"])
     target_root = Path(target_root)
     document = _load_ledger_document(target_root)
     if capability_id in document["capabilities"] and not overwrite:
@@ -270,14 +267,11 @@ def import_capability_bundle(
             destination = staging / PurePosixPath(relative)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(base64.b64decode(record["content_b64"]))
-        # Re-validate the staged manifest against the absorption schema so a
-        # bundle whose files hash correctly but describe an invalid tool still
-        # fails closed before registration.
         try:
             manifest = load_manifest(staging)
         except ValueError as exc:
             raise BundleError("manifest_invalid", f"staged manifest is invalid: {exc}")
-        reproof = _reproof_staged_tree(staging, manifest)
+        reproof = _reproof_staged_tree(staging, manifest, root=target_root)
         if reproof["failures"]:
             raise BundleError(
                 "reproof_failed",
@@ -296,7 +290,7 @@ def import_capability_bundle(
             "id": capability_id,
             "last_proof_exit_code": 0,
             "origin": "capability-bundle-import",
-            "imported_bundle_digest": summary["bundle_digest"],
+            "imported_bundle_digest": seal,
             "import_reproof": {
                 "cases_passed": reproof["cases_passed"],
                 "cases_total": reproof["cases_total"],
@@ -311,12 +305,34 @@ def import_capability_bundle(
     atomic_write_json(_ledger_path(target_root), document)
     return {
         "ok": True,
+        "imported": True,
         "capability_id": capability_id,
         "target_root": str(target_root),
-        "bundle_digest": summary["bundle_digest"],
-        "file_count": summary["file_count"],
+        "bundle_digest": seal,
+        "file_count": len(payload["files"]),
         "reproof": {"cases_passed": reproof["cases_passed"], "cases_total": reproof["cases_total"]},
     }
+
+
+def import_capability_bundle(
+    bundle_path: Path, target_root: Path, *, overwrite: bool = False
+) -> dict[str, Any]:
+    """Import a verified bundle into a bare target checkout, fail-closed.
+
+    Verification (seal, per-file digests, path safety, duplicate policy)
+    completes before anything is written. The vendored tree is then staged
+    in a temporary sibling directory and re-proved locally — every frozen
+    manifest case re-executes under the plane's governed resource bounds —
+    so the target's proved status is earned by its own execution evidence.
+    Only a fully re-proved tree moves into place and registers in the
+    target ledger; any earlier failure leaves the target untouched.
+    """
+
+    try:
+        bundle = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise BundleError("malformed", f"bundle is not readable JSON: {exc}")
+    return import_capability_bundle_document(bundle, target_root, overwrite=overwrite)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

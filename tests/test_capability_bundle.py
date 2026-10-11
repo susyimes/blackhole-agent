@@ -9,6 +9,7 @@ from blackhole_agent.capability_bundle import (
     BundleError,
     export_capability_bundle,
     import_capability_bundle,
+    import_capability_bundle_document,
     verify_capability_bundle,
 )
 from blackhole_agent.capability_service import invoke_capability, load_invocable_capabilities
@@ -87,6 +88,20 @@ def test_export_import_roundtrip_invocable(tmp_path: Path) -> None:
 
     outcome = invoke_capability(target, "capability.absorbed-text-reverser", {"raw_text": "portable"})
     assert outcome["output"] == {"reversed_text": "elbatrop"}
+
+
+def test_import_document_roundtrip_invocable(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    target = tmp_path / "target"
+    source.mkdir()
+    target.mkdir()
+    _source_workspace(source)
+    export_capability_bundle(source, "capability.absorbed-text-reverser", tmp_path / "bundle.json")
+    bundle = json.loads((tmp_path / "bundle.json").read_text(encoding="utf-8"))
+    imported = import_capability_bundle_document(bundle, target)
+    assert imported["imported"] is True
+    outcome = invoke_capability(target, "capability.absorbed-text-reverser", {"raw_text": "document"})
+    assert outcome["output"] == {"reversed_text": "tnemucod"}
 
 
 def test_export_is_deterministic(tmp_path: Path) -> None:

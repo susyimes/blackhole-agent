@@ -256,6 +256,16 @@ module turns the ledger into a service:
   ``forage`` list is ``400 forage_disabled``. Preview (``dry_run``)
   refuses forage. The operator console posts the forage names. A
   follow-up solve without forage uses the grown ledger.
+- ``POST /bundles`` imports a capability bundle into the served workspace
+  when the operator opts in with ``--bundle-import`` (or
+  ``BLACKHOLE_BUNDLE_IMPORT``). The posted JSON is verified, every frozen
+  case is re-proved under the same governed bounds used by CLI import,
+  and the capability becomes invocable through ``GET /capabilities`` and
+  ``POST /invoke``. A tampered or malformed payload is ``400`` and writes
+  nothing. A duplicate id is ``409``. A plane without the flag stays
+  fail-closed: ``GET /health`` reports ``bundle_import`` false and
+  ``POST /bundles`` is ``400 bundle_disabled``. A follow-up reverse
+  invoke of an already-absorbed sibling still returns declared output.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -395,6 +405,7 @@ SOLVE_MAX_HEALED = 4
 SOLVE_MAX_FALLBACKS = 4
 MAX_BODY_BYTES = 1 << 20
 INVOCATION_TOKEN_ENV = "BLACKHOLE_INVOCATION_TOKEN"
+BUNDLE_IMPORT_ENV = "BLACKHOLE_BUNDLE_IMPORT"
 TLS_CERT_ENV = "BLACKHOLE_TLS_CERT"
 TLS_KEY_ENV = "BLACKHOLE_TLS_KEY"
 WWW_AUTHENTICATE = 'Bearer realm="blackhole-invocation-plane"'
@@ -731,6 +742,48 @@ def _solve_http_request(
         cancel_event=cancel_event,
         dry_run=dry_run,
     )
+
+
+def resolve_bundle_import(
+    flag: bool | None = None, *, env: Mapping[str, str] | None = None
+) -> bool:
+    """Return whether POST /bundles is opted in (CLI flag or env)."""
+
+    if flag:
+        return True
+    source = env if env is not None else os.environ
+    text = str(source.get(BUNDLE_IMPORT_ENV) or "").strip().lower()
+    return text in {"1", "true", "yes", "on"}
+
+
+def import_bundle_http_request(root: Path, body: Mapping[str, Any], *, enabled: bool) -> dict[str, Any]:
+    """Import a posted capability bundle into the served workspace."""
+
+    if not enabled:
+        raise InvocationError(400, "bundle_disabled")
+    if not isinstance(body, dict):
+        raise InvocationError(400, "body must be a JSON object")
+    document: Any = body
+    if body.get("kind") != "capability-bundle" and isinstance(body.get("bundle"), dict):
+        document = body["bundle"]
+    from blackhole_agent.capability_bundle import BundleError, import_capability_bundle_document
+
+    try:
+        with ADMISSION.slot():
+            outcome = import_capability_bundle_document(document, Path(root))
+    except AdmissionLimited as exc:
+        raise InvocationError(429, str(exc), extra=exc.payload()) from exc
+    except BundleError as exc:
+        status = 409 if exc.verdict == "duplicate" else 400
+        raise InvocationError(status, exc.verdict, extra={"detail": exc.detail}) from exc
+    return {
+        "ok": True,
+        "imported": True,
+        "capability_id": outcome["capability_id"],
+        "file_count": outcome["file_count"],
+        "reproof": outcome["reproof"],
+        "bundle_digest": outcome["bundle_digest"],
+    }
 
 
 def absorbed_root(root: Path) -> Path:
@@ -2132,6 +2185,7 @@ def build_server(
     tls_key: str | Path | None = None,
     mcp_plugin_commands: Sequence[Sequence[str]] | None = None,
     forage_root: str | Path | None = None,
+    bundle_import: bool = False,
 ) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
@@ -2337,6 +2391,7 @@ def build_server(
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
                         "solve_forage": bool(getattr(self.server, "solve_forage", False)),
+                        "bundle_import": bool(getattr(self.server, "bundle_import", False)),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
                         "loopback_host_origin": True,
@@ -2509,7 +2564,7 @@ def build_server(
                 parts = rest.split("/")
                 if len(parts) == 2 and parts[0] and parts[1] in {"input", "resume"}:
                     session_id, session_action = parts[0], parts[1]
-            if path not in {"/invoke", "/contract", "/solve", "/reproof", "/sessions"} and not (
+            if path not in {"/invoke", "/contract", "/solve", "/reproof", "/sessions", "/bundles"} and not (
                 session_id and session_action
             ):
                 _drain_request_body(self)
@@ -2606,6 +2661,12 @@ def build_server(
                         )
                     elif path == "/reproof":
                         result = reproof_capability(service_root, body.get("capability_id"))
+                    elif path == "/bundles":
+                        result = import_bundle_http_request(
+                            service_root,
+                            body,
+                            enabled=bool(getattr(self.server, "bundle_import", False)),
+                        )
                     elif path == "/sessions":
                         result = sessions.create_session(
                             body.get("initial_state"),
@@ -2716,6 +2777,7 @@ def build_server(
     server.bind_host = host
     server.tls_enabled = False
     server.solve_forage = current_forage_root() is not None
+    server.bundle_import = bool(bundle_import)
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
         server.tls_enabled = True
@@ -2746,6 +2808,7 @@ def serve(
     tls_key: str | Path | None = None,
     mcp_plugin: Sequence[str] | None = None,
     forage_root: str | Path | None = None,
+    bundle_import: bool = False,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -2781,6 +2844,7 @@ def serve(
             tls_key=tls_key,
             mcp_plugin_commands=plugin_commands,
             forage_root=forage_root,
+            bundle_import=resolve_bundle_import(bundle_import),
         )
     except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
@@ -2807,6 +2871,7 @@ def serve(
                 "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),
                 "solve_forage": bool(getattr(server, "solve_forage", False)),
+                "bundle_import": bool(getattr(server, "bundle_import", False)),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
             }
@@ -3000,6 +3065,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["solve_forage_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("solve_forage") is False
+        )
+        checks["bundle_import_health_default"] = (
+            status == 200 and isinstance(health, dict) and health.get("bundle_import") is False
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
@@ -3394,6 +3462,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             "forage stays fail-closed"
         ),
     )
+    serve_parser.add_argument(
+        "--bundle-import",
+        action="store_true",
+        default=False,
+        help=(
+            "opt in POST /bundles import of capability bundles into the served "
+            f"workspace; defaults to {BUNDLE_IMPORT_ENV}=1 when unset. Without "
+            "the flag, import stays fail-closed"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -3413,6 +3491,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             tls_key=args.tls_key,
             mcp_plugin=args.mcp_plugin,
             forage_root=args.forage_root,
+            bundle_import=args.bundle_import,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)

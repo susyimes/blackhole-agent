@@ -309,6 +309,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["http_connection_limits"] is True
     assert int(health["http_request_timeout_seconds"]) > 0
     assert int(health["max_http_connections"]) > 0
+    assert health["bundle_import"] is False
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})
