@@ -2598,6 +2598,9 @@ _MARKERS = (
     ("package.subpackage.submodule.func rather than package.submodule.func", "capability.application-python-deep-nested-function-growth-plane"),
     ("instance methods on named class exports", "capability.application-node-named-class-instance-growth-plane"),
     ("named class instance", "capability.application-node-named-class-instance-growth-plane"),
+    ("scoped token's allowlist in get /console", "capability.token-scope-console-mcp"),
+    ("json-rpc invalid-params for a disallowed mcp tools/call", "capability.token-scope-console-mcp"),
+    ("disallowed mcp tools/call name", "capability.token-scope-console-mcp"),
 )
 
 

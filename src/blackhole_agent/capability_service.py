@@ -270,7 +270,10 @@ module turns the ledger into a service:
   TOKEN=id[,id...]`` (repeatable; or ``BLACKHOLE_TOKEN_SCOPE``) registers
   additional bearers that may ``POST /invoke`` only the listed tool ids.
   A disallowed id is ``403 tool_not_allowed`` and never spawns.
-  ``GET /capabilities`` for that bearer lists only the allowed ids.
+  ``GET /capabilities`` for that bearer lists only the allowed ids and
+  includes ``token_scoped`` / ``token_allowlist``. ``GET /console`` with
+  the same bearer embeds that allowlist in the page. A disallowed MCP
+  ``tools/call`` name is JSON-RPC ``-32602`` and never spawns.
   ``POST /solve`` plans only over those ids. Bundles, contract, reproof,
   and sessions stay operator-token-only. The operator ``--token`` still
   runs every tool. A plane without ``--token-scope`` keeps historical
@@ -372,9 +375,11 @@ from blackhole_agent.invocation_token_scopes import (
     UNRESTRICTED,
     auth_is_required,
     authenticate_bearer,
+    bind_optional_bearer,
     bind_principal,
     current_principal,
     filter_invocable,
+    principal_allowlist_payload,
     reset_principal,
     resolve_token_scopes,
     tool_is_allowed,
@@ -926,12 +931,15 @@ def capability_listing(root: Path) -> dict[str, Any]:
         }
         for item in (invocable[key] for key in sorted(invocable))
     ]
+    allowlist = principal_allowlist_payload()
     return {
         "ok": True,
         "schema_version": SCHEMA_VERSION,
         "count": len(capabilities),
         "capabilities": capabilities,
         "listing_digest": _digest(capabilities),
+        "token_scoped": bool(allowlist["scoped"]),
+        "token_allowlist": allowlist["allow"],
     }
 
 
@@ -2402,6 +2410,11 @@ def build_server(
             self.principal = principal
             return True
 
+        def _bind_optional_principal(self) -> None:
+            offered = parse_bearer_token(self.headers.get("Authorization"))
+            scopes = getattr(self.server, "token_scopes", EMPTY_SCOPES)
+            self.principal = bind_optional_bearer(offered, invocation_token, scopes)
+
         def _require_operator(self) -> bool:
             principal = getattr(self, "principal", UNRESTRICTED)
             if principal.unrestricted:
@@ -2426,7 +2439,11 @@ def build_server(
             if path in {"/", "/console"}:
                 from blackhole_agent.capability_console import console_html
 
-                body = console_html(service_root).encode("utf-8")
+                self._bind_optional_principal()
+                try:
+                    body = console_html(service_root).encode("utf-8")
+                finally:
+                    reset_principal()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(body)))

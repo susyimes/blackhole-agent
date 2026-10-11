@@ -8,7 +8,10 @@ document served at ``GET /console`` (and ``/``):
 
 - the live invocable catalog is embedded at render time (capability id,
   name, requires/provides contract), so the page shows real ledger data
-  even before any script runs;
+  even before any script runs. A GET with a scoped bearer embeds that
+  token's allowlist and only those catalog rows;
+- inline JavaScript can refresh ``GET /capabilities`` with the bearer so
+  pasting a scoped token shows the same allowlist without reloading;
 - inline JavaScript (no external assets, no CDN, no build step) refreshes
   ``/health``, ``/capabilities`` and ``/sessions``, invokes any selected
   capability through ``POST /invoke`` with a JSON input form, and submits
@@ -44,10 +47,12 @@ exact calls the page makes.
 from __future__ import annotations
 
 import html
+import json
 from pathlib import Path
 from typing import Any
 
 from blackhole_agent.capability_service import capability_listing
+from blackhole_agent.invocation_token_scopes import principal_allowlist_payload
 
 _PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -74,11 +79,17 @@ pre { background: #0b0e11; padding: 0.75rem; border-radius: 4px; overflow: auto;
 </section>
 <section>
 <h2>operator token</h2>
-<p>Bearer token sent as <code>Authorization</code> on invoke, solve, session, and event-stream fetches. Leave empty when the plane is open.</p>
+<p>Bearer token sent as <code>Authorization</code> on invoke, solve, session, catalog, and event-stream fetches. Leave empty when the plane is open. A scoped token shows only its allowlist.</p>
 <input id="operator-token" type="password" autocomplete="off" placeholder="BLACKHOLE_INVOCATION_TOKEN">
+<p><button onclick="refreshCatalog()">refresh catalog</button></p>
 </section>
 <section>
-<h2>invocable catalog (<span id="count">__COUNT__</span>, listing digest <code>__DIGEST__</code>)</h2>
+<h2>token allowlist</h2>
+<p>When this page is loaded with a scoped bearer, GET /console embeds that token's allowed tool ids. Refresh after pasting a token to load the same list from GET /capabilities.</p>
+<pre id="token-allowlist">__ALLOWLIST__</pre>
+</section>
+<section>
+<h2>invocable catalog (<span id="count">__COUNT__</span>, listing digest <code id="listing-digest">__DIGEST__</code>)</h2>
 <table id="catalog">
 <thead><tr><th>capability</th><th>name</th><th>requires</th><th>provides</th></tr></thead>
 <tbody>
@@ -172,6 +183,39 @@ async function loadHealth() {
 async function loadSessions() {
   const response = await fetch("/sessions", {headers: withAuth({})});
   show("sessions", await response.json());
+}
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+}
+async function refreshCatalog() {
+  const response = await fetch("/capabilities", {headers: withAuth({"Accept": "application/json"})});
+  const listing = await response.json();
+  const node = document.getElementById("token-allowlist");
+  if (!listing || listing.ok !== true) {
+    node.textContent = JSON.stringify(listing, null, 2);
+    return;
+  }
+  node.textContent = JSON.stringify({
+    scoped: listing.token_scoped === true,
+    allow: listing.token_allowlist
+  }, null, 2);
+  document.getElementById("count").textContent = String(listing.count || 0);
+  const digestNode = document.getElementById("listing-digest");
+  if (digestNode) digestNode.textContent = String(listing.listing_digest || "").slice(0, 16);
+  const body = document.querySelector("#catalog tbody");
+  const options = document.getElementById("cap-ids");
+  body.innerHTML = "";
+  options.innerHTML = "";
+  (listing.capabilities || []).forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td><code>" + escapeHtml(item.id) + "</code></td><td>" + escapeHtml(item.name)
+      + "</td><td>" + escapeHtml((item.requires || []).join(", "))
+      + "</td><td>" + escapeHtml((item.provides || []).join(", ")) + "</td>";
+    body.appendChild(tr);
+    const opt = document.createElement("option");
+    opt.value = item.id;
+    options.appendChild(opt);
+  });
 }
 function cancelInvoke() {
   if (invokeAbort) invokeAbort.abort();
@@ -378,8 +422,10 @@ def console_html(root: Path) -> str:
             f"<td>{requires}</td><td>{provides}</td></tr>"
         )
         options.append(f'<option value="{capability_id}">')
+    allowlist = principal_allowlist_payload()
     page = _PAGE.replace("__COUNT__", str(listing.get("count") or 0))
     page = page.replace("__DIGEST__", html.escape(str(listing.get("listing_digest") or ""))[:16])
     page = page.replace("__ROWS__", "\n".join(rows))
     page = page.replace("__OPTIONS__", "".join(options))
+    page = page.replace("__ALLOWLIST__", html.escape(json.dumps(allowlist, sort_keys=True)))
     return page

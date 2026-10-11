@@ -51,8 +51,9 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
   invocation plane (:func:`invoke_capability`), returning the real
   output as ``structuredContent`` plus a JSON text block. Invocation
   failures (unknown input keys, tool exit errors, resource-limit
-  quarantine) come back as ``isError`` results; unknown tool names are
-  protocol-level JSON-RPC errors. Calls run on worker threads, so a
+  quarantine) come back as ``isError`` results; unknown tool names and
+  names outside the current scoped bearer's allowlist are protocol-level
+  JSON-RPC ``-32602`` invalid params and never spawn. Calls run on worker threads, so a
   slow capability never head-of-line blocks sibling requests: ``ping``
   and ``tools/list`` keep answering while a call is in flight. A call
   carrying ``_meta.progressToken`` emits ``notifications/progress``
@@ -124,6 +125,7 @@ from blackhole_agent.invocation_receipts import (
     ReceiptError,
     mcp_call_digest,
 )
+from blackhole_agent.invocation_token_scopes import tool_is_allowed
 from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
@@ -191,6 +193,42 @@ REQUEST_CANCELLED = -32800
 
 class ToolCallError(KeyError):
     """Raised when a tools/call names a tool outside the live catalog."""
+
+    def __init__(self, name: str, *, reason: str = "unknown") -> None:
+        self.tool_name = str(name)
+        self.reason = str(reason)
+        super().__init__(name)
+
+    @property
+    def rpc_message(self) -> str:
+        if self.reason == "not_allowed":
+            return f"tool not allowed: {self.tool_name}"
+        return f"unknown tool: {self.tool_name}"
+
+
+def _tool_call_rpc_error(request_id: Any, error: ToolCallError) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": INVALID_PARAMS, "message": error.rpc_message},
+    }
+
+
+def assert_mcp_tool_allowed(catalog: "CapabilityCatalog", name: str) -> str | None:
+    """Return the capability id for ``name``, or raise ``ToolCallError``.
+
+    ``solve_goal`` is always listed; a scoped bearer still plans only over
+    allowed ids. A disallowed absorbed name is invalid params, not isError.
+    """
+
+    if name == SOLVE_TOOL_NAME:
+        return None
+    capability_id = catalog.by_name.get(name)
+    if capability_id is None:
+        raise ToolCallError(name)
+    if not tool_is_allowed(capability_id):
+        raise ToolCallError(name, reason="not_allowed")
+    return capability_id
 
 
 class ResourceWatch:
@@ -870,7 +908,7 @@ class CapabilityCatalog:
             arguments = {}
         if name == SOLVE_TOOL_NAME:
             return self._solve(arguments, cancel_event=cancel_event, progress=progress)
-        capability_id = self.by_name.get(name)
+        capability_id = assert_mcp_tool_allowed(self, name)
         if capability_id is None:
             raise ToolCallError(name)
         try:
@@ -1015,12 +1053,8 @@ def handle_http_rpc(
                     else (lambda: _notify_progress(1, "call completed", total=1))
                 ),
             )
-        except ToolCallError:
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {"code": INVALID_PARAMS, "message": f"unknown tool: {name}"},
-            }
+        except ToolCallError as exc:
+            return _tool_call_rpc_error(request_id, exc)
         except ProcessCancelled:
             return {
                 "jsonrpc": "2.0",
@@ -1201,8 +1235,7 @@ def run_governed_tools_call(
     """
 
     catalog.refresh()
-    if name != SOLVE_TOOL_NAME and name not in catalog.by_name:
-        raise ToolCallError(name)
+    assert_mcp_tool_allowed(catalog, name)
 
     def body() -> dict[str, Any]:
         if on_start is not None:
@@ -1331,14 +1364,8 @@ def serve_stdio(root: Path) -> int:
                         else (lambda: _notify_progress(token, 1, "call completed", total=1))
                     ),
                 )
-            except ToolCallError:
-                _write(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "error": {"code": INVALID_PARAMS, "message": f"unknown tool: {name}"},
-                    }
-                )
+            except ToolCallError as exc:
+                _write(_tool_call_rpc_error(request_id, exc))
                 return
             except ProcessCancelled:
                 _write(

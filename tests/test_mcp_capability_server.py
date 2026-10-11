@@ -638,6 +638,40 @@ def test_handle_http_rpc_executes_tools_call(tmp_path: Path) -> None:
     ) is None
 
 
+def test_handle_http_rpc_rejects_disallowed_tool_name(tmp_path: Path) -> None:
+    from blackhole_agent.invocation_token_scopes import (
+        TokenPrincipal,
+        bind_principal,
+        reset_principal,
+    )
+
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    bind_principal(
+        TokenPrincipal(
+            unrestricted=False,
+            allowed=frozenset({"capability.absorbed-scope-shout"}),
+        )
+    )
+    try:
+        denied = handle_http_rpc(
+            catalog,
+            {
+                "jsonrpc": "2.0",
+                "id": 11,
+                "method": "tools/call",
+                "params": {
+                    "name": "text-reverser",
+                    "arguments": {"raw_text": "http-mcp"},
+                },
+            },
+        )
+    finally:
+        reset_principal()
+    assert denied["error"]["code"] == -32602
+    assert "tool not allowed" in denied["error"]["message"]
+    assert "reversed_text" not in json.dumps(denied)
+
+
 def test_handle_http_rpc_replays_idempotent_tools_call(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)
     tool_dir = root / "capabilities" / "absorbed" / "append-event"
