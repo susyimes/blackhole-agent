@@ -278,6 +278,21 @@ module turns the ledger into a service:
   and sessions stay operator-token-only. The operator ``--token`` still
   runs every tool. A plane without ``--token-scope`` keeps historical
   all-allow bearer behavior. ``GET /health`` reports ``token_scopes``.
+- A token-gated plane is an RFC 9728 OAuth 2.1 protected resource. 401
+  ``WWW-Authenticate`` includes ``resource_metadata``; unauthenticated
+  ``GET /.well-known/oauth-protected-resource`` and
+  ``GET /.well-known/oauth-authorization-server`` advertise the resource
+  and a loopback authorization server; ``POST /oauth/register`` issues a
+  public client for loopback redirect URIs; ``GET /oauth/authorize`` with
+  S256 PKCE and the operator bearer 302s a one-time code;
+  ``POST /oauth/token`` exchanges that code (or operator
+  ``client_credentials``) for an access token that authorizes ``POST /mcp``
+  and ``POST /invoke``. A plane without ``--token`` stays historically
+  open: those paths 404 and ``GET /health`` reports
+  ``oauth_protected_resource`` false. Loopback browser Origins (any port)
+  may CORS-call OAuth and ``/mcp`` so an MCP Inspector on another loopback
+  port can complete the flow; ``POST /invoke`` keeps the same-origin CSRF
+  guard.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -331,7 +346,7 @@ from collections import OrderedDict, deque
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from blackhole_agent.capability_absorption import (
     capability_id_for_slug,
@@ -385,6 +400,21 @@ from blackhole_agent.invocation_token_scopes import (
     tool_is_allowed,
 )
 from blackhole_agent.mcp_client import McpProtocolError
+from blackhole_agent.oauth_protected_resource import (
+    AUTHORIZATION_SERVER_METADATA_PATH,
+    AUTHORIZE_PATH,
+    REGISTER_PATH,
+    RESOURCE_METADATA_PATH,
+    TOKEN_PATH,
+    OAuthIssuer,
+    authorization_server_metadata_document,
+    cors_headers as oauth_cors_headers,
+    is_loopback_origin,
+    is_oauth_cors_path,
+    parse_form as parse_oauth_form,
+    resource_metadata_document,
+    www_authenticate as oauth_www_authenticate,
+)
 from blackhole_agent.invocation_admission import (
     ADMISSION,
     MAX_INFLIGHT_ENV,
@@ -616,6 +646,7 @@ def evaluate_request_identity(
     local_addr: str,
     listen_port: int,
     tls: bool = False,
+    allow_loopback_oauth_origin: bool = False,
 ) -> tuple[int, dict[str, Any]] | None:
     """Return a fail-closed HTTP error, or None when Host/Origin may proceed."""
 
@@ -645,7 +676,8 @@ def evaluate_request_identity(
         listen_port=listen_port,
         tls=tls,
     ):
-        return 403, {"ok": False, "error": ORIGIN_NOT_ALLOWED, "origin": origin}
+        if not (allow_loopback_oauth_origin and is_loopback_origin(origin, tls=tls)):
+            return 403, {"ok": False, "error": ORIGIN_NOT_ALLOWED, "origin": origin}
     return None
 
 
@@ -2221,9 +2253,12 @@ def _json_response(
     handler.send_header("Content-Length", str(len(body)))
     if replayed is not None:
         handler.send_header("Idempotency-Replayed", "true" if replayed else "false")
-    if headers:
-        for key, value in headers.items():
-            handler.send_header(key, value)
+    extra = dict(headers or {})
+    cors = getattr(handler, "_oauth_cors", None)
+    if callable(cors):
+        extra.update(cors())
+    for key, value in extra.items():
+        handler.send_header(key, value)
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -2360,6 +2395,31 @@ def build_server(
                 return rest
             return None
 
+        def _request_origin(self) -> str:
+            tls = bool(getattr(self.server, "tls_enabled", False))
+            scheme = "https" if tls else "http"
+            host = str(self.headers.get("Host") or "").strip()
+            if not host:
+                bind_host = str(getattr(self.server, "bind_host", "127.0.0.1") or "127.0.0.1")
+                listen_port = int(self.server.server_address[1])
+                host = f"{bind_host}:{listen_port}"
+            return f"{scheme}://{host}"
+
+        def _oauth_issuer(self) -> OAuthIssuer:
+            issuer = getattr(self.server, "oauth_issuer", None)
+            return issuer if isinstance(issuer, OAuthIssuer) else OAuthIssuer("")
+
+        def _oauth_cors(self) -> dict[str, str]:
+            issuer = self._oauth_issuer()
+            path = self.path.split("?", 1)[0]
+            if not issuer.enabled or not is_oauth_cors_path(path):
+                return {}
+            return oauth_cors_headers(
+                self.headers.get("Origin"),
+                enabled=True,
+                tls=bool(getattr(self.server, "tls_enabled", False)),
+            )
+
         def _guard_request_identity(self) -> bool:
             bind_host = str(getattr(self.server, "bind_host", "127.0.0.1") or "127.0.0.1")
             listen_port = int(self.server.server_address[1])
@@ -2367,12 +2427,15 @@ def build_server(
                 local_addr = str(self.connection.getsockname()[0])
             except Exception:
                 local_addr = bind_host
+            issuer = self._oauth_issuer()
+            path = self.path.split("?", 1)[0]
             verdict = evaluate_request_identity(
                 self.headers,
                 bind_host=bind_host,
                 local_addr=local_addr,
                 listen_port=listen_port,
                 tls=bool(getattr(self.server, "tls_enabled", False)),
+                allow_loopback_oauth_origin=issuer.enabled and is_oauth_cors_path(path),
             )
             if verdict is None:
                 return True
@@ -2390,6 +2453,12 @@ def build_server(
                 self.principal = UNRESTRICTED
                 return True
             offered = parse_bearer_token(self.headers.get("Authorization"))
+            issuer = self._oauth_issuer()
+            challenge = (
+                oauth_www_authenticate(self._request_origin())
+                if issuer.enabled
+                else WWW_AUTHENTICATE
+            )
             if offered is None:
                 if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
                     _drain_request_body(self)
@@ -2397,10 +2466,12 @@ def build_server(
                     self,
                     401,
                     {"ok": False, "error": "authorization_required"},
-                    headers={"WWW-Authenticate": WWW_AUTHENTICATE},
+                    headers={"WWW-Authenticate": challenge},
                 )
                 return False
             principal = authenticate_bearer(offered, invocation_token, scopes)
+            if principal is None:
+                principal = issuer.authenticate(offered)
             if principal is None:
                 if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
                     _drain_request_body(self)
@@ -2424,12 +2495,90 @@ def build_server(
             _json_response(self, 403, {"ok": False, "error": ADMIN_REQUIRED})
             return False
 
+        def _handle_oauth_get(self, path: str) -> bool:
+            issuer = self._oauth_issuer()
+            origin = self._request_origin()
+            if path == RESOURCE_METADATA_PATH:
+                if not issuer.enabled:
+                    _json_response(self, 404, {"ok": False, "error": "oauth_disabled"})
+                    return True
+                _json_response(self, 200, resource_metadata_document(origin))
+                return True
+            if path == AUTHORIZATION_SERVER_METADATA_PATH:
+                if not issuer.enabled:
+                    _json_response(self, 404, {"ok": False, "error": "oauth_disabled"})
+                    return True
+                _json_response(self, 200, authorization_server_metadata_document(origin))
+                return True
+            if path != AUTHORIZE_PATH:
+                return False
+            query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+            offered = parse_bearer_token(self.headers.get("Authorization"))
+            operator_ok = bool(
+                offered
+                and invocation_token
+                and bearer_token_matches(offered, invocation_token)
+            )
+            status, headers, payload = issuer.authorize(
+                query, operator_ok=operator_ok, origin=origin
+            )
+            extra = dict(headers)
+            extra.update(self._oauth_cors())
+            if status == 302:
+                self.send_response(302)
+                for key, value in extra.items():
+                    self.send_header(key, value)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return True
+            _json_response(self, status, payload or {"error": "invalid_request"}, headers=headers)
+            return True
+
+        def _handle_oauth_post(self, path: str) -> bool:
+            if path not in {REGISTER_PATH, TOKEN_PATH}:
+                return False
+            issuer = self._oauth_issuer()
+            origin = self._request_origin()
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                _json_response(self, 400, {"ok": False, "error": "invalid Content-Length"})
+                return True
+            if length < 0 or length > MAX_BODY_BYTES:
+                _json_response(self, 400, {"ok": False, "error": "missing or oversized body"})
+                return True
+            raw = self.rfile.read(length) if length > 0 else b""
+            if path == REGISTER_PATH:
+                try:
+                    body = json.loads(raw.decode("utf-8") or "{}")
+                except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                    _json_response(self, 400, {"ok": False, "error": f"body is not valid JSON: {exc}"})
+                    return True
+                if not isinstance(body, dict):
+                    _json_response(self, 400, {"ok": False, "error": "body must be a JSON object"})
+                    return True
+                status, payload = issuer.register_client(body)
+                _json_response(self, status, payload)
+                return True
+            fields = parse_oauth_form(raw)
+            status, payload = issuer.token(
+                fields,
+                origin=origin,
+                authorization=self.headers.get("Authorization"),
+            )
+            extra = {"Cache-Control": "no-store"}
+            extra.update(self._oauth_cors())
+            _json_response(self, status, payload, headers=extra)
+            return True
+
         def do_OPTIONS(self) -> None:  # noqa: N802
             if not self._guard_request_identity():
                 return
             self.send_response(204)
             self.send_header("Content-Length", "0")
             self.send_header("Allow", "GET, POST, DELETE, OPTIONS")
+            for key, value in self._oauth_cors().items():
+                self.send_header(key, value)
             self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
@@ -2473,6 +2622,7 @@ def build_server(
                         "solve_forage": bool(getattr(self.server, "solve_forage", False)),
                         "bundle_import": bool(getattr(self.server, "bundle_import", False)),
                         **getattr(self.server, "token_scopes", EMPTY_SCOPES).health(),
+                        **self._oauth_issuer().health(),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
                         "loopback_host_origin": True,
@@ -2481,6 +2631,8 @@ def build_server(
                         **mcp_plugin_health(),
                     },
                 )
+                return
+            if self._handle_oauth_get(path):
                 return
             if not self._authorize():
                 return
@@ -2637,9 +2789,11 @@ def build_server(
         def do_POST(self) -> None:  # noqa: N802
             if not self._guard_request_identity():
                 return
+            path = self.path.split("?", 1)[0]
+            if self._handle_oauth_post(path):
+                return
             if not self._authorize():
                 return
-            path = self.path.split("?", 1)[0]
             if _mcp_http_path(path):
                 self._handle_mcp_post()
                 return
@@ -2868,6 +3022,7 @@ def build_server(
     server.solve_forage = current_forage_root() is not None
     server.bundle_import = bool(bundle_import)
     server.token_scopes = scopes
+    server.oauth_issuer = OAuthIssuer(invocation_token)
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
         server.tls_enabled = True
@@ -2970,6 +3125,7 @@ def serve(
                 "solve_forage": bool(getattr(server, "solve_forage", False)),
                 "bundle_import": bool(getattr(server, "bundle_import", False)),
                 **getattr(server, "token_scopes", EMPTY_SCOPES).health(),
+                **getattr(server, "oauth_issuer", OAuthIssuer("")).health(),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
             }
@@ -3169,6 +3325,11 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["token_scopes_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("token_scopes") is False
+        )
+        checks["oauth_protected_resource_health_default"] = (
+            status == 200
+            and isinstance(health, dict)
+            and health.get("oauth_protected_resource") is False
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True

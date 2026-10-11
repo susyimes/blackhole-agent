@@ -37934,6 +37934,38 @@
       ],
       "updated_at": "2026-09-08T10:29:43.490245Z"
     },
+    "capability.oauth-protected-resource": {
+      "behavior_paths": [
+        "src/blackhole_agent/oauth_protected_resource.py",
+        "src/blackhole_agent/capability_service.py",
+        "src/blackhole_agent/kernel_leftover.py"
+      ],
+      "capability_delta": "Spec-compliant MCP hosts can discover RFC 9728 resource metadata on the live plane, complete OAuth 2.1 PKCE, and invoke tools with the issued bearer; an open plane still serves without OAuth.",
+      "created_at": "2026-10-11T14:40:15.366762Z",
+      "dependencies": [
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.ledger-invocation-plane"
+      ],
+      "description": "A token-gated live invocation plane advertises RFC 9728 protected resource metadata and RFC 8414 authorization-server metadata, registers loopback public clients, issues PKCE authorization-code and operator client_credentials access tokens, and those tokens authorize POST /mcp and POST /invoke. A plane without --token stays historically open.",
+      "entry": "blackhole_agent.oauth_protected_resource:builtin_oauth_protected_resource_proof",
+      "id": "capability.oauth-protected-resource",
+      "kind": "python",
+      "last_proof_exit_code": 0,
+      "last_proved_at": "2026-10-11T14:40:15.366738Z",
+      "name": "Live-plane RFC 9728 OAuth 2.1 protected resource",
+      "proof_command": "uv run python -c \"from blackhole_agent.oauth_protected_resource import builtin_oauth_protected_resource_proof; r=builtin_oauth_protected_resource_proof(); assert r['ok'] and r.get('action')=='oauth_protected_resource' and all(r['checks'].values()) and not r.get('used_skill_route_discovery')\"",
+      "source_milestone": 1,
+      "source_mission_id": "20261011T142152Z-498cc9a6",
+      "tags": [
+        "invocation",
+        "oauth",
+        "mcp",
+        "rfc9728",
+        "authorization"
+      ],
+      "updated_at": "2026-10-11T14:40:15.366762Z"
+    },
     "capability.objfun-actuation": {
       "behavior_paths": [
         "src/blackhole_agent/rtr_actuation.py",
@@ -47875,5 +47907,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-10-11T14:06:35.944337Z"
+  "updated_at": "2026-10-11T14:40:15.369838Z"
 }

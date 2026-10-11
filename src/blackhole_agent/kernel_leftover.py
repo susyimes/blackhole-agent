@@ -2601,6 +2601,12 @@ _MARKERS = (
     ("scoped token's allowlist in get /console", "capability.token-scope-console-mcp"),
     ("json-rpc invalid-params for a disallowed mcp tools/call", "capability.token-scope-console-mcp"),
     ("disallowed mcp tools/call name", "capability.token-scope-console-mcp"),
+    ("rfc 9728 resource metadata", "capability.oauth-protected-resource"),
+    ("rfc 9728 protected resource", "capability.oauth-protected-resource"),
+    ("oauth-protected-resource", "capability.oauth-protected-resource"),
+    ("oauth 2.1 pkce", "capability.oauth-protected-resource"),
+    ("mcp oauth 2.1 resource-server", "capability.oauth-protected-resource"),
+    ("resource_metadata, so a spec-compliant", "capability.oauth-protected-resource"),
 )
 
 

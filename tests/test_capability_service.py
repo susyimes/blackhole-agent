@@ -310,6 +310,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert int(health["http_request_timeout_seconds"]) > 0
     assert int(health["max_http_connections"]) > 0
     assert health["bundle_import"] is False
+    assert health["oauth_protected_resource"] is False
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})
@@ -389,6 +390,29 @@ def test_parse_authority_and_identity_helpers() -> None:
         listen_port=8765,
     )
     assert same_origin is None
+    inspector = evaluate_request_identity(
+        {"Host": "127.0.0.1:8765", "Origin": "http://127.0.0.1:6274"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+        allow_loopback_oauth_origin=True,
+    )
+    assert inspector is None
+    inspector_blocked = evaluate_request_identity(
+        {"Host": "127.0.0.1:8765", "Origin": "http://127.0.0.1:6274"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    )
+    assert inspector_blocked is not None and inspector_blocked[1]["error"] == ORIGIN_NOT_ALLOWED
+    evil_oauth = evaluate_request_identity(
+        {"Host": "127.0.0.1:8765", "Origin": "http://evil.example"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+        allow_loopback_oauth_origin=True,
+    )
+    assert evil_oauth is not None and evil_oauth[1]["error"] == ORIGIN_NOT_ALLOWED
 
 
 def _raw_http(
