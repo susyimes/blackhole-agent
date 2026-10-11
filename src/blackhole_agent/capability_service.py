@@ -129,6 +129,15 @@ module turns the ledger into a service:
   in the ledger: later invocations are refused with a
   ``resource_quarantined`` verdict before any subprocess is spawned, while
   unaffected capabilities keep serving.
+- Concurrent trees are globally admitted, not just per-tree bounded:
+  ``POST /invoke``, ``POST /solve``, session steps, and MCP ``tools/call``
+  share one in-flight cap (``BLACKHOLE_MAX_INFLIGHT``, default 8). A request
+  that would start another untrusted tree while the cap is full is answered
+  ``429`` with ``violation: admission_limited`` and ``Retry-After`` and never
+  spawns. ``GET /health`` reports the live ``inflight`` / ``max_inflight``
+  snapshot so an operator can see the cap without a token. Idempotent
+  ``429`` responses are not stored as durable receipts: the key may be
+  reused once a slot is free.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -190,6 +199,11 @@ from blackhole_agent.capability_compounder import (
     register_capability,
     save_ledger,
     utc_now_iso,
+)
+from blackhole_agent.invocation_admission import (
+    ADMISSION,
+    MAX_INFLIGHT_ENV,
+    AdmissionLimited,
 )
 from blackhole_agent.invocation_history import (
     load_capability_stats,
@@ -762,16 +776,24 @@ def invoke_capability(
         )
 
     try:
-        completed = run_captured_process(
-            command,
-            cwd=Path(item["tool_root"]),
-            timeout=timeout,
-            input=json.dumps(provided_input),
-            env=_tool_env(),
-            resource_limits=limits,
-            cancel_event=cancel_event,
-            sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
-        )
+        with ADMISSION.slot():
+            completed = run_captured_process(
+                command,
+                cwd=Path(item["tool_root"]),
+                timeout=timeout,
+                input=json.dumps(provided_input),
+                env=_tool_env(),
+                resource_limits=limits,
+                cancel_event=cancel_event,
+                sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
+            )
+    except AdmissionLimited as exc:
+        record(False, "admission_limited")
+        raise InvocationError(
+            429,
+            str(exc),
+            extra=exc.payload(),
+        ) from exc
     except ProcessCancelled:
         raise
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
@@ -1400,6 +1422,18 @@ def _write_mcp_accepted(handler: BaseHTTPRequestHandler, *, session: str = "") -
     handler.end_headers()
 
 
+def _admission_retry_headers(status: int, payload: Mapping[str, Any]) -> dict[str, str] | None:
+    if status != 429:
+        return None
+    retry = payload.get("retry_after", 1)
+    return {"Retry-After": str(retry)}
+
+
+def _invocation_error_response(handler: BaseHTTPRequestHandler, exc: InvocationError) -> None:
+    payload = {"ok": False, "error": exc.error, **exc.extra}
+    _json_response(handler, exc.status, payload, headers=_admission_retry_headers(exc.status, payload))
+
+
 def _json_response(
     handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any],
     *, replayed: bool | None = None, headers: Mapping[str, str] | None = None,
@@ -1535,7 +1569,17 @@ def build_server(
                 self.wfile.write(body)
                 return
             if path == "/health":
-                _json_response(self, 200, {"ok": True, "schema_version": SCHEMA_VERSION})
+                snapshot = ADMISSION.snapshot()
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "schema_version": SCHEMA_VERSION,
+                        "inflight": snapshot["inflight"],
+                        "max_inflight": snapshot["max_inflight"],
+                    },
+                )
                 return
             if not self._authorize():
                 return
@@ -1748,7 +1792,8 @@ def build_server(
                     except ReceiptError as exc:
                         _json_response(self, exc.status, exc.payload)
                         return
-                    _json_response(self, status, result, replayed=replayed)
+                    extra_headers = _admission_retry_headers(status, result) if isinstance(result, dict) else None
+                    _json_response(self, status, result, replayed=replayed, headers=extra_headers)
                     return
                 try:
                     if path == "/contract":
@@ -1781,7 +1826,7 @@ def build_server(
                             cancel_event=cancel_event,
                         )
                 except InvocationError as exc:
-                    _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
+                    _invocation_error_response(self, exc)
                     return
                 except ProcessCancelled:
                     _write_cancelled(self)
@@ -1867,9 +1912,12 @@ def serve(
     port: int = 0,
     host: str = "127.0.0.1",
     token: str | None = None,
+    max_inflight: int | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
+    if max_inflight is not None:
+        ADMISSION.configure(max_inflight)
     invocation_token = resolve_invocation_token(token)
     server = build_server(root, host=host, port=port, token=invocation_token)
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -1883,6 +1931,7 @@ def serve(
                 "listing_digest": listing["listing_digest"],
                 "auth_required": bool(invocation_token),
                 "mcp_path": MCP_HTTP_PATH,
+                "max_inflight": ADMISSION.max_inflight(),
             }
         ),
         flush=True,
@@ -2293,12 +2342,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="operator bearer token; defaults to BLACKHOLE_INVOCATION_TOKEN",
     )
+    serve_parser.add_argument(
+        "--max-inflight",
+        type=int,
+        default=None,
+        help=f"cap concurrent untrusted tool trees; defaults to {MAX_INFLIGHT_ENV} or 8",
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
     args = parser.parse_args(argv)
     if args.command == "serve":
-        return serve(args.root, port=args.port, host=args.host, token=args.token)
+        return serve(
+            args.root,
+            port=args.port,
+            host=args.host,
+            token=args.token,
+            max_inflight=args.max_inflight,
+        )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)
         print(json.dumps(result, indent=2, sort_keys=True))

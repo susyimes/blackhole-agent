@@ -142,6 +142,15 @@ can authorize re-execution. Durable rows contain a request digest, not input.
             self._active.add(key)
         try:
             status, payload = operation()
+            if status == 429:
+                # Admission refusal never spawned a tool: drop the reservation
+                # so the same key can be reused once a slot is free.
+                with self._database() as connection:
+                    connection.execute(
+                        "DELETE FROM receipts WHERE key = ? AND response IS NULL",
+                        (key,),
+                    )
+                return status, payload, False
             response = json.dumps(payload, sort_keys=True, ensure_ascii=True, allow_nan=False)
             with self._database() as connection:
                 connection.execute(
