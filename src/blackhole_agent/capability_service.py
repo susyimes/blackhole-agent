@@ -221,9 +221,13 @@ module turns the ledger into a service:
   ``BLACKHOLE_MAX_SCRATCH_BYTES`` (default 64 MiB) of child-created files
   into that directory. A tool that dumps a large blob to TEMP is reaped
   and answered ``502`` with ``violation: scratch_limited``; the oversized
-  file is deleted with the scratch directory and never echoed. ``GET
-  /health`` reports ``max_scratch_bytes``. A small scratch write still
-  succeeds. Kernel and git subprocesses omit the cap.
+  file is deleted with the scratch directory and never echoed. Child-created
+  files at or under the cap are harvested before TEMP is deleted.
+  ``POST /invoke`` returns ``invocation_id`` and ``artifacts``; ``GET
+  /artifacts/{id}`` lists them and ``GET /artifacts/{id}/{name}`` returns
+  the bytes. Path traversal and unknown ids are refused. ``GET
+  /health`` reports ``max_scratch_bytes`` and ``invocation_artifacts``. A
+  small scratch write still succeeds. Kernel and git subprocesses omit the cap.
 - HTTP occupancy is bounded independently of untrusted-tool admission.
   Every accepted socket has a request timeout
   (``BLACKHOLE_HTTP_REQUEST_TIMEOUT``, default 15s) so a client that
@@ -354,7 +358,7 @@ from collections import OrderedDict, deque
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from blackhole_agent.capability_absorption import (
     capability_id_for_slug,
@@ -427,6 +431,13 @@ from blackhole_agent.invocation_admission import (
     ADMISSION,
     MAX_INFLIGHT_ENV,
     AdmissionLimited,
+)
+from blackhole_agent.invocation_artifacts import (
+    ArtifactError,
+    list_artifact_files,
+    new_invocation_id,
+    prepare_artifact_dir,
+    serve_invocation_artifact,
 )
 from blackhole_agent.invocation_history import (
     load_capability_stats,
@@ -1410,6 +1421,8 @@ def invoke_capability(
             "capability_id": capability_id,
             "output": output,
             "plugin_tool": result.get("plugin_tool"),
+            "invocation_id": new_invocation_id(),
+            "artifacts": [],
             "response_digest": _digest(
                 {"capability_id": capability_id, "input": provided_input, "output": output}
             ),
@@ -1417,6 +1430,8 @@ def invoke_capability(
     command = _normalized_command(item["command"])
     limits = effective_resource_limits(item)
     started_ms = monotonic_ms()
+    invocation_id = new_invocation_id()
+    artifact_dir = prepare_artifact_dir(root, invocation_id)
 
     def record(ok: bool, error: str | None = None) -> None:
         record_invocation(
@@ -1437,6 +1452,7 @@ def invoke_capability(
                 max_output_bytes=current_max_output_bytes(),
                 max_scratch_bytes=current_max_scratch_bytes(),
                 on_output=output_listener,
+                preserve_scratch_to=artifact_dir,
             )
     except AdmissionLimited as exc:
         record(False, "admission_limited")
@@ -1496,6 +1512,8 @@ def invoke_capability(
         "ok": True,
         "capability_id": capability_id,
         "output": output,
+        "invocation_id": invocation_id,
+        "artifacts": list_artifact_files(artifact_dir),
         "response_digest": _digest(
             {"capability_id": capability_id, "input": provided_input, "output": output}
         ),
@@ -2253,6 +2271,27 @@ def _invocation_error_response(handler: BaseHTTPRequestHandler, exc: InvocationE
     _json_response(handler, exc.status, payload, headers=_admission_retry_headers(exc.status, payload))
 
 
+def _bytes_response(
+    handler: BaseHTTPRequestHandler,
+    status: int,
+    body: bytes,
+    *,
+    content_type: str,
+    headers: Mapping[str, str] | None = None,
+) -> None:
+    extra = dict(headers or {})
+    cors = getattr(handler, "_oauth_cors", None)
+    if callable(cors):
+        extra.update(cors())
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(body)))
+    for key, value in extra.items():
+        handler.send_header(key, value)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 def _json_response(
     handler: BaseHTTPRequestHandler, status: int, payload: Mapping[str, Any],
     *, replayed: bool | None = None, headers: Mapping[str, str] | None = None,
@@ -2439,6 +2478,19 @@ def build_server(
             if rest and "/" not in rest:
                 return rest
             return None
+
+        def _artifact_request(self) -> tuple[str, str] | None:
+            path = unquote(self.path.split("?", 1)[0])
+            prefix = "/artifacts/"
+            if not path.startswith(prefix):
+                return None
+            rest = path[len(prefix):]
+            if not rest:
+                return None
+            invocation_id, _sep, name = rest.partition("/")
+            if not invocation_id:
+                return None
+            return invocation_id, name
 
         def _session_events_id(self) -> str | None:
             path = self.path.split("?", 1)[0]
@@ -2679,6 +2731,7 @@ def build_server(
                         "max_output_bytes": current_max_output_bytes(),
                         "max_scratch_bytes": current_max_scratch_bytes(),
                         "live_invoke_stream": True,
+                        "invocation_artifacts": True,
                         "mcp_tools_list_changed": True,
                         "mcp_completions": True,
                         "mcp_resource_subscribe": True,
@@ -2758,6 +2811,18 @@ def build_server(
                 return
             if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
+                return
+            artifact = self._artifact_request()
+            if artifact is not None:
+                invocation_id, name = artifact
+                try:
+                    status, content_type, body, extra = serve_invocation_artifact(
+                        service_root, invocation_id, name
+                    )
+                except ArtifactError as exc:
+                    _json_response(self, exc.status, exc.payload)
+                    return
+                _bytes_response(self, status, body, content_type=content_type, headers=extra)
                 return
             if path == "/sessions" or self._session_events_id() is not None:
                 if not self._require_operator():
@@ -3193,6 +3258,7 @@ def serve(
                 "mcp_resource_subscribe": True,
                 "mcp_logging": True,
                 "mcp_sse_resume": True,
+                "invocation_artifacts": True,
                 "non_loopback_requires_token": True,
                 "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),
@@ -3412,6 +3478,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
             status == 200
             and isinstance(health, dict)
             and int(health.get("max_scratch_bytes") or 0) > 0
+        )
+        checks["invocation_artifacts_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("invocation_artifacts") is True
         )
         checks["mcp_completions_health"] = (
             status == 200 and isinstance(health, dict) and health.get("mcp_completions") is True

@@ -36,7 +36,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 
 class ProcessCancelled(RuntimeError):
@@ -327,6 +327,101 @@ def _delete_invocation_files(root: Path, before: dict[str, tuple[int, int]]) -> 
                     path.unlink()
                 except OSError:
                     continue
+    except OSError:
+        return
+
+
+def preserve_scratch_files(
+    scratch: Path,
+    dest: Path,
+    *,
+    extra_roots: Sequence[Path] | None = None,
+    extra_before: Mapping[str, dict[str, tuple[int, int]]] | None = None,
+    max_files: int = 256,
+) -> list[str]:
+    """Copy child-created TEMP files to ``dest`` before the scratch tree is deleted.
+
+    Primary scratch copies every regular file except parent stdin/startup
+    files. Extra roots (Windows AppContainer TEMP) copy only files this
+    invocation created or rewrote. Symlinks are skipped. Returns the
+    relative POSIX names that landed, in copy order.
+    """
+
+    copied: list[str] = []
+    _copy_scratch_tree(
+        Path(scratch),
+        Path(dest),
+        skip_root_names=_PARENT_SCRATCH_NAMES,
+        include_keys=None,
+        max_files=max_files,
+        copied=copied,
+    )
+    prior = extra_before or {}
+    for root in extra_roots or ():
+        if _same_scratch_path(root, scratch):
+            continue
+        changed: set[str] = set()
+        before = prior.get(str(root), {})
+        for key, record in _file_records(Path(root)).items():
+            previous = before.get(key)
+            if previous is None or previous != record:
+                changed.add(key)
+        if not changed:
+            continue
+        _copy_scratch_tree(
+            Path(root),
+            Path(dest),
+            skip_root_names=_PARENT_SCRATCH_NAMES,
+            include_keys=changed,
+            max_files=max_files,
+            copied=copied,
+        )
+    return copied
+
+
+def _copy_scratch_tree(
+    source_root: Path,
+    dest: Path,
+    *,
+    skip_root_names: frozenset[str],
+    include_keys: set[str] | None,
+    max_files: int,
+    copied: list[str],
+) -> None:
+    folder = Path(source_root)
+    if not folder.exists() or len(copied) >= max_files:
+        return
+    try:
+        for dirpath, dirnames, filenames in os.walk(folder):
+            dirnames[:] = [
+                name
+                for name in dirnames
+                if not (Path(dirpath) / name).is_symlink()
+            ]
+            current = Path(dirpath)
+            for name in sorted(filenames):
+                if len(copied) >= max_files:
+                    return
+                path = current / name
+                if path.is_symlink() or not path.is_file():
+                    continue
+                if current == folder and name in skip_root_names:
+                    continue
+                if include_keys is not None and _path_key(path) not in include_keys:
+                    continue
+                try:
+                    rel = path.relative_to(folder).as_posix()
+                except ValueError:
+                    continue
+                if not rel or ".." in Path(rel).parts:
+                    continue
+                target = Path(dest) / rel
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(path.read_bytes())
+                except OSError:
+                    continue
+                copied.append(rel)
     except OSError:
         return
 
@@ -637,6 +732,7 @@ def run_captured_process(
     max_output_bytes: int | None = None,
     max_scratch_bytes: int | None = None,
     on_output: Callable[[str, str], None] | None = None,
+    preserve_scratch_to: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
 
@@ -670,6 +766,12 @@ def run_captured_process(
     When ``on_output`` is given, each newly captured stdout/stderr chunk is
     pushed as ``on_output(stream, text)`` while the tree still runs. The
     final ``CompletedProcess`` still carries the full decoded blobs.
+    When ``preserve_scratch_to`` is given, child-created files in the
+    per-invocation TEMP (and this invocation's new/rewritten files in the
+    shared AppContainer TEMP) are copied into that directory before the
+    scratch tree is deleted. Parent-owned ``stdin.txt`` /
+    ``startup-error.json``, symlinks, and oversized capped writes are not
+    copied. Kernel callers omit this argument.
     """
     if timeout <= 0:
         raise ValueError("timeout must be positive")
@@ -835,6 +937,19 @@ def run_captured_process(
             exceeded_scratch = exceeded_scratch or _scratch_exceeded(
                 scratch_roots, Path(scratch), scratch_cap, extra_before
             )
+        if (
+            preserve_scratch_to is not None
+            and not cancelled
+            and not exceeded_stream
+            and not exceeded_scratch
+        ):
+            preserve_scratch_files(
+                Path(scratch),
+                Path(preserve_scratch_to),
+                extra_roots=extra_scratch,
+                extra_before=extra_before,
+            )
+        if scratch_cap:
             for root in extra_scratch:
                 _delete_invocation_files(root, extra_before.get(str(root), {}))
         if cancelled:

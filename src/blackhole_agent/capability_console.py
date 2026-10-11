@@ -102,9 +102,10 @@ __ROWS__
 <p>capability id: <input id="invoke-id" list="cap-ids" placeholder="capability.absorbed-…"><datalist id="cap-ids">__OPTIONS__</datalist></p>
 <p>input (JSON object):</p>
 <textarea id="invoke-input" rows="3">{}</textarea>
-<p>Live stdout/stderr stream while the tool runs; the JSON result follows.</p>
+<p>Live stdout/stderr stream while the tool runs; the JSON result follows. Files the tool wrote into TEMP are listed below the JSON and can be downloaded from <code>/artifacts/{id}/{name}</code>.</p>
 <p><button onclick="invokeCapability()">invoke</button> <button onclick="cancelInvoke()">cancel</button></p>
 <pre id="invoke-result"></pre>
+<div id="invoke-artifacts"></div>
 </section>
 <section>
 <h2>solve a declarative goal</h2>
@@ -162,6 +163,43 @@ function postInvoke(body, controller) {
 }
 function show(id, payload) {
   document.getElementById(id).textContent = JSON.stringify(payload, null, 2);
+}
+function renderInvokeArtifacts(payload) {
+  const box = document.getElementById("invoke-artifacts");
+  if (!box) return;
+  box.innerHTML = "";
+  const result = payload && payload.result ? payload.result : payload;
+  const files = (result && result.artifacts) || [];
+  const invocationId = result && result.invocation_id;
+  if (!invocationId || !files.length) return;
+  const heading = document.createElement("p");
+  heading.textContent = "invocation artifacts";
+  box.appendChild(heading);
+  const list = document.createElement("ul");
+  files.forEach(file => {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    const name = String(file.name || "");
+    button.textContent = "download " + name + " (" + String(file.bytes || 0) + " bytes)";
+    button.onclick = () => downloadArtifact(invocationId, name);
+    item.appendChild(button);
+    list.appendChild(item);
+  });
+  box.appendChild(list);
+}
+async function downloadArtifact(invocationId, name) {
+  const encoded = String(name).split("/").map(encodeURIComponent).join("/");
+  const response = await fetch("/artifacts/" + encodeURIComponent(invocationId) + "/" + encoded, {
+    headers: withAuth({})
+  });
+  if (!response.ok) return;
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = String(name).split("/").pop() || "artifact";
+  link.click();
+  URL.revokeObjectURL(url);
 }
 function parseGoalKeys(raw) {
   return raw.split(",").map(key => key.trim()).filter(key => key.length > 0);
@@ -244,7 +282,9 @@ async function invokeCapability() {
     });
     const ctype = (response.headers.get("content-type") || "").toLowerCase();
     if (!ctype.includes("text/event-stream")) {
-      show("invoke-result", await response.json());
+      const payload = await response.json();
+      show("invoke-result", payload);
+      renderInvokeArtifacts(payload);
       return;
     }
     const reader = response.body.getReader();
@@ -275,6 +315,7 @@ async function invokeCapability() {
         } else if (eventName === "result" || eventName === "error") {
           live.result = payload;
           node.textContent = JSON.stringify(live, null, 2);
+          if (eventName === "result") renderInvokeArtifacts(payload);
         }
       }
     }
