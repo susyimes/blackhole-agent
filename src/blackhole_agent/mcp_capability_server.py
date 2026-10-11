@@ -546,9 +546,24 @@ def tool_name_for_slug(slug: str, taken: set[str]) -> str:
 def _tool_descriptor(capability_id: str, item: Mapping[str, Any], tool_name: str) -> dict[str, Any]:
     requires = [str(key) for key in item["requires"]]
     provides = [str(key) for key in item["provides"]]
-    manifest_path = Path(str(item["tool_root"])) / "absorption.json"
+    advertised = item.get("input_schema")
+    if isinstance(advertised, Mapping) and advertised:
+        descriptor: dict[str, Any] = {
+            "name": tool_name,
+            "description": (
+                f"{item['name']} [{capability_id}] — provides: {', '.join(provides)}"
+            ),
+            "inputSchema": dict(advertised),
+        }
+        return descriptor
+    tool_root = str(item.get("tool_root") or "")
+    manifest_path = Path(tool_root) / "absorption.json" if tool_root else None
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = (
+            json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest_path is not None
+            else {}
+        )
     except (OSError, json.JSONDecodeError):
         manifest = {}
     input_types = _case_property_types(manifest, "input")

@@ -127,6 +127,14 @@ module turns the ledger into a service:
   stores a session severity floor; live ``tools/call`` stderr is
   published as ``notifications/message`` on the GET reverse channel
   (stdout at debug) while the owned tree still runs.
+- Hosted stdio MCP plugins are opt-in. ``--mcp-plugin`` (JSON argv or a
+  shell command; repeatable) or ``BLACKHOLE_MCP_PLUGIN`` starts those
+  servers at listen time, lists each tool as
+  ``capability.mcp-plugin-{name}`` on ``GET /capabilities`` and MCP
+  ``tools/list``, and ``POST /invoke`` (plus MCP ``tools/call``) executes
+  the plugin's ``tools/call``. A plane without a plugin does not list or
+  execute those ids (HTTP 404). Sibling absorbed tools keep serving.
+  ``GET /health`` reports ``mcp_plugin_invoke`` and ``mcp_plugin_count``.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``
@@ -310,6 +318,16 @@ from blackhole_agent.http_connection_limits import (
     configure_http_request_timeout,
     current_http_request_timeout,
 )
+from blackhole_agent.mcp_plugin_invoke import (
+    PLUGIN_KIND,
+    PluginStartError,
+    active_mcp_plugin_plane,
+    configure_mcp_plugin_plane,
+    mcp_plugin_health,
+    resolve_mcp_plugin_commands,
+    start_mcp_plugin_plane,
+)
+from blackhole_agent.mcp_client import McpProtocolError
 from blackhole_agent.invocation_admission import (
     ADMISSION,
     MAX_INFLIGHT_ENV,
@@ -711,6 +729,11 @@ def load_invocable_capabilities(root: Path) -> dict[str, dict[str, Any]]:
             ),
             "limits_override": _validated_limits_override(entry.get("resource_limits")),
         }
+    plane = active_mcp_plugin_plane()
+    if plane is not None:
+        for capability_id, item in plane.invocable_items().items():
+            if capability_id not in invocable:
+                invocable[capability_id] = item
     return invocable
 
 
@@ -1110,13 +1133,15 @@ def invoke_capability(
     cancel_event: threading.Event | None = None,
     output_listener: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
-    """Execute one proved absorbed capability against its vendored tree.
+    """Execute one proved absorbed capability or opted-in MCP plugin tool.
 
     When ``cancel_event`` is given and becomes set while the tool runs, the
     tool's owned process tree is terminated and :class:`ProcessCancelled`
     propagates to the caller (goal sessions use this for ``DELETE``).
-    When ``output_listener`` is given, each captured stdout/stderr chunk is
-    delivered as ``output_listener(stream, text)`` while the tool still runs.
+    Plugin tools receive ``notifications/cancelled`` on the live stdio
+    session instead of a process-group reap. When ``output_listener`` is
+    given, each captured stdout/stderr chunk is delivered as
+    ``output_listener(stream, text)`` while an absorbed tool still runs.
     """
 
     if not isinstance(capability_id, str) or not capability_id.strip():
@@ -1146,6 +1171,55 @@ def invoke_capability(
         if extra:
             problems.append(f"unexpected keys: {extra}")
         raise InvocationError(422, "; ".join(problems))
+    if item.get("kind") == PLUGIN_KIND:
+        plane = active_mcp_plugin_plane()
+        if plane is None:
+            raise InvocationError(404, f"unknown or non-invocable capability: {capability_id}")
+        started_ms = monotonic_ms()
+
+        def record_plugin(ok: bool, error: str | None = None) -> None:
+            record_invocation(
+                root, capability_id, duration_ms=monotonic_ms() - started_ms, ok=ok, error=error
+            )
+
+        try:
+            with ADMISSION.slot():
+                result = plane.invoke(
+                    capability_id,
+                    provided_input,
+                    timeout=timeout,
+                    cancel_event=cancel_event,
+                    output_listener=output_listener,
+                )
+        except KeyError as exc:
+            record_plugin(False, "unknown plugin tool")
+            raise InvocationError(
+                404, f"unknown or non-invocable capability: {capability_id}"
+            ) from exc
+        except AdmissionLimited as exc:
+            record_plugin(False, "admission_limited")
+            raise InvocationError(429, str(exc), extra=exc.payload()) from exc
+        except ProcessCancelled:
+            raise
+        except McpProtocolError as exc:
+            record_plugin(False, str(exc))
+            raise InvocationError(502, f"plugin tool failed: {exc}") from exc
+        except (OSError, RuntimeError) as exc:
+            record_plugin(False, f"{type(exc).__name__}: {exc}")
+            raise InvocationError(
+                502, f"plugin tool failed: {type(exc).__name__}: {exc}"
+            ) from exc
+        output = dict(result.get("output") or {})
+        record_plugin(True)
+        return {
+            "ok": True,
+            "capability_id": capability_id,
+            "output": output,
+            "plugin_tool": result.get("plugin_tool"),
+            "response_digest": _digest(
+                {"capability_id": capability_id, "input": provided_input, "output": output}
+            ),
+        }
     command = _normalized_command(item["command"])
     limits = effective_resource_limits(item)
     started_ms = monotonic_ms()
@@ -2008,6 +2082,7 @@ def build_server(
     token: str | None = None,
     tls_cert: str | Path | None = None,
     tls_key: str | Path | None = None,
+    mcp_plugin_commands: Sequence[Sequence[str]] | None = None,
 ) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
@@ -2016,6 +2091,9 @@ def build_server(
     assert_bind_policy(host, invocation_token)
     tls_files = resolve_tls_files(tls_cert, tls_key)
     tls_context = build_tls_context(*tls_files) if tls_files else None
+    configure_mcp_plugin_plane(None)
+    if mcp_plugin_commands:
+        start_mcp_plugin_plane(mcp_plugin_commands)
     from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager
     from blackhole_agent.invocation_receipts import (
         InvocationReceipts,
@@ -2211,6 +2289,7 @@ def build_server(
                         "loopback_host_origin": True,
                         "tls": bool(getattr(self.server, "tls_enabled", False)),
                         **http_occupancy_health(),
+                        **mcp_plugin_health(),
                     },
                 )
                 return
@@ -2578,6 +2657,7 @@ def build_server(
 
     def _close_with_watcher() -> None:
         catalog_watcher.stop()
+        configure_mcp_plugin_plane(None)
         original_close()
 
     server.server_close = _close_with_watcher  # type: ignore[method-assign]
@@ -2597,6 +2677,7 @@ def serve(
     max_http_connections: int | None = None,
     tls_cert: str | Path | None = None,
     tls_key: str | Path | None = None,
+    mcp_plugin: Sequence[str] | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -2609,6 +2690,17 @@ def serve(
     reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
     try:
+        plugin_commands = resolve_mcp_plugin_commands(mcp_plugin)
+    except ValueError as exc:
+        print(
+            json.dumps(
+                {"ok": False, "error": "mcp_plugin_invalid", "detail": str(exc)},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        return 2
+    try:
         server = build_server(
             root,
             host=host,
@@ -2616,8 +2708,9 @@ def serve(
             token=invocation_token,
             tls_cert=tls_cert,
             tls_key=tls_key,
+            mcp_plugin_commands=plugin_commands,
         )
-    except (BindPolicyError, TlsConfigError) as exc:
+    except (BindPolicyError, TlsConfigError, PluginStartError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -2642,6 +2735,7 @@ def serve(
                 "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),
                 **http_occupancy_health(),
+                **mcp_plugin_health(),
             }
         ),
         flush=True,
@@ -3205,6 +3299,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help=f"PEM private key to serve HTTPS; defaults to {TLS_KEY_ENV}",
     )
+    serve_parser.add_argument(
+        "--mcp-plugin",
+        action="append",
+        default=None,
+        help=(
+            "opt in a stdio MCP server whose tools become POST /invoke "
+            "capabilities (JSON argv or a shell command; repeatable). "
+            "Defaults to BLACKHOLE_MCP_PLUGIN"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -3222,6 +3326,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_http_connections=args.max_http_connections,
             tls_cert=args.tls_cert,
             tls_key=args.tls_key,
+            mcp_plugin=args.mcp_plugin,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)

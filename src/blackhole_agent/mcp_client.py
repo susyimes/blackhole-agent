@@ -88,6 +88,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
+from blackhole_agent.process_capture import ProcessCancelled
 from blackhole_agent.tool_routing import (
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     EXECUTABLE_TOOL_ROUTE,
@@ -570,12 +571,18 @@ class McpStdioSession:
         request_id: int,
         *,
         cancel_after: float | None = None,
+        cancel_event: threading.Event | None = None,
     ) -> dict[str, Any]:
         cancel_at = (
             time.monotonic() + float(cancel_after) if cancel_after is not None else None
         )
         cancelled = False
         while True:
+            if cancel_event is not None and cancel_event.is_set():
+                if not cancelled:
+                    self.cancel_request(request_id, reason="http disconnect")
+                    cancelled = True
+                raise ProcessCancelled()
             timeout = self.timeout_seconds
             if cancel_at is not None and not cancelled:
                 remaining_cancel = cancel_at - time.monotonic()
@@ -584,10 +591,14 @@ class McpStdioSession:
                     cancelled = True
                     continue
                 timeout = min(timeout, remaining_cancel)
+            if cancel_event is not None:
+                timeout = min(timeout, 0.05)
             try:
                 line = self._lines.get(timeout=timeout)
             except queue.Empty as error:
                 if cancel_at is not None and not cancelled:
+                    continue
+                if cancel_event is not None and not cancelled:
                     continue
                 raise McpProtocolError(f"timeout waiting for response id={request_id}") from error
             if line is None:
@@ -645,8 +656,11 @@ class McpStdioSession:
         params: Mapping[str, Any] | None = None,
         *,
         cancel_after: float | None = None,
+        cancel_event: threading.Event | None = None,
         progress_token: str | int | None = None,
     ) -> Any:
+        if cancel_event is not None and cancel_event.is_set():
+            raise ProcessCancelled()
         self._next_id += 1
         request_id = self._next_id
         payload = dict(params or {})
@@ -660,9 +674,14 @@ class McpStdioSession:
             payload["_meta"] = meta
             self.progress_tokens.append(progress_token)
         self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": payload})
-        response = self._read_response(request_id, cancel_after=cancel_after)
+        response = self._read_response(
+            request_id, cancel_after=cancel_after, cancel_event=cancel_event
+        )
         if "error" in response:
             error = response["error"] or {}
+            code = error.get("code")
+            if code == JSONRPC_REQUEST_CANCELLED:
+                raise ProcessCancelled()
             raise McpProtocolError(
                 f"JSON-RPC error {error.get('code')}: {error.get('message')} for method {method}"
             )
@@ -722,12 +741,14 @@ class McpStdioSession:
         arguments: Mapping[str, Any],
         *,
         cancel_after: float | None = None,
+        cancel_event: threading.Event | None = None,
         progress_token: str | int | None = None,
     ) -> dict[str, Any]:
         result = self.request(
             "tools/call",
             {"name": name, "arguments": dict(arguments)},
             cancel_after=cancel_after,
+            cancel_event=cancel_event,
             progress_token=progress_token,
         )
         if not isinstance(result, Mapping):
