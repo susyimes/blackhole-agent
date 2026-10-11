@@ -224,10 +224,18 @@ def main() -> dict:
 
                 invalid = request(server.base, "POST", "/invoke", payload("invalid"), "../invalid")
                 checks["invalid_key_refusal"] = invalid[0] == 400 and counts(events, "invalid") == 0
-                unsupported = request(server.base, "POST", "/solve", {
+                keyed_solve = request(server.base, "POST", "/solve", {
                     "initial_state": {"saved": "already"}, "goal": ["saved"],
-                }, "unsupported-key")
-                checks["unsupported_route_refusal"] = unsupported[0] == 400
+                }, "solve-already-key")
+                replayed_solve = request(server.base, "POST", "/solve", {
+                    "initial_state": {"saved": "already"}, "goal": ["saved"],
+                }, "solve-already-key")
+                checks["solve_idempotency_replay"] = (
+                    keyed_solve[0] == 200
+                    and keyed_solve[1].get("solved") is True
+                    and replayed_solve[0] == 200
+                    and replayed_solve[2].get("Idempotency-Replayed") == "true"
+                )
                 connection = http.client.HTTPConnection("127.0.0.1", server.port, timeout=5)
                 raw = json.dumps(payload("multiple-keys")).encode()
                 connection.putrequest("POST", "/invoke")

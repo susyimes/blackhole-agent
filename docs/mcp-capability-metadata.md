@@ -56,7 +56,12 @@ cursor values, or prompt arguments return `-32602`. `initialize` advertises
 `tools.listChanged` and `resources.listChanged`; connected GET `/mcp` streams
 receive `notifications/tools/list_changed` (and resources) when the invocable
 set changes so hosts re-list without disconnecting. Tool calls still
-revalidate through the governed invocation path.
+revalidate through the governed invocation path. `initialize` also
+advertises `experimental.idempotencyKey`. A `tools/call` (including
+`solve_goal`) may carry `_meta.idempotencyKey`; identical retries replay
+the saved JSON-RPC result without spawning the untrusted tool again, and
+a replay includes `_meta.idempotencyReplayed: true`. REST `POST /solve`
+honors `Idempotency-Key` the same way.
 
 The wire formats follow MCP's
 [resources](https://modelcontextprotocol.io/specification/2025-03-26/server/resources)

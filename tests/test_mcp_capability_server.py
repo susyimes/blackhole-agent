@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
 from blackhole_agent.mcp_capability_server import (
     CATALOG_URI,
     PREPARE_PROMPT_NAME,
@@ -24,9 +25,11 @@ from blackhole_agent.mcp_capability_server import (
     CapabilityCatalog,
     CatalogChangeWatcher,
     McpHttpSession,
+    ToolCallError,
     capability_resource_uri,
     handle_http_rpc,
     handle_message,
+    run_governed_tools_call,
     tool_name_for_slug,
 )
 from blackhole_agent.mcp_client import McpProtocolError, McpStdioSession
@@ -178,6 +181,7 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
         "listChanged": True,
     }
     assert reply["result"]["capabilities"]["prompts"] == {"listChanged": False}
+    assert reply["result"]["capabilities"]["experimental"] == {"idempotencyKey": True}
     assert reply["result"]["capabilities"] == SERVER_CAPABILITIES
     assert handle_message(catalog, {"jsonrpc": "2.0", "id": 2, "method": "ping"})["result"] == {}
     assert handle_message(catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
@@ -340,6 +344,132 @@ def test_handle_http_rpc_executes_tools_call(tmp_path: Path) -> None:
     assert handle_http_rpc(
         catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}
     ) is None
+
+
+def test_handle_http_rpc_replays_idempotent_tools_call(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    tool_dir = root / "capabilities" / "absorbed" / "append-event"
+    tool_dir.mkdir(parents=True)
+    events = tool_dir / "effects.txt"
+    (tool_dir / "tool.py").write_text(
+        "import json, sys\n"
+        "s = json.load(sys.stdin)\n"
+        "open(s['events'], 'a', encoding='utf-8').write(s['label'] + '\\n')\n"
+        "print(json.dumps({'saved': s['label']}))\n",
+        encoding="utf-8",
+    )
+    (tool_dir / "absorption.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "slug": "append-event",
+                "name": "append event",
+                "command": ["python", "tool.py"],
+                "requires": ["events", "label"],
+                "provides": ["saved"],
+                "cases": [
+                    {
+                        "input": {"events": str(events), "label": label},
+                        "expect": {"saved": label},
+                    }
+                    for label in ("a", "b")
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    ledger = json.loads((root / "capabilities" / "ledger.json").read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-append-event"] = {
+        "id": "capability.absorbed-append-event",
+        "name": "append event",
+        "kind": "python",
+        "last_proved_at": "2026-01-01T00:00:00Z",
+        "last_proof_exit_code": 0,
+    }
+    (root / "capabilities" / "ledger.json").write_text(json.dumps(ledger), encoding="utf-8")
+    catalog = CapabilityCatalog(root)
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 21,
+        "method": "tools/call",
+        "params": {
+            "name": "append-event",
+            "arguments": {"events": str(events), "label": "once"},
+            "_meta": {"idempotencyKey": "mcp-once"},
+        },
+    }
+    first = handle_http_rpc(catalog, payload)
+    second = handle_http_rpc(catalog, dict(payload, id=22))
+    assert first["result"]["structuredContent"] == {"saved": "once"}
+    assert second["result"]["structuredContent"] == {"saved": "once"}
+    assert second["result"]["_meta"]["idempotencyReplayed"] is True
+    assert events.read_text(encoding="utf-8").splitlines() == ["once"]
+    conflict = handle_http_rpc(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 23,
+            "method": "tools/call",
+            "params": {
+                "name": "append-event",
+                "arguments": {"events": str(events), "label": "other"},
+                "_meta": {"idempotencyKey": "mcp-once"},
+            },
+        },
+    )
+    assert conflict["error"]["code"] == -32001
+    assert conflict["error"]["data"]["code"] == "idempotency_conflict"
+    assert events.read_text(encoding="utf-8").splitlines() == ["once"]
+
+
+def test_unknown_tool_with_idempotency_key_does_not_reserve(tmp_path: Path) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    with pytest.raises(ToolCallError):
+        run_governed_tools_call(
+            catalog, "no-such-tool", {"raw_text": "ab"}, idempotency_key="ghost-key"
+        )
+    with pytest.raises(ReceiptError) as caught:
+        InvocationReceipts(catalog.root).lookup("ghost-key")
+    assert caught.value.status == 404
+
+
+def test_admission_429_drops_mcp_receipt_so_key_can_be_reused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    calls = {"n": 0}
+
+    def refuse(*_args, **_kwargs):
+        calls["n"] += 1
+        return {
+            "content": [{"type": "text", "text": "invocation refused (429): too many"}],
+            "isError": True,
+        }
+
+    monkeypatch.setattr(catalog, "call", refuse)
+    first, replayed = run_governed_tools_call(
+        catalog, "text-reverser", {"raw_text": "ab"}, idempotency_key="retry-after"
+    )
+    assert first["isError"] is True and replayed is False
+    with pytest.raises(ReceiptError) as missing:
+        InvocationReceipts(catalog.root).lookup("retry-after")
+    assert missing.value.status == 404
+
+    def succeed(*_args, **_kwargs):
+        calls["n"] += 1
+        return {
+            "content": [{"type": "text", "text": '{"reversed_text": "ba"}'}],
+            "structuredContent": {"reversed_text": "ba"},
+            "isError": False,
+        }
+
+    monkeypatch.setattr(catalog, "call", succeed)
+    second, replayed = run_governed_tools_call(
+        catalog, "text-reverser", {"raw_text": "ab"}, idempotency_key="retry-after"
+    )
+    assert second["isError"] is False and replayed is False
+    assert second["structuredContent"] == {"reversed_text": "ba"}
+    assert calls["n"] == 2
 
 
 def test_handle_http_rpc_publishes_progress_on_session(tmp_path: Path) -> None:

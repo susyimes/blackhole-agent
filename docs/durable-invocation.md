@@ -34,9 +34,14 @@ input. A missing key returns 404.
 | `receipt_store_unavailable` | Persistence failed. HTTP 503 may occur before execution or while recording its result. Keep the same key when checking recovery. |
 
 Keys accept 1–128 ASCII letters, digits, `.`, `_`, `:`, and `-`. Empty,
-invalid, or multiple key headers return 400. The header is supported only
-on `POST /invoke`; sending it to another POST route returns 400 instead of
-implying retry protection. Unkeyed requests retain their existing behavior.
+invalid, or multiple key headers return 400. The header is supported on
+`POST /invoke` and `POST /solve`. A solve key binds initial state plus goal,
+so a dropped declarative solve can be retried without running the planned
+program twice. MCP `tools/call` (including `solve_goal`) uses
+`_meta.idempotencyKey` against the same receipt store; a replayed MCP
+result includes `_meta.idempotencyReplayed: true`. Sending the header to
+another POST route returns 400 instead of implying retry protection.
+Unkeyed requests retain their existing behavior.
 
 Reservations and results are stored in
 `<root>/.blackhole-agent/invocation-receipts.sqlite3`. SQLite transactions

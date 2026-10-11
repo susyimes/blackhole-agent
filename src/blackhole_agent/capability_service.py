@@ -18,8 +18,12 @@ module turns the ledger into a service:
 - ``POST /invoke`` with ``Idempotency-Key`` durably reserves that key before
   execution and persists the HTTP response before sending it. Identical
   retries replay the saved response across restarts; conflicting payloads
-  and unresolved executions return 409 without executing again. ``GET
-  /invocations/{key}`` retrieves the response or the in-progress/unknown
+  and unresolved executions return 409 without executing again. ``POST
+  /solve`` honors the same header, binding the key to initial state plus
+  goal so a dropped declarative solve is safe to retry without running the
+  planned program twice. MCP ``tools/call`` (including ``solve_goal``)
+  honors ``_meta.idempotencyKey`` through the same receipt store.
+  ``GET /invocations/{key}`` retrieves the response or the in-progress/unknown
   outcome. Receipts do not expire: a crash may occur after a side effect but
   before a response is recorded, so unknown outcomes require reconciliation.
 - ``POST /contract`` machine-evaluates a semicolon-separated done_when outcome
@@ -1571,7 +1575,12 @@ def build_server(
     service_root = Path(root).resolve()
     invocation_token = resolve_invocation_token(token)
     from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager
-    from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
+    from blackhole_agent.invocation_receipts import (
+        InvocationReceipts,
+        ReceiptError,
+        request_digest,
+        solve_request_digest,
+    )
 
     sessions = SessionManager(service_root)
     sessions.recover()
@@ -1699,6 +1708,8 @@ def build_server(
                         "max_output_bytes": current_max_output_bytes(),
                         "live_invoke_stream": True,
                         "mcp_tools_list_changed": True,
+                        "solve_idempotency": True,
+                        "mcp_call_idempotency": True,
                     },
                 )
                 return
@@ -1883,9 +1894,10 @@ def build_server(
                 return
             keys = self.headers.get_all("Idempotency-Key", [])
             if keys:
-                if path != "/invoke" or len(keys) != 1:
+                if path not in {"/invoke", "/solve"} or len(keys) != 1:
                     _json_response(self, 400, {
-                        "ok": False, "error": "one Idempotency-Key is supported only on POST /invoke",
+                        "ok": False,
+                        "error": "one Idempotency-Key is supported only on POST /invoke and POST /solve",
                     })
                     return
 
@@ -1897,6 +1909,13 @@ def build_server(
                 if keys:
                     def operation() -> tuple[int, dict[str, Any]]:
                         try:
+                            if path == "/solve":
+                                return 200, solve_goal_request(
+                                    service_root,
+                                    body.get("initial_state"),
+                                    body.get("goal"),
+                                    cancel_event=cancel_event,
+                                )
                             return 200, invoke_capability(
                                 service_root,
                                 body.get("capability_id"),
@@ -1906,9 +1925,14 @@ def build_server(
                         except InvocationError as exc:
                             return exc.status, {"ok": False, "error": exc.error, **exc.extra}
 
+                    digest = (
+                        solve_request_digest(body.get("initial_state"), body.get("goal"))
+                        if path == "/solve"
+                        else request_digest(body.get("capability_id"), body.get("input"))
+                    )
                     try:
-                        status, result, replayed = receipts.execute(
-                            keys[0], body.get("capability_id"), body.get("input"), operation
+                        status, result, replayed = receipts.execute_digest(
+                            keys[0], digest, operation
                         )
                     except ReceiptError as exc:
                         _json_response(self, exc.status, exc.payload)

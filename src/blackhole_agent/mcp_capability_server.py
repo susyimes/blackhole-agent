@@ -44,7 +44,12 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
   in-flight request terminates the tool's owned process tree and
   answers the request with JSON-RPC ``-32800`` — the acknowledgement
   real MCP hosts (and this repository's own client) expect before they
-  reuse the session.
+  reuse the session. ``_meta.idempotencyKey`` durably reserves that key
+  before the governed call so a host that retries a dropped
+  ``tools/call`` (or ``solve_goal``) replays the saved JSON-RPC result
+  without spawning the untrusted tool again. Conflicting payloads
+  answer JSON-RPC ``-32001``. ``initialize`` advertises
+  ``experimental.idempotencyKey``.
 - The catalog also serves one meta-tool, ``solve_goal``: the client
   names no capability, only an ``initial_state`` object and a list of
   ``goal`` state keys. The server derives a minimal multi-capability
@@ -95,15 +100,21 @@ from blackhole_agent.capability_service import (
     load_invocable_capabilities,
     solve_goal_request,
 )
+from blackhole_agent.invocation_receipts import (
+    InvocationReceipts,
+    ReceiptError,
+    mcp_call_digest,
+)
 from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.2.0"}
+SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.3.0"}
 SERVER_CAPABILITIES = {
     "tools": {"listChanged": True},
     "resources": {"subscribe": False, "listChanged": True},
     "prompts": {"listChanged": False},
+    "experimental": {"idempotencyKey": True},
 }
 TOOLS_LIST_CHANGED_NOTIFICATION = {
     "jsonrpc": "2.0",
@@ -126,6 +137,7 @@ PREPARE_PROMPT_NAME = "prepare_capability_call"
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 RESOURCE_NOT_FOUND = -32002
+IDEMPOTENCY_RPC = -32001
 PARSE_ERROR = -32700
 REQUEST_CANCELLED = -32800
 
@@ -714,15 +726,36 @@ def handle_http_rpc(
             )
 
         try:
-            if token is not None:
-                _notify_progress(0, "solve started" if name == SOLVE_TOOL_NAME else "call started")
+            try:
+                idempotency_key = extract_idempotency_key(params)
+            except ValueError as exc:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": INVALID_PARAMS, "message": str(exc)},
+                }
             progress = None
             if token is not None and name == SOLVE_TOOL_NAME:
                 progress = lambda p, msg, total=None: _notify_progress(  # noqa: E731
                     p, msg, total=total
                 )
-            result = catalog.call(
-                name, params.get("arguments"), cancel_event=call_cancel, progress=progress
+            result, replayed = run_governed_tools_call(
+                catalog,
+                name,
+                params.get("arguments"),
+                cancel_event=call_cancel,
+                progress=progress,
+                idempotency_key=idempotency_key,
+                on_start=(
+                    None
+                    if token is None
+                    else (lambda: _notify_progress(0, "solve started" if name == SOLVE_TOOL_NAME else "call started"))
+                ),
+                on_complete=(
+                    None
+                    if token is None or name == SOLVE_TOOL_NAME
+                    else (lambda: _notify_progress(1, "call completed", total=1))
+                ),
             )
         except ToolCallError:
             return {
@@ -739,9 +772,10 @@ def handle_http_rpc(
                     "message": f"request {request_id} cancelled by client",
                 },
             }
+        except ReceiptError as exc:
+            return _receipt_rpc_error(request_id, exc)
         else:
-            if token is not None and name != SOLVE_TOOL_NAME:
-                _notify_progress(1, "call completed", total=1)
+            _ = replayed
             return {"jsonrpc": "2.0", "id": request_id, "result": result}
         finally:
             if session is not None:
@@ -771,9 +805,8 @@ def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> di
             result: Any = {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {
-                    "tools": dict(SERVER_CAPABILITIES["tools"]),
-                    "resources": dict(SERVER_CAPABILITIES["resources"]),
-                    "prompts": dict(SERVER_CAPABILITIES["prompts"]),
+                    key: dict(value) if isinstance(value, dict) else value
+                    for key, value in SERVER_CAPABILITIES.items()
                 },
                 "serverInfo": SERVER_INFO,
             }
@@ -819,6 +852,95 @@ def _progress_token(params: Mapping[str, Any]) -> Any:
     return None
 
 
+def extract_idempotency_key(params: Mapping[str, Any] | None) -> str | None:
+    """Return ``_meta.idempotencyKey`` or None when the host omitted it."""
+
+    if not isinstance(params, Mapping):
+        return None
+    meta = params.get("_meta")
+    if not isinstance(meta, Mapping) or "idempotencyKey" not in meta:
+        return None
+    raw = meta.get("idempotencyKey")
+    if not isinstance(raw, str):
+        raise ValueError("idempotencyKey must be a string")
+    return raw
+
+
+def _mcp_result_http_status(result: Mapping[str, Any]) -> int:
+    """Map an MCP isError admission refusal to HTTP 429 so receipts drop it."""
+
+    if not result.get("isError"):
+        return 200
+    content = result.get("content")
+    if isinstance(content, list):
+        for item in content:
+            if isinstance(item, Mapping) and "refused (429)" in str(item.get("text") or ""):
+                return 429
+    return 200
+
+
+def run_governed_tools_call(
+    catalog: CapabilityCatalog,
+    name: str,
+    arguments: Any,
+    *,
+    cancel_event: threading.Event | None = None,
+    progress: Any = None,
+    idempotency_key: str | None = None,
+    on_start: Callable[[], None] | None = None,
+    on_complete: Callable[[], None] | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """Execute ``tools/call``, optionally through durable receipts.
+
+    Returns ``(result, replayed)``. Start/complete hooks run only when the
+    call actually executes, so a replay does not re-emit progress.
+    """
+
+    catalog.refresh()
+    if name != SOLVE_TOOL_NAME and name not in catalog.by_name:
+        raise ToolCallError(name)
+
+    def body() -> dict[str, Any]:
+        if on_start is not None:
+            on_start()
+        result = catalog.call(
+            name, arguments, cancel_event=cancel_event, progress=progress
+        )
+        if on_complete is not None:
+            on_complete()
+        return result
+
+    if not idempotency_key:
+        return body(), False
+
+    receipts = InvocationReceipts(catalog.root)
+    payload = arguments if isinstance(arguments, Mapping) else {}
+
+    def operation() -> tuple[int, dict[str, Any]]:
+        result = body()
+        return _mcp_result_http_status(result), result
+
+    _status, result, replayed = receipts.execute_digest(
+        idempotency_key, mcp_call_digest(name, payload), operation
+    )
+    if replayed and isinstance(result, dict):
+        meta = dict(result.get("_meta") or {})
+        meta["idempotencyReplayed"] = True
+        result = dict(result)
+        result["_meta"] = meta
+    return result, replayed
+
+
+def _receipt_rpc_error(request_id: Any, exc: Any) -> dict[str, Any]:
+    status = int(getattr(exc, "status", 500) or 500)
+    payload = getattr(exc, "payload", None)
+    code = INVALID_PARAMS if status == 400 else IDEMPOTENCY_RPC
+    error: dict[str, Any] = {"code": code, "message": str(exc)}
+    if isinstance(payload, Mapping):
+        error["data"] = payload
+    return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+
 def serve_stdio(root: Path) -> int:
     """Serve NDJSON JSON-RPC on stdin/stdout until EOF; never prints to stdout.
 
@@ -855,8 +977,17 @@ def serve_stdio(root: Path) -> int:
         try:
             name = str(params.get("name") or "")
             is_solve = name == SOLVE_TOOL_NAME
-            if token is not None:
-                _notify_progress(token, 0, "solve started" if is_solve else "call started")
+            try:
+                idempotency_key = extract_idempotency_key(params)
+            except ValueError as exc:
+                _write(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {"code": INVALID_PARAMS, "message": str(exc)},
+                    }
+                )
+                return
             progress = None
             if token is not None and is_solve:
                 progress = lambda p, msg, total=None: _notify_progress(  # noqa: E731
@@ -865,8 +996,23 @@ def serve_stdio(root: Path) -> int:
             with registry_lock:
                 cancel_event = in_flight.get(request_id)
             try:
-                result = catalog.call(
-                    name, params.get("arguments"), cancel_event=cancel_event, progress=progress
+                result, _replayed = run_governed_tools_call(
+                    catalog,
+                    name,
+                    params.get("arguments"),
+                    cancel_event=cancel_event,
+                    progress=progress,
+                    idempotency_key=idempotency_key,
+                    on_start=(
+                        None
+                        if token is None
+                        else (lambda: _notify_progress(token, 0, "solve started" if is_solve else "call started"))
+                    ),
+                    on_complete=(
+                        None
+                        if token is None or is_solve
+                        else (lambda: _notify_progress(token, 1, "call completed", total=1))
+                    ),
                 )
             except ToolCallError:
                 _write(
@@ -889,8 +1035,9 @@ def serve_stdio(root: Path) -> int:
                     }
                 )
                 return
-            if token is not None and not is_solve:
-                _notify_progress(token, 1, "call completed", total=1)
+            except ReceiptError as exc:
+                _write(_receipt_rpc_error(request_id, exc))
+                return
             _write({"jsonrpc": "2.0", "id": request_id, "result": result})
         finally:
             with registry_lock:

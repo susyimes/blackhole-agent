@@ -1,10 +1,16 @@
-"""Durable at-most-once admission for HTTP capability invocations.
+"""Durable at-most-once admission for HTTP and MCP capability invocations.
 
 A committed SQLite reservation precedes execution; a committed response
 precedes delivery. Reservations are never expired or automatically retried:
 after a crash, a tool may already have performed its side effect. A caller
 must reconcile an unknown outcome before deliberately choosing a new key.
 This does not promise exactly-once effects inside an arbitrary tool.
+
+Named ``POST /invoke`` receipts bind ``capability_id`` plus input.
+Declarative ``POST /solve`` receipts bind initial state plus goal.
+MCP ``tools/call`` receipts bind the tool name plus arguments, including
+``solve_goal``. Distinct operations never share a digest, so one key cannot
+replay a solve as an invoke.
 """
 
 from __future__ import annotations
@@ -17,6 +23,8 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator
+
+from blackhole_agent.process_capture import ProcessCancelled
 
 KEY_PATTERN = re.compile(r"[A-Za-z0-9._:-]{1,128}\Z")
 
@@ -33,15 +41,28 @@ def validate_key(key: str) -> None:
         raise ReceiptError(400, "invalid_idempotency_key", "Idempotency-Key must be 1-128 ASCII letters, digits, ._:-")
 
 
-def request_digest(capability_id: Any, provided_input: Any) -> str:
+def payload_digest(payload: Any) -> str:
+    """SHA-256 of canonical JSON; non-finite numbers refuse the reservation."""
+
     try:
         encoded = json.dumps(
-            {"capability_id": capability_id, "input": provided_input},
-            sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False,
+            payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False,
         ).encode("utf-8")
     except (TypeError, ValueError) as exc:
         raise ReceiptError(400, "invalid_invocation", "invocation must contain finite JSON values") from exc
     return hashlib.sha256(encoded).hexdigest()
+
+
+def request_digest(capability_id: Any, provided_input: Any) -> str:
+    return payload_digest({"capability_id": capability_id, "input": provided_input})
+
+
+def solve_request_digest(initial_state: Any, goal: Any) -> str:
+    return payload_digest({"kind": "http.solve", "initial_state": initial_state, "goal": goal})
+
+
+def mcp_call_digest(name: Any, arguments: Any) -> str:
+    return payload_digest({"kind": "mcp.tools/call", "name": name, "arguments": arguments})
 
 
 class InvocationReceipts:
@@ -112,15 +133,28 @@ can authorize re-execution. Durable rows contain a request digest, not input.
         provided_input: Any,
         operation: Callable[[], tuple[int, dict[str, Any]]],
     ) -> tuple[int, dict[str, Any], bool]:
+        """Return HTTP status, original response, and whether it was replayed."""
+
+        return self.execute_digest(key, request_digest(capability_id, provided_input), operation)
+
+    def execute_digest(
+        self,
+        key: str,
+        digest: str,
+        operation: Callable[[], tuple[int, dict[str, Any]]],
+    ) -> tuple[int, dict[str, Any], bool]:
         """Return HTTP status, original response, and whether it was replayed.
 
         The operation translates known execution failures to HTTP responses;
         these are persisted too because failure does not imply no side effects.
         An unexpected exception or failed completion commit leaves the durable
         reservation in place and exposes an unknown outcome, never a retry.
+        ``ProcessCancelled`` propagates so the HTTP/MCP layer can answer 499
+        or JSON-RPC ``-32800``; the reservation stays unknown.
         """
         validate_key(key)
-        digest = request_digest(capability_id, provided_input)
+        if not isinstance(digest, str) or not digest:
+            raise ReceiptError(400, "invalid_invocation", "request digest must be a nonempty string")
         with self._lock:
             with self._database() as connection:
                 row = connection.execute("SELECT * FROM receipts WHERE key = ?", (key,)).fetchone()
@@ -158,6 +192,8 @@ can authorize re-execution. Durable rows contain a request digest, not input.
                     (status, response, key),
                 )
             return status, payload, False
+        except ProcessCancelled:
+            raise
         except ReceiptError:
             raise
         except Exception as exc:

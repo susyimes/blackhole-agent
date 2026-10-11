@@ -4,7 +4,14 @@ from contextlib import contextmanager
 
 import pytest
 
-from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
+from blackhole_agent.invocation_receipts import (
+    InvocationReceipts,
+    ReceiptError,
+    mcp_call_digest,
+    request_digest,
+    solve_request_digest,
+)
+from blackhole_agent.process_capture import ProcessCancelled
 
 
 def test_canonical_request_and_restart_replay(tmp_path):
@@ -104,6 +111,64 @@ def test_completion_storage_failure_does_not_acknowledge_or_repeat(tmp_path, mon
     assert restarted.lookup("work")["state"] == "outcome_unknown"
     with pytest.raises(ReceiptError) as replay:
         restarted.execute("work", "cap", {}, operation)
+    assert replay.value.status == 409
+    assert effects == ["written"]
+
+
+def test_solve_and_mcp_digests_are_isolated_from_invoke(tmp_path):
+    effects = []
+
+    def operation():
+        effects.append("written")
+        return 200, {"output": len(effects)}
+
+    receipts = InvocationReceipts(tmp_path)
+    invoke = receipts.execute("shared", "cap", {"raw_text": "ab"}, operation)
+    assert invoke == (200, {"output": 1}, False)
+    with pytest.raises(ReceiptError) as caught:
+        receipts.execute_digest(
+            "shared",
+            solve_request_digest({"raw_text": "ab"}, ["reversed_text"]),
+            operation,
+        )
+    assert caught.value.payload["code"] == "idempotency_conflict"
+    assert request_digest("cap", {"raw_text": "ab"}) != solve_request_digest(
+        {"raw_text": "ab"}, ["reversed_text"]
+    )
+    assert mcp_call_digest("text-reverser", {"raw_text": "ab"}) != request_digest(
+        "capability.absorbed-text-reverser", {"raw_text": "ab"}
+    )
+    solve_ok = receipts.execute_digest(
+        "solve-key", solve_request_digest({"raw_text": "ab"}, ["reversed_text"]), operation
+    )
+    solve_replay = receipts.execute_digest(
+        "solve-key", solve_request_digest({"raw_text": "ab"}, ["reversed_text"]), operation
+    )
+    assert solve_ok == (200, {"output": 2}, False)
+    assert solve_replay == (200, {"output": 2}, True)
+    mcp_ok = receipts.execute_digest(
+        "mcp-key", mcp_call_digest("append-event", {"label": "once"}), operation
+    )
+    mcp_replay = receipts.execute_digest(
+        "mcp-key", mcp_call_digest("append-event", {"label": "once"}), operation
+    )
+    assert mcp_ok[2] is False and mcp_replay[2] is True
+    assert effects == ["written", "written", "written"]
+
+
+def test_process_cancelled_leaves_keyed_reservation_unknown(tmp_path):
+    effects = []
+
+    def operation():
+        effects.append("written")
+        raise ProcessCancelled()
+
+    receipts = InvocationReceipts(tmp_path)
+    with pytest.raises(ProcessCancelled):
+        receipts.execute_digest("cancel-key", solve_request_digest({"a": 1}, ["b"]), operation)
+    assert receipts.lookup("cancel-key")["state"] == "outcome_unknown"
+    with pytest.raises(ReceiptError) as replay:
+        receipts.execute_digest("cancel-key", solve_request_digest({"a": 1}, ["b"]), operation)
     assert replay.value.status == 409
     assert effects == ["written"]
 
