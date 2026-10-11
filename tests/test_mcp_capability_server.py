@@ -17,6 +17,7 @@ from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
 from blackhole_agent.mcp_capability_server import (
     CATALOG_URI,
     CAPABILITY_URI_TEMPLATE,
+    LOG_MESSAGE_METHOD,
     PREPARE_PROMPT_NAME,
     PROTOCOL_VERSION,
     RESOURCES_LIST_CHANGED_NOTIFICATION,
@@ -32,6 +33,7 @@ from blackhole_agent.mcp_capability_server import (
     capability_resource_uri,
     handle_http_rpc,
     handle_message,
+    log_level_allowed,
     run_governed_tools_call,
     tool_name_for_slug,
 )
@@ -274,12 +276,126 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     }
     assert reply["result"]["capabilities"]["prompts"] == {"listChanged": False}
     assert reply["result"]["capabilities"]["completions"] == {}
+    assert reply["result"]["capabilities"]["logging"] == {}
     assert reply["result"]["capabilities"]["experimental"] == {"idempotencyKey": True}
     assert reply["result"]["capabilities"] == SERVER_CAPABILITIES
     assert handle_message(catalog, {"jsonrpc": "2.0", "id": 2, "method": "ping"})["result"] == {}
     assert handle_message(catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     unknown = handle_message(catalog, {"jsonrpc": "2.0", "id": 3, "method": "unknown/method"})
     assert unknown["error"]["code"] == -32601
+
+
+def test_logging_set_level_is_session_scoped(tmp_path: Path) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    session = McpHttpSession()
+    reply = handle_http_rpc(
+        catalog,
+        {"jsonrpc": "2.0", "id": 1, "method": "logging/setLevel", "params": {"level": "debug"}},
+        session=session,
+    )
+    assert reply["result"] == {}
+    assert session.logs.current() == "debug"
+    outsider = McpHttpSession()
+    assert outsider.logs.current() == "info"
+    bad = handle_http_rpc(
+        catalog,
+        {"jsonrpc": "2.0", "id": 2, "method": "logging/setLevel", "params": {"level": "nope"}},
+        session=session,
+    )
+    assert bad["error"]["code"] == -32602
+    assert session.logs.current() == "debug"
+
+
+def test_log_level_floor_filters_debug() -> None:
+    assert log_level_allowed("info", "info") is True
+    assert log_level_allowed("info", "warning") is True
+    assert log_level_allowed("info", "debug") is False
+    assert log_level_allowed("error", "info") is False
+
+
+def test_tools_call_publishes_stderr_log_messages(tmp_path: Path, monkeypatch) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    session = McpHttpSession()
+    listener = session.subscribe()
+
+    def fake_invoke(root, capability_id, provided_input, **kwargs):
+        output_listener = kwargs.get("output_listener")
+        if output_listener is not None:
+            output_listener("stderr", "BH-UNIT-LOG\n")
+        return {
+            "ok": True,
+            "capability_id": capability_id,
+            "output": {"reversed_text": provided_input["raw_text"][::-1]},
+            "response_digest": "unit",
+        }
+
+    monkeypatch.setattr("blackhole_agent.mcp_capability_server.invoke_capability", fake_invoke)
+    reply = handle_http_rpc(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {"name": "text-reverser", "arguments": {"raw_text": "ab"}},
+        },
+        session=session,
+    )
+    structured = reply["result"]["structuredContent"]
+    assert structured["reversed_text"] == "ba"
+    messages = []
+    while True:
+        try:
+            item = listener.get_nowait()
+        except queue.Empty:
+            break
+        if isinstance(item, dict):
+            messages.append(item)
+    log_events = [item for item in messages if item.get("method") == LOG_MESSAGE_METHOD]
+    assert log_events
+    data = (log_events[0].get("params") or {}).get("data") or {}
+    assert data.get("stream") == "stderr"
+    assert "BH-UNIT-LOG" in str(data.get("text") or "")
+    assert (log_events[0].get("params") or {}).get("level") == "info"
+
+
+def test_error_log_floor_suppresses_tool_stderr(tmp_path: Path, monkeypatch) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    session = McpHttpSession()
+    session.logs.set_level("error")
+    listener = session.subscribe()
+
+    def fake_invoke(root, capability_id, provided_input, **kwargs):
+        output_listener = kwargs.get("output_listener")
+        if output_listener is not None:
+            output_listener("stderr", "BH-UNIT-LOG\n")
+            output_listener("stdout", '{"reversed_text":"ba"}\n')
+        return {
+            "ok": True,
+            "capability_id": capability_id,
+            "output": {"reversed_text": "ba"},
+            "response_digest": "unit",
+        }
+
+    monkeypatch.setattr("blackhole_agent.mcp_capability_server.invoke_capability", fake_invoke)
+    handle_http_rpc(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {"name": "text-reverser", "arguments": {"raw_text": "ab"}},
+        },
+        session=session,
+    )
+    messages = []
+    while True:
+        try:
+            item = listener.get_nowait()
+        except queue.Empty:
+            break
+        if isinstance(item, dict):
+            messages.append(item)
+    assert not [item for item in messages if item.get("method") == LOG_MESSAGE_METHOD]
 
 
 def test_completion_complete_matches_live_catalog_without_execution(tmp_path: Path, monkeypatch) -> None:
@@ -673,9 +789,16 @@ def test_handle_http_rpc_publishes_progress_on_session(tmp_path: Path) -> None:
             published.append(listener.get_nowait())
         except queue.Empty:
             break
-    methods = [item.get("method") for item in published if isinstance(item, dict)]
-    assert methods == ["notifications/progress", "notifications/progress"]
-    assert published[0]["params"]["progressToken"] == "unit-progress"
+    progress = [
+        item
+        for item in published
+        if isinstance(item, dict) and item.get("method") == "notifications/progress"
+    ]
+    assert [item.get("method") for item in progress] == [
+        "notifications/progress",
+        "notifications/progress",
+    ]
+    assert progress[0]["params"]["progressToken"] == "unit-progress"
     assert handle_http_rpc(
         catalog,
         {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 11}},

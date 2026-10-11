@@ -288,6 +288,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["vendored_tree_readonly"] is True
     assert health["mcp_completions"] is True
     assert health["mcp_resource_subscribe"] is True
+    assert health["mcp_logging"] is True
     assert health["non_loopback_requires_token"] is True
     assert int(health["max_scratch_bytes"]) > 0
     status, result = _request("GET", f"{base}/nope")

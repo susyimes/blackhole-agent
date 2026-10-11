@@ -122,8 +122,11 @@ module turns the ledger into a service:
   is unchanged. The same catalog also exposes MCP resources (public
   contracts and tool schemas) and a ``prepare_capability_call`` prompt
   with an embedded live contract; retrieving metadata never executes a
-  capability. ``GET /health`` reports ``mcp_completions`` and
-  ``mcp_resource_subscribe``.
+  capability. ``GET /health`` reports ``mcp_completions``,
+  ``mcp_resource_subscribe``, and ``mcp_logging``. ``logging/setLevel``
+  stores a session severity floor; live ``tools/call`` stderr is
+  published as ``notifications/message`` on the GET reverse channel
+  (stdout at debug) while the owned tree still runs.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``
@@ -1909,6 +1912,7 @@ def build_server(
                         "mcp_tools_list_changed": True,
                         "mcp_completions": True,
                         "mcp_resource_subscribe": True,
+                        "mcp_logging": True,
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
@@ -2316,6 +2320,7 @@ def serve(
                 "mcp_tools_list_changed": True,
                 "mcp_completions": True,
                 "mcp_resource_subscribe": True,
+                "mcp_logging": True,
                 "non_loopback_requires_token": True,
             }
         ),
@@ -2520,6 +2525,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         checks["mcp_resource_subscribe_health"] = (
             status == 200 and isinstance(health, dict) and health.get("mcp_resource_subscribe") is True
         )
+        checks["mcp_logging_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("mcp_logging") is True
+        )
         status, preview = _http_request(
             "POST",
             f"{base}/solve",
@@ -2581,6 +2589,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         advertised_resources = advertised.get("resources") if isinstance(advertised, dict) else None
         checks["mcp_resource_subscribe_advertised"] = (
             isinstance(advertised_resources, dict) and advertised_resources.get("subscribe") is True
+        )
+        checks["mcp_logging_advertised"] = (
+            isinstance(advertised, dict) and advertised.get("logging") == {}
         )
         mcp_hdr = {"Mcp-Session-Id": mcp_session} if mcp_session else None
         status, completed = _http_request(

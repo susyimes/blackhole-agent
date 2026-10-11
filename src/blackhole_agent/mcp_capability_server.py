@@ -7,7 +7,14 @@ repository's own ``McpStdioSession``) can spawn the server and drive the
 compounded ledger over newline-delimited JSON-RPC 2.0:
 
 - ``initialize`` advertises protocol ``2025-03-26`` with tools, resources,
-  and prompts; ``ping`` answers ``{}``.
+  prompts, and logging; ``ping`` answers ``{}``. ``logging/setLevel``
+  stores a severity floor on the session. During ``tools/call``, captured
+  tool stderr is published as ``notifications/message`` (level ``info``)
+  on the Streamable HTTP GET reverse channel and on stdio stdout while
+  the owned tree still runs; stdout chunks are ``debug`` so a host that
+  leaves the default ``info`` floor does not receive the JSON result as a
+  log line. A floor of ``error`` (or higher) stays silent for those
+  streams. ``GET /health`` reports ``mcp_logging``.
 - ``resources/list`` and ``resources/read`` expose a JSON catalog at
   ``blackhole://capabilities`` and one resource per absorbed capability at
   ``blackhole://capabilities/{capability_id}`` (also discoverable as a URI
@@ -121,14 +128,29 @@ from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.5.0"}
+SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.6.0"}
 SERVER_CAPABILITIES = {
     "tools": {"listChanged": True},
     "resources": {"subscribe": True, "listChanged": True},
     "prompts": {"listChanged": False},
     "completions": {},
+    "logging": {},
     "experimental": {"idempotencyKey": True},
 }
+# RFC 5424 / MCP logging levels, least to most severe.
+LOG_LEVELS = (
+    "debug",
+    "info",
+    "notice",
+    "warning",
+    "error",
+    "critical",
+    "alert",
+    "emergency",
+)
+DEFAULT_LOG_LEVEL = "info"
+MAX_LOG_CHARS = 4096
+LOG_MESSAGE_METHOD = "notifications/message"
 COMPLETION_LIMIT = 100
 TOOLS_LIST_CHANGED_NOTIFICATION = {
     "jsonrpc": "2.0",
@@ -191,6 +213,85 @@ class ResourceWatch:
             return uri in self._uris
 
 
+class LoggingFloor:
+    """Session severity floor for ``notifications/message``."""
+
+    def __init__(self, level: str = DEFAULT_LOG_LEVEL) -> None:
+        self._lock = threading.Lock()
+        self._level = level
+
+    def set_level(self, level: str) -> None:
+        value = normalize_log_level(level)
+        with self._lock:
+            self._level = value
+
+    def current(self) -> str:
+        with self._lock:
+            return self._level
+
+
+def normalize_log_level(value: Any) -> str:
+    """Return a spec logging level or raise ``ValueError``."""
+
+    if not isinstance(value, str) or value not in LOG_LEVELS:
+        raise ValueError("unknown log level")
+    return value
+
+
+def log_level_allowed(floor: str, level: str) -> bool:
+    """True when ``level`` is at least as severe as the session floor."""
+
+    try:
+        return LOG_LEVELS.index(level) >= LOG_LEVELS.index(floor)
+    except ValueError:
+        return False
+
+
+def stream_log_level(stream: str) -> str:
+    """Map a captured stream onto an MCP logging level.
+
+    Stderr is ``info`` so a default floor surfaces progress without a
+    prior ``logging/setLevel``. Stdout is ``debug`` so the JSON result
+    blob is not forwarded unless the host asked for debug.
+    """
+
+    return "debug" if stream == "stdout" else "info"
+
+
+def log_notification(level: str, stream: str, text: str) -> dict[str, Any]:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    clipped = normalized if len(normalized) <= MAX_LOG_CHARS else normalized[:MAX_LOG_CHARS]
+    return {
+        "jsonrpc": "2.0",
+        "method": LOG_MESSAGE_METHOD,
+        "params": {
+            "level": level,
+            "logger": f"tool.{stream}",
+            "data": {"stream": stream, "text": clipped},
+        },
+    }
+
+
+def tool_log_listener(
+    publish: Callable[[Mapping[str, Any]], None],
+    floor: LoggingFloor,
+) -> Callable[[str, str], None]:
+    """Forward live captured chunks as ``notifications/message``."""
+
+    def listener(stream: str, text: str) -> None:
+        if not text:
+            return
+        level = stream_log_level(stream)
+        if not log_level_allowed(floor.current(), level):
+            return
+        try:
+            publish(log_notification(level, stream, text))
+        except Exception:
+            return
+
+    return listener
+
+
 class McpHttpSession:
     """One Streamable-HTTP MCP session: in-flight calls and GET SSE listeners."""
 
@@ -199,6 +300,7 @@ class McpHttpSession:
         self.in_flight: dict[Any, threading.Event] = {}
         self._listeners: list[queue.Queue[Any]] = []
         self.watches = ResourceWatch()
+        self.logs = LoggingFloor()
         self.closed = False
 
     def register_call(self, request_id: Any, event: threading.Event) -> None:
@@ -746,6 +848,7 @@ class CapabilityCatalog:
         *,
         cancel_event: threading.Event | None = None,
         progress: Any = None,
+        output_listener: Callable[[str, str], None] | None = None,
     ) -> dict[str, Any]:
         self.refresh()
         if not isinstance(arguments, Mapping):
@@ -757,7 +860,11 @@ class CapabilityCatalog:
             raise ToolCallError(name)
         try:
             result = invoke_capability(
-                self.root, capability_id, dict(arguments), cancel_event=cancel_event
+                self.root,
+                capability_id,
+                dict(arguments),
+                cancel_event=cancel_event,
+                output_listener=output_listener,
             )
         except InvocationError as exc:
             return {
@@ -824,6 +931,8 @@ def handle_http_rpc(
     ``notifications/cancelled`` for an in-flight request id sets the same
     event through ``session``. Progress notifications for a
     ``progressToken`` are published onto that session's GET SSE listeners.
+    Captured tool stderr (and debug stdout) is published as
+    ``notifications/message`` against the session logging floor.
     """
 
     method = message.get("method")
@@ -869,12 +978,16 @@ def handle_http_rpc(
                 progress = lambda p, msg, total=None: _notify_progress(  # noqa: E731
                     p, msg, total=total
                 )
+            output_listener = None
+            if session is not None:
+                output_listener = tool_log_listener(session.publish, session.logs)
             result, replayed = run_governed_tools_call(
                 catalog,
                 name,
                 params.get("arguments"),
                 cancel_event=call_cancel,
                 progress=progress,
+                output_listener=output_listener,
                 idempotency_key=idempotency_key,
                 on_start=(
                     None
@@ -911,7 +1024,8 @@ def handle_http_rpc(
             if session is not None:
                 session.finish_call(request_id)
     watches = session.watches if session is not None else None
-    return handle_message(catalog, message, watches=watches)
+    logs = session.logs if session is not None else None
+    return handle_message(catalog, message, watches=watches, logs=logs)
 
 
 def handle_message(
@@ -919,6 +1033,7 @@ def handle_message(
     message: Mapping[str, Any],
     *,
     watches: ResourceWatch | None = None,
+    logs: LoggingFloor | None = None,
 ) -> dict[str, Any] | None:
     """Handle one non-call JSON-RPC message; None for notifications.
 
@@ -975,6 +1090,11 @@ def handle_message(
             result = catalog.get_prompt(params.get("name"), params.get("arguments", {}))
         elif method == "completion/complete":
             result = catalog.complete(params.get("ref"), params.get("argument"))
+        elif method == "logging/setLevel":
+            level = normalize_log_level(params.get("level"))
+            if logs is not None:
+                logs.set_level(level)
+            result = {}
         else:
             return {
                 "jsonrpc": "2.0",
@@ -1038,6 +1158,7 @@ def run_governed_tools_call(
     cancel_event: threading.Event | None = None,
     progress: Any = None,
     idempotency_key: str | None = None,
+    output_listener: Callable[[str, str], None] | None = None,
     on_start: Callable[[], None] | None = None,
     on_complete: Callable[[], None] | None = None,
 ) -> tuple[dict[str, Any], bool]:
@@ -1055,7 +1176,11 @@ def run_governed_tools_call(
         if on_start is not None:
             on_start()
         result = catalog.call(
-            name, arguments, cancel_event=cancel_event, progress=progress
+            name,
+            arguments,
+            cancel_event=cancel_event,
+            progress=progress,
+            output_listener=output_listener,
         )
         if on_complete is not None:
             on_complete()
@@ -1109,6 +1234,7 @@ def serve_stdio(root: Path) -> int:
     registry_lock = threading.Lock()
     in_flight: dict[Any, threading.Event] = {}
     watches = ResourceWatch()
+    logs = LoggingFloor()
 
     def _write(payload: Mapping[str, Any]) -> None:
         with write_lock:
@@ -1160,6 +1286,7 @@ def serve_stdio(root: Path) -> int:
                     params.get("arguments"),
                     cancel_event=cancel_event,
                     progress=progress,
+                    output_listener=tool_log_listener(_write, logs),
                     idempotency_key=idempotency_key,
                     on_start=(
                         None
@@ -1243,7 +1370,7 @@ def serve_stdio(root: Path) -> int:
                     target=_run_call, args=(message["id"], params), daemon=True
                 ).start()
                 continue
-            response = handle_message(catalog, message, watches=watches)
+            response = handle_message(catalog, message, watches=watches, logs=logs)
             if response is not None:
                 _write(response)
     finally:
