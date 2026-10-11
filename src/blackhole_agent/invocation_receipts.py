@@ -59,10 +59,18 @@ def request_digest(capability_id: Any, provided_input: Any) -> str:
     return payload_digest({"capability_id": capability_id, "input": provided_input})
 
 
-def solve_request_digest(initial_state: Any, goal: Any, *, dry_run: bool = False) -> str:
+def solve_request_digest(
+    initial_state: Any,
+    goal: Any,
+    *,
+    dry_run: bool = False,
+    forage: Any = None,
+) -> str:
     payload: dict[str, Any] = {"kind": "http.solve", "initial_state": initial_state, "goal": goal}
     if dry_run:
         payload["dry_run"] = True
+    if forage not in (None, [], ()):
+        payload["forage"] = forage
     return payload_digest(payload)
 
 

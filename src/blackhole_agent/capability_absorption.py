@@ -63,11 +63,12 @@ from blackhole_agent.capability_application import (
 )
 from blackhole_agent.capability_compounder import (
     Capability,
+    CapabilityLedger,
+    CapabilityRunResult,
     atomic_write_json,
     default_ledger_path,
     legacy_pipeline_was_used,
     load_ledger,
-    prove_capability,
     register_capability,
     save_ledger,
     utc_now_iso,
@@ -528,6 +529,77 @@ def absorbed_proof_command(slug: str) -> str:
     )
 
 
+def _prove_registered_absorbed(
+    ledger: CapabilityLedger,
+    capability_id: str,
+    slug: str,
+    *,
+    persist_path: Path,
+    vendored_root: Path,
+) -> tuple[CapabilityLedger, CapabilityRunResult]:
+    """Stamp an absorbed ledger entry from an in-process vendored proof.
+
+    The stored ``proof_command`` remains the portable ``uv run`` replay for
+    later audits. Live absorption — including ``POST /solve`` forage into a
+    foreign workspace — must not wait on ``uv`` resolving that workspace:
+    a 15s HTTP request timeout drops the socket while ``uv run`` is still
+    creating a throwaway environment.
+    """
+
+    proof = prove_absorbed_capability(
+        slug, persist_path=persist_path, vendored_root=vendored_root
+    )
+    ok = bool(
+        proof.get("ok")
+        and proof.get("record_digest_match")
+        and proof.get("tree_digest_match")
+        and proof.get("cases_pass")
+    )
+    exit_code = 0 if ok else 1
+    summary = (
+        "in-process absorbed proof passed"
+        if ok
+        else (
+            "in-process absorbed proof failed: "
+            f"record_digest_match={proof.get('record_digest_match')} "
+            f"tree_digest_match={proof.get('tree_digest_match')} "
+            f"cases_pass={proof.get('cases_pass')}"
+        )
+    )
+    now = utc_now_iso()
+    capability = ledger.capabilities[capability_id]
+    ledger.capabilities[capability_id] = Capability(
+        id=capability.id,
+        name=capability.name,
+        description=capability.description,
+        kind=capability.kind,
+        entry=capability.entry,
+        proof_command=capability.proof_command,
+        dependencies=capability.dependencies,
+        behavior_paths=capability.behavior_paths,
+        capability_delta=capability.capability_delta,
+        tags=capability.tags,
+        created_at=capability.created_at,
+        updated_at=now,
+        source_mission_id=capability.source_mission_id,
+        source_milestone=capability.source_milestone,
+        last_proved_at=now,
+        last_proof_exit_code=exit_code,
+        resource_quarantine=capability.resource_quarantine,
+    )
+    ledger.updated_at = now
+    return ledger, CapabilityRunResult(
+        capability_id=capability_id,
+        ok=ok,
+        exit_code=exit_code,
+        command=("in-process", "prove_absorbed_capability", slug),
+        stdout=summary if ok else "",
+        stderr="" if ok else summary,
+        kind="proof",
+        summary=summary[:500],
+    )
+
+
 # ---------------------------------------------------------------------------
 # Repair: audited reseal of records whose seal is not checkout-reproducible.
 # ---------------------------------------------------------------------------
@@ -798,7 +870,14 @@ def absorb_external_capability(
     )
     ledger = register_capability(ledger, capability, replace=True)
     save_ledger(resolved_ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability_id, cwd=repo_root, timeout=timeout)
+    _ = timeout  # public signature; in-process proof is bounded by CASE_TIMEOUT_SECONDS
+    ledger, proof = _prove_registered_absorbed(
+        ledger,
+        capability_id,
+        slug,
+        persist_path=persist_path,
+        vendored_root=Path(repo_root) / "capabilities" / "absorbed",
+    )
     save_ledger(resolved_ledger_path, ledger)
     return {
         "ok": proof.ok,
@@ -808,6 +887,7 @@ def absorb_external_capability(
         "vendored_tree_digest": vendored_tree_digest,
         "proof_exit_code": proof.exit_code,
         "proof_summary": proof.summary,
+        "error": None if proof.ok else proof.summary,
     }
 
 

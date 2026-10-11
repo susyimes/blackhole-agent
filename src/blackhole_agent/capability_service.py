@@ -243,6 +243,16 @@ module turns the ledger into a service:
   preview control posts that flag. Idempotency receipts bind the
   preview flag so a later live solve with the same key is a new
   operation.
+- ``POST /solve`` with a ``forage`` list acquires a missing covering
+  tool when the operator has opted in with ``--forage-root`` (or
+  ``BLACKHOLE_FORAGE_ROOT``). Names resolve as subdirectories of that
+  root; the foraging plane infers, absorbs, proves, and the solver
+  executes the declared output. Registry fetches and paths that escape
+  the root are refused. A plane without a forage root stays fail-closed:
+  ``GET /health`` reports ``solve_forage`` false and a nonempty
+  ``forage`` list is ``400 forage_disabled``. Preview (``dry_run``)
+  refuses forage. The operator console posts the forage names. A
+  follow-up solve without forage uses the grown ledger.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -686,6 +696,38 @@ def resolve_solve_dry_run(body: Mapping[str, Any] | None, prefer_header: str | N
 
     flagged = parse_solve_dry_run((body or {}).get("dry_run"))
     return flagged or prefer_solve_preview(prefer_header)
+
+
+def _solve_http_request(
+    root: Path,
+    body: Mapping[str, Any],
+    *,
+    cancel_event: threading.Event | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Dispatch ``POST /solve``, foraging only when the operator opted in."""
+
+    forage_raw = body.get("forage")
+    if forage_raw not in (None, [], ()):
+        if dry_run:
+            raise InvocationError(400, "forage_not_allowed_on_preview")
+        from blackhole_agent.goal_foraging import resolve_live_forage_candidates, solve_with_forage
+
+        candidates = resolve_live_forage_candidates(forage_raw)
+        return solve_with_forage(
+            root,
+            body.get("initial_state"),
+            body.get("goal"),
+            candidates,
+            cancel_event=cancel_event,
+        )
+    return solve_goal_request(
+        root,
+        body.get("initial_state"),
+        body.get("goal"),
+        cancel_event=cancel_event,
+        dry_run=dry_run,
+    )
 
 
 def absorbed_root(root: Path) -> Path:
@@ -2086,6 +2128,7 @@ def build_server(
     tls_cert: str | Path | None = None,
     tls_key: str | Path | None = None,
     mcp_plugin_commands: Sequence[Sequence[str]] | None = None,
+    forage_root: str | Path | None = None,
 ) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
@@ -2094,6 +2137,9 @@ def build_server(
     assert_bind_policy(host, invocation_token)
     tls_files = resolve_tls_files(tls_cert, tls_key)
     tls_context = build_tls_context(*tls_files) if tls_files else None
+    from blackhole_agent.goal_foraging import configure_forage_root, current_forage_root
+
+    configure_forage_root(forage_root)
     configure_mcp_plugin_plane(None)
     if mcp_plugin_commands:
         start_mcp_plugin_plane(mcp_plugin_commands)
@@ -2287,6 +2333,7 @@ def build_server(
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
+                        "solve_forage": bool(getattr(self.server, "solve_forage", False)),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
                         "loopback_host_origin": True,
@@ -2506,10 +2553,9 @@ def build_server(
                     def operation() -> tuple[int, dict[str, Any]]:
                         try:
                             if path == "/solve":
-                                return 200, solve_goal_request(
+                                return 200, _solve_http_request(
                                     service_root,
-                                    body.get("initial_state"),
-                                    body.get("goal"),
+                                    body,
                                     cancel_event=cancel_event,
                                     dry_run=dry_run,
                                 )
@@ -2524,7 +2570,10 @@ def build_server(
 
                     digest = (
                         solve_request_digest(
-                            body.get("initial_state"), body.get("goal"), dry_run=dry_run
+                            body.get("initial_state"),
+                            body.get("goal"),
+                            dry_run=dry_run,
+                            forage=body.get("forage"),
                         )
                         if path == "/solve"
                         else request_digest(body.get("capability_id"), body.get("input"))
@@ -2546,10 +2595,9 @@ def build_server(
                     if path == "/contract":
                         result = evaluate_contract_request(service_root, body.get("done_when"))
                     elif path == "/solve":
-                        result = solve_goal_request(
+                        result = _solve_http_request(
                             service_root,
-                            body.get("initial_state"),
-                            body.get("goal"),
+                            body,
                             cancel_event=cancel_event,
                             dry_run=dry_run,
                         )
@@ -2578,6 +2626,17 @@ def build_server(
                     return
                 except ProcessCancelled:
                     _write_cancelled(self)
+                    return
+                except Exception as exc:
+                    _json_response(
+                        self,
+                        500,
+                        {
+                            "ok": False,
+                            "error": "solve_failed" if path == "/solve" else "request_failed",
+                            "detail": f"{type(exc).__name__}: {exc}",
+                        },
+                    )
                     return
                 _json_response(self, 200, result)
             except ProcessCancelled:
@@ -2653,6 +2712,7 @@ def build_server(
     server.daemon_threads = True
     server.bind_host = host
     server.tls_enabled = False
+    server.solve_forage = current_forage_root() is not None
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
         server.tls_enabled = True
@@ -2661,6 +2721,7 @@ def build_server(
     def _close_with_watcher() -> None:
         catalog_watcher.stop()
         configure_mcp_plugin_plane(None)
+        configure_forage_root(None)
         original_close()
 
     server.server_close = _close_with_watcher  # type: ignore[method-assign]
@@ -2681,6 +2742,7 @@ def serve(
     tls_cert: str | Path | None = None,
     tls_key: str | Path | None = None,
     mcp_plugin: Sequence[str] | None = None,
+    forage_root: str | Path | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -2692,6 +2754,9 @@ def serve(
     HTTP_CONNECTIONS.configure(max_http_connections)
     reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
+    from blackhole_agent.goal_foraging import ForageRootError, resolve_forage_root
+
+    forage_root = resolve_forage_root(forage_root)
     try:
         plugin_commands = resolve_mcp_plugin_commands(mcp_plugin)
     except ValueError as exc:
@@ -2712,8 +2777,9 @@ def serve(
             tls_cert=tls_cert,
             tls_key=tls_key,
             mcp_plugin_commands=plugin_commands,
+            forage_root=forage_root,
         )
-    except (BindPolicyError, TlsConfigError, PluginStartError) as exc:
+    except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -2737,6 +2803,7 @@ def serve(
                 "non_loopback_requires_token": True,
                 "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),
+                "solve_forage": bool(getattr(server, "solve_forage", False)),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
             }
@@ -2927,6 +2994,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         status, health = _http_request("GET", f"{base}/health")
         checks["solve_plan_preview_health"] = (
             status == 200 and isinstance(health, dict) and health.get("solve_plan_preview") is True
+        )
+        checks["solve_forage_health_default"] = (
+            status == 200 and isinstance(health, dict) and health.get("solve_forage") is False
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
@@ -3312,6 +3382,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Defaults to BLACKHOLE_MCP_PLUGIN"
         ),
     )
+    serve_parser.add_argument(
+        "--forage-root",
+        default=None,
+        help=(
+            "directory of local forage candidates POST /solve may acquire; "
+            "defaults to BLACKHOLE_FORAGE_ROOT when unset. Without a root, "
+            "forage stays fail-closed"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -3330,6 +3409,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             tls_cert=args.tls_cert,
             tls_key=args.tls_key,
             mcp_plugin=args.mcp_plugin,
+            forage_root=args.forage_root,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)
@@ -3341,4 +3421,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # `python -m blackhole_agent.capability_service` loads this file as
+    # ``__main__``. Forage, sessions, and MCP import
+    # ``blackhole_agent.capability_service`` by package name, which would
+    # otherwise be a second module with a second ``InvocationError``. The
+    # live handler then fails to catch forage refusals and drops the
+    # socket. Dispatch through the package module so one identity is shared.
+    from blackhole_agent.capability_service import main as _package_main
+
+    raise SystemExit(_package_main())

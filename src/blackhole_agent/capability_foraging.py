@@ -2927,6 +2927,7 @@ def forage_package(
                 "derived_case_count": acquisition.get("derived_case_count"),
                 "proof_exit_code": acquisition.get("proof_exit_code"),
                 "error": acquisition.get("error"),
+                "proof_summary": acquisition.get("proof_summary"),
             }
         )
         if acquisition.get("ok"):
@@ -2936,7 +2937,10 @@ def forage_package(
                 "ok": False,
                 "slug": slug,
                 "stage": acquisition.get("stage"),
-                "error": acquisition.get("error") or f"acquisition failed at {acquisition.get('stage')}",
+                "error": acquisition.get("error")
+                or acquisition.get("proof_summary")
+                or f"acquisition failed at {acquisition.get('stage')}",
+                "proof_summary": acquisition.get("proof_summary"),
                 "inference": inference["record"],
                 "bundle": acquisitions,
             }

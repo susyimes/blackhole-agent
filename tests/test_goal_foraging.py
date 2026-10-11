@@ -9,7 +9,13 @@ import pytest
 
 from blackhole_agent.capability_foraging import FIXTURE_FORAGE_PACKAGE
 from blackhole_agent.capability_service import InvocationError
-from blackhole_agent.goal_foraging import solve_with_forage, uncovered_goal_keys
+from blackhole_agent.goal_foraging import (
+    configure_forage_root,
+    current_forage_root,
+    resolve_live_forage_candidates,
+    solve_with_forage,
+    uncovered_goal_keys,
+)
 
 
 def _workspace(root: Path) -> Path:
@@ -118,3 +124,32 @@ def test_env_root_restored(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     root = _workspace(tmp_path / "ws")
     solve_with_forage(root, {"text": "x"}, ["shout_output"], [])
     assert os.environ[REPO_ROOT_ENV] == "sentinel"
+
+
+def test_live_forage_candidates_are_root_relative(tmp_path: Path) -> None:
+    forage = tmp_path / "forage"
+    package = forage / "shout-lab"
+    package.mkdir(parents=True)
+    (package / "shout_lab.py").write_text("def shout(text): return text\n", encoding="utf-8")
+    configure_forage_root(forage)
+    try:
+        resolved = resolve_live_forage_candidates(
+            [{"name": "shout-lab", "slug": "shout-lab", "hint": "shout_lab"}]
+        )
+        assert len(resolved) == 1
+        assert resolved[0]["source"] == str(package.resolve())
+        assert resolved[0]["origin"]["kind"] == "live-forage"
+        with pytest.raises(InvocationError) as escaped:
+            resolve_live_forage_candidates(["../outside"])
+        assert escaped.value.status == 400
+        assert escaped.value.error == "forage_path_not_allowed"
+        with pytest.raises(InvocationError) as registry:
+            resolve_live_forage_candidates([{"name": "shout-lab", "registry": "pypi"}])
+        assert registry.value.error == "forage_path_not_allowed"
+    finally:
+        configure_forage_root(None)
+    assert current_forage_root() is None
+    with pytest.raises(InvocationError) as disabled:
+        resolve_live_forage_candidates(["shout-lab"])
+    assert disabled.value.status == 400
+    assert disabled.value.error == "forage_disabled"

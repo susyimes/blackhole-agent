@@ -24,6 +24,13 @@ the goal and stops. This module closes the two into one loop:
 The CLI (``python -m blackhole_agent.goal_foraging solve ...``) is the
 operator surface: one command goes from an unsolvable goal to an executed,
 digest-bound outcome.
+
+The live invocation plane exposes the same loop on ``POST /solve`` when the
+operator opts in with ``--forage-root`` (or ``BLACKHOLE_FORAGE_ROOT``).
+HTTP forage names are resolved as subpaths of that root: registry fetches
+and paths that escape the root are refused. A plane without a forage root
+stays fail-closed (``solve_forage: false``); extra ``forage`` on the body
+is ``400 forage_disabled``.
 """
 
 from __future__ import annotations
@@ -32,6 +39,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -45,6 +53,131 @@ from blackhole_agent.capability_service import (
 
 SCHEMA_VERSION = 1
 MAX_FORAGE_CANDIDATES = 8
+FORAGE_ROOT_ENV = "BLACKHOLE_FORAGE_ROOT"
+
+_forage_root_lock = threading.Lock()
+_configured_forage_root: Path | None = None
+
+
+class ForageRootError(ValueError):
+    """Raised when ``--forage-root`` is set but cannot be used as a source tree."""
+
+    def __init__(self, error: str, **extra: Any) -> None:
+        self.error = str(error)
+        self.payload = {"ok": False, "error": self.error, **extra}
+        super().__init__(self.error)
+
+
+def resolve_forage_root(raw: str | Path | None = None, *, env: Mapping[str, str] | None = None) -> Path | None:
+    """Return the operator forage root from a CLI value or ``BLACKHOLE_FORAGE_ROOT``."""
+
+    text = str(raw or "").strip()
+    if not text:
+        source = env if env is not None else os.environ
+        text = str(source.get(FORAGE_ROOT_ENV) or "").strip()
+    if not text:
+        return None
+    return Path(text)
+
+
+def configure_forage_root(root: str | Path | None) -> Path | None:
+    """Pin the live-plane forage root, or clear it so HTTP forage stays disabled."""
+
+    global _configured_forage_root
+    if root is None or str(root).strip() == "":
+        with _forage_root_lock:
+            _configured_forage_root = None
+        return None
+    path = Path(root).expanduser()
+    try:
+        resolved = path.resolve()
+    except OSError as exc:
+        raise ForageRootError("forage_root_unreadable", path=str(path), detail=str(exc)) from exc
+    if not resolved.exists():
+        raise ForageRootError("forage_root_unreadable", path=str(resolved))
+    if not resolved.is_dir():
+        raise ForageRootError("forage_root_not_directory", path=str(resolved))
+    with _forage_root_lock:
+        _configured_forage_root = resolved
+    return resolved
+
+
+def current_forage_root() -> Path | None:
+    with _forage_root_lock:
+        return _configured_forage_root
+
+
+def forage_health() -> dict[str, Any]:
+    """Health fragment: forage-on-solve is advertised only when a root is pinned."""
+
+    return {"solve_forage": current_forage_root() is not None}
+
+
+def _relative_forage_name(raw: str) -> str:
+    text = str(raw or "").strip().replace("\\", "/")
+    if not text or text.startswith("/") or text.startswith("~"):
+        raise InvocationError(400, "forage_path_not_allowed")
+    first = text.split("/", 1)[0]
+    if ":" in first:
+        raise InvocationError(400, "forage_path_not_allowed")
+    parts = [part for part in text.split("/") if part not in ("", ".")]
+    if not parts or any(part == ".." for part in parts):
+        raise InvocationError(400, "forage_path_not_allowed")
+    return "/".join(parts)
+
+
+def resolve_live_forage_candidates(raw: Any) -> list[dict[str, Any]]:
+    """Map HTTP ``forage`` names onto directories under the pinned forage root.
+
+    Registry fetches and absolute/escaping paths are refused. Each name is a
+    relative directory under the root; optional object fields ``slug`` and
+    ``hint`` are forwarded to the foraging plane.
+    """
+
+    root = current_forage_root()
+    if root is None:
+        raise InvocationError(400, "forage_disabled")
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise InvocationError(422, "forage must be a list of names or forage objects")
+    if len(raw) > MAX_FORAGE_CANDIDATES:
+        raise InvocationError(422, f"at most {MAX_FORAGE_CANDIDATES} forage candidates per request")
+    resolved_root = root.resolve()
+    validated: list[dict[str, Any]] = []
+    for item in raw:
+        hint = ""
+        slug = ""
+        if isinstance(item, str):
+            name = _relative_forage_name(item)
+        elif isinstance(item, dict):
+            if item.get("source") is not None or item.get("registry") is not None:
+                raise InvocationError(400, "forage_path_not_allowed")
+            name = _relative_forage_name(str(item.get("name") or ""))
+            if item.get("slug") is not None:
+                slug = str(item.get("slug") or "").strip()
+            if item.get("hint") is not None:
+                hint = str(item.get("hint") or "").strip()
+        else:
+            raise InvocationError(422, "each forage entry must be a name or object")
+        leaf = name.rsplit("/", 1)[-1]
+        source = (resolved_root / Path(*name.split("/"))).resolve()
+        try:
+            source.relative_to(resolved_root)
+        except ValueError as exc:
+            raise InvocationError(400, "forage_path_not_allowed") from exc
+        if not source.is_dir():
+            raise InvocationError(400, "forage_source_missing")
+        validated.append(
+            {
+                "name": name,
+                "slug": slug or leaf,
+                "hint": hint or leaf.replace("-", "_"),
+                "source": str(source),
+                "origin": {"kind": "live-forage", "source": name},
+            }
+        )
+    return validated
 
 
 def uncovered_goal_keys(
@@ -110,7 +243,7 @@ def _validated_candidates(candidates: Any) -> list[dict[str, Any]]:
 
 
 def _attempt_record(candidate: Mapping[str, Any], result: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+    record = {
         "candidate": str(candidate.get("name")),
         "slug": str(result.get("slug") or candidate.get("slug") or ""),
         "ok": bool(result.get("ok")),
@@ -118,6 +251,9 @@ def _attempt_record(candidate: Mapping[str, Any], result: Mapping[str, Any]) -> 
         "capability_id": result.get("capability_id"),
         "error": result.get("error"),
     }
+    if result.get("proof_summary"):
+        record["proof_summary"] = result.get("proof_summary")
+    return record
 
 
 def solve_with_forage(
@@ -128,6 +264,7 @@ def solve_with_forage(
     *,
     timeout: int = 120,
     max_steps: int = 8,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Solve a declarative goal, foraging named candidates when unplannable.
 
@@ -143,7 +280,14 @@ def solve_with_forage(
     forage_requests = _validated_candidates(candidates)
     root = Path(root).resolve()
 
-    first = solve_goal_request(root, initial_state, goal_keys, timeout=timeout, max_steps=max_steps)
+    first = solve_goal_request(
+        root,
+        initial_state,
+        goal_keys,
+        timeout=timeout,
+        max_steps=max_steps,
+        cancel_event=cancel_event,
+    )
     if first.get("solved"):
         first["acquisition"] = {
             "needed": False,
@@ -168,6 +312,10 @@ def solve_with_forage(
     os.environ[REPO_ROOT_ENV] = str(root)
     try:
         for candidate in forage_requests:
+            if cancel_event is not None and cancel_event.is_set():
+                from blackhole_agent.process_capture import ProcessCancelled
+
+                raise ProcessCancelled("forage cancelled")
             result = forage_package(candidate, repo_root=root, scenario=False)
             attempts.append(_attempt_record(candidate, result))
             if not result.get("ok"):
@@ -176,7 +324,12 @@ def solve_with_forage(
             if capability_id:
                 acquired.append(capability_id)
             retry = solve_goal_request(
-                root, initial_state, goal_keys, timeout=timeout, max_steps=max_steps
+                root,
+                initial_state,
+                goal_keys,
+                timeout=timeout,
+                max_steps=max_steps,
+                cancel_event=cancel_event,
             )
             if retry.get("solved"):
                 retry["acquisition"] = {
@@ -191,7 +344,14 @@ def solve_with_forage(
         else:
             os.environ[REPO_ROOT_ENV] = previous_env
 
-    verdict = solve_goal_request(root, initial_state, goal_keys, timeout=timeout, max_steps=max_steps)
+    verdict = solve_goal_request(
+        root,
+        initial_state,
+        goal_keys,
+        timeout=timeout,
+        max_steps=max_steps,
+        cancel_event=cancel_event,
+    )
     verdict["uncovered"] = uncovered_goal_keys(
         load_invocable_capabilities(root), set(initial_state), goal_keys
     )

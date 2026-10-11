@@ -15,6 +15,9 @@ document served at ``GET /console`` (and ``/``):
   declarative goals through ``POST /solve``, rendering the derived plan,
   per-step outputs, and the plan digest. Preview posts ``dry_run: true``
   so the ranked program is returned without executing untrusted tools.
+  Live solve posts a ``forage`` list of candidate names when that field is
+  filled so an opted-in ``--forage-root`` plane can acquire a missing tool;
+  preview never sends forage.
   Invoke sends
   ``Accept: text/event-stream`` so stdout and stderr appear while the
   tool still runs; a plane that only speaks JSON is still rendered.
@@ -97,6 +100,7 @@ __ROWS__
 <p>initial state (JSON object):</p>
 <textarea id="solve-state" rows="3">{}</textarea>
 <p>goal state keys (comma separated): <input id="solve-goal" placeholder="reversed_text"></p>
+<p>forage candidates (comma-separated names under --forage-root): <input id="solve-forage" placeholder="shout-lab"></p>
 <p><button onclick="solveGoal()">solve</button> <button onclick="previewSolve()">preview</button> <button onclick="cancelSolve()">cancel</button></p>
 <pre id="solve-result"></pre>
 </section>
@@ -243,6 +247,10 @@ async function postSolve(dryRun) {
   solveAbort = new AbortController();
   const body = {initial_state: state, goal: goal};
   if (dryRun) body.dry_run = true;
+  else {
+    const forage = parseGoalKeys(document.getElementById("solve-forage").value);
+    if (forage.length) body.forage = forage;
+  }
   try {
     const result = await postJSON("/solve", body, solveAbort);
     show("solve-result", result);

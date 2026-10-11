@@ -86,6 +86,15 @@ class Capability:
         values: dict[str, Any] = {}
         for key in known:
             if key not in payload:
+                if key in {
+                    "description",
+                    "capability_delta",
+                    "created_at",
+                    "updated_at",
+                    "source_mission_id",
+                    "last_proved_at",
+                }:
+                    values[key] = ""
                 continue
             value = payload[key]
             if key in {"dependencies", "behavior_paths", "tags"}:

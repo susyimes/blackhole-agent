@@ -802,7 +802,17 @@ def acquire_capability(
             Path(synthesis["staged_dir"]), repo_root=repo_root, origin=spec.origin or None
         )
     if not absorption["ok"]:
-        return {"ok": False, "stage": "absorb", "slug": spec.slug, "absorption": absorption}
+        return {
+            "ok": False,
+            "stage": "absorb",
+            "slug": spec.slug,
+            "absorption": absorption,
+            "error": absorption.get("error")
+            or absorption.get("proof_summary")
+            or "acquisition failed at absorb",
+            "proof_exit_code": absorption.get("proof_exit_code"),
+            "proof_summary": absorption.get("proof_summary"),
+        }
 
     result: dict[str, Any] = {
         "ok": True,
