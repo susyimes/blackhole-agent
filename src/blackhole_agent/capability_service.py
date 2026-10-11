@@ -138,6 +138,13 @@ module turns the ledger into a service:
   snapshot so an operator can see the cap without a token. Idempotent
   ``429`` responses are not stored as durable receipts: the key may be
   reused once a slot is free.
+- Captured tool stdout and stderr are size-capped, not just the child's
+  job RAM: ``POST /invoke`` (and solve/session/MCP ``tools/call``) never
+  loads more than ``BLACKHOLE_MAX_OUTPUT_BYTES`` (default 1 MiB) of either
+  stream into the trusted process. A tool that prints a large JSON blob is
+  reaped and answered ``502`` with ``violation: output_limited``; the HTTP
+  body does not echo the oversized blob. ``GET /health`` reports
+  ``max_output_bytes``. Kernel and git subprocesses omit the cap.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -213,8 +220,12 @@ from blackhole_agent.invocation_history import (
     record_invocation,
 )
 from blackhole_agent.process_capture import (
+    MAX_OUTPUT_BYTES_ENV,
+    OutputLimitExceeded,
     ProcessCancelled,
     ResourceLimits,
+    configure_max_output_bytes,
+    current_max_output_bytes,
     run_captured_process,
 )
 
@@ -578,7 +589,10 @@ def _run_governed_case(
             env=_tool_env(),
             resource_limits=limits,
             sandbox_roots=_sandbox_roots(root, tool_root),
+            max_output_bytes=current_max_output_bytes(),
         )
+    except OutputLimitExceeded as exc:
+        return {"ok": False, "error": str(exc), "violation": exc.payload()}
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
     if completed.returncode != 0:
@@ -786,11 +800,19 @@ def invoke_capability(
                 resource_limits=limits,
                 cancel_event=cancel_event,
                 sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
+                max_output_bytes=current_max_output_bytes(),
             )
     except AdmissionLimited as exc:
         record(False, "admission_limited")
         raise InvocationError(
             429,
+            str(exc),
+            extra=exc.payload(),
+        ) from exc
+    except OutputLimitExceeded as exc:
+        record(False, "output_limited")
+        raise InvocationError(
+            502,
             str(exc),
             extra=exc.payload(),
         ) from exc
@@ -857,7 +879,10 @@ def governed_command_runner(limits: ResourceLimits):
                 env=({str(key): str(value) for key, value in env.items()} if env else None),
                 resource_limits=limits,
                 shell=isinstance(command, str) or shell,
+                max_output_bytes=current_max_output_bytes(),
             )
+        except OutputLimitExceeded as exc:
+            return subprocess.CompletedProcess(argv, 125, "", str(exc))
         except subprocess.TimeoutExpired as exc:
             stderr = (exc.stderr or "") + "\nwall-clock timeout"
             return subprocess.CompletedProcess(argv, 124, exc.output or "", stderr)
@@ -1578,6 +1603,7 @@ def build_server(
                         "schema_version": SCHEMA_VERSION,
                         "inflight": snapshot["inflight"],
                         "max_inflight": snapshot["max_inflight"],
+                        "max_output_bytes": current_max_output_bytes(),
                     },
                 )
                 return
@@ -1913,11 +1939,13 @@ def serve(
     host: str = "127.0.0.1",
     token: str | None = None,
     max_inflight: int | None = None,
+    max_output_bytes: int | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
     if max_inflight is not None:
         ADMISSION.configure(max_inflight)
+    configure_max_output_bytes(max_output_bytes)
     invocation_token = resolve_invocation_token(token)
     server = build_server(root, host=host, port=port, token=invocation_token)
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -1932,6 +1960,7 @@ def serve(
                 "auth_required": bool(invocation_token),
                 "mcp_path": MCP_HTTP_PATH,
                 "max_inflight": ADMISSION.max_inflight(),
+                "max_output_bytes": current_max_output_bytes(),
             }
         ),
         flush=True,
@@ -2348,6 +2377,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help=f"cap concurrent untrusted tool trees; defaults to {MAX_INFLIGHT_ENV} or 8",
     )
+    serve_parser.add_argument(
+        "--max-output-bytes",
+        type=int,
+        default=None,
+        help=(
+            "cap captured untrusted-tool stdout/stderr bytes; defaults to "
+            f"{MAX_OUTPUT_BYTES_ENV} or 1048576"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -2359,6 +2397,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             host=args.host,
             token=args.token,
             max_inflight=args.max_inflight,
+            max_output_bytes=args.max_output_bytes,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)

@@ -5,6 +5,11 @@ Capture to files instead, so reaping the owned process never waits for pipe EOF.
 On every exit, stop that invocation's descendants before returning. Windows
 uses a gated job so even descendants of an already-exited launcher stay owned.
 POSIX commands and their ordinary descendants share a new process group.
+
+Untrusted tool trees on the invocation plane also pass ``max_output_bytes``:
+the parent never loads an oversized stdout/stderr blob into RAM, and a tree
+that keeps writing is reaped as soon as the capture files exceed the cap.
+Kernel and git callers omit the argument so their output stays unlimited.
 """
 
 from __future__ import annotations
@@ -24,6 +29,89 @@ from typing import Sequence
 
 class ProcessCancelled(RuntimeError):
     """Raised when a caller-supplied cancel event stops the owned tree."""
+
+
+MAX_OUTPUT_BYTES_ENV = "BLACKHOLE_MAX_OUTPUT_BYTES"
+DEFAULT_MAX_OUTPUT_BYTES = 1 << 20
+MIN_MAX_OUTPUT_BYTES = 256
+MAX_MAX_OUTPUT_BYTES = 32 << 20
+OUTPUT_LIMIT_VIOLATION = "output_limited"
+
+_configured_max_output_bytes: int | None = None
+_output_config_lock = threading.Lock()
+
+
+class OutputLimitExceeded(Exception):
+    """The owned tree wrote more stdout/stderr than the parent will load."""
+
+    def __init__(self, max_output_bytes: int, captured_bytes: int, stream: str) -> None:
+        self.max_output_bytes = int(max_output_bytes)
+        self.captured_bytes = int(captured_bytes)
+        self.stream = str(stream)
+        super().__init__(
+            f"captured {self.stream} exceeded {self.max_output_bytes} bytes "
+            f"(observed {self.captured_bytes})"
+        )
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "violation": OUTPUT_LIMIT_VIOLATION,
+            "max_output_bytes": self.max_output_bytes,
+            "captured_bytes": self.captured_bytes,
+            "stream": self.stream,
+        }
+
+
+def parse_max_output_bytes(raw: str | None) -> int:
+    """Return a host-safe capture cap; invalid values fall back to the default."""
+
+    text = str(raw or "").strip()
+    if not text.isdigit():
+        return DEFAULT_MAX_OUTPUT_BYTES
+    value = int(text)
+    if value < MIN_MAX_OUTPUT_BYTES or value > MAX_MAX_OUTPUT_BYTES:
+        return DEFAULT_MAX_OUTPUT_BYTES
+    return value
+
+
+def configure_max_output_bytes(max_output_bytes: int | None) -> None:
+    """Pin the invocation-plane cap (or clear the pin so the process env is read)."""
+
+    global _configured_max_output_bytes
+    with _output_config_lock:
+        if max_output_bytes is None:
+            _configured_max_output_bytes = None
+            return
+        _configured_max_output_bytes = parse_max_output_bytes(str(int(max_output_bytes)))
+
+
+def current_max_output_bytes() -> int:
+    """Cap used by the invocation plane: CLI pin, else ``BLACKHOLE_MAX_OUTPUT_BYTES``."""
+
+    with _output_config_lock:
+        configured = _configured_max_output_bytes
+    if configured is not None:
+        return configured
+    return parse_max_output_bytes(os.environ.get(MAX_OUTPUT_BYTES_ENV))
+
+
+def _file_size(handle) -> int:
+    try:
+        return int(os.fstat(handle.fileno()).st_size)
+    except OSError:
+        return 0
+
+
+def _output_exceeded(stdout, stderr, max_output_bytes: int | None) -> str:
+    """Return ``stdout`` or ``stderr`` when that capture file is over the cap."""
+
+    if not max_output_bytes:
+        return ""
+    if _file_size(stdout) > max_output_bytes:
+        return "stdout"
+    if _file_size(stderr) > max_output_bytes:
+        return "stderr"
+    return ""
 
 
 @dataclass(frozen=True)
@@ -234,6 +322,7 @@ def run_captured_process(
     shell: bool = False,
     cancel_event: threading.Event | None = None,
     sandbox_roots: Sequence[Path] | None = None,
+    max_output_bytes: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
 
@@ -249,6 +338,10 @@ def run_captured_process(
     Windows AppContainer or Linux Landlock, allowlisted to those roots, the
     working directory, a per-invocation scratch directory, and the interpreter
     prefix. Host paths outside the allowlist are unreadable and unwritable.
+    When ``max_output_bytes`` is given, stdout and stderr capture files are
+    size-capped: the tree is reaped once either stream exceeds the cap, and
+    the parent never decodes the oversized blob. Kernel callers omit this
+    argument so their output stays unlimited.
     """
     if timeout <= 0:
         raise ValueError("timeout must be positive")
@@ -265,11 +358,13 @@ def run_captured_process(
             stdin_path.write_text(input, encoding="utf-8")
         timed_out = False
         cancelled = False
+        exceeded_stream = ""
         cleanup_error = ""
         job_stats = None
         sandbox_payload = None
         spawn_command = command
         spawn_env = dict(env) if env is not None else None
+        cap_bytes = int(max_output_bytes) if max_output_bytes else 0
         if sandbox_roots is not None:
             if not filesystem_sandbox_available():
                 raise RuntimeError("filesystem sandbox is not available on this host")
@@ -347,7 +442,7 @@ def run_captured_process(
                     if input is not None:
                         stdin.close()
             try:
-                if cancel_event is None:
+                if cancel_event is None and not cap_bytes:
                     try:
                         process.wait(timeout=timeout)
                     except subprocess.TimeoutExpired:
@@ -356,16 +451,21 @@ def run_captured_process(
                     deadline = time.monotonic() + timeout
                     while True:
                         remaining = deadline - time.monotonic()
+                        if cancel_event is not None and cancel_event.is_set():
+                            cancelled = True
+                            break
+                        if remaining <= 0:
+                            timed_out = True
+                            break
+                        exceeded_stream = _output_exceeded(stdout, stderr, cap_bytes)
+                        if exceeded_stream:
+                            break
                         try:
                             process.wait(timeout=min(0.2, max(remaining, 0.0)))
+                            exceeded_stream = _output_exceeded(stdout, stderr, cap_bytes)
                             break
                         except subprocess.TimeoutExpired:
-                            if cancel_event.is_set():
-                                cancelled = True
-                                break
-                            if remaining <= 0:
-                                timed_out = True
-                                break
+                            continue
             finally:
                 if job is not None:
                     try:
@@ -378,16 +478,25 @@ def run_captured_process(
                 job.close()
         stdout.seek(0)
         stderr.seek(0)
-        out = stdout.read().decode("utf-8", errors="replace")
-        err = stderr.read().decode("utf-8", errors="replace")
-        if cleanup_error:
-            err += f"\nProcess cleanup: {cleanup_error}"
-        if timed_out:
-            raise subprocess.TimeoutExpired(command, timeout, output=out, stderr=err)
+        if cap_bytes:
+            exceeded_stream = exceeded_stream or _output_exceeded(stdout, stderr, cap_bytes)
         if cancelled:
             raise ProcessCancelled(
                 f"command tree cancelled by caller (exit {process.returncode}): {command!r}"
             )
+        if exceeded_stream:
+            observed = _file_size(stdout if exceeded_stream == "stdout" else stderr)
+            raise OutputLimitExceeded(cap_bytes, observed, exceeded_stream)
+        if cap_bytes:
+            out = stdout.read(cap_bytes).decode("utf-8", errors="replace")
+            err = stderr.read(cap_bytes).decode("utf-8", errors="replace")
+        else:
+            out = stdout.read().decode("utf-8", errors="replace")
+            err = stderr.read().decode("utf-8", errors="replace")
+        if cleanup_error:
+            err += f"\nProcess cleanup: {cleanup_error}"
+        if timed_out:
+            raise subprocess.TimeoutExpired(command, timeout, output=out, stderr=err)
         if cleanup_error:
             raise RuntimeError(f"Command descendants could not be stopped: {cleanup_error}")
         if startup_error.is_file():

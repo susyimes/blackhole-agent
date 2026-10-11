@@ -7,7 +7,15 @@ import time
 
 import pytest
 
-from blackhole_agent.process_capture import run_captured_process
+from blackhole_agent.process_capture import (
+    DEFAULT_MAX_OUTPUT_BYTES,
+    MAX_OUTPUT_BYTES_ENV,
+    OutputLimitExceeded,
+    configure_max_output_bytes,
+    current_max_output_bytes,
+    parse_max_output_bytes,
+    run_captured_process,
+)
 from blackhole_agent.unbound import continuous_loop_status_snapshot, pid_is_running, run_command
 
 
@@ -180,3 +188,49 @@ def test_live_pid_is_only_a_liveness_observation(monkeypatch):
     result = continuous_loop_status_snapshot({"status": "running_mission", "pid": 123})
     assert result["pid_alive"] and result["effective_status"] == "running_mission"
     assert "healthy" not in result
+
+
+def test_parse_max_output_bytes_clamps_and_falls_back() -> None:
+    assert parse_max_output_bytes(None) == DEFAULT_MAX_OUTPUT_BYTES
+    assert parse_max_output_bytes("") == DEFAULT_MAX_OUTPUT_BYTES
+    assert parse_max_output_bytes("nope") == DEFAULT_MAX_OUTPUT_BYTES
+    assert parse_max_output_bytes("0") == DEFAULT_MAX_OUTPUT_BYTES
+    assert parse_max_output_bytes("999999999") == DEFAULT_MAX_OUTPUT_BYTES
+    assert parse_max_output_bytes("1024") == 1024
+
+
+def test_current_max_output_bytes_pin_overrides_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    configure_max_output_bytes(None)
+    try:
+        monkeypatch.setenv(MAX_OUTPUT_BYTES_ENV, "4096")
+        assert current_max_output_bytes() == 4096
+        configure_max_output_bytes(8192)
+        assert current_max_output_bytes() == 8192
+    finally:
+        configure_max_output_bytes(None)
+
+
+def test_run_captured_process_caps_stdout_without_loading_blob(tmp_path: Path) -> None:
+    code = "import sys; sys.stdout.write('A' * 20000); sys.stdout.flush()"
+    with pytest.raises(OutputLimitExceeded) as caught:
+        run_captured_process(
+            [sys.executable, "-u", "-c", code],
+            cwd=tmp_path,
+            timeout=10,
+            max_output_bytes=1024,
+        )
+    assert caught.value.stream == "stdout"
+    assert caught.value.max_output_bytes == 1024
+    assert caught.value.captured_bytes > 1024
+    assert "AAAA" not in str(caught.value)
+    assert caught.value.payload()["violation"] == "output_limited"
+
+
+def test_run_captured_process_unlimited_stdout_still_returns_blob(tmp_path: Path) -> None:
+    result = run_captured_process(
+        [sys.executable, "-c", "import sys; sys.stdout.write('A' * 20000)"],
+        cwd=tmp_path,
+        timeout=10,
+    )
+    assert result.returncode == 0
+    assert result.stdout == "A" * 20000
