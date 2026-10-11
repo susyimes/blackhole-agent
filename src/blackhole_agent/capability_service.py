@@ -133,7 +133,14 @@ module turns the ledger into a service:
   operator console document stay reachable without a token so liveness
   probes and the page itself still load; the console attaches the
   operator token to the invoke/solve/session fetches it already makes.
-  An unset token keeps the historical open loopback plane.
+  An unset token keeps the historical open loopback plane. A non-loopback
+  bind (``--host 0.0.0.0``, ``::``, a LAN address, or a non-localhost
+  name) is refused unless a token is configured: the process prints
+  ``{"ok": false, "error": "bind_requires_token"}`` and exits without
+  listening, so the LAN cannot execute untrusted tools on an accidentally
+  open plane. The same bind with a token still serves; unauthenticated
+  invokes remain 401. ``GET /health`` reports
+  ``non_loopback_requires_token``.
 - Executed tools are untrusted third-party code: every subprocess runs with
   a scrubbed allowlist environment
   (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
@@ -227,6 +234,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import queue
@@ -337,6 +345,48 @@ def _canonical(payload: Any) -> str:
 
 def _digest(payload: Any) -> str:
     return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+
+
+class BindPolicyError(ValueError):
+    """Raised when a non-loopback bind is requested without a bearer token."""
+
+    def __init__(self, host: str) -> None:
+        self.host = str(host)
+        self.payload = {
+            "ok": False,
+            "error": "bind_requires_token",
+            "host": self.host,
+        }
+        super().__init__(f"non-loopback bind {self.host!r} requires a bearer token")
+
+
+def host_is_loopback(host: str) -> bool:
+    """Return True when ``host`` can only accept local clients.
+
+    Wildcard addresses (``0.0.0.0``, ``::``, empty, ``*``) and unresolved
+    hostnames other than ``localhost`` are non-loopback: binding them
+    without a token would expose POST /invoke on the LAN.
+    """
+
+    raw = str(host or "").strip().strip("[]")
+    if not raw or raw in {"0.0.0.0", "::", "*", "+"}:
+        return False
+    if raw.lower() in {"localhost", "localhost."}:
+        return True
+    try:
+        return ipaddress.ip_address(raw).is_loopback
+    except ValueError:
+        return False
+
+
+def assert_bind_policy(host: str, token: str | None) -> None:
+    """Refuse a non-loopback listen address unless a bearer token is set."""
+
+    if host_is_loopback(host):
+        return
+    if str(token or "").strip():
+        return
+    raise BindPolicyError(host)
 
 
 def resolve_invocation_token(explicit: str | None = None) -> str:
@@ -1708,6 +1758,7 @@ def build_server(
 
     service_root = Path(root).resolve()
     invocation_token = resolve_invocation_token(token)
+    assert_bind_policy(host, invocation_token)
     from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager
     from blackhole_agent.invocation_receipts import (
         InvocationReceipts,
@@ -1862,6 +1913,7 @@ def build_server(
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
                         "vendored_tree_readonly": True,
+                        "non_loopback_requires_token": True,
                     },
                 )
                 return
@@ -2242,7 +2294,11 @@ def serve(
     configure_max_scratch_bytes(max_scratch_bytes)
     reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
-    server = build_server(root, host=host, port=port, token=invocation_token)
+    try:
+        server = build_server(root, host=host, port=port, token=invocation_token)
+    except BindPolicyError as exc:
+        print(json.dumps(exc.payload, sort_keys=True), flush=True)
+        return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
     listing = capability_listing(Path(root).resolve())
     print(
@@ -2260,6 +2316,7 @@ def serve(
                 "mcp_tools_list_changed": True,
                 "mcp_completions": True,
                 "mcp_resource_subscribe": True,
+                "non_loopback_requires_token": True,
             }
         ),
         flush=True,
@@ -2741,7 +2798,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     serve_parser = sub.add_parser("serve", help="serve the invocation plane over HTTP")
     serve_parser.add_argument("--port", type=int, default=0, help="0 picks an ephemeral port")
-    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="listen address; a non-loopback bind requires --token or BLACKHOLE_INVOCATION_TOKEN",
+    )
     serve_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     serve_parser.add_argument(
         "--token",

@@ -14,9 +14,11 @@ from urllib.error import HTTPError
 import pytest
 
 from blackhole_agent.capability_service import (
+    BindPolicyError,
     build_server,
     capability_listing,
     evaluate_contract_request,
+    host_is_loopback,
     invoke_capability,
     load_invocable_capabilities,
     parse_solve_dry_run,
@@ -24,6 +26,7 @@ from blackhole_agent.capability_service import (
     prefer_solve_preview,
     record_resource_quarantine,
     resolve_solve_dry_run,
+    serve,
     solve_goal_request,
     InvocationError,
 )
@@ -285,11 +288,54 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["vendored_tree_readonly"] is True
     assert health["mcp_completions"] is True
     assert health["mcp_resource_subscribe"] is True
+    assert health["non_loopback_requires_token"] is True
     assert int(health["max_scratch_bytes"]) > 0
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})
     assert status == 404
+
+
+def test_host_is_loopback_classifies_bind_targets() -> None:
+    assert host_is_loopback("127.0.0.1") is True
+    assert host_is_loopback("::1") is True
+    assert host_is_loopback("[::1]") is True
+    assert host_is_loopback("localhost") is True
+    assert host_is_loopback("0.0.0.0") is False
+    assert host_is_loopback("::") is False
+    assert host_is_loopback("") is False
+    assert host_is_loopback("*") is False
+    assert host_is_loopback("192.168.1.9") is False
+    assert host_is_loopback("example.internal") is False
+
+
+def test_build_server_refuses_open_non_loopback_bind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("BLACKHOLE_INVOCATION_TOKEN", raising=False)
+    root = _fixture_root(tmp_path)
+    with pytest.raises(BindPolicyError) as exc:
+        build_server(root, host="0.0.0.0", port=0)
+    assert exc.value.payload["error"] == "bind_requires_token"
+    assert exc.value.payload["ok"] is False
+    httpd = build_server(root, host="0.0.0.0", port=0, token="lan-token-0788e9e0")
+    try:
+        assert httpd.server_address[1] > 0
+    finally:
+        httpd.server_close()
+
+
+def test_serve_prints_bind_requires_token_without_listening(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("BLACKHOLE_INVOCATION_TOKEN", raising=False)
+    root = _fixture_root(tmp_path)
+    code = serve(root, host="0.0.0.0", port=0)
+    assert code == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error"] == "bind_requires_token"
+    assert payload["host"] == "0.0.0.0"
 
 
 def test_load_invocable_skips_missing_manifest(tmp_path: Path) -> None:
