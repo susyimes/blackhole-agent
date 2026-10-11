@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
+import ssl
 import sys
 import threading
 import time
@@ -15,6 +16,7 @@ import pytest
 
 from blackhole_agent.capability_service import (
     BindPolicyError,
+    TlsConfigError,
     build_server,
     capability_listing,
     evaluate_contract_request,
@@ -26,6 +28,7 @@ from blackhole_agent.capability_service import (
     prefer_solve_preview,
     record_resource_quarantine,
     resolve_solve_dry_run,
+    resolve_tls_files,
     serve,
     solve_goal_request,
     InvocationError,
@@ -290,6 +293,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["mcp_resource_subscribe"] is True
     assert health["mcp_logging"] is True
     assert health["non_loopback_requires_token"] is True
+    assert health["tls"] is False
     assert int(health["max_scratch_bytes"]) > 0
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
@@ -337,6 +341,108 @@ def test_serve_prints_bind_requires_token_without_listening(
     assert payload["ok"] is False
     assert payload["error"] == "bind_requires_token"
     assert payload["host"] == "0.0.0.0"
+
+
+def _tls_fixture_pair(directory: Path) -> tuple[Path, Path]:
+    probe = Path(__file__).resolve().parent / "acceptance" / "test_invocation_tls.py"
+    namespace: dict[str, object] = {"__name__": "tls_probe_constants"}
+    exec(compile(probe.read_text(encoding="utf-8"), str(probe), "exec"), namespace)
+    cert = directory / "tls-cert.pem"
+    key = directory / "tls-key.pem"
+    cert.write_text(str(namespace["TLS_CERT_PEM"]), encoding="ascii")
+    key.write_text(str(namespace["TLS_KEY_PEM"]), encoding="ascii")
+    return cert, key
+
+
+def _https_request(
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    *,
+    timeout: int = 15,
+) -> tuple[int | None, object]:
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urlrequest.Request(url, data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    ctx = ssl._create_unverified_context()
+    try:
+        with urlrequest.urlopen(req, timeout=timeout, context=ctx) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        raw = exc.read()
+        try:
+            return exc.code, json.loads(raw.decode("utf-8"))
+        except Exception:
+            return exc.code, None
+    except Exception:
+        return None, None
+
+
+def test_resolve_tls_files_omitted_and_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("BLACKHOLE_TLS_CERT", raising=False)
+    monkeypatch.delenv("BLACKHOLE_TLS_KEY", raising=False)
+    assert resolve_tls_files() is None
+    cert, key = _tls_fixture_pair(tmp_path)
+    with pytest.raises(TlsConfigError) as only_cert:
+        resolve_tls_files(cert=cert)
+    assert only_cert.value.payload["error"] == "tls_requires_cert_and_key"
+    with pytest.raises(TlsConfigError) as missing:
+        resolve_tls_files(cert=tmp_path / "missing.pem", key=key)
+    assert missing.value.payload["error"] == "tls_cert_unreadable"
+    pair = resolve_tls_files(cert=cert, key=key)
+    assert pair == (cert, key)
+
+
+def test_serve_prints_tls_cert_unreadable_without_listening(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("BLACKHOLE_TLS_CERT", raising=False)
+    monkeypatch.delenv("BLACKHOLE_TLS_KEY", raising=False)
+    root = _fixture_root(tmp_path)
+    _, key = _tls_fixture_pair(tmp_path)
+    code = serve(root, tls_cert=tmp_path / "no-such-cert.pem", tls_key=key)
+    assert code == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error"] == "tls_cert_unreadable"
+    assert payload.get("listening") is None
+
+
+def test_tls_server_serves_https_invoke_and_blocks_http(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    cert, key = _tls_fixture_pair(tmp_path)
+    httpd = build_server(root, port=0, tls_cert=cert, tls_key=key)
+    assert httpd.tls_enabled is True
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = httpd.server_address[1]
+        status, health = _https_request("GET", f"https://127.0.0.1:{port}/health")
+        assert status == 200
+        assert health["tls"] is True
+        status, result = _https_request(
+            "POST",
+            f"https://127.0.0.1:{port}/invoke",
+            {"capability_id": "capability.absorbed-text-reverser", "input": {"raw_text": "blackhole"}},
+        )
+        assert status == 200
+        assert result["ok"] is True
+        assert result["output"] == {"reversed_text": "elohkcalb"}
+        leaked = False
+        try:
+            with urlrequest.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                leaked = body.get("ok") is True
+        except Exception:
+            leaked = False
+        assert leaked is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=10)
 
 
 def test_load_invocable_skips_missing_manifest(tmp_path: Path) -> None:

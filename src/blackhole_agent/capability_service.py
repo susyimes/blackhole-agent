@@ -144,6 +144,17 @@ module turns the ledger into a service:
   open plane. The same bind with a token still serves; unauthenticated
   invokes remain 401. ``GET /health`` reports
   ``non_loopback_requires_token``.
+- The listen socket can be wrapped in TLS so bearer tokens and invoke
+  payloads do not travel as cleartext HTTP. ``--tls-cert`` and
+  ``--tls-key`` (or ``BLACKHOLE_TLS_CERT`` / ``BLACKHOLE_TLS_KEY``) load a
+  PEM pair, wrap the already-bound socket, and serve HTTPS. An incomplete
+  pair, a missing file, or a cert Python's ``ssl`` cannot load prints
+  ``{"ok": false, "error": "tls_requires_cert_and_key"|"tls_cert_unreadable"|"tls_key_unreadable"|"tls_cert_invalid"}``
+  and exits without serving. Omitting both files keeps the historical
+  HTTP plane. ``GET /health`` and the readiness line report ``tls``.
+  The operator console uses same-origin relative fetches, so an HTTPS
+  load of ``/console`` keeps working. REST ``POST /invoke`` over HTTPS
+  still executes governed tools.
 - Executed tools are untrusted third-party code: every subprocess runs with
   a scrubbed allowlist environment
   (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
@@ -243,6 +254,7 @@ import os
 import queue
 import select
 import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -318,6 +330,8 @@ SOLVE_MAX_HEALED = 4
 SOLVE_MAX_FALLBACKS = 4
 MAX_BODY_BYTES = 1 << 20
 INVOCATION_TOKEN_ENV = "BLACKHOLE_INVOCATION_TOKEN"
+TLS_CERT_ENV = "BLACKHOLE_TLS_CERT"
+TLS_KEY_ENV = "BLACKHOLE_TLS_KEY"
 WWW_AUTHENTICATE = 'Bearer realm="blackhole-invocation-plane"'
 MCP_HTTP_PATH = "/mcp"
 MAX_MCP_HTTP_SESSIONS = 1024
@@ -390,6 +404,52 @@ def assert_bind_policy(host: str, token: str | None) -> None:
     if str(token or "").strip():
         return
     raise BindPolicyError(host)
+
+
+class TlsConfigError(ValueError):
+    """Raised when TLS flags are incomplete or the PEM pair cannot be loaded."""
+
+    def __init__(self, error: str, **extra: Any) -> None:
+        self.error = str(error)
+        self.payload = {"ok": False, "error": self.error, **extra}
+        super().__init__(self.error)
+
+
+def resolve_tls_files(
+    cert: str | Path | None = None,
+    key: str | Path | None = None,
+) -> tuple[Path, Path] | None:
+    """Return the PEM pair to wrap with, or None when TLS is not requested.
+
+    Either both paths (flag or env) are present and readable files, or TLS
+    is omitted. A half-configured pair refuses to listen.
+    """
+
+    cert_raw = str(cert or "").strip() or str(os.environ.get(TLS_CERT_ENV) or "").strip()
+    key_raw = str(key or "").strip() or str(os.environ.get(TLS_KEY_ENV) or "").strip()
+    if not cert_raw and not key_raw:
+        return None
+    if not cert_raw or not key_raw:
+        raise TlsConfigError("tls_requires_cert_and_key")
+    cert_path = Path(cert_raw)
+    key_path = Path(key_raw)
+    if not cert_path.is_file():
+        raise TlsConfigError("tls_cert_unreadable", path=str(cert_path))
+    if not key_path.is_file():
+        raise TlsConfigError("tls_key_unreadable", path=str(key_path))
+    return cert_path, key_path
+
+
+def build_tls_context(cert: Path, key: Path) -> ssl.SSLContext:
+    """Load a TLS 1.2+ server context from a PEM certificate and key."""
+
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    try:
+        ctx.load_cert_chain(str(cert), str(key))
+    except Exception as exc:
+        raise TlsConfigError("tls_cert_invalid", detail=str(exc)) from exc
+    return ctx
 
 
 def resolve_invocation_token(explicit: str | None = None) -> str:
@@ -1756,12 +1816,16 @@ def build_server(
     host: str = "127.0.0.1",
     port: int = 0,
     token: str | None = None,
+    tls_cert: str | Path | None = None,
+    tls_key: str | Path | None = None,
 ) -> ThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
     service_root = Path(root).resolve()
     invocation_token = resolve_invocation_token(token)
     assert_bind_policy(host, invocation_token)
+    tls_files = resolve_tls_files(tls_cert, tls_key)
+    tls_context = build_tls_context(*tls_files) if tls_files else None
     from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager
     from blackhole_agent.invocation_receipts import (
         InvocationReceipts,
@@ -1918,6 +1982,7 @@ def build_server(
                         "solve_plan_preview": True,
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
+                        "tls": bool(getattr(self.server, "tls_enabled", False)),
                     },
                 )
                 return
@@ -2270,6 +2335,10 @@ def build_server(
 
     server = ThreadingHTTPServer((host, port), CapabilityHandler)
     server.daemon_threads = True
+    server.tls_enabled = False
+    if tls_context is not None:
+        server.socket = tls_context.wrap_socket(server.socket, server_side=True)
+        server.tls_enabled = True
     original_close = server.server_close
 
     def _close_with_watcher() -> None:
@@ -2289,6 +2358,8 @@ def serve(
     max_inflight: int | None = None,
     max_output_bytes: int | None = None,
     max_scratch_bytes: int | None = None,
+    tls_cert: str | Path | None = None,
+    tls_key: str | Path | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -2299,8 +2370,15 @@ def serve(
     reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
     try:
-        server = build_server(root, host=host, port=port, token=invocation_token)
-    except BindPolicyError as exc:
+        server = build_server(
+            root,
+            host=host,
+            port=port,
+            token=invocation_token,
+            tls_cert=tls_cert,
+            tls_key=tls_key,
+        )
+    except (BindPolicyError, TlsConfigError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -2322,6 +2400,7 @@ def serve(
                 "mcp_resource_subscribe": True,
                 "mcp_logging": True,
                 "non_loopback_requires_token": True,
+                "tls": bool(getattr(server, "tls_enabled", False)),
             }
         ),
         flush=True,
@@ -2527,6 +2606,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["mcp_logging_health"] = (
             status == 200 and isinstance(health, dict) and health.get("mcp_logging") is True
+        )
+        checks["http_tls_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("tls") is False
         )
         status, preview = _http_request(
             "POST",
@@ -2844,6 +2926,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{MAX_SCRATCH_BYTES_ENV} or 67108864"
         ),
     )
+    serve_parser.add_argument(
+        "--tls-cert",
+        default=None,
+        help=f"PEM certificate to serve HTTPS; defaults to {TLS_CERT_ENV}",
+    )
+    serve_parser.add_argument(
+        "--tls-key",
+        default=None,
+        help=f"PEM private key to serve HTTPS; defaults to {TLS_KEY_ENV}",
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -2857,6 +2949,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_inflight=args.max_inflight,
             max_output_bytes=args.max_output_bytes,
             max_scratch_bytes=args.max_scratch_bytes,
+            tls_cert=args.tls_cert,
+            tls_key=args.tls_key,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)
