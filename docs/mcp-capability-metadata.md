@@ -6,9 +6,11 @@ invocation plane's Streamable HTTP endpoint (`POST /mcp`). An HTTP client
 initializes a session and sends its returned `Mcp-Session-Id` on later
 requests. `GET /mcp` with that session and `Accept: text/event-stream`
 opens the reverse channel: `notifications/progress` for a `progressToken`
-`tools/call` is written as SSE, and a concurrent `POST` of
+`tools/call` is written as SSE, a concurrent `POST` of
 `notifications/cancelled` reaps the in-flight tool tree so the original
-POST answers JSON-RPC `-32800`. GET without a session is 404; GET that
+POST answers JSON-RPC `-32800`, and a ledger mutation that changes the
+invocable set publishes `notifications/tools/list_changed` and
+`notifications/resources/list_changed`. GET without a session is 404; GET that
 does not accept the event stream is 406. When an operator token is
 configured, every MCP request also requires `Authorization: Bearer TOKEN`,
 including metadata reads and the GET stream.
@@ -50,9 +52,11 @@ capabilities remain inspectable with `available: false` and
 `unavailable_reason: "resource_quarantined"`; prompt preparation refuses
 them. Removed, unproved, or no-longer-invocable entries disappear on refresh.
 Resource reads for unknown URIs return JSON-RPC `-32002`; invalid parameters,
-cursor values, or prompt arguments return `-32602`. Subscriptions and list
-change notifications are not advertised; hosts refresh by listing or reading
-again. Tool calls still revalidate through the governed invocation path.
+cursor values, or prompt arguments return `-32602`. `initialize` advertises
+`tools.listChanged` and `resources.listChanged`; connected GET `/mcp` streams
+receive `notifications/tools/list_changed` (and resources) when the invocable
+set changes so hosts re-list without disconnecting. Tool calls still
+revalidate through the governed invocation path.
 
 The wire formats follow MCP's
 [resources](https://modelcontextprotocol.io/specification/2025-03-26/server/resources)

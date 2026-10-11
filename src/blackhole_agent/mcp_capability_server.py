@@ -13,7 +13,12 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
   ``blackhole://capabilities/{capability_id}`` (also discoverable as a URI
   template). These contain public contracts, MCP tool schemas, and current
   availability, never local commands, paths, or proof cases. Reads refresh
-  with the live ledger; subscriptions/change notifications are not offered.
+  with the live ledger. ``initialize`` advertises ``tools.listChanged`` and
+  ``resources.listChanged``; a catalog watcher publishes
+  ``notifications/tools/list_changed`` and
+  ``notifications/resources/list_changed`` on the Streamable HTTP GET
+  reverse channel (and stdio stdout) when the invocable set changes, so a
+  connected host re-lists without polling or disconnecting.
 - ``prompts/get`` for ``prepare_capability_call`` embeds the selected live
   contract and instructions for supplying tool arguments. Prompt retrieval
   is read-only, validates its string arguments, and refuses quarantined or
@@ -64,9 +69,11 @@ at ``POST /mcp`` (same governed ``tools/call`` path, session-scoped
 ``Mcp-Session-Id``). HTTP-only MCP hosts do not need a stdio child.
 ``GET /mcp`` with that session id and ``Accept: text/event-stream`` opens
 the reverse channel: ``notifications/progress`` for a ``progressToken``
-call is written as SSE, and a concurrent ``POST`` of
+call is written as SSE, a concurrent ``POST`` of
 ``notifications/cancelled`` reaps the in-flight tool tree so the original
-``tools/call`` POST answers JSON-RPC ``-32800``.
+``tools/call`` POST answers JSON-RPC ``-32800``, and catalog mutations
+publish ``notifications/tools/list_changed`` (and resources) so the host
+discovers newly proved absorbed tools without a new session.
 """
 
 from __future__ import annotations
@@ -79,7 +86,7 @@ import re
 import sys
 import threading
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import quote
 
 from blackhole_agent.capability_service import (
@@ -92,7 +99,21 @@ from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.1.0"}
+SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.2.0"}
+SERVER_CAPABILITIES = {
+    "tools": {"listChanged": True},
+    "resources": {"subscribe": False, "listChanged": True},
+    "prompts": {"listChanged": False},
+}
+TOOLS_LIST_CHANGED_NOTIFICATION = {
+    "jsonrpc": "2.0",
+    "method": "notifications/tools/list_changed",
+}
+RESOURCES_LIST_CHANGED_NOTIFICATION = {
+    "jsonrpc": "2.0",
+    "method": "notifications/resources/list_changed",
+}
+DEFAULT_CATALOG_WATCH_INTERVAL = 0.2
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PAGE_SIZE = 128
 MAX_PAGE_SIZE = 512
@@ -174,6 +195,63 @@ class McpHttpSession:
             event.set()
         for listener in listeners:
             listener.put_nowait(None)
+
+
+class CatalogChangeWatcher:
+    """Publish list_changed notifications when the invocable catalog mutates.
+
+    MCP hosts snapshot ``tools/list`` at handshake. The ledger grows and
+    shrinks while the session is open; without a push, the host never
+    re-lists. This watcher polls the catalog fingerprint (sorted invocable
+    capability ids) and publishes the spec notifications onto whatever
+    reverse channel the caller supplies — HTTP GET SSE or stdio stdout.
+    """
+
+    def __init__(
+        self,
+        catalog: "CapabilityCatalog",
+        publish: Callable[[Mapping[str, Any]], None],
+        *,
+        interval: float = DEFAULT_CATALOG_WATCH_INTERVAL,
+    ) -> None:
+        self._catalog = catalog
+        self._publish = publish
+        self._interval = max(0.05, float(interval))
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._last: tuple[str, ...] | None = None
+
+    def start(self) -> None:
+        self._last = self._catalog.fingerprint()
+        self._thread = threading.Thread(
+            target=self._run, name="mcp-catalog-watch", daemon=True
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        thread = self._thread
+        if thread is not None:
+            thread.join(timeout=2)
+            self._thread = None
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._interval):
+            try:
+                current = self._catalog.fingerprint()
+            except Exception:
+                continue
+            if self._last is None:
+                self._last = current
+                continue
+            if current == self._last:
+                continue
+            self._last = current
+            try:
+                self._publish(TOOLS_LIST_CHANGED_NOTIFICATION)
+                self._publish(RESOURCES_LIST_CHANGED_NOTIFICATION)
+            except Exception:
+                continue
 
 
 class ResourceNotFoundError(KeyError):
@@ -446,6 +524,13 @@ class CapabilityCatalog:
         self._resource_contents = contents
         self._ledger_mtime_ns = mtime_ns
 
+    def fingerprint(self) -> tuple[str, ...]:
+        """Sorted invocable capability ids currently advertised as tools."""
+
+        with self._lock:
+            self._refresh_locked()
+            return tuple(sorted(self.by_name.values()))
+
     def list_page(self, cursor: str, page_size: int) -> dict[str, Any]:
         with self._lock:
             self._refresh_locked()
@@ -686,9 +771,9 @@ def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> di
             result: Any = {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {
-                    "tools": {"listChanged": False},
-                    "resources": {"subscribe": False, "listChanged": False},
-                    "prompts": {"listChanged": False},
+                    "tools": dict(SERVER_CAPABILITIES["tools"]),
+                    "resources": dict(SERVER_CAPABILITIES["resources"]),
+                    "prompts": dict(SERVER_CAPABILITIES["prompts"]),
                 },
                 "serverInfo": SERVER_INFO,
             }
@@ -756,6 +841,9 @@ def serve_stdio(root: Path) -> int:
             stdout.write(json.dumps(payload) + "\n")
             stdout.flush()
 
+    watcher = CatalogChangeWatcher(catalog, _write)
+    watcher.start()
+
     def _notify_progress(token: Any, progress: int, message: str, *, total: int | None = None) -> None:
         params: dict[str, Any] = {"progressToken": token, "progress": progress, "message": message}
         if total is not None:
@@ -808,54 +896,57 @@ def serve_stdio(root: Path) -> int:
             with registry_lock:
                 in_flight.pop(request_id, None)
 
-    for raw_line in stdin:
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            message = json.loads(line)
-        except json.JSONDecodeError:
-            _write(
-                {
-                    "jsonrpc": "2.0",
-                    "id": None,
-                    "error": {"code": PARSE_ERROR, "message": "line is not valid JSON"},
-                }
-            )
-            continue
-        if not isinstance(message, dict):
-            _write(
-                {
-                    "jsonrpc": "2.0",
-                    "id": None,
-                    "error": {"code": PARSE_ERROR, "message": "message is not a JSON object"},
-                }
-            )
-            continue
-        method = message.get("method")
-        if method == "notifications/cancelled" and "id" not in message:
-            params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
-            target = params.get("requestId")
-            with registry_lock:
-                event = in_flight.get(target)
-            if event is not None:
-                event.set()
-            continue
-        if method == "tools/call" and "id" in message:
-            params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
-            with registry_lock:
-                in_flight[message["id"]] = threading.Event()
-            threading.Thread(
-                target=_run_call, args=(message["id"], params), daemon=True
-            ).start()
-            continue
-        response = handle_message(catalog, message)
-        if response is not None:
-            _write(response)
-    with registry_lock:
-        pending = list(in_flight.values())
-    for event in pending:
-        event.set()
+    try:
+        for raw_line in stdin:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError:
+                _write(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {"code": PARSE_ERROR, "message": "line is not valid JSON"},
+                    }
+                )
+                continue
+            if not isinstance(message, dict):
+                _write(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": None,
+                        "error": {"code": PARSE_ERROR, "message": "message is not a JSON object"},
+                    }
+                )
+                continue
+            method = message.get("method")
+            if method == "notifications/cancelled" and "id" not in message:
+                params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+                target = params.get("requestId")
+                with registry_lock:
+                    event = in_flight.get(target)
+                if event is not None:
+                    event.set()
+                continue
+            if method == "tools/call" and "id" in message:
+                params = message.get("params") if isinstance(message.get("params"), Mapping) else {}
+                with registry_lock:
+                    in_flight[message["id"]] = threading.Event()
+                threading.Thread(
+                    target=_run_call, args=(message["id"], params), daemon=True
+                ).start()
+                continue
+            response = handle_message(catalog, message)
+            if response is not None:
+                _write(response)
+    finally:
+        watcher.stop()
+        with registry_lock:
+            pending = list(in_flight.values())
+        for event in pending:
+            event.set()
     return 0
 
 

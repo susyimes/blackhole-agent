@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
 import subprocess
 import sys
@@ -16,8 +17,12 @@ from blackhole_agent.mcp_capability_server import (
     CATALOG_URI,
     PREPARE_PROMPT_NAME,
     PROTOCOL_VERSION,
+    RESOURCES_LIST_CHANGED_NOTIFICATION,
+    SERVER_CAPABILITIES,
     SERVER_INFO,
+    TOOLS_LIST_CHANGED_NOTIFICATION,
     CapabilityCatalog,
+    CatalogChangeWatcher,
     McpHttpSession,
     capability_resource_uri,
     handle_http_rpc,
@@ -134,11 +139,32 @@ def test_catalog_tracks_ledger_changes(tmp_path: Path) -> None:
     assert len(catalog.tools) == 2
     _fixture_root(tmp_path, extra_slugs=2)
     ledger_path = root / "capabilities" / "ledger.json"
-    import os
-
     os.utime(ledger_path, (ledger_path.stat().st_atime, ledger_path.stat().st_mtime + 5))
     catalog.refresh()
     assert len(catalog.tools) == 4
+
+
+def test_catalog_watcher_publishes_list_changed_on_new_invocable(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    catalog = CapabilityCatalog(root)
+    published: list[str] = []
+    watcher = CatalogChangeWatcher(
+        catalog, lambda payload: published.append(str(payload.get("method"))), interval=0.05
+    )
+    watcher.start()
+    try:
+        assert catalog.fingerprint() == ("capability.absorbed-text-reverser",)
+        _fixture_root(tmp_path, extra_slugs=1)
+        ledger_path = root / "capabilities" / "ledger.json"
+        os.utime(ledger_path, (ledger_path.stat().st_atime, ledger_path.stat().st_mtime + 5))
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline and TOOLS_LIST_CHANGED_NOTIFICATION["method"] not in published:
+            time.sleep(0.05)
+        assert TOOLS_LIST_CHANGED_NOTIFICATION["method"] in published
+        assert RESOURCES_LIST_CHANGED_NOTIFICATION["method"] in published
+        assert "capability.absorbed-extra-tool-000" in catalog.fingerprint()
+    finally:
+        watcher.stop()
 
 
 def test_handle_message_protocol_surface(tmp_path: Path) -> None:
@@ -146,8 +172,13 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     reply = handle_message(catalog, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert reply["result"]["protocolVersion"] == PROTOCOL_VERSION
     assert reply["result"]["serverInfo"] == SERVER_INFO
-    assert reply["result"]["capabilities"]["resources"] == {"subscribe": False, "listChanged": False}
+    assert reply["result"]["capabilities"]["tools"] == {"listChanged": True}
+    assert reply["result"]["capabilities"]["resources"] == {
+        "subscribe": False,
+        "listChanged": True,
+    }
     assert reply["result"]["capabilities"]["prompts"] == {"listChanged": False}
+    assert reply["result"]["capabilities"] == SERVER_CAPABILITIES
     assert handle_message(catalog, {"jsonrpc": "2.0", "id": 2, "method": "ping"})["result"] == {}
     assert handle_message(catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     unknown = handle_message(catalog, {"jsonrpc": "2.0", "id": 3, "method": "unknown/method"})

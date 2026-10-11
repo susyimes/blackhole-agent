@@ -98,8 +98,12 @@ module turns the ledger into a service:
   ``DELETE /mcp`` ends one. ``GET /mcp`` with that session and
   ``Accept: text/event-stream`` is the reverse channel: progress
   notifications for a ``progressToken`` ``tools/call`` are written as SSE,
-  and a concurrent ``POST /mcp`` of ``notifications/cancelled`` reaps the
-  in-flight tool tree so the original POST answers JSON-RPC ``-32800``.
+  a concurrent ``POST /mcp`` of ``notifications/cancelled`` reaps the
+  in-flight tool tree so the original POST answers JSON-RPC ``-32800``,
+  and a ledger mutation that changes the invocable tool set publishes
+  ``notifications/tools/list_changed`` (and ``resources/list_changed``)
+  so a connected host re-lists without a new session. ``initialize``
+  advertises ``tools.listChanged`` and ``resources.listChanged``.
   GET without a session is 404; GET that does not accept the event stream
   is 406. REST ``POST /invoke`` is unchanged. The same catalog also exposes
   MCP resources (public contracts and tool schemas) and a
@@ -1574,6 +1578,7 @@ def build_server(
     receipts = InvocationReceipts(service_root)
     from blackhole_agent.mcp_capability_server import (
         CapabilityCatalog,
+        CatalogChangeWatcher,
         McpHttpSession,
         handle_http_rpc,
     )
@@ -1610,6 +1615,15 @@ def build_server(
             return False
         state.close()
         return True
+
+    def _broadcast_catalog_change(payload: Mapping[str, Any]) -> None:
+        with mcp_session_lock:
+            states = list(mcp_sessions.values())
+        for state in states:
+            state.publish(payload)
+
+    catalog_watcher = CatalogChangeWatcher(mcp_catalog, _broadcast_catalog_change)
+    catalog_watcher.start()
 
     class CapabilityHandler(BaseHTTPRequestHandler):
         server_version = "blackhole-capability-service/1"
@@ -1684,6 +1698,7 @@ def build_server(
                         "max_inflight": snapshot["max_inflight"],
                         "max_output_bytes": current_max_output_bytes(),
                         "live_invoke_stream": True,
+                        "mcp_tools_list_changed": True,
                     },
                 )
                 return
@@ -2012,6 +2027,13 @@ def build_server(
 
     server = ThreadingHTTPServer((host, port), CapabilityHandler)
     server.daemon_threads = True
+    original_close = server.server_close
+
+    def _close_with_watcher() -> None:
+        catalog_watcher.stop()
+        original_close()
+
+    server.server_close = _close_with_watcher  # type: ignore[method-assign]
     return server
 
 
@@ -2044,6 +2066,7 @@ def serve(
                 "mcp_path": MCP_HTTP_PATH,
                 "max_inflight": ADMISSION.max_inflight(),
                 "max_output_bytes": current_max_output_bytes(),
+                "mcp_tools_list_changed": True,
             }
         ),
         flush=True,
