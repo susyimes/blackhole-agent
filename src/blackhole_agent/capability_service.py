@@ -41,7 +41,11 @@ module turns the ledger into a service:
   binding initial state, goal, program, and outcome. Goals no proved
   capability chain covers return an honest ``solved: false`` verdict without
   spawning a subprocess; goals already satisfied by the initial state solve
-  with an empty plan.
+  with an empty plan. ``dry_run: true`` (or ``Prefer: solve=preview``)
+  returns that ranked program, ``plan_evidence``, and a ``dry_run``
+  verdict without starting a subprocess, writing a tool canary, healing
+  quarantines, or occupying an admission slot. A live solve of the same
+  goal still executes. ``GET /health`` reports ``solve_plan_preview``.
 - ``POST /sessions`` upgrades one-shot solves into durable, interactive goal
   sessions (:mod:`blackhole_agent.capability_sessions`): when the goal needs
   state keys no invocable capability provides, an elicitation planner names
@@ -163,6 +167,13 @@ module turns the ledger into a service:
   waiting for the JSON blob. Default JSON ``POST /invoke`` is
   unchanged. Idempotent invokes keep the saved JSON receipt.
   ``GET /health`` reports ``live_invoke_stream``.
+- ``POST /solve`` with ``dry_run: true`` or ``Prefer: solve=preview`` is
+  a plan preview: the same evidence-ranked planner runs, the response
+  names the program that would execute, and no owned tool tree starts.
+  ``GET /health`` reports ``solve_plan_preview``. The operator console
+  preview control posts that flag. Idempotency receipts bind the
+  preview flag so a later live solve with the same key is a new
+  operation.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -274,6 +285,7 @@ INVOCATION_TOKEN_ENV = "BLACKHOLE_INVOCATION_TOKEN"
 WWW_AUTHENTICATE = 'Bearer realm="blackhole-invocation-plane"'
 MCP_HTTP_PATH = "/mcp"
 MAX_MCP_HTTP_SESSIONS = 1024
+SOLVE_PREVIEW_PREFER = "solve=preview"
 # Untrusted tools run under hard tree-wide resource bounds: 256 MiB committed
 # memory (comfortably above an interpreter's baseline, far below host RAM),
 # 32 simultaneously active processes, and 25 CPU-seconds (below the 30s
@@ -326,6 +338,35 @@ def bearer_token_matches(offered: str, expected: str) -> bool:
     """Constant-time compare of utf-8 bearer tokens."""
 
     return hmac.compare_digest(offered.encode("utf-8"), expected.encode("utf-8"))
+
+
+def parse_solve_dry_run(value: Any) -> bool:
+    """Return the dry-run flag; non-boolean values are refused fail-closed."""
+
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    raise InvocationError(422, "dry_run must be a boolean when present")
+
+
+def prefer_solve_preview(header: str | None) -> bool:
+    """True when a Prefer header requests ``solve=preview``."""
+
+    if not header:
+        return False
+    for part in str(header).split(","):
+        token = part.strip().split(";", 1)[0].strip().lower()
+        if token == SOLVE_PREVIEW_PREFER:
+            return True
+    return False
+
+
+def resolve_solve_dry_run(body: Mapping[str, Any] | None, prefer_header: str | None) -> bool:
+    """Preview when the JSON flag or Prefer: solve=preview is set."""
+
+    flagged = parse_solve_dry_run((body or {}).get("dry_run"))
+    return flagged or prefer_solve_preview(prefer_header)
 
 
 def absorbed_root(root: Path) -> Path:
@@ -1108,6 +1149,50 @@ def heal_quarantined_blockers(
     return healing
 
 
+def _preview_solve_result(
+    initial_state: Mapping[str, Any],
+    goal_keys: list[str],
+    program: list[str] | None,
+    evidence: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Side-effect-free solve verdict: the plan that would run, no subprocess."""
+
+    if program is None:
+        result: dict[str, Any] = {
+            "ok": True,
+            "solved": False,
+            "dry_run": True,
+            "goal": goal_keys,
+            "plan": None,
+            "steps": [],
+            "reason": "no proved capability program covers the goal",
+        }
+        if evidence is not None:
+            result["plan_evidence"] = evidence
+        return result
+    result = {
+        "ok": True,
+        "solved": True,
+        "dry_run": True,
+        "goal": goal_keys,
+        "plan": list(program),
+        "steps": [],
+        "plan_digest": _digest(
+            {
+                "initial_state": dict(initial_state),
+                "goal": goal_keys,
+                "plan": list(program),
+                "dry_run": True,
+            }
+        ),
+    }
+    if evidence is not None:
+        result["plan_evidence"] = evidence
+    if not program:
+        result["outcome"] = {key: initial_state[key] for key in goal_keys}
+    return result
+
+
 def solve_goal_request(
     root: Path,
     initial_state: Any,
@@ -1117,6 +1202,7 @@ def solve_goal_request(
     max_steps: int = SOLVE_MAX_STEPS,
     cancel_event: threading.Event | None = None,
     step_observer: Any = None,
+    dry_run: bool = False,
 ) -> dict[str, Any]:
     """Derive and execute a capability program for a declarative goal.
 
@@ -1156,6 +1242,11 @@ def solve_goal_request(
     (``ProcessCancelled`` propagates). ``step_observer(index, total,
     capability_id)`` is invoked after each completed step so streaming
     transports (the MCP capability server) can report per-step progress.
+
+    ``dry_run`` returns the evidence-ranked program without executing,
+    healing, or falling back: no owned tool tree starts. Unsolvable
+    previews stay ``solved: false``; a covering program is ``solved: true``
+    with ``dry_run: true`` and empty ``steps``.
     """
 
     if not isinstance(initial_state, dict) or not all(
@@ -1198,7 +1289,7 @@ def solve_goal_request(
 
     healthy = healthy_subset(invocable)
     program, evidence = evidence_ranked_plan(healthy, set(initial_state), goal_keys)
-    if program is None:
+    if program is None and not dry_run:
         # No healthy program. When a program exists only through quarantined
         # capabilities, heal instead of giving up: re-prove exactly the
         # quarantined blockers under governed re-execution of their frozen
@@ -1215,6 +1306,8 @@ def solve_goal_request(
                 invocable = load_invocable_capabilities(root)
                 healthy = healthy_subset(invocable)
                 program, evidence = evidence_ranked_plan(healthy, set(initial_state), goal_keys)
+    if dry_run:
+        return _preview_solve_result(initial_state, goal_keys, program, evidence)
     if program is None:
         result: dict[str, Any] = {
             "ok": True,
@@ -1710,6 +1803,7 @@ def build_server(
                         "mcp_tools_list_changed": True,
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
+                        "solve_plan_preview": True,
                     },
                 )
                 return
@@ -1900,10 +1994,17 @@ def build_server(
                         "error": "one Idempotency-Key is supported only on POST /invoke and POST /solve",
                     })
                     return
+            dry_run = False
+            if path == "/solve":
+                try:
+                    dry_run = resolve_solve_dry_run(body, self.headers.get("Prefer"))
+                except InvocationError as exc:
+                    _json_response(self, exc.status, {"ok": False, "error": exc.error, **exc.extra})
+                    return
 
             cancel_event: threading.Event | None = None
             stop_watch: Callable[[], None] | None = None
-            if path in {"/invoke", "/solve"}:
+            if path in {"/invoke", "/solve"} and not dry_run:
                 cancel_event, stop_watch = arm_http_disconnect_cancel(self)
             try:
                 if keys:
@@ -1915,6 +2016,7 @@ def build_server(
                                     body.get("initial_state"),
                                     body.get("goal"),
                                     cancel_event=cancel_event,
+                                    dry_run=dry_run,
                                 )
                             return 200, invoke_capability(
                                 service_root,
@@ -1926,7 +2028,9 @@ def build_server(
                             return exc.status, {"ok": False, "error": exc.error, **exc.extra}
 
                     digest = (
-                        solve_request_digest(body.get("initial_state"), body.get("goal"))
+                        solve_request_digest(
+                            body.get("initial_state"), body.get("goal"), dry_run=dry_run
+                        )
                         if path == "/solve"
                         else request_digest(body.get("capability_id"), body.get("input"))
                     )
@@ -1952,6 +2056,7 @@ def build_server(
                             body.get("initial_state"),
                             body.get("goal"),
                             cancel_event=cancel_event,
+                            dry_run=dry_run,
                         )
                     elif path == "/reproof":
                         result = reproof_capability(service_root, body.get("capability_id"))
@@ -2276,6 +2381,41 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         checks["malformed_solve_refused"] = (
             status == 422 and isinstance(malformed, dict) and not malformed.get("ok")
         )
+        status, health = _http_request("GET", f"{base}/health")
+        checks["solve_plan_preview_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("solve_plan_preview") is True
+        )
+        status, preview = _http_request(
+            "POST",
+            f"{base}/solve",
+            {
+                "initial_state": {"raw_text": "blackhole"},
+                "goal": ["reversed_text"],
+                "dry_run": True,
+            },
+        )
+        checks["solve_plan_preview"] = (
+            status == 200
+            and isinstance(preview, dict)
+            and preview.get("solved") is True
+            and preview.get("dry_run") is True
+            and preview.get("plan") == [target_id]
+            and preview.get("steps") == []
+            and "outcome" not in preview
+        )
+        status, preview_header = _http_request(
+            "POST",
+            f"{base}/solve",
+            {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+            headers={"Prefer": "solve=preview"},
+        )
+        checks["solve_plan_preview_prefer"] = (
+            status == 200
+            and isinstance(preview_header, dict)
+            and preview_header.get("dry_run") is True
+            and preview_header.get("plan") == [target_id]
+            and preview_header.get("steps") == []
+        )
         mcp_url = f"{base}{MCP_HTTP_PATH}"
         status, handshake, mcp_headers = _http_request_ex(
             "POST",
@@ -2449,7 +2589,8 @@ def ensure_capability_service_capability(*, repo_path: Path | None = None) -> Ca
             "with threaded state, and the response carries per-step digests "
             "and a plan digest binding goal, program, and outcome; goals no "
             "proved program covers return an honest solved=false verdict "
-            "without spawning a subprocess. "
+            "without spawning a subprocess. dry_run or Prefer: solve=preview "
+            "returns that ranked program without executing untrusted tools. "
             "Unknown, unproved, or non-absorbed ids, malformed inputs, "
             "malformed solve requests, and "
             "empty or non-machine-checkable contracts are refused fail-closed "

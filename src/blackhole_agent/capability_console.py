@@ -13,7 +13,9 @@ document served at ``GET /console`` (and ``/``):
   ``/health``, ``/capabilities`` and ``/sessions``, invokes any selected
   capability through ``POST /invoke`` with a JSON input form, and submits
   declarative goals through ``POST /solve``, rendering the derived plan,
-  per-step outputs, and the plan digest. Invoke sends
+  per-step outputs, and the plan digest. Preview posts ``dry_run: true``
+  so the ranked program is returned without executing untrusted tools.
+  Invoke sends
   ``Accept: text/event-stream`` so stdout and stderr appear while the
   tool still runs; a plane that only speaks JSON is still rendered.
   When the operator fills the
@@ -95,7 +97,7 @@ __ROWS__
 <p>initial state (JSON object):</p>
 <textarea id="solve-state" rows="3">{}</textarea>
 <p>goal state keys (comma separated): <input id="solve-goal" placeholder="reversed_text"></p>
-<p><button onclick="solveGoal()">solve</button> <button onclick="cancelSolve()">cancel</button></p>
+<p><button onclick="solveGoal()">solve</button> <button onclick="previewSolve()">preview</button> <button onclick="cancelSolve()">cancel</button></p>
 <pre id="solve-result"></pre>
 </section>
 <section>
@@ -232,19 +234,27 @@ async function invokeCapability() {
     show("invoke-result", {error: String(error), cancelled: error.name === "AbortError"});
   }
 }
-async function solveGoal() {
+async function postSolve(dryRun) {
   let state;
   try { state = JSON.parse(document.getElementById("solve-state").value); }
   catch (error) { show("solve-result", {error: String(error)}); return; }
   const goal = parseGoalKeys(document.getElementById("solve-goal").value);
   cancelSolve();
   solveAbort = new AbortController();
+  const body = {initial_state: state, goal: goal};
+  if (dryRun) body.dry_run = true;
   try {
-    const result = await postJSON("/solve", {initial_state: state, goal: goal}, solveAbort);
+    const result = await postJSON("/solve", body, solveAbort);
     show("solve-result", result);
   } catch (error) {
     show("solve-result", {error: String(error), cancelled: error.name === "AbortError"});
   }
+}
+async function solveGoal() {
+  await postSolve(false);
+}
+async function previewSolve() {
+  await postSolve(true);
 }
 async function createSession() {
   let state;

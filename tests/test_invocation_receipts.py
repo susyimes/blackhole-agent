@@ -135,6 +135,9 @@ def test_solve_and_mcp_digests_are_isolated_from_invoke(tmp_path):
     assert request_digest("cap", {"raw_text": "ab"}) != solve_request_digest(
         {"raw_text": "ab"}, ["reversed_text"]
     )
+    assert solve_request_digest({"raw_text": "ab"}, ["reversed_text"]) != solve_request_digest(
+        {"raw_text": "ab"}, ["reversed_text"], dry_run=True
+    )
     assert mcp_call_digest("text-reverser", {"raw_text": "ab"}) != request_digest(
         "capability.absorbed-text-reverser", {"raw_text": "ab"}
     )

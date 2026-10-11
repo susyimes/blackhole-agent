@@ -98,6 +98,7 @@ from blackhole_agent.capability_service import (
     InvocationError,
     invoke_capability,
     load_invocable_capabilities,
+    parse_solve_dry_run,
     solve_goal_request,
 )
 from blackhole_agent.invocation_receipts import (
@@ -422,7 +423,8 @@ def _solve_tool_descriptor() -> dict[str, Any]:
             "supply an initial_state object and the goal state keys; the "
             "server derives a minimal capability program, executes every "
             "step for real with threaded state, and returns the outcome "
-            "with a plan digest."
+            "with a plan digest. Set dry_run true to return the ranked "
+            "program without executing untrusted tools."
         ),
         "inputSchema": {
             "type": "object",
@@ -435,6 +437,10 @@ def _solve_tool_descriptor() -> dict[str, Any]:
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "state keys the derived program must provide",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "when true, return the ranked program without executing tools",
                 },
             },
             "required": ["initial_state", "goal"],
@@ -451,6 +457,8 @@ def _solve_tool_descriptor() -> dict[str, Any]:
                 "outcome": {"type": "object"},
                 "plan_digest": {"type": "string"},
                 "reason": {"type": "string"},
+                "dry_run": {"type": "boolean"},
+                "plan_evidence": {"type": "object"},
             },
             "required": ["ok", "solved", "goal"],
         },
@@ -662,6 +670,7 @@ class CapabilityCatalog:
                 arguments.get("goal"),
                 cancel_event=cancel_event,
                 step_observer=_step,
+                dry_run=parse_solve_dry_run(arguments.get("dry_run")),
             )
         except InvocationError as exc:
             return {

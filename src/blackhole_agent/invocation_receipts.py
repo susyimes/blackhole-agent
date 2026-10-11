@@ -7,7 +7,9 @@ must reconcile an unknown outcome before deliberately choosing a new key.
 This does not promise exactly-once effects inside an arbitrary tool.
 
 Named ``POST /invoke`` receipts bind ``capability_id`` plus input.
-Declarative ``POST /solve`` receipts bind initial state plus goal.
+Declarative ``POST /solve`` receipts bind initial state plus goal, and
+the ``dry_run`` preview flag so a plan preview cannot replay as a live
+solve (or the reverse) under the same key.
 MCP ``tools/call`` receipts bind the tool name plus arguments, including
 ``solve_goal``. Distinct operations never share a digest, so one key cannot
 replay a solve as an invoke.
@@ -57,8 +59,11 @@ def request_digest(capability_id: Any, provided_input: Any) -> str:
     return payload_digest({"capability_id": capability_id, "input": provided_input})
 
 
-def solve_request_digest(initial_state: Any, goal: Any) -> str:
-    return payload_digest({"kind": "http.solve", "initial_state": initial_state, "goal": goal})
+def solve_request_digest(initial_state: Any, goal: Any, *, dry_run: bool = False) -> str:
+    payload: dict[str, Any] = {"kind": "http.solve", "initial_state": initial_state, "goal": goal}
+    if dry_run:
+        payload["dry_run"] = True
+    return payload_digest(payload)
 
 
 def mcp_call_digest(name: Any, arguments: Any) -> str:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
+import sys
 import threading
 import time
 from pathlib import Path
@@ -18,8 +19,11 @@ from blackhole_agent.capability_service import (
     evaluate_contract_request,
     invoke_capability,
     load_invocable_capabilities,
+    parse_solve_dry_run,
     plan_goal_program,
+    prefer_solve_preview,
     record_resource_quarantine,
+    resolve_solve_dry_run,
     solve_goal_request,
     InvocationError,
 )
@@ -689,6 +693,118 @@ def test_solve_goal_request_direct_and_digest_stability(tmp_path: Path) -> None:
     with pytest.raises(InvocationError) as excinfo:
         solve_goal_request(root, {"raw_text": "a"}, [])
     assert excinfo.value.status == 422
+
+
+def test_solve_dry_run_returns_plan_without_executing(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    _write_tool(
+        root,
+        "append-event",
+        (
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            "state = json.load(sys.stdin)\n"
+            "Path(state['events']).write_text(state['label'], encoding='utf-8')\n"
+            "print(json.dumps({'saved': state['label']}))\n"
+        ),
+        requires=["events", "label"],
+        provides=["saved"],
+    )
+    tool_dir = root / "capabilities" / "absorbed" / "append-event"
+    manifest_path = tool_dir / "absorption.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["command"] = [sys.executable, "tool.py"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    canary = tool_dir / "effects.txt"
+    ledger_path = root / "capabilities" / "ledger.json"
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    ledger["capabilities"]["capability.absorbed-append-event"] = _ledger_entry(
+        "capability.absorbed-append-event"
+    )
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    preview = solve_goal_request(
+        root,
+        {"events": str(canary), "label": "preview-should-not-write"},
+        ["saved"],
+        dry_run=True,
+    )
+    assert preview["solved"] is True
+    assert preview["dry_run"] is True
+    assert preview["plan"] == ["capability.absorbed-append-event"]
+    assert preview["steps"] == []
+    assert "outcome" not in preview
+    assert not canary.exists()
+    live = solve_goal_request(
+        root,
+        {"events": str(canary), "label": "preview-should-not-write"},
+        ["saved"],
+    )
+    assert live["solved"] is True
+    assert live.get("dry_run") is not True
+    assert canary.read_text(encoding="utf-8") == "preview-should-not-write"
+    unsolved = solve_goal_request(root, {"raw_text": "x"}, ["no_such_key"], dry_run=True)
+    assert unsolved["solved"] is False
+    assert unsolved["dry_run"] is True
+    assert unsolved["plan"] is None
+    satisfied = solve_goal_request(root, {"reversed_text": "ab"}, ["reversed_text"], dry_run=True)
+    assert satisfied["solved"] is True
+    assert satisfied["plan"] == []
+    assert satisfied["outcome"] == {"reversed_text": "ab"}
+    with pytest.raises(InvocationError) as excinfo:
+        parse_solve_dry_run("yes")
+    assert excinfo.value.status == 422
+    assert parse_solve_dry_run(None) is False
+    assert parse_solve_dry_run(True) is True
+    assert prefer_solve_preview("foo, solve=preview") is True
+    assert prefer_solve_preview("return=minimal") is False
+    assert resolve_solve_dry_run({"dry_run": False}, "solve=preview") is True
+    assert resolve_solve_dry_run({"dry_run": True}, None) is True
+    assert resolve_solve_dry_run({}, None) is False
+
+
+def test_solve_http_preview_and_prefer_header(server) -> None:
+    root, base = server
+    status, health = _request("GET", f"{base}/health")
+    assert status == 200
+    assert health["solve_plan_preview"] is True
+    status, preview = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"], "dry_run": True},
+    )
+    assert status == 200
+    assert preview["dry_run"] is True
+    assert preview["solved"] is True
+    assert preview["plan"] == ["capability.absorbed-text-reverser"]
+    assert preview["steps"] == []
+    status, via_prefer = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+        headers={"Prefer": "solve=preview"},
+    )
+    assert status == 200
+    assert via_prefer["dry_run"] is True
+    assert via_prefer["plan"] == ["capability.absorbed-text-reverser"]
+    status, live = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"]},
+    )
+    assert status == 200
+    assert live.get("dry_run") is not True
+    assert live["outcome"]["reversed_text"] == "elohkcalb"
+    status, bad = _request(
+        "POST",
+        f"{base}/solve",
+        {"initial_state": {"raw_text": "blackhole"}, "goal": ["reversed_text"], "dry_run": "yes"},
+    )
+    assert status == 422
+    from blackhole_agent.capability_console import console_html
+
+    page = console_html(root)
+    assert "function previewSolve()" in page
+    assert "body.dry_run = true" in page
 
 
 def test_plan_goal_program_minimality_and_honesty(tmp_path: Path) -> None:
