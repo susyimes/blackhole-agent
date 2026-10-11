@@ -98,6 +98,11 @@ publish ``notifications/tools/list_changed`` (and resources) so the host
 discovers newly proved absorbed tools without a new session. A
 ``resources/subscribe`` watch on one catalog URI receives
 ``notifications/resources/updated`` after quarantine or reinstatement.
+GET SSE events carry a session-scoped ``id``. A reconnecting host that
+sends ``Last-Event-ID`` is replayed every retained notification after
+that cursor, including events published while no GET listener was
+attached. A GET without the header stays live-from-connect. ``GET
+/health`` reports ``mcp_sse_resume``.
 """
 
 from __future__ import annotations
@@ -109,6 +114,7 @@ import queue
 import re
 import sys
 import threading
+from collections import deque
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import quote
@@ -177,6 +183,10 @@ DEFAULT_CATALOG_WATCH_INTERVAL = 0.2
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PAGE_SIZE = 128
 MAX_PAGE_SIZE = 512
+# Bounded per-session SSE replay window. Progress, logging, and catalog
+# notifications during a dropped GET must survive until the host reconnects
+# with Last-Event-ID; a huge log cannot grow without bound.
+MAX_SSE_EVENT_LOG = 256
 TOOL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 TOOL_NAME_LIMIT = 64
 SOLVE_TOOL_NAME = "solve_goal"
@@ -330,6 +340,24 @@ def tool_log_listener(
     return listener
 
 
+def parse_last_event_id(header: str | None) -> int | None:
+    """Return the GET resume cursor, or ``None`` for live-from-connect.
+
+    A missing or blank ``Last-Event-ID`` keeps historical live-only GET
+    behavior. A present decimal id resumes after that event. Any other
+    present value resumes from the start of the retained buffer (id 0).
+    """
+
+    if header is None:
+        return None
+    text = str(header).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    return 0
+
+
 class McpHttpSession:
     """One Streamable-HTTP MCP session: in-flight calls and GET SSE listeners."""
 
@@ -337,6 +365,8 @@ class McpHttpSession:
         self._lock = threading.Lock()
         self.in_flight: dict[Any, threading.Event] = {}
         self._listeners: list[queue.Queue[Any]] = []
+        self._next_event_id = 1
+        self._event_log: deque[tuple[int, dict[str, Any]]] = deque(maxlen=MAX_SSE_EVENT_LOG)
         self.watches = ResourceWatch()
         self.logs = LoggingFloor()
         self.closed = False
@@ -360,12 +390,16 @@ class McpHttpSession:
         event.set()
         return True
 
-    def subscribe(self) -> queue.Queue[Any]:
+    def subscribe(self, last_event_id: int | None = None) -> queue.Queue[Any]:
         listener: queue.Queue[Any] = queue.Queue()
         with self._lock:
             if self.closed:
                 listener.put_nowait(None)
                 return listener
+            if last_event_id is not None:
+                for event_id, message in self._event_log:
+                    if event_id > last_event_id:
+                        listener.put_nowait((event_id, dict(message)))
             self._listeners.append(listener)
         return listener
 
@@ -379,9 +413,15 @@ class McpHttpSession:
     def publish(self, payload: Mapping[str, Any]) -> None:
         message = dict(payload)
         with self._lock:
+            if self.closed:
+                return
+            event_id = self._next_event_id
+            self._next_event_id += 1
+            self._event_log.append((event_id, message))
             listeners = list(self._listeners)
+        envelope = (event_id, message)
         for listener in listeners:
-            listener.put_nowait(message)
+            listener.put_nowait(envelope)
 
     def close(self) -> None:
         with self._lock:

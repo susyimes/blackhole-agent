@@ -126,7 +126,12 @@ module turns the ledger into a service:
   ``mcp_resource_subscribe``, and ``mcp_logging``. ``logging/setLevel``
   stores a session severity floor; live ``tools/call`` stderr is
   published as ``notifications/message`` on the GET reverse channel
-  (stdout at debug) while the owned tree still runs.
+  (stdout at debug) while the owned tree still runs. GET SSE events
+  include a session-scoped ``id``. A host that reconnects with
+  ``Last-Event-ID`` is replayed missed progress, logging, and catalog
+  notifications that were published while the GET was down. A GET
+  without that header stays live-from-connect. ``GET /health`` reports
+  ``mcp_sse_resume``.
 - Hosted stdio MCP plugins are opt-in. ``--mcp-plugin`` (JSON argv or a
   shell command; repeatable) or ``BLACKHOLE_MCP_PLUGIN`` starts those
   servers at listen time, lists each tool as
@@ -2128,9 +2133,11 @@ def _mcp_http_path(path: str) -> bool:
     return path.split("?", 1)[0].rstrip("/") == MCP_HTTP_PATH
 
 
-def _encode_mcp_sse(payload: Mapping[str, Any]) -> bytes:
+def _encode_mcp_sse(payload: Mapping[str, Any], *, event_id: int | None = None) -> bytes:
     data = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
-    return f"event: message\ndata: {data}\n\n".encode("utf-8")
+    if event_id is None:
+        return f"event: message\ndata: {data}\n\n".encode("utf-8")
+    return f"id: {int(event_id)}\nevent: message\ndata: {data}\n\n".encode("utf-8")
 
 
 def _encode_session_sse(payload: Mapping[str, Any]) -> bytes:
@@ -2354,6 +2361,7 @@ def build_server(
         CatalogChangeWatcher,
         McpHttpSession,
         handle_http_rpc,
+        parse_last_event_id,
         resources_updated_notification,
     )
 
@@ -2675,6 +2683,7 @@ def build_server(
                         "mcp_completions": True,
                         "mcp_resource_subscribe": True,
                         "mcp_logging": True,
+                        "mcp_sse_resume": True,
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
@@ -2709,7 +2718,8 @@ def build_server(
                         {"ok": False, "error": "mcp_get_requires_event_stream"},
                     )
                     return
-                listener = state.subscribe()
+                last_event_id = parse_last_event_id(self.headers.get("Last-Event-ID"))
+                listener = state.subscribe(last_event_id=last_event_id)
                 try:
                     release_request_deadline(self)
                     self.send_response(200)
@@ -2732,8 +2742,12 @@ def build_server(
                             continue
                         if item is None:
                             break
+                        if isinstance(item, tuple) and len(item) == 2:
+                            event_id, payload = item
+                        else:
+                            event_id, payload = None, item
                         try:
-                            self.wfile.write(_encode_mcp_sse(item))
+                            self.wfile.write(_encode_mcp_sse(payload, event_id=event_id))
                             self.wfile.flush()
                         except OSError:
                             break
@@ -3178,6 +3192,7 @@ def serve(
                 "mcp_completions": True,
                 "mcp_resource_subscribe": True,
                 "mcp_logging": True,
+                "mcp_sse_resume": True,
                 "non_loopback_requires_token": True,
                 "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),

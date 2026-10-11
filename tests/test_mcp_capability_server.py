@@ -34,10 +34,27 @@ from blackhole_agent.mcp_capability_server import (
     handle_http_rpc,
     handle_message,
     log_level_allowed,
+    parse_last_event_id,
     run_governed_tools_call,
     tool_name_for_slug,
 )
 from blackhole_agent.mcp_client import McpProtocolError, McpStdioSession, extract_resource_updated
+
+
+def _session_payloads(listener: queue.Queue) -> list[dict]:
+    items: list[dict] = []
+    while True:
+        try:
+            item = listener.get_nowait()
+        except queue.Empty:
+            break
+        if item is None:
+            continue
+        payload = item[1] if isinstance(item, tuple) and len(item) == 2 else item
+        if isinstance(payload, dict):
+            items.append(payload)
+    return items
+
 
 _TOOL = (
     "import json, sys\n"
@@ -264,6 +281,36 @@ def test_http_rpc_subscribe_is_session_scoped(tmp_path: Path) -> None:
     assert not outsider.watches.contains(uri)
 
 
+def test_parse_last_event_id_live_vs_resume() -> None:
+    assert parse_last_event_id(None) is None
+    assert parse_last_event_id("") is None
+    assert parse_last_event_id("   ") is None
+    assert parse_last_event_id("0") == 0
+    assert parse_last_event_id("12") == 12
+    assert parse_last_event_id("abc") == 0
+
+
+def test_mcp_http_session_replays_after_last_event_id() -> None:
+    session = McpHttpSession()
+    session.publish(TOOLS_LIST_CHANGED_NOTIFICATION)
+    session.publish(RESOURCES_LIST_CHANGED_NOTIFICATION)
+    live = session.subscribe()
+    assert _session_payloads(live) == []
+    resumed = session.subscribe(last_event_id=1)
+    replayed = _session_payloads(resumed)
+    assert [item.get("method") for item in replayed] == [
+        "notifications/resources/list_changed"
+    ]
+    from_start = session.subscribe(last_event_id=0)
+    assert [item.get("method") for item in _session_payloads(from_start)] == [
+        "notifications/tools/list_changed",
+        "notifications/resources/list_changed",
+    ]
+    session.publish({"jsonrpc": "2.0", "method": "notifications/message"})
+    live_tail = _session_payloads(live)
+    assert [item.get("method") for item in live_tail] == ["notifications/message"]
+
+
 def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     catalog = CapabilityCatalog(_fixture_root(tmp_path))
     reply = handle_message(catalog, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
@@ -342,14 +389,7 @@ def test_tools_call_publishes_stderr_log_messages(tmp_path: Path, monkeypatch) -
     )
     structured = reply["result"]["structuredContent"]
     assert structured["reversed_text"] == "ba"
-    messages = []
-    while True:
-        try:
-            item = listener.get_nowait()
-        except queue.Empty:
-            break
-        if isinstance(item, dict):
-            messages.append(item)
+    messages = _session_payloads(listener)
     log_events = [item for item in messages if item.get("method") == LOG_MESSAGE_METHOD]
     assert log_events
     data = (log_events[0].get("params") or {}).get("data") or {}
@@ -387,14 +427,7 @@ def test_error_log_floor_suppresses_tool_stderr(tmp_path: Path, monkeypatch) -> 
         },
         session=session,
     )
-    messages = []
-    while True:
-        try:
-            item = listener.get_nowait()
-        except queue.Empty:
-            break
-        if isinstance(item, dict):
-            messages.append(item)
+    messages = _session_payloads(listener)
     assert not [item for item in messages if item.get("method") == LOG_MESSAGE_METHOD]
 
 
@@ -817,16 +850,11 @@ def test_handle_http_rpc_publishes_progress_on_session(tmp_path: Path) -> None:
         session=session,
     )
     assert reply["result"]["structuredContent"] == {"reversed_text": "ess"}
-    published = []
-    while True:
-        try:
-            published.append(listener.get_nowait())
-        except queue.Empty:
-            break
+    published = _session_payloads(listener)
     progress = [
         item
         for item in published
-        if isinstance(item, dict) and item.get("method") == "notifications/progress"
+        if item.get("method") == "notifications/progress"
     ]
     assert [item.get("method") for item in progress] == [
         "notifications/progress",
