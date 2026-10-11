@@ -39,6 +39,13 @@ killing the server. Goal sessions close those three gaps:
   performs), bounded per session and never attempted twice for the same
   capability. Every attempt is a ``healed`` transition on the digest-bound
   record; an unhealable blocker fails the session honestly.
+- **Outbound notify.** ``POST /sessions`` may include ``notify_url`` and
+  ``notify_secret``. When the session reaches a terminal status, the plane
+  POSTs an HMAC-signed JSON payload (``X-Hub-Signature-256``) to that
+  loopback http(s) URL so an operator who already disconnected still
+  receives the outcome. Failed 5xx/timeout deliveries retry a bounded
+  number of times; non-loopback URLs are refused before any tool runs.
+  API responses never include the shared secret.
 
 Every state transition recomputes a ``session_digest`` over the goal,
 initial state, transition kinds, and per-step response digests (timestamps
@@ -52,6 +59,7 @@ import heapq
 import json
 import queue
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -67,6 +75,14 @@ from blackhole_agent.capability_service import (
     load_invocable_capabilities,
 )
 from blackhole_agent.process_capture import ProcessCancelled
+from blackhole_agent.session_notify import (
+    RETRY_DELAYS_SECONDS,
+    NotifyTargetError,
+    deliver_session_notify,
+    normalize_notify_spec,
+    public_session_record,
+    should_retry_notify,
+)
 
 SESSION_SCHEMA_VERSION = 1
 SESSIONS_DIR_NAME = "capability-service-sessions"
@@ -253,6 +269,7 @@ class SessionManager:
         self._cancel_events: dict[str, threading.Event] = {}
         self._threads: dict[str, threading.Thread] = {}
         self._event_listeners: dict[str, list[queue.Queue]] = {}
+        self._notify_inflight: set[str] = set()
 
     # -- persistence ------------------------------------------------------
 
@@ -273,6 +290,7 @@ class SessionManager:
         record["session_digest"] = _compute_session_digest(record)
         atomic_write_json(_session_path(self.root, record["session_id"]), record)
         self._publish(record)
+        self._maybe_notify(record)
         return record
 
     def _publish(self, record: Mapping[str, Any]) -> None:
@@ -383,6 +401,12 @@ class SessionManager:
                 self._transition(record, "interrupted", "server stopped while execution ran")
                 self._persist(record)
                 recovered.append(record["session_id"])
+            elif (
+                str(record.get("status") or "") in TERMINAL_STATUSES
+                and record.get("notify_url")
+                and not (record.get("notify") or {}).get("delivered")
+            ):
+                self._maybe_notify(record)
         return recovered
 
     # -- API --------------------------------------------------------------
@@ -408,9 +432,16 @@ class SessionManager:
 
     def get_session(self, session_id: str) -> dict[str, Any]:
         record = self._load(session_id)
-        return {"ok": True, "session": record}
+        return {"ok": True, "session": public_session_record(record)}
 
-    def create_session(self, initial_state: Any, goal: Any) -> dict[str, Any]:
+    def create_session(
+        self,
+        initial_state: Any,
+        goal: Any,
+        *,
+        notify_url: Any = None,
+        notify_secret: Any = None,
+    ) -> dict[str, Any]:
         if not isinstance(initial_state, dict) or not all(
             isinstance(key, str) for key in initial_state
         ):
@@ -421,6 +452,10 @@ class SessionManager:
             or not all(isinstance(key, str) and key.strip() for key in goal)
         ):
             raise InvocationError(422, "goal must be a non-empty list of state keys")
+        try:
+            callback_url, callback_secret = normalize_notify_spec(notify_url, notify_secret)
+        except NotifyTargetError as exc:
+            raise InvocationError(422, str(exc)) from exc
         goal_keys = list(dict.fromkeys(str(key).strip() for key in goal))
         session_id = uuid.uuid4().hex[:16]
         record: dict[str, Any] = {
@@ -442,11 +477,21 @@ class SessionManager:
             "transitions": [],
             "plan_digest": None,
         }
+        if callback_url and callback_secret:
+            record["notify_url"] = callback_url
+            record["notify_secret"] = callback_secret
+            record["notify"] = {
+                "attempts": 0,
+                "delivered": False,
+                "last_status": None,
+                "last_error": None,
+                "delivered_at": None,
+            }
         self._transition(record, "created", {"goal": goal_keys})
         planned = self._plan_with_healing(record, set(initial_state))
         if planned is None:
             self._transition(record, "unsolvable", "no bounded capability program covers the goal")
-            return {"ok": True, "session": self._persist(record)}
+            return {"ok": True, "session": public_session_record(self._persist(record))}
         record["plan"] = planned["program"]
         record["elicited_keys"] = planned["elicited_keys"]
         record["key_consumers"] = planned["key_consumers"]
@@ -454,12 +499,12 @@ class SessionManager:
             record["status"] = "awaiting_input"
             record["pending_keys"] = planned["elicited_keys"]
             self._transition(record, "elicited", {"pending_keys": planned["elicited_keys"]})
-            return {"ok": True, "session": self._persist(record)}
+            return {"ok": True, "session": public_session_record(self._persist(record))}
         self._transition(record, "planned", {"plan": planned["program"]})
         record["status"] = "running"
         self._persist(record)
         self._start_execution(record["session_id"])
-        return {"ok": True, "session": record}
+        return {"ok": True, "session": public_session_record(record)}
 
     def supply_input(self, session_id: str, supplied: Any) -> dict[str, Any]:
         record = self._load(session_id)
@@ -487,7 +532,7 @@ class SessionManager:
         if planned is None:
             record["status"] = "unsolvable"
             self._transition(record, "unsolvable", "no bounded capability program covers the goal")
-            return {"ok": True, "session": self._persist(record)}
+            return {"ok": True, "session": public_session_record(self._persist(record))}
         record["plan"] = planned["program"]
         if planned["elicited_keys"]:
             record["elicited_keys"] = sorted(set(record["elicited_keys"]) | set(planned["elicited_keys"]))
@@ -496,12 +541,12 @@ class SessionManager:
             )
             record["pending_keys"] = planned["elicited_keys"]
             self._transition(record, "elicited", {"pending_keys": planned["elicited_keys"]})
-            return {"ok": True, "session": self._persist(record)}
+            return {"ok": True, "session": public_session_record(self._persist(record))}
         self._transition(record, "planned", {"plan": planned["program"]})
         record["status"] = "running"
         self._persist(record)
         self._start_execution(session_id)
-        return {"ok": True, "session": record}
+        return {"ok": True, "session": public_session_record(record)}
 
     def resume_session(self, session_id: str) -> dict[str, Any]:
         record = self._load(session_id)
@@ -513,7 +558,7 @@ class SessionManager:
         self._transition(record, "resumed", {"completed_steps": len(record["steps"])})
         self._persist(record)
         self._start_execution(session_id)
-        return {"ok": True, "session": record}
+        return {"ok": True, "session": public_session_record(record)}
 
     def cancel_session(self, session_id: str) -> dict[str, Any]:
         record = self._load(session_id)
@@ -526,13 +571,73 @@ class SessionManager:
             if event is None:
                 record["status"] = "interrupted"
                 self._transition(record, "interrupted", "execution thread was not live at cancel")
-                return {"ok": True, "session": self._persist(record)}
+                return {"ok": True, "session": public_session_record(self._persist(record))}
             event.set()
             self._transition(record, "cancel_requested", None)
-            return {"ok": True, "session": self._persist(record)}
+            return {"ok": True, "session": public_session_record(self._persist(record))}
         record["status"] = "cancelled"
         self._transition(record, "cancelled", f"cancelled while {status}")
-        return {"ok": True, "session": self._persist(record)}
+        return {"ok": True, "session": public_session_record(self._persist(record))}
+
+    # -- outbound notify --------------------------------------------------
+
+    def _maybe_notify(self, record: Mapping[str, Any]) -> None:
+        session_id = str(record.get("session_id") or "")
+        if not session_id:
+            return
+        if str(record.get("status") or "") not in TERMINAL_STATUSES:
+            return
+        if not record.get("notify_url") or not record.get("notify_secret"):
+            return
+        if (record.get("notify") or {}).get("delivered"):
+            return
+        with self._lock:
+            if session_id in self._notify_inflight:
+                return
+            self._notify_inflight.add(session_id)
+        thread = threading.Thread(
+            target=self._deliver_notify,
+            args=(session_id,),
+            daemon=True,
+            name=f"session-notify-{session_id}",
+        )
+        thread.start()
+
+    def _deliver_notify(self, session_id: str) -> None:
+        try:
+            delays = (0.0, *RETRY_DELAYS_SECONDS)
+            for index, delay in enumerate(delays):
+                if delay:
+                    time.sleep(delay)
+                record = self._load(session_id)
+                if str(record.get("status") or "") not in TERMINAL_STATUSES:
+                    return
+                if (record.get("notify") or {}).get("delivered"):
+                    return
+                url = str(record.get("notify_url") or "")
+                secret = str(record.get("notify_secret") or "")
+                if not url or not secret:
+                    return
+                status, error = deliver_session_notify(url, secret, record)
+                notify = dict(record.get("notify") or {})
+                notify["attempts"] = int(notify.get("attempts") or 0) + 1
+                notify["last_status"] = status
+                notify["last_error"] = error or None
+                if 200 <= status < 300:
+                    notify["delivered"] = True
+                    notify["delivered_at"] = utc_now_iso()
+                    record["notify"] = notify
+                    self._persist(record)
+                    return
+                record["notify"] = notify
+                self._persist(record)
+                if index >= len(delays) - 1 or not should_retry_notify(status, error):
+                    return
+        except Exception:
+            return
+        finally:
+            with self._lock:
+                self._notify_inflight.discard(session_id)
 
     # -- execution --------------------------------------------------------
 

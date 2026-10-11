@@ -71,6 +71,15 @@ module turns the ledger into a service:
   session is 404; GET that does not accept the event stream is 406. The
   stream closes after a terminal status. REST ``POST /invoke`` is
   unchanged.
+- ``POST /sessions`` may include ``notify_url`` and ``notify_secret``.
+  When the session reaches a terminal status the plane POSTs a
+  GitHub-style HMAC-signed JSON body (``X-Hub-Signature-256``) to that
+  URL so a disconnected operator still receives the outcome. Only
+  loopback http(s) URLs are accepted; redirects are not followed; 5xx
+  and transport failures retry a bounded number of times. The secret
+  is stored on the session record and redacted from every HTTP
+  response. A session without ``notify_url`` does not POST. REST
+  ``POST /invoke`` is unchanged.
 - Dropped HTTP clients do not leak tool processes: ``POST /invoke`` and
   ``POST /solve`` watch the request socket while the owned command tree
   runs. A hang-up, reset, or aborted curl sets the same cancel event
@@ -1754,7 +1763,12 @@ def build_server(
                     elif path == "/reproof":
                         result = reproof_capability(service_root, body.get("capability_id"))
                     elif path == "/sessions":
-                        result = sessions.create_session(body.get("initial_state"), body.get("goal"))
+                        result = sessions.create_session(
+                            body.get("initial_state"),
+                            body.get("goal"),
+                            notify_url=body.get("notify_url"),
+                            notify_secret=body.get("notify_secret"),
+                        )
                     elif session_action == "input":
                         result = sessions.supply_input(session_id, body.get("input"))
                     elif session_action == "resume":
