@@ -10,10 +10,15 @@ Untrusted tool trees on the invocation plane also pass ``max_output_bytes``:
 the parent never loads an oversized stdout/stderr blob into RAM, and a tree
 that keeps writing is reaped as soon as the capture files exceed the cap.
 Kernel and git callers omit the argument so their output stays unlimited.
+
+``on_output`` tails those same capture files while the tree still runs so a
+live HTTP client can stream stderr/stdout before the process exits. Callers
+that only need the final blob omit it.
 """
 
 from __future__ import annotations
 
+import codecs
 import json
 import os
 import signal
@@ -24,7 +29,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Sequence
 
 
 class ProcessCancelled(RuntimeError):
@@ -112,6 +117,45 @@ def _output_exceeded(stdout, stderr, max_output_bytes: int | None) -> str:
     if _file_size(stderr) > max_output_bytes:
         return "stderr"
     return ""
+
+
+class _LiveOutputPump:
+    """Decode new capture-file bytes and push them to ``on_output``."""
+
+    def __init__(self, stdout, stderr, on_output: Callable[[str, str], None] | None) -> None:
+        self._stdout = stdout
+        self._stderr = stderr
+        self._on_output = on_output
+        self._stdout_off = 0
+        self._stderr_off = 0
+        self._stdout_dec = codecs.getincrementaldecoder("utf-8")("replace")
+        self._stderr_dec = codecs.getincrementaldecoder("utf-8")("replace")
+
+    def drain(self, *, final: bool = False) -> None:
+        if self._on_output is None:
+            return
+        self._stdout_off = self._emit("stdout", self._stdout, self._stdout_off, self._stdout_dec, final)
+        self._stderr_off = self._emit("stderr", self._stderr, self._stderr_off, self._stderr_dec, final)
+
+    def _emit(self, stream: str, handle, offset: int, decoder, final: bool) -> int:
+        size = _file_size(handle)
+        data = b""
+        if size > offset:
+            handle.seek(offset)
+            data = handle.read(size - offset)
+            offset += len(data)
+        if not data and not final:
+            return offset
+        try:
+            text = decoder.decode(data, final=final)
+        except Exception:
+            text = data.decode("utf-8", errors="replace") if data else ""
+        if text:
+            try:
+                self._on_output(stream, text)
+            except Exception:
+                pass
+        return offset
 
 
 @dataclass(frozen=True)
@@ -323,6 +367,7 @@ def run_captured_process(
     cancel_event: threading.Event | None = None,
     sandbox_roots: Sequence[Path] | None = None,
     max_output_bytes: int | None = None,
+    on_output: Callable[[str, str], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
 
@@ -342,6 +387,9 @@ def run_captured_process(
     size-capped: the tree is reaped once either stream exceeds the cap, and
     the parent never decodes the oversized blob. Kernel callers omit this
     argument so their output stays unlimited.
+    When ``on_output`` is given, each newly captured stdout/stderr chunk is
+    pushed as ``on_output(stream, text)`` while the tree still runs. The
+    final ``CompletedProcess`` still carries the full decoded blobs.
     """
     if timeout <= 0:
         raise ValueError("timeout must be positive")
@@ -442,13 +490,15 @@ def run_captured_process(
                     if input is not None:
                         stdin.close()
             try:
-                if cancel_event is None and not cap_bytes:
+                pump = _LiveOutputPump(stdout, stderr, on_output)
+                if cancel_event is None and not cap_bytes and on_output is None:
                     try:
                         process.wait(timeout=timeout)
                     except subprocess.TimeoutExpired:
                         timed_out = True
                 else:
                     deadline = time.monotonic() + timeout
+                    poll = 0.05 if on_output is not None else 0.2
                     while True:
                         remaining = deadline - time.monotonic()
                         if cancel_event is not None and cancel_event.is_set():
@@ -460,12 +510,14 @@ def run_captured_process(
                         exceeded_stream = _output_exceeded(stdout, stderr, cap_bytes)
                         if exceeded_stream:
                             break
+                        pump.drain()
                         try:
-                            process.wait(timeout=min(0.2, max(remaining, 0.0)))
+                            process.wait(timeout=min(poll, max(remaining, 0.0)))
                             exceeded_stream = _output_exceeded(stdout, stderr, cap_bytes)
                             break
                         except subprocess.TimeoutExpired:
                             continue
+                pump.drain(final=True)
             finally:
                 if job is not None:
                     try:

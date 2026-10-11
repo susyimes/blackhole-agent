@@ -60,7 +60,9 @@ module turns the ledger into a service:
   plane and execute real capabilities and goals. The same page creates
   durable goal sessions, answers elicitation for missing external keys,
   resumes interrupted sessions, cancels running ones, and watches
-  ``GET /sessions/{id}/events``. In-flight ``/invoke``
+  ``GET /sessions/{id}/events``. Invoke from the page uses
+  ``Accept: text/event-stream`` so live stdout/stderr appear before the
+  JSON result. In-flight ``/invoke``
   and ``/solve`` fetches carry an AbortController; cancelling them (or
   closing the tab) hangs up the HTTP socket so the plane can reap the
   tool tree.
@@ -69,8 +71,8 @@ module turns the ledger into a service:
   SSE (snapshot first) so a browser can watch ``awaiting_input`` through
   ``solved`` or ``cancelled`` without polling. GET without a known
   session is 404; GET that does not accept the event stream is 406. The
-  stream closes after a terminal status. REST ``POST /invoke`` is
-  unchanged.
+  stream closes after a terminal status. JSON ``POST /invoke`` remains
+  the default; ``Accept: text/event-stream`` opts into live output.
 - ``POST /sessions`` may include ``notify_url`` and ``notify_secret``.
   When the session reaches a terminal status the plane POSTs a
   GitHub-style HMAC-signed JSON body (``X-Hub-Signature-256``) to that
@@ -145,6 +147,14 @@ module turns the ledger into a service:
   reaped and answered ``502`` with ``violation: output_limited``; the HTTP
   body does not echo the oversized blob. ``GET /health`` reports
   ``max_output_bytes``. Kernel and git subprocesses omit the cap.
+- ``POST /invoke`` with ``Accept: text/event-stream`` (and without
+  ``application/json``) streams captured stdout and stderr as SSE
+  ``output`` events while the owned tree is still running, then a
+  terminal ``result`` or ``error`` event. The operator console uses
+  that Accept header so a browser watches a running tool instead of
+  waiting for the JSON blob. Default JSON ``POST /invoke`` is
+  unchanged. Idempotent invokes keep the saved JSON receipt.
+  ``GET /health`` reports ``live_invoke_stream``.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -746,12 +756,16 @@ def invoke_capability(
     *,
     timeout: int = INVOKE_TIMEOUT_SECONDS,
     cancel_event: threading.Event | None = None,
+    output_listener: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """Execute one proved absorbed capability against its vendored tree.
 
     When ``cancel_event`` is given and becomes set while the tool runs, the
     tool's owned process tree is terminated and :class:`ProcessCancelled`
-    propagates to the caller (goal sessions use this for ``DELETE``)."""
+    propagates to the caller (goal sessions use this for ``DELETE``).
+    When ``output_listener`` is given, each captured stdout/stderr chunk is
+    delivered as ``output_listener(stream, text)`` while the tool still runs.
+    """
 
     if not isinstance(capability_id, str) or not capability_id.strip():
         raise InvocationError(400, "capability_id must be a non-empty string")
@@ -801,6 +815,7 @@ def invoke_capability(
                 cancel_event=cancel_event,
                 sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
                 max_output_bytes=current_max_output_bytes(),
+                on_output=output_listener,
             )
     except AdmissionLimited as exc:
         record(False, "admission_limited")
@@ -1415,6 +1430,70 @@ def _encode_session_sse(payload: Mapping[str, Any]) -> bytes:
     return f"event: session\ndata: {data}\n\n".encode("utf-8")
 
 
+def _encode_invoke_sse(event: str, payload: Mapping[str, Any]) -> bytes:
+    data = json.dumps(dict(payload), separators=(",", ":"), ensure_ascii=True)
+    return f"event: {event}\ndata: {data}\n\n".encode("utf-8")
+
+
+def _wants_live_invoke_stream(handler: BaseHTTPRequestHandler) -> bool:
+    accept = (handler.headers.get("Accept") or "").lower()
+    return "text/event-stream" in accept and "application/json" not in accept
+
+
+def _stream_live_invoke(
+    handler: BaseHTTPRequestHandler,
+    root: Path,
+    body: Mapping[str, Any],
+    cancel_event: threading.Event | None,
+) -> None:
+    """POST /invoke reverse channel: output events while the tree still runs."""
+
+    try:
+        handler.close_connection = True
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/event-stream")
+        handler.send_header("Cache-Control", "no-cache")
+        handler.send_header("Connection", "close")
+        handler.end_headers()
+        handler.wfile.flush()
+    except OSError:
+        if cancel_event is not None:
+            cancel_event.set()
+        return
+
+    def emit(event: str, payload: Mapping[str, Any]) -> bool:
+        try:
+            handler.wfile.write(_encode_invoke_sse(event, payload))
+            handler.wfile.flush()
+            return True
+        except OSError:
+            if cancel_event is not None:
+                cancel_event.set()
+            return False
+
+    def listener(stream: str, text: str) -> None:
+        emit("output", {"stream": stream, "text": text})
+
+    if not emit("started", {"capability_id": body.get("capability_id")}):
+        return
+    try:
+        result = invoke_capability(
+            root,
+            body.get("capability_id"),
+            body.get("input"),
+            cancel_event=cancel_event,
+            output_listener=listener,
+        )
+    except ProcessCancelled:
+        emit("error", {"ok": False, "cancelled": True, "error": "cancelled"})
+        return
+    except InvocationError as exc:
+        payload = {"ok": False, "error": exc.error, **exc.extra}
+        emit("error", payload)
+        return
+    emit("result", result)
+
+
 def _write_mcp_rpc(
     handler: BaseHTTPRequestHandler,
     payload: Mapping[str, Any],
@@ -1604,6 +1683,7 @@ def build_server(
                         "inflight": snapshot["inflight"],
                         "max_inflight": snapshot["max_inflight"],
                         "max_output_bytes": current_max_output_bytes(),
+                        "live_invoke_stream": True,
                     },
                 )
                 return
@@ -1820,6 +1900,9 @@ def build_server(
                         return
                     extra_headers = _admission_retry_headers(status, result) if isinstance(result, dict) else None
                     _json_response(self, status, result, replayed=replayed, headers=extra_headers)
+                    return
+                if path == "/invoke" and _wants_live_invoke_stream(self):
+                    _stream_live_invoke(self, service_root, body, cancel_event)
                     return
                 try:
                     if path == "/contract":

@@ -13,7 +13,10 @@ document served at ``GET /console`` (and ``/``):
   ``/health``, ``/capabilities`` and ``/sessions``, invokes any selected
   capability through ``POST /invoke`` with a JSON input form, and submits
   declarative goals through ``POST /solve``, rendering the derived plan,
-  per-step outputs, and the plan digest. When the operator fills the
+  per-step outputs, and the plan digest. Invoke sends
+  ``Accept: text/event-stream`` so stdout and stderr appear while the
+  tool still runs; a plane that only speaks JSON is still rendered.
+  When the operator fills the
   bearer-token field, those mutating fetches send
   ``Authorization: Bearer`` so a token-gated plane executes; an empty
   field keeps the historical open-loopback calls. In-flight invoke/solve
@@ -83,6 +86,7 @@ __ROWS__
 <p>capability id: <input id="invoke-id" list="cap-ids" placeholder="capability.absorbed-…"><datalist id="cap-ids">__OPTIONS__</datalist></p>
 <p>input (JSON object):</p>
 <textarea id="invoke-input" rows="3">{}</textarea>
+<p>Live stdout/stderr stream while the tool runs; the JSON result follows.</p>
 <p><button onclick="invokeCapability()">invoke</button> <button onclick="cancelInvoke()">cancel</button></p>
 <pre id="invoke-result"></pre>
 </section>
@@ -136,6 +140,9 @@ async function postJSON(path, body, controller) {
   });
   return response.json();
 }
+function postInvoke(body, controller) {
+  return postJSON("/invoke", body, controller);
+}
 function show(id, payload) {
   document.getElementById(id).textContent = JSON.stringify(payload, null, 2);
 }
@@ -172,12 +179,55 @@ async function invokeCapability() {
   catch (error) { show("invoke-result", {error: String(error)}); return; }
   cancelInvoke();
   invokeAbort = new AbortController();
+  const node = document.getElementById("invoke-result");
+  node.textContent = "running…";
   try {
-    const result = await postJSON("/invoke", {
-      capability_id: document.getElementById("invoke-id").value,
-      input: input
-    }, invokeAbort);
-    show("invoke-result", result);
+    const invokeUrl = "/invoke";
+    const response = await fetch(invokeUrl, {
+      method: "POST",
+      headers: withAuth({"Content-Type": "application/json", "Accept": "text/event-stream"}),
+      body: JSON.stringify({
+        capability_id: document.getElementById("invoke-id").value,
+        input: input
+      }),
+      signal: invokeAbort.signal
+    });
+    const ctype = (response.headers.get("content-type") || "").toLowerCase();
+    if (!ctype.includes("text/event-stream")) {
+      show("invoke-result", await response.json());
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    const live = {output: [], result: null};
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      while (true) {
+        const idx = buf.indexOf("\\n\\n");
+        if (idx < 0) break;
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        let eventName = "message";
+        let payload = null;
+        for (const line of raw.split("\\n")) {
+          if (line.startsWith("event:")) eventName = line.slice(6).trim();
+          if (line.startsWith("data:")) {
+            try { payload = JSON.parse(line.slice(5).trim()); }
+            catch (error) { payload = line.slice(5).trim(); }
+          }
+        }
+        if (eventName === "output" && payload) {
+          live.output.push(payload);
+          node.textContent = JSON.stringify(live, null, 2);
+        } else if (eventName === "result" || eventName === "error") {
+          live.result = payload;
+          node.textContent = JSON.stringify(live, null, 2);
+        }
+      }
+    }
   } catch (error) {
     show("invoke-result", {error: String(error), cancelled: error.name === "AbortError"});
   }

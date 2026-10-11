@@ -154,6 +154,28 @@ def test_timeout_terminates_owned_parent_and_child_without_pipe_eof_wait(tmp_pat
         unrelated.wait(timeout=5)
 
 
+def test_live_output_callback_sees_stderr_before_process_exit(tmp_path):
+    chunks: list[tuple[str, str, float]] = []
+    code = (
+        "import sys,time;"
+        "print('LIVE-1', file=sys.stderr, flush=True);"
+        "time.sleep(0.5);"
+        "print('done', flush=True)"
+    )
+    result = run_captured_process(
+        [sys.executable, "-u", "-c", code],
+        cwd=tmp_path,
+        timeout=8,
+        on_output=lambda stream, text: chunks.append((stream, text, time.monotonic())),
+    )
+    assert result.returncode == 0
+    stderr_hits = [item for item in chunks if item[0] == "stderr" and "LIVE-1" in item[1]]
+    stdout_hits = [item for item in chunks if item[0] == "stdout" and "done" in item[1]]
+    assert stderr_hits, chunks
+    assert stdout_hits, chunks
+    assert stderr_hits[0][2] < stdout_hits[0][2]
+
+
 def test_run_command_checks_failures_and_uses_bounded_capture(tmp_path, monkeypatch):
     calls = []
 
