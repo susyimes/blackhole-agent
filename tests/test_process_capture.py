@@ -9,11 +9,18 @@ import pytest
 
 from blackhole_agent.process_capture import (
     DEFAULT_MAX_OUTPUT_BYTES,
+    DEFAULT_MAX_SCRATCH_BYTES,
     MAX_OUTPUT_BYTES_ENV,
+    MAX_SCRATCH_BYTES_ENV,
     OutputLimitExceeded,
+    ScratchLimitExceeded,
     configure_max_output_bytes,
+    configure_max_scratch_bytes,
     current_max_output_bytes,
+    current_max_scratch_bytes,
+    filesystem_sandbox_available,
     parse_max_output_bytes,
+    parse_max_scratch_bytes,
     run_captured_process,
 )
 from blackhole_agent.unbound import continuous_loop_status_snapshot, pid_is_running, run_command
@@ -256,3 +263,135 @@ def test_run_captured_process_unlimited_stdout_still_returns_blob(tmp_path: Path
     )
     assert result.returncode == 0
     assert result.stdout == "A" * 20000
+
+
+def test_parse_max_scratch_bytes_clamps_and_falls_back() -> None:
+    assert parse_max_scratch_bytes(None) == DEFAULT_MAX_SCRATCH_BYTES
+    assert parse_max_scratch_bytes("") == DEFAULT_MAX_SCRATCH_BYTES
+    assert parse_max_scratch_bytes("nope") == DEFAULT_MAX_SCRATCH_BYTES
+    assert parse_max_scratch_bytes("0") == DEFAULT_MAX_SCRATCH_BYTES
+    assert parse_max_scratch_bytes("9999999999") == DEFAULT_MAX_SCRATCH_BYTES
+    assert parse_max_scratch_bytes("65536") == 65536
+
+
+def test_current_max_scratch_bytes_pin_overrides_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    configure_max_scratch_bytes(None)
+    try:
+        monkeypatch.setenv(MAX_SCRATCH_BYTES_ENV, "8192")
+        assert current_max_scratch_bytes() == 8192
+        configure_max_scratch_bytes(65536)
+        assert current_max_scratch_bytes() == 65536
+    finally:
+        configure_max_scratch_bytes(None)
+
+
+@pytest.mark.skipif(
+    not filesystem_sandbox_available(),
+    reason="OS filesystem sandbox (AppContainer/Landlock) is unavailable",
+)
+def test_run_captured_process_caps_scratch_without_returning_blob(tmp_path: Path) -> None:
+    tool = tmp_path / "tool"
+    tool.mkdir()
+    (tool / "probe.py").write_text(
+        "import os, pathlib, sys\n"
+        "root = pathlib.Path(os.environ['TEMP'])\n"
+        "(root / 'bomb.bin').write_bytes(b'A' * 20000)\n"
+        "sys.stdout.write('ok')\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ScratchLimitExceeded) as caught:
+        run_captured_process(
+            [sys.executable, "probe.py"],
+            cwd=tool,
+            timeout=15,
+            sandbox_roots=[tool],
+            max_scratch_bytes=4096,
+        )
+    assert caught.value.max_scratch_bytes == 4096
+    assert caught.value.scratch_bytes > 4096
+    assert "AAAA" not in str(caught.value)
+    assert caught.value.payload()["violation"] == "scratch_limited"
+
+
+@pytest.mark.skipif(
+    not filesystem_sandbox_available(),
+    reason="OS filesystem sandbox (AppContainer/Landlock) is unavailable",
+)
+def test_run_captured_process_small_scratch_write_still_succeeds(tmp_path: Path) -> None:
+    tool = tmp_path / "tool"
+    tool.mkdir()
+    (tool / "probe.py").write_text(
+        "import os, pathlib, sys\n"
+        "root = pathlib.Path(os.environ['TEMP'])\n"
+        "(root / 'ok.bin').write_bytes(b'ok')\n"
+        "sys.stdout.write('ok')\n",
+        encoding="utf-8",
+    )
+    result = run_captured_process(
+        [sys.executable, "probe.py"],
+        cwd=tool,
+        timeout=15,
+        sandbox_roots=[tool],
+        max_scratch_bytes=65536,
+    )
+    assert result.returncode == 0
+    assert result.stdout == "ok"
+
+
+@pytest.mark.skipif(
+    not filesystem_sandbox_available() or os.name != "nt",
+    reason="Windows AppContainer shared TEMP is required",
+)
+def test_preexisting_shared_temp_does_not_poison_scratch_cap(tmp_path: Path) -> None:
+    """Leftover AC\\Temp files from an earlier invoke must not 502 a later one."""
+
+    extra = Path(os.environ.get("LOCALAPPDATA") or "") / "Packages" / "bh.unbound.tool.v3" / "AC" / "Temp"
+    extra.mkdir(parents=True, exist_ok=True)
+    leftover = extra / "leftover-scratch-cap.bin"
+    leftover.write_bytes(b"B" * 200000)
+    tool = tmp_path / "tool"
+    tool.mkdir()
+    (tool / "small.py").write_text(
+        "import os, pathlib, sys\n"
+        "root = pathlib.Path(os.environ['TEMP'])\n"
+        "(root / 'ok.bin').write_bytes(b'ok')\n"
+        "sys.stdout.write('ok')\n",
+        encoding="utf-8",
+    )
+    (tool / "bomb.py").write_text(
+        "import os, pathlib, sys\n"
+        "root = pathlib.Path(os.environ['TEMP'])\n"
+        "(root / 'bomb.bin').write_bytes(b'A' * 20000)\n"
+        "sys.stdout.write('ok')\n",
+        encoding="utf-8",
+    )
+    (tool / "noop.py").write_text("import sys; sys.stdout.write('ok')\n", encoding="utf-8")
+    try:
+        small = run_captured_process(
+            [sys.executable, "small.py"],
+            cwd=tool,
+            timeout=15,
+            sandbox_roots=[tool],
+            max_scratch_bytes=65536,
+        )
+        assert small.returncode == 0
+        assert small.stdout == "ok"
+        noop = run_captured_process(
+            [sys.executable, "noop.py"],
+            cwd=tool,
+            timeout=15,
+            sandbox_roots=[tool],
+            max_scratch_bytes=65536,
+        )
+        assert noop.returncode == 0
+        assert noop.stdout == "ok"
+        with pytest.raises(ScratchLimitExceeded):
+            run_captured_process(
+                [sys.executable, "bomb.py"],
+                cwd=tool,
+                timeout=15,
+                sandbox_roots=[tool],
+                max_scratch_bytes=4096,
+            )
+    finally:
+        leftover.unlink(missing_ok=True)

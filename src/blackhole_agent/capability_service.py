@@ -166,6 +166,14 @@ module turns the ledger into a service:
   reaped and answered ``502`` with ``violation: output_limited``; the HTTP
   body does not echo the oversized blob. ``GET /health`` reports
   ``max_output_bytes``. Kernel and git subprocesses omit the cap.
+- Per-invocation scratch (``TEMP``/``TMP``/``TMPDIR``) is size-capped the
+  same way: ``POST /invoke`` never lets an untrusted tree write more than
+  ``BLACKHOLE_MAX_SCRATCH_BYTES`` (default 64 MiB) of child-created files
+  into that directory. A tool that dumps a large blob to TEMP is reaped
+  and answered ``502`` with ``violation: scratch_limited``; the oversized
+  file is deleted with the scratch directory and never echoed. ``GET
+  /health`` reports ``max_scratch_bytes``. A small scratch write still
+  succeeds. Kernel and git subprocesses omit the cap.
 - ``POST /invoke`` with ``Accept: text/event-stream`` (and without
   ``application/json``) streams captured stdout and stderr as SSE
   ``output`` events while the owned tree is still running, then a
@@ -262,11 +270,16 @@ from blackhole_agent.invocation_history import (
 )
 from blackhole_agent.process_capture import (
     MAX_OUTPUT_BYTES_ENV,
+    MAX_SCRATCH_BYTES_ENV,
     OutputLimitExceeded,
     ProcessCancelled,
     ResourceLimits,
+    ScratchLimitExceeded,
     configure_max_output_bytes,
+    configure_max_scratch_bytes,
     current_max_output_bytes,
+    current_max_scratch_bytes,
+    reclaim_shared_scratch,
     run_captured_process,
 )
 
@@ -663,8 +676,11 @@ def _run_governed_case(
             resource_limits=limits,
             sandbox_roots=_sandbox_roots(root, tool_root),
             max_output_bytes=current_max_output_bytes(),
+            max_scratch_bytes=current_max_scratch_bytes(),
         )
     except OutputLimitExceeded as exc:
+        return {"ok": False, "error": str(exc), "violation": exc.payload()}
+    except ScratchLimitExceeded as exc:
         return {"ok": False, "error": str(exc), "violation": exc.payload()}
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -878,6 +894,7 @@ def invoke_capability(
                 cancel_event=cancel_event,
                 sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
                 max_output_bytes=current_max_output_bytes(),
+                max_scratch_bytes=current_max_scratch_bytes(),
                 on_output=output_listener,
             )
     except AdmissionLimited as exc:
@@ -889,6 +906,13 @@ def invoke_capability(
         ) from exc
     except OutputLimitExceeded as exc:
         record(False, "output_limited")
+        raise InvocationError(
+            502,
+            str(exc),
+            extra=exc.payload(),
+        ) from exc
+    except ScratchLimitExceeded as exc:
+        record(False, "scratch_limited")
         raise InvocationError(
             502,
             str(exc),
@@ -958,8 +982,11 @@ def governed_command_runner(limits: ResourceLimits):
                 resource_limits=limits,
                 shell=isinstance(command, str) or shell,
                 max_output_bytes=current_max_output_bytes(),
+                max_scratch_bytes=current_max_scratch_bytes(),
             )
         except OutputLimitExceeded as exc:
+            return subprocess.CompletedProcess(argv, 125, "", str(exc))
+        except ScratchLimitExceeded as exc:
             return subprocess.CompletedProcess(argv, 125, "", str(exc))
         except subprocess.TimeoutExpired as exc:
             stderr = (exc.stderr or "") + "\nwall-clock timeout"
@@ -1826,6 +1853,7 @@ def build_server(
                         "inflight": snapshot["inflight"],
                         "max_inflight": snapshot["max_inflight"],
                         "max_output_bytes": current_max_output_bytes(),
+                        "max_scratch_bytes": current_max_scratch_bytes(),
                         "live_invoke_stream": True,
                         "mcp_tools_list_changed": True,
                         "mcp_completions": True,
@@ -2204,12 +2232,15 @@ def serve(
     token: str | None = None,
     max_inflight: int | None = None,
     max_output_bytes: int | None = None,
+    max_scratch_bytes: int | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
     if max_inflight is not None:
         ADMISSION.configure(max_inflight)
     configure_max_output_bytes(max_output_bytes)
+    configure_max_scratch_bytes(max_scratch_bytes)
+    reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
     server = build_server(root, host=host, port=port, token=invocation_token)
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -2225,6 +2256,7 @@ def serve(
                 "mcp_path": MCP_HTTP_PATH,
                 "max_inflight": ADMISSION.max_inflight(),
                 "max_output_bytes": current_max_output_bytes(),
+                "max_scratch_bytes": current_max_scratch_bytes(),
                 "mcp_tools_list_changed": True,
                 "mcp_completions": True,
                 "mcp_resource_subscribe": True,
@@ -2419,6 +2451,11 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
+        )
+        checks["scratch_cap_health"] = (
+            status == 200
+            and isinstance(health, dict)
+            and int(health.get("max_scratch_bytes") or 0) > 0
         )
         checks["mcp_completions_health"] = (
             status == 200 and isinstance(health, dict) and health.get("mcp_completions") is True
@@ -2726,6 +2763,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{MAX_OUTPUT_BYTES_ENV} or 1048576"
         ),
     )
+    serve_parser.add_argument(
+        "--max-scratch-bytes",
+        type=int,
+        default=None,
+        help=(
+            "cap child-created files in per-invocation TEMP; defaults to "
+            f"{MAX_SCRATCH_BYTES_ENV} or 67108864"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -2738,6 +2784,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             token=args.token,
             max_inflight=args.max_inflight,
             max_output_bytes=args.max_output_bytes,
+            max_scratch_bytes=args.max_scratch_bytes,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)

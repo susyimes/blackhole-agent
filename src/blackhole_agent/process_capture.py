@@ -9,7 +9,14 @@ POSIX commands and their ordinary descendants share a new process group.
 Untrusted tool trees on the invocation plane also pass ``max_output_bytes``:
 the parent never loads an oversized stdout/stderr blob into RAM, and a tree
 that keeps writing is reaped as soon as the capture files exceed the cap.
-Kernel and git callers omit the argument so their output stays unlimited.
+The same trees pass ``max_scratch_bytes``: child-created files in the
+per-invocation TEMP directory — and, on Windows, the shared AppContainer
+package TEMP the OS actually rewrites ``TEMP`` to — are size-capped so a
+tool cannot fill the host volume even though RAM, CPU, process count, and
+captured stdout are already bounded. Shared extra TEMP trees count only
+bytes this invocation created or rewrote, so leftover files from an earlier
+tool cannot 502 a later small write. Kernel and git callers omit both
+arguments so their output and working directories stay unlimited.
 
 ``on_output`` tails those same capture files while the tree still runs so a
 live HTTP client can stream stderr/stdout before the process exits. Callers
@@ -42,8 +49,17 @@ MIN_MAX_OUTPUT_BYTES = 256
 MAX_MAX_OUTPUT_BYTES = 32 << 20
 OUTPUT_LIMIT_VIOLATION = "output_limited"
 
+MAX_SCRATCH_BYTES_ENV = "BLACKHOLE_MAX_SCRATCH_BYTES"
+DEFAULT_MAX_SCRATCH_BYTES = 64 << 20
+MIN_MAX_SCRATCH_BYTES = 4096
+MAX_MAX_SCRATCH_BYTES = 1 << 30
+SCRATCH_LIMIT_VIOLATION = "scratch_limited"
+_PARENT_SCRATCH_NAMES = frozenset({"stdin.txt", "startup-error.json"})
+
 _configured_max_output_bytes: int | None = None
 _output_config_lock = threading.Lock()
+_configured_max_scratch_bytes: int | None = None
+_scratch_config_lock = threading.Lock()
 
 
 class OutputLimitExceeded(Exception):
@@ -98,6 +114,234 @@ def current_max_output_bytes() -> int:
     if configured is not None:
         return configured
     return parse_max_output_bytes(os.environ.get(MAX_OUTPUT_BYTES_ENV))
+
+
+class ScratchLimitExceeded(Exception):
+    """The owned tree wrote more bytes into per-invocation TEMP than allowed."""
+
+    def __init__(self, max_scratch_bytes: int, scratch_bytes: int) -> None:
+        self.max_scratch_bytes = int(max_scratch_bytes)
+        self.scratch_bytes = int(scratch_bytes)
+        super().__init__(
+            f"scratch directory exceeded {self.max_scratch_bytes} bytes "
+            f"(observed {self.scratch_bytes})"
+        )
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "violation": SCRATCH_LIMIT_VIOLATION,
+            "max_scratch_bytes": self.max_scratch_bytes,
+            "scratch_bytes": self.scratch_bytes,
+        }
+
+
+def parse_max_scratch_bytes(raw: str | None) -> int:
+    """Return a host-safe scratch cap; invalid values fall back to the default."""
+
+    text = str(raw or "").strip()
+    if not text.isdigit():
+        return DEFAULT_MAX_SCRATCH_BYTES
+    value = int(text)
+    if value < MIN_MAX_SCRATCH_BYTES or value > MAX_MAX_SCRATCH_BYTES:
+        return DEFAULT_MAX_SCRATCH_BYTES
+    return value
+
+
+def configure_max_scratch_bytes(max_scratch_bytes: int | None) -> None:
+    """Pin the invocation-plane scratch cap (or clear the pin so env is read)."""
+
+    global _configured_max_scratch_bytes
+    with _scratch_config_lock:
+        if max_scratch_bytes is None:
+            _configured_max_scratch_bytes = None
+            return
+        _configured_max_scratch_bytes = parse_max_scratch_bytes(str(int(max_scratch_bytes)))
+
+
+def current_max_scratch_bytes() -> int:
+    """Scratch cap used by the invocation plane: CLI pin, else env, else default."""
+
+    with _scratch_config_lock:
+        configured = _configured_max_scratch_bytes
+    if configured is not None:
+        return configured
+    return parse_max_scratch_bytes(os.environ.get(MAX_SCRATCH_BYTES_ENV))
+
+
+def _scratch_child_bytes(scratch: Path) -> int:
+    """Sum child-created files under TEMP; skip parent stdin/startup files."""
+
+    root = Path(scratch)
+    total = 0
+    try:
+        for dirpath, _dirnames, filenames in os.walk(root):
+            folder = Path(dirpath)
+            for name in filenames:
+                if folder == root and name in _PARENT_SCRATCH_NAMES:
+                    continue
+                try:
+                    total += (folder / name).stat().st_size
+                except OSError:
+                    continue
+    except OSError:
+        return total
+    return total
+
+
+def _path_key(path: Path | str) -> str:
+    return os.path.normcase(os.path.normpath(str(path)))
+
+
+def _stat_record(path: Path) -> tuple[int, int] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    mtime_ns = int(getattr(st, "st_mtime_ns", int(st.st_mtime * 1_000_000_000)))
+    return (int(st.st_size), mtime_ns)
+
+
+def _file_records(root: Path) -> dict[str, tuple[int, int]]:
+    """Map normalized paths to (size, mtime_ns) under root."""
+
+    folder = Path(root)
+    if not folder.exists():
+        return {}
+    found: dict[str, tuple[int, int]] = {}
+    try:
+        for dirpath, _dirnames, filenames in os.walk(folder):
+            for name in filenames:
+                path = Path(dirpath) / name
+                record = _stat_record(path)
+                if record is None:
+                    continue
+                found[_path_key(path)] = record
+    except OSError:
+        return found
+    return found
+
+
+def _invocation_scratch_bytes(root: Path, before: dict[str, tuple[int, int]]) -> int:
+    """Bytes this invocation created or rewrote under a shared extra scratch root.
+
+    AppContainer TEMP is shared across invokes, so leftover files from an
+    earlier tool must not count against a later cap.
+    """
+
+    total = 0
+    for key, (size, mtime_ns) in _file_records(root).items():
+        prior = before.get(key)
+        if prior is None:
+            total += size
+            continue
+        prior_size, prior_mtime = prior
+        if size != prior_size or mtime_ns != prior_mtime:
+            total += size
+    return total
+
+
+def _appcontainer_temp_path() -> Path | None:
+    """Host path of the shared Windows AppContainer TEMP directory.
+
+    AppContainer rewrites TEMP/TMP to ``Packages/<profile>/AC/Temp`` even
+    when the job bootstrap inherited a per-invocation scratch path, so
+    untrusted tools persist and fill that package directory unless we
+    watch it.
+    """
+
+    if os.name != "nt":
+        return None
+    try:
+        from blackhole_agent._windows_appcontainer import PROFILE_NAME
+    except Exception:
+        PROFILE_NAME = "bh.unbound.tool.v3"
+    local = os.environ.get("LOCALAPPDATA") or ""
+    if not local:
+        return None
+    return Path(local) / "Packages" / PROFILE_NAME / "AC" / "Temp"
+
+
+def _scratch_watch_roots(scratch: Path, *, sandboxed: bool) -> list[Path]:
+    roots = [Path(scratch).resolve()]
+    if sandboxed:
+        extra = _appcontainer_temp_path()
+        if extra is not None:
+            resolved = extra.resolve() if extra.exists() else extra
+            if resolved not in roots:
+                roots.append(resolved)
+    return roots
+
+
+def _same_scratch_path(left: Path, right: Path) -> bool:
+    try:
+        return Path(left).resolve() == Path(right).resolve()
+    except OSError:
+        return os.path.normcase(str(left)) == os.path.normcase(str(right))
+
+
+def _scratch_usage_bytes(
+    roots: Sequence[Path],
+    scratch: Path,
+    extra_before: dict[str, dict[str, tuple[int, int]]],
+) -> int:
+    total = 0
+    for root in roots:
+        if _same_scratch_path(root, scratch):
+            total += _scratch_child_bytes(root)
+        else:
+            total += _invocation_scratch_bytes(root, extra_before.get(str(root), {}))
+    return total
+
+
+def _scratch_exceeded(
+    roots: Sequence[Path],
+    scratch: Path,
+    max_scratch_bytes: int | None,
+    extra_before: dict[str, dict[str, tuple[int, int]]],
+) -> int:
+    """Return observed child-created bytes when over the cap, else 0."""
+
+    if not max_scratch_bytes:
+        return 0
+    observed = _scratch_usage_bytes(roots, scratch, extra_before)
+    return observed if observed > int(max_scratch_bytes) else 0
+
+
+def _delete_invocation_files(root: Path, before: dict[str, tuple[int, int]]) -> None:
+    """Best-effort: remove files this invocation created or rewrote in extra TEMP."""
+
+    folder = Path(root)
+    if not folder.exists():
+        return
+    try:
+        for dirpath, _dirnames, filenames in os.walk(folder):
+            for name in filenames:
+                path = Path(dirpath) / name
+                record = _stat_record(path)
+                if record is None:
+                    continue
+                prior = before.get(_path_key(path))
+                if prior is not None and record == prior:
+                    continue
+                try:
+                    path.unlink()
+                except OSError:
+                    continue
+    except OSError:
+        return
+
+
+def reclaim_shared_scratch() -> None:
+    """Drop leftover files in the shared AppContainer TEMP, if it exists.
+
+    Called when the invocation plane starts so a previous uncapped process
+    cannot leave a blob that later invokes would otherwise inherit.
+    """
+
+    extra = _appcontainer_temp_path()
+    if extra is None:
+        return
+    _delete_invocation_files(extra, {})
 
 
 def _file_size(handle) -> int:
@@ -391,6 +635,7 @@ def run_captured_process(
     sandbox_roots: Sequence[Path] | None = None,
     sandbox_rw_roots: Sequence[Path] | None = None,
     max_output_bytes: int | None = None,
+    max_scratch_bytes: int | None = None,
     on_output: Callable[[str, str], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
@@ -415,6 +660,13 @@ def run_captured_process(
     size-capped: the tree is reaped once either stream exceeds the cap, and
     the parent never decodes the oversized blob. Kernel callers omit this
     argument so their output stays unlimited.
+    When ``max_scratch_bytes`` is given, child-created files in the
+    per-invocation TEMP directory (and the shared AppContainer TEMP Windows
+    rewrites ``TEMP`` to) are size-capped the same way: the tree is reaped
+    once this invocation's scratch bytes exceed the cap. Parent-owned
+    ``stdin.txt`` and ``startup-error.json`` are excluded from the tally, as
+    are leftover files a previous invoke left in the shared package TEMP.
+    Kernel callers omit this argument.
     When ``on_output`` is given, each newly captured stdout/stderr chunk is
     pushed as ``on_output(stream, text)`` while the tree still runs. The
     final ``CompletedProcess`` still carries the full decoded blobs.
@@ -435,12 +687,17 @@ def run_captured_process(
         timed_out = False
         cancelled = False
         exceeded_stream = ""
+        exceeded_scratch = 0
         cleanup_error = ""
         job_stats = None
         sandbox_payload = None
         spawn_command = command
         spawn_env = dict(env) if env is not None else None
         cap_bytes = int(max_output_bytes) if max_output_bytes else 0
+        scratch_cap = int(max_scratch_bytes) if max_scratch_bytes else 0
+        scratch_roots = _scratch_watch_roots(Path(scratch), sandboxed=sandbox_roots is not None)
+        extra_scratch = [root for root in scratch_roots if not _same_scratch_path(root, Path(scratch))]
+        extra_before = {str(root): _file_records(root) for root in extra_scratch}
         if sandbox_roots is not None:
             if not filesystem_sandbox_available():
                 raise RuntimeError("filesystem sandbox is not available on this host")
@@ -525,7 +782,7 @@ def run_captured_process(
                         stdin.close()
             try:
                 pump = _LiveOutputPump(stdout, stderr, on_output)
-                if cancel_event is None and not cap_bytes and on_output is None:
+                if cancel_event is None and not cap_bytes and on_output is None and not scratch_cap:
                     try:
                         process.wait(timeout=timeout)
                     except subprocess.TimeoutExpired:
@@ -544,10 +801,18 @@ def run_captured_process(
                         exceeded_stream = _output_exceeded(stdout, stderr, cap_bytes)
                         if exceeded_stream:
                             break
+                        exceeded_scratch = _scratch_exceeded(
+                            scratch_roots, Path(scratch), scratch_cap, extra_before
+                        )
+                        if exceeded_scratch:
+                            break
                         pump.drain()
                         try:
                             process.wait(timeout=min(poll, max(remaining, 0.0)))
                             exceeded_stream = _output_exceeded(stdout, stderr, cap_bytes)
+                            exceeded_scratch = _scratch_exceeded(
+                                scratch_roots, Path(scratch), scratch_cap, extra_before
+                            )
                             break
                         except subprocess.TimeoutExpired:
                             continue
@@ -566,6 +831,12 @@ def run_captured_process(
         stderr.seek(0)
         if cap_bytes:
             exceeded_stream = exceeded_stream or _output_exceeded(stdout, stderr, cap_bytes)
+        if scratch_cap:
+            exceeded_scratch = exceeded_scratch or _scratch_exceeded(
+                scratch_roots, Path(scratch), scratch_cap, extra_before
+            )
+            for root in extra_scratch:
+                _delete_invocation_files(root, extra_before.get(str(root), {}))
         if cancelled:
             raise ProcessCancelled(
                 f"command tree cancelled by caller (exit {process.returncode}): {command!r}"
@@ -573,6 +844,8 @@ def run_captured_process(
         if exceeded_stream:
             observed = _file_size(stdout if exceeded_stream == "stdout" else stderr)
             raise OutputLimitExceeded(cap_bytes, observed, exceeded_stream)
+        if exceeded_scratch:
+            raise ScratchLimitExceeded(scratch_cap, exceeded_scratch)
         if cap_bytes:
             out = stdout.read(cap_bytes).decode("utf-8", errors="replace")
             err = stderr.read(cap_bytes).decode("utf-8", errors="replace")
