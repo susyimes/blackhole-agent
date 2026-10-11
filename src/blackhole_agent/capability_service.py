@@ -266,6 +266,15 @@ module turns the ledger into a service:
   fail-closed: ``GET /health`` reports ``bundle_import`` false and
   ``POST /bundles`` is ``400 bundle_disabled``. A follow-up reverse
   invoke of an already-absorbed sibling still returns declared output.
+- Bearer authorization is no longer all-or-nothing. ``--token-scope
+  TOKEN=id[,id...]`` (repeatable; or ``BLACKHOLE_TOKEN_SCOPE``) registers
+  additional bearers that may ``POST /invoke`` only the listed tool ids.
+  A disallowed id is ``403 tool_not_allowed`` and never spawns.
+  ``GET /capabilities`` for that bearer lists only the allowed ids.
+  ``POST /solve`` plans only over those ids. Bundles, contract, reproof,
+  and sessions stay operator-token-only. The operator ``--token`` still
+  runs every tool. A plane without ``--token-scope`` keeps historical
+  all-allow bearer behavior. ``GET /health`` reports ``token_scopes``.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -352,6 +361,23 @@ from blackhole_agent.mcp_plugin_invoke import (
     mcp_plugin_health,
     resolve_mcp_plugin_commands,
     start_mcp_plugin_plane,
+)
+from blackhole_agent.invocation_token_scopes import (
+    ADMIN_REQUIRED,
+    EMPTY_SCOPES,
+    TOKEN_SCOPE_ENV,
+    TOOL_NOT_ALLOWED,
+    TokenScopeError,
+    TokenScopeTable,
+    UNRESTRICTED,
+    auth_is_required,
+    authenticate_bearer,
+    bind_principal,
+    current_principal,
+    filter_invocable,
+    reset_principal,
+    resolve_token_scopes,
+    tool_is_allowed,
 )
 from blackhole_agent.mcp_client import McpProtocolError
 from blackhole_agent.invocation_admission import (
@@ -475,12 +501,19 @@ def host_is_loopback(host: str) -> bool:
         return False
 
 
-def assert_bind_policy(host: str, token: str | None) -> None:
+def assert_bind_policy(
+    host: str,
+    token: str | None,
+    *,
+    token_scopes: TokenScopeTable | None = None,
+) -> None:
     """Refuse a non-loopback listen address unless a bearer token is set."""
 
     if host_is_loopback(host):
         return
     if str(token or "").strip():
+        return
+    if token_scopes is not None and token_scopes.enabled:
         return
     raise BindPolicyError(host)
 
@@ -838,6 +871,12 @@ def load_invocable_capabilities(root: Path) -> dict[str, dict[str, Any]]:
     return invocable
 
 
+def scoped_invocable_capabilities(root: Path) -> dict[str, dict[str, Any]]:
+    """Invocable tools the current bearer may list, plan, or solve with."""
+
+    return filter_invocable(load_invocable_capabilities(root), current_principal())
+
+
 # Absolute ceiling for operator-declared per-capability limits: a policy can
 # relax or tighten the defaults, never escape the host-safety envelope.
 MAX_LIMIT_OVERRIDE_BYTES = 4 << 30
@@ -876,7 +915,7 @@ def effective_resource_limits(item: Mapping[str, Any]) -> ResourceLimits:
 def capability_listing(root: Path) -> dict[str, Any]:
     """Public listing payload: contract fields only, sorted, digest-bound."""
 
-    invocable = load_invocable_capabilities(root)
+    invocable = scoped_invocable_capabilities(root)
     capabilities = [
         {
             "id": item["id"],
@@ -1247,6 +1286,12 @@ def invoke_capability(
 
     if not isinstance(capability_id, str) or not capability_id.strip():
         raise InvocationError(400, "capability_id must be a non-empty string")
+    if not tool_is_allowed(capability_id):
+        raise InvocationError(
+            403,
+            TOOL_NOT_ALLOWED,
+            extra={"capability_id": capability_id},
+        )
     invocable = load_invocable_capabilities(root)
     item = invocable.get(capability_id)
     if item is None:
@@ -1749,7 +1794,7 @@ def solve_goal_request(
     ):
         raise InvocationError(422, "goal must be a non-empty list of state keys")
     goal_keys = list(dict.fromkeys(str(key).strip() for key in goal))
-    invocable = load_invocable_capabilities(root)
+    invocable = scoped_invocable_capabilities(root)
     healing: list[dict[str, Any]] = []
     attempted: set[str] = set()
 
@@ -1792,7 +1837,7 @@ def solve_goal_request(
             )
             healing.extend(entries)
             if any(entry["reinstated"] for entry in entries):
-                invocable = load_invocable_capabilities(root)
+                invocable = scoped_invocable_capabilities(root)
                 healthy = healthy_subset(invocable)
                 program, evidence = evidence_ranked_plan(healthy, set(initial_state), goal_keys)
     if dry_run:
@@ -1840,13 +1885,13 @@ def solve_goal_request(
             ):
                 # The quarantine was recorded after this request's planning
                 # snapshot; reload so the healer can see it.
-                invocable = load_invocable_capabilities(root)
+                invocable = scoped_invocable_capabilities(root)
                 entries = heal_quarantined_blockers(
                     root, invocable, [capability_id], timeout=timeout, attempted=attempted
                 )
                 healing.extend(entries)
                 if entries and entries[-1]["reinstated"]:
-                    invocable = load_invocable_capabilities(root)
+                    invocable = scoped_invocable_capabilities(root)
                     replanned, replanned_evidence = evidence_ranked_plan(
                         healthy_subset(invocable),
                         set(state),
@@ -1864,7 +1909,7 @@ def solve_goal_request(
             if capability_id in failed_steps or len(fallbacks) >= SOLVE_MAX_FALLBACKS:
                 raise
             failed_steps.add(capability_id)
-            invocable = load_invocable_capabilities(root)
+            invocable = scoped_invocable_capabilities(root)
             pool = {
                 cid: candidate
                 for cid, candidate in healthy_subset(invocable).items()
@@ -2186,12 +2231,14 @@ def build_server(
     mcp_plugin_commands: Sequence[Sequence[str]] | None = None,
     forage_root: str | Path | None = None,
     bundle_import: bool = False,
+    token_scopes: TokenScopeTable | None = None,
 ) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
     service_root = Path(root).resolve()
     invocation_token = resolve_invocation_token(token)
-    assert_bind_policy(host, invocation_token)
+    scopes = token_scopes if token_scopes is not None else EMPTY_SCOPES
+    assert_bind_policy(host, invocation_token, token_scopes=scopes)
     tls_files = resolve_tls_files(tls_cert, tls_key)
     tls_context = build_tls_context(*tls_files) if tls_files else None
     from blackhole_agent.goal_foraging import configure_forage_root, current_forage_root
@@ -2328,7 +2375,11 @@ def build_server(
             return False
 
         def _authorize(self) -> bool:
-            if not invocation_token:
+            reset_principal()
+            scopes = getattr(self.server, "token_scopes", EMPTY_SCOPES)
+            if not auth_is_required(invocation_token, scopes):
+                bind_principal(UNRESTRICTED)
+                self.principal = UNRESTRICTED
                 return True
             offered = parse_bearer_token(self.headers.get("Authorization"))
             if offered is None:
@@ -2341,12 +2392,24 @@ def build_server(
                     headers={"WWW-Authenticate": WWW_AUTHENTICATE},
                 )
                 return False
-            if not bearer_token_matches(offered, invocation_token):
+            principal = authenticate_bearer(offered, invocation_token, scopes)
+            if principal is None:
                 if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
                     _drain_request_body(self)
                 _json_response(self, 403, {"ok": False, "error": "authorization_rejected"})
                 return False
+            bind_principal(principal)
+            self.principal = principal
             return True
+
+        def _require_operator(self) -> bool:
+            principal = getattr(self, "principal", UNRESTRICTED)
+            if principal.unrestricted:
+                return True
+            if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
+                _drain_request_body(self)
+            _json_response(self, 403, {"ok": False, "error": ADMIN_REQUIRED})
+            return False
 
         def do_OPTIONS(self) -> None:  # noqa: N802
             if not self._guard_request_identity():
@@ -2392,6 +2455,7 @@ def build_server(
                         "solve_plan_preview": True,
                         "solve_forage": bool(getattr(self.server, "solve_forage", False)),
                         "bundle_import": bool(getattr(self.server, "bundle_import", False)),
+                        **getattr(self.server, "token_scopes", EMPTY_SCOPES).health(),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
                         "loopback_host_origin": True,
@@ -2453,6 +2517,9 @@ def build_server(
             if path == "/capabilities":
                 _json_response(self, 200, capability_listing(service_root))
                 return
+            if path == "/sessions" or self._session_events_id() is not None:
+                if not self._require_operator():
+                    return
             invocation_key = self._session_id("/invocations/")
             if invocation_key is not None:
                 try:
@@ -2541,6 +2608,8 @@ def build_server(
             if session_id is None:
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
+            if not self._require_operator():
+                return
             try:
                 result = sessions.cancel_session(session_id)
             except InvocationError as exc:
@@ -2570,6 +2639,9 @@ def build_server(
                 _drain_request_body(self)
                 _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
                 return
+            if path in {"/contract", "/reproof", "/sessions", "/bundles"} or session_action:
+                if not self._require_operator():
+                    return
             try:
                 length = int(self.headers.get("Content-Length") or 0)
             except ValueError:
@@ -2778,6 +2850,7 @@ def build_server(
     server.tls_enabled = False
     server.solve_forage = current_forage_root() is not None
     server.bundle_import = bool(bundle_import)
+    server.token_scopes = scopes
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
         server.tls_enabled = True
@@ -2809,6 +2882,7 @@ def serve(
     mcp_plugin: Sequence[str] | None = None,
     forage_root: str | Path | None = None,
     bundle_import: bool = False,
+    token_scope: Sequence[str] | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -2820,6 +2894,11 @@ def serve(
     HTTP_CONNECTIONS.configure(max_http_connections)
     reclaim_shared_scratch()
     invocation_token = resolve_invocation_token(token)
+    try:
+        scopes = resolve_token_scopes(token_scope)
+    except TokenScopeError as exc:
+        print(json.dumps(exc.payload, sort_keys=True), flush=True)
+        return 2
     from blackhole_agent.goal_foraging import ForageRootError, resolve_forage_root
 
     forage_root = resolve_forage_root(forage_root)
@@ -2845,8 +2924,9 @@ def serve(
             mcp_plugin_commands=plugin_commands,
             forage_root=forage_root,
             bundle_import=resolve_bundle_import(bundle_import),
+            token_scopes=scopes,
         )
-    except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError) as exc:
+    except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError, TokenScopeError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -2858,7 +2938,7 @@ def serve(
                 "host": bound_host,
                 "invocable_count": listing["count"],
                 "listing_digest": listing["listing_digest"],
-                "auth_required": bool(invocation_token),
+                "auth_required": auth_is_required(invocation_token, getattr(server, "token_scopes", EMPTY_SCOPES)),
                 "mcp_path": MCP_HTTP_PATH,
                 "max_inflight": ADMISSION.max_inflight(),
                 "max_output_bytes": current_max_output_bytes(),
@@ -2872,6 +2952,7 @@ def serve(
                 "tls": bool(getattr(server, "tls_enabled", False)),
                 "solve_forage": bool(getattr(server, "solve_forage", False)),
                 "bundle_import": bool(getattr(server, "bundle_import", False)),
+                **getattr(server, "token_scopes", EMPTY_SCOPES).health(),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
             }
@@ -3068,6 +3149,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["bundle_import_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("bundle_import") is False
+        )
+        checks["token_scopes_health_default"] = (
+            status == 200 and isinstance(health, dict) and health.get("token_scopes") is False
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
@@ -3392,6 +3476,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="operator bearer token; defaults to BLACKHOLE_INVOCATION_TOKEN",
     )
     serve_parser.add_argument(
+        "--token-scope",
+        action="append",
+        default=None,
+        help=(
+            "scoped bearer TOKEN=id[,id...] allowed to POST /invoke those tools "
+            f"(repeatable); defaults to {TOKEN_SCOPE_ENV}. Without scopes, a "
+            "configured --token still authorizes every tool"
+        ),
+    )
+    serve_parser.add_argument(
         "--max-inflight",
         type=int,
         default=None,
@@ -3492,6 +3586,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             mcp_plugin=args.mcp_plugin,
             forage_root=args.forage_root,
             bundle_import=args.bundle_import,
+            token_scope=args.token_scope,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)

@@ -1080,6 +1080,23 @@ def handle_message(
             result = {}
         elif method == "tools/list":
             result = catalog.list_page(params.get("cursor", ""), DEFAULT_PAGE_SIZE)
+            from blackhole_agent.invocation_token_scopes import current_principal
+
+            principal = current_principal()
+            if not principal.unrestricted:
+                visible = []
+                for tool in result.get("tools") or []:
+                    if not isinstance(tool, dict):
+                        continue
+                    name = str(tool.get("name") or "")
+                    if name == SOLVE_TOOL_NAME:
+                        visible.append(tool)
+                        continue
+                    capability_id = catalog.by_name.get(name)
+                    if capability_id and principal.allows(capability_id):
+                        visible.append(tool)
+                result = dict(result)
+                result["tools"] = visible
         elif method == "resources/list":
             result = catalog.list_resources(params.get("cursor", ""))
         elif method == "resources/templates/list":
