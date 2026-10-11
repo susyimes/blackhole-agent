@@ -111,12 +111,15 @@ module turns the ledger into a service:
   and a ledger mutation that changes the invocable tool set publishes
   ``notifications/tools/list_changed`` (and ``resources/list_changed``)
   so a connected host re-lists without a new session. ``initialize``
-  advertises ``tools.listChanged`` and ``resources.listChanged``.
-  GET without a session is 404; GET that does not accept the event stream
-  is 406. REST ``POST /invoke`` is unchanged. The same catalog also exposes
-  MCP resources (public contracts and tool schemas) and a
-  ``prepare_capability_call`` prompt with an embedded live contract;
-  retrieving metadata never executes a capability.
+  advertises ``tools.listChanged``, ``resources.listChanged``, and
+  ``completions``. ``completion/complete`` prefix-matches the prepare
+  prompt's ``capability_id`` and the capability URI template against the
+  live catalog without executing a tool. GET without a session is 404;
+  GET that does not accept the event stream is 406. REST ``POST /invoke``
+  is unchanged. The same catalog also exposes MCP resources (public
+  contracts and tool schemas) and a ``prepare_capability_call`` prompt
+  with an embedded live contract; retrieving metadata never executes a
+  capability. ``GET /health`` reports ``mcp_completions``.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``
@@ -1808,6 +1811,7 @@ def build_server(
                         "max_output_bytes": current_max_output_bytes(),
                         "live_invoke_stream": True,
                         "mcp_tools_list_changed": True,
+                        "mcp_completions": True,
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
@@ -2204,6 +2208,7 @@ def serve(
                 "max_inflight": ADMISSION.max_inflight(),
                 "max_output_bytes": current_max_output_bytes(),
                 "mcp_tools_list_changed": True,
+                "mcp_completions": True,
             }
         ),
         flush=True,
@@ -2396,6 +2401,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
         )
+        checks["mcp_completions_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("mcp_completions") is True
+        )
         status, preview = _http_request(
             "POST",
             f"{base}/solve",
@@ -2450,7 +2458,31 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
             and bool(mcp_session)
             and "serverInfo" in handshake_result
         )
+        advertised = handshake_result.get("capabilities") if isinstance(handshake_result, dict) else None
+        checks["mcp_completions_advertised"] = (
+            isinstance(advertised, dict) and "completions" in advertised
+        )
         mcp_hdr = {"Mcp-Session-Id": mcp_session} if mcp_session else None
+        status, completed = _http_request(
+            "POST",
+            mcp_url,
+            {
+                "jsonrpc": "2.0",
+                "id": 20,
+                "method": "completion/complete",
+                "params": {
+                    "ref": {"type": "ref/prompt", "name": "prepare_capability_call"},
+                    "argument": {"name": "capability_id", "value": "text"},
+                },
+            },
+            headers=mcp_hdr,
+        )
+        completion = (completed.get("result") or {}).get("completion") if isinstance(completed, dict) else None
+        checks["mcp_completions"] = (
+            status == 200
+            and isinstance(completion, dict)
+            and "capability.absorbed-text-reverser" in (completion.get("values") or [])
+        )
         tool_names: list[str] = []
         cursor = ""
         list_status = 0

@@ -22,8 +22,13 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
 - ``prompts/get`` for ``prepare_capability_call`` embeds the selected live
   contract and instructions for supplying tool arguments. Prompt retrieval
   is read-only, validates its string arguments, and refuses quarantined or
-  unavailable capabilities. Both metadata surfaces share the same catalog
-  and HTTP authentication boundary as tools.
+  unavailable capabilities. ``initialize`` advertises ``completions``;
+  ``completion/complete`` prefix-matches the prepare prompt's
+  ``capability_id`` and the capability URI-template argument against the
+  live catalog (and tool names) and returns those ids without executing a
+  tool. Unknown refs and non-string arguments are JSON-RPC invalid params;
+  an unknown argument name returns an empty completion. Both metadata
+  surfaces share the same catalog and HTTP authentication boundary as tools.
 - ``tools/list`` exposes one tool per proved, invocable absorbed
   capability, paginated with opaque cursors. Each tool carries an
   ``inputSchema`` derived from the vendored manifest's ``requires``
@@ -110,13 +115,15 @@ from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.3.0"}
+SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.4.0"}
 SERVER_CAPABILITIES = {
     "tools": {"listChanged": True},
     "resources": {"subscribe": False, "listChanged": True},
     "prompts": {"listChanged": False},
+    "completions": {},
     "experimental": {"idempotencyKey": True},
 }
+COMPLETION_LIMIT = 100
 TOOLS_LIST_CHANGED_NOTIFICATION = {
     "jsonrpc": "2.0",
     "method": "notifications/tools/list_changed",
@@ -298,6 +305,12 @@ def _page(items: Sequence[Any], key: str, cursor: Any, page_size: int) -> dict[s
     if offset + size < len(items):
         result["nextCursor"] = str(offset + size)
     return result
+
+
+def _completion_result(values: Sequence[str]) -> dict[str, Any]:
+    total = len(values)
+    sliced = list(values[:COMPLETION_LIMIT])
+    return {"completion": {"values": sliced, "total": total, "hasMore": total > COMPLETION_LIMIT}}
 
 
 def _prepare_prompt_descriptor() -> dict[str, Any]:
@@ -583,6 +596,46 @@ class CapabilityCatalog:
     def list_prompts(self, cursor: str = "") -> dict[str, Any]:
         return _page([_prepare_prompt_descriptor()], "prompts", cursor, DEFAULT_PAGE_SIZE)
 
+    def complete(self, ref: Any, argument: Any) -> dict[str, Any]:
+        """Prefix-complete a prompt or resource-template argument from the live catalog.
+
+        Never executes a tool. Values are capability ids, capped at
+        :data:`COMPLETION_LIMIT`.
+        """
+
+        if not isinstance(ref, Mapping) or not isinstance(argument, Mapping):
+            raise ValueError("ref and argument must be objects")
+        name = argument.get("name")
+        value = argument.get("value")
+        if not isinstance(name, str) or not isinstance(value, str):
+            raise ValueError("argument name and value must be strings")
+        ref_type = ref.get("type")
+        if ref_type == "ref/prompt":
+            if ref.get("name") != PREPARE_PROMPT_NAME:
+                raise ValueError("unknown prompt")
+            if name != "capability_id":
+                return _completion_result(())
+            ids = self._matching_capability_ids(value)
+        elif ref_type == "ref/resource":
+            if ref.get("uri") != CAPABILITY_URI_TEMPLATE:
+                raise ValueError("unknown resource")
+            if name != "capability_id":
+                return _completion_result(())
+            ids = self._matching_capability_ids(value)
+        else:
+            raise ValueError("unknown completion ref type")
+        return _completion_result(ids)
+
+    def _matching_capability_ids(self, prefix: str) -> tuple[str, ...]:
+        needle = prefix.casefold()
+        with self._lock:
+            self._refresh_locked()
+            matches = []
+            for tool_name, capability_id in self.by_name.items():
+                if capability_id.casefold().startswith(needle) or tool_name.casefold().startswith(needle):
+                    matches.append(capability_id)
+        return tuple(sorted(matches))
+
     def get_prompt(self, name: Any, arguments: Any) -> dict[str, Any]:
         if name != PREPARE_PROMPT_NAME:
             raise ValueError("unknown prompt")
@@ -833,6 +886,8 @@ def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> di
             result = catalog.list_prompts(params.get("cursor", ""))
         elif method == "prompts/get":
             result = catalog.get_prompt(params.get("name"), params.get("arguments", {}))
+        elif method == "completion/complete":
+            result = catalog.complete(params.get("ref"), params.get("argument"))
         else:
             return {
                 "jsonrpc": "2.0",

@@ -16,6 +16,7 @@ import pytest
 from blackhole_agent.invocation_receipts import InvocationReceipts, ReceiptError
 from blackhole_agent.mcp_capability_server import (
     CATALOG_URI,
+    CAPABILITY_URI_TEMPLATE,
     PREPARE_PROMPT_NAME,
     PROTOCOL_VERSION,
     RESOURCES_LIST_CHANGED_NOTIFICATION,
@@ -181,12 +182,56 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
         "listChanged": True,
     }
     assert reply["result"]["capabilities"]["prompts"] == {"listChanged": False}
+    assert reply["result"]["capabilities"]["completions"] == {}
     assert reply["result"]["capabilities"]["experimental"] == {"idempotencyKey": True}
     assert reply["result"]["capabilities"] == SERVER_CAPABILITIES
     assert handle_message(catalog, {"jsonrpc": "2.0", "id": 2, "method": "ping"})["result"] == {}
     assert handle_message(catalog, {"jsonrpc": "2.0", "method": "notifications/initialized"}) is None
     unknown = handle_message(catalog, {"jsonrpc": "2.0", "id": 3, "method": "unknown/method"})
     assert unknown["error"]["code"] == -32601
+
+
+def test_completion_complete_matches_live_catalog_without_execution(tmp_path: Path, monkeypatch) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+
+    def refuse_execution(*args, **kwargs):
+        pytest.fail("completion executed a tool")
+
+    monkeypatch.setattr("blackhole_agent.mcp_capability_server.invoke_capability", refuse_execution)
+    target = "capability.absorbed-text-reverser"
+    prompt = handle_message(catalog, {
+        "jsonrpc": "2.0", "id": 10, "method": "completion/complete",
+        "params": {
+            "ref": {"type": "ref/prompt", "name": PREPARE_PROMPT_NAME},
+            "argument": {"name": "capability_id", "value": "text"},
+        },
+    })
+    assert prompt["result"]["completion"]["values"] == [target]
+    assert prompt["result"]["completion"]["hasMore"] is False
+    resource = handle_message(catalog, {
+        "jsonrpc": "2.0", "id": 11, "method": "completion/complete",
+        "params": {
+            "ref": {"type": "ref/resource", "uri": CAPABILITY_URI_TEMPLATE},
+            "argument": {"name": "capability_id", "value": "capability.absorbed-text"},
+        },
+    })
+    assert resource["result"]["completion"]["values"] == [target]
+    empty = handle_message(catalog, {
+        "jsonrpc": "2.0", "id": 12, "method": "completion/complete",
+        "params": {
+            "ref": {"type": "ref/prompt", "name": PREPARE_PROMPT_NAME},
+            "argument": {"name": "task", "value": "text"},
+        },
+    })
+    assert empty["result"]["completion"]["values"] == []
+    miss = handle_message(catalog, {
+        "jsonrpc": "2.0", "id": 13, "method": "completion/complete",
+        "params": {
+            "ref": {"type": "ref/prompt", "name": PREPARE_PROMPT_NAME},
+            "argument": {"name": "capability_id", "value": "no-such-prefix"},
+        },
+    })
+    assert miss["result"]["completion"]["values"] == []
 
 
 def test_resources_and_prompt_expose_only_public_contract_without_execution(tmp_path: Path, monkeypatch) -> None:
@@ -285,6 +330,10 @@ def test_resources_paginate_and_refresh_availability(tmp_path: Path) -> None:
     ("prompts/get", {"name": PREPARE_PROMPT_NAME, "arguments": {"capability_id": "missing"}}, -32602),
     ("prompts/get", {"name": PREPARE_PROMPT_NAME, "arguments": {"capability_id": "x", "extra": "y"}}, -32602),
     ("resources/list", [], -32602),
+    ("completion/complete", {}, -32602),
+    ("completion/complete", {"ref": [], "argument": {"name": "capability_id", "value": ""}}, -32602),
+    ("completion/complete", {"ref": {"type": "ref/prompt", "name": "missing"}, "argument": {"name": "capability_id", "value": ""}}, -32602),
+    ("completion/complete", {"ref": {"type": "ref/resource", "uri": "file:///etc/passwd"}, "argument": {"name": "capability_id", "value": ""}}, -32602),
 ])
 def test_metadata_protocol_errors_are_structured(tmp_path: Path, method: str, params, error: int) -> None:
     catalog = CapabilityCatalog(_fixture_root(tmp_path))
