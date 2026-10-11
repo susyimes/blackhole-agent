@@ -13,12 +13,16 @@ compounded ledger over newline-delimited JSON-RPC 2.0:
   ``blackhole://capabilities/{capability_id}`` (also discoverable as a URI
   template). These contain public contracts, MCP tool schemas, and current
   availability, never local commands, paths, or proof cases. Reads refresh
-  with the live ledger. ``initialize`` advertises ``tools.listChanged`` and
-  ``resources.listChanged``; a catalog watcher publishes
-  ``notifications/tools/list_changed`` and
+  with the live ledger. ``initialize`` advertises ``tools.listChanged``,
+  ``resources.listChanged``, and ``resources.subscribe``; a catalog watcher
+  publishes ``notifications/tools/list_changed`` and
   ``notifications/resources/list_changed`` on the Streamable HTTP GET
   reverse channel (and stdio stdout) when the invocable set changes, so a
-  connected host re-lists without polling or disconnecting.
+  connected host re-lists without polling or disconnecting. A host that
+  speaks ``resources/subscribe`` for one catalog URI receives
+  ``notifications/resources/updated`` on that reverse channel when the
+  watched document changes (quarantine or reinstatement) without re-reading
+  first. Sessions that skip subscribe stay on their snapshot.
 - ``prompts/get`` for ``prepare_capability_call`` embeds the selected live
   contract and instructions for supplying tool arguments. Prompt retrieval
   is read-only, validates its string arguments, and refuses quarantined or
@@ -83,7 +87,9 @@ call is written as SSE, a concurrent ``POST`` of
 ``notifications/cancelled`` reaps the in-flight tool tree so the original
 ``tools/call`` POST answers JSON-RPC ``-32800``, and catalog mutations
 publish ``notifications/tools/list_changed`` (and resources) so the host
-discovers newly proved absorbed tools without a new session.
+discovers newly proved absorbed tools without a new session. A
+``resources/subscribe`` watch on one catalog URI receives
+``notifications/resources/updated`` after quarantine or reinstatement.
 """
 
 from __future__ import annotations
@@ -115,10 +121,10 @@ from blackhole_agent.process_capture import ProcessCancelled
 
 SCHEMA_VERSION = 1
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.4.0"}
+SERVER_INFO = {"name": "blackhole-capability-mcp", "version": "1.5.0"}
 SERVER_CAPABILITIES = {
     "tools": {"listChanged": True},
-    "resources": {"subscribe": False, "listChanged": True},
+    "resources": {"subscribe": True, "listChanged": True},
     "prompts": {"listChanged": False},
     "completions": {},
     "experimental": {"idempotencyKey": True},
@@ -132,6 +138,17 @@ RESOURCES_LIST_CHANGED_NOTIFICATION = {
     "jsonrpc": "2.0",
     "method": "notifications/resources/list_changed",
 }
+RESOURCES_UPDATED_METHOD = "notifications/resources/updated"
+
+
+def resources_updated_notification(uri: str) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "method": RESOURCES_UPDATED_METHOD,
+        "params": {"uri": uri},
+    }
+
+
 DEFAULT_CATALOG_WATCH_INTERVAL = 0.2
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PAGE_SIZE = 128
@@ -154,6 +171,26 @@ class ToolCallError(KeyError):
     """Raised when a tools/call names a tool outside the live catalog."""
 
 
+class ResourceWatch:
+    """Session-scoped MCP resource subscriptions."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._uris: set[str] = set()
+
+    def subscribe(self, uri: str) -> None:
+        with self._lock:
+            self._uris.add(uri)
+
+    def unsubscribe(self, uri: str) -> None:
+        with self._lock:
+            self._uris.discard(uri)
+
+    def contains(self, uri: str) -> bool:
+        with self._lock:
+            return uri in self._uris
+
+
 class McpHttpSession:
     """One Streamable-HTTP MCP session: in-flight calls and GET SSE listeners."""
 
@@ -161,6 +198,7 @@ class McpHttpSession:
         self._lock = threading.Lock()
         self.in_flight: dict[Any, threading.Event] = {}
         self._listeners: list[queue.Queue[Any]] = []
+        self.watches = ResourceWatch()
         self.closed = False
 
     def register_call(self, request_id: Any, event: threading.Event) -> None:
@@ -218,13 +256,16 @@ class McpHttpSession:
 
 
 class CatalogChangeWatcher:
-    """Publish list_changed notifications when the invocable catalog mutates.
+    """Publish list_changed and per-URI updated notifications.
 
     MCP hosts snapshot ``tools/list`` at handshake. The ledger grows and
     shrinks while the session is open; without a push, the host never
     re-lists. This watcher polls the catalog fingerprint (sorted invocable
     capability ids) and publishes the spec notifications onto whatever
     reverse channel the caller supplies — HTTP GET SSE or stdio stdout.
+    Resource document hashes are polled separately so a subscribed URI
+    whose availability flips (quarantine or reinstatement) can emit
+    ``notifications/resources/updated`` without a list membership change.
     """
 
     def __init__(
@@ -233,16 +274,20 @@ class CatalogChangeWatcher:
         publish: Callable[[Mapping[str, Any]], None],
         *,
         interval: float = DEFAULT_CATALOG_WATCH_INTERVAL,
+        on_resource_updated: Callable[[str], None] | None = None,
     ) -> None:
         self._catalog = catalog
         self._publish = publish
+        self._on_resource_updated = on_resource_updated
         self._interval = max(0.05, float(interval))
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._last: tuple[str, ...] | None = None
+        self._last_resource_hashes: dict[str, str] | None = None
 
     def start(self) -> None:
         self._last = self._catalog.fingerprint()
+        self._last_resource_hashes = self._catalog.resource_content_hashes()
         self._thread = threading.Thread(
             target=self._run, name="mcp-catalog-watch", daemon=True
         )
@@ -259,19 +304,32 @@ class CatalogChangeWatcher:
         while not self._stop.wait(self._interval):
             try:
                 current = self._catalog.fingerprint()
+                resource_hashes = self._catalog.resource_content_hashes()
             except Exception:
                 continue
             if self._last is None:
                 self._last = current
+                self._last_resource_hashes = resource_hashes
                 continue
-            if current == self._last:
+            if current != self._last:
+                self._last = current
+                try:
+                    self._publish(TOOLS_LIST_CHANGED_NOTIFICATION)
+                    self._publish(RESOURCES_LIST_CHANGED_NOTIFICATION)
+                except Exception:
+                    pass
+            previous = self._last_resource_hashes or {}
+            self._last_resource_hashes = resource_hashes
+            callback = self._on_resource_updated
+            if callback is None:
                 continue
-            self._last = current
-            try:
-                self._publish(TOOLS_LIST_CHANGED_NOTIFICATION)
-                self._publish(RESOURCES_LIST_CHANGED_NOTIFICATION)
-            except Exception:
-                continue
+            for uri, digest in resource_hashes.items():
+                if uri not in previous or previous[uri] == digest:
+                    continue
+                try:
+                    callback(uri)
+                except Exception:
+                    continue
 
 
 class ResourceNotFoundError(KeyError):
@@ -564,6 +622,16 @@ class CapabilityCatalog:
             self._refresh_locked()
             return tuple(sorted(self.by_name.values()))
 
+    def resource_content_hashes(self) -> dict[str, str]:
+        """SHA-256 of each served resource body, keyed by URI."""
+
+        with self._lock:
+            self._refresh_locked()
+            return {
+                uri: hashlib.sha256(str(content.get("text") or "").encode("utf-8")).hexdigest()
+                for uri, content in self._resource_contents.items()
+            }
+
     def list_page(self, cursor: str, page_size: int) -> dict[str, Any]:
         with self._lock:
             self._refresh_locked()
@@ -842,10 +910,16 @@ def handle_http_rpc(
         finally:
             if session is not None:
                 session.finish_call(request_id)
-    return handle_message(catalog, message)
+    watches = session.watches if session is not None else None
+    return handle_message(catalog, message, watches=watches)
 
 
-def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> dict[str, Any] | None:
+def handle_message(
+    catalog: CapabilityCatalog,
+    message: Mapping[str, Any],
+    *,
+    watches: ResourceWatch | None = None,
+) -> dict[str, Any] | None:
     """Handle one non-call JSON-RPC message; None for notifications.
 
     ``tools/call`` is dispatched by :func:`serve_stdio` onto worker threads
@@ -882,6 +956,19 @@ def handle_message(catalog: CapabilityCatalog, message: Mapping[str, Any]) -> di
             result = catalog.list_resource_templates(params.get("cursor", ""))
         elif method == "resources/read":
             result = catalog.read_resource(params.get("uri"))
+        elif method == "resources/subscribe":
+            uri = params.get("uri")
+            catalog.read_resource(uri)
+            if watches is not None:
+                watches.subscribe(str(uri))
+            result = {}
+        elif method == "resources/unsubscribe":
+            uri = params.get("uri")
+            if not isinstance(uri, str) or not uri:
+                raise ValueError("uri must be a non-empty string")
+            if watches is not None:
+                watches.unsubscribe(uri)
+            result = {}
         elif method == "prompts/list":
             result = catalog.list_prompts(params.get("cursor", ""))
         elif method == "prompts/get":
@@ -1021,13 +1108,20 @@ def serve_stdio(root: Path) -> int:
     write_lock = threading.Lock()
     registry_lock = threading.Lock()
     in_flight: dict[Any, threading.Event] = {}
+    watches = ResourceWatch()
 
     def _write(payload: Mapping[str, Any]) -> None:
         with write_lock:
             stdout.write(json.dumps(payload) + "\n")
             stdout.flush()
 
-    watcher = CatalogChangeWatcher(catalog, _write)
+    def _on_resource_updated(uri: str) -> None:
+        if watches.contains(uri):
+            _write(resources_updated_notification(uri))
+
+    watcher = CatalogChangeWatcher(
+        catalog, _write, on_resource_updated=_on_resource_updated
+    )
     watcher.start()
 
     def _notify_progress(token: Any, progress: int, message: str, *, total: int | None = None) -> None:
@@ -1149,7 +1243,7 @@ def serve_stdio(root: Path) -> int:
                     target=_run_call, args=(message["id"], params), daemon=True
                 ).start()
                 continue
-            response = handle_message(catalog, message)
+            response = handle_message(catalog, message, watches=watches)
             if response is not None:
                 _write(response)
     finally:

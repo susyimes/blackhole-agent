@@ -20,12 +20,14 @@ from blackhole_agent.mcp_capability_server import (
     PREPARE_PROMPT_NAME,
     PROTOCOL_VERSION,
     RESOURCES_LIST_CHANGED_NOTIFICATION,
+    RESOURCES_UPDATED_METHOD,
     SERVER_CAPABILITIES,
     SERVER_INFO,
     TOOLS_LIST_CHANGED_NOTIFICATION,
     CapabilityCatalog,
     CatalogChangeWatcher,
     McpHttpSession,
+    ResourceWatch,
     ToolCallError,
     capability_resource_uri,
     handle_http_rpc,
@@ -33,7 +35,7 @@ from blackhole_agent.mcp_capability_server import (
     run_governed_tools_call,
     tool_name_for_slug,
 )
-from blackhole_agent.mcp_client import McpProtocolError, McpStdioSession
+from blackhole_agent.mcp_client import McpProtocolError, McpStdioSession, extract_resource_updated
 
 _TOOL = (
     "import json, sys\n"
@@ -171,6 +173,95 @@ def test_catalog_watcher_publishes_list_changed_on_new_invocable(tmp_path: Path)
         watcher.stop()
 
 
+def test_catalog_watcher_publishes_resource_updated_on_quarantine(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    catalog = CapabilityCatalog(root)
+    uri = capability_resource_uri("capability.absorbed-text-reverser")
+    published: list[dict] = []
+    watcher = CatalogChangeWatcher(
+        catalog,
+        lambda payload: published.append(dict(payload)),
+        interval=0.05,
+        on_resource_updated=lambda watched: published.append(
+            {"jsonrpc": "2.0", "method": RESOURCES_UPDATED_METHOD, "params": {"uri": watched}}
+        ),
+    )
+    watcher.start()
+    try:
+        ledger_path = root / "capabilities" / "ledger.json"
+        document = json.loads(ledger_path.read_text(encoding="utf-8"))
+        document["capabilities"]["capability.absorbed-text-reverser"]["resource_quarantine"] = {
+            "reason": "probe"
+        }
+        ledger_path.write_text(json.dumps(document), encoding="utf-8")
+        os.utime(ledger_path, (ledger_path.stat().st_atime, ledger_path.stat().st_mtime + 5))
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            if any(item.get("method") == RESOURCES_UPDATED_METHOD for item in published):
+                break
+            time.sleep(0.05)
+        updated = [
+            item.get("params", {}).get("uri")
+            for item in published
+            if item.get("method") == RESOURCES_UPDATED_METHOD
+        ]
+        assert uri in updated
+        assert TOOLS_LIST_CHANGED_NOTIFICATION["method"] not in [
+            item.get("method") for item in published
+        ]
+        metadata = json.loads(catalog.read_resource(uri)["contents"][0]["text"])
+        assert metadata["available"] is False
+    finally:
+        watcher.stop()
+
+
+def test_handle_message_subscribes_and_unsubscribes_live_catalog_uri(tmp_path: Path) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    watches = ResourceWatch()
+    uri = capability_resource_uri("capability.absorbed-text-reverser")
+    reply = handle_message(
+        catalog,
+        {"jsonrpc": "2.0", "id": 1, "method": "resources/subscribe", "params": {"uri": uri}},
+        watches=watches,
+    )
+    assert reply["result"] == {}
+    assert watches.contains(uri)
+    missing = handle_message(
+        catalog,
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "resources/subscribe",
+            "params": {"uri": "blackhole://capabilities/missing"},
+        },
+        watches=watches,
+    )
+    assert missing["error"]["code"] == -32002
+    assert not watches.contains("blackhole://capabilities/missing")
+    dropped = handle_message(
+        catalog,
+        {"jsonrpc": "2.0", "id": 3, "method": "resources/unsubscribe", "params": {"uri": uri}},
+        watches=watches,
+    )
+    assert dropped["result"] == {}
+    assert not watches.contains(uri)
+
+
+def test_http_rpc_subscribe_is_session_scoped(tmp_path: Path) -> None:
+    catalog = CapabilityCatalog(_fixture_root(tmp_path))
+    session = McpHttpSession()
+    uri = capability_resource_uri("capability.absorbed-text-reverser")
+    reply = handle_http_rpc(
+        catalog,
+        {"jsonrpc": "2.0", "id": 1, "method": "resources/subscribe", "params": {"uri": uri}},
+        session=session,
+    )
+    assert reply["result"] == {}
+    assert session.watches.contains(uri)
+    outsider = McpHttpSession()
+    assert not outsider.watches.contains(uri)
+
+
 def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     catalog = CapabilityCatalog(_fixture_root(tmp_path))
     reply = handle_message(catalog, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
@@ -178,7 +269,7 @@ def test_handle_message_protocol_surface(tmp_path: Path) -> None:
     assert reply["result"]["serverInfo"] == SERVER_INFO
     assert reply["result"]["capabilities"]["tools"] == {"listChanged": True}
     assert reply["result"]["capabilities"]["resources"] == {
-        "subscribe": False,
+        "subscribe": True,
         "listChanged": True,
     }
     assert reply["result"]["capabilities"]["prompts"] == {"listChanged": False}
@@ -315,6 +406,10 @@ def test_resources_paginate_and_refresh_availability(tmp_path: Path) -> None:
     ("resources/read", {"uri": CATALOG_URI + "/%2e%2e/ledger.json"}, -32002),
     ("resources/read", {"uri": CATALOG_URI + "/capability.absorbed-unproved-tool"}, -32002),
     ("resources/read", {}, -32602),
+    ("resources/subscribe", {"uri": "file:///etc/passwd"}, -32002),
+    ("resources/subscribe", {}, -32602),
+    ("resources/unsubscribe", {"uri": []}, -32602),
+    ("resources/unsubscribe", {}, -32602),
     ("resources/read", {"uri": []}, -32602),
     ("resources/list", {"cursor": -1}, -32602),
     ("resources/list", {"cursor": "-1"}, -32602),
@@ -351,6 +446,7 @@ def test_live_stdio_metadata_prepares_an_invocable_tool(tmp_path: Path) -> None:
     try:
         session.start()
         assert "resources" in session.server_capabilities
+        assert session.server_capabilities["resources"]["subscribe"] is True
         assert "prompts" in session.server_capabilities
         assert len(session.list_resources()["resources"]) == 2
         assert session.list_resource_templates()["resourceTemplates"]
@@ -362,6 +458,37 @@ def test_live_stdio_metadata_prepares_an_invocable_tool(tmp_path: Path) -> None:
         assert embedded == metadata
         called = session.call_tool(embedded["tool"]["name"], {embedded["requires"][0]: "metadata-client"})
         assert called["structuredContent"] == {embedded["provides"][0]: "tneilc-atadatem"}
+    finally:
+        session.kill()
+
+
+def test_live_stdio_subscribe_updated_on_quarantine(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    session = McpStdioSession(
+        [sys.executable, "-m", "blackhole_agent.mcp_capability_server", "--root", str(root)],
+        timeout_seconds=30,
+    )
+    try:
+        session.start()
+        uri = capability_resource_uri("capability.absorbed-text-reverser")
+        assert session.subscribe_resource(uri) == {}
+        ledger_path = root / "capabilities" / "ledger.json"
+        document = json.loads(ledger_path.read_text(encoding="utf-8"))
+        document["capabilities"]["capability.absorbed-text-reverser"]["resource_quarantine"] = {
+            "reason": "probe"
+        }
+        ledger_path.write_text(json.dumps(document), encoding="utf-8")
+        os.utime(ledger_path, (ledger_path.stat().st_atime, ledger_path.stat().st_mtime + 5))
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if uri in extract_resource_updated(session.server_notifications):
+                break
+            session.request("ping")
+            time.sleep(0.05)
+        assert uri in extract_resource_updated(session.server_notifications)
+        metadata = json.loads(session.read_resource(uri)["contents"][0]["text"])
+        assert metadata["available"] is False
+        assert metadata["unavailable_reason"] == "resource_quarantined"
     finally:
         session.kill()
 

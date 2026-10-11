@@ -53,10 +53,13 @@ capabilities remain inspectable with `available: false` and
 them. Removed, unproved, or no-longer-invocable entries disappear on refresh.
 Resource reads for unknown URIs return JSON-RPC `-32002`; invalid parameters,
 cursor values, or prompt arguments return `-32602`. `initialize` advertises
-`tools.listChanged` and `resources.listChanged`; connected GET `/mcp` streams
-receive `notifications/tools/list_changed` (and resources) when the invocable
-set changes so hosts re-list without disconnecting. Tool calls still
-revalidate through the governed invocation path. `initialize` also
+`tools.listChanged`, `resources.listChanged`, and `resources.subscribe`.
+Connected GET `/mcp` streams receive `notifications/tools/list_changed`
+(and resources) when the invocable set changes so hosts re-list without
+disconnecting. A host that `resources/subscribe`s one catalog URI receives
+`notifications/resources/updated` after that document is quarantined or
+reinstated, then re-reads it; sessions that skip subscribe keep their
+snapshot. Tool calls still revalidate through the governed invocation path. `initialize` also
 advertises `experimental.idempotencyKey`. A `tools/call` (including
 `solve_goal`) may carry `_meta.idempotencyKey`; identical retries replay
 the saved JSON-RPC result without spawning the untrusted tool again, and

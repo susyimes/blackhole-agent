@@ -284,6 +284,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert status == 200 and health["ok"] is True
     assert health["vendored_tree_readonly"] is True
     assert health["mcp_completions"] is True
+    assert health["mcp_resource_subscribe"] is True
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})

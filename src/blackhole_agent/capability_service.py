@@ -110,16 +110,20 @@ module turns the ledger into a service:
   in-flight tool tree so the original POST answers JSON-RPC ``-32800``,
   and a ledger mutation that changes the invocable tool set publishes
   ``notifications/tools/list_changed`` (and ``resources/list_changed``)
-  so a connected host re-lists without a new session. ``initialize``
-  advertises ``tools.listChanged``, ``resources.listChanged``, and
-  ``completions``. ``completion/complete`` prefix-matches the prepare
+  so a connected host re-lists without a new session. ``resources/subscribe``
+  watches one catalog URI; quarantine or reinstatement of that document
+  publishes ``notifications/resources/updated`` on the same GET stream
+  so the host re-reads without polling. ``initialize`` advertises
+  ``tools.listChanged``, ``resources.listChanged``, ``resources.subscribe``,
+  and ``completions``. ``completion/complete`` prefix-matches the prepare
   prompt's ``capability_id`` and the capability URI template against the
   live catalog without executing a tool. GET without a session is 404;
   GET that does not accept the event stream is 406. REST ``POST /invoke``
   is unchanged. The same catalog also exposes MCP resources (public
   contracts and tool schemas) and a ``prepare_capability_call`` prompt
   with an embedded live contract; retrieving metadata never executes a
-  capability. ``GET /health`` reports ``mcp_completions``.
+  capability. ``GET /health`` reports ``mcp_completions`` and
+  ``mcp_resource_subscribe``.
 - Operator authentication is fail-closed when a token is configured
   (``--token`` or ``BLACKHOLE_INVOCATION_TOKEN``): catalog and session
   reads, every mutating route, invocation-receipt lookups, and ``/mcp``
@@ -1693,6 +1697,7 @@ def build_server(
         CatalogChangeWatcher,
         McpHttpSession,
         handle_http_rpc,
+        resources_updated_notification,
     )
 
     mcp_catalog = CapabilityCatalog(service_root)
@@ -1734,7 +1739,19 @@ def build_server(
         for state in states:
             state.publish(payload)
 
-    catalog_watcher = CatalogChangeWatcher(mcp_catalog, _broadcast_catalog_change)
+    def _broadcast_resource_updated(uri: str) -> None:
+        payload = resources_updated_notification(uri)
+        with mcp_session_lock:
+            states = list(mcp_sessions.values())
+        for state in states:
+            if state.watches.contains(uri):
+                state.publish(payload)
+
+    catalog_watcher = CatalogChangeWatcher(
+        mcp_catalog,
+        _broadcast_catalog_change,
+        on_resource_updated=_broadcast_resource_updated,
+    )
     catalog_watcher.start()
 
     class CapabilityHandler(BaseHTTPRequestHandler):
@@ -1812,6 +1829,7 @@ def build_server(
                         "live_invoke_stream": True,
                         "mcp_tools_list_changed": True,
                         "mcp_completions": True,
+                        "mcp_resource_subscribe": True,
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
@@ -2209,6 +2227,7 @@ def serve(
                 "max_output_bytes": current_max_output_bytes(),
                 "mcp_tools_list_changed": True,
                 "mcp_completions": True,
+                "mcp_resource_subscribe": True,
             }
         ),
         flush=True,
@@ -2404,6 +2423,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         checks["mcp_completions_health"] = (
             status == 200 and isinstance(health, dict) and health.get("mcp_completions") is True
         )
+        checks["mcp_resource_subscribe_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("mcp_resource_subscribe") is True
+        )
         status, preview = _http_request(
             "POST",
             f"{base}/solve",
@@ -2461,6 +2483,10 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         advertised = handshake_result.get("capabilities") if isinstance(handshake_result, dict) else None
         checks["mcp_completions_advertised"] = (
             isinstance(advertised, dict) and "completions" in advertised
+        )
+        advertised_resources = advertised.get("resources") if isinstance(advertised, dict) else None
+        checks["mcp_resource_subscribe_advertised"] = (
+            isinstance(advertised_resources, dict) and advertised_resources.get("subscribe") is True
         )
         mcp_hdr = {"Mcp-Session-Id": mcp_session} if mcp_session else None
         status, completed = _http_request(

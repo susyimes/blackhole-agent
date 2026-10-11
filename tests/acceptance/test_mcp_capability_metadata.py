@@ -128,7 +128,7 @@ def main() -> dict:
                 return {"passed": False, "observed": observed}
 
             assert {"tools", "resources", "prompts"} <= initialized["capabilities"].keys()
-            assert initialized["capabilities"]["resources"].get("subscribe", False) is False
+            assert initialized["capabilities"]["resources"].get("subscribe", False) is True
             assert {item["uri"] for item in resource_reply["result"]["resources"]} == {INDEX_URI, DETAIL_URI}
             _, index = host.read(INDEX_URI)
             content, metadata = host.read(DETAIL_URI)
