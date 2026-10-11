@@ -155,6 +155,16 @@ module turns the ledger into a service:
   The operator console uses same-origin relative fetches, so an HTTPS
   load of ``/console`` keeps working. REST ``POST /invoke`` over HTTPS
   still executes governed tools.
+- DNS rebinding and browser CSRF cannot drive the open loopback plane.
+  Every request, including ``GET /health`` and ``POST /mcp``, requires a
+  ``Host`` that is loopback, the configured bind identity, or the
+  connection's local address, with a matching port when one is present.
+  A present ``Origin`` must use the served scheme and that same host and
+  listen port. ``Host: evil.example`` answers ``400 host_not_allowed``;
+  ``Origin: http://evil.example`` answers ``403 origin_not_allowed``.
+  Neither spawns a tool. Curl without ``Origin`` and a same-origin
+  console ``Origin`` still invoke. ``GET /health`` and the readiness
+  line report ``loopback_host_origin``.
 - Executed tools are untrusted third-party code: every subprocess runs with
   a scrubbed allowlist environment
   (:data:`blackhole_agent.capability_absorption.TOOL_ENV_PASSTHROUGH`), so
@@ -263,6 +273,7 @@ from collections import OrderedDict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
+from urllib.parse import urlparse
 
 from blackhole_agent.capability_absorption import (
     capability_id_for_slug,
@@ -333,6 +344,9 @@ INVOCATION_TOKEN_ENV = "BLACKHOLE_INVOCATION_TOKEN"
 TLS_CERT_ENV = "BLACKHOLE_TLS_CERT"
 TLS_KEY_ENV = "BLACKHOLE_TLS_KEY"
 WWW_AUTHENTICATE = 'Bearer realm="blackhole-invocation-plane"'
+HOST_NOT_ALLOWED = "host_not_allowed"
+ORIGIN_NOT_ALLOWED = "origin_not_allowed"
+_WILDCARD_BIND_HOSTS = frozenset({"0.0.0.0", "::", "*", "+", ""})
 MCP_HTTP_PATH = "/mcp"
 MAX_MCP_HTTP_SESSIONS = 1024
 SOLVE_PREVIEW_PREFER = "solve=preview"
@@ -404,6 +418,132 @@ def assert_bind_policy(host: str, token: str | None) -> None:
     if str(token or "").strip():
         return
     raise BindPolicyError(host)
+
+
+def canonical_hostname(host: str) -> str:
+    """Lowercase hostname without brackets, IPv4-mapped prefix, or trailing dot."""
+
+    raw = str(host or "").strip().strip("[]").lower()
+    if raw.startswith("::ffff:"):
+        raw = raw[7:]
+    return raw.rstrip(".")
+
+
+def parse_authority(value: str) -> tuple[str, int | None]:
+    """Split a Host or URL netloc into hostname and optional port."""
+
+    text = str(value or "").strip()
+    if not text:
+        return "", None
+    if text.startswith("["):
+        end = text.find("]")
+        if end < 0:
+            return "", None
+        host = text[1:end]
+        rest = text[end + 1 :]
+        if not rest:
+            return host, None
+        if rest.startswith(":") and rest[1:].isdigit():
+            return host, int(rest[1:])
+        return "", None
+    if text.count(":") > 1:
+        try:
+            ipaddress.ip_address(text)
+        except ValueError:
+            return "", None
+        return text, None
+    if ":" in text:
+        host, _, port = text.rpartition(":")
+        if host and port.isdigit():
+            return host, int(port)
+        return "", None
+    return text, None
+
+
+def hostname_is_permitted(hostname: str, *, bind_host: str, local_addr: str) -> bool:
+    """True when hostname is loopback, the bind identity, or this connection's local address."""
+
+    host = canonical_hostname(hostname)
+    if not host:
+        return False
+    if host_is_loopback(host):
+        return True
+    for candidate in (bind_host, local_addr):
+        canon = canonical_hostname(candidate)
+        if not canon or canon in _WILDCARD_BIND_HOSTS:
+            continue
+        if host == canon:
+            return True
+    return False
+
+
+def origin_is_permitted(
+    origin: str,
+    *,
+    bind_host: str,
+    local_addr: str,
+    listen_port: int,
+    tls: bool = False,
+) -> bool:
+    """True when Origin is the served scheme, a permitted host, and the listen port."""
+
+    text = str(origin or "").strip()
+    if not text or text.lower() == "null":
+        return False
+    parsed = urlparse(text)
+    expected_scheme = "https" if tls else "http"
+    if parsed.scheme != expected_scheme:
+        return False
+    if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        return False
+    if parsed.username or parsed.password:
+        return False
+    host, port = parse_authority(parsed.netloc)
+    if not hostname_is_permitted(host, bind_host=bind_host, local_addr=local_addr):
+        return False
+    if port is None:
+        port = 443 if parsed.scheme == "https" else 80
+    return int(port) == int(listen_port)
+
+
+def evaluate_request_identity(
+    headers: Mapping[str, Any],
+    *,
+    bind_host: str,
+    local_addr: str,
+    listen_port: int,
+    tls: bool = False,
+) -> tuple[int, dict[str, Any]] | None:
+    """Return a fail-closed HTTP error, or None when Host/Origin may proceed."""
+
+    getter = getattr(headers, "get", None)
+    get_all = getattr(headers, "get_all", None)
+    if callable(get_all):
+        hosts = [str(item) for item in (get_all("Host") or []) if str(item).strip()]
+        origins = [str(item) for item in (get_all("Origin") or []) if str(item).strip()]
+        if len(hosts) > 1:
+            return 400, {"ok": False, "error": HOST_NOT_ALLOWED, "host": ",".join(hosts)}
+        if len(origins) > 1:
+            return 403, {"ok": False, "error": ORIGIN_NOT_ALLOWED, "origin": ",".join(origins)}
+        host_header = hosts[0] if hosts else ""
+        origin = origins[0] if origins else ""
+    else:
+        host_header = str(getter("Host") or "") if callable(getter) else str(headers.get("Host") or "")
+        origin = str(getter("Origin") or "") if callable(getter) else str(headers.get("Origin") or "")
+    host, port = parse_authority(host_header)
+    if not host or not hostname_is_permitted(host, bind_host=bind_host, local_addr=local_addr):
+        return 400, {"ok": False, "error": HOST_NOT_ALLOWED, "host": host_header}
+    if port is not None and int(port) != int(listen_port):
+        return 400, {"ok": False, "error": HOST_NOT_ALLOWED, "host": host_header}
+    if origin.strip() and not origin_is_permitted(
+        origin,
+        bind_host=bind_host,
+        local_addr=local_addr,
+        listen_port=listen_port,
+        tls=tls,
+    ):
+        return 403, {"ok": False, "error": ORIGIN_NOT_ALLOWED, "origin": origin}
+    return None
 
 
 class TlsConfigError(ValueError):
@@ -1927,6 +2067,28 @@ def build_server(
                 return rest
             return None
 
+        def _guard_request_identity(self) -> bool:
+            bind_host = str(getattr(self.server, "bind_host", "127.0.0.1") or "127.0.0.1")
+            listen_port = int(self.server.server_address[1])
+            try:
+                local_addr = str(self.connection.getsockname()[0])
+            except Exception:
+                local_addr = bind_host
+            verdict = evaluate_request_identity(
+                self.headers,
+                bind_host=bind_host,
+                local_addr=local_addr,
+                listen_port=listen_port,
+                tls=bool(getattr(self.server, "tls_enabled", False)),
+            )
+            if verdict is None:
+                return True
+            status, payload = verdict
+            if self.command in {"POST", "DELETE", "PUT", "PATCH"}:
+                _drain_request_body(self)
+            _json_response(self, status, payload)
+            return False
+
         def _authorize(self) -> bool:
             if not invocation_token:
                 return True
@@ -1948,7 +2110,17 @@ def build_server(
                 return False
             return True
 
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            if not self._guard_request_identity():
+                return
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.send_header("Allow", "GET, POST, DELETE, OPTIONS")
+            self.end_headers()
+
         def do_GET(self) -> None:  # noqa: N802
+            if not self._guard_request_identity():
+                return
             path = self.path.split("?", 1)[0]
             if path in {"/", "/console"}:
                 from blackhole_agent.capability_console import console_html
@@ -1982,6 +2154,7 @@ def build_server(
                         "solve_plan_preview": True,
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
+                        "loopback_host_origin": True,
                         "tls": bool(getattr(self.server, "tls_enabled", False)),
                     },
                 )
@@ -2109,6 +2282,8 @@ def build_server(
             _json_response(self, 404, {"ok": False, "error": f"unknown path: {self.path}"})
 
         def do_DELETE(self) -> None:  # noqa: N802
+            if not self._guard_request_identity():
+                return
             if not self._authorize():
                 return
             if _mcp_http_path(self.path):
@@ -2130,6 +2305,8 @@ def build_server(
             _json_response(self, 200, result)
 
         def do_POST(self) -> None:  # noqa: N802
+            if not self._guard_request_identity():
+                return
             if not self._authorize():
                 return
             path = self.path.split("?", 1)[0]
@@ -2335,6 +2512,7 @@ def build_server(
 
     server = ThreadingHTTPServer((host, port), CapabilityHandler)
     server.daemon_threads = True
+    server.bind_host = host
     server.tls_enabled = False
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
@@ -2400,6 +2578,7 @@ def serve(
                 "mcp_resource_subscribe": True,
                 "mcp_logging": True,
                 "non_loopback_requires_token": True,
+                "loopback_host_origin": True,
                 "tls": bool(getattr(server, "tls_enabled", False)),
             }
         ),
@@ -2609,6 +2788,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["http_tls_health"] = (
             status == 200 and isinstance(health, dict) and health.get("tls") is False
+        )
+        checks["loopback_host_origin_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("loopback_host_origin") is True
         )
         status, preview = _http_request(
             "POST",

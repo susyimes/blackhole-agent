@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import socket
 import ssl
@@ -11,18 +12,25 @@ import time
 from pathlib import Path
 from urllib import request as urlrequest
 from urllib.error import HTTPError
+from urllib.parse import urlparse
 
 import pytest
 
 from blackhole_agent.capability_service import (
     BindPolicyError,
+    HOST_NOT_ALLOWED,
+    ORIGIN_NOT_ALLOWED,
     TlsConfigError,
     build_server,
     capability_listing,
     evaluate_contract_request,
+    evaluate_request_identity,
     host_is_loopback,
+    hostname_is_permitted,
     invoke_capability,
     load_invocable_capabilities,
+    origin_is_permitted,
+    parse_authority,
     parse_solve_dry_run,
     plan_goal_program,
     prefer_solve_preview,
@@ -293,6 +301,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["mcp_resource_subscribe"] is True
     assert health["mcp_logging"] is True
     assert health["non_loopback_requires_token"] is True
+    assert health["loopback_host_origin"] is True
     assert health["tls"] is False
     assert int(health["max_scratch_bytes"]) > 0
     status, result = _request("GET", f"{base}/nope")
@@ -312,6 +321,134 @@ def test_host_is_loopback_classifies_bind_targets() -> None:
     assert host_is_loopback("*") is False
     assert host_is_loopback("192.168.1.9") is False
     assert host_is_loopback("example.internal") is False
+
+
+def test_parse_authority_and_identity_helpers() -> None:
+    assert parse_authority("127.0.0.1:8080") == ("127.0.0.1", 8080)
+    assert parse_authority("[::1]:9") == ("::1", 9)
+    assert parse_authority("localhost") == ("localhost", None)
+    assert hostname_is_permitted("127.0.0.1", bind_host="0.0.0.0", local_addr="127.0.0.1") is True
+    assert hostname_is_permitted("evil.example", bind_host="127.0.0.1", local_addr="127.0.0.1") is False
+    assert hostname_is_permitted("192.168.1.9", bind_host="0.0.0.0", local_addr="192.168.1.9") is True
+    assert origin_is_permitted(
+        "http://127.0.0.1:8765",
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    ) is True
+    assert origin_is_permitted(
+        "http://evil.example",
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    ) is False
+    assert origin_is_permitted(
+        "http://127.0.0.1:9",
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    ) is False
+    missing = evaluate_request_identity(
+        {},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    )
+    assert missing is not None and missing[0] == 400 and missing[1]["error"] == HOST_NOT_ALLOWED
+    rebound = evaluate_request_identity(
+        {"Host": "evil.example"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    )
+    assert rebound is not None and rebound[0] == 400 and rebound[1]["error"] == HOST_NOT_ALLOWED
+    csrf = evaluate_request_identity(
+        {"Host": "127.0.0.1:8765", "Origin": "http://evil.example"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    )
+    assert csrf is not None and csrf[0] == 403 and csrf[1]["error"] == ORIGIN_NOT_ALLOWED
+    ok = evaluate_request_identity(
+        {"Host": "127.0.0.1:8765"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    )
+    assert ok is None
+    same_origin = evaluate_request_identity(
+        {"Host": "127.0.0.1:8765", "Origin": "http://127.0.0.1:8765"},
+        bind_host="127.0.0.1",
+        local_addr="127.0.0.1",
+        listen_port=8765,
+    )
+    assert same_origin is None
+
+
+def _raw_http(
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[int, dict]:
+    parsed = urlparse(url)
+    conn = http.client.HTTPConnection(parsed.hostname or "127.0.0.1", parsed.port, timeout=30)
+    extra = dict(headers or {})
+    body = None
+    if payload is not None:
+        body = json.dumps(payload).encode("utf-8")
+        extra.setdefault("Content-Type", "application/json")
+    path = parsed.path or "/"
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    try:
+        conn.request(method, path, body=body, headers=extra)
+        response = conn.getresponse()
+        raw = response.read()
+        try:
+            parsed_body = json.loads(raw.decode("utf-8")) if raw else {}
+        except json.JSONDecodeError:
+            parsed_body = {"raw": raw.decode("utf-8", errors="replace")}
+        return response.status, parsed_body if isinstance(parsed_body, dict) else {"raw": parsed_body}
+    finally:
+        conn.close()
+
+
+def test_invoke_rejects_rebinding_host_and_foreign_origin(server) -> None:
+    _, base = server
+    port = int(urlparse(base).port)
+    payload = {
+        "capability_id": "capability.absorbed-text-reverser",
+        "input": {"raw_text": "rebinding"},
+    }
+    status, body = _raw_http(
+        "POST",
+        f"{base}/invoke",
+        payload,
+        headers={"Host": "evil.example"},
+    )
+    assert status == 400
+    assert body["ok"] is False
+    assert body["error"] == HOST_NOT_ALLOWED
+    assert "reversed_text" not in json.dumps(body)
+    status, body = _raw_http(
+        "POST",
+        f"{base}/invoke",
+        payload,
+        headers={"Origin": "http://evil.example"},
+    )
+    assert status == 403
+    assert body["ok"] is False
+    assert body["error"] == ORIGIN_NOT_ALLOWED
+    status, body = _raw_http(
+        "POST",
+        f"{base}/invoke",
+        payload,
+        headers={"Origin": f"http://127.0.0.1:{port}"},
+    )
+    assert status == 200
+    assert body["ok"] is True
+    assert body["output"]["reversed_text"] == "rebinding"[::-1]
 
 
 def test_build_server_refuses_open_non_loopback_bind(
