@@ -305,6 +305,16 @@ module turns the ledger into a service:
   may CORS-call OAuth and ``/mcp`` so an MCP Inspector on another loopback
   port can complete the flow; ``POST /invoke`` keeps the same-origin CSRF
   guard.
+- Inbound HMAC-signed webhooks are opt-in. ``--webhook-secret`` with
+  ``--webhook-hook NAME=id`` (or ``BLACKHOLE_WEBHOOK_SECRET`` /
+  ``BLACKHOLE_WEBHOOK_HOOK``) maps a callback name to one invocable tool.
+  ``POST /hooks/{name}`` with a valid ``X-Hub-Signature-256`` over the raw
+  body returns HTTP 202 with a run id and continues after the client hangs
+  up; ``GET /hooks/{run_id}`` returns accepted/running/completed plus the
+  tool output. Missing or wrong signatures are HTTP 401 and never spawn.
+  An unknown name is HTTP 404. A plane without the secret stays
+  fail-closed: ``GET /health`` reports ``webhook_hooks`` false and
+  ``POST /hooks`` is HTTP 404. REST ``POST /invoke`` is unchanged.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -438,6 +448,18 @@ from blackhole_agent.invocation_artifacts import (
     new_invocation_id,
     prepare_artifact_dir,
     serve_invocation_artifact,
+)
+from blackhole_agent.invocation_webhooks import (
+    DISABLED_WEBHOOKS,
+    SIGNATURE_HEADER as WEBHOOK_SIGNATURE_HEADER,
+    WEBHOOK_HOOK_ENV,
+    WEBHOOK_SECRET_ENV,
+    WebhookConfig,
+    WebhookConfigError,
+    WebhookError,
+    WebhookPlane,
+    parse_hooks_path,
+    resolve_webhook_config,
 )
 from blackhole_agent.invocation_history import (
     load_capability_stats,
@@ -843,6 +865,23 @@ def resolve_bundle_import(
     source = env if env is not None else os.environ
     text = str(source.get(BUNDLE_IMPORT_ENV) or "").strip().lower()
     return text in {"1", "true", "yes", "on"}
+
+
+def accept_webhook_post(
+    plane: WebhookPlane,
+    name: str,
+    raw_body: bytes,
+    signature_header: str | None,
+) -> dict[str, Any]:
+    """Accept a signed inbound hook POST and start the mapped tool in the background."""
+
+    return plane.accept_post(name, raw_body, signature_header)
+
+
+def lookup_webhook_run(plane: WebhookPlane, run_id: str) -> dict[str, Any]:
+    """Return the public run record for ``GET /hooks/{run_id}``."""
+
+    return plane.get_run(run_id)
 
 
 def import_bundle_http_request(root: Path, body: Mapping[str, Any], *, enabled: bool) -> dict[str, Any]:
@@ -2369,6 +2408,7 @@ def build_server(
     forage_root: str | Path | None = None,
     bundle_import: bool = False,
     token_scopes: TokenScopeTable | None = None,
+    webhook_config: WebhookConfig | None = None,
 ) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
@@ -2395,6 +2435,8 @@ def build_server(
     sessions = SessionManager(service_root)
     sessions.recover()
     receipts = InvocationReceipts(service_root)
+    hooks = webhook_config if webhook_config is not None else DISABLED_WEBHOOKS
+    webhook_plane = WebhookPlane(service_root, hooks, invoke=invoke_capability)
     from blackhole_agent.mcp_capability_server import (
         CapabilityCatalog,
         CatalogChangeWatcher,
@@ -2603,6 +2645,50 @@ def build_server(
             _json_response(self, 403, {"ok": False, "error": ADMIN_REQUIRED})
             return False
 
+        def _webhook_plane(self) -> WebhookPlane:
+            plane = getattr(self.server, "webhook_plane", None)
+            if isinstance(plane, WebhookPlane):
+                return plane
+            return WebhookPlane(service_root, DISABLED_WEBHOOKS)
+
+        def _handle_webhook_get(self, path: str) -> bool:
+            name = parse_hooks_path(path)
+            if name is None:
+                return False
+            try:
+                result = lookup_webhook_run(self._webhook_plane(), name)
+            except WebhookError as exc:
+                _json_response(self, exc.status, exc.payload)
+                return True
+            _json_response(self, 200, result)
+            return True
+
+        def _handle_webhook_post(self, path: str) -> bool:
+            name = parse_hooks_path(path)
+            if name is None:
+                return False
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                _json_response(self, 400, {"ok": False, "error": "invalid Content-Length"})
+                return True
+            if length < 0 or length > MAX_BODY_BYTES:
+                _json_response(self, 400, {"ok": False, "error": "missing or oversized body"})
+                return True
+            raw = self.rfile.read(length) if length else b""
+            try:
+                result = accept_webhook_post(
+                    self._webhook_plane(),
+                    name,
+                    raw,
+                    self.headers.get(WEBHOOK_SIGNATURE_HEADER),
+                )
+            except WebhookError as exc:
+                _json_response(self, exc.status, exc.payload)
+                return True
+            _json_response(self, 202, result)
+            return True
+
         def _handle_oauth_get(self, path: str) -> bool:
             issuer = self._oauth_issuer()
             origin = self._request_origin()
@@ -2743,6 +2829,7 @@ def build_server(
                         "solve_forage": bool(getattr(self.server, "solve_forage", False)),
                         "bundle_import": bool(getattr(self.server, "bundle_import", False)),
                         **getattr(self.server, "token_scopes", EMPTY_SCOPES).health(),
+                        **getattr(self.server, "webhook_plane").health(),
                         **self._oauth_issuer().health(),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
@@ -2754,6 +2841,8 @@ def build_server(
                 )
                 return
             if self._handle_oauth_get(path):
+                return
+            if self._handle_webhook_get(path):
                 return
             if not self._authorize():
                 return
@@ -2928,6 +3017,8 @@ def build_server(
             if not self._guard_request_identity():
                 return
             path = self.path.split("?", 1)[0]
+            if self._handle_webhook_post(path):
+                return
             if self._handle_oauth_post(path):
                 return
             if not self._authorize():
@@ -3160,6 +3251,7 @@ def build_server(
     server.solve_forage = current_forage_root() is not None
     server.bundle_import = bool(bundle_import)
     server.token_scopes = scopes
+    server.webhook_plane = webhook_plane
     server.oauth_issuer = OAuthIssuer(invocation_token)
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
@@ -3193,6 +3285,8 @@ def serve(
     forage_root: str | Path | None = None,
     bundle_import: bool = False,
     token_scope: Sequence[str] | None = None,
+    webhook_secret: str | None = None,
+    webhook_hook: Sequence[str] | None = None,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -3207,6 +3301,11 @@ def serve(
     try:
         scopes = resolve_token_scopes(token_scope)
     except TokenScopeError as exc:
+        print(json.dumps(exc.payload, sort_keys=True), flush=True)
+        return 2
+    try:
+        hooks_config = resolve_webhook_config(webhook_secret, webhook_hook)
+    except WebhookConfigError as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     from blackhole_agent.goal_foraging import ForageRootError, resolve_forage_root
@@ -3235,8 +3334,9 @@ def serve(
             forage_root=forage_root,
             bundle_import=resolve_bundle_import(bundle_import),
             token_scopes=scopes,
+            webhook_config=hooks_config,
         )
-    except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError, TokenScopeError) as exc:
+    except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError, TokenScopeError, WebhookConfigError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
@@ -3265,6 +3365,7 @@ def serve(
                 "solve_forage": bool(getattr(server, "solve_forage", False)),
                 "bundle_import": bool(getattr(server, "bundle_import", False)),
                 **getattr(server, "token_scopes", EMPTY_SCOPES).health(),
+                **getattr(server, "webhook_plane").health(),
                 **getattr(server, "oauth_issuer", OAuthIssuer("")).health(),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
@@ -3470,6 +3571,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
             status == 200
             and isinstance(health, dict)
             and health.get("oauth_protected_resource") is False
+        )
+        checks["webhook_hooks_health_default"] = (
+            status == 200 and isinstance(health, dict) and health.get("webhook_hooks") is False
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
@@ -3887,6 +3991,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             "the flag, import stays fail-closed"
         ),
     )
+    serve_parser.add_argument(
+        "--webhook-secret",
+        default=None,
+        help=(
+            "shared HMAC secret for POST /hooks; defaults to "
+            f"{WEBHOOK_SECRET_ENV}. Must be paired with --webhook-hook"
+        ),
+    )
+    serve_parser.add_argument(
+        "--webhook-hook",
+        action="append",
+        default=None,
+        help=(
+            "inbound hook NAME=capability_id (repeatable); defaults to "
+            f"{WEBHOOK_HOOK_ENV}. A plane without a secret stays fail-closed"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -3908,6 +4029,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             forage_root=args.forage_root,
             bundle_import=args.bundle_import,
             token_scope=args.token_scope,
+            webhook_secret=args.webhook_secret,
+            webhook_hook=args.webhook_hook,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)

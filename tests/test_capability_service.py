@@ -312,10 +312,14 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["bundle_import"] is False
     assert health["oauth_protected_resource"] is False
     assert health["oauth_authorize_consent"] is False
+    assert health["webhook_hooks"] is False
+    assert health["webhook_hook_count"] == 0
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})
     assert status == 404
+    status, result = _request("POST", f"{base}/hooks/shout", {"input": {"text": "x"}})
+    assert status == 404 and result["error"] == "webhook_disabled"
 
 
 def test_host_is_loopback_classifies_bind_targets() -> None:
