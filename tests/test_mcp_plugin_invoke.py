@@ -151,6 +151,65 @@ def test_fail_closed_plane_does_not_list_or_invoke_plugin_tools(tmp_path: Path) 
         httpd.server_close()
 
 
+def test_health_advertises_mcp_plugin_sandbox_without_plugin(tmp_path: Path) -> None:
+    root = _fixture_root(tmp_path)
+    httpd, base = _serve(root)
+    try:
+        status, health = _request("GET", f"{base}/health")
+        assert status == 200
+        assert health["mcp_plugin_sandbox"] is True
+        assert health["mcp_plugin_invoke"] is False
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
+def test_sandboxed_plugin_hides_operator_secret_and_repo_cwd(tmp_path: Path, monkeypatch) -> None:
+    from blackhole_agent.mcp_plugin_sandbox import (
+        CANARY_ENV_KEY,
+        sandbox_plugin_command,
+    )
+
+    canary = "unit-plugin-sandbox-secret"
+    monkeypatch.setenv(CANARY_ENV_KEY, canary)
+    root = _fixture_root(tmp_path)
+    httpd, base = _serve(root, mcp_plugin_commands=[sandbox_plugin_command()])
+    try:
+        status, health = _request("GET", f"{base}/health")
+        assert status == 200
+        assert health["mcp_plugin_sandbox"] is True
+        assert health["mcp_plugin_invoke"] is True
+        status, echo = _request(
+            "POST",
+            f"{base}/invoke",
+            {"capability_id": ECHO_ID, "input": {"text": PROBE_TEXT}},
+        )
+        assert status == 200
+        assert echo["output"]["text"] == PROBE_TEXT
+        status, env_body = _request(
+            "POST",
+            f"{base}/invoke",
+            {"capability_id": f"{PLUGIN_ID_PREFIX}env_probe", "input": {"text": PROBE_TEXT}},
+        )
+        assert status == 200
+        env_payload = json.loads(env_body["output"]["text"])
+        assert env_payload["observed_secret"] != canary
+        assert env_payload["has_path"] is True
+        assert CANARY_ENV_KEY not in env_payload["blackhole_keys"]
+        status, write_body = _request(
+            "POST",
+            f"{base}/invoke",
+            {"capability_id": f"{PLUGIN_ID_PREFIX}write_probe", "input": {"text": PROBE_TEXT}},
+        )
+        assert status == 200
+        write_payload = json.loads(write_body["output"]["text"])
+        repo_root = Path(__file__).resolve().parents[1]
+        assert Path(write_payload["cwd"]).resolve() != repo_root.resolve()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+
 def test_opted_in_echo_plugin_is_invocable(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)
     httpd, base = _serve(root, mcp_plugin_commands=[echo_server_command()])

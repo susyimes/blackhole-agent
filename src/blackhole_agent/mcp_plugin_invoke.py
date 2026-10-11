@@ -14,6 +14,9 @@ This module closes that hole:
 - a plane with no plugin stays fail-closed: the id is unknown (HTTP 404)
 - sibling absorbed tools keep serving
 - HTTP disconnect cancel is forwarded as ``notifications/cancelled``
+- hosted plugin processes start under a scrubbed environment, an isolated
+  scratch cwd, and a resource job so they cannot read operator secrets or
+  write the repository
 """
 
 from __future__ import annotations
@@ -22,9 +25,12 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
+import tempfile
 import threading
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.mcp_client import (
@@ -32,6 +38,10 @@ from blackhole_agent.mcp_client import (
     McpStdioSession,
     _extract_text,
     echo_server_command,
+)
+from blackhole_agent.mcp_plugin_sandbox import (
+    SandboxedPluginProcess,
+    spawn_sandboxed_plugin,
 )
 from blackhole_agent.process_capture import ProcessCancelled
 
@@ -162,6 +172,7 @@ class PluginTool:
             "provides": ["text"],
             "kind": PLUGIN_KIND,
             "plugin_tool": self.tool_name,
+            "sandboxed": True,
             "command": [],
             "tool_root": "",
             "input_schema": dict(self.schema) if self.schema else None,
@@ -179,6 +190,9 @@ class McpPluginPlane:
         self.tools: dict[str, PluginTool] = {}
         self._lock = threading.Lock()
         self.ready = False
+        self.sandboxed = False
+        self._spawned: list[SandboxedPluginProcess] = []
+        self._scratch_root: Path | None = None
 
     @property
     def tool_count(self) -> int:
@@ -186,10 +200,21 @@ class McpPluginPlane:
 
     def start(self) -> "McpPluginPlane":
         if not self.commands:
+            self.sandboxed = True
             return self
         try:
-            for command in self.commands:
-                session = McpStdioSession(command, timeout_seconds=30.0)
+            self._scratch_root = Path(tempfile.mkdtemp(prefix="bh-mcp-plugin-"))
+            for index, command in enumerate(self.commands):
+                plugin_scratch = self._scratch_root / f"p{index}"
+                spawned = spawn_sandboxed_plugin(command, plugin_scratch)
+                self._spawned.append(spawned)
+                session = McpStdioSession(
+                    command,
+                    timeout_seconds=30.0,
+                    process=spawned.process,
+                    env=None,
+                    cwd=str(plugin_scratch),
+                )
                 session.start()
                 payload = session.paginate_tools()
                 tools = payload.get("tools") if isinstance(payload, Mapping) else None
@@ -216,6 +241,7 @@ class McpPluginPlane:
             if not self.tools:
                 raise PluginStartError("opted-in plugins listed no invocable tools")
             self.ready = True
+            self.sandboxed = True
             return self
         except (McpProtocolError, OSError, PluginStartError) as exc:
             self.close()
@@ -225,6 +251,7 @@ class McpPluginPlane:
 
     def close(self) -> None:
         self.ready = False
+        self.sandboxed = False
         sessions = list(self.sessions)
         self.sessions.clear()
         self.tools.clear()
@@ -236,6 +263,17 @@ class McpPluginPlane:
                     session.kill()
                 except Exception:
                     pass
+        spawned = list(self._spawned)
+        self._spawned.clear()
+        for item in spawned:
+            try:
+                item.close_aux()
+            except Exception:
+                pass
+        scratch = self._scratch_root
+        self._scratch_root = None
+        if scratch is not None:
+            shutil.rmtree(scratch, ignore_errors=True)
 
     def invocable_items(self) -> dict[str, dict[str, Any]]:
         if not self.ready:
@@ -309,6 +347,7 @@ def mcp_plugin_health() -> dict[str, Any]:
     return {
         "mcp_plugin_invoke": ready,
         "mcp_plugin_count": int(plane.tool_count) if ready and plane is not None else 0,
+        "mcp_plugin_sandbox": True,
     }
 
 

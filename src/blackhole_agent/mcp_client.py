@@ -477,6 +477,9 @@ class McpStdioSession:
         elicitation_content: Mapping[str, Any] | None = None,
         roots: Sequence[Mapping[str, str]] | None = None,
         validate_structured: bool = True,
+        process: subprocess.Popen[str] | None = None,
+        env: Mapping[str, str] | None = None,
+        cwd: str | Path | None = None,
     ) -> None:
         self.command = [str(part) for part in command]
         self.timeout_seconds = float(timeout_seconds)
@@ -497,7 +500,9 @@ class McpStdioSession:
         self.tool_output_schemas: dict[str, dict[str, Any]] = {}
         self.tool_list_count = 0
         self.last_tools_cursor = ""
-        self._process: subprocess.Popen[str] | None = None
+        self.env = dict(env) if env is not None else None
+        self.cwd = str(cwd) if cwd is not None else None
+        self._process: subprocess.Popen[str] | None = process
         self._lines: queue.Queue[str | None] = queue.Queue()
         self._next_id = 0
         self.server_info: dict[str, Any] = {}
@@ -507,15 +512,18 @@ class McpStdioSession:
 
     def start(self) -> "McpStdioSession":
         try:
-            self._process = subprocess.Popen(
-                self.command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                encoding="utf-8",
-                cwd=str(REPO_ROOT),
-            )
+            if self._process is None:
+                popen_kwargs: dict[str, Any] = {
+                    "stdin": subprocess.PIPE,
+                    "stdout": subprocess.PIPE,
+                    "stderr": subprocess.DEVNULL,
+                    "text": True,
+                    "encoding": "utf-8",
+                    "cwd": self.cwd or str(REPO_ROOT),
+                }
+                if self.env is not None:
+                    popen_kwargs["env"] = self.env
+                self._process = subprocess.Popen(self.command, **popen_kwargs)
             reader = threading.Thread(target=self._pump, daemon=True)
             reader.start()
             client_capabilities: dict[str, Any] = {}
