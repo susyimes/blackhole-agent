@@ -13,7 +13,7 @@ plane as a separate OS process and drives real loopback HTTP:
 4. POST /oauth/register of a loopback public client returns a client_id;
    a foreign redirect_uri is HTTP 400.
 5. GET /oauth/authorize with S256 PKCE and the operator bearer is HTTP 302
-   with a one-time code; without the operator bearer it is 401.
+   with a one-time code; without the operator bearer it is 200 HTML consent.
 6. POST /oauth/token with that code and verifier returns an access_token;
    a replayed code is HTTP 400.
 7. POST /mcp initialize and POST /invoke of the fixture text-reverser with
@@ -363,7 +363,9 @@ def main() -> dict[str, object]:
                     }
                 )
             )
-            denied_status, _, _ = _request("GET", authorize_url, follow=False)
+            denied_status, denied_body, denied_headers = _request(
+                "GET", authorize_url, follow=False
+            )
             loc_status, _, loc_headers = _request(
                 "GET", authorize_url, token=OPERATOR, follow=False
             )
@@ -372,8 +374,11 @@ def main() -> dict[str, object]:
             observed["authorize_denied"] = denied_status
             observed["authorize_status"] = loc_status
             observed["authorize_location"] = location
+            denied_page = denied_body if isinstance(denied_body, str) else ""
             authorize_ok = (
-                denied_status == 401
+                denied_status == 200
+                and 'id="oauth-consent"' in denied_page
+                and not str(denied_headers.get("location") or "")
                 and loc_status == 302
                 and bool(code)
                 and location.startswith(redirect)

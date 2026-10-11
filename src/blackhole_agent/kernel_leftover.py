@@ -2607,6 +2607,9 @@ _MARKERS = (
     ("oauth 2.1 pkce", "capability.oauth-protected-resource"),
     ("mcp oauth 2.1 resource-server", "capability.oauth-protected-resource"),
     ("resource_metadata, so a spec-compliant", "capability.oauth-protected-resource"),
+    ("browser consent page", "capability.oauth-authorize-consent"),
+    ("without an operator authorization header", "capability.oauth-authorize-consent"),
+    ("get /oauth/authorize can complete", "capability.oauth-authorize-consent"),
 )
 
 

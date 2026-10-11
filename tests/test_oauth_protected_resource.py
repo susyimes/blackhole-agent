@@ -7,7 +7,12 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from blackhole_agent.oauth_protected_resource import (
     OPERATOR_CLIENT_ID,
+    OAUTH_AUTHORIZE_CONSENT_ID,
+    OAUTH_AUTHORIZE_CONSENT_LEFTOVER,
+    OAUTH_PROTECTED_RESOURCE_GOAL,
+    OAUTH_PROTECTED_RESOURCE_ID,
     OAuthIssuer,
+    consent_page,
     is_loopback_origin,
     is_loopback_redirect,
     pkce_s256,
@@ -41,9 +46,15 @@ def test_disabled_issuer_404s() -> None:
     issuer = OAuthIssuer("")
     assert issuer.enabled is False
     assert issuer.health()["oauth_protected_resource"] is False
+    assert issuer.health()["oauth_authorize_consent"] is False
     status, payload = issuer.register_client({"redirect_uris": ["http://127.0.0.1:9/cb"]})
     assert status == 404
     assert payload["error"] == "oauth_disabled"
+    auth_status, _, auth_body = issuer.authorize(
+        {}, operator_ok=False, origin="http://127.0.0.1:9"
+    )
+    assert auth_status == 404
+    assert isinstance(auth_body, dict) and auth_body["error"] == "oauth_disabled"
 
 
 def test_register_refuses_foreign_redirect() -> None:
@@ -80,8 +91,55 @@ def test_pkce_round_trip_and_replay() -> None:
         )
     )
     denied, _, body = issuer.authorize(query, operator_ok=False, origin=origin)
-    assert denied == 401
-    assert body and body["error"] == "authorization_required"
+    assert denied == 200
+    assert isinstance(body, str)
+    assert 'id="oauth-consent"' in body
+    assert 'name="operator_token"' in body
+    assert 'name="decision"' in body
+    wrong_status, _, wrong_body = issuer.authorize(
+        query,
+        operator_ok=False,
+        origin=origin,
+        decision="allow",
+        operator_secret="wrong-secret",
+    )
+    assert wrong_status == 200
+    assert isinstance(wrong_body, str)
+    assert "operator token rejected" in wrong_body
+    deny_status, deny_headers, _ = issuer.authorize(
+        query, operator_ok=False, origin=origin, decision="deny"
+    )
+    assert deny_status == 302
+    deny_query = parse_qs(urlsplit(deny_headers["Location"]).query)
+    assert deny_query.get("error") == ["access_denied"]
+    assert "code" not in deny_query
+    form_status, form_headers, _ = issuer.authorize(
+        query,
+        operator_ok=False,
+        origin=origin,
+        decision="allow",
+        operator_secret="operator-secret",
+    )
+    assert form_status == 302
+    form_code = parse_qs(urlsplit(form_headers["Location"]).query)["code"][0]
+    assert form_code
+    form_token_status, form_token = issuer.token(
+        parse_qs(
+            urlencode(
+                {
+                    "grant_type": "authorization_code",
+                    "code": form_code,
+                    "redirect_uri": redirect,
+                    "client_id": client_id,
+                    "code_verifier": verifier,
+                    "resource": f"{origin}/mcp",
+                }
+            )
+        ),
+        origin=origin,
+    )
+    assert form_token_status == 200
+    assert issuer.authenticate(form_token["access_token"]) is not None
     status, headers, payload = issuer.authorize(query, operator_ok=True, origin=origin)
     assert status == 302
     assert payload is None
@@ -176,16 +234,38 @@ def test_operator_client_credentials() -> None:
     assert bad["error"] == "invalid_client"
 
 
+def test_consent_page_escapes_untrusted_fields() -> None:
+    page = consent_page(
+        client_id='"><script>alert(1)</script>',
+        redirect_uri="http://127.0.0.1:9/cb?x=<y>",
+        code_challenge="a" * 43,
+        code_challenge_method="S256",
+        state="<state>",
+        resource="http://127.0.0.1:9/mcp",
+        error='<img src=x onerror=alert(1)>',
+    )
+    assert "<script>" not in page
+    assert "<img" not in page
+    assert "&lt;script&gt;" in page
+    assert "&lt;img" in page
+    assert 'id="oauth-consent"' in page
+
+
 def test_goal_binds_oauth_protected_resource_leftover() -> None:
     from blackhole_agent.kernel_leftover import leftover_marker_ids
     from blackhole_agent.mcp_http_auth import MCP_HTTP_AUTH_GOAL, MCP_HTTP_AUTH_ID
-    from blackhole_agent.oauth_protected_resource import (
-        OAUTH_PROTECTED_RESOURCE_GOAL,
-        OAUTH_PROTECTED_RESOURCE_ID,
-    )
 
     assert leftover_marker_ids(OAUTH_PROTECTED_RESOURCE_GOAL) == (
         OAUTH_PROTECTED_RESOURCE_ID,
+    )
+    assert leftover_marker_ids(OAUTH_AUTHORIZE_CONSENT_LEFTOVER) == (
+        OAUTH_AUTHORIZE_CONSENT_ID,
+    )
+    assert OAUTH_AUTHORIZE_CONSENT_ID not in leftover_marker_ids(
+        OAUTH_PROTECTED_RESOURCE_GOAL
+    )
+    assert OAUTH_PROTECTED_RESOURCE_ID not in leftover_marker_ids(
+        OAUTH_AUTHORIZE_CONSENT_LEFTOVER
     )
     assert OAUTH_PROTECTED_RESOURCE_ID not in leftover_marker_ids(MCP_HTTP_AUTH_GOAL)
     assert leftover_marker_ids(MCP_HTTP_AUTH_GOAL) == (MCP_HTTP_AUTH_ID,)
@@ -197,6 +277,17 @@ def test_builtin_oauth_protected_resource_proof() -> None:
     result = builtin_oauth_protected_resource_proof()
     assert result["ok"] is True
     assert result["action"] == "oauth_protected_resource"
+    assert all(result["checks"].values())
+    assert result["used_skill_route_discovery"] is False
+    print(json.dumps({"proof": True, "checks": sorted(result["checks"])}))
+
+
+def test_builtin_oauth_authorize_consent_proof() -> None:
+    from blackhole_agent.oauth_protected_resource import builtin_oauth_authorize_consent_proof
+
+    result = builtin_oauth_authorize_consent_proof()
+    assert result["ok"] is True
+    assert result["action"] == "oauth_authorize_consent"
     assert all(result["checks"].values())
     assert result["used_skill_route_discovery"] is False
     print(json.dumps({"proof": True, "checks": sorted(result["checks"])}))

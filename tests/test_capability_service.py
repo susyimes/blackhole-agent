@@ -311,6 +311,7 @@ def test_unknown_paths_and_health(server) -> None:
     assert int(health["max_http_connections"]) > 0
     assert health["bundle_import"] is False
     assert health["oauth_protected_resource"] is False
+    assert health["oauth_authorize_consent"] is False
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})

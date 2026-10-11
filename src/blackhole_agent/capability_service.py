@@ -284,7 +284,10 @@ module turns the ledger into a service:
   ``GET /.well-known/oauth-authorization-server`` advertise the resource
   and a loopback authorization server; ``POST /oauth/register`` issues a
   public client for loopback redirect URIs; ``GET /oauth/authorize`` with
-  S256 PKCE and the operator bearer 302s a one-time code;
+  S256 PKCE and the operator bearer 302s a one-time code; a browser GET
+  without that header serves an HTML consent page and
+  ``POST /oauth/authorize`` with the operator token in the form body
+  issues the same code;
   ``POST /oauth/token`` exchanges that code (or operator
   ``client_credentials``) for an access token that authorizes ``POST /mcp``
   and ``POST /invoke``. A plane without ``--token`` stays historically
@@ -2263,6 +2266,51 @@ def _json_response(
     handler.wfile.write(body)
 
 
+def _html_response(
+    handler: BaseHTTPRequestHandler,
+    status: int,
+    document: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+) -> None:
+    body = str(document or "").encode("utf-8")
+    extra = dict(headers or {})
+    content_type = extra.pop("Content-Type", "text/html; charset=utf-8")
+    cors = getattr(handler, "_oauth_cors", None)
+    if callable(cors):
+        extra.update(cors())
+    handler.send_response(status)
+    handler.send_header("Content-Type", content_type)
+    handler.send_header("Content-Length", str(len(body)))
+    for key, value in extra.items():
+        handler.send_header(key, value)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _send_oauth_authorize_result(
+    handler: BaseHTTPRequestHandler,
+    status: int,
+    headers: Mapping[str, str],
+    payload: Mapping[str, Any] | str | None,
+) -> None:
+    if status == 302:
+        extra = dict(headers or {})
+        cors = getattr(handler, "_oauth_cors", None)
+        if callable(cors):
+            extra.update(cors())
+        handler.send_response(302)
+        for key, value in extra.items():
+            handler.send_header(key, value)
+        handler.send_header("Content-Length", "0")
+        handler.end_headers()
+        return
+    if isinstance(payload, str):
+        _html_response(handler, status, payload, headers=headers)
+        return
+    _json_response(handler, status, payload or {"error": "invalid_request"}, headers=headers)
+
+
 def build_server(
     root: Path,
     *,
@@ -2522,20 +2570,11 @@ def build_server(
             status, headers, payload = issuer.authorize(
                 query, operator_ok=operator_ok, origin=origin
             )
-            extra = dict(headers)
-            extra.update(self._oauth_cors())
-            if status == 302:
-                self.send_response(302)
-                for key, value in extra.items():
-                    self.send_header(key, value)
-                self.send_header("Content-Length", "0")
-                self.end_headers()
-                return True
-            _json_response(self, status, payload or {"error": "invalid_request"}, headers=headers)
+            _send_oauth_authorize_result(self, status, headers, payload)
             return True
 
         def _handle_oauth_post(self, path: str) -> bool:
-            if path not in {REGISTER_PATH, TOKEN_PATH}:
+            if path not in {REGISTER_PATH, TOKEN_PATH, AUTHORIZE_PATH}:
                 return False
             issuer = self._oauth_issuer()
             origin = self._request_origin()
@@ -2561,6 +2600,26 @@ def build_server(
                 _json_response(self, status, payload)
                 return True
             fields = parse_oauth_form(raw)
+            if path == AUTHORIZE_PATH:
+                offered = parse_bearer_token(self.headers.get("Authorization"))
+                operator_ok = bool(
+                    offered
+                    and invocation_token
+                    and bearer_token_matches(offered, invocation_token)
+                )
+                decision = str((fields.get("decision") or [""])[0] if fields.get("decision") else "")
+                operator_secret = str(
+                    (fields.get("operator_token") or [""])[0] if fields.get("operator_token") else ""
+                )
+                status, headers, payload = issuer.authorize(
+                    fields,
+                    operator_ok=operator_ok,
+                    origin=origin,
+                    decision=decision,
+                    operator_secret=operator_secret,
+                )
+                _send_oauth_authorize_result(self, status, headers, payload)
+                return True
             status, payload = issuer.token(
                 fields,
                 origin=origin,

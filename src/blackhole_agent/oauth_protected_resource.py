@@ -12,6 +12,10 @@ complete initialize. This module closes that hole when an operator
 - unauthenticated RFC 7591 ``POST /oauth/register`` for loopback public clients
 - ``GET /oauth/authorize`` with S256 PKCE; an operator bearer auto-approves
   and 302s a one-time code to the registered loopback redirect
+- a browser ``GET /oauth/authorize`` without an operator ``Authorization``
+  header serves an HTML consent page; ``POST /oauth/authorize`` with
+  ``decision=allow`` and the operator token in the form body 302s the same
+  one-time code, so a user-agent can finish the flow without a header
 - ``POST /oauth/token`` exchanges the code (or operator ``client_credentials``)
   for an access token that authorizes ``POST /mcp`` and ``POST /invoke``
 - a plane without ``--token`` stays historically open: well-known OAuth
@@ -26,6 +30,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import html
 import ipaddress
 import json
 import secrets
@@ -40,6 +45,8 @@ from blackhole_agent.invocation_token_scopes import TokenPrincipal, UNRESTRICTED
 SCHEMA_VERSION = 1
 OAUTH_PROTECTED_RESOURCE_ID = "capability.oauth-protected-resource"
 OAUTH_PROTECTED_RESOURCE_NAME = "Live-plane RFC 9728 OAuth 2.1 protected resource"
+OAUTH_AUTHORIZE_CONSENT_ID = "capability.oauth-authorize-consent"
+OAUTH_AUTHORIZE_CONSENT_NAME = "Browser OAuth authorize consent page"
 OPERATOR_CLIENT_ID = "blackhole-operator"
 REALM = "blackhole-invocation-plane"
 RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource"
@@ -81,6 +88,31 @@ OAUTH_PROTECTED_RESOURCE_DONE_WHEN = (
     "400. A plane started without --token reports oauth_protected_resource "
     "false, well-known OAuth paths 404, and POST /invoke of the text-reverser "
     "still returns the declared reverse output."
+)
+OAUTH_AUTHORIZE_CONSENT_LEFTOVER = (
+    "Optional later work is a browser consent page so GET /oauth/authorize can "
+    "complete without an operator Authorization header."
+)
+OAUTH_AUTHORIZE_CONSENT_GOAL = (
+    "A browser opening GET /oauth/authorize cannot send an operator "
+    "Authorization header, so the live authorization endpoint currently 401s "
+    "instead of letting the resource owner approve the client. Serve an HTML "
+    "consent page and accept POST /oauth/authorize with the operator token in "
+    "the form body so the PKCE code can issue without that header."
+)
+OAUTH_AUTHORIZE_CONSENT_DONE_WHEN = (
+    "A live plane started with --token reports GET /health "
+    "oauth_authorize_consent true. GET /oauth/authorize with S256 PKCE and no "
+    "Authorization header returns HTTP 200 text/html whose consent form names "
+    "operator_token and decision. POST /oauth/authorize with decision=allow and "
+    "the operator token in the form body, still without an Authorization "
+    "header, returns 302 with a one-time code; POST /oauth/token with that code "
+    "and verifier returns an access_token that POST /invoke of the fixture "
+    "text-reverser accepts. POST decision=allow with the wrong token does not "
+    "issue a code. POST decision=deny redirects with error=access_denied. GET "
+    "with the operator bearer still 302s a code. A plane started without "
+    "--token reports oauth_authorize_consent false and GET /oauth/authorize is "
+    "HTTP 404."
 )
 
 
@@ -197,6 +229,79 @@ def append_query(uri: str, **fields: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(merged), parts.fragment))
 
 
+def consent_page(
+    *,
+    client_id: str,
+    redirect_uri: str,
+    code_challenge: str,
+    code_challenge_method: str,
+    state: str,
+    resource: str,
+    response_type: str = "code",
+    error: str = "",
+) -> str:
+    """Self-contained HTML consent form for GET /oauth/authorize without a header."""
+
+    def field(name: str, value: str) -> str:
+        return (
+            f'<input type="hidden" name="{html.escape(name, quote=True)}" '
+            f'value="{html.escape(value, quote=True)}">'
+        )
+
+    error_block = ""
+    if error:
+        error_block = f'<p class="err" id="oauth-consent-error">{html.escape(error)}</p>'
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authorize application</title>
+<style>
+body {{ font-family: system-ui, sans-serif; margin: 2rem; background: #101418; color: #d7dde3; }}
+h1, h2 {{ color: #7fd4ff; }}
+section {{ border: 1px solid #2a323b; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }}
+dt {{ color: #8b949e; font-size: 0.8rem; }}
+dd {{ margin: 0 0 0.75rem 0; font-family: monospace; word-break: break-all; }}
+input {{ width: 100%; background: #0b0e11; color: #d7dde3; border: 1px solid #2a323b; border-radius: 4px; font-family: monospace; padding: 0.4rem; box-sizing: border-box; }}
+button {{ background: #1f6feb; color: white; border: 0; border-radius: 4px; padding: 0.4rem 1rem; cursor: pointer; margin-right: 0.5rem; }}
+button.deny {{ background: #6e7681; }}
+.err {{ color: #ff8489; }}
+</style>
+</head>
+<body>
+<main id="oauth-consent">
+<h1>Authorize application</h1>
+<section>
+<p>A public client is requesting an access token for this invocation plane. Allowing issues a one-time authorization code to the registered loopback redirect. The operator token is submitted in the form body; no <code>Authorization</code> header is required.</p>
+{error_block}
+<dl>
+<dt>client_id</dt><dd id="consent-client-id">{html.escape(client_id)}</dd>
+<dt>redirect_uri</dt><dd id="consent-redirect">{html.escape(redirect_uri)}</dd>
+<dt>resource</dt><dd id="consent-resource">{html.escape(resource)}</dd>
+</dl>
+<form id="oauth-consent-form" method="post" action="{html.escape(AUTHORIZE_PATH, quote=True)}">
+{field("response_type", response_type)}
+{field("client_id", client_id)}
+{field("redirect_uri", redirect_uri)}
+{field("code_challenge", code_challenge)}
+{field("code_challenge_method", code_challenge_method)}
+{field("state", state)}
+{field("resource", resource)}
+<p><label for="operator-token">operator token</label></p>
+<input id="operator-token" name="operator_token" type="password" autocomplete="off" placeholder="BLACKHOLE_INVOCATION_TOKEN">
+<p>
+<button type="submit" name="decision" value="allow">Allow</button>
+<button type="submit" class="deny" name="decision" value="deny">Deny</button>
+</p>
+</form>
+</section>
+</main>
+</body>
+</html>
+"""
+
+
 def cors_headers(origin: str | None, *, enabled: bool, tls: bool = False) -> dict[str, str]:
     text = str(origin or "").strip()
     if not enabled or not is_loopback_origin(text, tls=tls):
@@ -298,6 +403,7 @@ class OAuthIssuer:
             "oauth_protected_resource": self.enabled,
             "oauth_authorization_code": self.enabled,
             "oauth_client_credentials": self.enabled,
+            "oauth_authorize_consent": self.enabled,
         }
 
     def authenticate(self, offered: str) -> TokenPrincipal | None:
@@ -372,17 +478,13 @@ class OAuthIssuer:
         *,
         operator_ok: bool,
         origin: str,
-    ) -> tuple[int, dict[str, str], dict[str, Any] | None]:
-        """Return (status, headers, json_body_or_none). 302 has empty JSON."""
+        decision: str = "",
+        operator_secret: str = "",
+    ) -> tuple[int, dict[str, str], dict[str, Any] | str | None]:
+        """Return (status, headers, json_body_or_html). 302 has empty body."""
 
         if not self.enabled:
             return 404, {}, {"ok": False, "error": "oauth_disabled"}
-        if not operator_ok:
-            return (
-                401,
-                {"WWW-Authenticate": www_authenticate(origin)},
-                {"ok": False, "error": "authorization_required"},
-            )
 
         def first(name: str) -> str:
             values = query.get(name) or []
@@ -408,6 +510,62 @@ class OAuthIssuer:
         expected_resource = f"{origin.rstrip('/')}/mcp"
         if resource != expected_resource:
             return 400, {}, {"error": "invalid_target"}
+
+        approved = bool(operator_ok) or (
+            str(decision) == "allow" and self._operator_secret_ok(operator_secret)
+        )
+        if str(decision) == "deny" and not approved:
+            return self._redirect_error(redirect_uri, state=state, origin=origin, error="access_denied")
+        if approved:
+            return self._issue_code(
+                client_id=client_id,
+                redirect_uri=redirect_uri,
+                challenge=challenge,
+                resource=resource,
+                state=state,
+                origin=origin,
+            )
+        error = ""
+        if str(decision) == "allow":
+            error = "operator token rejected"
+        page = consent_page(
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            code_challenge=challenge,
+            code_challenge_method=method,
+            state=state,
+            resource=resource,
+            response_type=response_type,
+            error=error,
+        )
+        return (
+            200,
+            {
+                "Cache-Control": "no-store",
+                "X-Frame-Options": "DENY",
+                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
+                "Referrer-Policy": "no-referrer",
+            },
+            page,
+        )
+
+    def _operator_secret_ok(self, offered: str) -> bool:
+        expected = self.operator_token
+        secret = str(offered or "")
+        if not expected or not secret:
+            return False
+        return hmac.compare_digest(secret, expected)
+
+    def _issue_code(
+        self,
+        *,
+        client_id: str,
+        redirect_uri: str,
+        challenge: str,
+        resource: str,
+        state: str,
+        origin: str,
+    ) -> tuple[int, dict[str, str], dict[str, Any] | None]:
         code = _b64url(24)
         now = time.time()
         record = AuthCode(
@@ -424,6 +582,19 @@ class OAuthIssuer:
                 return 503, {}, {"error": "temporarily_unavailable"}
             self._codes[code] = record
         location = append_query(redirect_uri, code=code, iss=origin.rstrip("/"))
+        if state:
+            location = append_query(location, state=state)
+        return 302, {"Location": location, "Cache-Control": "no-store"}, None
+
+    def _redirect_error(
+        self,
+        redirect_uri: str,
+        *,
+        state: str,
+        origin: str,
+        error: str,
+    ) -> tuple[int, dict[str, str], None]:
+        location = append_query(redirect_uri, error=error, iss=origin.rstrip("/"))
         if state:
             location = append_query(location, state=state)
         return 302, {"Location": location, "Cache-Control": "no-store"}, None
@@ -775,8 +946,14 @@ def builtin_oauth_protected_resource_proof() -> dict[str, Any]:
                     }
                 )
             )
-            denied_status, _, _ = request("GET", authorize_url, follow=False)
-            checks["authorize_requires_operator"] = denied_status == 401
+            denied_status, denied_body, denied_headers = request("GET", authorize_url, follow=False)
+            denied_page = denied_body if isinstance(denied_body, str) else ""
+            checks["authorize_requires_operator"] = (
+                denied_status == 200
+                and 'id="oauth-consent"' in denied_page
+                and "operator_token" in denied_page
+                and not str(denied_headers.get("location") or "")
+            )
             loc_status, _, loc_headers = request(
                 "GET", authorize_url, token=operator, follow=False
             )
@@ -985,6 +1162,372 @@ def ensure_oauth_protected_resource_capability(*, repo_path: Any | None = None) 
         ),
         tags=("invocation", "oauth", "mcp", "rfc9728", "authorization"),
         source_mission_id="20261011T142152Z-498cc9a6",
+        source_milestone=1,
+        last_proved_at=utc_now_iso(),
+        last_proof_exit_code=0,
+    )
+    register_capability(ledger, capability, replace=True)
+    save_ledger(path, ledger)
+    return capability
+
+
+def builtin_oauth_authorize_consent_proof() -> dict[str, Any]:
+    """Hermetic proof: browser consent POST issues a PKCE code without a header."""
+
+    import tempfile
+    import threading
+    from pathlib import Path
+    from urllib import request as urlrequest
+    from urllib.error import HTTPError, URLError
+    from urllib.parse import parse_qs as parse_query
+    from urllib.parse import urlencode as encode_query
+    from urllib.parse import urlsplit as split_url
+
+    from blackhole_agent.capability_compounder import legacy_pipeline_was_used
+    from blackhole_agent.capability_service import build_server
+
+    class NoRedirect(urlrequest.HTTPRedirectHandler):
+        def http_error_302(self, req, fp, code, msg, headers):  # noqa: ANN001
+            raise urlrequest.HTTPError(req.full_url, code, msg, headers, fp)
+
+        http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
+
+    reverse_id = "capability.absorbed-text-reverser"
+    operator = "operator-oauth-consent-proof"
+    probe_text = "oauth-consent-pkce"
+    expected_reverse = probe_text[::-1]
+
+    def write_workspace(root: Path) -> None:
+        tool_dir = root / "capabilities" / "absorbed" / "text-reverser"
+        tool_dir.mkdir(parents=True)
+        (tool_dir / "tool.py").write_text(
+            "import json, sys\n"
+            "state = json.load(sys.stdin)\n"
+            "print(json.dumps({'reversed_text': state['raw_text'][::-1]}))\n",
+            encoding="utf-8",
+        )
+        (tool_dir / "absorption.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "slug": "text-reverser",
+                    "name": "probe text reverser",
+                    "command": ["python", "tool.py"],
+                    "requires": ["raw_text"],
+                    "provides": ["reversed_text"],
+                    "cases": [
+                        {"input": {"raw_text": "ab"}, "expect": {"reversed_text": "ba"}},
+                        {"input": {"raw_text": "cd"}, "expect": {"reversed_text": "dc"}},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (root / "capabilities" / "ledger.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "updated_at": "",
+                    "capabilities": {
+                        reverse_id: {
+                            "id": reverse_id,
+                            "name": "probe text reverser",
+                            "kind": "python",
+                            "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
+                            "proof_command": "uv run python -c \"pass\"",
+                            "dependencies": [],
+                            "behavior_paths": [],
+                            "capability_delta": "",
+                            "tags": [],
+                            "created_at": "2026-01-01T00:00:00Z",
+                            "updated_at": "2026-01-01T00:00:00Z",
+                            "last_proved_at": "2026-01-01T00:00:00Z",
+                            "last_proof_exit_code": 0,
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (root / "pyproject.toml").write_text(
+            '[project]\nname = "oauth-consent-proof"\nversion = "0.1.0"\n',
+            encoding="utf-8",
+        )
+
+    def request(
+        method: str,
+        url: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        token: str | None = None,
+        form: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        follow: bool = True,
+    ) -> tuple[int, object, dict[str, str]]:
+        data = None
+        extra = dict(headers or {})
+        if form is not None:
+            data = encode_query(form).encode("utf-8")
+            extra.setdefault("Content-Type", "application/x-www-form-urlencoded")
+        elif payload is not None:
+            data = json.dumps(payload).encode("utf-8")
+            extra.setdefault("Content-Type", "application/json")
+        req = urlrequest.Request(url, data=data, method=method)
+        for key, value in extra.items():
+            req.add_header(key, value)
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+        opener = urlrequest.build_opener() if follow else urlrequest.build_opener(NoRedirect())
+        try:
+            with opener.open(req, timeout=45) as response:
+                captured = {key.lower(): value for key, value in response.headers.items()}
+                raw = response.read().decode("utf-8")
+                try:
+                    parsed: object = json.loads(raw) if raw else {}
+                except json.JSONDecodeError:
+                    parsed = raw
+                return int(response.status), parsed, captured
+        except HTTPError as exc:
+            captured = {key.lower(): value for key, value in (exc.headers.items() if exc.headers else [])}
+            try:
+                body = exc.read().decode("utf-8")
+            except Exception:
+                body = ""
+            try:
+                parsed = json.loads(body) if body else None
+            except json.JSONDecodeError:
+                parsed = body
+            return int(exc.code), parsed, captured
+        except (URLError, TimeoutError, OSError) as exc:
+            return 0, {"error": f"{type(exc).__name__}: {exc}"}, {}
+
+    checks: dict[str, bool] = {}
+    with tempfile.TemporaryDirectory(prefix="oauth-consent-proof-") as directory:
+        root = Path(directory) / "repo"
+        write_workspace(root)
+        server = build_server(root, host="127.0.0.1", port=0, token=operator)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            origin = f"http://127.0.0.1:{server.server_address[1]}"
+            mcp = f"{origin}/mcp"
+            health_status, health, _ = request("GET", f"{origin}/health")
+            checks["health"] = (
+                health_status == 200
+                and isinstance(health, dict)
+                and health.get("oauth_authorize_consent") is True
+            )
+            redirect = "http://127.0.0.1:9/cb"
+            reg_status, registered, _ = request(
+                "POST",
+                f"{origin}{REGISTER_PATH}",
+                {
+                    "redirect_uris": [redirect],
+                    "token_endpoint_auth_method": "none",
+                    "grant_types": ["authorization_code"],
+                    "response_types": ["code"],
+                    "client_name": "oauth-consent-proof",
+                },
+            )
+            client_id = str((registered or {}).get("client_id") or "") if isinstance(registered, dict) else ""
+            checks["register"] = reg_status == 201 and bool(client_id)
+            verifier = secrets.token_urlsafe(32)
+            challenge = pkce_s256(verifier)
+            authorize_query = {
+                "response_type": "code",
+                "client_id": client_id,
+                "redirect_uri": redirect,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "state": "st",
+                "resource": mcp,
+            }
+            authorize_url = f"{origin}{AUTHORIZE_PATH}?" + encode_query(authorize_query)
+            page_status, page_body, page_headers = request("GET", authorize_url, follow=False)
+            page_text = page_body if isinstance(page_body, str) else ""
+            checks["consent_page"] = (
+                page_status == 200
+                and "text/html" in str(page_headers.get("content-type") or "")
+                and 'id="oauth-consent"' in page_text
+                and 'name="operator_token"' in page_text
+                and 'name="decision"' in page_text
+                and html.escape(client_id) in page_text
+                and not str(page_headers.get("location") or "")
+            )
+            wrong_status, wrong_body, wrong_headers = request(
+                "POST",
+                f"{origin}{AUTHORIZE_PATH}",
+                form={**authorize_query, "operator_token": "wrong-operator-token", "decision": "allow"},
+                follow=False,
+            )
+            wrong_text = wrong_body if isinstance(wrong_body, str) else ""
+            checks["wrong_token_refused"] = (
+                wrong_status == 200
+                and 'id="oauth-consent"' in wrong_text
+                and "operator token rejected" in wrong_text
+                and not str(wrong_headers.get("location") or "")
+            )
+            deny_status, _, deny_headers = request(
+                "POST",
+                f"{origin}{AUTHORIZE_PATH}",
+                form={**authorize_query, "decision": "deny"},
+                follow=False,
+            )
+            deny_location = str(deny_headers.get("location") or "")
+            deny_query = parse_query(split_url(deny_location).query)
+            checks["deny_redirects"] = (
+                deny_status == 302
+                and deny_location.startswith(redirect)
+                and (deny_query.get("error") or [""])[0] == "access_denied"
+                and not (deny_query.get("code") or [""])[0]
+            )
+            allow_status, _, allow_headers = request(
+                "POST",
+                f"{origin}{AUTHORIZE_PATH}",
+                form={**authorize_query, "operator_token": operator, "decision": "allow"},
+                follow=False,
+            )
+            allow_location = str(allow_headers.get("location") or "")
+            code = (parse_query(split_url(allow_location).query).get("code") or [""])[0]
+            checks["consent_allow_redirect"] = (
+                allow_status == 302
+                and bool(code)
+                and allow_location.startswith(redirect)
+            )
+            token_status, token_body, _ = request(
+                "POST",
+                f"{origin}{TOKEN_PATH}",
+                form={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect,
+                    "client_id": client_id,
+                    "code_verifier": verifier,
+                    "resource": mcp,
+                },
+            )
+            access = (
+                str(token_body.get("access_token") or "") if isinstance(token_body, dict) else ""
+            )
+            invoke_status, invoked, _ = request(
+                "POST",
+                f"{origin}/invoke",
+                {"capability_id": reverse_id, "input": {"raw_text": probe_text}},
+                token=access,
+            )
+            checks["consent_issued_token"] = (
+                token_status == 200
+                and bool(access)
+                and invoke_status == 200
+                and isinstance(invoked, dict)
+                and invoked.get("output", {}).get("reversed_text") == expected_reverse
+            )
+            loc_status, _, loc_headers = request(
+                "GET", authorize_url, token=operator, follow=False
+            )
+            bearer_location = str(loc_headers.get("location") or "")
+            bearer_code = (parse_query(split_url(bearer_location).query).get("code") or [""])[0]
+            checks["bearer_still_auto_approves"] = (
+                loc_status == 302 and bool(bearer_code) and bearer_location.startswith(redirect)
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+        closed_root = Path(directory) / "closed"
+        write_workspace(closed_root)
+        closed = build_server(closed_root, host="127.0.0.1", port=0)
+        closed_thread = threading.Thread(target=closed.serve_forever, daemon=True)
+        closed_thread.start()
+        try:
+            closed_origin = f"http://127.0.0.1:{closed.server_address[1]}"
+            closed_health_status, closed_health, _ = request("GET", f"{closed_origin}/health")
+            closed_auth_status, _, _ = request("GET", f"{closed_origin}{AUTHORIZE_PATH}")
+            closed_invoke_status, closed_invoked, _ = request(
+                "POST",
+                f"{closed_origin}/invoke",
+                {"capability_id": reverse_id, "input": {"raw_text": probe_text}},
+            )
+            checks["fail_closed"] = (
+                closed_health_status == 200
+                and isinstance(closed_health, dict)
+                and closed_health.get("oauth_authorize_consent") is False
+                and closed_auth_status == 404
+                and closed_invoke_status == 200
+                and isinstance(closed_invoked, dict)
+                and closed_invoked.get("output", {}).get("reversed_text") == expected_reverse
+            )
+        finally:
+            closed.shutdown()
+            closed.server_close()
+            closed_thread.join(timeout=5)
+
+    return {
+        "ok": bool(checks) and all(checks.values()),
+        "action": "oauth_authorize_consent",
+        "checks": checks,
+        "used_skill_route_discovery": legacy_pipeline_was_used(),
+    }
+
+
+def ensure_oauth_authorize_consent_capability(*, repo_path: Any | None = None) -> Any:
+    """Register the browser authorize-consent capability on the ledger."""
+
+    from pathlib import Path
+
+    from blackhole_agent.capability_compounder import (
+        Capability,
+        default_ledger_path,
+        load_ledger,
+        register_capability,
+        save_ledger,
+        utc_now_iso,
+    )
+
+    result = builtin_oauth_authorize_consent_proof()
+    if not result.get("ok"):
+        raise RuntimeError(f"oauth authorize consent proof failed: {result}")
+    root = Path(repo_path) if repo_path is not None else Path(__file__).resolve().parents[2]
+    path = default_ledger_path(root)
+    ledger = load_ledger(path)
+    capability = Capability(
+        id=OAUTH_AUTHORIZE_CONSENT_ID,
+        name=OAUTH_AUTHORIZE_CONSENT_NAME,
+        description=(
+            "GET /oauth/authorize without an operator Authorization header "
+            "serves an HTML consent page. POST /oauth/authorize with "
+            "decision=allow and the operator token in the form body issues the "
+            "same one-time PKCE code as an operator bearer auto-approve. Deny "
+            "redirects with access_denied. A plane without --token stays "
+            "historically open."
+        ),
+        kind="python",
+        entry="blackhole_agent.oauth_protected_resource:builtin_oauth_authorize_consent_proof",
+        proof_command=(
+            "uv run python -c \"from blackhole_agent.oauth_protected_resource import "
+            "builtin_oauth_authorize_consent_proof; r=builtin_oauth_authorize_consent_proof(); "
+            "assert r['ok'] and r.get('action')=='oauth_authorize_consent' and "
+            "all(r['checks'].values()) and not r.get('used_skill_route_discovery')\""
+        ),
+        dependencies=(
+            "repo.import-health",
+            "capability.ledger-inventory",
+            "capability.ledger-invocation-plane",
+            "capability.oauth-protected-resource",
+        ),
+        behavior_paths=(
+            "src/blackhole_agent/oauth_protected_resource.py",
+            "src/blackhole_agent/capability_service.py",
+            "src/blackhole_agent/kernel_leftover.py",
+        ),
+        capability_delta=(
+            "A browser can finish GET /oauth/authorize without an operator "
+            "Authorization header: the endpoint serves a consent page and a "
+            "form POST with the operator token issues the PKCE code."
+        ),
+        tags=("invocation", "oauth", "consent", "browser", "authorization"),
+        source_mission_id="20261011T145736Z-5931c0a5",
         source_milestone=1,
         last_proved_at=utc_now_iso(),
         last_proof_exit_code=0,
