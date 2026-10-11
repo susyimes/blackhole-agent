@@ -180,7 +180,12 @@ module turns the ledger into a service:
   interpreter prefix. The served checkout is host-owned: a tool that
   opens ledger.json, source, or a workspace canary outside its vendored
   tree receives ``PermissionError``, and writes there do not land.
-  Declared stdin/stdout behavior still runs.
+  The vendored tool tree itself is read/execute only: a ``POST /invoke``
+  cannot overwrite ``tool.py`` or plant a sidecar beside the absorbed
+  source, so a later invoke of the same capability still runs the
+  original program. Only the per-invocation scratch directory
+  (``TEMP``/``TMP``/``TMPDIR``) is writable. ``GET /health`` reports
+  ``vendored_tree_readonly``. Declared stdin/stdout behavior still runs.
 - Quarantine lifts only through supervised re-proof: ``POST /reproof``
   re-executes the quarantined capability's own frozen absorption cases for
   real under the same enforced memory/process limits; all cases passing
@@ -488,13 +493,15 @@ def _tool_env() -> dict[str, str]:
 
 
 def _sandbox_roots(root: Path, tool_root: Path) -> list[Path]:
-    """Allow the vendored tree; never the served checkout.
+    """Allow the vendored tree (read/execute); never the served checkout.
 
     The capture layer still adds a per-invocation scratch directory and the
-    interpreter prefix. The workspace root used to be on this allowlist, so
-    a live POST /invoke could rewrite ledger.json or plant files beside
-    source. That path is now host-owned: untrusted tools cannot read or
-    write it even when they are given the absolute path as input.
+    interpreter prefix, and treats these roots as read/execute only so a
+    tool cannot persist a rewrite of its own source. The workspace root
+    used to be on this allowlist, so a live POST /invoke could rewrite
+    ledger.json or plant files beside source. That path is now host-owned:
+    untrusted tools cannot read or write it even when they are given the
+    absolute path as input.
     """
 
     workspace = Path(root).resolve()
@@ -1804,6 +1811,7 @@ def build_server(
                         "solve_idempotency": True,
                         "mcp_call_idempotency": True,
                         "solve_plan_preview": True,
+                        "vendored_tree_readonly": True,
                     },
                 )
                 return
@@ -2384,6 +2392,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         status, health = _http_request("GET", f"{base}/health")
         checks["solve_plan_preview_health"] = (
             status == 200 and isinstance(health, dict) and health.get("solve_plan_preview") is True
+        )
+        checks["vendored_tree_readonly_health"] = (
+            status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
         )
         status, preview = _http_request(
             "POST",

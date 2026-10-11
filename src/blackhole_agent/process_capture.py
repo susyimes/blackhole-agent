@@ -235,10 +235,44 @@ def _resolve_sandbox_command(command: list[str] | str) -> list[str] | str:
     return parts
 
 
-def _sandbox_path_payload(cwd: Path, sandbox_roots: Sequence[Path], scratch: Path) -> dict[str, list[str]]:
-    rw: list[Path] = [Path(cwd).resolve(), Path(scratch).resolve()]
-    rw.extend(Path(root).resolve() for root in sandbox_roots)
-    rx: list[Path] = []
+def _fold_path_key(path: Path) -> str:
+    text = str(path)
+    return text.lower() if os.name == "nt" else text
+
+
+def _unique_paths(paths: Sequence[Path]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for path in paths:
+        key = _fold_path_key(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(str(path))
+    return out
+
+
+def _sandbox_path_payload(
+    cwd: Path,
+    sandbox_roots: Sequence[Path],
+    scratch: Path,
+    *,
+    rw_roots: Sequence[Path] | None = None,
+) -> dict[str, list[str]]:
+    """Build OS-sandbox allowlists.
+
+    Scratch (and explicit ``rw_roots``) are writable. The working directory
+    and ``sandbox_roots`` are read/execute only so an untrusted tool cannot
+    persist a rewrite of its vendored source. Interpreter prefixes stay
+    read/execute. A path listed as writable is omitted from the read list so
+    Windows does not stack a leftover Full ACE beside RX.
+    """
+
+    scratch_resolved = Path(scratch).resolve()
+    rw: list[Path] = [scratch_resolved]
+    rw.extend(Path(root).resolve() for root in (rw_roots or ()))
+    rx: list[Path] = [Path(cwd).resolve()]
+    rx.extend(Path(root).resolve() for root in sandbox_roots)
     if os.name == "nt":
         from blackhole_agent._windows_appcontainer import interpreter_rx_paths
 
@@ -258,20 +292,9 @@ def _sandbox_path_payload(cwd: Path, sandbox_roots: Sequence[Path], scratch: Pat
             if path.exists():
                 rx.append(path.resolve())
         rx.append(Path(getattr(sys, "_base_executable", None) or sys.executable).resolve().parent)
-
-    def _unique(paths: list[Path]) -> list[str]:
-        seen: set[str] = set()
-        out: list[str] = []
-        for path in paths:
-            key = str(path)
-            folded = key.lower() if os.name == "nt" else key
-            if folded in seen:
-                continue
-            seen.add(folded)
-            out.append(key)
-        return out
-
-    return {"rw_paths": _unique(rw), "rx_paths": _unique(rx)}
+    rw_keys = {_fold_path_key(Path(item)) for item in _unique_paths(rw)}
+    rx_filtered = [path for path in rx if _fold_path_key(path) not in rw_keys]
+    return {"rw_paths": _unique_paths(rw), "rx_paths": _unique_paths(rx_filtered)}
 
 
 def _landlock_supported() -> bool:
@@ -366,6 +389,7 @@ def run_captured_process(
     shell: bool = False,
     cancel_event: threading.Event | None = None,
     sandbox_roots: Sequence[Path] | None = None,
+    sandbox_rw_roots: Sequence[Path] | None = None,
     max_output_bytes: int | None = None,
     on_output: Callable[[str, str], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
@@ -383,6 +407,10 @@ def run_captured_process(
     Windows AppContainer or Linux Landlock, allowlisted to those roots, the
     working directory, a per-invocation scratch directory, and the interpreter
     prefix. Host paths outside the allowlist are unreadable and unwritable.
+    The working directory and ``sandbox_roots`` (the vendored tool tree on
+    the invocation plane) are read/execute only so a tool cannot persist a
+    rewrite of its own source. Only the scratch directory and optional
+    ``sandbox_rw_roots`` are writable.
     When ``max_output_bytes`` is given, stdout and stderr capture files are
     size-capped: the tree is reaped once either stream exceeds the cap, and
     the parent never decodes the oversized blob. Kernel callers omit this
@@ -417,12 +445,18 @@ def run_captured_process(
             if not filesystem_sandbox_available():
                 raise RuntimeError("filesystem sandbox is not available on this host")
             spawn_command = _resolve_sandbox_command(command)
-            sandbox_payload = _sandbox_path_payload(Path(cwd), sandbox_roots, Path(scratch))
+            sandbox_payload = _sandbox_path_payload(
+                Path(cwd),
+                sandbox_roots,
+                Path(scratch),
+                rw_roots=sandbox_rw_roots,
+            )
             if isinstance(spawn_command, list) and spawn_command:
                 exe_parent = Path(spawn_command[0]).resolve().parent
                 exe_key = str(exe_parent).lower() if os.name == "nt" else str(exe_parent)
-                existing = {p.lower() if os.name == "nt" else p for p in sandbox_payload["rx_paths"]}
-                if exe_parent.exists() and exe_key not in existing:
+                existing_rx = {p.lower() if os.name == "nt" else p for p in sandbox_payload["rx_paths"]}
+                existing_rw = {p.lower() if os.name == "nt" else p for p in sandbox_payload["rw_paths"]}
+                if exe_parent.exists() and exe_key not in existing_rx and exe_key not in existing_rw:
                     sandbox_payload["rx_paths"].append(str(exe_parent))
             spawn_env = dict(env) if env is not None else {}
             # AppContainer CreateProcess looks up identity/profile variables and

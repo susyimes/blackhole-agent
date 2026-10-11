@@ -1,12 +1,15 @@
 """Launch an untrusted Windows command inside an AppContainer.
 
 AppContainer tokens cannot open host files unless the container SID is on
-the path's ACL. The invocation plane grants only the vendored tool tree, a
-per-invocation scratch directory, and the interpreter prefix; everything
-else — operator secrets, SSH keys, the served checkout, sibling temp
-files — stays PermissionError. The profile name is versioned so leftover
-NTFS ACEs from an earlier allowlist that included the workspace root do
-not keep the checkout writable.
+the path's ACL. The invocation plane grants the vendored tool tree
+read/execute, a per-invocation scratch directory full control, and the
+interpreter prefix read/execute; everything else — operator secrets, SSH
+keys, the served checkout, sibling temp files — stays PermissionError.
+The profile name is versioned so leftover NTFS ACEs from an earlier
+allowlist do not keep a newly restricted path writable. v1 granted the
+workspace root; v2 granted Full control on vendored tool trees; v3 grants
+those trees read/execute only so a tool cannot persist a rewrite of
+``tool.py``.
 
 This module is imported by the job bootstrap (``python -I _windows_job.py``)
 after the bootstrap inserts its own directory on ``sys.path``. It also
@@ -34,7 +37,7 @@ STD_ERROR_HANDLE = wintypes.DWORD(-12).value
 HANDLE_FLAG_INHERIT = 0x00000001
 INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
 
-PROFILE_NAME = "bh.unbound.tool.v2"
+PROFILE_NAME = "bh.unbound.tool.v3"
 
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 userenv = ctypes.WinDLL("userenv", use_last_error=True)
