@@ -315,6 +315,16 @@ module turns the ledger into a service:
   An unknown name is HTTP 404. A plane without the secret stays
   fail-closed: ``GET /health`` reports ``webhook_hooks`` false and
   ``POST /hooks`` is HTTP 404. REST ``POST /invoke`` is unchanged.
+- Interval schedules are opt-in. ``--schedule`` (or ``BLACKHOLE_SCHEDULE``)
+  enables ``POST /schedules``: the body names one invocable tool, its
+  ``input``, and ``every_seconds``. The plane persists the cadence in
+  SQLite under the service root, fires the same governed invoke path from
+  a background worker after the creating client hangs up, and keeps firing
+  after a process restart that reuses that root. ``GET /schedules/{id}``
+  reports last-run status and output; ``DELETE /schedules/{id}`` cancels
+  further fires. A plane without the flag stays fail-closed: ``GET
+  /health`` reports ``schedules`` false and ``POST /schedules`` is
+  ``400 schedules_disabled``. REST ``POST /invoke`` is unchanged.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -460,6 +470,13 @@ from blackhole_agent.invocation_webhooks import (
     WebhookPlane,
     parse_hooks_path,
     resolve_webhook_config,
+)
+from blackhole_agent.invocation_schedules import (
+    SCHEDULE_ENV,
+    ScheduleError,
+    SchedulePlane,
+    parse_schedules_path,
+    resolve_schedule_enabled,
 )
 from blackhole_agent.invocation_history import (
     load_capability_stats,
@@ -882,6 +899,47 @@ def lookup_webhook_run(plane: WebhookPlane, run_id: str) -> dict[str, Any]:
     """Return the public run record for ``GET /hooks/{run_id}``."""
 
     return plane.get_run(run_id)
+
+
+def accept_schedule_post(
+    plane: SchedulePlane,
+    body: Mapping[str, Any],
+    root: Path,
+) -> dict[str, Any]:
+    """Create a persisted interval schedule after validating the target tool."""
+
+    if not plane.enabled:
+        raise ScheduleError(400, "schedules_disabled")
+    if not isinstance(body, Mapping):
+        raise ScheduleError(400, "body must be a JSON object")
+    capability_id = body.get("capability_id")
+    if not isinstance(capability_id, str) or not capability_id.strip():
+        raise ScheduleError(400, "capability_id must be a non-empty string")
+    if not tool_is_allowed(capability_id):
+        raise ScheduleError(403, TOOL_NOT_ALLOWED, extra={"capability_id": capability_id})
+    if capability_id not in load_invocable_capabilities(root):
+        raise ScheduleError(404, f"unknown or non-invocable capability: {capability_id}")
+    provided_input = body.get("input") if "input" in body else {}
+    return plane.create(capability_id, provided_input, body.get("every_seconds"))
+
+
+def lookup_schedule(plane: SchedulePlane, schedule_id: str) -> dict[str, Any]:
+    """Return one public schedule record for ``GET /schedules/{id}``."""
+
+    return plane.get(schedule_id)
+
+
+def list_schedule_records(plane: SchedulePlane) -> dict[str, Any]:
+    """Return the public schedule collection for ``GET /schedules``."""
+
+    items = plane.list_schedules()
+    return {"ok": True, "count": len(items), "schedules": items}
+
+
+def cancel_schedule(plane: SchedulePlane, schedule_id: str) -> dict[str, Any]:
+    """Delete a persisted schedule so the worker stops firing it."""
+
+    return plane.delete(schedule_id)
 
 
 def import_bundle_http_request(root: Path, body: Mapping[str, Any], *, enabled: bool) -> dict[str, Any]:
@@ -2409,6 +2467,7 @@ def build_server(
     bundle_import: bool = False,
     token_scopes: TokenScopeTable | None = None,
     webhook_config: WebhookConfig | None = None,
+    schedule_enabled: bool = False,
 ) -> BoundedThreadingHTTPServer:
     """Bind the invocation plane; port 0 selects an ephemeral port."""
 
@@ -2437,6 +2496,10 @@ def build_server(
     receipts = InvocationReceipts(service_root)
     hooks = webhook_config if webhook_config is not None else DISABLED_WEBHOOKS
     webhook_plane = WebhookPlane(service_root, hooks, invoke=invoke_capability)
+    schedule_plane = SchedulePlane(
+        service_root, enabled=bool(schedule_enabled), invoke=invoke_capability
+    )
+    schedule_plane.start()
     from blackhole_agent.mcp_capability_server import (
         CapabilityCatalog,
         CatalogChangeWatcher,
@@ -2651,6 +2714,70 @@ def build_server(
                 return plane
             return WebhookPlane(service_root, DISABLED_WEBHOOKS)
 
+        def _schedule_plane(self) -> SchedulePlane:
+            plane = getattr(self.server, "schedule_plane", None)
+            if isinstance(plane, SchedulePlane):
+                return plane
+            return SchedulePlane(service_root, enabled=False)
+
+        def _handle_schedule_get(self, path: str) -> bool:
+            name = parse_schedules_path(path)
+            if name is None:
+                return False
+            try:
+                if name == "":
+                    result = list_schedule_records(self._schedule_plane())
+                else:
+                    result = lookup_schedule(self._schedule_plane(), name)
+            except ScheduleError as exc:
+                _json_response(self, exc.status, exc.payload)
+                return True
+            _json_response(self, 200, result)
+            return True
+
+        def _handle_schedule_post(self, path: str) -> bool:
+            if parse_schedules_path(path) != "":
+                return False
+            if not self._require_operator():
+                return True
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                _json_response(self, 400, {"ok": False, "error": "invalid Content-Length"})
+                return True
+            if length <= 0 or length > MAX_BODY_BYTES:
+                _json_response(self, 400, {"ok": False, "error": "missing or oversized body"})
+                return True
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                _json_response(self, 400, {"ok": False, "error": f"body is not valid JSON: {exc}"})
+                return True
+            if not isinstance(body, dict):
+                _json_response(self, 400, {"ok": False, "error": "body must be a JSON object"})
+                return True
+            try:
+                result = accept_schedule_post(self._schedule_plane(), body, service_root)
+            except ScheduleError as exc:
+                _json_response(self, exc.status, exc.payload)
+                return True
+            _json_response(self, 201, result)
+            return True
+
+        def _handle_schedule_delete(self, path: str) -> bool:
+            name = parse_schedules_path(path)
+            if name is None or name == "":
+                return False
+            if not self._require_operator():
+                return True
+            try:
+                result = cancel_schedule(self._schedule_plane(), name)
+            except ScheduleError as exc:
+                _json_response(self, exc.status, exc.payload)
+                return True
+            _json_response(self, 200, result)
+            return True
+
         def _handle_webhook_get(self, path: str) -> bool:
             name = parse_hooks_path(path)
             if name is None:
@@ -2830,6 +2957,7 @@ def build_server(
                         "bundle_import": bool(getattr(self.server, "bundle_import", False)),
                         **getattr(self.server, "token_scopes", EMPTY_SCOPES).health(),
                         **getattr(self.server, "webhook_plane").health(),
+                        **getattr(self.server, "schedule_plane").health(),
                         **self._oauth_issuer().health(),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
@@ -2845,6 +2973,8 @@ def build_server(
             if self._handle_webhook_get(path):
                 return
             if not self._authorize():
+                return
+            if self._handle_schedule_get(path):
                 return
             if _mcp_http_path(path):
                 offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
@@ -2993,6 +3123,8 @@ def build_server(
                 return
             if not self._authorize():
                 return
+            if self._handle_schedule_delete(self.path.split("?", 1)[0]):
+                return
             if _mcp_http_path(self.path):
                 offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
                 if not offered or not _drop_mcp_session(offered):
@@ -3022,6 +3154,8 @@ def build_server(
             if self._handle_oauth_post(path):
                 return
             if not self._authorize():
+                return
+            if self._handle_schedule_post(path):
                 return
             if _mcp_http_path(path):
                 self._handle_mcp_post()
@@ -3252,6 +3386,7 @@ def build_server(
     server.bundle_import = bool(bundle_import)
     server.token_scopes = scopes
     server.webhook_plane = webhook_plane
+    server.schedule_plane = schedule_plane
     server.oauth_issuer = OAuthIssuer(invocation_token)
     if tls_context is not None:
         server.socket = tls_context.wrap_socket(server.socket, server_side=True)
@@ -3260,6 +3395,7 @@ def build_server(
 
     def _close_with_watcher() -> None:
         catalog_watcher.stop()
+        schedule_plane.stop()
         configure_mcp_plugin_plane(None)
         configure_forage_root(None)
         original_close()
@@ -3287,6 +3423,7 @@ def serve(
     token_scope: Sequence[str] | None = None,
     webhook_secret: str | None = None,
     webhook_hook: Sequence[str] | None = None,
+    schedule: bool = False,
 ) -> int:
     """Run the invocation plane until interrupted; prints a readiness line."""
 
@@ -3335,6 +3472,7 @@ def serve(
             bundle_import=resolve_bundle_import(bundle_import),
             token_scopes=scopes,
             webhook_config=hooks_config,
+            schedule_enabled=resolve_schedule_enabled(schedule),
         )
     except (BindPolicyError, TlsConfigError, PluginStartError, ForageRootError, TokenScopeError, WebhookConfigError) as exc:
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
@@ -3366,6 +3504,7 @@ def serve(
                 "bundle_import": bool(getattr(server, "bundle_import", False)),
                 **getattr(server, "token_scopes", EMPTY_SCOPES).health(),
                 **getattr(server, "webhook_plane").health(),
+                **getattr(server, "schedule_plane").health(),
                 **getattr(server, "oauth_issuer", OAuthIssuer("")).health(),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
@@ -3574,6 +3713,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["webhook_hooks_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("webhook_hooks") is False
+        )
+        checks["schedules_health_default"] = (
+            status == 200 and isinstance(health, dict) and health.get("schedules") is False
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
@@ -4008,6 +4150,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{WEBHOOK_HOOK_ENV}. A plane without a secret stays fail-closed"
         ),
     )
+    serve_parser.add_argument(
+        "--schedule",
+        action="store_true",
+        default=False,
+        help=(
+            "opt in POST /schedules interval invocation of governed tools; "
+            f"defaults to {SCHEDULE_ENV}=1 when unset. Without the flag, "
+            "schedules stay fail-closed"
+        ),
+    )
     proof_parser = sub.add_parser("proof", help="run the hermetic invocation-plane proof")
     proof_parser.add_argument("--root", type=Path, default=REPO_ROOT)
     sub.add_parser("register", help="register the capability on the live ledger")
@@ -4031,6 +4183,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             token_scope=args.token_scope,
             webhook_secret=args.webhook_secret,
             webhook_hook=args.webhook_hook,
+            schedule=args.schedule,
         )
     if args.command == "proof":
         result = builtin_capability_service_proof(args.root)
