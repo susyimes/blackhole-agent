@@ -315,6 +315,9 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["webhook_hooks"] is False
     assert health["webhook_hook_count"] == 0
     assert health["webhook_replay_guard"] is False
+    assert health["failure_circuit"] is True
+    assert health["failure_circuit_threshold"] == 3
+    assert health["failure_circuit_open"] == 0
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})

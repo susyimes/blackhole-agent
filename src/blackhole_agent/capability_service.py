@@ -332,6 +332,15 @@ module turns the ledger into a service:
   further fires. A plane without the flag stays fail-closed: ``GET
   /health`` reports ``schedules`` false and ``POST /schedules`` is
   ``400 schedules_disabled``. REST ``POST /invoke`` is unchanged.
+- Consecutive nonzero tool exits open a failure circuit. After three
+  completed nonzero exits of the same capability, ``POST /invoke`` of that
+  id returns HTTP 409 ``capability_circuit_open`` and does not spawn. The
+  streak and the open flag persist in SQLite under the service root, including
+  across a process restart. One successful exit before the third failure
+  clears the streak. A different capability still runs. ``GET /circuits/{id}``
+  reports the streak; ``POST /circuits/{id}`` with ``{"action": "close"}``
+  clears it so the next invoke spawns again. ``GET /health`` reports
+  ``failure_circuit``. Resource-limit quarantine is unchanged.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -1427,6 +1436,45 @@ def reproof_capability(
     return verdict
 
 
+def _circuit_refusal(root: Path, capability_id: str) -> None:
+    """Refuse a spawn when this capability's failure circuit is open."""
+
+    from blackhole_agent.invocation_failure_circuit import CircuitStoreError, FailureCircuit
+
+    try:
+        view = FailureCircuit(root).view(capability_id)
+    except CircuitStoreError as exc:
+        raise InvocationError(503, "circuit_store_unavailable") from exc
+    if view["open"]:
+        raise InvocationError(
+            409,
+            "capability_circuit_open",
+            extra={
+                "capability_id": capability_id,
+                "consecutive_failures": view["consecutive_failures"],
+                "threshold": view["threshold"],
+            },
+        )
+
+
+def _remember_circuit_failure(root: Path, capability_id: str) -> None:
+    from blackhole_agent.invocation_failure_circuit import CircuitStoreError, FailureCircuit
+
+    try:
+        FailureCircuit(root).note_failure(capability_id)
+    except CircuitStoreError:
+        return
+
+
+def _remember_circuit_success(root: Path, capability_id: str) -> None:
+    from blackhole_agent.invocation_failure_circuit import CircuitStoreError, FailureCircuit
+
+    try:
+        FailureCircuit(root).note_success(capability_id)
+    except CircuitStoreError:
+        return
+
+
 def invoke_capability(
     root: Path,
     capability_id: str,
@@ -1467,6 +1515,7 @@ def invoke_capability(
             f"{quarantine.get('reason', 'resource limit violated')}",
             extra={"violation": "resource_quarantined", "quarantine": quarantine},
         )
+    _circuit_refusal(root, capability_id)
     if not isinstance(provided_input, dict):
         raise InvocationError(422, "input must be a JSON object")
     requires = set(item["requires"])
@@ -1512,14 +1561,17 @@ def invoke_capability(
             raise
         except McpProtocolError as exc:
             record_plugin(False, str(exc))
+            _remember_circuit_failure(root, capability_id)
             raise InvocationError(502, f"plugin tool failed: {exc}") from exc
         except (OSError, RuntimeError) as exc:
             record_plugin(False, f"{type(exc).__name__}: {exc}")
+            _remember_circuit_failure(root, capability_id)
             raise InvocationError(
                 502, f"plugin tool failed: {type(exc).__name__}: {exc}"
             ) from exc
         output = dict(result.get("output") or {})
         record_plugin(True)
+        _remember_circuit_success(root, capability_id)
         return {
             "ok": True,
             "capability_id": capability_id,
@@ -1597,6 +1649,7 @@ def invoke_capability(
         stderr = (completed.stderr or "").strip().splitlines()
         detail = stderr[0] if stderr else "no stderr"
         record(False, f"exited {completed.returncode}: {detail}")
+        _remember_circuit_failure(root, capability_id)
         raise InvocationError(502, f"tool exited {completed.returncode}: {detail}")
     try:
         fragment = json.loads(completed.stdout or "")
@@ -1612,6 +1665,7 @@ def invoke_capability(
         raise InvocationError(502, f"tool output missing provides keys: {missing_provides}")
     output = {key: fragment[key] for key in item["provides"]}
     record(True)
+    _remember_circuit_success(root, capability_id)
     return {
         "ok": True,
         "capability_id": capability_id,
@@ -2785,6 +2839,70 @@ def build_server(
             _json_response(self, 200, result)
             return True
 
+        def _handle_circuit_get(self, path: str) -> bool:
+            from blackhole_agent.invocation_failure_circuit import (
+                CircuitStoreError,
+                FailureCircuit,
+                parse_circuit_path,
+                public_circuit_view,
+            )
+
+            ident = parse_circuit_path(path)
+            if ident is None:
+                return False
+            try:
+                view = FailureCircuit(service_root).view(ident)
+            except ValueError as exc:
+                _json_response(self, 400, {"ok": False, "error": str(exc)})
+                return True
+            except CircuitStoreError:
+                _json_response(self, 503, {"ok": False, "error": "circuit_store_unavailable"})
+                return True
+            _json_response(self, 200, public_circuit_view(ident, view))
+            return True
+
+        def _handle_circuit_post(self, path: str) -> bool:
+            from blackhole_agent.invocation_failure_circuit import (
+                CircuitStoreError,
+                FailureCircuit,
+                parse_circuit_path,
+                public_circuit_view,
+            )
+
+            ident = parse_circuit_path(path)
+            if ident is None:
+                return False
+            if not self._require_operator():
+                return True
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                _json_response(self, 400, {"ok": False, "error": "invalid Content-Length"})
+                return True
+            if length <= 0 or length > MAX_BODY_BYTES:
+                _json_response(self, 400, {"ok": False, "error": "missing or oversized body"})
+                return True
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                _json_response(self, 400, {"ok": False, "error": f"body is not valid JSON: {exc}"})
+                return True
+            if not isinstance(body, dict) or body.get("action") != "close":
+                _json_response(self, 400, {"ok": False, "error": "action must be close"})
+                return True
+            try:
+                view = FailureCircuit(service_root).close(ident)
+            except ValueError as exc:
+                _json_response(self, 400, {"ok": False, "error": str(exc)})
+                return True
+            except CircuitStoreError:
+                _json_response(self, 503, {"ok": False, "error": "circuit_store_unavailable"})
+                return True
+            payload = public_circuit_view(ident, view)
+            payload["closed"] = True
+            _json_response(self, 200, payload)
+            return True
+
         def _handle_webhook_get(self, path: str) -> bool:
             name = parse_hooks_path(path)
             if name is None:
@@ -2939,6 +3057,8 @@ def build_server(
                 self.wfile.write(body)
                 return
             if path == "/health":
+                from blackhole_agent.invocation_failure_circuit import failure_circuit_health
+
                 snapshot = ADMISSION.snapshot()
                 _json_response(
                     self,
@@ -2965,6 +3085,7 @@ def build_server(
                         **getattr(self.server, "token_scopes", EMPTY_SCOPES).health(),
                         **getattr(self.server, "webhook_plane").health(),
                         **getattr(self.server, "schedule_plane").health(),
+                        **failure_circuit_health(service_root),
                         **self._oauth_issuer().health(),
                         "vendored_tree_readonly": True,
                         "non_loopback_requires_token": True,
@@ -2982,6 +3103,8 @@ def build_server(
             if not self._authorize():
                 return
             if self._handle_schedule_get(path):
+                return
+            if self._handle_circuit_get(path):
                 return
             if _mcp_http_path(path):
                 offered = str(self.headers.get("Mcp-Session-Id") or "").strip()
@@ -3163,6 +3286,8 @@ def build_server(
             if not self._authorize():
                 return
             if self._handle_schedule_post(path):
+                return
+            if self._handle_circuit_post(path):
                 return
             if _mcp_http_path(path):
                 self._handle_mcp_post()
@@ -3485,6 +3610,8 @@ def serve(
         print(json.dumps(exc.payload, sort_keys=True), flush=True)
         return 2
     bound_host, bound_port = server.server_address[0], server.server_address[1]
+    from blackhole_agent.invocation_failure_circuit import failure_circuit_health
+
     listing = capability_listing(Path(root).resolve())
     print(
         json.dumps(
@@ -3512,6 +3639,7 @@ def serve(
                 **getattr(server, "token_scopes", EMPTY_SCOPES).health(),
                 **getattr(server, "webhook_plane").health(),
                 **getattr(server, "schedule_plane").health(),
+                **failure_circuit_health(root),
                 **getattr(server, "oauth_issuer", OAuthIssuer("")).health(),
                 **http_occupancy_health(),
                 **mcp_plugin_health(),
@@ -3726,6 +3854,13 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["schedules_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("schedules") is False
+        )
+        checks["failure_circuit_health"] = (
+            status == 200
+            and isinstance(health, dict)
+            and health.get("failure_circuit") is True
+            and health.get("failure_circuit_threshold") == 3
+            and health.get("failure_circuit_open") == 0
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True
