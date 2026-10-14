@@ -10,18 +10,27 @@ This module is the opt-in inbound route:
   body returns HTTP 202 with a run id and continues after the client hangs up
 - ``GET /hooks/{run_id}`` returns accepted/running/completed/failed plus the
   tool output
-- missing or wrong signatures are HTTP 401 and never spawn
-- an unknown hook name after a valid signature is HTTP 404
+- missing or wrong signatures are HTTP 401 and never spawn, and they are
+  not recorded, so a later correct signature of that body can still run
+- an unknown hook name after a valid signature is HTTP 404 and is not recorded
+- an identical raw body that already passed the signature check is a replay:
+  its SHA-256 is persisted under the service root and a second POST is HTTP
+  409 ``webhook_replayed`` without spawning, including after a process
+  restart that reuses that root. A different signed body is a new delivery
 - a plane without the secret stays fail-closed: ``GET /health`` reports
-  ``webhook_hooks`` false and ``POST /hooks`` is HTTP 404
+  ``webhook_hooks`` false and ``webhook_replay_guard`` false, and
+  ``POST /hooks`` is HTTP 404
 
-Honesty boundary: HMAC is the only inbound authenticator. Hook names are an
+Honesty boundary: HMAC over the raw body is still the authenticator. The
+replay store keeps a bounded number of fingerprints and drops the oldest,
+so a body evicted from that store can be accepted again. Hook names are an
 allowlist, not a bearer. Runs persist under the service root; operators
 delete the workspace to drop them, matching receipts.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -43,6 +52,8 @@ WEBHOOK_SECRET_ENV = "BLACKHOLE_WEBHOOK_SECRET"
 WEBHOOK_HOOK_ENV = "BLACKHOLE_WEBHOOK_HOOK"
 HOOKS_PATH_PREFIX = "/hooks/"
 RUNS_RELATIVE = Path(".blackhole-agent") / "webhook-runs"
+DELIVERIES_RELATIVE = Path(".blackhole-agent") / "webhook-deliveries.json"
+MAX_DELIVERIES = 4096
 MIN_SECRET_CHARS = 8
 MAX_SECRET_CHARS = 128
 MAX_HOOKS = 64
@@ -240,19 +251,26 @@ class WebhookPlane:
         config: WebhookConfig,
         *,
         invoke: InvokeFn | None = None,
+        delivery_limit: int | None = None,
     ) -> None:
         self.root = Path(root).resolve()
         self.config = config
         self._invoke = invoke
         self._lock = threading.Lock()
         self._runs: dict[str, dict[str, Any]] = {}
+        self._delivery_limit = MAX_DELIVERIES if delivery_limit is None else int(delivery_limit)
+        if self._delivery_limit < 1:
+            raise ValueError("delivery_limit must be at least 1")
+        self._deliveries: list[str] | None = None
 
     @property
     def enabled(self) -> bool:
         return self.config.enabled
 
     def health(self) -> dict[str, Any]:
-        return self.config.health()
+        report = dict(self.config.health())
+        report["webhook_replay_guard"] = bool(self.enabled)
+        return report
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         if not self.enabled:
@@ -292,6 +310,8 @@ class WebhookPlane:
             raise WebhookError(422, "input must be a JSON object")
         if self._invoke is None:
             raise WebhookError(500, "webhook_invoke_unbound")
+        if not self._claim_delivery(raw_body):
+            raise WebhookError(409, "webhook_replayed")
         run_id = uuid.uuid4().hex
         record = {
             "schema_version": SCHEMA_VERSION,
@@ -340,6 +360,56 @@ class WebhookPlane:
                 "error": None,
             },
         )
+
+    def _deliveries_path(self) -> Path:
+        return self.root / DELIVERIES_RELATIVE
+
+    def _claim_delivery(self, raw_body: bytes) -> bool:
+        """Record ``raw_body`` once. False means this exact body already ran."""
+
+        fingerprint = hashlib.sha256(raw_body).hexdigest()
+        with self._lock:
+            seen = list(self._read_deliveries())
+            if fingerprint in seen:
+                return False
+            seen.append(fingerprint)
+            if len(seen) > self._delivery_limit:
+                del seen[: len(seen) - self._delivery_limit]
+            try:
+                self._write_deliveries(seen)
+            except OSError as exc:
+                raise WebhookError(500, "webhook_replay_store_unreadable") from exc
+            self._deliveries = seen
+            return True
+
+    def _read_deliveries(self) -> list[str]:
+        if self._deliveries is not None:
+            return self._deliveries
+        path = self._deliveries_path()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            self._deliveries = []
+            return self._deliveries
+        except (OSError, json.JSONDecodeError) as exc:
+            raise WebhookError(500, "webhook_replay_store_unreadable") from exc
+        fingerprints = payload.get("fingerprints") if isinstance(payload, dict) else None
+        if not isinstance(fingerprints, list) or not all(isinstance(item, str) for item in fingerprints):
+            raise WebhookError(500, "webhook_replay_store_unreadable")
+        self._deliveries = list(fingerprints)
+        return self._deliveries
+
+    def _write_deliveries(self, fingerprints: list[str]) -> None:
+        path = self._deliveries_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = json.dumps(
+            {"fingerprints": list(fingerprints), "schema_version": SCHEMA_VERSION},
+            indent=2,
+            sort_keys=True,
+        )
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(encoded, encoding="utf-8")
+        tmp.replace(path)
 
     def _path(self, run_id: str) -> Path:
         return _runs_root(self.root) / f"{run_id}.json"

@@ -311,10 +311,17 @@ module turns the ledger into a service:
   ``POST /hooks/{name}`` with a valid ``X-Hub-Signature-256`` over the raw
   body returns HTTP 202 with a run id and continues after the client hangs
   up; ``GET /hooks/{run_id}`` returns accepted/running/completed plus the
-  tool output. Missing or wrong signatures are HTTP 401 and never spawn.
-  An unknown name is HTTP 404. A plane without the secret stays
-  fail-closed: ``GET /health`` reports ``webhook_hooks`` false and
-  ``POST /hooks`` is HTTP 404. REST ``POST /invoke`` is unchanged.
+  tool output. Missing or wrong signatures are HTTP 401 and never spawn,
+  and they are not recorded. An unknown name is HTTP 404 and is not
+  recorded. An identical raw body that already verified is a replay: the
+  plane persists its SHA-256 under the service root and answers HTTP 409
+  ``webhook_replayed`` without spawning, including after a process restart
+  that reuses that root. A different signed body still returns HTTP 202.
+  The store keeps a bounded number of fingerprints and drops the oldest.
+  ``GET /health`` reports ``webhook_replay_guard``. A plane without the
+  secret stays fail-closed: ``GET /health`` reports ``webhook_hooks`` false
+  and ``webhook_replay_guard`` false, and ``POST /hooks`` is HTTP 404.
+  REST ``POST /invoke`` is unchanged.
 - Interval schedules are opt-in. ``--schedule`` (or ``BLACKHOLE_SCHEDULE``)
   enables ``POST /schedules``: the body names one invocable tool, its
   ``input``, and ``every_seconds``. The plane persists the cadence in
@@ -3713,6 +3720,9 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
         )
         checks["webhook_hooks_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("webhook_hooks") is False
+        )
+        checks["webhook_replay_guard_health_default"] = (
+            status == 200 and isinstance(health, dict) and health.get("webhook_replay_guard") is False
         )
         checks["schedules_health_default"] = (
             status == 200 and isinstance(health, dict) and health.get("schedules") is False
