@@ -1,18 +1,17 @@
 """Reclaim stale directories git no longer treats as working trees.
 
-``reclaim_mission_worktrees`` already prunes vanished workspaces and force-
-removes registered ones. A published complete mission whose directory still
-exists without a git worktree registration (``.git`` gone, prune already ran)
-fails ``git worktree remove`` with ``is not a working tree``. That error is
-appended to the GC report, ``ok`` becomes false, and
-``last_worktree_gc_error`` stays sticky even when other worktrees reclaimed.
+A published complete mission whose directory still exists without a git
+worktree registration (``.git`` gone, prune already ran) fails
+``git worktree remove`` with ``is not a working tree``. That error used to
+poison the GC report even when the directory was only the published checkout.
 
 Experience fuel harvested ``last_publish_error`` but never
 ``last_worktree_gc_error``, so the class could not enter genesis.
 
 This module closes that class:
 
-- treat ``is not a working tree`` as a stale directory and delete it
+- delete a detached directory only when its files match the published commit
+- preserve a detached directory that still holds a unique file
 - leave genuine remove failures as GC errors
 - harvest sticky ``last_worktree_gc_error`` as ``worktree_gc_failed``
 - drop the class from fuel once this closer is proved
@@ -21,9 +20,7 @@ This module closes that class:
 from __future__ import annotations
 
 import json
-import os
 import shutil
-import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -78,35 +75,48 @@ def is_not_a_working_tree_error(output: str) -> bool:
     return any(marker in text for marker in STALE_WORKTREE_MARKERS)
 
 
-def _rmtree(path: Path) -> bool:
-    target = Path(path)
-    if not target.exists():
-        return True
-
-    def _onexc(func: Any, name: str, exc: BaseException) -> None:
-        try:
-            os.chmod(name, stat.S_IWRITE)
-            func(name)
-        except OSError:
-            pass
-
-    shutil.rmtree(target, onexc=_onexc)
-    return not target.exists()
-
-
 def finish_failed_worktree_remove(
     report: dict[str, Any],
     entry: dict[str, Any],
     workspace: Path,
     removed: Any,
+    *,
+    repo_path: Path | None = None,
+    commit: str = "",
+    command_runner: Any = None,
 ) -> None:
-    """Reclaim a stale directory, or record a genuine worktree-remove error."""
+    """Keep a failed remove unless the directory is exactly the published tree.
+
+    ``git worktree remove`` without ``--force`` can still fail with ``is not
+    a working tree`` after the gitdir was already detached. That directory is
+    deleted only when every non-cache file matches ``commit``. Unique files
+    stay on disk. Other remove failures remain errors and do not delete.
+    """
 
     detail = str(getattr(removed, "stderr", "") or getattr(removed, "stdout", "") or "").strip()
-    if is_not_a_working_tree_error(detail) and _rmtree(workspace):
-        entry["removed"] = True
-        entry["stale_not_a_working_tree"] = True
-        report.setdefault("reclaimed", []).append(entry)
+    if is_not_a_working_tree_error(detail):
+        from blackhole_agent.worktree_reclaim_verify import bounded_remove_published_tree
+
+        deleted = False
+        if repo_path is not None and str(commit).strip():
+            kwargs: dict[str, Any] = {}
+            if command_runner is not None:
+                kwargs["command_runner"] = command_runner
+            deleted = bounded_remove_published_tree(
+                repo_path,
+                commit,
+                workspace,
+                **kwargs,
+            )
+        if deleted:
+            entry["removed"] = True
+            entry["stale_not_a_working_tree"] = True
+            entry["remove_command"] = ["bounded-published-tree-delete", str(workspace)]
+            report.setdefault("reclaimed", []).append(entry)
+            return
+        entry["removed"] = False
+        entry["reason"] = "stale_directory_has_unique_work"
+        report.setdefault("kept", []).append(entry)
         return
     report.setdefault("errors", []).append(
         {"mission_id": entry.get("mission_id"), "error": detail}
@@ -187,6 +197,7 @@ def _init_repo(root: Path) -> Path:
     _git(repo, "init", "-b", "main")
     _git(repo, "config", "user.email", "gc@test.local")
     _git(repo, "config", "user.name", "GC Test")
+    _git(repo, "config", "core.autocrlf", "false")
     (repo / "README.md").write_text("seed\n", encoding="utf-8")
     _git(repo, "add", "README.md")
     _git(repo, "commit", "-m", "seed")
@@ -229,7 +240,7 @@ def _make_complete_mission(repo: Path, mission_id: str, *, created_at: str) -> P
     return workspace
 
 
-def _detach_leave_directory(repo: Path, workspace: Path) -> None:
+def _detach_leave_directory(repo: Path, workspace: Path, *, plant_unique: bool = False) -> None:
     gitdir = workspace / ".git"
     if gitdir.is_dir():
         shutil.rmtree(gitdir)
@@ -241,7 +252,8 @@ def _detach_leave_directory(repo: Path, workspace: Path) -> None:
         capture_output=True,
         check=False,
     )
-    (workspace / "STALE.txt").write_text("stale leftover\n", encoding="utf-8")
+    if plant_unique:
+        (workspace / "STALE.txt").write_text("stale leftover\n", encoding="utf-8")
 
 
 def _register_proved(root: Path, capability_id: str) -> None:
@@ -300,8 +312,31 @@ def builtin_worktree_gc_resilience_proof() -> dict[str, Any]:
             and bool(stale_entries)
             and stale_entries[0].get("stale_not_a_working_tree") is True
             and not stale.exists()
+            and "--force" not in list(stale_entries[0].get("remove_command") or [])
         )
         checks["registered_worktree_still_removed"] = not live.exists()
+        live_commands = [
+            item.get("remove_command") or []
+            for item in report.get("reclaimed") or []
+            if item.get("mission_id") == "m-live"
+        ]
+        checks["registered_remove_is_not_forced"] = bool(live_commands) and all(
+            "--force" not in list(command) and "-f" not in list(command) for command in live_commands
+        )
+
+    with tempfile.TemporaryDirectory(prefix="worktree-gc-unique-") as tmp:
+        root = Path(tmp)
+        repo = _init_repo(root)
+        unique = _make_complete_mission(repo, "m-unique", created_at="2026-01-01T00:00:00Z")
+        _detach_leave_directory(repo, unique, plant_unique=True)
+        unique_report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+        checks["stale_unique_file_preserved"] = (
+            unique_report.get("ok") is True
+            and not unique_report.get("errors")
+            and unique.exists()
+            and (unique / "STALE.txt").is_file()
+            and not any(item.get("mission_id") == "m-unique" for item in unique_report.get("reclaimed") or [])
+        )
 
     with tempfile.TemporaryDirectory(prefix="worktree-gc-error-") as tmp:
         root = Path(tmp)

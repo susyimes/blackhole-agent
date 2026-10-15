@@ -2325,19 +2325,33 @@ def reclaim_mission_worktrees(
     A mission worktree is reclaimable only when ALL of the following hold:
 
     - its durable state parses and reports ``status == "complete"``;
-    - its ``last_milestone_head`` is an ancestor of at least one ancestor ref
-      (local target branch, remote-tracking branch, or the current lineage
-      tip), so every proven milestone survives outside the worktree; and
+    - the workspace resolves inside the managed worktree parent and contains
+      no reparse point;
+    - the milestone commit, the mission branch tip, and the checkout HEAD are
+      reachable from a verified remote-tracking ancestor when one was
+      supplied, otherwise from the caller-supplied lineage;
+    - tracked, untracked, and ignored contents have no unique or uncommitted
+      work (reproducible caches such as ``__pycache__`` and ``.venv`` do not
+      count); and
     - it is not among the ``keep_recent`` newest reclaimable missions.
 
-    Active and blocked missions are never touched: blocked missions preserve
-    work by contract, and active missions are running. Mission branches are
-    kept by default so milestone commits stay referenced; ``delete_branches``
-    uses ``git branch -d`` only, which refuses unmerged branches. Unparsable
+    Removal is ``git worktree remove`` without ``--force``. Immediately
+    before that command, a process using the directory (or a git index lock)
+    keeps the worktree. A detached directory is deleted only when its files
+    still match the published tree. Active and blocked missions are never
+    touched. Mission branches are kept by default; ``delete_branches`` uses
+    ``git branch -d`` only, which refuses unmerged branches. Unparsable
     state files are skipped and reported, never deleted. Worktree directories
     that already vanished are cleaned from git's registry via
     ``git worktree prune``.
     """
+
+    from blackhole_agent.worktree_reclaim_verify import (
+        assess_worktree_removal,
+        bounded_remove_published_tree,
+        directory_in_use,
+        git_worktree_remove_command,
+    )
 
     repo_path = repo_path.resolve()
     if keep_recent < 0:
@@ -2347,6 +2361,7 @@ def reclaim_mission_worktrees(
         "ok": True,
         "action": "worktree_gc",
         "dry_run": dry_run,
+        "force_removal": False,
         "ancestor_refs": list(ancestor_refs),
         "keep_recent": keep_recent,
         "scanned": 0,
@@ -2357,20 +2372,6 @@ def reclaim_mission_worktrees(
     }
     if not missions_dir.is_dir():
         return report
-
-    resolved_refs: list[str] = []
-    for ref in ancestor_refs:
-        ref = str(ref).strip()
-        if not ref:
-            continue
-        verified = run_command(
-            ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
-            cwd=repo_path,
-            command_runner=command_runner,
-            check=False,
-        )
-        if verified.returncode == 0:
-            resolved_refs.append((verified.stdout or "").strip())
 
     reclaimable: list[tuple[str, UnboundMission, Path]] = []
     for state_path in sorted(missions_dir.glob("*/state.json")):
@@ -2396,11 +2397,16 @@ def reclaim_mission_worktrees(
         if not git_commit_exists(repo_path, head, command_runner=command_runner):
             report["kept"].append({"mission_id": state.mission_id, "reason": "milestone_head_unresolvable"})
             continue
-        published = any(
-            git_is_ancestor(repo_path, head, ref, command_runner=command_runner) for ref in resolved_refs
+        assessment = assess_worktree_removal(
+            repo_path,
+            workspace,
+            branch=state.branch,
+            milestone_head=head,
+            ancestor_refs=ancestor_refs,
+            command_runner=command_runner,
         )
-        if not published:
-            report["kept"].append({"mission_id": state.mission_id, "reason": "milestones_not_in_lineage"})
+        if not assessment.removable:
+            report["kept"].append({"mission_id": state.mission_id, "reason": assessment.reason})
             continue
         reclaimable.append((state.created_at, state, workspace))
 
@@ -2419,8 +2425,47 @@ def reclaim_mission_worktrees(
             entry["removed"] = False
             report["reclaimed"].append(entry)
             continue
+        in_use = directory_in_use(workspace)
+        if in_use:
+            report["kept"].append(
+                {"mission_id": state.mission_id, "reason": in_use, "workspace": str(workspace)}
+            )
+            continue
+        confirmed = assess_worktree_removal(
+            repo_path,
+            workspace,
+            branch=state.branch,
+            milestone_head=str(entry["head"]),
+            ancestor_refs=ancestor_refs,
+            command_runner=command_runner,
+        )
+        if not confirmed.removable:
+            report["kept"].append({"mission_id": state.mission_id, "reason": confirmed.reason})
+            continue
+        if confirmed.stale_published_tree:
+            entry["remove_command"] = ["bounded-published-tree-delete", str(workspace)]
+            entry["stale_not_a_working_tree"] = True
+            entry["removed"] = bounded_remove_published_tree(
+                repo_path,
+                str(entry["head"]),
+                workspace,
+                command_runner=command_runner,
+            )
+            if entry["removed"]:
+                report["reclaimed"].append(entry)
+            else:
+                report["kept"].append(
+                    {
+                        "mission_id": state.mission_id,
+                        "reason": "stale_directory_has_unique_work",
+                        "workspace": str(workspace),
+                    }
+                )
+            continue
+        command = git_worktree_remove_command(workspace)
+        entry["remove_command"] = command
         removed = run_command(
-            ["git", "worktree", "remove", "--force", str(workspace)],
+            command,
             cwd=repo_path,
             command_runner=command_runner,
             check=False,
@@ -2429,7 +2474,15 @@ def reclaim_mission_worktrees(
         if removed.returncode != 0:
             from blackhole_agent.worktree_gc_resilience import finish_failed_worktree_remove
 
-            finish_failed_worktree_remove(report, entry, workspace, removed)
+            finish_failed_worktree_remove(
+                report,
+                entry,
+                workspace,
+                removed,
+                repo_path=repo_path,
+                commit=str(entry["head"]),
+                command_runner=command_runner,
+            )
             continue
         entry["removed"] = True
         if delete_branches and state.branch:
@@ -3415,7 +3468,10 @@ def loop_login_journal_prune(
 
 @app.command(
     "worktrees-gc",
-    help="Reclaim mission worktrees whose proven milestones already live in the target lineage.",
+    help=(
+        "Reclaim completed mission worktrees whose commits are in the verified "
+        "lineage, with no unique work and no --force removal."
+    ),
 )
 def worktrees_gc(
     repo_path: Path = typer.Option(Path("."), "--repo-path", help="Repository owning the mission worktrees."),

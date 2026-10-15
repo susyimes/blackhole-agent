@@ -37,6 +37,7 @@ def _init_repo(tmp_path: Path) -> Path:
     _git(repo, "init", "-b", "main")
     _git(repo, "config", "user.email", "gc@test.local")
     _git(repo, "config", "user.name", "GC Test")
+    _git(repo, "config", "core.autocrlf", "false")
     (repo / "README.md").write_text("seed\n", encoding="utf-8")
     _git(repo, "add", "README.md")
     _git(repo, "commit", "-m", "seed")
@@ -108,6 +109,11 @@ def test_reclaims_only_published_complete_missions(tmp_path: Path) -> None:
     assert report["scanned"] == 4
     assert [item["mission_id"] for item in report["reclaimed"]] == ["m1-published"]
     assert report["reclaimed"][0]["removed"] is True
+    assert report["force_removal"] is False
+    remove_command = report["reclaimed"][0]["remove_command"]
+    assert remove_command[:3] == ["git", "worktree", "remove"]
+    assert "--force" not in remove_command
+    assert "-f" not in remove_command
     assert not published.exists()
     assert active.exists()
     assert blocked.exists()
@@ -146,7 +152,7 @@ def test_dry_run_removes_nothing(tmp_path: Path) -> None:
     assert workspace.exists()
 
 
-def test_dirty_complete_worktree_is_still_reclaimed(tmp_path: Path) -> None:
+def test_unique_uncommitted_file_is_kept(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     workspace = _make_mission(repo, "m1", status="complete", created_at="2026-01-01T00:00:00Z")
     (workspace / "stray.txt").write_text("leftover\n", encoding="utf-8")
@@ -154,7 +160,11 @@ def test_dirty_complete_worktree_is_still_reclaimed(tmp_path: Path) -> None:
     report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
 
     assert report["ok"] is True, report
-    assert not workspace.exists()
+    assert report["reclaimed"] == []
+    assert workspace.exists()
+    assert (workspace / "stray.txt").read_text(encoding="utf-8") == "leftover\n"
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m1"] == "unique_or_uncommitted_work"
 
 
 def test_delete_branches_removes_merged_branch_only(tmp_path: Path) -> None:
@@ -172,19 +182,22 @@ def test_delete_branches_removes_merged_branch_only(tmp_path: Path) -> None:
     assert _git(repo, "branch", "--list", "unbound/test-m1") == ""
 
 
-def test_stale_not_a_working_tree_directory_is_reclaimed(tmp_path: Path) -> None:
+def _detach_gitdir(repo: Path, workspace: Path) -> None:
     import shutil
 
-    repo = _init_repo(tmp_path)
-    stale = _make_mission(repo, "m1-stale", status="complete", created_at="2026-01-01T00:00:00Z")
-    live = _make_mission(repo, "m2-live", status="complete", created_at="2026-01-02T00:00:00Z")
-    gitdir = stale / ".git"
+    gitdir = workspace / ".git"
     if gitdir.is_dir():
         shutil.rmtree(gitdir)
     elif gitdir.exists():
         gitdir.unlink()
     subprocess.run(["git", "worktree", "prune"], cwd=repo, capture_output=True, check=False)
-    (stale / "STALE.txt").write_text("leftover\n", encoding="utf-8")
+
+
+def test_stale_directory_matching_published_tree_is_reclaimed(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    stale = _make_mission(repo, "m1-stale", status="complete", created_at="2026-01-01T00:00:00Z")
+    live = _make_mission(repo, "m2-live", status="complete", created_at="2026-01-02T00:00:00Z")
+    _detach_gitdir(repo, stale)
 
     report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
 
@@ -192,8 +205,26 @@ def test_stale_not_a_working_tree_directory_is_reclaimed(tmp_path: Path) -> None
     assert report["errors"] == []
     stale_entry = next(item for item in report["reclaimed"] if item["mission_id"] == "m1-stale")
     assert stale_entry["stale_not_a_working_tree"] is True
+    assert "--force" not in stale_entry["remove_command"]
     assert not stale.exists()
     assert not live.exists()
+
+
+def test_stale_directory_with_unique_file_is_kept(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    stale = _make_mission(repo, "m1-stale", status="complete", created_at="2026-01-01T00:00:00Z")
+    _detach_gitdir(repo, stale)
+    (stale / "STALE.txt").write_text("leftover\n", encoding="utf-8")
+
+    report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+
+    assert report["ok"] is True, report
+    assert report["errors"] == []
+    assert report["reclaimed"] == []
+    assert stale.exists()
+    assert (stale / "STALE.txt").read_text(encoding="utf-8") == "leftover\n"
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m1-stale"] == "stale_directory_has_unique_work"
 
 
 def test_missing_workspace_is_pruned_from_registry(tmp_path: Path) -> None:
@@ -363,3 +394,89 @@ def test_continuous_loop_gc_failure_never_breaks_the_loop(tmp_path: Path) -> Non
         if line.strip()
     ]
     assert any(event["event"] == "continuous_loop.worktree_gc_failed" for event in events)
+
+
+def test_local_lineage_is_not_enough_when_remote_is_behind(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    bare = tmp_path / "origin.git"
+    _git(repo, "init", "--bare", str(bare))
+    _git(repo, "remote", "add", "origin", str(bare))
+    _git(repo, "push", "origin", "HEAD:main")
+    published = _make_mission(repo, "m-pushed", status="complete", created_at="2026-01-01T00:00:00Z")
+    _git(repo, "push", "origin", "HEAD:main")
+    withheld = _make_mission(repo, "m-local", status="complete", created_at="2026-01-02T00:00:00Z")
+
+    report = reclaim_mission_worktrees(
+        repo,
+        ancestor_refs=("main", "origin/main"),
+        keep_recent=0,
+    )
+
+    assert report["ok"] is True, report
+    assert not published.exists()
+    assert withheld.exists()
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m-local"] == "commits_not_in_remote_lineage"
+    remove_command = report["reclaimed"][0]["remove_command"]
+    assert "--force" not in remove_command
+
+
+def test_unmerged_branch_commit_is_kept(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    workspace = _make_mission(repo, "m1", status="complete", created_at="2026-01-01T00:00:00Z")
+    (workspace / "later.txt").write_text("not published\n", encoding="utf-8")
+    _git(workspace, "add", "later.txt")
+    _git(workspace, "commit", "-m", "unpublished follow-up")
+
+    report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+
+    assert report["ok"] is True, report
+    assert workspace.exists()
+    assert (workspace / "later.txt").is_file()
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m1"] == "commits_not_in_lineage"
+
+
+def test_ignored_secret_is_kept_and_pycache_is_not(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    secret = _make_mission(repo, "m-secret", status="complete", created_at="2026-01-01T00:00:00Z")
+    (secret / ".gitignore").write_text("__pycache__/\n.env\n", encoding="utf-8")
+    _git(secret, "add", ".gitignore")
+    _git(secret, "commit", "-m", "ignore caches and env")
+    _git(repo, "merge", "--ff-only", _git(secret, "rev-parse", "HEAD"))
+    cache = _make_mission(repo, "m-cache", status="complete", created_at="2026-01-02T00:00:00Z")
+    (secret / ".env").write_text("TOKEN=secret\n", encoding="utf-8")
+    cache_dir = cache / "__pycache__"
+    cache_dir.mkdir()
+    (cache_dir / "mod.pyc").write_bytes(b"\x00pyc")
+
+    report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+
+    assert report["ok"] is True, report
+    assert secret.exists()
+    assert (secret / ".env").read_text(encoding="utf-8") == "TOKEN=secret\n"
+    assert not cache.exists()
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m-secret"] == "unique_or_uncommitted_work"
+
+
+def test_process_using_the_directory_blocks_removal(tmp_path: Path) -> None:
+    import sys
+
+    repo = _init_repo(tmp_path)
+    workspace = _make_mission(repo, "m-busy", status="complete", created_at="2026-01-01T00:00:00Z")
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"],
+        cwd=workspace,
+    )
+    try:
+        report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+    finally:
+        proc.kill()
+        proc.wait(timeout=10)
+
+    assert report["ok"] is True, report
+    assert workspace.exists()
+    assert report["reclaimed"] == []
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m-busy"] == "directory_in_use"
