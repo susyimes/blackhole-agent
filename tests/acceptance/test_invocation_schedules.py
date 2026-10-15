@@ -229,7 +229,10 @@ def main() -> dict[str, object]:
                 {
                     "capability_id": REVERSE_ID,
                     "input": {"raw_text": PROBE_TEXT},
-                    "every_seconds": 1,
+                    # Keep the completed schedule idle during the ordinary
+                    # invoke below and the restart. Crash during execution
+                    # is separately covered by test_schedule_ownership.py.
+                    "every_seconds": 8,
                 },
             )
             observed["post_status"] = post_status

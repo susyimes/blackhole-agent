@@ -1,0 +1,27 @@
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+__________________ test_solve_heals_mid_execution_quarantine __________________
+tests\test_capability_service.py:1000: in test_solve_heals_mid_execution_quarantine
+    assert ready.is_file(), "hold step never started"
+E   AssertionError: hold step never started
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = WindowsPath('C:/Users/svmes/AppData/Local/Temp/pytest-of-svmes/pytest-2817/test_solve_heals_mid_execution0/repo/capabilities/absorbed/tainter/ready.txt').is_file
+______________ test_solve_dry_run_returns_plan_without_executing ______________
+tests\test_capability_service.py:1072: in test_solve_dry_run_returns_plan_without_executing
+    live = solve_goal_request(
+src\blackhole_agent\capability_service.py:2107: in solve_goal_request
+    result = invoke_capability(
+src\blackhole_agent\capability_service.py:1660: in invoke_capability
+    raise InvocationError(502, f"tool exited {completed.returncode}: {detail}")
+E   blackhole_agent.capability_service.InvocationError: tool exited 1: Traceback (most recent call last):
+____________ test_mcp_http_get_sse_progress_and_cross_post_cancel _____________
+tests\test_capability_service.py:1496: in test_mcp_http_get_sse_progress_and_cross_post_cancel
+    assert first_beat >= 1, "heartbeat tool never started"
+E   AssertionError: heartbeat tool never started
+E   assert 0 >= 1
+=========================== short test summary info ===========================
+FAILED tests/test_capability_service.py::test_solve_heals_mid_execution_quarantine
+FAILED tests/test_capability_service.py::test_solve_dry_run_returns_plan_without_executing
+FAILED tests/test_capability_service.py::test_mcp_http_get_sse_progress_and_cross_post_cancel
+3 failed, 37 deselected in 29.90s

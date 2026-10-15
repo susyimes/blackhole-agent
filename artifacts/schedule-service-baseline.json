@@ -1,0 +1,10 @@
+{
+  "baseline_ref": "c473551b0c203a306ae0eb10dc33c8cdd8aeba43",
+  "exit_code": 1,
+  "failures": [
+    "FAILED tests/test_capability_service.py::test_solve_heals_mid_execution_quarantine",
+    "FAILED tests/test_capability_service.py::test_solve_dry_run_returns_plan_without_executing",
+    "FAILED tests/test_capability_service.py::test_mcp_http_get_sse_progress_and_cross_post_cancel"
+  ],
+  "same_three_preexisting_failures": true
+}

@@ -1,0 +1,100 @@
+{
+  "ok": true,
+  "baseline_ref": "c473551b0c203a306ae0eb10dc33c8cdd8aeba43",
+  "probe": "tests/acceptance/test_schedule_ownership.py",
+  "probe_sha256": "8d815b1e2e93003ac9a213b9657d5f10821c258aa49daa486a50b80f0574e7fe",
+  "baseline": {
+    "exit_code": 0,
+    "stdout_tail": "{\"observed\": {\"crash_execution_counts\": [6, 7], \"delete_stops_fires\": true, \"failover_output\": {\"echo\": \"failover\"}, \"failover_run_counts\": [1, 2], \"failover_status\": \"completed\", \"interrupted_error\": null, \"interrupted_status\": \"running\", \"non_overlapping\": false, \"ordinary_invoke\": {\"output\": {\"echo\": \"ordinary-invoke\"}, \"status\": 200}, \"report_download_matches\": true, \"slow_intervals_ns\": [[39351735995300, 39355736121800], [39352781641600, 39356781751300], [39357389340100, 39361389485700]], \"status_after_standby_start\": \"interrupted\", \"unknown_outcome_not_replayed\": false}, \"passed\": false}\n",
+    "stderr_tail": "",
+    "outcome": {
+      "observed": {
+        "crash_execution_counts": [
+          6,
+          7
+        ],
+        "delete_stops_fires": true,
+        "failover_output": {
+          "echo": "failover"
+        },
+        "failover_run_counts": [
+          1,
+          2
+        ],
+        "failover_status": "completed",
+        "interrupted_error": null,
+        "interrupted_status": "running",
+        "non_overlapping": false,
+        "ordinary_invoke": {
+          "output": {
+            "echo": "ordinary-invoke"
+          },
+          "status": 200
+        },
+        "report_download_matches": true,
+        "slow_intervals_ns": [
+          [
+            39351735995300,
+            39355736121800
+          ],
+          [
+            39352781641600,
+            39356781751300
+          ],
+          [
+            39357389340100,
+            39361389485700
+          ]
+        ],
+        "status_after_standby_start": "interrupted",
+        "unknown_outcome_not_replayed": false
+      },
+      "passed": false
+    }
+  },
+  "candidate": {
+    "exit_code": 0,
+    "stdout_tail": "{\"observed\": {\"crash_execution_counts\": [6, 6], \"delete_stops_fires\": true, \"failover_output\": {\"echo\": \"failover\"}, \"failover_run_counts\": [1, 2], \"failover_status\": \"completed\", \"interrupted_error\": \"schedule_outcome_unknown: reconcile effects before deleting and recreating this schedule\", \"interrupted_status\": \"interrupted\", \"non_overlapping\": true, \"ordinary_invoke\": {\"output\": {\"echo\": \"ordinary-invoke\"}, \"status\": 200}, \"report_download_matches\": true, \"slow_intervals_ns\": [[39385474790200, 39389474924300], [39391254860400, 39395255258900]], \"status_after_standby_start\": \"running\", \"unknown_outcome_not_replayed\": true}, \"passed\": true}\n",
+    "stderr_tail": "",
+    "outcome": {
+      "observed": {
+        "crash_execution_counts": [
+          6,
+          6
+        ],
+        "delete_stops_fires": true,
+        "failover_output": {
+          "echo": "failover"
+        },
+        "failover_run_counts": [
+          1,
+          2
+        ],
+        "failover_status": "completed",
+        "interrupted_error": "schedule_outcome_unknown: reconcile effects before deleting and recreating this schedule",
+        "interrupted_status": "interrupted",
+        "non_overlapping": true,
+        "ordinary_invoke": {
+          "output": {
+            "echo": "ordinary-invoke"
+          },
+          "status": 200
+        },
+        "report_download_matches": true,
+        "slow_intervals_ns": [
+          [
+            39385474790200,
+            39389474924300
+          ],
+          [
+            39391254860400,
+            39395255258900
+          ]
+        ],
+        "status_after_standby_start": "running",
+        "unknown_outcome_not_replayed": true
+      },
+      "passed": true
+    }
+  }
+}

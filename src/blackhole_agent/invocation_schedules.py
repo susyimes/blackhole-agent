@@ -14,13 +14,19 @@ the opt-in timer:
 - a plane without the flag stays fail-closed: ``GET /health`` reports
   ``schedules`` false and ``POST /schedules`` is ``400 schedules_disabled``
 
-Honesty boundary: a fire that is still running is not overlapped. The next
-deadline is committed before the tool starts, so a crash mid-run waits until
-the following interval instead of immediately re-executing.
+One OS-held guard elects a scheduler for each root, including across server
+processes. Standbys keep serving HTTP and take over when the owner releases
+the guard. A graceful stop retains ownership until its tools finish.
+
+The next deadline is committed before execution. An abandoned running fire
+has an unknown outcome: the new owner marks that schedule interrupted and
+does not replay it. Reconcile its effects, then delete and recreate the
+schedule deliberately. This cannot promise exactly-once effects in a tool.
 """
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -31,13 +37,14 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping
+from typing import Any, BinaryIO, Callable, Iterator, Mapping
 
 SCHEMA_VERSION = 1
 SCHEDULE_ENV = "BLACKHOLE_SCHEDULE"
 SCHEDULES_PATH = "/schedules"
 SCHEDULES_PATH_PREFIX = "/schedules/"
 DB_RELATIVE = Path(".blackhole-agent") / "invocation-schedules.sqlite3"
+GUARD_RELATIVE = Path(".blackhole-agent") / "invocation-schedules.guard"
 MIN_EVERY_SECONDS = 1
 MAX_EVERY_SECONDS = 86_400
 MAX_SCHEDULES = 64
@@ -134,6 +141,8 @@ class SchedulePlane:
         self.enabled = bool(enabled)
         self._invoke = invoke
         self._lock = threading.Lock()
+        self._dispatch_lock = threading.Lock()
+        self._guard: BinaryIO | None = None
         self._in_flight: set[str] = set()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -151,12 +160,15 @@ class SchedulePlane:
                 count = len(self.list_schedules())
             except ScheduleError:
                 count = 0
-        return {"schedules": self.enabled, "schedule_count": count}
+        return {
+            "schedules": self.enabled,
+            "schedule_count": count,
+            "scheduler_role": "disabled" if not self.enabled else ("owner" if self._guard is not None else "standby"),
+        }
 
     def start(self) -> None:
         if not self.enabled or (self._thread is not None and self._thread.is_alive()):
             return
-        self._mark_interrupted()
         self._stop.clear()
         self._thread = threading.Thread(
             target=self._loop,
@@ -170,7 +182,10 @@ class SchedulePlane:
         thread = self._thread
         if thread is not None:
             thread.join(timeout=2)
-        self._thread = None
+        if thread is None or not thread.is_alive():
+            self._thread = None
+        with self._dispatch_lock:
+            self._release_if_idle()
 
     def create(
         self,
@@ -250,42 +265,98 @@ class SchedulePlane:
                 raise ScheduleError(404, "schedule_unknown")
             record = self._row_to_record(row)
             connection.execute("DELETE FROM schedules WHERE schedule_id = ?", (ident,))
-        with self._lock:
-            self._in_flight.discard(ident)
+        # Deletion stops future fires, not a tool already executing. Keep its
+        # ownership until the worker exits, even when its row is gone.
         payload = public_schedule_record(record)
         payload["cancelled"] = True
         payload["last_status"] = "cancelled"
         return payload
 
     def dispatch_due(self, *, now: float | None = None) -> int:
-        """Start every due schedule that is not already in flight."""
+        """Only the root's scheduler owner may reserve and start due fires."""
 
         if not self.enabled:
             return 0
-        moment = time.time() if now is None else float(now)
-        started = 0
-        for record in self._due(moment):
-            schedule_id = str(record["schedule_id"])
-            with self._lock:
-                if schedule_id in self._in_flight:
+        with self._dispatch_lock:
+            if self._stop.is_set() or not self._acquire_ownership():
+                return 0
+            moment = time.time() if now is None else float(now)
+            started = 0
+            for record in self._due(moment):
+                schedule_id = str(record["schedule_id"])
+                with self._lock:
+                    if schedule_id in self._in_flight:
+                        continue
+                claimed = self._claim_due(schedule_id, moment)
+                if claimed is None:
                     continue
-                self._in_flight.add(schedule_id)
-            self._merge(
-                schedule_id,
-                {
-                    "last_status": "running",
-                    "next_fire_at": moment + int(record["every_seconds"]),
-                },
-            )
-            worker = threading.Thread(
-                target=self._run_tool,
-                args=(schedule_id, str(record["capability_id"]), dict(record["input"])),
-                name=f"schedule-run-{schedule_id[:8]}",
-                daemon=True,
-            )
-            worker.start()
-            started += 1
-        return started
+                with self._lock:
+                    self._in_flight.add(schedule_id)
+                worker = threading.Thread(
+                    target=self._run_tool,
+                    args=(schedule_id, str(claimed["capability_id"]), dict(claimed["input"])),
+                    name=f"schedule-run-{schedule_id[:8]}",
+                    # A graceful interpreter exit must drain governed runs
+                    # before releasing the root's ownership to a standby.
+                    daemon=False,
+                )
+                try:
+                    worker.start()
+                except Exception:
+                    with self._lock:
+                        self._in_flight.discard(schedule_id)
+                    self._finish(schedule_id, status="failed", error="schedule_worker_start_failed")
+                    raise
+                started += 1
+            return started
+
+    def _acquire_ownership(self) -> bool:
+        """Nonblocking OS lock; never unlink its file or expire a live owner."""
+
+        if self._guard is not None:
+            return True
+        path = self.root / GUARD_RELATIVE
+        path.parent.mkdir(parents=True, exist_ok=True)
+        guard = path.open("a+b")
+        try:
+            guard.seek(0, os.SEEK_END)
+            if guard.tell() == 0:
+                guard.write(b"\0")
+                guard.flush()
+            guard.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(guard.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            guard.close()
+            if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                return False
+            raise
+        self._guard = guard
+        try:
+            # Only a newly elected owner may recover durable running rows.
+            self._mark_interrupted()
+        except BaseException:
+            self._release_ownership()
+            raise
+        return True
+
+    def _release_ownership(self) -> None:
+        guard = self._guard
+        if guard is not None:
+            # Closing releases the OS lock on both supported platforms.
+            guard.close()
+            self._guard = None
+
+    def _release_if_idle(self) -> None:
+        with self._lock:
+            if not self._in_flight:
+                self._release_ownership()
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -318,6 +389,9 @@ class SchedulePlane:
         finally:
             with self._lock:
                 self._in_flight.discard(schedule_id)
+            with self._dispatch_lock:
+                if self._stop.is_set():
+                    self._release_if_idle()
 
     def _finish(
         self,
@@ -328,25 +402,20 @@ class SchedulePlane:
         output: Any = None,
         invocation_id: str | None = None,
     ) -> None:
-        current = self._load(schedule_id)
-        if current is None:
-            return
-        self._merge(
-            schedule_id,
-            {
-                "last_status": status,
-                "last_error": error,
-                "last_output": output,
-                "last_invocation_id": invocation_id,
-                "last_run_at": time.time(),
-                "run_count": int(current.get("run_count") or 0) + 1,
-            },
-        )
+        output_text = None if output is None else json.dumps(output, sort_keys=True, separators=(",", ":"))
+        with self._lock, self._database() as connection:
+            connection.execute(
+                "UPDATE schedules SET last_status = ?, last_error = ?, last_output = ?, "
+                "last_invocation_id = ?, last_run_at = ?, run_count = run_count + 1 "
+                "WHERE schedule_id = ? AND last_status = 'running'",
+                (status, error, output_text, invocation_id, time.time(), schedule_id),
+            )
 
     def _due(self, now: float) -> list[dict[str, Any]]:
         with self._lock, self._database() as connection:
             rows = connection.execute(
                 "SELECT * FROM schedules WHERE next_fire_at <= ? "
+                "AND last_status IN ('pending', 'completed', 'failed') "
                 "ORDER BY next_fire_at ASC, schedule_id ASC",
                 (float(now),),
             ).fetchall()
@@ -361,24 +430,28 @@ class SchedulePlane:
             return None
         return self._row_to_record(row)
 
-    def _merge(self, schedule_id: str, updates: Mapping[str, Any]) -> None:
-        record = self._load(schedule_id)
-        if record is None:
-            return
-        record.update(dict(updates))
+    def _claim_due(self, schedule_id: str, now: float) -> dict[str, Any] | None:
+        # Re-read inside the reservation transaction: a concurrent DELETE
+        # may have removed a row returned by _due(). Never resurrect it.
         with self._lock, self._database() as connection:
-            current = connection.execute(
-                "SELECT schedule_id FROM schedules WHERE schedule_id = ?", (schedule_id,)
+            row = connection.execute(
+                "SELECT * FROM schedules WHERE schedule_id = ? AND next_fire_at <= ? "
+                "AND last_status IN ('pending', 'completed', 'failed')",
+                (schedule_id, now),
             ).fetchone()
-            if current is None:
-                return
-            connection.execute("DELETE FROM schedules WHERE schedule_id = ?", (schedule_id,))
-            self._insert(connection, record)
+            if row is None:
+                return None
+            connection.execute(
+                "UPDATE schedules SET last_status = 'running', next_fire_at = ? WHERE schedule_id = ?",
+                (now + int(row["every_seconds"]), schedule_id),
+            )
+            return self._row_to_record(row)
 
     def _mark_interrupted(self) -> None:
         with self._lock, self._database() as connection:
             connection.execute(
-                "UPDATE schedules SET last_status = 'interrupted' WHERE last_status = 'running'"
+                "UPDATE schedules SET last_status = 'interrupted', last_error = ? WHERE last_status = 'running'",
+                ("schedule_outcome_unknown: reconcile effects before deleting and recreating this schedule",),
             )
 
     def _ensure_schema(self) -> None:

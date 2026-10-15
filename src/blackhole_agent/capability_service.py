@@ -2570,7 +2570,6 @@ def build_server(
     schedule_plane = SchedulePlane(
         service_root, enabled=bool(schedule_enabled), invoke=invoke_capability
     )
-    schedule_plane.start()
     from blackhole_agent.mcp_capability_server import (
         CapabilityCatalog,
         CatalogChangeWatcher,
@@ -2632,7 +2631,6 @@ def build_server(
         _broadcast_catalog_change,
         on_resource_updated=_broadcast_resource_updated,
     )
-    catalog_watcher.start()
 
     class CapabilityHandler(BaseHTTPRequestHandler):
         server_version = "blackhole-capability-service/1"
@@ -3543,6 +3541,9 @@ def build_server(
         original_close()
 
     server.server_close = _close_with_watcher  # type: ignore[method-assign]
+    # A failed bind must not leave an owner running without an HTTP server.
+    catalog_watcher.start()
+    schedule_plane.start()
     return server
 
 

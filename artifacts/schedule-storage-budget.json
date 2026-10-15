@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-10-15T15:00:59.213130Z",
+  "logical_bytes": 15797739625,
+  "measured_root_count": 838,
+  "measurement_complete": true,
+  "unmeasured_owned_count": 0,
+  "cap_satisfied": true,
+  "receipt_path": "C:\\Users\\svmes\\Documents\\Playground\\blackhole-agent\\.blackhole-agent\\unbound\\storage-budget.json"
+}

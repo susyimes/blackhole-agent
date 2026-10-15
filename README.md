@@ -46,6 +46,11 @@ when the only program for a goal runs through quarantined capabilities,
 frozen cases, replans, and answers in one request — with a healing trace,
 and an honest `solved: false` when a blocker's cases genuinely fail.
 
+[Interval schedules](docs/invocation-schedules.md) share one execution owner
+per service root. Other service processes remain available as standbys and
+take over scheduling after the owner exits. A fire interrupted by a crash
+pauses for reconciliation instead of automatically repeating its effects.
+
 ## Control Loop
 
 ```text
