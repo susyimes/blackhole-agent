@@ -374,8 +374,16 @@ def load_mission(state_path: Path) -> UnboundMission:
 
 
 def save_mission(state_path: Path, state: UnboundMission) -> None:
+    from blackhole_agent.mission_journal_bound import bound_turn_record
+
     state.updated_at = utc_now_iso()
-    atomic_write_json(state_path, asdict(state))
+    payload = asdict(state)
+    turns = payload.get("recent_turns")
+    if isinstance(turns, list):
+        payload["recent_turns"] = [
+            bound_turn_record(item) if isinstance(item, dict) else item for item in turns
+        ]
+    atomic_write_json(state_path, payload)
 
 
 def mission_root(repo_path: Path, output_dir: Path = DEFAULT_OUTPUT_DIR) -> Path:
@@ -2065,18 +2073,21 @@ def run_unbound_turn(
             "selection_gate": selection_gate.to_dict() if selection_gate is not None else None,
             "selection_rejection_count": selection_rejection_count,
         }
-        atomic_write_json(turn_dir / "turn.json", record)
-        append_jsonl(
-            state_path.parent / "events.jsonl",
-            {"event": "turn.completed", "mission_id": state.mission_id, **record},
+        from blackhole_agent.mission_journal_bound import write_bounded_turn_files
+
+        persisted = write_bounded_turn_files(
+            state_path.parent,
+            record,
+            turn_dir=turn_dir,
+            mission_id=state.mission_id,
         )
-        state.recent_turns = [*state.recent_turns, record][-STATE_HISTORY_LIMIT:]
+        state.recent_turns = [*state.recent_turns, persisted][-STATE_HISTORY_LIMIT:]
         save_mission(state_path, state)
         try:
-            ingest_unbound_turn(Path(state.repo_path), record)
+            ingest_unbound_turn(Path(state.repo_path), persisted)
         except Exception:  # noqa: BLE001 - pattern ingest must never fail a turn
             pass
-        return record
+        return persisted
 
 
 def run_reloadable_tick(state_path: Path) -> int:
