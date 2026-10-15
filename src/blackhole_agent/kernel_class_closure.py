@@ -12,6 +12,9 @@ This module:
   capability is proved on the live working-tree ledger or the continuous-loop
   lineage tip, so a lagging controller checkout cannot reopen a closer that
   already landed on origin
+- treats ``paperwork_milestone`` as closed when a docs-and-tests-only
+  milestone request is declined at intake and a behavior-path request is
+  still accepted, so historical memory of that class leaves genesis fuel
 - drops closed classes from genesis fuel (including forced pattern-register
   rows)
 - stops local bind from falling back to the harvested 402 class once it is
@@ -194,8 +197,73 @@ def _ledger_proves(ledger: CapabilityLedger | None, capability_id: str) -> bool:
     return bool(capability is not None and capability.last_proof_exit_code == 0)
 
 
+PAPERWORK_MILESTONE = "paperwork_milestone"
+_PAPERWORK_INTAKE_DECLINE: bool | None = None
+_PAPERWORK_INTAKE_CHECKING = False
+
+
 def class_closure_ids(class_id: str) -> tuple[str, ...]:
     return CLASS_CLOSURE_REQUIREMENTS.get(str(class_id or "").strip(), ())
+
+
+def paperwork_intake_decline_shipped() -> bool:
+    """True when paperwork is declined at intake and real edits still reach the gate.
+
+    Historical ``paperwork_milestone`` rows stay in durable memory after the
+    intake decline shipped, and no ledger closer was registered for them.
+    Closure follows this behavior: a regression that again requests the
+    paperwork milestone reopens the class.
+    """
+
+    global _PAPERWORK_INTAKE_DECLINE, _PAPERWORK_INTAKE_CHECKING
+    if _PAPERWORK_INTAKE_DECLINE is not None:
+        return _PAPERWORK_INTAKE_DECLINE
+    if _PAPERWORK_INTAKE_CHECKING:
+        return False
+    _PAPERWORK_INTAKE_CHECKING = True
+    try:
+        from blackhole_agent.unbound import TurnDecision, evaluate_milestone
+
+        decision = TurnDecision.from_payload(
+            {
+                "status": "milestone",
+                "summary": "closure probe",
+                "strategy": "direct",
+                "next_step": "none",
+                "capability_delta": "Probe-visible delta.",
+                "outcome_evidence": ["probe observation"],
+                "validation": [
+                    {
+                        "command": "git rev-parse --verify HEAD",
+                        "exit_code": 0,
+                        "summary": "head resolves",
+                    }
+                ],
+                "done_when_met": False,
+            }
+        )
+        paperwork = evaluate_milestone(
+            decision, changed_paths=["docs/guide.md", "tests/test_probe.py"]
+        )
+        behavior = evaluate_milestone(
+            decision, changed_paths=["src/blackhole_agent/unbound.py"]
+        )
+        reasons = " ".join(paperwork.reasons).lower()
+        shipped = bool(
+            paperwork.requested is False
+            and paperwork.accepted is False
+            and paperwork.auto_declined is True
+            and ("docs, tests, artifacts" in reasons or "paperwork" in reasons)
+            and behavior.requested is True
+            and behavior.auto_declined is False
+            and behavior.accepted is True
+        )
+    except Exception:  # noqa: BLE001 - a broken gate must leave the class open
+        shipped = False
+    finally:
+        _PAPERWORK_INTAKE_CHECKING = False
+    _PAPERWORK_INTAKE_DECLINE = shipped
+    return shipped
 
 
 def class_is_closed(
@@ -205,9 +273,12 @@ def class_is_closed(
     ledger: CapabilityLedger | None = None,
     lineage_ref: str = "",
 ) -> bool:
-    """True when every required structural closer is proved on the effective ledger."""
+    """True when the class is structurally closed on the effective ledger or by shipped behavior."""
 
-    required = class_closure_ids(class_id)
+    normalized = str(class_id or "").strip()
+    if normalized == PAPERWORK_MILESTONE and paperwork_intake_decline_shipped():
+        return True
+    required = class_closure_ids(normalized)
     if not required:
         return False
     live = load_effective_ledger(Path(root), lineage_ref=lineage_ref, ledger=ledger)
