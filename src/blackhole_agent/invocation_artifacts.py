@@ -13,9 +13,10 @@ files under a per-invocation directory and serves them:
   missing module on a baseline tree is a clean ``passed=false`` rather than
   a crash
 
-Honesty boundary: only regular files copied out of this invocation's TEMP
-are served. Symlinks are skipped at harvest. The store does not expire;
-operators delete the workspace root to drop artifacts, matching receipts.
+Honesty boundary: regular files written into this invocation's effect
+directory, including files copied out of its TEMP, are served. Symlinks
+are skipped. The store does not expire; operators delete the workspace
+root to drop artifacts, matching receipts.
 """
 
 from __future__ import annotations

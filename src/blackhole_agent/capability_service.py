@@ -228,6 +228,15 @@ module turns the ledger into a service:
   the bytes. Path traversal and unknown ids are refused. ``GET
   /health`` reports ``max_scratch_bytes`` and ``invocation_artifacts``. A
   small scratch write still succeeds. Kernel and git subprocesses omit the cap.
+- The same per-invocation artifact directory is a host-visible effect
+  directory. ``POST /invoke`` exports it to the tool as
+  ``BLACKHOLE_EFFECT_DIR`` and grants it as the only writable root besides
+  scratch, so an operator can read files the tool creates while that
+  process is still running. The vendored tree stays read/execute only; a
+  write there is still ``PermissionError``. A nonzero exit reports the
+  exception line from stderr, so the operator sees ``PermissionError``
+  rather than only ``Traceback (most recent call last):``. ``GET /health``
+  reports ``invocation_effect_dir``.
 - HTTP occupancy is bounded independently of untrusted-tool admission.
   Every accepted socket has a request timeout
   (``BLACKHOLE_HTTP_REQUEST_TIMEOUT``, default 15s) so a client that
@@ -476,6 +485,7 @@ from blackhole_agent.invocation_admission import (
 )
 from blackhole_agent.invocation_artifacts import (
     ArtifactError,
+    artifacts_root,
     list_artifact_files,
     new_invocation_id,
     prepare_artifact_dir,
@@ -1120,10 +1130,58 @@ def _normalized_command(command: Sequence[str]) -> list[str]:
     return parts
 
 
-def _tool_env() -> dict[str, str]:
+def _tool_env(extra: Mapping[str, str] | None = None) -> dict[str, str]:
     # Vendored tools are untrusted third-party code: run them with the
     # scrubbed allowlist environment, never the operator's ambient secrets.
-    return tool_execution_env()
+    # ``extra`` is an explicit addition such as the effect-directory path.
+    return tool_execution_env(extra)
+
+
+_DIAGNOSTIC_LIMIT = 400
+
+
+def tool_failure_detail(stderr: str) -> str:
+    """Return the exception line from tool stderr, not the traceback header.
+
+    A Python failure's first line is ``Traceback (most recent call last):``,
+    which hides ``PermissionError`` and every other real cause. The last
+    substantive line is the exception. The result is bounded so a noisy
+    tool cannot fill the HTTP error or the failure journal.
+    """
+
+    lines = [line.strip() for line in str(stderr or "").splitlines() if line.strip()]
+    if not lines:
+        return "no stderr"
+    for line in reversed(lines):
+        if line.startswith("Traceback ") or line.startswith("File "):
+            continue
+        if line.startswith("During handling of") or line.startswith("The above exception"):
+            continue
+        return line[:_DIAGNOSTIC_LIMIT]
+    return lines[-1][:_DIAGNOSTIC_LIMIT]
+
+
+def invocation_effect_directory(root: Path, invocation_id: str) -> Path:
+    """Create the host-visible writable directory for one governed invoke.
+
+    The directory is the artifact store for this invocation. It must be a
+    real directory inside the artifact root and must not sit in a vendored
+    tool tree. Symlinks and junctions that resolve outside that root are
+    refused before any sandbox grant.
+    """
+
+    try:
+        dest = prepare_artifact_dir(root, invocation_id)
+    except ArtifactError as exc:
+        raise InvocationError(exc.status, exc.error) from exc
+    if dest.is_symlink() or bool(getattr(dest, "is_junction", lambda: False)()):
+        raise InvocationError(500, "effect directory must be a real directory")
+    resolved = dest.resolve()
+    base = artifacts_root(root).resolve()
+    vendored = (Path(root).resolve() / "capabilities").resolve()
+    if resolved == base or not resolved.is_relative_to(base) or resolved.is_relative_to(vendored):
+        raise InvocationError(500, "effect directory escaped the artifact root")
+    return resolved
 
 
 def _sandbox_roots(root: Path, tool_root: Path) -> list[Path]:
@@ -1302,8 +1360,7 @@ def _run_governed_case(
         violation = detect_resource_violation(completed, limits)
         if violation is not None:
             return {"ok": False, "error": violation["reason"], "violation": violation}
-        stderr = (completed.stderr or "").strip().splitlines()
-        detail = stderr[0] if stderr else "no stderr"
+        detail = tool_failure_detail(completed.stderr or "")
         return {"ok": False, "error": f"exit {completed.returncode}: {detail}"}
     peak = int((getattr(completed, "job_stats", None) or {}).get("peak_job_memory_bytes") or 0)
     try:
@@ -1593,7 +1650,7 @@ def invoke_capability(
     limits = effective_resource_limits(item)
     started_ms = monotonic_ms()
     invocation_id = new_invocation_id()
-    artifact_dir = prepare_artifact_dir(root, invocation_id)
+    artifact_dir = invocation_effect_directory(root, invocation_id)
 
     def record(ok: bool, error: str | None = None) -> None:
         record_invocation(
@@ -1607,10 +1664,11 @@ def invoke_capability(
                 cwd=Path(item["tool_root"]),
                 timeout=timeout,
                 input=json.dumps(provided_input),
-                env=_tool_env(),
+                env=_tool_env({"BLACKHOLE_EFFECT_DIR": str(artifact_dir)}),
                 resource_limits=limits,
                 cancel_event=cancel_event,
                 sandbox_roots=_sandbox_roots(root, Path(item["tool_root"])),
+                sandbox_rw_roots=[artifact_dir],
                 max_output_bytes=current_max_output_bytes(),
                 max_scratch_bytes=current_max_scratch_bytes(),
                 on_output=output_listener,
@@ -1653,8 +1711,7 @@ def invoke_capability(
                 f"tool violated the enforced resource limits: {violation['reason']}",
                 extra={"violation": "resource_limit", "resource": violation, "quarantined": True},
             )
-        stderr = (completed.stderr or "").strip().splitlines()
-        detail = stderr[0] if stderr else "no stderr"
+        detail = tool_failure_detail(completed.stderr or "")
         record(False, f"exited {completed.returncode}: {detail}")
         _remember_circuit_failure(root, capability_id)
         raise InvocationError(502, f"tool exited {completed.returncode}: {detail}")
@@ -3080,6 +3137,7 @@ def build_server(
                         "max_scratch_bytes": current_max_scratch_bytes(),
                         "live_invoke_stream": True,
                         "invocation_artifacts": True,
+                        "invocation_effect_dir": True,
                         "mcp_tools_list_changed": True,
                         "mcp_completions": True,
                         "mcp_resource_subscribe": True,

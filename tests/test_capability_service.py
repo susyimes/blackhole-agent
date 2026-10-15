@@ -909,10 +909,13 @@ def test_solve_healthy_goal_reports_no_healing(server) -> None:
 
 
 _HOLD_TOOL = (
-    "import json, sys, time\n"
+    "import json, os, sys, time\n"
     "from pathlib import Path\n"
     "state = json.load(sys.stdin)\n"
-    "Path('ready.txt').write_text('1', encoding='utf-8')\n"
+    "effect = os.environ.get('BLACKHOLE_EFFECT_DIR', '')\n"
+    "if not effect:\n"
+    "    raise SystemExit('effect directory missing')\n"
+    "Path(effect, 'ready.txt').write_text('1', encoding='utf-8')\n"
     "time.sleep(float(state.get('hold_seconds') or 1.5))\n"
     "print(json.dumps({'tainted_text': state['raw_text']}))\n"
 )
@@ -979,7 +982,7 @@ def _write_midexec_chain(root: Path) -> None:
 def test_solve_heals_mid_execution_quarantine(server) -> None:
     root, base = server
     _write_midexec_chain(root)
-    ready = root / "capabilities" / "absorbed" / "tainter" / "ready.txt"
+    artifacts = root / ".blackhole-agent" / "invocation-artifacts"
     box: dict[str, object] = {}
 
     def _solve() -> None:
@@ -995,9 +998,14 @@ def test_solve_heals_mid_execution_quarantine(server) -> None:
     worker = threading.Thread(target=_solve)
     worker.start()
     deadline = time.monotonic() + 10
-    while time.monotonic() < deadline and not ready.is_file():
+    ready = None
+    while time.monotonic() < deadline:
+        matches = list(artifacts.glob("*/ready.txt")) if artifacts.is_dir() else []
+        if matches:
+            ready = matches[0]
+            break
         time.sleep(0.05)
-    assert ready.is_file(), "hold step never started"
+    assert ready is not None and ready.is_file(), "hold step never started"
     record_resource_quarantine(
         root,
         "capability.absorbed-late-reverser",
@@ -1036,10 +1044,13 @@ def test_solve_dry_run_returns_plan_without_executing(tmp_path: Path) -> None:
         root,
         "append-event",
         (
-            "import json, sys\n"
+            "import json, os, sys\n"
             "from pathlib import Path\n"
             "state = json.load(sys.stdin)\n"
-            "Path(state['events']).write_text(state['label'], encoding='utf-8')\n"
+            "effect = os.environ.get('BLACKHOLE_EFFECT_DIR', '')\n"
+            "if not effect:\n"
+            "    raise SystemExit('effect directory missing')\n"
+            "Path(effect, 'effects.txt').write_text(state['label'], encoding='utf-8')\n"
             "print(json.dumps({'saved': state['label']}))\n"
         ),
         requires=["events", "label"],
@@ -1069,6 +1080,9 @@ def test_solve_dry_run_returns_plan_without_executing(tmp_path: Path) -> None:
     assert preview["steps"] == []
     assert "outcome" not in preview
     assert not canary.exists()
+    preview_effects = root / ".blackhole-agent" / "invocation-artifacts"
+    if preview_effects.is_dir():
+        assert not list(preview_effects.glob("*/effects.txt"))
     live = solve_goal_request(
         root,
         {"events": str(canary), "label": "preview-should-not-write"},
@@ -1076,7 +1090,10 @@ def test_solve_dry_run_returns_plan_without_executing(tmp_path: Path) -> None:
     )
     assert live["solved"] is True
     assert live.get("dry_run") is not True
-    assert canary.read_text(encoding="utf-8") == "preview-should-not-write"
+    assert not canary.exists()
+    effects = list((root / ".blackhole-agent" / "invocation-artifacts").glob("*/effects.txt"))
+    assert len(effects) == 1
+    assert effects[0].read_text(encoding="utf-8") == "preview-should-not-write"
     unsolved = solve_goal_request(root, {"raw_text": "x"}, ["no_such_key"], dry_run=True)
     assert unsolved["solved"] is False
     assert unsolved["dry_run"] is True
@@ -1360,10 +1377,13 @@ def _read_http_headers(sock: socket.socket) -> tuple[int, bytes]:
 def test_mcp_http_get_sse_progress_and_cross_post_cancel(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)
     slow = (
-        "import json, sys, time\n"
+        "import json, os, sys, time\n"
         "from pathlib import Path\n"
         "state = json.load(sys.stdin)\n"
-        "path = Path(state['heartbeat_path'])\n"
+        "effect = os.environ.get('BLACKHOLE_EFFECT_DIR', '')\n"
+        "if not effect:\n"
+        "    raise SystemExit('effect directory missing')\n"
+        "path = Path(effect) / 'heartbeat.txt'\n"
         "deadline = time.monotonic() + 25\n"
         "n = 0\n"
         "while time.monotonic() < deadline:\n"
@@ -1386,6 +1406,18 @@ def test_mcp_http_get_sse_progress_and_cross_post_cancel(tmp_path: Path) -> None
     )
     ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
     heartbeat = root / "capabilities" / "absorbed" / "heartbeat-hold" / "heartbeat.txt"
+    artifacts = root / ".blackhole-agent" / "invocation-artifacts"
+
+    def _beat() -> int:
+        best = 0
+        if not artifacts.is_dir():
+            return 0
+        for path in artifacts.glob("*/heartbeat.txt"):
+            try:
+                best = max(best, int(path.read_text(encoding="utf-8").strip() or "0"))
+            except (OSError, ValueError):
+                continue
+        return best
 
     httpd = build_server(root, port=0)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
@@ -1484,16 +1516,14 @@ def test_mcp_http_get_sse_progress_and_cross_post_cancel(tmp_path: Path) -> None
         started = time.monotonic()
         first_beat = 0
         while time.monotonic() - started < 15:
-            try:
-                first_beat = int(heartbeat.read_text(encoding="utf-8").strip() or "0")
-            except (OSError, ValueError):
-                first_beat = 0
+            first_beat = _beat()
             if first_beat >= 1 and any(
                 item.get("method") == "notifications/progress" for item in events
             ):
                 break
             time.sleep(0.05)
         assert first_beat >= 1, "heartbeat tool never started"
+        assert not heartbeat.exists()
         assert any(item.get("method") == "notifications/progress" for item in events)
 
         status, accepted = _request(
@@ -1514,9 +1544,9 @@ def test_mcp_http_get_sse_progress_and_cross_post_cancel(tmp_path: Path) -> None
         assert body.get("error", {}).get("code") == -32800
 
         time.sleep(0.8)
-        sample_a = int(heartbeat.read_text(encoding="utf-8").strip() or "0")
+        sample_a = _beat()
         time.sleep(0.6)
-        sample_b = int(heartbeat.read_text(encoding="utf-8").strip() or "0")
+        sample_b = _beat()
         assert sample_b == sample_a
 
         status, invoked = _request(
