@@ -3259,6 +3259,47 @@ def loop_stop(
     console.print(f"stop requested: {stop_path}")
 
 
+@app.command("storage-budget", help="Measure the shared BA logical-byte budget and authorize the next output.")
+def storage_budget(
+    repo_path: Path = typer.Option(Path("."), "--repo-path", help="Main Blackhole repository."),
+    receipt: Path | None = typer.Option(None, "--receipt", help="Write the measurement receipt to this path."),
+    additional_bytes: int = typer.Option(0, "--additional-bytes", help="Logical bytes the next output would add."),
+    include_attributable: bool = typer.Option(
+        True,
+        "--include-attributable/--declared-roots-only",
+        help="Include BA temp outputs and attributable Grok session directories.",
+    ),
+) -> None:
+    """Report measured usage. Does not delete logs, scratch, worktrees, or Grok sessions."""
+
+    from blackhole_agent.storage_budget import (
+        default_ba_roots,
+        discover_attributable_roots,
+        govern_expansion,
+    )
+
+    roots = default_ba_roots(repo_path)
+    if include_attributable:
+        roots.extend(discover_attributable_roots())
+    result = govern_expansion(
+        roots,
+        additional_bytes=additional_bytes,
+        receipt_path=receipt,
+    )
+    console.print_json(
+        data={
+            "bytes_before": result["bytes_before"],
+            "bytes_after": result["bytes_after"],
+            "cap_bytes": result["cap_bytes"],
+            "preventive_bytes": result["preventive_bytes"],
+            "expansion": result["expansion"],
+            "cleanup_targets": result["cleanup_targets"],
+            "skipped": result["skipped"],
+            "size_kind": result["size_kind"],
+        }
+    )
+
+
 def restore_orphaned_continuous_loop(
     repo_path: Path,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
