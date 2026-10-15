@@ -334,13 +334,19 @@ module turns the ledger into a service:
   ``400 schedules_disabled``. REST ``POST /invoke`` is unchanged.
 - Consecutive nonzero tool exits open a failure circuit. After three
   completed nonzero exits of the same capability, ``POST /invoke`` of that
-  id returns HTTP 409 ``capability_circuit_open`` and does not spawn. The
-  streak and the open flag persist in SQLite under the service root, including
-  across a process restart. One successful exit before the third failure
-  clears the streak. A different capability still runs. ``GET /circuits/{id}``
-  reports the streak; ``POST /circuits/{id}`` with ``{"action": "close"}``
-  clears it so the next invoke spawns again. ``GET /health`` reports
-  ``failure_circuit``. Resource-limit quarantine is unchanged.
+  id returns HTTP 409 ``capability_circuit_open`` and does not spawn. A
+  wall-clock timeout and a zero exit whose stdout is not a JSON object
+  containing the declared provides keys count toward that same streak, so
+  a tool that never returns its contract cannot be relaunched forever.
+  The streak and the open flag persist in SQLite under the service root,
+  including across a process restart. One successful exit before the third
+  failure clears the streak. A different capability still runs. ``GET
+  /circuits/{id}`` reports the streak; ``POST /circuits/{id}`` with
+  ``{"action": "close"}`` clears it so the next invoke spawns again.
+  ``GET /health`` reports ``failure_circuit``,
+  ``failure_circuit_counts_timeout``, and
+  ``failure_circuit_counts_undeclared_output``. Resource-limit quarantine,
+  admission limits, and operator cancellation do not count.
 - Tool execution is filesystem-sandboxed: the owned tree runs inside an
   OS-enforced allowlist (Windows AppContainer, Linux Landlock) of the
   vendored tool tree, a per-invocation scratch directory, and the
@@ -1563,7 +1569,7 @@ def invoke_capability(
             record_plugin(False, str(exc))
             _remember_circuit_failure(root, capability_id)
             raise InvocationError(502, f"plugin tool failed: {exc}") from exc
-        except (OSError, RuntimeError) as exc:
+        except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
             record_plugin(False, f"{type(exc).__name__}: {exc}")
             _remember_circuit_failure(root, capability_id)
             raise InvocationError(
@@ -1635,6 +1641,7 @@ def invoke_capability(
         raise
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         record(False, f"{type(exc).__name__}: {exc}")
+        _remember_circuit_failure(root, capability_id)
         raise InvocationError(502, f"tool execution failed: {type(exc).__name__}: {exc}") from exc
     if completed.returncode != 0:
         violation = detect_resource_violation(completed, limits)
@@ -1655,13 +1662,16 @@ def invoke_capability(
         fragment = json.loads(completed.stdout or "")
     except json.JSONDecodeError as exc:
         record(False, "stdout is not a JSON fragment")
+        _remember_circuit_failure(root, capability_id)
         raise InvocationError(502, f"tool stdout is not a JSON fragment: {exc}") from exc
     if not isinstance(fragment, dict):
         record(False, "stdout is not a JSON object")
+        _remember_circuit_failure(root, capability_id)
         raise InvocationError(502, "tool stdout must be a JSON object")
     missing_provides = [key for key in item["provides"] if key not in fragment]
     if missing_provides:
         record(False, f"missing provides keys: {missing_provides}")
+        _remember_circuit_failure(root, capability_id)
         raise InvocationError(502, f"tool output missing provides keys: {missing_provides}")
     output = {key: fragment[key] for key in item["provides"]}
     record(True)
@@ -3861,6 +3871,8 @@ def builtin_capability_service_proof(root: Path | None = None) -> dict[str, Any]
             and health.get("failure_circuit") is True
             and health.get("failure_circuit_threshold") == 3
             and health.get("failure_circuit_open") == 0
+            and health.get("failure_circuit_counts_timeout") is True
+            and health.get("failure_circuit_counts_undeclared_output") is True
         )
         checks["vendored_tree_readonly_health"] = (
             status == 200 and isinstance(health, dict) and health.get("vendored_tree_readonly") is True

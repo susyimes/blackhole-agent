@@ -318,6 +318,8 @@ def test_unknown_paths_and_health(server) -> None:
     assert health["failure_circuit"] is True
     assert health["failure_circuit_threshold"] == 3
     assert health["failure_circuit_open"] == 0
+    assert health["failure_circuit_counts_timeout"] is True
+    assert health["failure_circuit_counts_undeclared_output"] is True
     status, result = _request("GET", f"{base}/nope")
     assert status == 404 and result["ok"] is False
     status, result = _request("POST", f"{base}/capabilities", {"x": 1})

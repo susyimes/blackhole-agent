@@ -8,8 +8,10 @@ before the threshold clears the streak. ``POST /circuits/{id}`` with
 ``{"action": "close"}`` clears an open circuit so the next call can spawn.
 A different capability is unaffected.
 
-Resource-limit quarantine is a separate ledger flag. This circuit counts
-only completed nonzero tool exits.
+Resource-limit quarantine is a separate ledger flag. Callers record
+completed nonzero exits, wall-clock timeouts, and zero exits that do not
+return the declared JSON output. Admission limits, operator cancellation,
+and resource-limit quarantine are not circuit failures.
 """
 
 from __future__ import annotations
@@ -75,6 +77,8 @@ def failure_circuit_health(root: Path) -> dict[str, Any]:
         "failure_circuit": True,
         "failure_circuit_threshold": FAILURE_CIRCUIT_THRESHOLD,
         "failure_circuit_open": 0,
+        "failure_circuit_counts_timeout": True,
+        "failure_circuit_counts_undeclared_output": True,
     }
     try:
         payload["failure_circuit_open"] = FailureCircuit(root).open_count()
@@ -162,7 +166,7 @@ class FailureCircuit:
         return int(row["n"] if row is not None else 0)
 
     def note_failure(self, capability_id: str) -> dict[str, Any]:
-        """Count one nonzero exit. The call that reaches the threshold opens the circuit."""
+        """Count one completed failure. The call that reaches the threshold opens the circuit."""
 
         ident = validate_capability_id(capability_id)
         with self._lock, self._database() as connection:
