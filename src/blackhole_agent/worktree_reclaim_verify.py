@@ -6,12 +6,17 @@ that. A directory is removable only when the path stays inside the managed
 worktree parent, every branch and checkout commit is in the verified lineage
 (the remote-tracking tips when any were supplied), no reparse point is
 present, and tracked, untracked, and ignored paths hold no unique or
-uncommitted work. Process use is checked separately, immediately before the
-delete, so a lock discovered at that moment still preserves the directory.
+uncommitted work. Ignored setuptools ``*.egg-info`` metadata is reproducible
+install output, same as ``__pycache__``. A ``.git`` gitfile whose gitdir
+directory is gone is not a working tree: the checkout is removable only when
+the remaining files still match the published commit. Process use is checked
+separately, immediately before the delete, so a lock discovered at that
+moment still preserves the directory.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 import stat
 import subprocess
@@ -107,6 +112,14 @@ def assess_worktree_removal(
         command_runner,
     )
     if status.returncode != 0:
+        # Harvested 2026-10-11: the gitfile remains, its gitdir directory does
+        # not, and git reports "not a git repository: (NULL)". That is a
+        # detached tree, not an unreadable live worktree. Any other status
+        # failure with a .git entry still keeps the directory.
+        if _dead_gitfile(target) and _status_says_not_a_repository(status):
+            if _published_tree_matches(repo, milestone_head, target, command_runner):
+                return WorktreeRemovalAssessment(True, "", stale_published_tree=True)
+            return WorktreeRemovalAssessment(False, "stale_directory_has_unique_work")
         if (target / ".git").exists():
             return WorktreeRemovalAssessment(False, "worktree_status_unreadable")
         if _published_tree_matches(repo, milestone_head, target, command_runner):
@@ -227,7 +240,34 @@ def _is_reproducible_ignored(relative: str) -> bool:
     pure = Path(relative.replace("\\", "/"))
     if pure.name in _REPRODUCIBLE_FILE_NAMES or pure.suffix in _REPRODUCIBLE_SUFFIXES:
         return True
-    return any(part in _REPRODUCIBLE_DIR_NAMES for part in pure.parts)
+    return any(
+        part in _REPRODUCIBLE_DIR_NAMES or part.endswith(".egg-info")
+        for part in pure.parts
+    )
+
+
+def _dead_gitfile(workspace: Path) -> bool:
+    """True when ``.git`` is a gitfile and the directory it names is gone."""
+
+    gitfile = workspace / ".git"
+    try:
+        if not gitfile.is_file():
+            return False
+        text = gitfile.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    line = text.strip().splitlines()[0] if text.strip() else ""
+    if not line.lower().startswith("gitdir:"):
+        return False
+    target = line.split(":", 1)[1].strip()
+    if not target:
+        return False
+    return not Path(target).exists()
+
+
+def _status_says_not_a_repository(status: subprocess.CompletedProcess[str]) -> bool:
+    blob = f"{status.stderr or ''}\n{status.stdout or ''}".lower()
+    return "not a git repository" in blob
 
 
 def _parse_porcelain_z(payload: str) -> list[tuple[str, str]]:
@@ -260,7 +300,8 @@ def _published_tree_matches(
         return False
     if _is_reparse(workspace) or _contains_reparse(workspace):
         return False
-    if (workspace / ".git").exists():
+    dead_gitfile = _dead_gitfile(workspace)
+    if (workspace / ".git").exists() and not dead_gitfile:
         return False
     listed = _run(["git", "ls-tree", "-r", "-z", commit], repo, command_runner)
     if listed.returncode != 0:
@@ -277,35 +318,54 @@ def _published_tree_matches(
         files = _regular_files(workspace)
     except OSError:
         return False
+    hasher = _blob_hasher(repo, command_runner)
     for path in files:
         relative = path.relative_to(workspace.resolve()).as_posix()
+        if dead_gitfile and relative == ".git":
+            continue
         if _is_reproducible_ignored(relative):
             continue
         digest = blobs.get(relative)
         if digest is None:
             return False
-        if not _file_matches_blob(repo, commit, relative, path):
+        if not _disk_matches_oid(path, digest, hasher):
             return False
     return True
 
 
-def _file_matches_blob(repo: Path, commit: str, relative: str, path: Path) -> bool:
-    completed = subprocess.run(
-        ["git", "cat-file", "--filters", f"{commit}:{relative}"],
-        cwd=repo,
-        capture_output=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        return False
+def _blob_hasher(repo: Path, command_runner: Callable[..., Any]):
+    """Hash constructor for this repository's object format."""
+
+    shown = _run(["git", "rev-parse", "--show-object-format"], repo, command_runner)
+    name = (shown.stdout or "").strip() if shown.returncode == 0 else ""
+    if name == "sha256":
+        return hashlib.sha256
+    return hashlib.sha1
+
+
+def _git_blob_oid(data: bytes, hasher) -> str:
+    digest = hasher()
+    digest.update(f"blob {len(data)}\0".encode("ascii"))
+    digest.update(data)
+    return digest.hexdigest()
+
+
+def _disk_matches_oid(path: Path, oid: str, hasher) -> bool:
+    """True when the file is the stored blob, allowing CRLF worktree newlines.
+
+    One hash of the file replaces a ``git cat-file`` process per path. A
+    smudge filter other than newline conversion can make this return false
+    for a checkout git itself would call clean. That keeps the directory.
+    """
+
     try:
         disk = path.read_bytes()
     except OSError:
         return False
-    blob = completed.stdout
-    if disk == blob:
+    if _git_blob_oid(disk, hasher) == oid:
         return True
-    return disk.replace(b"\r\n", b"\n") == blob.replace(b"\r\n", b"\n")
+    normalized = disk.replace(b"\r\n", b"\n")
+    return normalized != disk and _git_blob_oid(normalized, hasher) == oid
 
 
 def _bounded_remove_tree(root: Path, allowed_parent: Path) -> bool:

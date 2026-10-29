@@ -460,6 +460,60 @@ def test_ignored_secret_is_kept_and_pycache_is_not(tmp_path: Path) -> None:
     assert kept_reasons["m-secret"] == "unique_or_uncommitted_work"
 
 
+def test_ignored_egg_info_is_not_unique_work(tmp_path: Path) -> None:
+    repo = _init_repo(tmp_path)
+    (repo / ".gitignore").write_text("*.egg-info/\n", encoding="utf-8")
+    _git(repo, "add", ".gitignore")
+    _git(repo, "commit", "-m", "ignore egg-info")
+    workspace = _make_mission(repo, "m-egg", status="complete", created_at="2026-01-01T00:00:00Z")
+    egg = workspace / "src" / "pkg.egg-info"
+    egg.mkdir(parents=True)
+    (egg / "PKG-INFO").write_text("Metadata-Version: 2.1\n", encoding="utf-8")
+    dirty = _make_mission(repo, "m-dirty", status="complete", created_at="2026-01-02T00:00:00Z")
+    (dirty / "src" / "pkg.egg-info").mkdir(parents=True)
+    (dirty / "src" / "pkg.egg-info" / "PKG-INFO").write_text("Metadata-Version: 2.1\n", encoding="utf-8")
+    (dirty / "README.md").write_text("local edit\n", encoding="utf-8")
+
+    report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+
+    assert report["ok"] is True, report
+    assert report["errors"] == []
+    assert not workspace.exists()
+    assert dirty.exists()
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m-dirty"] == "unique_or_uncommitted_work"
+    remove_command = report["reclaimed"][0]["remove_command"]
+    assert "--force" not in remove_command
+    assert "-f" not in remove_command
+
+
+def test_dead_gitfile_matching_published_tree_is_reclaimed(tmp_path: Path) -> None:
+    import shutil
+
+    repo = _init_repo(tmp_path)
+    workspace = _make_mission(repo, "m-dead", status="complete", created_at="2026-01-01T00:00:00Z")
+    kept = _make_mission(repo, "m-dead-extra", status="complete", created_at="2026-01-02T00:00:00Z")
+    for checkout in (workspace, kept):
+        gitfile = checkout / ".git"
+        target = Path(gitfile.read_text(encoding="utf-8").strip().split(":", 1)[1].strip())
+        shutil.rmtree(target)
+    (kept / "STALE.txt").write_text("leftover\n", encoding="utf-8")
+
+    report = reclaim_mission_worktrees(repo, ancestor_refs=("main",), keep_recent=0)
+
+    assert report["ok"] is True, report
+    assert report["errors"] == []
+    assert not workspace.exists()
+    assert kept.exists()
+    assert (kept / "STALE.txt").read_text(encoding="utf-8") == "leftover\n"
+    kept_reasons = {item["mission_id"]: item["reason"] for item in report["kept"]}
+    assert kept_reasons["m-dead-extra"] == "stale_directory_has_unique_work"
+    reclaimed = report["reclaimed"][0]
+    assert reclaimed["mission_id"] == "m-dead"
+    assert reclaimed["stale_not_a_working_tree"] is True
+    assert "--force" not in reclaimed["remove_command"]
+
+
 def test_process_using_the_directory_blocks_removal(tmp_path: Path) -> None:
     import sys
 
