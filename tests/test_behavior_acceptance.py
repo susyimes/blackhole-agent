@@ -90,3 +90,65 @@ def test_autonomous_milestone_retains_acceptance_receipt(tmp_path, monkeypatch):
         baseline_ref=baseline,
     )
     assert not missing.accepted
+
+
+def test_failed_behavior_acceptance_is_not_a_command_replay(tmp_path, monkeypatch):
+    """The harvested synthetic controller:behavior-acceptance replay must not recur."""
+
+    monkeypatch.setattr(
+        "blackhole_agent.unbound.replay_behavior_acceptance",
+        lambda *args, **kwargs: {
+            "ok": False,
+            "error": "the same probe must show baseline passed=false and candidate passed=true",
+        },
+    )
+    monkeypatch.setattr("blackhole_agent.unbound.run_workspace_goal_watchdog", lambda *a, **k: None)
+
+    def runner(command, **kwargs):
+        exit_code = kwargs.pop("exit_code", 0)
+        return subprocess.CompletedProcess(command, exit_code, stdout="[]\n", stderr="")
+
+    def gate(exit_code: int):
+        def command_runner(command, **kwargs):
+            return runner(command, exit_code=exit_code, **kwargs)
+
+        return evaluate_milestone(
+            TurnDecision.from_payload(
+                {
+                    "status": "milestone",
+                    "capability_delta": "separate behavior acceptance from command replay",
+                    "outcome_evidence": ["gate reasons"],
+                    "validation": [{"command": f'"{sys.executable}" -c "print(1)"', "exit_code": 0}],
+                    "acceptance_probe": "tests/acceptance/probe.py",
+                }
+            ),
+            workspace=tmp_path,
+            changed_paths=["src/seed.py"],
+            autonomous=True,
+            baseline_ref="HEAD",
+            command_runner=command_runner,
+        )
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "seed.py").write_text("VALUE = 1\n", encoding="utf-8")
+    passing = gate(0)
+    failing = gate(1)
+    assert passing.accepted is False
+    assert any(reason.startswith("behavior acceptance failed") for reason in passing.reasons)
+    assert not any("controller:behavior-acceptance" in reason and "validation replay failed" in reason for reason in passing.reasons)
+    assert any(
+        "validation replay failed" in reason and "exit 1" in reason for reason in failing.reasons
+    )
+    from blackhole_agent.pattern_register import classify_unbound_turn
+
+    events = classify_unbound_turn(
+        {
+            "iteration": 2,
+            "milestone_gate": {
+                "requested": True,
+                "accepted": False,
+                "reasons": list(passing.reasons),
+            },
+        }
+    )
+    assert events[0]["class_id"] == "milestone_rejected"

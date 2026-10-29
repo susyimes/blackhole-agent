@@ -78,7 +78,9 @@ PATTERN_CLASSES: dict[str, dict[str, str]] = {
         "structural_fix": (
             "Replay a bounded growth *-verify witness instead of re-running an "
             "unbounded *-proof CLI. A hang without a derived witness still fails "
-            "closed; a later long proof is not fixed by shortening the last command."
+            "closed; a later long proof is not fixed by shortening the last command. "
+            "A failed behavior-acceptance receipt is not a validation command and "
+            "must not be recorded as reproduced exit None."
         ),
     },
     "mission_blocked": {
@@ -519,7 +521,16 @@ def classify_unbound_turn(record: dict[str, Any]) -> list[dict[str, str]]:
         class_id = "milestone_rejected"
         if any("docs, tests, artifacts" in reason or "paperwork" in reason.lower() for reason in reasons):
             class_id = "paperwork_milestone"
-        if any("replay" in reason.lower() or "reproduced" in reason.lower() for reason in reasons):
+        # A behavior-acceptance failure is not a command that reported exit 0.
+        # Harvested gates joined that failure with a synthetic
+        # controller:behavior-acceptance replay and forced validation_replay_failed.
+        command_replay_reasons = [
+            reason
+            for reason in reasons
+            if not reason.lower().startswith("behavior acceptance failed")
+            and ("replay" in reason.lower() or "reproduced" in reason.lower())
+        ]
+        if command_replay_reasons:
             class_id = "validation_replay_failed"
         events.append(
             {

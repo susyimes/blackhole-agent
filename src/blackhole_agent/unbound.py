@@ -1423,6 +1423,21 @@ def successful_validation(validation: tuple[dict[str, Any], ...]) -> bool:
 
 VALIDATION_REPLAY_LIMIT = 5
 VALIDATION_REPLAY_TIMEOUT_SECONDS = 300
+BEHAVIOR_ACCEPTANCE_COMMAND = "controller:behavior-acceptance"
+
+
+def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
+    """True for a re-executed validation command, not an acceptance receipt.
+
+    Harvested rejections from 2026-09-11 through 2026-10-11 appended the
+    behavior-acceptance receipt to the command-replay list. A failed
+    before/after probe has no reproduced exit code, so the gate then claimed
+    ``controller:behavior-acceptance`` reported exit 0 and reproduced exit None.
+    """
+
+    if str(replay.get("command") or "") == BEHAVIOR_ACCEPTANCE_COMMAND:
+        return False
+    return "reproduced_exit_code" in replay or bool(replay.get("timed_out"))
 
 
 def replay_validation_command(
@@ -1684,7 +1699,7 @@ def evaluate_milestone(
             reasons.append("autonomous milestone requires a before/after acceptance_probe under tests/acceptance")
         elif workspace is not None and not reasons:
             acceptance = replay_behavior_acceptance(workspace, baseline_ref, decision.acceptance_probe)
-            validation_replays.append({"command": "controller:behavior-acceptance", **acceptance})
+            validation_replays.append({"command": BEHAVIOR_ACCEPTANCE_COMMAND, **acceptance})
             if not acceptance["ok"]:
                 reasons.append(f"behavior acceptance failed: {acceptance.get('error', 'unknown outcome')}")
         elif workspace is None:
@@ -1696,7 +1711,8 @@ def evaluate_milestone(
             timeout=replay_timeout if replay_timeout is not None else VALIDATION_REPLAY_TIMEOUT_SECONDS,
             command_runner=command_runner or subprocess.run,
         )
-        for replay in validation_replays:
+        command_replays = [replay for replay in validation_replays if is_reported_command_replay(replay)]
+        for replay in command_replays:
             if replay.get("ok"):
                 continue
             if replay.get("timed_out"):
@@ -1707,7 +1723,7 @@ def evaluate_milestone(
                     f"{replay['command']} reported exit 0 but controller replay got "
                     f"exit {replay.get('reproduced_exit_code')}"
                 )
-        if not any(replay.get("ok") for replay in validation_replays):
+        if command_replays and not any(replay.get("ok") for replay in command_replays):
             reasons.append("no reported validation command reproduced successfully")
     if workspace is not None and not reasons and not waive:
         drift = run_workspace_goal_watchdog(workspace)
