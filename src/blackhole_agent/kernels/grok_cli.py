@@ -4,6 +4,11 @@ Windows controller launches leave ``HOME`` and ``GROK_HOME`` unset. Grok then
 logs ``auto worktree gc failed`` because it does not read ``USERPROFILE``, and
 its own session worktrees are never collected. The launch environment fills
 ``HOME`` from an existing profile directory unless a home is already set.
+
+The same launches inherit the controller ``PYTHONHOME``. Plugin commands such
+as ``uvx --python 3.12`` then load that prefix's standard library and die
+before they can answer an MCP initialize request. The launch environment
+drops ``PYTHONHOME`` so each plugin interpreter keeps its own prefix.
 """
 
 from __future__ import annotations
@@ -201,10 +206,17 @@ def grok_launch_environment(
     directory so the CLI can collect its session worktrees. An explicit
     ``HOME`` or ``GROK_HOME`` is preserved. A profile path that is not a
     directory is not copied into ``HOME``.
+
+    ``PYTHONHOME`` is always removed. Harvested browser-use MCP servers exit
+    before initialize: the controller prefix is CPython 3.13, the plugin
+    command is ``uvx --python 3.12``, and 3.12 then imports 3.13 ``typing.py``
+    and crashes on ``NoDefault``. Grok itself does not read ``PYTHONHOME``.
+    ``PYTHONPATH`` is left in place.
     """
 
     source = os.environ if environment is None else environment
     env = {str(key): str(value) for key, value in source.items() if value is not None}
+    _delete_env_key(env, "PYTHONHOME")
     if _env_lookup(env, "HOME") or _env_lookup(env, "GROK_HOME"):
         return env
     profile = _env_lookup(env, "USERPROFILE")

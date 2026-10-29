@@ -131,6 +131,40 @@ def test_grok_launch_environment_fills_home_from_an_existing_profile(tmp_path):
     assert "HOME" not in missing_profile
 
 
+def test_grok_launch_environment_drops_foreign_pythonhome(tmp_path):
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    preset = tmp_path / "preset-home"
+    preset.mkdir()
+    prefix = tmp_path / "cpython-3.13"
+    prefix.mkdir()
+
+    filled = grok_launch_environment(
+        {
+            "PATH": "C:/tools",
+            "USERPROFILE": str(profile),
+            "PYTHONHOME": str(prefix),
+            "PythonHome": str(prefix),
+            "PYTHONPATH": "C:/repo/src",
+            "SystemRoot": "C:/Windows",
+        }
+    )
+    preserved = grok_launch_environment(
+        {
+            "HOME": str(preset),
+            "USERPROFILE": str(profile),
+            "PATH": "C:/tools",
+            "PYTHONHOME": str(prefix),
+        }
+    )
+
+    assert not any(str(key).casefold() == "pythonhome" for key in filled)
+    assert filled["HOME"] == str(profile)
+    assert filled["PYTHONPATH"] == "C:/repo/src"
+    assert preserved["HOME"] == str(preset)
+    assert not any(str(key).casefold() == "pythonhome" for key in preserved)
+
+
 def test_grok_kernel_passes_profile_home_to_the_child(tmp_path, monkeypatch):
     monkeypatch.setattr("blackhole_agent.kernels.grok_cli.shutil.which", lambda _: "C:/tools/grok.exe")
     profile = tmp_path / "profile"
