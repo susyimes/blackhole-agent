@@ -226,6 +226,64 @@ def test_spending_limit_403_is_quota_and_bare_forbidden_is_not():
     assert bare.retryable is True
 
 
+def test_rejected_model_failsover_and_unknown_model_warning_does_not():
+    cursor = {
+        "returncode": 1,
+        "timed_out": False,
+        "stdout_tail": "",
+        "stderr_tail": (
+            "Cannot use this model: grok-4.7-xhigh. Available models: \n\n"
+            "missing terminal result"
+        ),
+        "last_message": "",
+        "session_id": "",
+        "decision_final": False,
+    }
+    failure = classify_run_artifact(
+        cursor,
+        error="Cursor CLI failed (exit 1): " + cursor["stderr_tail"],
+    )
+    assert failure.class_id == "model_unavailable"
+    assert failure.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Cursor CLI failed (exit 1): " + cursor["stderr_tail"],
+        current_kernel="cursor",
+        artifact=cursor,
+        installed_kernels={"grok", "cursor"},
+    )
+    assert salvaged.failover_kernel == "grok"
+    assert salvaged.decision["status"] == "continue"
+    assert "grok" in salvaged.decision["next_step"].lower()
+
+    kimi = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                'error: failed to run prompt: Model "grok-4.6" is not configured '
+                "in config.toml."
+            ),
+            "last_message": "",
+            "session_id": "",
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert kimi.class_id == "model_unavailable"
+    assert kimi.retryable is False
+
+    warning = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "Unknown model grok-4.6 is used. This will use fallback model metadata."
+            ),
+            "last_message": "",
+        },
+        error="Codex CLI failed with exit code 1",
+    )
+    assert warning.class_id == "cli_error"
+    assert warning.retryable is True
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True

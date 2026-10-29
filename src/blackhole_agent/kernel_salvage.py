@@ -14,6 +14,12 @@ Harvested Grok runs return HTTP 403 ``personal-team-blocked:spending-limit``
 (``run out of credits``), and harvested Kimi runs return a billing-cycle
 ``usage limit`` labeled ``auth_error``. Both used to stay a retryable CLI
 error, so the next turn launched the same kernel again.
+
+A kernel that rejects the requested model is not a retry of that same launch.
+The 2026-10-15 Cursor run exited 1 with ``Cannot use this model:
+grok-4.7-xhigh``, and 2026-09-04 Kimi runs exited because ``Model "grok-4.6"
+is not configured in config.toml``. Both stayed a retryable CLI error, so the
+next resolution launched the same kernel with the same unavailable model.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ from blackhole_agent.kernel_health import (
 
 PRE_SESSION_TRANSPORT_ABORT = "pre_session_transport_abort"
 SESSION_ALREADY_IN_USE = "session_already_in_use"
+MODEL_UNAVAILABLE = "model_unavailable"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -52,13 +59,26 @@ SESSION_ALREADY_IN_USE = "session_already_in_use"
 # Spending-limit and billing-cycle usage limits are quota_exhausted, which
 # is already a trip class. The 2026-07-29 Grok runs and the 2026-08-15 Kimi
 # runs used HTTP 403 instead of HTTP 402.
-FAILOVER_CLASSES = TRIP_CLASSES | frozenset({PRE_SESSION_TRANSPORT_ABORT})
+# A rejected model trips the breaker too. Retrying Cursor with grok-4.7-xhigh
+# or Kimi with an unconfigured grok-4.6 dies the same way. Failover clears
+# the provider-specific model name.
+FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
+    {PRE_SESSION_TRANSPORT_ABORT, MODEL_UNAVAILABLE}
+)
 _TRANSPORT_ABORT_MARKERS = (
     "disconnected before secure tls connection was established",
 )
 _SESSION_OCCUPIED_MARKERS = (
     "session id",
     "already in use",
+)
+# Harvested rejection strings. A Codex "unknown model ... fallback" warning
+# is not a rejection, and a bare 403 is not a model failure.
+_MODEL_REJECTION_MARKERS = (
+    "cannot use this model",
+)
+_MODEL_CONFIG_MARKERS = (
+    "is not configured in config.toml",
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -171,6 +191,14 @@ def _contains_any(text: str, markers: Iterable[str]) -> bool:
     return any(marker in text for marker in markers)
 
 
+def _is_model_unavailable(blob: str) -> bool:
+    """True for a harvested model rejection, not an unknown-model warning."""
+
+    if _contains_any(blob, _MODEL_REJECTION_MARKERS):
+        return True
+    return "model " in blob and _contains_any(blob, _MODEL_CONFIG_MARKERS)
+
+
 def classify_kernel_failure(
     *,
     returncode: int = 0,
@@ -198,6 +226,9 @@ def classify_kernel_failure(
     if int(returncode or 0) != 0 and all(marker in blob for marker in _SESSION_OCCUPIED_MARKERS):
         # The occupied id is not retryable. The kernel itself stays available.
         return KernelFailureClass(SESSION_ALREADY_IN_USE, False, evidence)
+    if int(returncode or 0) != 0 and _is_model_unavailable(blob):
+        # The same model on the same kernel fails again. Failover, do not retry.
+        return KernelFailureClass(MODEL_UNAVAILABLE, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):

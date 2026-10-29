@@ -4,10 +4,10 @@ The harvested 2026-08-16 Grok 402 storm retried a dead kernel for twelve
 turns. Decision salvage records a structured turn, but without memory the
 next turn (and the next mission) still invokes the same exhausted kernel.
 
-This module persists non-retryable kernel deaths (quota, auth, and a pre-session transport abort), skips
-open-circuit kernels on later resolution, and failsover to a local
-capability kernel that still emits a structured Unbound decision so the
-mission does not block or burn turns.
+This module persists non-retryable kernel deaths (quota, auth, a pre-session
+transport abort, and a rejected model), skips open-circuit kernels on later
+resolution, and failsover to a local capability kernel that still emits a
+structured Unbound decision so the mission does not block or burn turns.
 """
 
 from __future__ import annotations
@@ -30,6 +30,9 @@ DEFAULT_COOLDOWN_SECONDS = {
     # not a model decision. One hour matches auth: long enough that resume
     # does not relaunch the same aborted CLI, short enough to recover.
     "pre_session_transport_abort": 3600,
+    # The provider rejected the configured model. Immediate relaunch of that
+    # kernel repeats the rejection. One hour matches the transport abort.
+    "model_unavailable": 3600,
 }
 DEFAULT_COOLDOWN_FALLBACK = 1800
 MAX_COOLDOWN_SECONDS = 24 * 3600
