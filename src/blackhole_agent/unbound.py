@@ -28,7 +28,7 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.durable_state import durable_overlay_session
-from blackhole_agent.process_capture import run_captured_process
+from blackhole_agent.process_capture import run_captured_process, run_text_command
 from blackhole_agent.behavior_acceptance import replay_behavior_acceptance
 from blackhole_agent.evolution_quality import (
     content_fingerprint,
@@ -1440,14 +1440,17 @@ def replay_validation_command(
     """
 
     try:
-        completed = command_runner(
-            command,
-            cwd=workspace,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        if command_runner is subprocess.run:
+            completed = run_text_command(command, cwd=workspace, timeout=timeout, shell=True)
+        else:
+            completed = command_runner(
+                command,
+                cwd=workspace,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
     except subprocess.TimeoutExpired:
         return {
             "command": command,
@@ -1455,6 +1458,8 @@ def replay_validation_command(
             "reproduced_exit_code": None,
             "timed_out": True,
             "ok": False,
+            "stdout_tail": "",
+            "stderr_tail": "",
         }
     except Exception as error:  # pragma: no cover - defensive replay guard
         return {
@@ -1464,13 +1469,22 @@ def replay_validation_command(
             "timed_out": False,
             "ok": False,
             "error": str(error),
+            "stdout_tail": "",
+            "stderr_tail": "",
         }
+    stdout = completed.stdout if isinstance(completed.stdout, str) else ""
+    stderr = completed.stderr if isinstance(completed.stderr, str) else ""
+    # Strict text mode reports a successful exit with stdout None after the
+    # reader thread dies. That is a lost transcript, not a reproduction.
+    transcript_lost = command_runner is subprocess.run and not isinstance(completed.stdout, str)
     return {
         "command": command,
         "reported_exit_code": 0,
         "reproduced_exit_code": completed.returncode,
         "timed_out": False,
-        "ok": completed.returncode == 0,
+        "ok": completed.returncode == 0 and not transcript_lost,
+        "stdout_tail": stdout[-4000:],
+        "stderr_tail": stderr[-4000:],
     }
 
 
@@ -1525,11 +1539,9 @@ def run_workspace_goal_watchdog(workspace: Path, *, timeout: int = 120) -> dict[
         "print(json.dumps({'ok': bool(r['ok']), 'drifted_goals': r['drifted_goals']}))"
     )
     try:
-        completed = subprocess.run(
+        completed = run_text_command(
             [sys.executable, "-c", script],
-            cwd=str(workspace),
-            capture_output=True,
-            text=True,
+            cwd=workspace,
             timeout=timeout,
         )
     except Exception:  # noqa: BLE001 - watchdog unavailability must never block a milestone
@@ -1538,7 +1550,7 @@ def run_workspace_goal_watchdog(workspace: Path, *, timeout: int = 120) -> dict[
         return None
     try:
         return json.loads(completed.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
+    except (ValueError, IndexError, AttributeError):
         return None
 
 
@@ -1557,11 +1569,9 @@ def run_workspace_goal_recovery(workspace: Path, *, timeout: int = 300) -> dict[
         "print(json.dumps({'ok': bool(r['ok']), 'repairs': r['repairs'], 'recovery': r['recovery']}))"
     )
     try:
-        completed = subprocess.run(
+        completed = run_text_command(
             [sys.executable, "-c", script],
-            cwd=str(workspace),
-            capture_output=True,
-            text=True,
+            cwd=workspace,
             timeout=timeout,
         )
     except Exception:  # noqa: BLE001 - recovery unavailability falls back to plain refusal
@@ -1570,7 +1580,7 @@ def run_workspace_goal_recovery(workspace: Path, *, timeout: int = 300) -> dict[
         return None
     try:
         return json.loads(completed.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
+    except (ValueError, IndexError, AttributeError):
         return None
 
 

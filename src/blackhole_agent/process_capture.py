@@ -36,7 +36,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 
 class ProcessCancelled(RuntimeError):
@@ -715,6 +715,49 @@ def filesystem_sandbox_available() -> bool:
     if os.name == "nt":
         return True
     return _landlock_supported()
+
+
+def run_text_command(
+    command: list[str] | str,
+    *,
+    cwd: Path | str,
+    timeout: float,
+    shell: bool = False,
+    env: Mapping[str, str] | None = None,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> subprocess.CompletedProcess[str]:
+    """Capture text without dropping the transcript on a non-UTF-8 byte.
+
+    CPython's text-mode reader thread uses strict UTF-8. A leading byte such
+    as ``0xCE`` or ``0xD5`` raises ``UnicodeDecodeError`` inside
+    ``_readerthread`` (printed on the loop stderr) and ``communicate`` then
+    returns ``stdout=None`` while the child exit code is still set. Harvested
+    on 2026-09-03, 2026-09-04, and 2026-10-29. Replacement decoding keeps the
+    exit code and the text that followed the byte.
+
+    Injected runners keep the historical keyword set so test doubles that do
+    not accept ``encoding`` continue to work. The real ``subprocess.run``
+    path always passes ``errors="replace"``.
+    """
+
+    kwargs: dict[str, Any] = {
+        "cwd": cwd,
+        "capture_output": True,
+        "text": True,
+        "timeout": timeout,
+        "shell": shell,
+    }
+    if env is not None:
+        kwargs["env"] = dict(env)
+    if command_runner is subprocess.run:
+        kwargs["encoding"] = "utf-8"
+        kwargs["errors"] = "replace"
+    completed = command_runner(command, **kwargs)
+    stdout = completed.stdout if isinstance(getattr(completed, "stdout", None), str) else ""
+    stderr = completed.stderr if isinstance(getattr(completed, "stderr", None), str) else ""
+    if stdout == completed.stdout and stderr == getattr(completed, "stderr", None):
+        return completed
+    return subprocess.CompletedProcess(getattr(completed, "args", command), completed.returncode, stdout, stderr)
 
 
 def run_captured_process(
