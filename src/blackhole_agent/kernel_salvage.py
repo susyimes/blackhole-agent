@@ -38,6 +38,13 @@ reason to send the mission prompt again. The 2026-09-04 Grok run exited 1
 with ``error_kind`` ``max_tokens_truncation`` after 37 model calls. Salvage
 resumes that same session once with a decision-only prompt. A second
 truncation keeps the session and does not replay the original prompt.
+
+A Cursor step runner that already exhausted its own retries is not a dead
+kernel either. The 2026-09-11 run exited 1 with ``RetriableError`` ``Failed
+to run step, exceeded max retries`` while a session id was present. That
+stayed a retryable CLI error, so the turn left Cursor and replayed the
+mission on another kernel. Salvage resumes that same session once with a
+continuation prompt. A second exhaustion failsover without opening the circuit.
 """
 
 from __future__ import annotations
@@ -71,6 +78,7 @@ SESSION_NOT_FOUND = "session_not_found"
 MODEL_UNAVAILABLE = "model_unavailable"
 PROVIDER_OVERLOADED = "provider_overloaded"
 OUTPUT_TRUNCATED = "output_truncated"
+STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -132,11 +140,23 @@ _OUTPUT_TRUNCATION_MARKERS = (
     "max_tokens_truncation",
     "response truncated by max_tokens",
 )
+# Harvested Cursor death (2026-09-11). The CLI already retried the step.
+# A bare "max retries" warning, or "missing terminal result" alone, is not
+# this class. Both phrases are in that stderr.
+_STEP_RETRY_MARKERS = (
+    "failed to run step",
+    "exceeded max retries",
+)
 DECISION_ONLY_PROMPT = (
     "The previous response was truncated by max_tokens before a JSON decision. "
     "Do not call tools. Do not re-explore the repository. Do not repeat the mission prompt. "
     "Reply with only the JSON decision object for the work already done in this session. "
     "Use status continue if that work is unfinished. Keep the object small."
+)
+STEP_CONTINUE_PROMPT = (
+    "The previous step exhausted this kernel's internal retries before a JSON decision. "
+    "Do not restart the mission from the beginning. Continue from files already changed in this session. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -302,6 +322,10 @@ def classify_kernel_failure(
         # The kernel is healthy. Replaying the mission prompt repeats the
         # truncation. Resume the same session with a decision-only prompt.
         return KernelFailureClass(OUTPUT_TRUNCATED, False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _STEP_RETRY_MARKERS):
+        # The CLI already retried the step. Replaying the mission prompt on
+        # another kernel abandons the session that was doing the work.
+        return KernelFailureClass(STEP_RETRIES_EXHAUSTED, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -429,6 +453,20 @@ def synthesize_decision(
                 "Do not replay the full mission prompt."
             ),
             next_step="Resume the truncated session with a decision-only prompt.",
+            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        )
+    if failure.class_id == STEP_RETRIES_EXHAUSTED:
+        return empty_decision(
+            status="continue",
+            summary=(
+                f"Kernel {current_kernel} exhausted its internal step retries. "
+                "The same session continues once without replaying the mission prompt."
+            ),
+            strategy=(
+                "Resume the same session with a continuation prompt. "
+                "Do not abandon the session on the first exhaustion."
+            ),
+            next_step=f"Resume on the {current_kernel} kernel.",
             outcome_evidence=[failure.evidence] if failure.evidence else [],
         )
     if failure.class_id in {SESSION_ALREADY_IN_USE, SESSION_NOT_FOUND}:
@@ -675,8 +713,11 @@ def execute_kernel_turn_with_salvage(
     tried: set[str] = set()
     released_sessions: set[str] = set()
     truncated_resumes: set[str] = set()
+    step_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
+    pending_step_resume = False
+    original_prompt = prompt
     kernel_result = None
     salvaged = None
     from_kernel = original
@@ -698,6 +739,8 @@ def execute_kernel_turn_with_salvage(
                 source = "fresh_session"
             elif pending_decision_resume:
                 source = "decision_only_resume"
+            elif pending_step_resume:
+                source = "step_retry_resume"
             else:
                 source = "failover"
             meta.update(
@@ -713,6 +756,7 @@ def execute_kernel_turn_with_salvage(
                 state.decision_only_resume = False
             pending_fresh_session = False
             pending_decision_resume = False
+            pending_step_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -790,6 +834,27 @@ def execute_kernel_turn_with_salvage(
                         }
                     )
                     return result, decision, with_probe_meta(meta)
+            if salvaged.class_id == STEP_RETRIES_EXHAUSTED:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                    getattr(state, "session_started", False)
+                )
+                if resumable and state.kernel not in step_resumes:
+                    # One continuation on the session that was already working.
+                    # The original mission prompt is not sent again.
+                    step_resumes.add(state.kernel)
+                    prompt = STEP_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = True
+                    continue
+                # The step runner failed again. Another kernel gets the mission
+                # prompt. This kernel stays available; the account is not spent.
+                prompt = original_prompt
+                pending_step_resume = False
             pending_fresh_session = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
