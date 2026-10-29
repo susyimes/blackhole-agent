@@ -216,6 +216,62 @@ def govern_expansion(
     return receipt
 
 
+class StorageBudgetRefusal(RuntimeError):
+    """Mission creation stopped before a worktree checkout.
+
+    ``reason`` is the governor expansion reason (``at_cap``,
+    ``would_cross_cap``, or ``measurement_incomplete``). The receipt is the
+    measurement that produced the refusal. No worktree directory is created
+    by this exception.
+    """
+
+    def __init__(self, reason: str, receipt: dict[str, Any]) -> None:
+        self.reason = str(reason or "refused")
+        self.receipt = receipt
+        logical = receipt.get("bytes_after")
+        cap = receipt.get("cap_bytes")
+        super().__init__(
+            f"storage budget refused mission worktree: {self.reason} "
+            f"(logical_bytes={logical} cap_bytes={cap})"
+        )
+
+
+def mission_checkout_roots(repo_path: Path) -> list[Path]:
+    """Repository plus its managed worktree directories.
+
+    Host temp outputs and provider session homes are not part of this
+    decision. They are not reported as zero bytes; a caller that needs them
+    measures them separately.
+    """
+
+    return default_ba_roots(Path(repo_path))
+
+
+def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
+    """Measure checkout roots and refuse when a new worktree is not allowed.
+
+    ``CAP_BYTES`` and ``PREVENTIVE_BYTES`` are read at call time so a caller
+    can point a fixture at a small cap. No closed logs or scratch directories
+    are passed in, so this decision does not rotate or delete files. The
+    receipt is written under the repository's unbound directory.
+    """
+
+    repo = Path(repo_path)
+    cap = int(CAP_BYTES)
+    preventive = min(int(PREVENTIVE_BYTES), cap)
+    policy = BudgetPolicy(cap_bytes=cap, preventive_bytes=preventive)
+    receipt = govern_expansion(
+        mission_checkout_roots(repo),
+        additional_bytes=0,
+        policy=policy,
+        receipt_path=repo / ".blackhole-agent" / "unbound" / "storage-budget.json",
+    )
+    expansion = receipt.get("expansion") if isinstance(receipt.get("expansion"), dict) else {}
+    if expansion.get("allowed") is not True:
+        raise StorageBudgetRefusal(str(expansion.get("reason") or "refused"), receipt)
+    return receipt
+
+
 def _needs_housekeeping(measurement: dict[str, Any], additional_bytes: int, policy: BudgetPolicy) -> bool:
     logical = int(measurement["logical_bytes"])
     return logical >= policy.preventive_bytes or logical + additional_bytes > policy.cap_bytes or logical >= policy.cap_bytes

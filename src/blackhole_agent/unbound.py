@@ -892,6 +892,11 @@ def create_mission(
     operator_supplied = bool(goal.strip())
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
+    # Refuse before mkdir or git worktree add. A cap refusal must not leave a
+    # destination directory behind, and it must not delete fixture files.
+    from blackhole_agent.storage_budget import authorize_mission_worktree
+
+    authorize_mission_worktree(repo_path)
     run_command(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=repo_path,
