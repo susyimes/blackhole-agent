@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -168,3 +169,103 @@ def test_loop_startup_reconciles_interrupted_creation_before_next_mission(tmp_pa
     started = next(e for e in events if e["event"] == "continuous_loop.started")
     assert started["interrupted_creations_reconciled"] == 1
     assert orphan_workspace.is_dir()
+
+
+def _worktree_admin(workspace: Path) -> Path:
+    gitfile = (workspace / ".git").read_text(encoding="utf-8")
+    return Path(gitfile.split("gitdir:", 1)[1].strip())
+
+
+def _porcelain(repo: Path) -> str:
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
+
+
+def _worktree_block(repo: Path, workspace: Path) -> str:
+    for block in _porcelain(repo).split("\n\n"):
+        for line in block.splitlines():
+            if line.startswith("worktree ") and Path(line.split(" ", 1)[1]).resolve() == workspace.resolve():
+                return block
+    return ""
+
+
+def _listed(repo: Path, workspace: Path) -> bool:
+    return bool(_worktree_block(repo, workspace))
+
+
+def test_missing_initializing_registration_is_released_and_branch_stays(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    parent = tmp_path / "worktrees"
+    parent.mkdir()
+    missing, missing_branch = add_orphan_worktree(repo, parent, "20260910T111645Z-2594c2eb")
+    kept, kept_branch = add_orphan_worktree(repo, parent, "20261029T000000Z-keeplock")
+    held, held_branch = add_orphan_worktree(repo, parent, "20261029T000000Z-holdlock")
+    (_worktree_admin(missing) / "locked").write_text("initializing\n", encoding="utf-8")
+    shutil.rmtree(missing)
+    subprocess.run(
+        ["git", "worktree", "lock", "--reason", "operator hold", str(kept)],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "worktree", "lock", "--reason", "operator hold", str(held)],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    shutil.rmtree(held)
+
+    report = reconcile_interrupted_creations(repo, worktree_parent=parent)
+    again = reconcile_interrupted_creations(repo, worktree_parent=parent)
+
+    assert [item["mission_id"] for item in report["released_registrations"]] == ["20260910T111645Z-2594c2eb"]
+    assert again["released_registrations"] == []
+    assert not _listed(repo, missing)
+    assert _listed(repo, kept)
+    assert _listed(repo, held)
+    assert kept.is_dir()
+    assert not missing.exists()
+    assert not held.exists()
+    branches = subprocess.run(
+        ["git", "branch", "--list", missing_branch, kept_branch, held_branch],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert missing_branch in branches
+    assert kept_branch in branches
+    assert held_branch in branches
+    assert "locked operator hold" in _worktree_block(repo, kept)
+    assert "locked operator hold" in _worktree_block(repo, held)
+    events = [event for event in read_events(repo) if event["event"] == "continuous_loop.initializing_registration_released"]
+    assert len(events) == 1
+    assert events[0]["branch"] == missing_branch
+
+
+def test_present_initializing_lock_is_not_removed(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    parent = tmp_path / "worktrees"
+    parent.mkdir()
+    workspace, _branch = add_orphan_worktree(repo, parent, "20260910T111645Z-2594c2eb")
+    (_worktree_admin(workspace) / "locked").write_text("initializing\n", encoding="utf-8")
+
+    report = reconcile_interrupted_creations(repo, worktree_parent=parent)
+
+    assert report["released_registrations"] == []
+    assert workspace.is_dir()
+    assert _listed(repo, workspace)
+    assert "initializing" in _porcelain(repo)
