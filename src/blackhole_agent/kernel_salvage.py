@@ -20,6 +20,12 @@ The 2026-10-15 Cursor run exited 1 with ``Cannot use this model:
 grok-4.7-xhigh``, and 2026-09-04 Kimi runs exited because ``Model "grok-4.6"
 is not configured in config.toml``. Both stayed a retryable CLI error, so the
 next resolution launched the same kernel with the same unavailable model.
+
+A Kimi launch that never obtains an access token is an auth failure of that
+kernel. Harvested runs exited 1 with ``failed to fetch an access token``
+after TLS disconnect, ``ENOTFOUND auth.kimi.com``, or ``ECONNRESET``. The
+session id was often already set, so the pre-session transport rule did not
+match, and the next resolution launched Kimi again.
 """
 
 from __future__ import annotations
@@ -79,6 +85,11 @@ _MODEL_REJECTION_MARKERS = (
 )
 _MODEL_CONFIG_MARKERS = (
     "is not configured in config.toml",
+)
+# Harvested Kimi deaths (2026-08-02/03). The provider never issued a token.
+# A socket error that does not mention token fetch stays on its existing path.
+_TOKEN_FETCH_MARKERS = (
+    "failed to fetch an access token",
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -229,6 +240,10 @@ def classify_kernel_failure(
     if int(returncode or 0) != 0 and _is_model_unavailable(blob):
         # The same model on the same kernel fails again. Failover, do not retry.
         return KernelFailureClass(MODEL_UNAVAILABLE, False, evidence)
+    if int(returncode or 0) != 0 and _contains_any(blob, _TOKEN_FETCH_MARKERS):
+        # Token fetch died after a session id existed, so this is not the
+        # empty-session transport abort. The kernel cannot authenticate.
+        return KernelFailureClass("auth_failed", False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):

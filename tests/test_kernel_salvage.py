@@ -284,6 +284,75 @@ def test_rejected_model_failsover_and_unknown_model_warning_does_not():
     assert warning.retryable is True
 
 
+def test_token_fetch_failure_is_auth_and_a_socket_reset_is_not():
+    tls = {
+        "returncode": 1,
+        "timed_out": False,
+        "stdout_tail": "",
+        "stderr_tail": (
+            "error: failed to run prompt: provider.connection_error: OAuth provider "
+            '"managed:kimi-code" failed to fetch an access token: OAuth request to '
+            "https://auth.kimi.com/api/oauth/token failed: fetch failed: Client network "
+            "socket disconnected before secure TLS connection was established\n"
+        ),
+        "last_message": "",
+        "session_id": "session_fb6168fb-ca57-4fa5-851f-16f00d85139b",
+    }
+    failure = classify_run_artifact(tls, error="Kimi CLI failed with exit code 1")
+    assert failure.class_id == "auth_failed"
+    assert failure.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Kimi CLI failed with exit code 1",
+        current_kernel="kimi",
+        artifact=tls,
+        installed_kernels={"kimi", "codex"},
+    )
+    assert salvaged.failover_kernel == "codex"
+    assert salvaged.decision["status"] == "continue"
+
+    dns = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "provider.connection_error: OAuth provider "
+                '"managed:kimi-code" failed to fetch an access token: '
+                "getaddrinfo ENOTFOUND auth.kimi.com"
+            ),
+            "last_message": "",
+            "session_id": "",
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert dns.class_id == "auth_failed"
+    assert dns.retryable is False
+
+    reset = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": "fetch failed: read ECONNRESET",
+            "last_message": "",
+            "session_id": "session_fb6168fb-ca57-4fa5-851f-16f00d85139b",
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert reset.class_id == "cli_error"
+    assert reset.retryable is True
+
+    established_tls = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "Client network socket disconnected before secure TLS connection was established"
+            ),
+            "last_message": "",
+            "session_id": "already-open",
+        },
+        error="Cursor CLI failed with exit code 1",
+    )
+    assert established_tls.class_id == "cli_error"
+    assert established_tls.retryable is True
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True
