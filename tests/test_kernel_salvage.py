@@ -328,6 +328,36 @@ def test_rejected_model_failsover_and_unknown_model_warning_does_not():
     assert warning.class_id == "cli_error"
     assert warning.retryable is True
 
+    codex_account = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stdout_tail": (
+                "The 'grok-4.6' model is not supported when using Codex with a ChatGPT account."
+            ),
+            "stderr_tail": (
+                "Unknown model grok-4.6 is used. This will use fallback model metadata."
+            ),
+            "last_message": "",
+        },
+        error="Codex CLI failed with exit code 1",
+    )
+    assert codex_account.class_id == "model_unavailable"
+    assert codex_account.retryable is False
+    codex_salvage = salvage_kernel_failure(
+        error="Codex CLI failed with exit code 1",
+        current_kernel="codex",
+        artifact={
+            "returncode": 1,
+            "stdout_tail": (
+                "The 'grok-4.6' model is not supported when using Codex with a ChatGPT account."
+            ),
+            "last_message": "",
+        },
+        installed_kernels={"codex", "grok"},
+    )
+    assert codex_salvage.failover_kernel == "grok"
+    assert codex_salvage.decision["status"] == "continue"
+
 
 def test_token_fetch_failure_is_auth_and_a_socket_reset_is_not():
     tls = {

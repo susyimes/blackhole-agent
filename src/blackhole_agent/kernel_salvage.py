@@ -18,8 +18,12 @@ error, so the next turn launched the same kernel again.
 A kernel that rejects the requested model is not a retry of that same launch.
 The 2026-10-15 Cursor run exited 1 with ``Cannot use this model:
 grok-4.7-xhigh``, and 2026-09-04 Kimi runs exited because ``Model "grok-4.6"
-is not configured in config.toml``. Both stayed a retryable CLI error, so the
-next resolution launched the same kernel with the same unavailable model.
+is not configured in config.toml``. Codex runs from 2026-08-24 through
+2026-09-06 exited 1 because ``The 'grok-4.6' model is not supported when
+using Codex with a ChatGPT account``. All three stayed a retryable CLI
+error, so the next resolution launched the same kernel with the same
+unavailable model. A Codex "unknown model ... fallback" warning is not a
+rejection.
 
 A Kimi launch that never obtains an access token is an auth failure of that
 kernel. Harvested runs exited 1 with ``failed to fetch an access token``
@@ -92,9 +96,10 @@ STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
 # Spending-limit and billing-cycle usage limits are quota_exhausted, which
 # is already a trip class. The 2026-07-29 Grok runs and the 2026-08-15 Kimi
 # runs used HTTP 403 instead of HTTP 402.
-# A rejected model trips the breaker too. Retrying Cursor with grok-4.7-xhigh
-# or Kimi with an unconfigured grok-4.6 dies the same way. Failover clears
-# the provider-specific model name.
+# A rejected model trips the breaker too. Retrying Cursor with grok-4.7-xhigh,
+# Kimi with an unconfigured grok-4.6, or Codex with a ChatGPT account that
+# rejects grok-4.6 dies the same way. Failover clears the provider-specific
+# model name.
 # Provider overload trips the breaker too. The harvested Kimi 429 already
 # retried inside the CLI. Launching that kernel again hits the same engine.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
@@ -120,6 +125,12 @@ _MODEL_REJECTION_MARKERS = (
 )
 _MODEL_CONFIG_MARKERS = (
     "is not configured in config.toml",
+)
+# Harvested Codex death (2026-08-24 through 2026-09-06). ChatGPT-account
+# Codex rejects grok-4.6 with this sentence and exits 1. The unknown-model
+# fallback warning does not contain it.
+_CODEX_ACCOUNT_MODEL_MARKERS = (
+    "model is not supported when using codex",
 )
 # Harvested Kimi deaths (2026-08-02/03). The provider never issued a token.
 # A socket error that does not mention token fetch stays on its existing path.
@@ -273,6 +284,8 @@ def _is_model_unavailable(blob: str) -> bool:
     """True for a harvested model rejection, not an unknown-model warning."""
 
     if _contains_any(blob, _MODEL_REJECTION_MARKERS):
+        return True
+    if _contains_any(blob, _CODEX_ACCOUNT_MODEL_MARKERS):
         return True
     return "model " in blob and _contains_any(blob, _MODEL_CONFIG_MARKERS)
 
