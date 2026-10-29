@@ -8,6 +8,12 @@ transport abort, releases an occupied session id and retries that same kernel
 once on a fresh session, fails over to another installed first-class kernel or
 the local capability kernel, and otherwise synthesizes a blocked or continue
 decision so the mission loop does not stall or retry a dead kernel.
+
+A spent account is quota even when the provider stopped using HTTP 402.
+Harvested Grok runs return HTTP 403 ``personal-team-blocked:spending-limit``
+(``run out of credits``), and harvested Kimi runs return a billing-cycle
+``usage limit`` labeled ``auth_error``. Both used to stay a retryable CLI
+error, so the next turn launched the same kernel again.
 """
 
 from __future__ import annotations
@@ -43,6 +49,9 @@ SESSION_ALREADY_IN_USE = "session_already_in_use"
 # An occupied session does not trip the breaker. The 2026-09-01 and
 # 2026-09-03 Grok runs exited because ``--session-id`` was already in use;
 # the kernel was healthy, and retrying that same id fails again.
+# Spending-limit and billing-cycle usage limits are quota_exhausted, which
+# is already a trip class. The 2026-07-29 Grok runs and the 2026-08-15 Kimi
+# runs used HTTP 403 instead of HTTP 402.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset({PRE_SESSION_TRANSPORT_ABORT})
 _TRANSPORT_ABORT_MARKERS = (
     "disconnected before secure tls connection was established",
@@ -67,6 +76,13 @@ _QUOTA_MARKERS = (
     "status 402",
     "status=402",
     '"http_status": 402',
+    # HTTP 403 credit blocks. A bare 403 Forbidden is not quota.
+    "spending-limit",
+    "spending limit",
+    "personal-team-blocked",
+    "run out of credits",
+    "out of credits",
+    "usage limit",
 )
 _AUTH_MARKERS = (
     "authentication failed",
@@ -659,6 +675,40 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
 
     timeout = classify_kernel_failure(timed_out=True, error="Timed out after 30 seconds.")
     checks["timeout_retryable"] = timeout.class_id == "timeout" and timeout.retryable
+
+    spending = classify_kernel_failure(
+        returncode=1,
+        stdout_tail=(
+            '{"type":"error","message":"API error (status 403 Forbidden): '
+            'personal-team-blocked:spending-limit: You have run out of credits"}'
+        ),
+        stderr_tail=(
+            "status=403 Forbidden error_message=personal-team-blocked:spending-limit: "
+            "You have run out of credits"
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    checks["harvested_403_spending_limit"] = (
+        spending.class_id == "quota_exhausted" and not spending.retryable
+    )
+    kimi_usage = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            "provider.auth_error: 403 You've reached your usage limit for this billing cycle."
+        ),
+        error="Kimi CLI failed with exit code 1",
+    )
+    checks["kimi_usage_limit_is_quota"] = (
+        kimi_usage.class_id == "quota_exhausted" and not kimi_usage.retryable
+    )
+    plain_forbidden = classify_kernel_failure(
+        returncode=1,
+        stderr_tail="HTTP 403 Forbidden",
+        error="request failed",
+    )
+    checks["bare_403_stays_cli_error"] = (
+        plain_forbidden.class_id == "cli_error" and plain_forbidden.retryable
+    )
 
     events = classify_unbound_turn(
         {

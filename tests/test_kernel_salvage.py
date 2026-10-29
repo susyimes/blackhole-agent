@@ -186,6 +186,46 @@ def test_pre_session_tls_abort_is_not_a_retryable_cli_error():
     assert established.class_id != "pre_session_transport_abort"
 
 
+def test_spending_limit_403_is_quota_and_bare_forbidden_is_not():
+    spending = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stdout_tail": (
+                '{"type":"error","message":"API error (status 403 Forbidden): '
+                'personal-team-blocked:spending-limit: You have run out of credits"}'
+            ),
+            "stderr_tail": (
+                "status=403 Forbidden error_message=personal-team-blocked:spending-limit: "
+                "You have run out of credits"
+            ),
+            "last_message": "",
+            "session_id": "",
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert spending.class_id == "quota_exhausted"
+    assert spending.retryable is False
+    kimi = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "provider.auth_error: 403 You've reached your usage limit for this billing cycle."
+            ),
+            "last_message": "",
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert kimi.class_id == "quota_exhausted"
+    assert kimi.retryable is False
+    bare = classify_run_artifact(
+        {"returncode": 1, "stderr_tail": "HTTP 403 Forbidden", "last_message": ""},
+        error="request failed",
+    )
+    assert bare.class_id == "cli_error"
+    assert bare.retryable is True
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True
