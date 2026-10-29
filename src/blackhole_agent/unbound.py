@@ -103,6 +103,7 @@ from blackhole_agent.capability_compounder import (
     detect_lineage_drift,
 )
 from blackhole_agent.kernel_salvage import (
+    DECISION_ONLY_PROMPT,
     execute_kernel_turn_with_salvage,
     extract_json_decision as extract_json_decision,
 )
@@ -191,6 +192,7 @@ class UnboundMission:
     local_no_progress_count: int = 0
     recent_turns: list[dict[str, Any]] = field(default_factory=list)
     milestones: list[dict[str, Any]] = field(default_factory=list)
+    decision_only_resume: bool = False
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "UnboundMission":
@@ -1056,6 +1058,18 @@ def capability_ledger_for_prompt(workspace: Path) -> str:
 
 def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_path: Path) -> str:
     """Render compact, outcome-oriented context for one continuing turn."""
+
+    if getattr(state, "decision_only_resume", False):
+        # The previous launch already truncated. Another full mission prompt
+        # repeats that failure. The session has the work; ask only for the decision.
+        goal = str(getattr(state, "goal", "") or "").strip()
+        done = str(getattr(state, "done_when", "") or "").strip()
+        parts = [DECISION_ONLY_PROMPT]
+        if goal:
+            parts.append(f"Mission goal:\n{goal}")
+        if done:
+            parts.append(f"Done when:\n{done}")
+        return "\n\n".join(parts)
 
     hydrate_mission_from_campaign(state)
     if state.stage == "genesis":
@@ -1932,6 +1946,8 @@ def run_unbound_turn(
             kernel_runner=kernel_runner,
             command_runner=command_runner,
         )
+        if salvage_meta.get("ok") is True:
+            state.decision_only_resume = False
         (turn_dir / "final-message.md").write_text(kernel_result.last_message, encoding="utf-8")
 
         selection_gate = None

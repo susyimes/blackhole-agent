@@ -32,6 +32,12 @@ account and not a transient CLI blip. The 2026-08-02 Kimi run exited 1 with
 ``provider.rate_limit`` and ``The engine is currently overloaded, please try
 again later`` after its own retry loop. That stayed a retryable CLI error, so
 the next resolution launched Kimi again.
+
+A response cut off by the output token limit is not a dead kernel and not a
+reason to send the mission prompt again. The 2026-09-04 Grok run exited 1
+with ``error_kind`` ``max_tokens_truncation`` after 37 model calls. Salvage
+resumes that same session once with a decision-only prompt. A second
+truncation keeps the session and does not replay the original prompt.
 """
 
 from __future__ import annotations
@@ -63,6 +69,7 @@ PRE_SESSION_TRANSPORT_ABORT = "pre_session_transport_abort"
 SESSION_ALREADY_IN_USE = "session_already_in_use"
 MODEL_UNAVAILABLE = "model_unavailable"
 PROVIDER_OVERLOADED = "provider_overloaded"
+OUTPUT_TRUNCATED = "output_truncated"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -106,6 +113,19 @@ _TOKEN_FETCH_MARKERS = (
 _PROVIDER_OVERLOAD_MARKERS = (
     "provider.rate_limit",
     "engine is currently overloaded",
+)
+# Harvested Grok death (2026-09-04). The reply itself was cut off. A bare
+# "truncated" log line is not this class, and a successful message that only
+# quotes the error is not a failed launch.
+_OUTPUT_TRUNCATION_MARKERS = (
+    "max_tokens_truncation",
+    "response truncated by max_tokens",
+)
+DECISION_ONLY_PROMPT = (
+    "The previous response was truncated by max_tokens before a JSON decision. "
+    "Do not call tools. Do not re-explore the repository. Do not repeat the mission prompt. "
+    "Reply with only the JSON decision object for the work already done in this session. "
+    "Use status continue if that work is unfinished. Keep the object small."
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -264,6 +284,10 @@ def classify_kernel_failure(
         # The provider already retried. Another immediate launch of this kernel
         # dies the same way. This is not a spent account (quota_exhausted).
         return KernelFailureClass(PROVIDER_OVERLOADED, False, evidence)
+    if int(returncode or 0) != 0 and _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS):
+        # The kernel is healthy. Replaying the mission prompt repeats the
+        # truncation. Resume the same session with a decision-only prompt.
+        return KernelFailureClass(OUTPUT_TRUNCATED, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -281,6 +305,25 @@ def classify_run_artifact(artifact: dict[str, Any], *, error: str = "") -> Kerne
         error=error,
         session_id=str(artifact.get("session_id") or ""),
     )
+
+
+def session_id_from_artifact(artifact: Mapping[str, Any] | None) -> str:
+    """Return a session id recorded on a kernel run, including Grok's command."""
+
+    artifact = artifact or {}
+    direct = str(artifact.get("session_id") or "").strip()
+    if direct:
+        return direct
+    command = artifact.get("command")
+    if not isinstance(command, list):
+        return ""
+    flags = {"--resume", "--session-id", "--session"}
+    for index, item in enumerate(command):
+        if str(item) in flags and index + 1 < len(command):
+            candidate = str(command[index + 1] or "").strip()
+            if candidate:
+                return candidate
+    return ""
 
 
 def load_kernel_run_artifact(turn_dir: Path, *, kernel: str = "") -> dict[str, Any]:
@@ -359,6 +402,21 @@ def synthesize_decision(
     current_kernel: str,
     failover_kernel: str = "",
 ) -> dict[str, Any]:
+    if failure.class_id == OUTPUT_TRUNCATED:
+        return empty_decision(
+            status="continue",
+            summary=(
+                f"Kernel {current_kernel} truncated by max_tokens. "
+                "The session stays on a decision-only resume and the original "
+                "mission prompt is not replayed."
+            ),
+            strategy=(
+                "Resume the same session with a decision-only prompt. "
+                "Do not replay the full mission prompt."
+            ),
+            next_step="Resume the truncated session with a decision-only prompt.",
+            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        )
     if failure.class_id == SESSION_ALREADY_IN_USE:
         return empty_decision(
             status="continue",
@@ -597,7 +655,9 @@ def execute_kernel_turn_with_salvage(
 
     tried: set[str] = set()
     released_sessions: set[str] = set()
+    truncated_resumes: set[str] = set()
     pending_fresh_session = False
+    pending_decision_resume = False
     kernel_result = None
     salvaged = None
     from_kernel = original
@@ -615,17 +675,25 @@ def execute_kernel_turn_with_salvage(
                     meta.update({"rerouted_from": original, "health_reroute": True})
                 return kernel_result, decision, with_probe_meta(meta)
             meta = salvaged.to_dict() if salvaged is not None else {}
-            source = "fresh_session" if pending_fresh_session else "failover"
+            if pending_fresh_session:
+                source = "fresh_session"
+            elif pending_decision_resume:
+                source = "decision_only_resume"
+            else:
+                source = "failover"
             meta.update(
                 {
                     "ok": True,
                     "source": source,
                     "from_kernel": from_kernel,
-                    "failover_kernel": "" if pending_fresh_session else state.kernel,
+                    "failover_kernel": "" if source != "failover" else state.kernel,
                     "released_session": pending_fresh_session,
                 }
             )
+            if pending_decision_resume and hasattr(state, "decision_only_resume"):
+                state.decision_only_resume = False
             pending_fresh_session = False
+            pending_decision_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -655,7 +723,54 @@ def execute_kernel_turn_with_salvage(
                 state.session_id = ""
                 state.session_started = False
                 pending_fresh_session = True
+                pending_decision_resume = False
                 continue
+            if salvaged.class_id == OUTPUT_TRUNCATED:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                    getattr(state, "session_started", False)
+                )
+                if resumable and state.kernel not in truncated_resumes:
+                    # One decision-only resume. The original prompt is not sent again.
+                    truncated_resumes.add(state.kernel)
+                    prompt = DECISION_ONLY_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = True
+                    continue
+                if resumable:
+                    state.decision_only_resume = True
+                    exhausted = salvage_kernel_failure(
+                        error=error,
+                        current_kernel=state.kernel,
+                        last_message="",
+                        artifact=artifact,
+                        installed_kernels=installed,
+                        health=store,
+                        now=now,
+                        allow_failover=False,
+                    )
+                    decision = TurnDecision.from_payload(exhausted.decision)
+                    result = KernelTurnResult(
+                        kernel=str(getattr(state, "kernel", "") or ""),
+                        last_message=json.dumps(exhausted.decision),
+                        session_id=str(getattr(state, "session_id", "") or ""),
+                        command=(),
+                        result_path=str(artifact.get("_artifact_path") or ""),
+                    )
+                    meta = exhausted.to_dict()
+                    meta.update(
+                        {
+                            "ok": False,
+                            "exhausted": True,
+                            "source": "decision_only_resume",
+                            "from_kernel": state.kernel,
+                            "failover_kernel": "",
+                        }
+                    )
+                    return result, decision, with_probe_meta(meta)
             pending_fresh_session = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
