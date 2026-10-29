@@ -92,6 +92,50 @@ def test_occupied_session_releases_once_then_the_same_kernel_continues():
     assert "grok" in salvaged.decision["next_step"].lower()
 
 
+def test_missing_remote_session_is_not_a_retryable_cli_error():
+    missing = "5e8a33de-5b06-42a7-b238-d3106f402fb2"
+    artifact = {
+        "returncode": 1,
+        "timed_out": False,
+        "stdout_tail": "",
+        "stderr_tail": (
+            "WARN auto worktree gc failed error=neither $GROK_HOME nor $HOME is set\n"
+            f'Session "{missing}" not found locally, restoring conversation from remote...\n'
+            "Error: Failed to restore session from remote: fetching session record: "
+            "session get failed: 404 Not Found\n"
+        ),
+        "last_message": "",
+        "command": ["grok", "--resume", missing],
+    }
+    failure = classify_run_artifact(
+        artifact,
+        error="Grok CLI failed with exit code 1; result details were written to latest-grok-run.json.",
+    )
+    assert failure.class_id == "session_not_found"
+    assert failure.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Grok CLI failed with exit code 1",
+        current_kernel="grok",
+        artifact=artifact,
+        installed_kernels={"grok", "cursor"},
+    )
+    assert salvaged.failover_kernel == ""
+    assert salvaged.decision["status"] == "continue"
+    assert "fresh session" in salvaged.decision["next_step"].lower()
+    bare = classify_kernel_failure(
+        returncode=1,
+        stderr_tail="404 Not Found",
+        error="Grok CLI failed with exit code 1",
+    )
+    assert bare.class_id == "cli_error"
+    assert bare.retryable is True
+    quoted = classify_kernel_failure(
+        returncode=0,
+        last_message="Failed to restore session from remote: session get failed: 404 Not Found",
+    )
+    assert quoted.class_id != "session_not_found"
+
+
 def test_second_occupied_session_collision_failsover_instead_of_looping():
     import tempfile
     from pathlib import Path

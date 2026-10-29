@@ -67,6 +67,7 @@ from blackhole_agent.kernel_health import (
 
 PRE_SESSION_TRANSPORT_ABORT = "pre_session_transport_abort"
 SESSION_ALREADY_IN_USE = "session_already_in_use"
+SESSION_NOT_FOUND = "session_not_found"
 MODEL_UNAVAILABLE = "model_unavailable"
 PROVIDER_OVERLOADED = "provider_overloaded"
 OUTPUT_TRUNCATED = "output_truncated"
@@ -76,6 +77,10 @@ OUTPUT_TRUNCATED = "output_truncated"
 # An occupied session does not trip the breaker. The 2026-09-01 and
 # 2026-09-03 Grok runs exited because ``--session-id`` was already in use;
 # the kernel was healthy, and retrying that same id fails again.
+# A deleted remote session does not trip the breaker either. The 2026-08-13
+# Grok runs exited on ``--resume`` with "Failed to restore session from
+# remote" and "session get failed: 404 Not Found". The kernel was healthy.
+# Resuming that id fails again, so the id is dropped once.
 # Spending-limit and billing-cycle usage limits are quota_exhausted, which
 # is already a trip class. The 2026-07-29 Grok runs and the 2026-08-15 Kimi
 # runs used HTTP 403 instead of HTTP 402.
@@ -93,6 +98,12 @@ _TRANSPORT_ABORT_MARKERS = (
 _SESSION_OCCUPIED_MARKERS = (
     "session id",
     "already in use",
+)
+# Harvested Grok --resume (2026-08-13). Both phrases are in that stderr.
+# A bare 404, a worktree-gc warning, or an occupied session is not this class.
+_SESSION_MISSING_MARKERS = (
+    "failed to restore session from remote",
+    "session get failed: 404",
 )
 # Harvested rejection strings. A Codex "unknown model ... fallback" warning
 # is not a rejection, and a bare 403 is not a model failure.
@@ -273,6 +284,9 @@ def classify_kernel_failure(
     if int(returncode or 0) != 0 and all(marker in blob for marker in _SESSION_OCCUPIED_MARKERS):
         # The occupied id is not retryable. The kernel itself stays available.
         return KernelFailureClass(SESSION_ALREADY_IN_USE, False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _SESSION_MISSING_MARKERS):
+        # The missing remote id is not retryable. The kernel itself stays available.
+        return KernelFailureClass(SESSION_NOT_FOUND, False, evidence)
     if int(returncode or 0) != 0 and _is_model_unavailable(blob):
         # The same model on the same kernel fails again. Failover, do not retry.
         return KernelFailureClass(MODEL_UNAVAILABLE, False, evidence)
@@ -417,15 +431,20 @@ def synthesize_decision(
             next_step="Resume the truncated session with a decision-only prompt.",
             outcome_evidence=[failure.evidence] if failure.evidence else [],
         )
-    if failure.class_id == SESSION_ALREADY_IN_USE:
+    if failure.class_id in {SESSION_ALREADY_IN_USE, SESSION_NOT_FOUND}:
+        if failure.class_id == SESSION_NOT_FOUND:
+            reason = "the missing remote session was dropped"
+            strategy = f"Drop the missing session and continue on {current_kernel}."
+        else:
+            reason = "the occupied session was released"
+            strategy = f"Drop the occupied session and continue on {current_kernel}."
         return empty_decision(
             status="continue",
             summary=(
                 f"Kernel {current_kernel} failed ({failure.class_id}); "
-                "the occupied session was released so the same kernel can continue "
-                "on a fresh session."
+                f"{reason} so the same kernel can continue on a fresh session."
             ),
-            strategy=f"Drop the occupied session and continue on {current_kernel}.",
+            strategy=strategy,
             next_step=f"Resume on the {current_kernel} kernel with a fresh session.",
             outcome_evidence=[failure.evidence] if failure.evidence else [],
         )
@@ -715,10 +734,10 @@ def execute_kernel_turn_with_salvage(
                 allow_failover=True,
             )
             if (
-                salvaged.class_id == SESSION_ALREADY_IN_USE
+                salvaged.class_id in {SESSION_ALREADY_IN_USE, SESSION_NOT_FOUND}
                 and state.kernel not in released_sessions
             ):
-                # One fresh launch per kernel. A second collision failsover.
+                # One fresh launch per kernel. A second miss or collision failsover.
                 released_sessions.add(state.kernel)
                 state.session_id = ""
                 state.session_started = False
