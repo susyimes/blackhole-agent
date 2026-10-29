@@ -56,6 +56,40 @@ def test_quota_failsover_to_installed_peer_and_salvages_embedded_decision():
     assert embedded.decision["summary"] == "partial"
 
 
+def test_pre_session_tls_abort_is_not_a_retryable_cli_error():
+    artifact = {
+        "returncode": 1,
+        "timed_out": False,
+        "stdout_tail": "",
+        "stderr_tail": (
+            "Error: [aborted] Client network socket disconnected before secure "
+            "TLS connection was established\n\nmissing terminal result"
+        ),
+        "last_message": "",
+        "session_id": "",
+        "decision_final": False,
+    }
+    failure = classify_run_artifact(
+        artifact,
+        error="Cursor CLI failed (exit 1): " + artifact["stderr_tail"],
+    )
+    assert failure.class_id == "pre_session_transport_abort"
+    assert failure.retryable is False
+
+    salvaged = salvage_kernel_failure(
+        error="Cursor CLI failed (exit 1): " + artifact["stderr_tail"],
+        current_kernel="cursor",
+        artifact=artifact,
+        installed_kernels={"grok", "cursor"},
+    )
+    assert salvaged.failover_kernel == "grok"
+    assert salvaged.decision["status"] == "continue"
+    assert "grok" in salvaged.decision["next_step"].lower()
+
+    established = classify_run_artifact({**artifact, "session_id": "already-open"})
+    assert established.class_id != "pre_session_transport_abort"
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True

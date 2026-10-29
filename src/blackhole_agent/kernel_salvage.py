@@ -3,10 +3,10 @@
 Harvested class ``kernel_turn_failed`` is a kernel that exits (402 quota,
 timeout, empty last_message, malformed JSON) before the controller can record
 a turn decision. This module classifies the failure, reuses any parseable
-decision, trips the kernel circuit breaker on quota/auth, fails over to
-another installed first-class kernel or the local capability kernel, and
-otherwise synthesizes a blocked or continue decision so the mission loop
-does not stall or retry a dead kernel.
+decision, trips the kernel circuit breaker on quota/auth and on a pre-session
+transport abort, fails over to another installed first-class kernel or the
+local capability kernel, and otherwise synthesizes a blocked or continue
+decision so the mission loop does not stall or retry a dead kernel.
 """
 
 from __future__ import annotations
@@ -34,7 +34,14 @@ from blackhole_agent.kernel_health import (
     trip_kernel,
 )
 
-FAILOVER_CLASSES = TRIP_CLASSES
+PRE_SESSION_TRANSPORT_ABORT = "pre_session_transport_abort"
+# Quota and auth trip the breaker. A pre-session TLS abort does too: the
+# 2026-10-18 Cursor run exited before a session id existed, and treating it
+# as a retryable CLI error relaunched the same kernel on resume.
+FAILOVER_CLASSES = TRIP_CLASSES | frozenset({PRE_SESSION_TRANSPORT_ABORT})
+_TRANSPORT_ABORT_MARKERS = (
+    "disconnected before secure tls connection was established",
+)
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
     "latest-grok-run.json",
@@ -147,6 +154,7 @@ def classify_kernel_failure(
     stderr_tail: str = "",
     last_message: str = "",
     error: str = "",
+    session_id: str = "",
 ) -> KernelFailureClass:
     blob = _haystack(stdout_tail, stderr_tail, last_message, error)
     evidence = (error or stderr_tail or stdout_tail or last_message or "")[:400]
@@ -156,6 +164,12 @@ def classify_kernel_failure(
         return KernelFailureClass("quota_exhausted", False, evidence)
     if _contains_any(blob, _AUTH_MARKERS):
         return KernelFailureClass("auth_failed", False, evidence)
+    if (
+        int(returncode or 0) != 0
+        and not str(session_id or "").strip()
+        and _contains_any(blob, _TRANSPORT_ABORT_MARKERS)
+    ):
+        return KernelFailureClass(PRE_SESSION_TRANSPORT_ABORT, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -171,6 +185,7 @@ def classify_run_artifact(artifact: dict[str, Any], *, error: str = "") -> Kerne
         stderr_tail=str(artifact.get("stderr_tail") or ""),
         last_message=str(artifact.get("last_message") or ""),
         error=error,
+        session_id=str(artifact.get("session_id") or ""),
     )
 
 

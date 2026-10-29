@@ -4,7 +4,7 @@ The harvested 2026-08-16 Grok 402 storm retried a dead kernel for twelve
 turns. Decision salvage records a structured turn, but without memory the
 next turn (and the next mission) still invokes the same exhausted kernel.
 
-This module persists non-retryable kernel deaths (quota/auth), skips
+This module persists non-retryable kernel deaths (quota, auth, and a pre-session transport abort), skips
 open-circuit kernels on later resolution, and failsover to a local
 capability kernel that still emits a structured Unbound decision so the
 mission does not block or burn turns.
@@ -26,6 +26,10 @@ TRIP_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
 DEFAULT_COOLDOWN_SECONDS = {
     "quota_exhausted": 6 * 3600,
     "auth_failed": 3600,
+    # A socket that dies before TLS is an environment failure of that kernel,
+    # not a model decision. One hour matches auth: long enough that resume
+    # does not relaunch the same aborted CLI, short enough to recover.
+    "pre_session_transport_abort": 3600,
 }
 DEFAULT_COOLDOWN_FALLBACK = 1800
 MAX_COOLDOWN_SECONDS = 24 * 3600
