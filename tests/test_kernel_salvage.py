@@ -4,6 +4,7 @@ from blackhole_agent.kernel_health import LOCAL_KERNEL
 from blackhole_agent.kernel_salvage import (
     HARVESTED_GROK_402,
     builtin_kernel_decision_salvage_proof,
+    classify_kernel_failure,
     classify_run_artifact,
     salvage_kernel_failure,
     select_failover_kernel,
@@ -351,6 +352,58 @@ def test_token_fetch_failure_is_auth_and_a_socket_reset_is_not():
     )
     assert established_tls.class_id == "cli_error"
     assert established_tls.retryable is True
+
+
+def test_provider_overload_is_not_quota_or_a_bare_429():
+    overload = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "error: failed to run prompt: provider.rate_limit: 429 "
+                "The engine is currently overloaded, please try again later\n"
+            ),
+            "stdout_tail": (
+                '{"error_name":"APIProviderRateLimitError",'
+                '"error_message":"429 The engine is currently overloaded, please try again later"}'
+            ),
+            "last_message": "",
+            "session_id": "session_101821fc-f52d-4822-ba75-9729754be536",
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert overload.class_id == "provider_overloaded"
+    assert overload.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Kimi CLI failed with exit code 1",
+        current_kernel="kimi",
+        artifact={
+            "returncode": 1,
+            "stderr_tail": (
+                "provider.rate_limit: 429 The engine is currently overloaded, "
+                "please try again later"
+            ),
+            "last_message": "",
+            "session_id": "session_101821fc-f52d-4822-ba75-9729754be536",
+        },
+        installed_kernels={"kimi", "grok"},
+    )
+    assert salvaged.failover_kernel == "grok"
+    assert salvaged.decision["status"] == "continue"
+
+    bare = classify_kernel_failure(
+        returncode=1,
+        stderr_tail="warning: status_code=429 left in an unrelated log line",
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert bare.class_id == "cli_error"
+    assert bare.retryable is True
+
+    zero_exit = classify_kernel_failure(
+        returncode=0,
+        stderr_tail="provider.rate_limit: 429 The engine is currently overloaded",
+        last_message="finished",
+    )
+    assert zero_exit.class_id != "provider_overloaded"
 
 
 def test_builtin_proof_replays_harvested_failure():

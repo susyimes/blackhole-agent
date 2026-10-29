@@ -26,6 +26,12 @@ kernel. Harvested runs exited 1 with ``failed to fetch an access token``
 after TLS disconnect, ``ENOTFOUND auth.kimi.com``, or ``ECONNRESET``. The
 session id was often already set, so the pre-session transport rule did not
 match, and the next resolution launched Kimi again.
+
+A provider that has already retried and still returns HTTP 429 is not a spent
+account and not a transient CLI blip. The 2026-08-02 Kimi run exited 1 with
+``provider.rate_limit`` and ``The engine is currently overloaded, please try
+again later`` after its own retry loop. That stayed a retryable CLI error, so
+the next resolution launched Kimi again.
 """
 
 from __future__ import annotations
@@ -56,6 +62,7 @@ from blackhole_agent.kernel_health import (
 PRE_SESSION_TRANSPORT_ABORT = "pre_session_transport_abort"
 SESSION_ALREADY_IN_USE = "session_already_in_use"
 MODEL_UNAVAILABLE = "model_unavailable"
+PROVIDER_OVERLOADED = "provider_overloaded"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -68,8 +75,10 @@ MODEL_UNAVAILABLE = "model_unavailable"
 # A rejected model trips the breaker too. Retrying Cursor with grok-4.7-xhigh
 # or Kimi with an unconfigured grok-4.6 dies the same way. Failover clears
 # the provider-specific model name.
+# Provider overload trips the breaker too. The harvested Kimi 429 already
+# retried inside the CLI. Launching that kernel again hits the same engine.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
-    {PRE_SESSION_TRANSPORT_ABORT, MODEL_UNAVAILABLE}
+    {PRE_SESSION_TRANSPORT_ABORT, MODEL_UNAVAILABLE, PROVIDER_OVERLOADED}
 )
 _TRANSPORT_ABORT_MARKERS = (
     "disconnected before secure tls connection was established",
@@ -90,6 +99,13 @@ _MODEL_CONFIG_MARKERS = (
 # A socket error that does not mention token fetch stays on its existing path.
 _TOKEN_FETCH_MARKERS = (
     "failed to fetch an access token",
+)
+# Harvested Kimi death (2026-08-02). The CLI already retried the 429.
+# A bare 429 or the word "overloaded" without this provider phrasing is not
+# this class. Quota markers such as "rate limit" do not match "rate_limit".
+_PROVIDER_OVERLOAD_MARKERS = (
+    "provider.rate_limit",
+    "engine is currently overloaded",
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -244,6 +260,10 @@ def classify_kernel_failure(
         # Token fetch died after a session id existed, so this is not the
         # empty-session transport abort. The kernel cannot authenticate.
         return KernelFailureClass("auth_failed", False, evidence)
+    if int(returncode or 0) != 0 and _contains_any(blob, _PROVIDER_OVERLOAD_MARKERS):
+        # The provider already retried. Another immediate launch of this kernel
+        # dies the same way. This is not a spent account (quota_exhausted).
+        return KernelFailureClass(PROVIDER_OVERLOADED, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
