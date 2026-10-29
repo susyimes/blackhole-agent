@@ -10,6 +10,7 @@ from blackhole_agent.kernels.grok_cli import (
     build_grok_command,
     build_grok_provider_preflight,
     extract_grok_last_message,
+    grok_launch_environment,
 )
 from blackhole_agent.supervisor import SupervisorConfig, build_wake_command
 
@@ -97,6 +98,66 @@ def test_grok_kernel_keeps_error_payload_message_on_nonzero_exit(tmp_path, monke
     payload = json.loads((tmp_path / "out" / "latest-grok-run.json").read_text(encoding="utf-8"))
     assert "402" in payload["last_message"]
     assert payload["returncode"] == 1
+
+
+def test_grok_launch_environment_fills_home_from_an_existing_profile(tmp_path):
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    missing = tmp_path / "missing-profile"
+    preset = tmp_path / "preset-home"
+    preset.mkdir()
+    grok_home = tmp_path / "grok-home"
+    grok_home.mkdir()
+
+    filled = grok_launch_environment(
+        {"PATH": "C:/tools", "USERPROFILE": str(profile), "HOME": "", "SystemRoot": "C:/Windows"}
+    )
+    preserved = grok_launch_environment(
+        {"HOME": str(preset), "USERPROFILE": str(profile), "PATH": "C:/tools"}
+    )
+    explicit_grok_home = grok_launch_environment(
+        {"GROK_HOME": str(grok_home), "USERPROFILE": str(profile)}
+    )
+    missing_profile = grok_launch_environment(
+        {"USERPROFILE": str(missing), "PATH": "C:/tools"}
+    )
+
+    assert filled["HOME"] == str(profile)
+    assert filled["PATH"] == "C:/tools"
+    assert "GROK_HOME" not in filled
+    assert preserved["HOME"] == str(preset)
+    assert explicit_grok_home["GROK_HOME"] == str(grok_home)
+    assert "HOME" not in explicit_grok_home
+    assert "HOME" not in missing_profile
+
+
+def test_grok_kernel_passes_profile_home_to_the_child(tmp_path, monkeypatch):
+    monkeypatch.setattr("blackhole_agent.kernels.grok_cli.shutil.which", lambda _: "C:/tools/grok.exe")
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.delenv("GROK_HOME", raising=False)
+    monkeypatch.setenv("USERPROFILE", str(profile))
+    seen = {}
+
+    def runner(command, **kwargs):
+        seen["env"] = kwargs.get("env")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps({"text": "Completed safely.", "stopReason": "EndTurn"}),
+            stderr="",
+        )
+
+    GrokCliKernel(GrokCliConfig(model="grok-4.5"), command_runner=runner).run(
+        "Task",
+        cwd=tmp_path,
+        output_dir=tmp_path / "out",
+        timeout_seconds=30,
+    )
+
+    assert seen["env"]["HOME"] == str(profile)
+    assert seen["env"]["USERPROFILE"] == str(profile)
 
 
 def test_grok_preflight_requires_binary_and_explicit_model(monkeypatch):

@@ -1,4 +1,10 @@
-"""Local Grok CLI kernel used by blackhole-agent growth passes."""
+"""Local Grok CLI kernel used by blackhole-agent growth passes.
+
+Windows controller launches leave ``HOME`` and ``GROK_HOME`` unset. Grok then
+logs ``auto worktree gc failed`` because it does not read ``USERPROFILE``, and
+its own session worktrees are never collected. The launch environment fills
+``HOME`` from an existing profile directory unless a home is already set.
+"""
 
 from __future__ import annotations
 
@@ -87,10 +93,16 @@ class GrokCliKernel:
             raise ValueError(f"Grok provider/config preflight failed: {diagnostics}")
 
         command = build_grok_command(self.config, cwd=cwd, prompt_file=task_path)
+        launch_env = grok_launch_environment()
         timed_out = False
         try:
             if self._command_runner is _DEFAULT_COMMAND_RUNNER:
-                completed = run_captured_process(command, cwd=cwd, timeout=timeout_seconds)
+                completed = run_captured_process(
+                    command,
+                    cwd=cwd,
+                    timeout=timeout_seconds,
+                    env=launch_env,
+                )
             else:
                 completed = self._command_runner(
                     command,
@@ -100,6 +112,7 @@ class GrokCliKernel:
                     encoding="utf-8",
                     errors="replace",
                     timeout=timeout_seconds,
+                    env=launch_env,
                 )
             returncode = int(completed.returncode)
             stdout = completed.stdout or ""
@@ -161,6 +174,54 @@ def normalize_grok_sandbox(value: str) -> str:
         "danger-full-access": "off",
     }
     return aliases.get(value, value)
+
+
+def _env_lookup(environment: Mapping[str, str], name: str) -> str:
+    folded = name.casefold()
+    for key, value in environment.items():
+        if str(key).casefold() == folded:
+            return str(value or "").strip()
+    return ""
+
+
+def _delete_env_key(environment: dict[str, str], name: str) -> None:
+    folded = name.casefold()
+    for key in [key for key in environment if str(key).casefold() == folded]:
+        del environment[key]
+
+
+def grok_launch_environment(
+    environment: Mapping[str, str | None] | None = None,
+) -> dict[str, str]:
+    """Return the environment used to start the Grok CLI.
+
+    Harvested runs log ``auto worktree gc failed`` with ``neither $GROK_HOME
+    nor $HOME is set``. Grok does not consult ``USERPROFILE``. When both home
+    variables are blank, ``HOME`` is set to an existing ``USERPROFILE``
+    directory so the CLI can collect its session worktrees. An explicit
+    ``HOME`` or ``GROK_HOME`` is preserved. A profile path that is not a
+    directory is not copied into ``HOME``.
+    """
+
+    source = os.environ if environment is None else environment
+    env = {str(key): str(value) for key, value in source.items() if value is not None}
+    if _env_lookup(env, "HOME") or _env_lookup(env, "GROK_HOME"):
+        return env
+    profile = _env_lookup(env, "USERPROFILE")
+    if profile and Path(profile).is_dir():
+        _delete_env_key(env, "HOME")
+        env["HOME"] = profile
+        return env
+    if environment is not None:
+        return env
+    try:
+        home = Path.home()
+    except (RuntimeError, OSError):
+        return env
+    if home.is_dir():
+        _delete_env_key(env, "HOME")
+        env["HOME"] = str(home)
+    return env
 
 
 def build_grok_command(config: GrokCliConfig, *, cwd: Path, prompt_file: Path) -> list[str]:
