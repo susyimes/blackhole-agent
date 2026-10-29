@@ -4,8 +4,9 @@ Harvested class ``kernel_turn_failed`` is a kernel that exits (402 quota,
 timeout, empty last_message, malformed JSON) before the controller can record
 a turn decision. This module classifies the failure, reuses any parseable
 decision, trips the kernel circuit breaker on quota/auth and on a pre-session
-transport abort, fails over to another installed first-class kernel or the
-local capability kernel, and otherwise synthesizes a blocked or continue
+transport abort, releases an occupied session id and retries that same kernel
+once on a fresh session, fails over to another installed first-class kernel or
+the local capability kernel, and otherwise synthesizes a blocked or continue
 decision so the mission loop does not stall or retry a dead kernel.
 """
 
@@ -35,12 +36,20 @@ from blackhole_agent.kernel_health import (
 )
 
 PRE_SESSION_TRANSPORT_ABORT = "pre_session_transport_abort"
+SESSION_ALREADY_IN_USE = "session_already_in_use"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
+# An occupied session does not trip the breaker. The 2026-09-01 and
+# 2026-09-03 Grok runs exited because ``--session-id`` was already in use;
+# the kernel was healthy, and retrying that same id fails again.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset({PRE_SESSION_TRANSPORT_ABORT})
 _TRANSPORT_ABORT_MARKERS = (
     "disconnected before secure tls connection was established",
+)
+_SESSION_OCCUPIED_MARKERS = (
+    "session id",
+    "already in use",
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -170,6 +179,9 @@ def classify_kernel_failure(
         and _contains_any(blob, _TRANSPORT_ABORT_MARKERS)
     ):
         return KernelFailureClass(PRE_SESSION_TRANSPORT_ABORT, False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _SESSION_OCCUPIED_MARKERS):
+        # The occupied id is not retryable. The kernel itself stays available.
+        return KernelFailureClass(SESSION_ALREADY_IN_USE, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -265,6 +277,18 @@ def synthesize_decision(
     current_kernel: str,
     failover_kernel: str = "",
 ) -> dict[str, Any]:
+    if failure.class_id == SESSION_ALREADY_IN_USE:
+        return empty_decision(
+            status="continue",
+            summary=(
+                f"Kernel {current_kernel} failed ({failure.class_id}); "
+                "the occupied session was released so the same kernel can continue "
+                "on a fresh session."
+            ),
+            strategy=f"Drop the occupied session and continue on {current_kernel}.",
+            next_step=f"Resume on the {current_kernel} kernel with a fresh session.",
+            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        )
     if failover_kernel:
         return empty_decision(
             status="continue",
@@ -490,6 +514,8 @@ def execute_kernel_turn_with_salvage(
         _switch_kernel(state, rerouted)
 
     tried: set[str] = set()
+    released_sessions: set[str] = set()
+    pending_fresh_session = False
     kernel_result = None
     salvaged = None
     from_kernel = original
@@ -507,14 +533,17 @@ def execute_kernel_turn_with_salvage(
                     meta.update({"rerouted_from": original, "health_reroute": True})
                 return kernel_result, decision, with_probe_meta(meta)
             meta = salvaged.to_dict() if salvaged is not None else {}
+            source = "fresh_session" if pending_fresh_session else "failover"
             meta.update(
                 {
                     "ok": True,
-                    "source": "failover",
+                    "source": source,
                     "from_kernel": from_kernel,
-                    "failover_kernel": state.kernel,
+                    "failover_kernel": "" if pending_fresh_session else state.kernel,
+                    "released_session": pending_fresh_session,
                 }
             )
+            pending_fresh_session = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -535,6 +564,17 @@ def execute_kernel_turn_with_salvage(
                 now=now,
                 allow_failover=True,
             )
+            if (
+                salvaged.class_id == SESSION_ALREADY_IN_USE
+                and state.kernel not in released_sessions
+            ):
+                # One fresh launch per kernel. A second collision failsover.
+                released_sessions.add(state.kernel)
+                state.session_id = ""
+                state.session_started = False
+                pending_fresh_session = True
+                continue
+            pending_fresh_session = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
                 persist()

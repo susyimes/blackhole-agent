@@ -1187,6 +1187,27 @@ Return only one JSON object with exactly this shape:
     return compact_text(prompt, limit=PROMPT_TEXT_LIMIT)
 
 
+def grok_launch_plan(state: Any) -> dict[str, Any]:
+    """Choose the session id and flag for the next Grok process.
+
+    A released or missing session mints a new id and uses ``--session-id``.
+    A session that already started uses ``--resume`` with the existing id.
+    This does not mark the session started; the launcher does that only when
+    it actually starts the process.
+    """
+
+    current = str(getattr(state, "session_id", "") or "").strip()
+    if not current:
+        state.session_id = str(uuid.uuid4())
+        current = str(state.session_id)
+    starting = not bool(getattr(state, "session_started", False))
+    return {
+        "session_id": current,
+        "starting_session": starting,
+        "session_flag": "--session-id" if starting else "--resume",
+    }
+
+
 def invoke_kernel_turn(
     state: UnboundMission,
     prompt: str,
@@ -1210,9 +1231,7 @@ def invoke_kernel_turn(
             result_path=str(local.get("result_path") or ""),
         )
     if state.kernel == "grok":
-        if not state.session_id:
-            state.session_id = str(uuid.uuid4())
-        starting_session = not state.session_started
+        plan = grok_launch_plan(state)
         config = GrokCliConfig(
             model=state.model,
             require_explicit_route=False,
@@ -1222,8 +1241,8 @@ def invoke_kernel_turn(
             no_subagents=True,
             disable_web_search=False,
             deny_rules=(),
-            session_id=state.session_id if starting_session else None,
-            resume_session_id=state.session_id if not starting_session else None,
+            session_id=plan["session_id"] if plan["starting_session"] else None,
+            resume_session_id=None if plan["starting_session"] else plan["session_id"],
         )
         # A Grok process can create its session before returning a parseable
         # final message. Persist resume semantics on the failure path too,

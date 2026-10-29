@@ -56,6 +56,102 @@ def test_quota_failsover_to_installed_peer_and_salvages_embedded_decision():
     assert embedded.decision["summary"] == "partial"
 
 
+def test_occupied_session_releases_once_then_the_same_kernel_continues():
+    occupied = "f187f002-4163-45d5-bb0b-affc94cd98b0"
+    other = "a10d7289-5951-4c1f-875b-82c5973b88c7"
+    stderr = f"Error: Error: Session ID {occupied} is already in use.\n"
+    artifact = {
+        "returncode": 1,
+        "timed_out": False,
+        "stdout_tail": "",
+        "stderr_tail": stderr,
+        "last_message": "",
+    }
+    failure = classify_run_artifact(
+        artifact,
+        error="Grok CLI failed with exit code 1; result details were written to latest-grok-run.json.",
+    )
+    assert failure.class_id == "session_already_in_use"
+    assert failure.retryable is False
+    other_failure = classify_run_artifact(
+        {**artifact, "stderr_tail": f"Error: Error: Session ID {other} is already in use.\n"},
+        error="Grok CLI failed with exit code 1",
+    )
+    assert other_failure.class_id == "session_already_in_use"
+
+    salvaged = salvage_kernel_failure(
+        error="Grok CLI failed with exit code 1",
+        current_kernel="grok",
+        artifact=artifact,
+        installed_kernels={"grok", "cursor"},
+    )
+    assert salvaged.failover_kernel == ""
+    assert salvaged.decision["status"] == "continue"
+    assert "fresh session" in salvaged.decision["next_step"].lower()
+    assert "grok" in salvaged.decision["next_step"].lower()
+
+
+def test_second_occupied_session_collision_failsover_instead_of_looping():
+    import tempfile
+    from pathlib import Path
+
+    from blackhole_agent.kernel_salvage import execute_kernel_turn_with_salvage
+    from blackhole_agent.unbound import KernelTurnResult
+
+    stderr = "Error: Error: Session ID occupied-id is already in use.\n"
+    calls: list[str] = []
+
+    class _State:
+        kernel = "grok"
+        session_id = "occupied-id"
+        session_started = False
+        model = "grok-4.6"
+        repo_path = ""
+
+    def runner(state, prompt, turn_dir, **kwargs):
+        del prompt, kwargs
+        calls.append(state.kernel)
+        kernel_dir = Path(turn_dir) / "kernel"
+        kernel_dir.mkdir(parents=True, exist_ok=True)
+        (kernel_dir / f"latest-{state.kernel}-run.json").write_text(
+            json.dumps(
+                {
+                    "returncode": 1,
+                    "stderr_tail": stderr,
+                    "stdout_tail": "",
+                    "last_message": "",
+                    "timed_out": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        if state.kernel == "kimi":
+            return KernelTurnResult(
+                kernel="kimi",
+                last_message=json.dumps({"status": "continue", "summary": "peer"}),
+                session_id="peer",
+                command=("kimi",),
+                result_path="",
+            )
+        raise RuntimeError("Grok CLI failed with exit code 1")
+
+    state = _State()
+    with tempfile.TemporaryDirectory(prefix="occupied-session-loop-") as tmp:
+        _result, decision, meta = execute_kernel_turn_with_salvage(
+            state,
+            "prompt",
+            Path(tmp) / "turn",
+            kernel_runner=runner,
+            installed_kernels={"grok", "kimi"},
+            probe_peers=False,
+            persist_health=False,
+        )
+    assert calls == ["grok", "grok", "kimi"]
+    assert state.kernel == "kimi"
+    assert decision.status == "continue"
+    assert meta.get("source") == "failover"
+
+
 def test_pre_session_tls_abort_is_not_a_retryable_cli_error():
     artifact = {
         "returncode": 1,
