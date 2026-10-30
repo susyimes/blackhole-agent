@@ -49,6 +49,13 @@ to run step, exceeded max retries`` while a session id was present. That
 stayed a retryable CLI error, so the turn left Cursor and replayed the
 mission on another kernel. Salvage resumes that same session once with a
 continuation prompt. A second exhaustion failsover without opening the circuit.
+
+A Codex responses endpoint that answers HTTP 404 after the CLI's own retries
+is not a transient CLI blip. The 2026-09-03 run exited 1 with
+``unexpected status 404 Not Found`` on ``backend-api/codex/responses`` for
+both the websocket and the HTTPS fallback. That stayed a retryable CLI error,
+so the next resolution launched Codex again. A bare 404, a deleted-session
+404, and a model-metadata fallback warning are not this class.
 """
 
 from __future__ import annotations
@@ -83,6 +90,7 @@ MODEL_UNAVAILABLE = "model_unavailable"
 PROVIDER_OVERLOADED = "provider_overloaded"
 OUTPUT_TRUNCATED = "output_truncated"
 STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
+RESPONSES_ENDPOINT_MISSING = "responses_endpoint_missing"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -102,8 +110,16 @@ STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
 # model name.
 # Provider overload trips the breaker too. The harvested Kimi 429 already
 # retried inside the CLI. Launching that kernel again hits the same engine.
+# A missing Codex responses endpoint trips the breaker too. The 2026-09-03
+# run already retried websocket and HTTPS 404s. Launching Codex again hits
+# the same URL.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
-    {PRE_SESSION_TRANSPORT_ABORT, MODEL_UNAVAILABLE, PROVIDER_OVERLOADED}
+    {
+        PRE_SESSION_TRANSPORT_ABORT,
+        MODEL_UNAVAILABLE,
+        PROVIDER_OVERLOADED,
+        RESPONSES_ENDPOINT_MISSING,
+    }
 )
 _TRANSPORT_ABORT_MARKERS = (
     "disconnected before secure tls connection was established",
@@ -143,6 +159,13 @@ _TOKEN_FETCH_MARKERS = (
 _PROVIDER_OVERLOAD_MARKERS = (
     "provider.rate_limit",
     "engine is currently overloaded",
+)
+# Harvested Codex death (2026-09-03). The CLI already retried the websocket
+# and the HTTPS fallback. Both phrases are in that stdout. A bare 404, a
+# session-get 404, or a model-metadata warning is not this class.
+_RESPONSES_ENDPOINT_MARKERS = (
+    "unexpected status 404 not found",
+    "backend-api/codex/responses",
 )
 # Harvested Grok death (2026-09-04). The reply itself was cut off. A bare
 # "truncated" log line is not this class, and a successful message that only
@@ -331,6 +354,10 @@ def classify_kernel_failure(
         # The provider already retried. Another immediate launch of this kernel
         # dies the same way. This is not a spent account (quota_exhausted).
         return KernelFailureClass(PROVIDER_OVERLOADED, False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _RESPONSES_ENDPOINT_MARKERS):
+        # The CLI already retried websocket and HTTPS. Another launch of this
+        # kernel dies on the same missing responses URL.
+        return KernelFailureClass(RESPONSES_ENDPOINT_MISSING, False, evidence)
     if int(returncode or 0) != 0 and _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS):
         # The kernel is healthy. Replaying the mission prompt repeats the
         # truncation. Resume the same session with a decision-only prompt.

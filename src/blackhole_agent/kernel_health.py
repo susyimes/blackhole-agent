@@ -5,10 +5,10 @@ turns. Decision salvage records a structured turn, but without memory the
 next turn (and the next mission) still invokes the same exhausted kernel.
 
 This module persists non-retryable kernel deaths (quota, auth, a pre-session
-transport abort, a rejected model, and a provider overload 429), skips
-open-circuit kernels on later resolution, and failsover to a local capability
-kernel that still emits a structured Unbound decision so the mission does not
-block or burn turns.
+transport abort, a rejected model, a provider overload 429, and a Codex
+responses endpoint that returns HTTP 404), skips open-circuit kernels on
+later resolution, and failsover to a local capability kernel that still emits
+a structured Unbound decision so the mission does not block or burn turns.
 """
 
 from __future__ import annotations
@@ -38,6 +38,9 @@ DEFAULT_COOLDOWN_SECONDS = {
     # relaunching that kernel into the same overload without treating the
     # account as spent (quota stays on the six-hour cooldown).
     "provider_overloaded": 3600,
+    # Codex already retried a 404 on its responses URL. One hour avoids
+    # relaunching that kernel into the same missing endpoint.
+    "responses_endpoint_missing": 3600,
 }
 DEFAULT_COOLDOWN_FALLBACK = 1800
 MAX_COOLDOWN_SECONDS = 24 * 3600

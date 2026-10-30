@@ -480,6 +480,67 @@ def test_provider_overload_is_not_quota_or_a_bare_429():
     assert zero_exit.class_id != "provider_overloaded"
 
 
+def test_codex_responses_404_is_not_a_retryable_cli_error():
+    missing = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stdout_tail": (
+                '{"type":"turn.failed","error":{"message":"unexpected status 404 Not Found: '
+                'Unknown error, url: https://chatgpt.com/backend-api/codex/responses"}}'
+            ),
+            "stderr_tail": (
+                "failed to connect to websocket: HTTP error: 404 Not Found, "
+                "url: wss://chatgpt.com/backend-api/codex/responses"
+            ),
+            "last_message": "",
+            "session_id": "01a067d1-2173-7fb2-9cae-f3b9b80e0910",
+        },
+        error="Codex CLI failed with exit code 1",
+    )
+    assert missing.class_id == "responses_endpoint_missing"
+    assert missing.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Codex CLI failed with exit code 1",
+        current_kernel="codex",
+        artifact={
+            "returncode": 1,
+            "stdout_tail": (
+                "unexpected status 404 Not Found: Unknown error, "
+                "url: https://chatgpt.com/backend-api/codex/responses"
+            ),
+            "last_message": "",
+            "session_id": "01a067d1-2173-7fb2-9cae-f3b9b80e0910",
+        },
+        installed_kernels={"codex", "grok"},
+    )
+    assert salvaged.failover_kernel == "grok"
+    assert salvaged.decision["status"] == "continue"
+
+    bare = classify_kernel_failure(
+        returncode=1,
+        stderr_tail="warning: upstream returned 404 Not Found for an unrelated asset",
+        error="Codex CLI failed with exit code 1",
+    )
+    assert bare.class_id == "cli_error"
+    assert bare.retryable is True
+
+    session_404 = classify_kernel_failure(
+        returncode=1,
+        stderr_tail="Failed to restore session from remote\nsession get failed: 404 Not Found",
+        error="Grok CLI failed with exit code 1",
+    )
+    assert session_404.class_id == "session_not_found"
+
+    zero_exit = classify_kernel_failure(
+        returncode=0,
+        stderr_tail=(
+            "unexpected status 404 Not Found, url: https://chatgpt.com/backend-api/codex/responses"
+        ),
+        last_message="finished",
+    )
+    assert zero_exit.class_id != "responses_endpoint_missing"
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True
