@@ -124,6 +124,33 @@ def load_protected_paths(repo_path: Path | None = None) -> tuple[str, ...]:
     return unique_paths([*DEFAULT_PROTECTED_PATHS, *extra])
 
 
+def _lossy_process_text(payload: str | bytes | None) -> str:
+    if payload is None:
+        return ""
+    if isinstance(payload, bytes):
+        return payload.decode("utf-8", errors="replace")
+    return str(payload)
+
+
+def _diff_listing_text(payload: str | bytes | None) -> tuple[str, str]:
+    """Return ``(text, error)``. Invalid UTF-8 and a missing buffer fail closed.
+
+    CPython text mode decodes in the reader thread with strict UTF-8. A
+    listing that starts with byte ``0xCE`` raises ``UnicodeDecodeError``
+    there, ``communicate`` returns ``stdout=None``, and git's exit code is
+    still 0. An empty listing would publish a protected path.
+    """
+
+    if payload is None:
+        return "", "protected-path gate could not read candidate diff"
+    if isinstance(payload, bytes):
+        try:
+            return payload.decode("utf-8"), ""
+        except UnicodeDecodeError:
+            return "", "protected-path gate could not decode candidate diff as UTF-8"
+    return str(payload), ""
+
+
 def list_changed_paths(
     repo_path: Path,
     base: str,
@@ -135,6 +162,8 @@ def list_changed_paths(
 
     An empty error means the listing succeeded. The gate fails closed when
     git cannot list the diff: a candidate that hides its changes is refused.
+    The listing is captured as bytes so a non-UTF-8 name cannot disappear
+    into an empty success.
     """
 
     if not base or not head:
@@ -144,15 +173,20 @@ def list_changed_paths(
             ["git", "diff", "--name-only", "--diff-filter=ACDMRT", base, head],
             cwd=repo_path,
             capture_output=True,
-            text=True,
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError) as error:
         return (), f"protected-path gate could not list candidate diff: {error}"
     if int(getattr(completed, "returncode", 1)) != 0:
-        detail = (getattr(completed, "stderr", "") or getattr(completed, "stdout", "") or "").strip()
+        detail = (
+            _lossy_process_text(getattr(completed, "stderr", None))
+            or _lossy_process_text(getattr(completed, "stdout", None))
+        ).strip()
         return (), detail or "protected-path gate could not list candidate diff"
-    paths = unique_paths((completed.stdout or "").splitlines())
+    text, decode_error = _diff_listing_text(getattr(completed, "stdout", None))
+    if decode_error:
+        return (), decode_error
+    paths = unique_paths(text.splitlines())
     return paths, ""
 
 
