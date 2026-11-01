@@ -743,6 +743,43 @@ def test_grok_response_stream_is_not_retryable():
     assert zero_exit.class_id != "response_stream_failed"
 
 
+def test_grok_token_generation_500_is_not_a_tool_timeout():
+    from blackhole_agent.kernel_salvage import TOKEN_GENERATION_FAILED, classify_run_artifact
+
+    harvested = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stderr_tail": (
+                "WARN grep timed out timeout_secs=20\n"
+                "ERROR error=Internal error: API error (status 500 Internal Server Error): "
+                "error: Internal error during token generation\n"
+            ),
+            "stdout_tail": (
+                '{"type":"error","message":"API error (status 500 Internal Server Error): '
+                'error: Internal error during token generation"}'
+            ),
+            "last_message": "",
+            "command": ["grok.EXE", "--session-id", "9c8f416d-2184-4380-8ff1-0427cc159e94"],
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert harvested.class_id == TOKEN_GENERATION_FAILED
+    assert harvested.retryable is False
+
+    bare_timeout = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": "WARN grep timed out timeout_secs=20",
+            "last_message": "",
+        },
+        error="Grok CLI timed out after 600 seconds",
+    )
+    assert bare_timeout.class_id == "timeout"
+    assert bare_timeout.retryable is True
+
+
 def test_grok_auth_wake_blip_resumes_session_without_tripping_auth():
     from blackhole_agent.kernel_salvage import AUTH_TEMPORARILY_UNAVAILABLE, classify_run_artifact
 

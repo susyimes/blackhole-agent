@@ -92,6 +92,14 @@ retryable timeout and the next resolution replayed the mission on another
 kernel. Salvage resumes that session once. A second blip fails over without
 opening the auth circuit. A bare timeout, a 401 without the still-signed-in
 sentence, and a signed-out login death stay on their existing paths.
+
+A token-generation HTTP 500 is not a tool timeout. Harvested 2026-08-24 runs
+exited 1 after hundreds of model calls with ``Internal error during token
+generation`` and ``status 500``. The same stderr contains ``grep timed out``,
+so the death was a retryable timeout and the next resolution replayed the
+mission. Salvage resumes that session once. A second generation failure
+fails over without opening the auth circuit. A bare timeout, a signed-out
+login death, and a zero exit stay on their existing paths.
 """
 
 from __future__ import annotations
@@ -130,6 +138,7 @@ RESPONSES_ENDPOINT_MISSING = "responses_endpoint_missing"
 PROVIDER_CONNECTION_FAILED = "provider_connection_failed"
 RESPONSE_STREAM_FAILED = "response_stream_failed"
 AUTH_TEMPORARILY_UNAVAILABLE = "auth_temporarily_unavailable"
+TOKEN_GENERATION_FAILED = "token_generation_failed"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -168,6 +177,10 @@ AUTH_TEMPORARILY_UNAVAILABLE = "auth_temporarily_unavailable"
 # run exited 124 after 90 model calls and said the session was still signed
 # in. Opening auth_failed would take Grok offline. The first blip resumes
 # that session. A second blip fails over and leaves the circuit closed.
+# A token-generation HTTP 500 does not trip the breaker either. The
+# 2026-08-24 run exited 1 after 204 model calls. A grep timeout warning in
+# the same stderr is not the death. The first failure resumes that session.
+# A second generation failure fails over and leaves the circuit closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -250,6 +263,14 @@ _AUTH_WAKE_BLIP_MARKERS = (
     "still signed in",
     "no need to run",
 )
+# Harvested Grok death (2026-08-24). Both phrases are in the exit error after
+# 204 model calls. The same stderr also contains "grep timed out", which used
+# to win before this class. A bare timeout, a signed-out login line, and a
+# zero exit are not this class.
+_TOKEN_GENERATION_MARKERS = (
+    "internal error during token generation",
+    "status 500",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -289,6 +310,11 @@ WAKE_CONTINUE_PROMPT = (
     "Authentication was temporarily unavailable after wake. The session is still signed in. "
     "Do not run login. Do not restart the mission from the beginning. "
     "Continue the same session from work already done. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
+)
+TOKEN_GENERATION_CONTINUE_PROMPT = (
+    "Token generation failed with an internal server error. "
+    "Do not restart the mission from the beginning. Continue the same session from work already done. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
@@ -431,6 +457,11 @@ def classify_kernel_failure(
         # retry. "timed out" in the same stderr must not discard that session,
         # and the 401 text must not open the auth circuit.
         return KernelFailureClass(AUTH_TEMPORARILY_UNAVAILABLE, False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _TOKEN_GENERATION_MARKERS):
+        # A tool that said "timed out" is not this process death. The session
+        # already spent hundreds of model calls, and the 500 is not an auth
+        # failure, so the auth circuit stays closed.
+        return KernelFailureClass(TOKEN_GENERATION_FAILED, False, evidence)
     if timed_out or "timed out" in blob:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
@@ -875,11 +906,13 @@ def execute_kernel_turn_with_salvage(
     step_resumes: set[str] = set()
     stream_resumes: set[str] = set()
     wake_resumes: set[str] = set()
+    token_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
     pending_stream_resume = False
     pending_wake_resume = False
+    pending_token_resume = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -908,6 +941,8 @@ def execute_kernel_turn_with_salvage(
                 source = "stream_resume"
             elif pending_wake_resume:
                 source = "wake_resume"
+            elif pending_token_resume:
+                source = "token_generation_resume"
             else:
                 source = "failover"
             meta.update(
@@ -926,6 +961,7 @@ def execute_kernel_turn_with_salvage(
             pending_step_resume = False
             pending_stream_resume = False
             pending_wake_resume = False
+            pending_token_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -1065,12 +1101,39 @@ def execute_kernel_turn_with_salvage(
                     pending_step_resume = False
                     pending_stream_resume = False
                     pending_wake_resume = True
+                    pending_token_resume = False
                     continue
                 # The same blip happened again. Another kernel gets the mission
                 # prompt. This kernel stays available; the account is not spent.
                 prompt = original_prompt
                 pending_wake_resume = False
+            if salvaged.class_id == TOKEN_GENERATION_FAILED:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                    getattr(state, "session_started", False)
+                )
+                if resumable and state.kernel not in token_resumes:
+                    # One continuation on the session that already did the work.
+                    # The original mission prompt is not sent again, and the
+                    # auth circuit stays closed: generation failed, not sign-in.
+                    token_resumes.add(state.kernel)
+                    prompt = TOKEN_GENERATION_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = False
+                    pending_token_resume = True
+                    continue
+                # The same generation failure happened again. Another kernel
+                # gets the mission prompt. This kernel stays available.
+                prompt = original_prompt
+                pending_token_resume = False
             pending_fresh_session = False
+            pending_token_resume = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
                 persist()
