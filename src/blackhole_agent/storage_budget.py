@@ -85,11 +85,25 @@ def default_ba_roots(repo_path: Path) -> list[Path]:
     return roots
 
 
+# Direct children of TEMP created by this repository. ``blackhole-`` and
+# ``bh-unbound`` were the first counted names. Later scratch uses ``bh-``
+# (``bh-mcp-plugin-``, ``bh-fp-``, ``bh-acq-``, ``bh-fg-``) and ``ba-``
+# (``ba-grok-`` start probes). Reclaim stays on the narrower pair so a
+# measurement fix does not delete those trees.
+_MEASURED_TEMP_PREFIXES = ("blackhole-", "bh-", "ba-")
+
+
+def _measured_temp_name(name: str) -> bool:
+    return str(name or "").lower().startswith(_MEASURED_TEMP_PREFIXES)
+
+
 def discover_attributable_roots() -> list[Path]:
     """Temp outputs and Grok session directories positively attributable to BA.
 
     The shared Grok home (vendor, downloads, plugin caches) is not included.
     Native session records are measured only; this function does not delete them.
+    A direct TEMP child is included when its name starts with ``blackhole-``,
+    ``bh-``, or ``ba-``. Other names in TEMP stay outside the owned total.
     """
 
     found: list[Path] = []
@@ -98,8 +112,7 @@ def discover_attributable_roots() -> list[Path]:
         try:
             with os.scandir(temp) as iterator:
                 for entry in iterator:
-                    name = entry.name.lower()
-                    if name.startswith("blackhole-") or name.startswith("bh-unbound"):
+                    if _measured_temp_name(entry.name):
                         found.append(Path(entry.path))
         except OSError:
             pass
@@ -392,8 +405,9 @@ def authorization_measurement_roots(repo_path: Path) -> list[Path]:
 
     ``mission_checkout_roots`` stays checkout-only so a caller can still price
     one new checkout. Authorization is the shared budget: a provider session
-    or ``blackhole-`` temp directory that meets the cap has to be visible or
-    the receipt reports the cap satisfied while owned bytes were left out.
+    or a ``blackhole-``, ``bh-``, or ``ba-`` temp directory that meets the cap
+    has to be visible or the receipt reports the cap satisfied while owned
+    bytes were left out.
     """
 
     roots = mission_checkout_roots(repo_path)
