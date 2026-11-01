@@ -614,7 +614,12 @@ def publish_lineage(
     command_runner: Callable[..., Any] = subprocess.run,
     operator_acknowledged: bool = False,
 ) -> PublicationResult:
-    """Fast-forward one proven local commit to the configured remote branch."""
+    """Fast-forward one proven local commit to the configured remote branch.
+
+    A push that fails because git asked for a larger ``http.postBuffer`` is
+    attempted once more with that buffer on the same command. Other push
+    failures, including a schannel handshake error, stay single-attempt.
+    """
 
     command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
     if not git_commit_exists(repo_path, commit_sha, command_runner=command_runner):
@@ -709,16 +714,49 @@ def publish_lineage(
     )
     if pushed.returncode != 0:
         details = (pushed.stderr or pushed.stdout or "").strip()
-        return PublicationResult(
-            ok=False,
-            commit_sha=commit_sha,
-            remote=remote,
-            branch=branch,
-            remote_before=remote_before,
-            remote_after="",
-            error=details or f"git push exited {pushed.returncode}",
-            command=command,
+        from blackhole_agent.publication_resilience import (
+            POST_BUFFER_RETRY_BYTES,
+            is_post_buffer_overflow,
         )
+
+        if not is_post_buffer_overflow(details):
+            return PublicationResult(
+                ok=False,
+                commit_sha=commit_sha,
+                remote=remote,
+                branch=branch,
+                remote_before=remote_before,
+                remote_after="",
+                error=details or f"git push exited {pushed.returncode}",
+                command=command,
+            )
+        command = (
+            "git",
+            "-c",
+            f"http.postBuffer={POST_BUFFER_RETRY_BYTES}",
+            "push",
+            remote,
+            f"{commit_sha}:refs/heads/{branch}",
+        )
+        pushed = run_command(
+            list(command),
+            cwd=repo_path,
+            command_runner=command_runner,
+            timeout=300,
+            check=False,
+        )
+        if pushed.returncode != 0:
+            retry_details = (pushed.stderr or pushed.stdout or "").strip()
+            return PublicationResult(
+                ok=False,
+                commit_sha=commit_sha,
+                remote=remote,
+                branch=branch,
+                remote_before=remote_before,
+                remote_after="",
+                error=retry_details or details or f"git push exited {pushed.returncode}",
+                command=command,
+            )
     remote_after, lookup_error = remote_branch_head(
         repo_path,
         remote,

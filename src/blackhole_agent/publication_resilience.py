@@ -88,6 +88,19 @@ def is_terminal_publication_error(error: str) -> bool:
     return any(marker in text for marker in TERMINAL_PUBLICATION_MARKERS)
 
 
+# Harvested 2026-08-23 continuous-loop publication. Git asked for a larger
+# HTTP buffer after curl 65 and a sideband disconnect. A schannel handshake
+# failure does not contain this phrase and stays a single attempt.
+POST_BUFFER_OVERFLOW_MARKER = "http.postbuffer"
+POST_BUFFER_RETRY_BYTES = 524288000
+
+
+def is_post_buffer_overflow(error: str) -> bool:
+    """True when git itself asked the push to increase http.postBuffer."""
+
+    return POST_BUFFER_OVERFLOW_MARKER in str(error or "").lower()
+
+
 def apply_publication_failure(loop_state: dict[str, Any], error: str) -> dict[str, Any]:
     """Record a failed publish; a terminal mismatch must not retry forever."""
 
