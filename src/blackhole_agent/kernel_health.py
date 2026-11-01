@@ -5,10 +5,12 @@ turns. Decision salvage records a structured turn, but without memory the
 next turn (and the next mission) still invokes the same exhausted kernel.
 
 This module persists non-retryable kernel deaths (quota, auth, a pre-session
-transport abort, a rejected model, a provider overload 429, and a Codex
-responses endpoint that returns HTTP 404), skips open-circuit kernels on
-later resolution, and failsover to a local capability kernel that still emits
-a structured Unbound decision so the mission does not block or burn turns.
+transport abort, a rejected model, a provider overload 429, a Codex
+responses endpoint that returns HTTP 404, and a Kimi prompt that dies with
+provider.connection_error after its own APIConnectionError retries), skips
+open-circuit kernels on later resolution, and failsover to a local capability
+kernel that still emits a structured Unbound decision so the mission does not
+block or burn turns.
 """
 
 from __future__ import annotations
@@ -41,6 +43,10 @@ DEFAULT_COOLDOWN_SECONDS = {
     # Codex already retried a 404 on its responses URL. One hour avoids
     # relaunching that kernel into the same missing endpoint.
     "responses_endpoint_missing": 3600,
+    # Kimi already retried APIConnectionError and exited on
+    # provider.connection_error. One hour avoids relaunching that kernel
+    # into the same dead prompt path. This is not a spent account.
+    "provider_connection_failed": 3600,
 }
 DEFAULT_COOLDOWN_FALLBACK = 1800
 MAX_COOLDOWN_SECONDS = 24 * 3600

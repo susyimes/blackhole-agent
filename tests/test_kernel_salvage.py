@@ -541,6 +541,76 @@ def test_codex_responses_404_is_not_a_retryable_cli_error():
     assert zero_exit.class_id != "responses_endpoint_missing"
 
 
+def test_kimi_connection_error_after_step_retries_is_not_retryable():
+    death = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "error: failed to run prompt: provider.connection_error: Connection error.\n"
+                "See log: C:/Users/svmes/.kimi-code/logs/kimi-code.log\n"
+            ),
+            "stdout_tail": (
+                '{"role":"meta","type":"turn.step.retrying","failed_attempt":1,'
+                '"next_attempt":2,"max_attempts":3,"error_name":"APIConnectionError",'
+                '"error_message":"Connection error."}\n'
+                '{"role":"meta","type":"turn.step.retrying","failed_attempt":2,'
+                '"next_attempt":3,"max_attempts":3,"error_name":"APIConnectionError",'
+                '"error_message":"Connection error."}\n'
+            ),
+            "last_message": "",
+            "session_id": "session_5128790f-82f6-4329-a51a-6e93af6c126c",
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert death.class_id == "provider_connection_failed"
+    assert death.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Kimi CLI failed with exit code 1",
+        current_kernel="kimi",
+        artifact={
+            "returncode": 1,
+            "stderr_tail": "failed to run prompt: provider.connection_error: Connection error.",
+            "stdout_tail": (
+                '{"type":"turn.step.retrying","error_name":"APIConnectionError",'
+                '"error_message":"Connection error."}'
+            ),
+            "last_message": "",
+            "session_id": "session_5128790f-82f6-4329-a51a-6e93af6c126c",
+        },
+        installed_kernels={"kimi", "grok"},
+    )
+    assert salvaged.failover_kernel == "grok"
+    assert salvaged.decision["status"] == "continue"
+
+    bare = classify_kernel_failure(
+        returncode=1,
+        stderr_tail="warning: Connection error. left in an unrelated log line",
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert bare.class_id == "cli_error"
+    assert bare.retryable is True
+
+    token_fetch = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            "error: failed to run prompt: provider.connection_error: "
+            'OAuth provider "managed:kimi-code" failed to fetch an access token: '
+            "fetch failed: read ECONNRESET"
+        ),
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert token_fetch.class_id == "auth_failed"
+    assert token_fetch.retryable is False
+
+    zero_exit = classify_kernel_failure(
+        returncode=0,
+        stderr_tail="provider.connection_error: Connection error.",
+        stdout_tail='{"type":"turn.step.retrying","error_name":"APIConnectionError"}',
+        last_message="finished",
+    )
+    assert zero_exit.class_id != "provider_connection_failed"
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True

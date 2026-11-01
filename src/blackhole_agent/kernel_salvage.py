@@ -56,6 +56,15 @@ is not a transient CLI blip. The 2026-09-03 run exited 1 with
 both the websocket and the HTTPS fallback. That stayed a retryable CLI error,
 so the next resolution launched Codex again. A bare 404, a deleted-session
 404, and a model-metadata fallback warning are not this class.
+
+A Kimi prompt that dies with ``provider.connection_error: Connection error``
+after the CLI has already retried ``APIConnectionError`` is not a transient
+blip and is not the OAuth token-fetch failure. The 2026-07-31 run exited 1
+with ``turn.step.retrying`` up to ``max_attempts`` 3, then ``failed to run
+prompt: provider.connection_error: Connection error``. That stayed a retryable
+CLI error, so the next resolution launched Kimi again. A bare connection
+warning, a zero exit, and a token-fetch ``provider.connection_error`` stay on
+their existing paths.
 """
 
 from __future__ import annotations
@@ -91,6 +100,7 @@ PROVIDER_OVERLOADED = "provider_overloaded"
 OUTPUT_TRUNCATED = "output_truncated"
 STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
 RESPONSES_ENDPOINT_MISSING = "responses_endpoint_missing"
+PROVIDER_CONNECTION_FAILED = "provider_connection_failed"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -113,12 +123,17 @@ RESPONSES_ENDPOINT_MISSING = "responses_endpoint_missing"
 # A missing Codex responses endpoint trips the breaker too. The 2026-09-03
 # run already retried websocket and HTTPS 404s. Launching Codex again hits
 # the same URL.
+# A Kimi APIConnectionError that already used its step retries trips the
+# breaker too. The 2026-07-31 run exited on provider.connection_error after
+# max_attempts 3. Launching Kimi again hits the same dead prompt path.
+# Token-fetch deaths stay auth_failed and are not this class.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
         MODEL_UNAVAILABLE,
         PROVIDER_OVERLOADED,
         RESPONSES_ENDPOINT_MISSING,
+        PROVIDER_CONNECTION_FAILED,
     }
 )
 _TRANSPORT_ABORT_MARKERS = (
@@ -166,6 +181,15 @@ _PROVIDER_OVERLOAD_MARKERS = (
 _RESPONSES_ENDPOINT_MARKERS = (
     "unexpected status 404 not found",
     "backend-api/codex/responses",
+)
+# Harvested Kimi death (2026-07-31). The CLI already retried APIConnectionError
+# and then exited on this death line. All three phrases are in that run.
+# A bare "connection error", a zero exit, and the OAuth token-fetch wording
+# are not this class. Token fetch is classified earlier as auth_failed.
+_PROVIDER_CONNECTION_MARKERS = (
+    "provider.connection_error: connection error",
+    "turn.step.retrying",
+    "apiconnectionerror",
 )
 # Harvested Grok death (2026-09-04). The reply itself was cut off. A bare
 # "truncated" log line is not this class, and a successful message that only
@@ -350,6 +374,10 @@ def classify_kernel_failure(
         # Token fetch died after a session id existed, so this is not the
         # empty-session transport abort. The kernel cannot authenticate.
         return KernelFailureClass("auth_failed", False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _PROVIDER_CONNECTION_MARKERS):
+        # The CLI already retried APIConnectionError. Another launch of this
+        # kernel dies on the same provider.connection_error death line.
+        return KernelFailureClass(PROVIDER_CONNECTION_FAILED, False, evidence)
     if int(returncode or 0) != 0 and _contains_any(blob, _PROVIDER_OVERLOAD_MARKERS):
         # The provider already retried. Another immediate launch of this kernel
         # dies the same way. This is not a spent account (quota_exhausted).
