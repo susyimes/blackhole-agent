@@ -743,6 +743,65 @@ def test_grok_response_stream_is_not_retryable():
     assert zero_exit.class_id != "response_stream_failed"
 
 
+def test_grok_auth_wake_blip_resumes_session_without_tripping_auth():
+    from blackhole_agent.kernel_salvage import AUTH_TEMPORARILY_UNAVAILABLE, classify_run_artifact
+
+    harvested = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": (
+                "WARN headless: background wait timed out, exiting\n"
+                "Authentication is temporarily unavailable (often a network blip right after wake). "
+                "Your session is still signed in and will recover automatically. "
+                "no need to run /login."
+            ),
+            "stdout_tail": "Unauthorized (401) from https://cli-chat-proxy.grok.com/v1/responses",
+            "last_message": "",
+            "command": ["grok.EXE", "--session-id", "2460a176-d5fb-457c-bd14-1bc6fd28b28e"],
+        },
+        error="Grok CLI timed out after 600 seconds",
+    )
+    assert harvested.class_id == AUTH_TEMPORARILY_UNAVAILABLE
+    assert harvested.retryable is False
+
+    bare_timeout = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": "WARN headless: background wait timed out, exiting",
+            "last_message": "",
+        },
+        error="Grok CLI timed out after 600 seconds",
+    )
+    assert bare_timeout.class_id == "timeout"
+    assert bare_timeout.retryable is True
+
+    bare_401 = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stderr_tail": "ERROR Unauthorized (401) Invalid or expired credentials",
+            "last_message": "",
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert bare_401.class_id == "auth_failed"
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stderr_tail": (
+                "Authentication is temporarily unavailable. "
+                "Your session is still signed in. no need to run /login."
+            ),
+            "last_message": "finished",
+        },
+    )
+    assert zero_exit.class_id != AUTH_TEMPORARILY_UNAVAILABLE
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True

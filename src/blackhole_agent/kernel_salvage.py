@@ -82,6 +82,16 @@ the next resolution replayed the mission prompt and discarded the session.
 Salvage resumes that session once with a continuation prompt. A second stream
 death opens the Grok circuit and failsover. A telemetry export network error,
 a settings-fetch warning, and a zero exit stay off this path.
+
+A post-wake authentication blip is not a signed-out account and not a generic
+timeout. Harvested 2026-08-13 and 2026-08-23 runs exited 124 with
+``timed_out`` after many model calls. The transcript says authentication is
+temporarily unavailable, the session is still signed in, and there is no need
+to run login. The same stderr also says "timed out", so the death was a
+retryable timeout and the next resolution replayed the mission on another
+kernel. Salvage resumes that session once. A second blip fails over without
+opening the auth circuit. A bare timeout, a 401 without the still-signed-in
+sentence, and a signed-out login death stay on their existing paths.
 """
 
 from __future__ import annotations
@@ -119,6 +129,7 @@ STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
 RESPONSES_ENDPOINT_MISSING = "responses_endpoint_missing"
 PROVIDER_CONNECTION_FAILED = "provider_connection_failed"
 RESPONSE_STREAM_FAILED = "response_stream_failed"
+AUTH_TEMPORARILY_UNAVAILABLE = "auth_temporarily_unavailable"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -153,6 +164,10 @@ RESPONSE_STREAM_FAILED = "response_stream_failed"
 # "reqwest error stream" after model calls. The first death resumes that
 # session once. Launching Grok again after the resume dies hits the same
 # proxy. A telemetry network error is not this class.
+# A post-wake authentication blip does not trip the breaker. The 2026-08-23
+# run exited 124 after 90 model calls and said the session was still signed
+# in. Opening auth_failed would take Grok offline. The first blip resumes
+# that session. A second blip fails over and leaves the circuit closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -226,6 +241,15 @@ _GROK_SIGNED_OUT_MARKERS = (
 _RESPONSE_STREAM_MARKERS = (
     "reqwest error stream",
 )
+# Harvested Grok deaths (2026-08-13 and 2026-08-23). All three phrases are in
+# the 401 body. The stderr also contains "timed out" and the run is recorded
+# with timed_out true, which used to win before this class. A bare 401, a
+# signed-out login line, and a timeout without these phrases are not this class.
+_AUTH_WAKE_BLIP_MARKERS = (
+    "authentication is temporarily unavailable",
+    "still signed in",
+    "no need to run",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -259,6 +283,12 @@ STEP_CONTINUE_PROMPT = (
 STREAM_CONTINUE_PROMPT = (
     "The previous responses stream died before a JSON decision. "
     "Do not restart the mission from the beginning. Continue the same session from work already done. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
+)
+WAKE_CONTINUE_PROMPT = (
+    "Authentication was temporarily unavailable after wake. The session is still signed in. "
+    "Do not run login. Do not restart the mission from the beginning. "
+    "Continue the same session from work already done. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
@@ -394,6 +424,13 @@ def classify_kernel_failure(
 ) -> KernelFailureClass:
     blob = _haystack(stdout_tail, stderr_tail, last_message, error)
     evidence = (error or stderr_tail or stdout_tail or last_message or "")[:400]
+    if (int(returncode or 0) != 0 or timed_out) and all(
+        marker in blob for marker in _AUTH_WAKE_BLIP_MARKERS
+    ):
+        # The CLI already said the session is signed in and asked for a short
+        # retry. "timed out" in the same stderr must not discard that session,
+        # and the 401 text must not open the auth circuit.
+        return KernelFailureClass(AUTH_TEMPORARILY_UNAVAILABLE, False, evidence)
     if timed_out or "timed out" in blob:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
@@ -837,10 +874,12 @@ def execute_kernel_turn_with_salvage(
     truncated_resumes: set[str] = set()
     step_resumes: set[str] = set()
     stream_resumes: set[str] = set()
+    wake_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
     pending_stream_resume = False
+    pending_wake_resume = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -867,6 +906,8 @@ def execute_kernel_turn_with_salvage(
                 source = "step_retry_resume"
             elif pending_stream_resume:
                 source = "stream_resume"
+            elif pending_wake_resume:
+                source = "wake_resume"
             else:
                 source = "failover"
             meta.update(
@@ -884,6 +925,7 @@ def execute_kernel_turn_with_salvage(
             pending_decision_resume = False
             pending_step_resume = False
             pending_stream_resume = False
+            pending_wake_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -1004,6 +1046,30 @@ def execute_kernel_turn_with_salvage(
                 # prompt, and this kernel's circuit opens below.
                 prompt = original_prompt
                 pending_stream_resume = False
+            if salvaged.class_id == AUTH_TEMPORARILY_UNAVAILABLE:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                    getattr(state, "session_started", False)
+                )
+                if resumable and state.kernel not in wake_resumes:
+                    # One continuation on the session that already did the work.
+                    # The original mission prompt is not sent again, and the
+                    # auth circuit stays closed: the account is still signed in.
+                    wake_resumes.add(state.kernel)
+                    prompt = WAKE_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = True
+                    continue
+                # The same blip happened again. Another kernel gets the mission
+                # prompt. This kernel stays available; the account is not spent.
+                prompt = original_prompt
+                pending_wake_resume = False
             pending_fresh_session = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
