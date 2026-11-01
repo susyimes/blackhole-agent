@@ -120,6 +120,17 @@ was a retryable timeout and the next resolution replayed the mission prompt.
 Salvage resumes that session once with the decision-only prompt. A bare tool
 timeout, one truncation phrase beside a timeout string, and a zero exit stay
 on their existing paths.
+
+A resident session actor that has already been reaped is not a live session
+and not a reason to leave a healthy kernel. Harvested 2026-08-26 run
+``20260826T102353Z-ee74a113`` exited 124 after 26 model calls. The transcript
+says the resident session actor exited unexpectedly and was reaped as
+DeadFailed for session ``858749f4-3c21-4375-955c-65c08166b900``. The same
+stderr also says ``auth: file lock timed out``, so the death was a retryable
+timeout and the next resolution left Grok. Salvage drops that session and
+continues once on the same kernel with a fresh session. A second dead actor
+fails over without opening the circuit. A file-lock wait without both
+phrases, and a zero exit, stay on their existing paths.
 """
 
 from __future__ import annotations
@@ -160,6 +171,7 @@ RESPONSE_STREAM_FAILED = "response_stream_failed"
 AUTH_TEMPORARILY_UNAVAILABLE = "auth_temporarily_unavailable"
 TOKEN_GENERATION_FAILED = "token_generation_failed"
 INFERENCE_IDLE_TIMEOUT = "inference_idle_timeout"
+SESSION_ACTOR_DEAD = "session_actor_dead"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -207,6 +219,11 @@ INFERENCE_IDLE_TIMEOUT = "inference_idle_timeout"
 # "timed out" lines in that stderr are not the death. The first idle death
 # resumes that session. A second idle death fails over and leaves the circuit
 # closed.
+# A reaped resident session actor does not trip the breaker. The 2026-08-26
+# run exited 124 after 26 model calls. The actor for that session id is
+# already DeadFailed, so resuming it cannot continue the work. The first
+# death drops the id and starts a fresh session on the same kernel. A second
+# dead actor fails over and leaves the circuit closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -306,6 +323,15 @@ _INFERENCE_IDLE_MARKERS = (
     "inference idle timeout",
     "no chunks",
 )
+# Harvested Grok death (2026-08-26, mission 20260826T102353Z-ee74a113).
+# Both phrases are in the stderr after 26 model calls, next to the session id
+# that the command line still carries. The same stderr also contains
+# "auth: file lock timed out", and the run is recorded timed_out. A file-lock
+# wait without both phrases, and a zero exit, are not this class.
+_SESSION_ACTOR_DEAD_MARKERS = (
+    "resident session actor exited unexpectedly",
+    "reaping as deadfailed",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -355,6 +381,12 @@ TOKEN_GENERATION_CONTINUE_PROMPT = (
 INFERENCE_IDLE_CONTINUE_PROMPT = (
     "Inference went idle and produced no further chunks. "
     "Do not restart the mission from the beginning. Continue the same session from work already done. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
+)
+DEAD_ACTOR_CONTINUE_PROMPT = (
+    "The resident session actor exited unexpectedly and was reaped as DeadFailed. "
+    "Do not resume that session. Continue from files already changed in the workspace. "
+    "Do not restart the mission from the beginning. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
@@ -525,6 +557,13 @@ def classify_kernel_failure(
         # contains tool and file-lock timeouts. The idle sentence is the death.
         # The session already made model calls, so this is not an auth failure.
         return KernelFailureClass(INFERENCE_IDLE_TIMEOUT, False, evidence)
+    if (int(returncode or 0) != 0 or timed_out) and all(
+        marker in blob for marker in _SESSION_ACTOR_DEAD_MARKERS
+    ):
+        # The controller records this exit as timed_out, and the stderr also
+        # contains an auth file-lock wait. The actor for the session id on the
+        # command line is already dead, so that id must not be resumed.
+        return KernelFailureClass(SESSION_ACTOR_DEAD, False, evidence)
     if _output_truncated_death(blob, returncode=returncode, timed_out=timed_out):
         # A grep or signal-sync "timed out" line is not this process death.
         # The reply was cut off, so the mission prompt must not be sent again.
@@ -971,6 +1010,7 @@ def execute_kernel_turn_with_salvage(
     wake_resumes: set[str] = set()
     token_resumes: set[str] = set()
     idle_resumes: set[str] = set()
+    dead_actor_retries: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
@@ -978,6 +1018,7 @@ def execute_kernel_turn_with_salvage(
     pending_wake_resume = False
     pending_token_resume = False
     pending_idle_resume = False
+    pending_dead_actor = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -1010,6 +1051,8 @@ def execute_kernel_turn_with_salvage(
                 source = "token_generation_resume"
             elif pending_idle_resume:
                 source = "inference_idle_resume"
+            elif pending_dead_actor:
+                source = "dead_actor_fresh_session"
             else:
                 source = "failover"
             meta.update(
@@ -1030,6 +1073,7 @@ def execute_kernel_turn_with_salvage(
             pending_wake_resume = False
             pending_token_resume = False
             pending_idle_resume = False
+            pending_dead_actor = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -1227,9 +1271,32 @@ def execute_kernel_turn_with_salvage(
                 # mission prompt. This kernel stays available.
                 prompt = original_prompt
                 pending_idle_resume = False
+            if salvaged.class_id == SESSION_ACTOR_DEAD:
+                if state.kernel not in dead_actor_retries:
+                    # The actor for this session id is already dead. One fresh
+                    # session on the same kernel continues from files on disk.
+                    # The dead id is not resumed, and the circuit stays closed.
+                    dead_actor_retries.add(state.kernel)
+                    state.session_id = ""
+                    state.session_started = False
+                    prompt = DEAD_ACTOR_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = False
+                    pending_token_resume = False
+                    pending_idle_resume = False
+                    pending_dead_actor = True
+                    continue
+                # The fresh session's actor died too. Another kernel gets the
+                # mission prompt. This kernel stays available.
+                prompt = original_prompt
+                pending_dead_actor = False
             pending_fresh_session = False
             pending_token_resume = False
             pending_idle_resume = False
+            pending_dead_actor = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
                 persist()

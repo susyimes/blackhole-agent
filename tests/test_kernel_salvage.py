@@ -791,6 +791,54 @@ def test_grok_inference_idle_timeout_is_not_a_tool_timeout():
     assert zero_exit.class_id != INFERENCE_IDLE_TIMEOUT
 
 
+def test_grok_dead_session_actor_is_not_a_file_lock_timeout():
+    from blackhole_agent.kernel_salvage import SESSION_ACTOR_DEAD, classify_run_artifact
+
+    session = "858749f4-3c21-4375-955c-65c08166b900"
+    harvested = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": (
+                "WARN auth: file lock timed out, waiting for sibling to finish\n"
+                "WARN Resident session actor exited unexpectedly; reaping as DeadFailed "
+                f"session_id={session}\n"
+            ),
+            "stdout_tail": '{"num_turns": 26}',
+            "last_message": "keep going",
+            "command": ["grok.EXE", "--session-id", session],
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert harvested.class_id == SESSION_ACTOR_DEAD
+    assert harvested.retryable is False
+
+    file_lock = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": "WARN auth: file lock timed out, waiting for sibling to finish\n",
+            "last_message": "",
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert file_lock.class_id == "timeout"
+    assert file_lock.retryable is True
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stderr_tail": (
+                "WARN Resident session actor exited unexpectedly; reaping as DeadFailed "
+                f"session_id={session}\n"
+            ),
+            "last_message": "finished",
+        },
+    )
+    assert zero_exit.class_id != SESSION_ACTOR_DEAD
+
+
 def test_grok_token_generation_500_is_not_a_tool_timeout():
     from blackhole_agent.kernel_salvage import TOKEN_GENERATION_FAILED, classify_run_artifact
 
