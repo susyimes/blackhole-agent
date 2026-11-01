@@ -2666,7 +2666,9 @@ def reclaim_mission_worktrees(
     ``subprocess.TimeoutExpired`` is recorded and left on disk; later
     published checkouts in the same pass are still reclaimed. The harvested
     2026-08-26 failure escaped that exception after 600 seconds and skipped
-    every remaining checkout. Active and blocked missions are never touched.
+    every remaining checkout. That same checkout is remembered, and a later
+    reclaim does not start another ``git worktree remove`` on it. Active
+    and blocked missions are never touched.
     Mission branches are kept by default; ``delete_branches`` uses
     ``git branch -d`` only, which refuses unmerged branches. Unparsable
     state files are skipped and reported, never deleted. Worktree directories
@@ -2674,6 +2676,11 @@ def reclaim_mission_worktrees(
     ``git worktree prune``.
     """
 
+    from blackhole_agent.worktree_remove_deferral import (
+        deferred_mission_ids,
+        forget_timed_out_remove,
+        remember_timed_out_remove,
+    )
     from blackhole_agent.worktree_reclaim_verify import (
         assess_worktree_removal,
         bounded_remove_published_tree,
@@ -2697,7 +2704,9 @@ def reclaim_mission_worktrees(
         "kept": [],
         "errors": [],
         "pruned_missing": [],
+        "deferred_timeouts": [],
     }
+    deferred = deferred_mission_ids(repo_path, output_dir)
     if not missions_dir.is_dir():
         return report
 
@@ -2720,6 +2729,9 @@ def reclaim_mission_worktrees(
             continue
         if not workspace.exists():
             report["pruned_missing"].append({"mission_id": state.mission_id, "workspace": str(workspace)})
+            if state.mission_id in deferred:
+                forget_timed_out_remove(repo_path, output_dir, state.mission_id)
+                deferred.discard(state.mission_id)
             continue
         head = state.last_milestone_head or state.base_head
         if not git_commit_exists(repo_path, head, command_runner=command_runner):
@@ -2780,6 +2792,9 @@ def reclaim_mission_worktrees(
                 command_runner=command_runner,
             )
             if entry["removed"]:
+                if state.mission_id in deferred:
+                    forget_timed_out_remove(repo_path, output_dir, state.mission_id)
+                    deferred.discard(state.mission_id)
                 report["reclaimed"].append(entry)
             else:
                 report["kept"].append(
@@ -2789,6 +2804,14 @@ def reclaim_mission_worktrees(
                         "workspace": str(workspace),
                     }
                 )
+            continue
+        if state.mission_id in deferred:
+            entry["removed"] = False
+            entry["reason"] = "remove_previously_timed_out"
+            report["kept"].append(entry)
+            report["deferred_timeouts"].append(
+                {"mission_id": state.mission_id, "workspace": str(workspace)}
+            )
             continue
         command = git_worktree_remove_command(workspace)
         entry["remove_command"] = command
@@ -2803,8 +2826,17 @@ def reclaim_mission_worktrees(
         except subprocess.TimeoutExpired as error:
             # One hung remove must not escape into the loop handler. That
             # handler returns immediately, so every later checkout in this
-            # pass would stay registered.
+            # pass would stay registered. Remember the checkout so the next
+            # pass does not spend another 600 seconds on the same remove.
             detail = str(error).strip() or error.__class__.__name__
+            remember_timed_out_remove(
+                repo_path,
+                output_dir,
+                state.mission_id,
+                workspace,
+                detail,
+            )
+            deferred.add(state.mission_id)
             report["errors"].append(
                 {
                     "mission_id": state.mission_id,
@@ -2835,6 +2867,9 @@ def reclaim_mission_worktrees(
             )
             continue
         entry["removed"] = True
+        if state.mission_id in deferred:
+            forget_timed_out_remove(repo_path, output_dir, state.mission_id)
+            deferred.discard(state.mission_id)
         if delete_branches and state.branch:
             deleted = run_command(
                 ["git", "branch", "-d", state.branch],
