@@ -1691,23 +1691,33 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # Harvested mission 20261101T123515Z-b531bbb1. The agent shell is pwsh.
 # cmd.exe replay of `$env:PYTHONPATH = 'src'; & '<python>' <probe>` exits 1
 # even when that same command exited 0, and the milestone is rejected.
+# The same death happens without the call operator:
+# `$env:PYTHONPATH = 'src'; python probe.py`.
 _POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|[;&])\s*&\s*['\"]")
+_POWERSHELL_ENV_ASSIGNMENT = re.compile(
+    r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
+    re.IGNORECASE,
+)
 
 
 def powershell_replay_argv(command: str) -> list[str] | None:
-    """Return a pwsh argv for the harvested PowerShell validation form.
+    """Return a pwsh argv for a PowerShell validation command.
 
-    The form is an ``$env:`` assignment plus the call operator. Other
-    commands stay on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns
-    a native exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone
-    turns a missing executable into exit 0, so the wrapper keeps a real
-    native code and still fails a command that never started.
+    The harvested forms are an ``$env:`` assignment plus the call operator,
+    and an ``$env:`` assignment at the start of the command without that
+    operator. Other commands stay on ``shell=True`` (cmd.exe on Windows).
+    PowerShell 7 turns a native exit 3 into process exit 1, and
+    ``exit $LASTEXITCODE`` alone turns a missing executable into exit 0, so
+    the wrapper keeps a real native code and still fails a command that
+    never started.
     """
 
     if os.name != "nt":
         return None
     text = str(command or "")
-    if "$env:" not in text.lower() or _POWERSHELL_CALL_OPERATOR.search(text) is None:
+    if "$env:" not in text.lower():
+        return None
+    if _POWERSHELL_CALL_OPERATOR.search(text) is None and _POWERSHELL_ENV_ASSIGNMENT.match(text) is None:
         return None
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if not executable:
