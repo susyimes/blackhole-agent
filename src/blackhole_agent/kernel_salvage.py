@@ -131,6 +131,17 @@ timeout and the next resolution left Grok. Salvage drops that session and
 continues once on the same kernel with a fresh session. A second dead actor
 fails over without opening the circuit. A file-lock wait without both
 phrases, and a zero exit, stay on their existing paths.
+
+A thinking tail-repetition doom loop is not a generic process timeout.
+Harvested 2026-10-10 run ``20261010T200752Z-1f0fecd9`` exited 124 with
+``timed_out`` while doom-loop recovery was retaining a failed response for
+``tail_repetition`` on session ``49babe86-c4a7-44ad-a8ce-0608c2acd2c8``.
+The same stderr also says ``grep timed out`` and that an MCP handshake
+timed out, so the death was a retryable timeout and the next resolution
+replayed the mission prompt. Salvage resumes that session once with a
+stop-repeating continuation. A second doom loop fails over without opening
+the circuit. A bare tool timeout, one of the two phrases, and a zero exit
+stay on their existing paths.
 """
 
 from __future__ import annotations
@@ -172,6 +183,7 @@ AUTH_TEMPORARILY_UNAVAILABLE = "auth_temporarily_unavailable"
 TOKEN_GENERATION_FAILED = "token_generation_failed"
 INFERENCE_IDLE_TIMEOUT = "inference_idle_timeout"
 SESSION_ACTOR_DEAD = "session_actor_dead"
+DOOM_LOOP_REPETITION = "doom_loop_repetition"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -224,6 +236,10 @@ SESSION_ACTOR_DEAD = "session_actor_dead"
 # already DeadFailed, so resuming it cannot continue the work. The first
 # death drops the id and starts a fresh session on the same kernel. A second
 # dead actor fails over and leaves the circuit closed.
+# A thinking doom loop does not trip the breaker. The 2026-10-10 run exited
+# 124 while recovery was still resampling tail_repetition. A grep timeout in
+# that stderr is not the death. The first doom loop resumes that session. A
+# second doom loop fails over and leaves the circuit closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -332,6 +348,15 @@ _SESSION_ACTOR_DEAD_MARKERS = (
     "resident session actor exited unexpectedly",
     "reaping as deadfailed",
 )
+# Harvested Grok death (2026-10-10, mission 20261010T200752Z-1f0fecd9).
+# Both phrases are in the stderr after the CLI started doom-loop recovery
+# for tail_repetition. The same stderr also contains "grep timed out" and
+# an MCP handshake timeout, and the run is recorded timed_out. A bare tool
+# timeout, one phrase alone, and a zero exit are not this class.
+_DOOM_LOOP_MARKERS = (
+    "doom loop detected",
+    "tail_repetition",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -388,6 +413,11 @@ DEAD_ACTOR_CONTINUE_PROMPT = (
     "Do not resume that session. Continue from files already changed in the workspace. "
     "Do not restart the mission from the beginning. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
+)
+DOOM_LOOP_CONTINUE_PROMPT = (
+    "The previous response repeated itself in a thinking tail-repetition doom loop. "
+    "Do not restart the mission from the beginning. Continue the same session from work already done. "
+    "Stop repeating. Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -568,6 +598,13 @@ def classify_kernel_failure(
         # A grep or signal-sync "timed out" line is not this process death.
         # The reply was cut off, so the mission prompt must not be sent again.
         return KernelFailureClass(OUTPUT_TRUNCATED, False, evidence)
+    if (int(returncode or 0) != 0 or timed_out) and all(
+        marker in blob for marker in _DOOM_LOOP_MARKERS
+    ):
+        # The controller records this exit as timed_out, and the stderr also
+        # contains tool and MCP timeouts. The doom-loop sentence is the death.
+        # A max_tokens truncation in the same log is classified above.
+        return KernelFailureClass(DOOM_LOOP_REPETITION, False, evidence)
     if timed_out or "timed out" in blob:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
@@ -1011,6 +1048,7 @@ def execute_kernel_turn_with_salvage(
     token_resumes: set[str] = set()
     idle_resumes: set[str] = set()
     dead_actor_retries: set[str] = set()
+    doom_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
@@ -1019,6 +1057,7 @@ def execute_kernel_turn_with_salvage(
     pending_token_resume = False
     pending_idle_resume = False
     pending_dead_actor = False
+    pending_doom_resume = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -1053,6 +1092,8 @@ def execute_kernel_turn_with_salvage(
                 source = "inference_idle_resume"
             elif pending_dead_actor:
                 source = "dead_actor_fresh_session"
+            elif pending_doom_resume:
+                source = "doom_loop_resume"
             else:
                 source = "failover"
             meta.update(
@@ -1074,12 +1115,14 @@ def execute_kernel_turn_with_salvage(
             pending_token_resume = False
             pending_idle_resume = False
             pending_dead_actor = False
+            pending_doom_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
                 state.session_id = kernel_result.session_id or state.session_id
                 state.session_started = bool(state.session_id) or state.session_started
             tried.add(state.kernel)
+            pending_doom_resume = False
             artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
             if state.kernel == "cursor" and artifact.get("session_id"):
                 state.session_id = str(artifact["session_id"])
@@ -1293,6 +1336,34 @@ def execute_kernel_turn_with_salvage(
                 # mission prompt. This kernel stays available.
                 prompt = original_prompt
                 pending_dead_actor = False
+            if salvaged.class_id == DOOM_LOOP_REPETITION:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                    getattr(state, "session_started", False)
+                )
+                if resumable and state.kernel not in doom_resumes:
+                    # One continuation on the session that already did the work.
+                    # The original mission prompt is not sent again, and the
+                    # circuit stays closed: the model repeated itself.
+                    doom_resumes.add(state.kernel)
+                    prompt = DOOM_LOOP_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = False
+                    pending_token_resume = False
+                    pending_idle_resume = False
+                    pending_dead_actor = False
+                    pending_doom_resume = True
+                    continue
+                # The same doom loop happened again. Another kernel gets the
+                # mission prompt. This kernel stays available.
+                prompt = original_prompt
+                pending_doom_resume = False
             pending_fresh_session = False
             pending_token_resume = False
             pending_idle_resume = False
@@ -1463,6 +1534,19 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
     )
     checks["telemetry_network_error_stays_cli_error"] = (
         telemetry.class_id == "cli_error" and telemetry.retryable
+    )
+    doom_loop = classify_kernel_failure(
+        returncode=124,
+        timed_out=True,
+        stderr_tail=(
+            "WARN grep timed out timeout_secs=20\n"
+            "WARN doom-loop recovery: retaining the failed response and retrying with guidance "
+            "reason=doom loop detected: tail_repetition:64@thinking"
+        ),
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    checks["grok_doom_loop_is_not_a_tool_timeout"] = (
+        doom_loop.class_id == DOOM_LOOP_REPETITION and not doom_loop.retryable
     )
 
     events = classify_unbound_turn(

@@ -791,6 +791,54 @@ def test_grok_inference_idle_timeout_is_not_a_tool_timeout():
     assert zero_exit.class_id != INFERENCE_IDLE_TIMEOUT
 
 
+def test_grok_doom_loop_is_not_a_tool_timeout():
+    from blackhole_agent.kernel_salvage import DOOM_LOOP_REPETITION, classify_run_artifact
+
+    session = "49babe86-c4a7-44ad-a8ce-0608c2acd2c8"
+    harvested = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": (
+                "WARN grep timed out timeout_secs=20\n"
+                "WARN doom-loop recovery: retaining the failed response and retrying with guidance "
+                "reason=doom loop detected: tail_repetition:64@thinking attempt=1 "
+                'max_retries=2 outcome="resampled_with_reminder"\n'
+            ),
+            "last_message": "Still inspecting the repository.",
+            "command": ["grok.EXE", "--session-id", session],
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert harvested.class_id == DOOM_LOOP_REPETITION
+    assert harvested.retryable is False
+
+    bare_timeout = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": "WARN grep timed out timeout_secs=20\n",
+            "last_message": "",
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert bare_timeout.class_id == "timeout"
+    assert bare_timeout.retryable is True
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stderr_tail": (
+                "WARN doom-loop recovery: resample budget spent "
+                "reason=doom loop detected: tail_repetition:64@thinking\n"
+            ),
+            "last_message": "finished",
+        },
+    )
+    assert zero_exit.class_id != DOOM_LOOP_REPETITION
+
+
 def test_grok_dead_session_actor_is_not_a_file_lock_timeout():
     from blackhole_agent.kernel_salvage import SESSION_ACTOR_DEAD, classify_run_artifact
 
