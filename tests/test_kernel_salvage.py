@@ -743,6 +743,54 @@ def test_grok_response_stream_is_not_retryable():
     assert zero_exit.class_id != "response_stream_failed"
 
 
+def test_grok_inference_idle_timeout_is_not_a_tool_timeout():
+    from blackhole_agent.kernel_salvage import INFERENCE_IDLE_TIMEOUT, classify_run_artifact
+
+    harvested = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": (
+                "WARN grep timed out timeout_secs=20\n"
+                'ERROR error=Internal error: "inference idle timeout after 3600s with no chunks"\n'
+                "WARN auth: file lock timed out, waiting for sibling to finish\n"
+            ),
+            "stdout_tail": (
+                '{"type":"error","message":"inference idle timeout after 3600s with no chunks"}'
+            ),
+            "last_message": (
+                'Internal error: {\n  "message": "inference idle timeout after 3600s with no chunks"\n}'
+            ),
+            "command": ["grok.EXE", "--session-id", "a3f87572-fb23-4403-9500-d6ad0149baa9"],
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert harvested.class_id == INFERENCE_IDLE_TIMEOUT
+    assert harvested.retryable is False
+
+    bare_timeout = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": "WARN grep timed out timeout_secs=20\nWARN auth: file lock timed out\n",
+            "last_message": "",
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert bare_timeout.class_id == "timeout"
+    assert bare_timeout.retryable is True
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stderr_tail": 'ERROR error=Internal error: "inference idle timeout after 3600s with no chunks"',
+            "last_message": "finished",
+        },
+    )
+    assert zero_exit.class_id != INFERENCE_IDLE_TIMEOUT
+
+
 def test_grok_token_generation_500_is_not_a_tool_timeout():
     from blackhole_agent.kernel_salvage import TOKEN_GENERATION_FAILED, classify_run_artifact
 
