@@ -156,6 +156,7 @@ def govern_expansion(
     scratch_dirs: Sequence[Path | str] = (),
     active_paths: Sequence[Path | str] = (),
     receipt_path: Path | str | None = None,
+    already_measured: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Measure, reclaim only named expendable targets when required, then authorize.
 
@@ -164,13 +165,14 @@ def govern_expansion(
     paths are validated again immediately before each rotation or delete. A
     broad root, ``.git``, credentials, active paths, and reparse points are
     not removed. An incomplete measurement refuses expansion and does not
-    report the cap as satisfied.
+    report the cap as satisfied. ``already_measured`` skips the first walk when
+    the caller measured the same roots and has not changed them.
     """
 
     chosen = policy or BudgetPolicy()
     if additional_bytes < 0:
         raise ValueError("additional_bytes cannot be negative")
-    before = measure_roots(roots)
+    before = already_measured if already_measured is not None else measure_roots(roots)
     needs_housekeeping = _needs_housekeeping(before, additional_bytes, chosen)
     actions: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -247,25 +249,173 @@ def mission_checkout_roots(repo_path: Path) -> list[Path]:
     return default_ba_roots(Path(repo_path))
 
 
+# At the preventive line, keep one newest clean completed checkout. The
+# launcher still passes ``--no-worktree-gc``, so publication itself does not
+# reclaim. This path is the one that runs before ``git worktree add``.
+BUDGET_RECLAIM_KEEP_RECENT = 1
+
+
+def checkout_growth_bytes(measurement: dict[str, Any], repo_path: Path) -> int:
+    """Lower bound for one new worktree: main-repo files outside ``.git``.
+
+    A git worktree shares object storage, so the ``.git`` directory is not
+    copied. When ``.git`` is absent from the sampled children, the whole repo
+    size is used. Overestimating reaches the preventive line sooner.
+    """
+
+    repo_abs = os.path.abspath(repo_path)
+    for item in measurement.get("roots") or []:
+        if os.path.abspath(str(item.get("root") or "")) != repo_abs:
+            continue
+        total = int(item.get("logical_bytes") or 0)
+        git_bytes = 0
+        for child in item.get("top_children") or []:
+            if str(child.get("name") or "") == ".git":
+                git_bytes = int(child.get("logical_bytes") or 0)
+                break
+        return max(0, total - git_bytes)
+    return 0
+
+
+def budget_reclaim_needed(
+    measurement: dict[str, Any], growth_bytes: int, policy: BudgetPolicy
+) -> bool:
+    """True when another checkout should not land before verified reclaim.
+
+    An incomplete measurement does not delete anything. Reclaim is required
+    when usage is already at the preventive mark or the cap, or when the
+    estimated checkout would reach either line.
+    """
+
+    if not bool(measurement.get("complete")):
+        return False
+    logical = int(measurement.get("logical_bytes") or 0)
+    growth = max(0, int(growth_bytes))
+    if logical >= policy.preventive_bytes or logical >= policy.cap_bytes:
+        return True
+    if logical + growth >= policy.preventive_bytes:
+        return True
+    return logical + growth > policy.cap_bytes
+
+
+def _remote_lineage_refs(repo: Path) -> tuple[str, ...]:
+    """Prefer ``origin/main`` so a local-only commit is not treated as published."""
+
+    import subprocess
+
+    completed = subprocess.run(
+        ["git", "rev-parse", "--verify", "--end-of-options", "refs/remotes/origin/main"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0 and (completed.stdout or "").strip():
+        return ("origin/main",)
+    return ("main",)
+
+
+def _compact_worktree_reclaim(report: dict[str, Any]) -> dict[str, Any]:
+    reclaimed: list[dict[str, Any]] = []
+    commands: list[list[str]] = []
+    for item in report.get("reclaimed") or []:
+        if not isinstance(item, dict):
+            continue
+        command = [str(part) for part in item.get("remove_command") or []]
+        reclaimed.append(
+            {
+                "mission_id": item.get("mission_id"),
+                "workspace": item.get("workspace"),
+                "removed": item.get("removed"),
+                "remove_command": command,
+            }
+        )
+        if command:
+            commands.append(command)
+    kept = [
+        {"mission_id": item.get("mission_id"), "reason": item.get("reason")}
+        for item in report.get("kept") or []
+        if isinstance(item, dict)
+    ]
+    return {
+        "ok": report.get("ok"),
+        "force_removal": report.get("force_removal"),
+        "keep_recent": report.get("keep_recent"),
+        "ancestor_refs": list(report.get("ancestor_refs") or []),
+        "reclaimed": reclaimed,
+        "remove_commands": commands,
+        "kept": kept,
+        "errors": list(report.get("errors") or []),
+    }
+
+
+def reclaim_completed_for_budget(repo_path: Path) -> dict[str, Any]:
+    """Remove verified completed worktrees, keeping the newest clean one.
+
+    Uses ``reclaim_mission_worktrees``, which refuses ``--force``. Dirty,
+    active, blocked, in-use, and unpublished checkouts stay.
+    """
+
+    from blackhole_agent.unbound import reclaim_mission_worktrees
+
+    return reclaim_mission_worktrees(
+        Path(repo_path),
+        ancestor_refs=_remote_lineage_refs(Path(repo_path)),
+        keep_recent=BUDGET_RECLAIM_KEEP_RECENT,
+        delete_branches=False,
+    )
+
+
 def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     """Measure checkout roots and refuse when a new worktree is not allowed.
 
     ``CAP_BYTES`` and ``PREVENTIVE_BYTES`` are read at call time so a caller
-    can point a fixture at a small cap. No closed logs or scratch directories
-    are passed in, so this decision does not rotate or delete files. The
-    receipt is written under the repository's unbound directory.
+    can point a fixture at a small cap. When the measurement is already at
+    the preventive threshold, or the estimated checkout would reach it, older
+    completed published worktrees with no unique work are removed first.
+    Removal is ``git worktree remove`` without ``--force``. The receipt is
+    written under the repository's unbound directory.
     """
 
     repo = Path(repo_path)
     cap = int(CAP_BYTES)
     preventive = min(int(PREVENTIVE_BYTES), cap)
     policy = BudgetPolicy(cap_bytes=cap, preventive_bytes=preventive)
+    roots = mission_checkout_roots(repo)
+    before = measure_roots(roots)
+    growth = checkout_growth_bytes(before, repo)
+    reclaim_report: dict[str, Any] | None = None
+    if budget_reclaim_needed(before, growth, policy):
+        reclaim_report = reclaim_completed_for_budget(repo)
     receipt = govern_expansion(
-        mission_checkout_roots(repo),
-        additional_bytes=0,
+        roots,
+        additional_bytes=growth,
         policy=policy,
         receipt_path=repo / ".blackhole-agent" / "unbound" / "storage-budget.json",
+        already_measured=None if reclaim_report is not None else before,
     )
+    if reclaim_report is not None:
+        compact = _compact_worktree_reclaim(reclaim_report)
+        receipt["bytes_before"] = int(before["logical_bytes"])
+        receipt["file_count_before"] = int(before["file_count"])
+        receipt["measurement_before"] = _compact_measurement(before)
+        receipt["worktree_reclaim"] = compact
+        targets = list(receipt.get("cleanup_targets") or [])
+        for item in compact["reclaimed"]:
+            if item.get("removed") is not True:
+                continue
+            targets.append(
+                {
+                    "path": item.get("workspace"),
+                    "action": "git_worktree_remove",
+                    "outcome": "removed",
+                    "mission_id": item.get("mission_id"),
+                    "command": item.get("remove_command"),
+                    "force": False,
+                }
+            )
+        receipt["cleanup_targets"] = targets
+        _write_receipt(repo / ".blackhole-agent" / "unbound" / "storage-budget.json", receipt)
     expansion = receipt.get("expansion") if isinstance(receipt.get("expansion"), dict) else {}
     if expansion.get("allowed") is not True:
         raise StorageBudgetRefusal(str(expansion.get("reason") or "refused"), receipt)
