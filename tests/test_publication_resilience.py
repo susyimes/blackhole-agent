@@ -139,6 +139,57 @@ def test_schannel_handshake_retries_the_same_push_once(tmp_path: Path) -> None:
     assert "http.postBuffer=" not in " ".join(pushes[0])
 
 
+def test_protected_path_refusal_drops_pending_publish() -> None:
+    from blackhole_agent.protected_paths import evaluate_protected_paths_gate
+    from blackhole_agent.publication_resilience import (
+        PROTECTED_PATH_REFUSAL_MARKER,
+        apply_publication_failure,
+        is_terminal_publication_error,
+    )
+
+    harvested = (
+        "protected paths require operator acknowledgment: "
+        "src/blackhole_agent/experience_fuel.py"
+    )
+    dns = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "Could not resolve host: github.com"
+    )
+    connect = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "Failed to connect to github.com port 443 after 21097 ms: Could not connect to server"
+    )
+    assert PROTECTED_PATH_REFUSAL_MARKER in harvested
+    assert is_terminal_publication_error(harvested)
+    assert not is_terminal_publication_error(dns)
+    assert not is_terminal_publication_error(connect)
+
+    verdict = evaluate_protected_paths_gate(
+        ("src/blackhole_agent/experience_fuel.py",),
+        operator_acknowledged=False,
+    )
+    assert verdict.blocked is True
+    assert verdict.operator_acknowledged is False
+    pending = {
+        "pending_publish_ref": "e7b754131c475cdb13012f16f8b29f212125fd56",
+        "pending_publish_mission_id": "20260817T150703Z-4f1451c3",
+        "last_publish_error": "",
+    }
+    apply_publication_failure(pending, f"{verdict.reason}: {verdict.touched[0]}")
+    assert pending["pending_publish_ref"] == ""
+    assert pending["pending_publish_mission_id"] == ""
+    assert pending["last_publish_error"].startswith(PROTECTED_PATH_REFUSAL_MARKER)
+
+    transient = {
+        "pending_publish_ref": "e7b754131c475cdb13012f16f8b29f212125fd56",
+        "pending_publish_mission_id": "20260817T150703Z-4f1451c3",
+        "last_publish_error": "",
+    }
+    apply_publication_failure(transient, dns)
+    assert transient["pending_publish_ref"] == "e7b754131c475cdb13012f16f8b29f212125fd56"
+    assert transient["pending_publish_mission_id"] == "20260817T150703Z-4f1451c3"
+
+
 def test_goal_binds_publication_resilience_plane() -> None:
     assert leftover_marker_ids(PUBLICATION_RESILIENCE_GOAL) == (PUBLICATION_RESILIENCE_ID,)
     assert CLASS_CLOSURE_REQUIREMENTS[PUBLICATION_FAILED] == (PUBLICATION_RESILIENCE_ID,)

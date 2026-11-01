@@ -7,6 +7,14 @@ non-fast-forward, ``last_publish_error`` stayed sticky, and the continuous
 loop retried the same hopeless SHA as ``sleeping_publish_retry`` instead of
 creating the next mission.
 
+A protected-path refusal is the same kind of stall. From 2026-08-17 through
+2026-08-22 the loop retried commit e7b754131c475cdb13012f16f8b29f212125fd56
+222 times after ``protected paths require operator acknowledgment`` for
+``src/blackhole_agent/experience_fuel.py``. Retrying that SHA cannot succeed
+without an operator acknowledgment, so the pending publish is cleared. The
+push stays refused. Transient DNS and connect failures keep the pending
+publish.
+
 ``publication_failed`` is a catalog class without a closer, so harvest could
 never drop it.
 
@@ -16,6 +24,8 @@ This module closes that class:
 - keep same-SHA republication idempotent and ancestor fast-forwards live
 - drop pending publish on a terminal remote-head mismatch so the loop does
   not stall; keep pending on transient transport errors
+- drop pending publish on a protected-path acknowledgment refusal so the
+  same SHA is not retried; the push stays refused
 - drop the class from genesis fuel once this closer is proved
 """
 
@@ -45,10 +55,14 @@ PUBLICATION_FAILED = "publication_failed"
 PUBLICATION_RESILIENCE_ID = "capability.publication-resilience"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REMOTE_HEAD_MISMATCH_PREFIX = "remote-head mismatch"
+# Harvested 2026-08-17..2026-08-22. The same SHA was retried 222 times.
+# The gate still refuses the push; only the hopeless pending retry is dropped.
+PROTECTED_PATH_REFUSAL_MARKER = "protected paths require operator acknowledgment"
 TERMINAL_PUBLICATION_MARKERS = (
     REMOTE_HEAD_MISMATCH_PREFIX,
     "not a fast-forward ancestor",
     "non-fast-forward",
+    PROTECTED_PATH_REFUSAL_MARKER,
 )
 
 PUBLICATION_RESILIENCE_DONE_WHEN = (
@@ -82,7 +96,12 @@ def is_remote_head_mismatch(error: str) -> bool:
 
 
 def is_terminal_publication_error(error: str) -> bool:
-    """True when retrying the same SHA cannot fast-forward the remote."""
+    """True when retrying the same SHA cannot publish.
+
+    A diverged remote and a protected-path acknowledgment refusal are terminal.
+    DNS, connect, schannel, and http.postBuffer failures are not: those can
+    succeed on a later attempt.
+    """
 
     text = str(error or "").lower()
     return any(marker in text for marker in TERMINAL_PUBLICATION_MARKERS)
@@ -120,7 +139,7 @@ def is_schannel_handshake_failure(error: str) -> bool:
 
 
 def apply_publication_failure(loop_state: dict[str, Any], error: str) -> dict[str, Any]:
-    """Record a failed publish; a terminal mismatch must not retry forever."""
+    """Record a failed publish; a terminal refusal must not retry forever."""
 
     payload = loop_state if isinstance(loop_state, dict) else {}
     payload["last_publish_error"] = str(error or "")
