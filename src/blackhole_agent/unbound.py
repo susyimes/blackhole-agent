@@ -894,11 +894,24 @@ def create_mission(
     operator_supplied = bool(goal.strip())
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
+    # The editable install loads this checkout. Catch origin/main before the
+    # storage gate imports, and reload that module when the checkout moved so
+    # this process does not keep the pre-publication function.
+    from blackhole_agent.controller_adoption import adopt_remote_controller
+
+    try:
+        adoption = adopt_remote_controller(repo_path, command_runner=command_runner)
+    except Exception:
+        adoption = {"moved": False}
+    import blackhole_agent.storage_budget as storage_budget
+
+    if adoption.get("moved"):
+        import importlib
+
+        storage_budget = importlib.reload(storage_budget)
     # Refuse before mkdir or git worktree add. A cap refusal must not leave a
     # destination directory behind, and it must not delete fixture files.
-    from blackhole_agent.storage_budget import authorize_mission_worktree
-
-    authorize_mission_worktree(repo_path)
+    storage_budget.authorize_mission_worktree(repo_path)
     run_command(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=repo_path,
@@ -2082,6 +2095,15 @@ def run_unbound_turn(
         workspace = Path(state.workspace_path)
         if not workspace.exists():
             raise FileNotFoundError(f"Mission workspace does not exist: {workspace}")
+        controller = Path(state.repo_path)
+        if controller.exists():
+            try:
+                from blackhole_agent.controller_adoption import adopt_remote_controller
+
+                adopt_remote_controller(controller, command_runner=command_runner)
+            except Exception:
+                # A controller checkout that cannot move must not drop the turn.
+                pass
         if _prior_genesis_selection_rejected(state):
             restore_unaccepted_workspace(workspace, command_runner=command_runner)
         iteration = state.iteration + 1
@@ -2940,6 +2962,22 @@ def run_continuous_loop(
                 loop_state["last_published_ref"] = result.remote_after
                 loop_state["last_published_at"] = utc_now_iso()
                 loop_state["last_publish_error"] = ""
+                try:
+                    from blackhole_agent.controller_adoption import adopt_published_controller
+
+                    adoption = adopt_published_controller(
+                        repo_path,
+                        str(result.remote_after or commit_sha),
+                        branch=target_branch,
+                        command_runner=command_runner,
+                    )
+                except Exception as error:
+                    adoption = {
+                        "adopted": False,
+                        "reason": str(error) or error.__class__.__name__,
+                    }
+                loop_state["controller_adopted"] = bool(adoption.get("adopted"))
+                loop_state["controller_adoption_reason"] = str(adoption.get("reason") or "")
                 run_worktree_gc("publication")
             else:
                 from blackhole_agent.publication_resilience import apply_publication_failure
