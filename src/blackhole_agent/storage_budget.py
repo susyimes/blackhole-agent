@@ -381,22 +381,43 @@ def reclaim_completed_for_budget(repo_path: Path) -> dict[str, Any]:
     )
 
 
-def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
-    """Measure checkout roots and refuse when a new worktree is not allowed.
+def authorization_measurement_roots(repo_path: Path) -> list[Path]:
+    """Checkout roots plus temp outputs and provider sessions attributable to BA.
 
-    ``CAP_BYTES`` and ``PREVENTIVE_BYTES`` are read at call time so a caller
-    can point a fixture at a small cap. A complete measurement removes older
-    completed published worktrees with no unique work before the new checkout,
-    including while usage is still below the preventive line. An incomplete
-    measurement removes nothing. Removal is ``git worktree remove`` without
-    ``--force``. The receipt is written under the repository's unbound directory.
+    ``mission_checkout_roots`` stays checkout-only so a caller can still price
+    one new checkout. Authorization is the shared budget: a provider session
+    or ``blackhole-`` temp directory that meets the cap has to be visible or
+    the receipt reports the cap satisfied while owned bytes were left out.
+    """
+
+    roots = mission_checkout_roots(repo_path)
+    for extra in discover_attributable_roots():
+        if any(_norm(extra) == _norm(root) or _strictly_inside(root, extra) for root in roots):
+            continue
+        if any(_strictly_inside(extra, root) for root in roots):
+            continue
+        roots.append(extra)
+    return roots
+
+
+def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
+    """Measure the shared budget and refuse when a new worktree is not allowed.
+
+    The measurement covers checkout roots, BA temp outputs, and attributable
+    provider-session directories. ``CAP_BYTES`` and ``PREVENTIVE_BYTES`` are
+    read at call time so a caller can point a fixture at a small cap. A
+    complete measurement removes older completed published worktrees with no
+    unique work before the new checkout, including while usage is still below
+    the preventive line. An incomplete measurement removes nothing. Removal is
+    ``git worktree remove`` without ``--force``. The receipt is written under
+    the repository's unbound directory.
     """
 
     repo = Path(repo_path)
     cap = int(CAP_BYTES)
     preventive = min(int(PREVENTIVE_BYTES), cap)
     policy = BudgetPolicy(cap_bytes=cap, preventive_bytes=preventive)
-    roots = mission_checkout_roots(repo)
+    roots = authorization_measurement_roots(repo)
     before = measure_roots(roots)
     growth = checkout_growth_bytes(before, repo)
     reclaim_report: dict[str, Any] | None = None

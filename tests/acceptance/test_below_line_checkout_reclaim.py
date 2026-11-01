@@ -144,12 +144,27 @@ def _authorize(repo: Path) -> dict:
 
     budget.CAP_BYTES = 10**15
     budget.PREVENTIVE_BYTES = 10**15
+    home = repo.parent / "empty-home"
+    temp = repo.parent / "empty-temp"
+    home.mkdir(exist_ok=True)
+    temp.mkdir(exist_ok=True)
+    previous = {key: os.environ.get(key) for key in ("TEMP", "TMP", "USERPROFILE", "HOME")}
+    os.environ["TEMP"] = str(temp)
+    os.environ["TMP"] = str(temp)
+    os.environ["USERPROFILE"] = str(home)
+    os.environ["HOME"] = str(home)
     try:
         return budget.authorize_mission_worktree(repo)
     except budget.StorageBudgetRefusal as exc:
         receipt = dict(exc.receipt)
         receipt["refused"] = exc.reason
         return receipt
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def _below_line(root: Path) -> dict[str, object]:

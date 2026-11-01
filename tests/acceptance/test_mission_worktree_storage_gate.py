@@ -62,6 +62,28 @@ def _attempt(repo: Path, parent: Path, cap_bytes: int) -> dict:
     budget.CAP_BYTES = cap_bytes
     budget.PREVENTIVE_BYTES = cap_bytes
     before = (repo / "payload.bin").read_bytes()
+    home = parent.parent / f"{parent.name}-home"
+    temp = parent.parent / f"{parent.name}-temp"
+    home.mkdir(parents=True, exist_ok=True)
+    temp.mkdir(parents=True, exist_ok=True)
+    previous = {
+        key: os.environ.get(key) for key in ("TEMP", "TMP", "USERPROFILE", "HOME")
+    }
+    os.environ["TEMP"] = str(temp)
+    os.environ["TMP"] = str(temp)
+    os.environ["USERPROFILE"] = str(home)
+    os.environ["HOME"] = str(home)
+    try:
+        return _create_under_sandbox(repo, parent, before, create_mission)
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def _create_under_sandbox(repo: Path, parent: Path, before: bytes, create_mission) -> dict:
     try:
         state_path = create_mission(
             repo_path=repo,
