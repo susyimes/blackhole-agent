@@ -132,23 +132,142 @@ def _lossy_process_text(payload: str | bytes | None) -> str:
     return str(payload)
 
 
-def _diff_listing_text(payload: str | bytes | None) -> tuple[str, str]:
-    """Return ``(text, error)``. Invalid UTF-8 and a missing buffer fail closed.
+_READ_ERROR = "protected-path gate could not read candidate diff"
+_DECODE_ERROR = "protected-path gate could not decode candidate diff as UTF-8"
+_LIST_ERROR = "protected-path gate could not list candidate diff"
+_STATUS_LETTERS = frozenset("ACDMRTUXB")
+_TWO_PATH_LETTERS = frozenset("RC")
+_GIT_ESCAPES = {
+    "\\": 0x5C,
+    '"': 0x22,
+    "n": 0x0A,
+    "t": 0x09,
+    "b": 0x08,
+    "f": 0x0C,
+    "r": 0x0D,
+    "a": 0x07,
+    "v": 0x0B,
+}
 
-    CPython text mode decodes in the reader thread with strict UTF-8. A
-    listing that starts with byte ``0xCE`` raises ``UnicodeDecodeError``
-    there, ``communicate`` returns ``stdout=None``, and git's exit code is
-    still 0. An empty listing would publish a protected path.
+
+def _status_letter(token: str) -> str:
+    if not token or token[0] not in _STATUS_LETTERS:
+        return ""
+    if len(token) > 4 or any(not character.isdigit() for character in token[1:]):
+        return ""
+    return token[0]
+
+
+def _unquote_git_path(field: str) -> tuple[str, str]:
+    """Decode one git path field. C-quoted octal escapes become raw UTF-8."""
+
+    if not field.startswith('"'):
+        return field, ""
+    if len(field) < 2 or not field.endswith('"'):
+        return "", _LIST_ERROR
+    raw = bytearray()
+    index = 1
+    end = len(field) - 1
+    while index < end:
+        character = field[index]
+        if character != "\\":
+            raw.extend(character.encode("utf-8"))
+            index += 1
+            continue
+        index += 1
+        if index >= end:
+            return "", _LIST_ERROR
+        escaped = field[index]
+        if escaped in _GIT_ESCAPES:
+            raw.append(_GIT_ESCAPES[escaped])
+            index += 1
+            continue
+        if escaped not in "01234567":
+            return "", _LIST_ERROR
+        octal = escaped
+        index += 1
+        for _ in range(2):
+            if index < end and field[index] in "01234567":
+                octal += field[index]
+                index += 1
+            else:
+                break
+        raw.append(int(octal, 8))
+    try:
+        return raw.decode("utf-8"), ""
+    except UnicodeDecodeError:
+        return "", _DECODE_ERROR
+
+
+def _paths_from_record(status: str, fields: list[str]) -> tuple[list[str], str]:
+    letter = _status_letter(status)
+    if not letter:
+        return [], _LIST_ERROR
+    needed = 2 if letter in _TWO_PATH_LETTERS else 1
+    if len(fields) != needed:
+        return [], _LIST_ERROR
+    paths: list[str] = []
+    for field in fields:
+        path, error = _unquote_git_path(field)
+        if error:
+            return [], error
+        paths.append(path)
+    return paths, ""
+
+
+def parse_diff_listing(payload: str | bytes | None) -> tuple[tuple[str, ...], str]:
+    """Return ``(paths, error)`` for a git name-status or name-only listing.
+
+    Missing output and invalid UTF-8 fail closed. A NUL-delimited name-status
+    record keeps both ends of a rename or copy. A line-oriented listing still
+    accepts the historical name-only shape and C-quoted paths.
     """
 
     if payload is None:
-        return "", "protected-path gate could not read candidate diff"
+        return (), _READ_ERROR
     if isinstance(payload, bytes):
         try:
-            return payload.decode("utf-8"), ""
+            text = payload.decode("utf-8")
         except UnicodeDecodeError:
-            return "", "protected-path gate could not decode candidate diff as UTF-8"
-    return str(payload), ""
+            return (), _DECODE_ERROR
+    else:
+        text = str(payload)
+    if not text:
+        return (), ""
+    paths: list[str] = []
+    if "\0" in text:
+        parts = text.split("\0")
+        if parts and parts[-1] == "":
+            parts.pop()
+        index = 0
+        while index < len(parts):
+            status = parts[index]
+            index += 1
+            letter = _status_letter(status)
+            needed = 2 if letter in _TWO_PATH_LETTERS else 1
+            if not letter or index + needed > len(parts):
+                return (), _LIST_ERROR
+            found = parts[index : index + needed]
+            if any(not field for field in found):
+                return (), _LIST_ERROR
+            paths.extend(found)
+            index += needed
+        return tuple(paths), ""
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        fields = line.split("\t")
+        if _status_letter(fields[0]):
+            found, error = _paths_from_record(fields[0], fields[1:])
+            if error:
+                return (), error
+            paths.extend(found)
+            continue
+        path, error = _unquote_git_path(line.strip())
+        if error:
+            return (), error
+        paths.append(path)
+    return tuple(paths), ""
 
 
 def list_changed_paths(
@@ -162,15 +281,28 @@ def list_changed_paths(
 
     An empty error means the listing succeeded. The gate fails closed when
     git cannot list the diff: a candidate that hides its changes is refused.
-    The listing is captured as bytes so a non-UTF-8 name cannot disappear
-    into an empty success.
+    ``--name-only`` drops a rename's old path, and ``core.quotepath`` wraps a
+    non-ASCII name in C quotes. ``-z --name-status`` keeps both rename
+    endpoints and the raw path bytes. The listing is captured as bytes so a
+    non-UTF-8 name cannot disappear into an empty success.
     """
 
     if not base or not head:
         return (), "protected-path gate is missing a base or candidate head"
     try:
         completed = command_runner(
-            ["git", "diff", "--name-only", "--diff-filter=ACDMRT", base, head],
+            [
+                "git",
+                "-c",
+                "core.quotepath=false",
+                "diff",
+                "--name-status",
+                "-z",
+                "--find-renames",
+                "--diff-filter=ACDMRT",
+                base,
+                head,
+            ],
             cwd=repo_path,
             capture_output=True,
             timeout=30,
@@ -183,11 +315,10 @@ def list_changed_paths(
             or _lossy_process_text(getattr(completed, "stdout", None))
         ).strip()
         return (), detail or "protected-path gate could not list candidate diff"
-    text, decode_error = _diff_listing_text(getattr(completed, "stdout", None))
+    paths, decode_error = parse_diff_listing(getattr(completed, "stdout", None))
     if decode_error:
         return (), decode_error
-    paths = unique_paths(text.splitlines())
-    return paths, ""
+    return unique_paths(paths), ""
 
 
 def evaluate_protected_paths_gate(

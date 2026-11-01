@@ -6,9 +6,19 @@ from blackhole_agent.protected_paths import (
     builtin_protected_paths_gate,
     evaluate_candidate_protected_paths,
     evaluate_protected_paths_gate,
+    list_changed_paths,
     load_protected_paths,
+    parse_diff_listing,
     path_is_protected,
 )
+
+
+def _is_diff_listing(command) -> bool:
+    if not isinstance(command, (list, tuple)):
+        return False
+    if list(command[:3]) == ["git", "diff", "--name-only"]:
+        return True
+    return "diff" in command and "--name-status" in command
 from blackhole_agent.supervisor import SupervisorConfig, promote_candidate
 
 
@@ -72,7 +82,7 @@ def test_promote_candidate_refuses_protected_path_without_ack(tmp_path):
 
     def runner(command, **kwargs):
         calls.append(command)
-        if command[:3] == ["git", "diff", "--name-only"]:
+        if _is_diff_listing(command):
             return subprocess.CompletedProcess(
                 command,
                 0,
@@ -113,7 +123,7 @@ def test_promote_candidate_allows_protected_path_with_operator_ack(tmp_path):
     state = {"merged": False}
 
     def runner(command, **kwargs):
-        if command[:3] == ["git", "diff", "--name-only"]:
+        if _is_diff_listing(command):
             return subprocess.CompletedProcess(
                 command,
                 0,
@@ -187,6 +197,69 @@ def test_evaluate_candidate_uses_target_floor_not_candidate_manifest(tmp_path):
 
     assert verdict.blocked is True
     assert "src/blackhole_agent/persona.py" in verdict.touched
+
+
+def test_diff_listing_keeps_rename_preimage_and_decodes_quoted_octal():
+    renamed, rename_error = parse_diff_listing(
+        b"R100\0src/blackhole_agent/supervisor.py\0src/blackhole_agent/moved_judge.py\0"
+    )
+    quoted, quoted_error = parse_diff_listing(b'"governance/\\303\\251note.json"\n')
+    plain, plain_error = parse_diff_listing("README.md\n")
+
+    assert rename_error == ""
+    assert renamed == (
+        "src/blackhole_agent/supervisor.py",
+        "src/blackhole_agent/moved_judge.py",
+    )
+    assert quoted_error == ""
+    assert quoted == ("governance/\u00e9note.json",)
+    assert plain_error == ""
+    assert plain == ("README.md",)
+
+
+def test_real_git_rename_and_quoted_name_reach_the_gate(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "probe@example.invalid"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "probe"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "core.quotepath", "true"], cwd=repo, check=True, capture_output=True)
+    judge = repo / "src" / "blackhole_agent"
+    judge.mkdir(parents=True)
+    (judge / "supervisor.py").write_text("JUDGE = 1\n", encoding="utf-8")
+    (repo / "README.md").write_text("readme\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True)
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(
+        ["git", "mv", "src/blackhole_agent/supervisor.py", "src/blackhole_agent/moved_judge.py"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    (repo / "governance").mkdir()
+    (repo / "governance" / "\u00e9note.json").write_text("{}\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "hide"], cwd=repo, check=True, capture_output=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    paths, error = list_changed_paths(repo, base, head)
+
+    assert error == ""
+    assert "src/blackhole_agent/supervisor.py" in paths
+    assert "governance/\u00e9note.json" in paths
 
 
 def test_builtin_protected_paths_gate_is_green():
