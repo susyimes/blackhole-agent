@@ -2662,8 +2662,12 @@ def reclaim_mission_worktrees(
     Removal is ``git worktree remove`` without ``--force``. Immediately
     before that command, a process using the directory (or a git index lock)
     keeps the worktree. A detached directory is deleted only when its files
-    still match the published tree. Active and blocked missions are never
-    touched. Mission branches are kept by default; ``delete_branches`` uses
+    still match the published tree. A remove that raises
+    ``subprocess.TimeoutExpired`` is recorded and left on disk; later
+    published checkouts in the same pass are still reclaimed. The harvested
+    2026-08-26 failure escaped that exception after 600 seconds and skipped
+    every remaining checkout. Active and blocked missions are never touched.
+    Mission branches are kept by default; ``delete_branches`` uses
     ``git branch -d`` only, which refuses unmerged branches. Unparsable
     state files are skipped and reported, never deleted. Worktree directories
     that already vanished are cleaned from git's registry via
@@ -2788,13 +2792,35 @@ def reclaim_mission_worktrees(
             continue
         command = git_worktree_remove_command(workspace)
         entry["remove_command"] = command
-        removed = run_command(
-            command,
-            cwd=repo_path,
-            command_runner=command_runner,
-            check=False,
-            timeout=600,
-        )
+        try:
+            removed = run_command(
+                command,
+                cwd=repo_path,
+                command_runner=command_runner,
+                check=False,
+                timeout=600,
+            )
+        except subprocess.TimeoutExpired as error:
+            # One hung remove must not escape into the loop handler. That
+            # handler returns immediately, so every later checkout in this
+            # pass would stay registered.
+            detail = str(error).strip() or error.__class__.__name__
+            report["errors"].append(
+                {
+                    "mission_id": state.mission_id,
+                    "workspace": str(workspace),
+                    "error": detail,
+                    "timed_out": True,
+                }
+            )
+            report["kept"].append(
+                {
+                    "mission_id": state.mission_id,
+                    "reason": "remove_timed_out",
+                    "workspace": str(workspace),
+                }
+            )
+            continue
         if removed.returncode != 0:
             from blackhole_agent.worktree_gc_resilience import finish_failed_worktree_remove
 
