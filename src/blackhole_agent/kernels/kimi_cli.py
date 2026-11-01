@@ -16,6 +16,32 @@ from blackhole_agent.process_capture import run_captured_process
 # Bound at import time: tests that monkeypatch the subprocess module attribute
 # must not reroute the production default away from owned capture.
 _DEFAULT_COMMAND_RUNNER = subprocess.run
+# cmd.exe rejects a command line past this length with "命令行太长。".
+# CreateProcess rejects a longer argv with "The filename or extension is too long."
+CMD_COMMAND_LINE_LIMIT = 8191
+CREATE_PROCESS_COMMAND_LINE_LIMIT = 32767
+_COMMAND_LINE_TOO_LONG_STDERR = "命令行太长。\nThe command line is too long.\n"
+
+
+class KimiCommandLineTooLong(RuntimeError):
+    """The launcher cannot place this prompt on the Windows command line."""
+
+    def __init__(self, *, length: int, limit: int) -> None:
+        self.length = length
+        self.limit = limit
+        super().__init__(f"Kimi command line is too long ({length} > {limit}). 命令行太长。")
+
+
+def windows_command_line_limit(executable: str) -> int:
+    """Return the limit of the launcher that will receive this executable."""
+
+    if Path(executable).suffix.lower() in {".cmd", ".bat"}:
+        return CMD_COMMAND_LINE_LIMIT
+    return CREATE_PROCESS_COMMAND_LINE_LIMIT
+
+
+def command_line_length(command: list[str]) -> int:
+    return len(subprocess.list2cmdline([str(part) for part in command]))
 
 
 @dataclass(frozen=True)
@@ -85,7 +111,20 @@ class KimiCliKernel:
             diagnostics = "; ".join(str(item) for item in provider_preflight["diagnostics"])
             raise ValueError(f"Kimi provider/config preflight failed: {diagnostics}")
 
-        invocation_command = build_kimi_command(self.config, prompt=task)
+        try:
+            invocation_command = build_kimi_command(self.config, prompt=task)
+        except KimiCommandLineTooLong as overflow:
+            self._record_unspawned_overflow(
+                task_path=task_path,
+                last_message_path=last_message_path,
+                result_path=result_path,
+                output_dir=output_dir,
+                cwd=cwd,
+                provider_preflight=provider_preflight,
+            )
+            raise RuntimeError(
+                "Kimi CLI failed with exit code 1; the command line is too long. 命令行太长。"
+            ) from overflow
         recorded_command = redact_prompt_argument(invocation_command, task_path=task_path)
         timed_out = False
         try:
@@ -150,6 +189,36 @@ class KimiCliKernel:
             raise RuntimeError(f"Kimi CLI returned no final message; result details were written to {result_path}.")
         return result
 
+    def _record_unspawned_overflow(
+        self,
+        *,
+        task_path: Path,
+        last_message_path: Path,
+        result_path: Path,
+        output_dir: Path,
+        cwd: Path,
+        provider_preflight: dict[str, Any],
+    ) -> None:
+        """Write the harvested death without starting the overflowing process."""
+
+        result = KimiCliRunResult(
+            command=["<not-spawned>", "--prompt", f"<prompt stored at {task_path}>"],
+            provider_preflight=provider_preflight,
+            returncode=1,
+            timed_out=False,
+            task_path=task_path,
+            last_message_path=last_message_path,
+            result_path=result_path,
+            stdout_tail="",
+            stderr_tail=_COMMAND_LINE_TOO_LONG_STDERR,
+            last_message="",
+            session_id="",
+            tool_titles=(),
+        )
+        result_text = json.dumps(serialize_run_result(result, cwd=cwd), indent=2, sort_keys=True) + "\n"
+        result_path.write_text(result_text, encoding="utf-8")
+        (output_dir / "latest-kimi-run.json").write_text(result_text, encoding="utf-8")
+
 
 def allocate_run_artifact_paths(output_dir: Path, timestamp: str) -> tuple[Path, Path, Path]:
     for index in range(1000):
@@ -170,6 +239,12 @@ def build_kimi_command(config: KimiCliConfig, *, prompt: str) -> list[str]:
         command.extend(["--session", config.resume_session_id])
     command.extend(config.extra_args)
     command.extend(["--output-format", config.output_format, "--prompt", prompt])
+    limit = windows_command_line_limit(command[0] if command else "")
+    length = command_line_length(command)
+    if length > limit:
+        # The harvested 2026-07-31 runs put a 12KB prompt on kimi.CMD.
+        # cmd.exe printed 命令行太长 and the launch was retried.
+        raise KimiCommandLineTooLong(length=length, limit=limit)
     return command
 
 

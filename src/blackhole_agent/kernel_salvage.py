@@ -366,6 +366,19 @@ _DOOM_LOOP_MARKERS = (
     "doom loop detected",
     "tail_repetition",
 )
+# Harvested Kimi deaths (2026-07-31, mission 20260731T101902Z-e1bfdef8).
+# cmd.exe printed GBK "命令行太长。" and the UTF-8 capture stored U+FFFD around
+# the one byte sequence that survived. A bare "too long" warning, a git
+# "Filename too long" line, and a zero exit are not this class.
+COMMAND_LINE_TOO_LONG = "command_line_too_long"
+_COMMAND_LINE_TOO_LONG_MARKERS = (
+    "命令行太长",
+    "输入行太长",
+    "the command line is too long",
+    "the input line is too long",
+    "filename or extension is too long",
+    "\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\u032b\ufffd\ufffd\ufffd\ufffd",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -614,6 +627,11 @@ def classify_kernel_failure(
         # contains tool and MCP timeouts. The doom-loop sentence is the death.
         # A max_tokens truncation in the same log is classified above.
         return KernelFailureClass(DOOM_LOOP_REPETITION, False, evidence)
+    if int(returncode or 0) != 0 and _contains_any(blob, _COMMAND_LINE_TOO_LONG_MARKERS):
+        # The process never started. Another launch with the same argv dies
+        # inside cmd.exe again. A tool log that only says "too long" does not
+        # contain these sentences, and a zero exit does not take this class.
+        return KernelFailureClass(COMMAND_LINE_TOO_LONG, False, evidence)
     if int(returncode or 0) != 0 and _contains_any(blob, _RESPONSE_STREAM_MARKERS):
         # An MCP or tool line that says "timed out" is not this process death.
         # The 2026-08-27 run exited 1 on reqwest error stream while gmail MCP

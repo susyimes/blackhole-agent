@@ -11,6 +11,7 @@ from blackhole_agent.github_growth import (
 from blackhole_agent.kernels.kimi_cli import (
     KimiCliConfig,
     KimiCliKernel,
+    KimiCommandLineTooLong,
     build_kimi_command,
     build_kimi_provider_preflight,
     extract_kimi_stream,
@@ -74,6 +75,34 @@ def test_build_kimi_command_bypasses_windows_npm_batch_limit(tmp_path, monkeypat
 
     assert command[:2] == [str(node_binary), str(entrypoint)]
     assert command[command.index("--prompt") + 1] == long_prompt
+
+
+def test_cmd_shim_does_not_spawn_a_prompt_past_the_cmd_limit(tmp_path, monkeypatch):
+    shim = tmp_path / "kimi.CMD"
+    shim.write_text("@echo off\r\n", encoding="ascii")
+    monkeypatch.setattr("blackhole_agent.kernels.kimi_cli.shutil.which", lambda _name: str(shim))
+    with pytest.raises(KimiCommandLineTooLong) as raised:
+        build_kimi_command(KimiCliConfig(kimi_bin=str(shim)), prompt="x" * 9000)
+    assert raised.value.length > raised.value.limit
+
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=kimi_stream("should not run"), stderr="")
+
+    with pytest.raises(RuntimeError, match="命令行太长"):
+        KimiCliKernel(KimiCliConfig(kimi_bin=str(shim)), command_runner=runner).run(
+            "x" * 9000,
+            cwd=tmp_path,
+            output_dir=tmp_path / "out",
+            timeout_seconds=5,
+        )
+    assert calls == []
+    artifact = json.loads((tmp_path / "out" / "latest-kimi-run.json").read_text(encoding="utf-8"))
+    assert artifact["returncode"] == 1
+    assert "命令行太长" in artifact["stderr_tail"]
+    assert "x" * 9000 not in json.dumps(artifact)
 
 
 def test_kimi_kernel_writes_artifacts_extracts_session_and_redacts_recorded_prompt(tmp_path, monkeypatch):
