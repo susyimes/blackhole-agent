@@ -249,9 +249,12 @@ def mission_checkout_roots(repo_path: Path) -> list[Path]:
     return default_ba_roots(Path(repo_path))
 
 
-# At the preventive line, keep one newest clean completed checkout. The
-# launcher still passes ``--no-worktree-gc``, so publication itself does not
-# reclaim. This path is the one that runs before ``git worktree add``.
+# The launcher still passes ``--no-worktree-gc``, so publication itself does
+# not reclaim. Completed checkouts therefore accumulate while usage is still
+# below the preventive line. Authorization is the path that runs before
+# ``git worktree add``, and it keeps one newest clean completed checkout
+# whenever the measurement is complete. An incomplete measurement deletes
+# nothing.
 BUDGET_RECLAIM_KEEP_RECENT = 1
 
 
@@ -280,11 +283,12 @@ def checkout_growth_bytes(measurement: dict[str, Any], repo_path: Path) -> int:
 def budget_reclaim_needed(
     measurement: dict[str, Any], growth_bytes: int, policy: BudgetPolicy
 ) -> bool:
-    """True when another checkout should not land before verified reclaim.
+    """True when the next checkout would meet the preventive line or the cap.
 
-    An incomplete measurement does not delete anything. Reclaim is required
-    when usage is already at the preventive mark or the cap, or when the
-    estimated checkout would reach either line.
+    An incomplete measurement does not delete anything. This predicate is the
+    pressure signal. Authorization no longer waits for it: publication
+    reclamation is disabled by the live launcher, so completed checkouts are
+    reclaimed while usage is still below the line.
     """
 
     if not bool(measurement.get("complete")):
@@ -296,6 +300,17 @@ def budget_reclaim_needed(
     if logical + growth >= policy.preventive_bytes:
         return True
     return logical + growth > policy.cap_bytes
+
+
+def completed_checkout_reclaim_allowed(measurement: dict[str, Any]) -> bool:
+    """True when authorization may remove verified completed checkouts.
+
+    A complete measurement is enough. Waiting until the preventive line lets
+    the disabled publication reclaimer leave every finished checkout on disk.
+    An incomplete measurement stays fail-closed and deletes nothing.
+    """
+
+    return bool(measurement.get("complete"))
 
 
 def _remote_lineage_refs(repo: Path) -> tuple[str, ...]:
@@ -370,11 +385,11 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     """Measure checkout roots and refuse when a new worktree is not allowed.
 
     ``CAP_BYTES`` and ``PREVENTIVE_BYTES`` are read at call time so a caller
-    can point a fixture at a small cap. When the measurement is already at
-    the preventive threshold, or the estimated checkout would reach it, older
-    completed published worktrees with no unique work are removed first.
-    Removal is ``git worktree remove`` without ``--force``. The receipt is
-    written under the repository's unbound directory.
+    can point a fixture at a small cap. A complete measurement removes older
+    completed published worktrees with no unique work before the new checkout,
+    including while usage is still below the preventive line. An incomplete
+    measurement removes nothing. Removal is ``git worktree remove`` without
+    ``--force``. The receipt is written under the repository's unbound directory.
     """
 
     repo = Path(repo_path)
@@ -385,7 +400,7 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     before = measure_roots(roots)
     growth = checkout_growth_bytes(before, repo)
     reclaim_report: dict[str, Any] | None = None
-    if budget_reclaim_needed(before, growth, policy):
+    if completed_checkout_reclaim_allowed(before):
         reclaim_report = reclaim_completed_for_budget(repo)
     receipt = govern_expansion(
         roots,
