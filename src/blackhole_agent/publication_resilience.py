@@ -90,15 +90,33 @@ def is_terminal_publication_error(error: str) -> bool:
 
 # Harvested 2026-08-23 continuous-loop publication. Git asked for a larger
 # HTTP buffer after curl 65 and a sideband disconnect. A schannel handshake
-# failure does not contain this phrase and stays a single attempt.
+# failure does not contain this phrase and is retried as its own class.
 POST_BUFFER_OVERFLOW_MARKER = "http.postbuffer"
 POST_BUFFER_RETRY_BYTES = 524288000
+# Harvested continuous-loop publications from 2026-07-29 through 2026-10-29.
+# Git died in Windows schannel before or during the push, and the error did
+# not ask for a larger buffer. The postBuffer rewind text also mentions
+# "server closed abruptly"; that class keeps the enlarged-buffer retry.
+_SCHANNEL_HANDSHAKE_MARKERS = (
+    "failed to receive handshake",
+    "server closed abruptly",
+    "missing close_notify",
+)
 
 
 def is_post_buffer_overflow(error: str) -> bool:
     """True when git itself asked the push to increase http.postBuffer."""
 
     return POST_BUFFER_OVERFLOW_MARKER in str(error or "").lower()
+
+
+def is_schannel_handshake_failure(error: str) -> bool:
+    """True for a harvested schannel TLS abort that did not ask for a larger buffer."""
+
+    text = str(error or "").lower()
+    if POST_BUFFER_OVERFLOW_MARKER in text or "schannel:" not in text:
+        return False
+    return any(marker in text for marker in _SCHANNEL_HANDSHAKE_MARKERS)
 
 
 def apply_publication_failure(loop_state: dict[str, Any], error: str) -> dict[str, Any]:

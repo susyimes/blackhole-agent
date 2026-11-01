@@ -617,8 +617,10 @@ def publish_lineage(
     """Fast-forward one proven local commit to the configured remote branch.
 
     A push that fails because git asked for a larger ``http.postBuffer`` is
-    attempted once more with that buffer on the same command. Other push
-    failures, including a schannel handshake error, stay single-attempt.
+    attempted once more with that buffer on the same command. A schannel TLS
+    abort that does not ask for a larger buffer, including the same abort from
+    ``ls-remote``, is attempted once more with the original command. Other
+    push failures stay single-attempt.
     """
 
     command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
@@ -633,12 +635,21 @@ def publish_lineage(
             error=f"Lineage commit does not exist: {commit_sha}",
             command=command,
         )
+    from blackhole_agent.publication_resilience import is_schannel_handshake_failure
+
     remote_before, lookup_error = remote_branch_head(
         repo_path,
         remote,
         branch,
         command_runner=command_runner,
     )
+    if lookup_error and is_schannel_handshake_failure(lookup_error):
+        remote_before, lookup_error = remote_branch_head(
+            repo_path,
+            remote,
+            branch,
+            command_runner=command_runner,
+        )
     if lookup_error:
         return PublicationResult(
             ok=False,
@@ -719,7 +730,18 @@ def publish_lineage(
             is_post_buffer_overflow,
         )
 
-        if not is_post_buffer_overflow(details):
+        if is_post_buffer_overflow(details):
+            command = (
+                "git",
+                "-c",
+                f"http.postBuffer={POST_BUFFER_RETRY_BYTES}",
+                "push",
+                remote,
+                f"{commit_sha}:refs/heads/{branch}",
+            )
+        elif is_schannel_handshake_failure(details):
+            command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
+        else:
             return PublicationResult(
                 ok=False,
                 commit_sha=commit_sha,
@@ -730,14 +752,6 @@ def publish_lineage(
                 error=details or f"git push exited {pushed.returncode}",
                 command=command,
             )
-        command = (
-            "git",
-            "-c",
-            f"http.postBuffer={POST_BUFFER_RETRY_BYTES}",
-            "push",
-            remote,
-            f"{commit_sha}:refs/heads/{branch}",
-        )
         pushed = run_command(
             list(command),
             cwd=repo_path,
@@ -763,6 +777,13 @@ def publish_lineage(
         branch,
         command_runner=command_runner,
     )
+    if lookup_error and is_schannel_handshake_failure(lookup_error):
+        remote_after, lookup_error = remote_branch_head(
+            repo_path,
+            remote,
+            branch,
+            command_runner=command_runner,
+        )
     if lookup_error or remote_after != commit_sha:
         details = lookup_error or (
             f"Remote verification mismatch: expected {commit_sha}, observed {remote_after or '(missing)'}"

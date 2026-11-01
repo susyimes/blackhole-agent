@@ -73,6 +73,72 @@ def test_post_buffer_overflow_retries_once(tmp_path: Path) -> None:
     assert "http.postBuffer=" not in " ".join(pushes[0])
 
 
+def test_schannel_handshake_retries_the_same_push_once(tmp_path: Path) -> None:
+    import subprocess
+
+    from blackhole_agent.publication_resilience import (
+        is_post_buffer_overflow,
+        is_schannel_handshake_failure,
+    )
+    from blackhole_agent.unbound import publish_lineage
+
+    handshake = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "schannel: failed to receive handshake, SSL/TLS connection failed\n"
+    )
+    close_notify = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "schannel: server closed abruptly (missing close_notify)\n"
+    )
+    post_buffer = (
+        "error: unable to rewind rpc post data - try increasing http.postBuffer\n"
+        "error: RPC failed; curl 65 schannel: server closed abruptly (missing close_notify)\n"
+    )
+    assert is_schannel_handshake_failure(handshake)
+    assert is_schannel_handshake_failure(close_notify)
+    assert not is_schannel_handshake_failure(post_buffer)
+    assert not is_schannel_handshake_failure("protected path publication blocked")
+    assert is_post_buffer_overflow(post_buffer)
+
+    repo = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.email", "publish@test.local"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Publish Test"], cwd=repo, check=True)
+    (repo / "README.md").write_text("seed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    commit_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    pushes: list[list[str]] = []
+
+    def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        tokens = [str(part) for part in command]
+        if tokens and tokens[0] == "git" and "push" in tokens:
+            pushes.append(tokens)
+            if len(pushes) == 1:
+                return subprocess.CompletedProcess(tokens, 1, stdout="", stderr=handshake)
+        return subprocess.run(tokens, **kwargs)  # type: ignore[arg-type]
+
+    result = publish_lineage(repo, commit_sha, str(remote), "main", command_runner=runner)
+    remote_head = subprocess.run(
+        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert result.ok is True
+    assert result.remote_after == commit_sha
+    assert remote_head == commit_sha
+    assert len(pushes) == 2
+    assert pushes[0] == pushes[1]
+    assert "http.postBuffer=" not in " ".join(pushes[0])
+
+
 def test_goal_binds_publication_resilience_plane() -> None:
     assert leftover_marker_ids(PUBLICATION_RESILIENCE_GOAL) == (PUBLICATION_RESILIENCE_ID,)
     assert CLASS_CLOSURE_REQUIREMENTS[PUBLICATION_FAILED] == (PUBLICATION_RESILIENCE_ID,)
