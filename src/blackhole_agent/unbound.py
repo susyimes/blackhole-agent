@@ -14,6 +14,7 @@ import importlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -1690,6 +1691,39 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
     return "reproduced_exit_code" in replay or bool(replay.get("timed_out"))
 
 
+# Harvested mission 20261101T123515Z-b531bbb1. The agent shell is pwsh.
+# cmd.exe replay of `$env:PYTHONPATH = 'src'; & '<python>' <probe>` exits 1
+# even when that same command exited 0, and the milestone is rejected.
+_POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|[;&])\s*&\s*['\"]")
+
+
+def powershell_replay_argv(command: str) -> list[str] | None:
+    """Return a pwsh argv for the harvested PowerShell validation form.
+
+    The form is an ``$env:`` assignment plus the call operator. Other
+    commands stay on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns
+    a native exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone
+    turns a missing executable into exit 0, so the wrapper keeps a real
+    native code and still fails a command that never started.
+    """
+
+    if os.name != "nt":
+        return None
+    text = str(command or "")
+    if "$env:" not in text.lower() or _POWERSHELL_CALL_OPERATOR.search(text) is None:
+        return None
+    executable = shutil.which("pwsh") or shutil.which("powershell")
+    if not executable:
+        return None
+    script = (
+        "$global:LASTEXITCODE = 0\n"
+        f"{text}\n"
+        "if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }\n"
+        "exit $LASTEXITCODE\n"
+    )
+    return [executable, "-NoProfile", "-NonInteractive", "-Command", script]
+
+
 def replay_validation_command(
     workspace: Path,
     command: str,
@@ -1706,7 +1740,11 @@ def replay_validation_command(
 
     try:
         if command_runner is subprocess.run:
-            completed = run_text_command(command, cwd=workspace, timeout=timeout, shell=True)
+            argv = powershell_replay_argv(command)
+            if argv is not None:
+                completed = run_text_command(argv, cwd=workspace, timeout=timeout, shell=False)
+            else:
+                completed = run_text_command(command, cwd=workspace, timeout=timeout, shell=True)
         else:
             completed = command_runner(
                 command,

@@ -280,6 +280,18 @@ def test_replay_validation_command_reports_timeout(tmp_path):
     assert replay["reproduced_exit_code"] is None
 
 
+@pytest.mark.skipif(os.name != "nt", reason="cmd and pwsh replay is the Windows controller")
+def test_powershell_validation_replay_keeps_cmd_commands_on_cmd():
+    """The harvested PowerShell form is the only command routed to pwsh."""
+
+    from blackhole_agent.unbound import powershell_replay_argv
+
+    harvested = "$env:PYTHONPATH = 'src'; & 'C:\\Python\\python.exe' probe.py"
+    assert powershell_replay_argv(harvested) is not None
+    assert powershell_replay_argv("set PYTHONPATH=src&& python probe.py") is None
+    assert powershell_replay_argv("$env:PYTHONPATH = 'src'; python probe.py") is None
+
+
 def test_unbound_grok_turn_keeps_one_persistent_agent_with_full_tools(tmp_path, monkeypatch):
     monkeypatch.setattr("blackhole_agent.kernels.grok_cli.shutil.which", lambda _: "C:/tools/grok.exe")
     seen = []
