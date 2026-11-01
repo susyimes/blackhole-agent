@@ -7,8 +7,9 @@ next turn (and the next mission) still invokes the same exhausted kernel.
 This module persists non-retryable kernel deaths (quota, auth, a pre-session
 transport abort, a rejected model, a provider overload 429, a Codex
 responses endpoint that returns HTTP 404, a Kimi prompt that dies with
-provider.connection_error after its own APIConnectionError retries, and a
-Grok CLI that exits because it is not signed in), skips
+provider.connection_error after its own APIConnectionError retries, a
+Grok CLI that exits because it is not signed in, and a Grok responses
+stream that dies again after one session continuation), skips
 open-circuit kernels on later resolution, and failsover to a local capability
 kernel that still emits a structured Unbound decision so the mission does not
 block or burn turns.
@@ -48,6 +49,10 @@ DEFAULT_COOLDOWN_SECONDS = {
     # provider.connection_error. One hour avoids relaunching that kernel
     # into the same dead prompt path. This is not a spent account.
     "provider_connection_failed": 3600,
+    # Grok already died on reqwest error stream and the one session
+    # continuation died the same way. One hour avoids relaunching that
+    # kernel into the same proxy. This is not a spent account.
+    "response_stream_failed": 3600,
 }
 DEFAULT_COOLDOWN_FALLBACK = 1800
 MAX_COOLDOWN_SECONDS = 24 * 3600

@@ -72,6 +72,16 @@ in. Run grok login`` after ``No auth credentials for cli-chat-proxy``. The
 existing auth markers do not contain that sentence, so the death stayed a
 retryable CLI error and the next resolution launched Grok again. A credentials
 warning without the sign-in death line, and a zero exit, stay off this path.
+
+A Grok responses stream that dies after the session already did work is not a
+fresh launch. Harvested 2026-07-29 and 2026-09-10 runs exited 1 on
+``reqwest error stream`` (decode-body, or sending to
+``cli-chat-proxy.grok.com/v1/responses``) after several model calls, with the
+session id only on the command line. That stayed a retryable CLI error, so
+the next resolution replayed the mission prompt and discarded the session.
+Salvage resumes that session once with a continuation prompt. A second stream
+death opens the Grok circuit and failsover. A telemetry export network error,
+a settings-fetch warning, and a zero exit stay off this path.
 """
 
 from __future__ import annotations
@@ -108,6 +118,7 @@ OUTPUT_TRUNCATED = "output_truncated"
 STEP_RETRIES_EXHAUSTED = "step_retries_exhausted"
 RESPONSES_ENDPOINT_MISSING = "responses_endpoint_missing"
 PROVIDER_CONNECTION_FAILED = "provider_connection_failed"
+RESPONSE_STREAM_FAILED = "response_stream_failed"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -137,6 +148,11 @@ PROVIDER_CONNECTION_FAILED = "provider_connection_failed"
 # An unsigned Grok CLI is auth_failed too. The 2026-08-13 runs exited on
 # "Not signed in. Run grok login". Launching Grok again hits the same login
 # wall. A credentials warning without that death line is not this class.
+# A Grok responses stream that already died mid-session trips the breaker
+# on the second death. The 2026-07-29 and 2026-09-10 runs exited on
+# "reqwest error stream" after model calls. The first death resumes that
+# session once. Launching Grok again after the resume dies hits the same
+# proxy. A telemetry network error is not this class.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -144,6 +160,7 @@ FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
         PROVIDER_OVERLOADED,
         RESPONSES_ENDPOINT_MISSING,
         PROVIDER_CONNECTION_FAILED,
+        RESPONSE_STREAM_FAILED,
     }
 )
 _TRANSPORT_ABORT_MARKERS = (
@@ -203,6 +220,12 @@ _GROK_SIGNED_OUT_MARKERS = (
     "not signed in",
     "grok login",
 )
+# Harvested Grok deaths (2026-07-29 decode-body, 2026-07-29 and 2026-09-10
+# responses URL). Both phrases sit inside "reqwest error stream". A telemetry
+# "network error", a settings-fetch warning, and a zero exit do not.
+_RESPONSE_STREAM_MARKERS = (
+    "reqwest error stream",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -231,6 +254,11 @@ DECISION_ONLY_PROMPT = (
 STEP_CONTINUE_PROMPT = (
     "The previous step exhausted this kernel's internal retries before a JSON decision. "
     "Do not restart the mission from the beginning. Continue from files already changed in this session. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
+)
+STREAM_CONTINUE_PROMPT = (
+    "The previous responses stream died before a JSON decision. "
+    "Do not restart the mission from the beginning. Continue the same session from work already done. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
@@ -395,6 +423,11 @@ def classify_kernel_failure(
         # The CLI already refused to run because nobody is signed in.
         # Another launch of this kernel dies on the same login wall.
         return KernelFailureClass("auth_failed", False, evidence)
+    if int(returncode or 0) != 0 and _contains_any(blob, _RESPONSE_STREAM_MARKERS):
+        # The responses stream already died after this session did work.
+        # Replaying the mission prompt discards that session. One continuation
+        # is allowed; another launch of this kernel hits the same proxy.
+        return KernelFailureClass(RESPONSE_STREAM_FAILED, False, evidence)
     if int(returncode or 0) != 0 and all(marker in blob for marker in _PROVIDER_CONNECTION_MARKERS):
         # The CLI already retried APIConnectionError. Another launch of this
         # kernel dies on the same provider.connection_error death line.
@@ -803,9 +836,11 @@ def execute_kernel_turn_with_salvage(
     released_sessions: set[str] = set()
     truncated_resumes: set[str] = set()
     step_resumes: set[str] = set()
+    stream_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
+    pending_stream_resume = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -830,6 +865,8 @@ def execute_kernel_turn_with_salvage(
                 source = "decision_only_resume"
             elif pending_step_resume:
                 source = "step_retry_resume"
+            elif pending_stream_resume:
+                source = "stream_resume"
             else:
                 source = "failover"
             meta.update(
@@ -846,6 +883,7 @@ def execute_kernel_turn_with_salvage(
             pending_fresh_session = False
             pending_decision_resume = False
             pending_step_resume = False
+            pending_stream_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -944,6 +982,28 @@ def execute_kernel_turn_with_salvage(
                 # prompt. This kernel stays available; the account is not spent.
                 prompt = original_prompt
                 pending_step_resume = False
+            if salvaged.class_id == RESPONSE_STREAM_FAILED:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                    getattr(state, "session_started", False)
+                )
+                if resumable and state.kernel not in stream_resumes:
+                    # One continuation on the session whose responses stream died.
+                    # The original mission prompt is not sent again.
+                    stream_resumes.add(state.kernel)
+                    prompt = STREAM_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = True
+                    continue
+                # The same stream died again. Another kernel gets the mission
+                # prompt, and this kernel's circuit opens below.
+                prompt = original_prompt
+                pending_stream_resume = False
             pending_fresh_session = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
@@ -1085,6 +1145,32 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
     )
     checks["grok_credential_warning_stays_cli_error"] = (
         credential_warning.class_id == "cli_error" and credential_warning.retryable
+    )
+    response_stream = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            'ERROR error=Internal error: "reqwest error stream: Transport error: '
+            'error decoding response body"'
+        ),
+        stdout_tail=(
+            '{"type":"error","message":"Internal error: reqwest error stream: '
+            'error decoding response body"}'
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    checks["grok_response_stream_is_not_retryable"] = (
+        response_stream.class_id == RESPONSE_STREAM_FAILED and not response_stream.retryable
+    )
+    telemetry = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            'ERROR name="BatchSpanProcessor.ExportError" '
+            'error="Operation failed: HTTP export failed: network error"'
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    checks["telemetry_network_error_stays_cli_error"] = (
+        telemetry.class_id == "cli_error" and telemetry.retryable
     )
 
     events = classify_unbound_turn(

@@ -663,6 +663,86 @@ def test_grok_signed_out_is_not_retryable():
     assert zero_exit.class_id != "auth_failed"
 
 
+def test_grok_response_stream_is_not_retryable():
+    decode = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                'ERROR error=Internal error: "reqwest error stream: Transport error: '
+                'error decoding response body"'
+            ),
+            "stdout_tail": (
+                '{"type":"error","message":"Internal error: reqwest error stream: '
+                'Transport error: error decoding response body"}'
+            ),
+            "last_message": "",
+            "command": ["grok.EXE", "--session-id", "ee2bb879-65e7-4691-93ce-892d36f159c8"],
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert decode.class_id == "response_stream_failed"
+    assert decode.retryable is False
+
+    sending = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            "ERROR error=Internal error: "
+            '"reqwest error stream: error sending request for url '
+            '(https://cli-chat-proxy.grok.com/v1/responses)"'
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    assert sending.class_id == "response_stream_failed"
+    assert sending.retryable is False
+
+    salvaged = salvage_kernel_failure(
+        error="Grok CLI failed with exit code 1",
+        current_kernel="grok",
+        artifact={
+            "returncode": 1,
+            "stderr_tail": (
+                'ERROR error=Internal error: "reqwest error stream: '
+                'error decoding response body"'
+            ),
+            "last_message": "",
+        },
+        installed_kernels={"grok", "codex"},
+    )
+    assert salvaged.class_id == "response_stream_failed"
+    assert salvaged.failover_kernel == "codex"
+    assert salvaged.decision["status"] == "continue"
+
+    telemetry = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            'ERROR name="BatchSpanProcessor.ExportError" '
+            'error="Operation failed: HTTP export failed: network error"'
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    assert telemetry.class_id == "cli_error"
+    assert telemetry.retryable is True
+
+    settings_fetch = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            "WARN Settings fetch network error: error sending request for url "
+            "(https://cli-chat-proxy.grok.com/v1/settings) attempt=2\n"
+            "ERROR Settings fetch failed after 3 attempts"
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    assert settings_fetch.class_id == "cli_error"
+    assert settings_fetch.retryable is True
+
+    zero_exit = classify_kernel_failure(
+        returncode=0,
+        stderr_tail='ERROR error=Internal error: "reqwest error stream: error decoding response body"',
+        last_message="finished",
+    )
+    assert zero_exit.class_id != "response_stream_failed"
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True
