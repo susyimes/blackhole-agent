@@ -139,6 +139,84 @@ def test_schannel_handshake_retries_the_same_push_once(tmp_path: Path) -> None:
     assert "http.postBuffer=" not in " ".join(pushes[0])
 
 
+def test_http_transport_abort_retries_the_same_push_once(tmp_path: Path) -> None:
+    import subprocess
+
+    from blackhole_agent.publication_resilience import (
+        is_http_transport_abort,
+        is_post_buffer_overflow,
+        is_schannel_handshake_failure,
+    )
+    from blackhole_agent.unbound import publish_lineage
+
+    empty_reply = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "Empty reply from server\n"
+    )
+    connect = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "Failed to connect to github.com port 443 after 21097 ms: Could not connect to server\n"
+    )
+    dns = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "Could not resolve host: github.com\n"
+    )
+    handshake = (
+        "fatal: unable to access 'https://github.com/susyimes/blackhole-agent.git/': "
+        "schannel: failed to receive handshake, SSL/TLS connection failed\n"
+    )
+    post_buffer = (
+        "error: unable to rewind rpc post data - try increasing http.postBuffer\n"
+        "error: RPC failed; curl 65 Recv failure: Connection was reset\n"
+    )
+    assert is_http_transport_abort(empty_reply)
+    assert is_http_transport_abort(connect)
+    assert is_http_transport_abort(dns)
+    assert not is_http_transport_abort(handshake)
+    assert not is_http_transport_abort(post_buffer)
+    assert not is_http_transport_abort("protected paths require operator acknowledgment")
+    assert not is_schannel_handshake_failure(empty_reply)
+    assert is_post_buffer_overflow(post_buffer)
+
+    repo = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "config", "user.email", "publish@test.local"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Publish Test"], cwd=repo, check=True)
+    (repo / "README.md").write_text("seed\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    commit_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    pushes: list[list[str]] = []
+
+    def runner(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        tokens = [str(part) for part in command]
+        if tokens and tokens[0] == "git" and "push" in tokens:
+            pushes.append(tokens)
+            if len(pushes) == 1:
+                return subprocess.CompletedProcess(tokens, 1, stdout="", stderr=empty_reply)
+        return subprocess.run(tokens, **kwargs)  # type: ignore[arg-type]
+
+    result = publish_lineage(repo, commit_sha, str(remote), "main", command_runner=runner)
+    remote_head = subprocess.run(
+        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/main"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert result.ok is True
+    assert result.remote_after == commit_sha
+    assert remote_head == commit_sha
+    assert len(pushes) == 2
+    assert pushes[0] == pushes[1]
+    assert "http.postBuffer=" not in " ".join(pushes[0])
+
+
 def test_protected_path_refusal_drops_pending_publish() -> None:
     from blackhole_agent.protected_paths import evaluate_protected_paths_gate
     from blackhole_agent.publication_resilience import (

@@ -618,9 +618,9 @@ def publish_lineage(
 
     A push that fails because git asked for a larger ``http.postBuffer`` is
     attempted once more with that buffer on the same command. A schannel TLS
-    abort that does not ask for a larger buffer, including the same abort from
-    ``ls-remote``, is attempted once more with the original command. Other
-    push failures stay single-attempt.
+    abort, and a harvested empty-reply, connect, or DNS abort, including the
+    same abort from ``ls-remote``, are attempted once more with the original
+    command. Other push failures stay single-attempt.
     """
 
     command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
@@ -635,7 +635,13 @@ def publish_lineage(
             error=f"Lineage commit does not exist: {commit_sha}",
             command=command,
         )
-    from blackhole_agent.publication_resilience import is_schannel_handshake_failure
+    from blackhole_agent.publication_resilience import (
+        is_http_transport_abort,
+        is_schannel_handshake_failure,
+    )
+
+    def _same_command_transport_retry(error: str) -> bool:
+        return is_schannel_handshake_failure(error) or is_http_transport_abort(error)
 
     remote_before, lookup_error = remote_branch_head(
         repo_path,
@@ -643,7 +649,7 @@ def publish_lineage(
         branch,
         command_runner=command_runner,
     )
-    if lookup_error and is_schannel_handshake_failure(lookup_error):
+    if lookup_error and _same_command_transport_retry(lookup_error):
         remote_before, lookup_error = remote_branch_head(
             repo_path,
             remote,
@@ -739,7 +745,7 @@ def publish_lineage(
                 remote,
                 f"{commit_sha}:refs/heads/{branch}",
             )
-        elif is_schannel_handshake_failure(details):
+        elif _same_command_transport_retry(details):
             command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
         else:
             return PublicationResult(
@@ -777,7 +783,7 @@ def publish_lineage(
         branch,
         command_runner=command_runner,
     )
-    if lookup_error and is_schannel_handshake_failure(lookup_error):
+    if lookup_error and _same_command_transport_retry(lookup_error):
         remote_after, lookup_error = remote_branch_head(
             repo_path,
             remote,

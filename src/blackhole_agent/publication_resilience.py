@@ -99,8 +99,8 @@ def is_terminal_publication_error(error: str) -> bool:
     """True when retrying the same SHA cannot publish.
 
     A diverged remote and a protected-path acknowledgment refusal are terminal.
-    DNS, connect, schannel, and http.postBuffer failures are not: those can
-    succeed on a later attempt.
+    DNS, connect, empty-reply, schannel, and http.postBuffer failures are not:
+    those can succeed on a later attempt.
     """
 
     text = str(error or "").lower()
@@ -136,6 +136,29 @@ def is_schannel_handshake_failure(error: str) -> bool:
     if POST_BUFFER_OVERFLOW_MARKER in text or "schannel:" not in text:
         return False
     return any(marker in text for marker in _SCHANNEL_HANDSHAKE_MARKERS)
+
+
+# Harvested continuous-loop publications. 2026-10-15 died with curl's empty
+# reply. 2026-08-11 died with a connect timeout and with DNS failure. None of
+# those asked for a larger buffer or named schannel. Each is retried once.
+_HTTP_TRANSPORT_ABORT_MARKERS = (
+    "empty reply from server",
+    "could not connect to",
+    "could not resolve host",
+)
+
+
+def is_http_transport_abort(error: str) -> bool:
+    """True for a harvested GitHub HTTP abort that is not schannel or postBuffer.
+
+    Empty reply, connect failure, and DNS failure share one retry. A schannel
+    handshake and an http.postBuffer request keep their own paths.
+    """
+
+    text = str(error or "").lower()
+    if POST_BUFFER_OVERFLOW_MARKER in text or "schannel:" in text:
+        return False
+    return any(marker in text for marker in _HTTP_TRANSPORT_ABORT_MARKERS)
 
 
 def apply_publication_failure(loop_state: dict[str, Any], error: str) -> dict[str, Any]:
