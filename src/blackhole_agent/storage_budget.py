@@ -88,8 +88,8 @@ def default_ba_roots(repo_path: Path) -> list[Path]:
 # Direct children of TEMP created by this repository. ``blackhole-`` and
 # ``bh-unbound`` were the first counted names. Later scratch uses ``bh-``
 # (``bh-mcp-plugin-``, ``bh-fp-``, ``bh-acq-``, ``bh-fg-``) and ``ba-``
-# (``ba-grok-`` start probes). Reclaim stays on the narrower pair so a
-# measurement fix does not delete those trees.
+# (``ba-grok-`` start probes). Reclaim uses this same set. A counted name
+# that reclaim ignores can hold the cap after the creating process has exited.
 _MEASURED_TEMP_PREFIXES = ("blackhole-", "bh-", "ba-")
 
 
@@ -420,13 +420,12 @@ def authorization_measurement_roots(repo_path: Path) -> list[Path]:
     return roots
 
 
-_ATTRIBUTABLE_TEMP_PREFIXES = ("blackhole-", "bh-unbound")
+_ATTRIBUTABLE_TEMP_PREFIXES = _MEASURED_TEMP_PREFIXES
 ABANDONED_TEMP_MIN_AGE_SECONDS = 24 * 60 * 60
 
 
 def _attributable_temp_name(name: str) -> bool:
-    lowered = str(name or "").lower()
-    return lowered.startswith(_ATTRIBUTABLE_TEMP_PREFIXES)
+    return _measured_temp_name(name)
 
 
 def _active_temp(path: str, active: Sequence[str]) -> bool:
@@ -505,9 +504,10 @@ def reclaim_abandoned_attributable_temps(
 ) -> dict[str, Any]:
     """Remove old Blackhole temp directories that are direct children of one root.
 
-    Only names starting with ``blackhole-`` or ``bh-unbound`` are eligible.
-    A directory newer than the retention window, listed as active, or containing
-    a reparse point stays. Unrelated names are not inspected for deletion.
+    Eligible names are the ones measurement counts: ``blackhole-``, ``bh-``,
+    and ``ba-``. A directory newer than the retention window, listed as active,
+    or containing a reparse point stays. Unrelated names are not inspected
+    for deletion.
     """
 
     root = os.path.abspath(temp_root)
