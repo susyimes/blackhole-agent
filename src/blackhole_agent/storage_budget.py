@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import time
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -405,6 +406,180 @@ def authorization_measurement_roots(repo_path: Path) -> list[Path]:
     return roots
 
 
+_ATTRIBUTABLE_TEMP_PREFIXES = ("blackhole-", "bh-unbound")
+ABANDONED_TEMP_MIN_AGE_SECONDS = 24 * 60 * 60
+
+
+def _attributable_temp_name(name: str) -> bool:
+    lowered = str(name or "").lower()
+    return lowered.startswith(_ATTRIBUTABLE_TEMP_PREFIXES)
+
+
+def _active_temp(path: str, active: Sequence[str]) -> bool:
+    for item in active:
+        if _norm(path) == _norm(item) or _strictly_inside(item, path) or _strictly_inside(path, item):
+            return True
+    return False
+
+
+def _newest_mtime_or_refusal(root: str) -> tuple[float | None, str]:
+    """Newest mtime in one tree, or a reason the tree must not be removed.
+
+    A reparse point anywhere in the tree refuses the whole directory. The
+    walk does not follow it, and the caller must not delete around it.
+    """
+
+    newest: float | None = None
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        if _is_reparse(current):
+            return None, "reparse point is not removed"
+        try:
+            st = os.lstat(current)
+        except OSError as exc:
+            return None, str(exc)
+        newest = st.st_mtime if newest is None else max(newest, st.st_mtime)
+        if not stat.S_ISDIR(st.st_mode):
+            continue
+        try:
+            iterator = os.scandir(current)
+        except OSError as exc:
+            return None, str(exc)
+        with iterator:
+            for entry in iterator:
+                stack.append(entry.path)
+    return newest, ""
+
+
+def _remove_owned_tree(root: str) -> None:
+    """Delete a tree that was just proven to contain no reparse points."""
+
+    entries: list[tuple[str, bool]] = []
+    stack = [root]
+    while stack:
+        current = stack.pop()
+        if _is_reparse(current):
+            raise OSError(f"reparse point appeared during removal: {current}")
+        st = os.lstat(current)
+        is_dir = stat.S_ISDIR(st.st_mode)
+        entries.append((current, is_dir))
+        if not is_dir:
+            continue
+        with os.scandir(current) as iterator:
+            for entry in iterator:
+                stack.append(entry.path)
+    for path, is_dir in reversed(entries):
+        if _is_reparse(path):
+            raise OSError(f"reparse point appeared during removal: {path}")
+        if is_dir:
+            os.rmdir(path)
+            continue
+        try:
+            os.chmod(path, stat.S_IWRITE)
+        except OSError:
+            pass
+        os.remove(path)
+
+
+def reclaim_abandoned_attributable_temps(
+    temp_root: Path | str,
+    *,
+    now: float | None = None,
+    minimum_age_seconds: int = ABANDONED_TEMP_MIN_AGE_SECONDS,
+    active_paths: Sequence[Path | str] = (),
+) -> dict[str, Any]:
+    """Remove old Blackhole temp directories that are direct children of one root.
+
+    Only names starting with ``blackhole-`` or ``bh-unbound`` are eligible.
+    A directory newer than the retention window, listed as active, or containing
+    a reparse point stays. Unrelated names are not inspected for deletion.
+    """
+
+    root = os.path.abspath(temp_root)
+    removed: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    if minimum_age_seconds < 0:
+        raise ValueError("minimum_age_seconds cannot be negative")
+    if not os.path.isdir(root) or _is_reparse(root):
+        return {
+            "removed": removed,
+            "skipped": [{"path": root, "reason": "temporary root is missing or a reparse point"}],
+        }
+    moment = time.time() if now is None else float(now)
+    active = [os.path.abspath(path) for path in active_paths]
+    try:
+        children = list(os.scandir(root))
+    except OSError as exc:
+        return {"removed": removed, "skipped": [{"path": root, "reason": str(exc)}]}
+    for entry in children:
+        if not _attributable_temp_name(entry.name):
+            continue
+        path = os.path.abspath(entry.path)
+        if _norm(os.path.dirname(path)) != _norm(root):
+            skipped.append({"path": path, "reason": "not a direct child of the temporary root"})
+            continue
+        try:
+            is_dir = entry.is_dir(follow_symlinks=False)
+        except OSError as exc:
+            skipped.append({"path": path, "reason": str(exc)})
+            continue
+        if not is_dir:
+            skipped.append({"path": path, "reason": "not a directory"})
+            continue
+        if _is_reparse(path) or _active_temp(path, active):
+            skipped.append(
+                {
+                    "path": path,
+                    "reason": "reparse point is not removed" if _is_reparse(path) else "path is active",
+                }
+            )
+            continue
+        newest, reason = _newest_mtime_or_refusal(path)
+        if reason or newest is None or (moment - newest) < minimum_age_seconds:
+            skipped.append(
+                {
+                    "path": path,
+                    "reason": reason or "newer than the retention window",
+                }
+            )
+            continue
+        if (
+            _is_reparse(path)
+            or _active_temp(path, active)
+            or _norm(os.path.dirname(path)) != _norm(root)
+            or not _attributable_temp_name(Path(path).name)
+        ):
+            skipped.append({"path": path, "reason": "ownership changed before removal"})
+            continue
+        try:
+            _remove_owned_tree(path)
+        except OSError as exc:
+            skipped.append({"path": path, "reason": str(exc)})
+            continue
+        removed.append({"path": path, "outcome": "removed"})
+    return {"removed": removed, "skipped": skipped}
+
+
+def reclaim_process_attributable_temps(
+    *,
+    active_paths: Sequence[Path | str] = (),
+    now: float | None = None,
+    minimum_age_seconds: int = ABANDONED_TEMP_MIN_AGE_SECONDS,
+) -> dict[str, Any]:
+    """Reclaim abandoned temps under the process TEMP or TMP directory."""
+
+    temp = os.environ.get("TEMP") or os.environ.get("TMP") or ""
+    if not temp:
+        return {"removed": [], "skipped": [{"path": "", "reason": "TEMP is unset"}]}
+    return reclaim_abandoned_attributable_temps(
+        temp,
+        now=now,
+        minimum_age_seconds=minimum_age_seconds,
+        active_paths=active_paths,
+    )
+
+
 def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     """Measure the shared budget and refuse when a new worktree is not allowed.
 
@@ -422,6 +597,7 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     cap = int(CAP_BYTES)
     preventive = min(int(PREVENTIVE_BYTES), cap)
     policy = BudgetPolicy(cap_bytes=cap, preventive_bytes=preventive)
+    temp_reclaim = reclaim_process_attributable_temps(active_paths=[repo])
     roots = authorization_measurement_roots(repo)
     before = measure_roots(roots)
     growth = checkout_growth_bytes(before, repo)
@@ -456,7 +632,11 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
                 }
             )
         receipt["cleanup_targets"] = targets
-        _write_receipt(repo / ".blackhole-agent" / "unbound" / "storage-budget.json", receipt)
+    receipt["temp_reclaim"] = {
+        "removed": list(temp_reclaim.get("removed") or []),
+        "skipped": list(temp_reclaim.get("skipped") or [])[:20],
+    }
+    _write_receipt(repo / ".blackhole-agent" / "unbound" / "storage-budget.json", receipt)
     expansion = receipt.get("expansion") if isinstance(receipt.get("expansion"), dict) else {}
     if expansion.get("allowed") is not True:
         raise StorageBudgetRefusal(str(expansion.get("reason") or "refused"), receipt)
