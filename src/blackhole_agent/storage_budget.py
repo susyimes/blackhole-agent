@@ -400,6 +400,57 @@ def reclaim_completed_for_budget(repo_path: Path) -> dict[str, Any]:
     )
 
 
+def _read_storage_receipt(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def reclaim_published_checkouts_on_turn(repo_path: Path) -> dict[str, Any]:
+    """Remove completed published checkouts from a turn and record the receipt.
+
+    The long-running controller keeps the mission creator it imported at
+    process start. That creator still writes a storage receipt with no
+    ``worktree_reclaim`` key, so the published gate never runs. The mission
+    turn loads this module in a fresh interpreter. A receipt that already
+    records the key is left alone. Otherwise the verified reclaim runs and
+    the same receipt gains the key. A checkout with unique untracked work
+    stays. Removal is ``git worktree remove`` without ``--force``.
+    """
+
+    repo = Path(repo_path)
+    receipt_path = repo / ".blackhole-agent" / "unbound" / "storage-budget.json"
+    existing = _read_storage_receipt(receipt_path)
+    recorded = existing.get("worktree_reclaim")
+    if isinstance(recorded, dict):
+        return recorded
+    report = reclaim_completed_for_budget(repo)
+    compact = _compact_worktree_reclaim(report)
+    receipt = _read_storage_receipt(receipt_path)
+    receipt["worktree_reclaim"] = compact
+    targets = [item for item in receipt.get("cleanup_targets") or [] if isinstance(item, dict)]
+    for item in compact["reclaimed"]:
+        if item.get("removed") is not True:
+            continue
+        targets.append(
+            {
+                "path": item.get("workspace"),
+                "action": "git_worktree_remove",
+                "outcome": "removed",
+                "mission_id": item.get("mission_id"),
+                "command": item.get("remove_command"),
+                "force": False,
+            }
+        )
+    receipt["cleanup_targets"] = targets
+    _write_receipt(receipt_path, receipt)
+    return compact
+
+
 def authorization_measurement_roots(repo_path: Path) -> list[Path]:
     """Checkout roots plus temp outputs and provider sessions attributable to BA.
 

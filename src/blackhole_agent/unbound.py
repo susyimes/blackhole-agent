@@ -2223,6 +2223,15 @@ def run_unbound_turn(
             except Exception:
                 # A controller checkout that cannot move must not drop the turn.
                 pass
+            try:
+                from blackhole_agent.storage_budget import reclaim_published_checkouts_on_turn
+
+                # The creator captured at controller startup still writes a
+                # receipt with no worktree_reclaim key. This turn is a fresh
+                # interpreter, so the published reclaim runs here.
+                reclaim_published_checkouts_on_turn(controller)
+            except Exception:
+                pass
         if _prior_genesis_selection_rejected(state):
             restore_unaccepted_workspace(workspace, command_runner=command_runner)
         iteration = state.iteration + 1
