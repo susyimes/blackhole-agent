@@ -11,9 +11,12 @@ they are. This module never resets, force-pushes, or deletes a worktree.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -350,6 +353,170 @@ def reimport_published_storage_budget(
     if checkout_sha:
         storage_budget.LOADED_CONTROLLER_SHA = checkout_sha
     return storage_budget
+
+
+# The 2026-11-01 22:39 receipt still has no worktree_reclaim key. Publication
+# reloads the storage gate only from inside create_mission, and the live loop
+# still calls the create_mission object captured when the process imported
+# this checkout. A later edit of that function never runs.
+CREATOR_SOURCE_DIGEST = "_creator_source_digest"
+
+_PUBLISHED_CREATOR_SCRIPT = """
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+payload_path = Path(sys.argv[2])
+result_path = Path(sys.argv[3])
+sys.path.insert(0, str(root / "src"))
+from blackhole_agent.unbound import create_mission
+
+payload = json.loads(payload_path.read_text(encoding="utf-8"))
+
+def as_path(value):
+    if value is None or value == "":
+        return None
+    return Path(value)
+
+state = create_mission(
+    repo_path=Path(payload["repo_path"]),
+    goal=payload.get("goal") or "",
+    done_when=payload.get("done_when") or "",
+    kernel=payload.get("kernel") or "grok",
+    model=payload.get("model"),
+    profile=payload.get("profile"),
+    target_branch=payload.get("target_branch") or "main",
+    branch_prefix=payload.get("branch_prefix") or "unbound",
+    output_dir=as_path(payload.get("output_dir")) or Path(".blackhole-agent/unbound"),
+    worktree_parent=as_path(payload.get("worktree_parent")),
+    timeout_seconds=int(payload.get("timeout_seconds") or 7200),
+)
+result_path.write_text(str(state), encoding="utf-8")
+"""
+
+
+def checkout_unbound_path(repo_path: Path) -> Path:
+    """Path of the checkout's mission creator, relative to the controller repo."""
+
+    return Path(repo_path) / "src" / "blackhole_agent" / "unbound.py"
+
+
+def file_sha256(path: Path) -> str:
+    """Hash one file. A missing or unreadable file is an empty digest."""
+
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(65536), b""):
+                digest.update(chunk)
+    except OSError:
+        return ""
+    return digest.hexdigest()
+
+
+def bind_creator_source(fn: Callable[..., Any], path: Path | None = None) -> Callable[..., Any]:
+    """Remember the checkout file this creator was imported from.
+
+    The digest is the file bytes at bind time. A later fast-forward changes
+    those bytes, which is how the loop notices the captured function is stale.
+    """
+
+    source = Path(path) if path is not None else Path(getattr(fn.__code__, "co_filename", "") or "")
+    digest = file_sha256(source) if str(source) else ""
+    setattr(fn, CREATOR_SOURCE_DIGEST, digest)
+    return fn
+
+
+def published_creator_is_stale(repo_path: Path, captured: Callable[..., Any]) -> bool:
+    """True when the checkout's unbound.py no longer matches the captured creator."""
+
+    bound = str(getattr(captured, CREATOR_SOURCE_DIGEST, "") or "")
+    if not bound:
+        return False
+    current = file_sha256(checkout_unbound_path(repo_path))
+    return bool(current) and current != bound
+
+
+def _json_ready(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def _spawn_published_creator(repo_path: Path, call: Mapping[str, Any]) -> Path:
+    """Run the checkout's create_mission in a fresh interpreter.
+
+    The fresh process does not reuse this process's ``sys.modules``, so it
+    loads the published creator and the published storage gate together.
+    """
+
+    payload = {
+        "repo_path": str(call.get("repo_path") or repo_path),
+        "goal": call.get("goal") or "",
+        "done_when": call.get("done_when") or "",
+        "kernel": call.get("kernel") or "grok",
+        "model": call.get("model"),
+        "profile": call.get("profile"),
+        "target_branch": call.get("target_branch") or "main",
+        "branch_prefix": call.get("branch_prefix") or "unbound",
+        "output_dir": _json_ready(call.get("output_dir") or ".blackhole-agent/unbound"),
+        "worktree_parent": _json_ready(call.get("worktree_parent")),
+        "timeout_seconds": int(call.get("timeout_seconds") or 7200),
+    }
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    env.pop("PYTHONHOME", None)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    with tempfile.TemporaryDirectory(prefix="bh-creator-") as tmp:
+        directory = Path(tmp)
+        payload_path = directory / "payload.json"
+        result_path = directory / "result.txt"
+        payload_path.write_text(json.dumps(payload), encoding="utf-8")
+        completed = subprocess.run(
+            [sys.executable, "-I", "-c", _PUBLISHED_CREATOR_SCRIPT, str(repo_path), str(payload_path), str(result_path)],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            env=env,
+        )
+        if completed.returncode != 0 or not result_path.is_file():
+            detail = (completed.stderr or completed.stdout or "").strip() or f"exit {completed.returncode}"
+            raise RuntimeError(detail[-2000:])
+        text = result_path.read_text(encoding="utf-8").strip()
+    if not text:
+        raise RuntimeError("published create_mission returned an empty path")
+    return Path(text)
+
+
+def invoke_published_mission_creator(
+    repo_path: Path,
+    captured: Callable[..., Any],
+    call: Mapping[str, Any],
+    *,
+    reload_default: bool = False,
+) -> Any:
+    """Call the published creator when the captured one predates the checkout file.
+
+    Injected creators, custom command runners, and an unchanged file stay on
+    the captured callable. The default loop creator is replaced only when
+    ``src/blackhole_agent/unbound.py`` changed after it was imported.
+    """
+
+    runner = call.get("command_runner", subprocess.run)
+    resolver = call.get("kernel_resolver")
+    custom_resolver = resolver is not None and getattr(resolver, "__name__", "") != "resolve_unbound_kernel"
+    if (
+        not reload_default
+        or runner is not subprocess.run
+        or custom_resolver
+        or not published_creator_is_stale(repo_path, captured)
+    ):
+        return captured(**dict(call))
+    return _spawn_published_creator(repo_path, call)
 
 
 def commands_use_reset(report: Mapping[str, Any]) -> bool:

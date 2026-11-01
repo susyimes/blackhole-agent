@@ -1087,6 +1087,15 @@ def create_mission(
     return state_path.resolve()
 
 
+def _bind_imported_creator() -> None:
+    from blackhole_agent.controller_adoption import bind_creator_source
+
+    bind_creator_source(create_mission)
+
+
+_bind_imported_creator()
+
+
 def compact_text(value: str, *, limit: int) -> str:
     text = value.strip()
     if len(text) <= limit:
@@ -3294,17 +3303,26 @@ def run_continuous_loop(
                     )
                     save_continuous_loop_state(state_path, loop_state)
                     try:
-                        current_state_path = mission_creator(
-                            repo_path=repo_path,
-                            kernel=kernel,
-                            model=model,
-                            profile=profile,
-                            target_branch=lineage_ref,
-                            branch_prefix=branch_prefix,
-                            output_dir=output_dir,
-                            worktree_parent=worktree_parent,
-                            timeout_seconds=timeout_seconds,
-                            command_runner=command_runner,
+                        from blackhole_agent.controller_adoption import (
+                            invoke_published_mission_creator,
+                        )
+
+                        current_state_path = invoke_published_mission_creator(
+                            repo_path,
+                            mission_creator,
+                            {
+                                "repo_path": repo_path,
+                                "kernel": kernel,
+                                "model": model,
+                                "profile": profile,
+                                "target_branch": lineage_ref,
+                                "branch_prefix": branch_prefix,
+                                "output_dir": output_dir,
+                                "worktree_parent": worktree_parent,
+                                "timeout_seconds": timeout_seconds,
+                                "command_runner": command_runner,
+                            },
+                            reload_default=mission_creator is create_mission,
                         )
                     except Exception as error:
                         creation_error = str(error) or error.__class__.__name__
