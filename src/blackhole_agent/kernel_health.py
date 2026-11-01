@@ -6,8 +6,9 @@ next turn (and the next mission) still invokes the same exhausted kernel.
 
 This module persists non-retryable kernel deaths (quota, auth, a pre-session
 transport abort, a rejected model, a provider overload 429, a Codex
-responses endpoint that returns HTTP 404, and a Kimi prompt that dies with
-provider.connection_error after its own APIConnectionError retries), skips
+responses endpoint that returns HTTP 404, a Kimi prompt that dies with
+provider.connection_error after its own APIConnectionError retries, and a
+Grok CLI that exits because it is not signed in), skips
 open-circuit kernels on later resolution, and failsover to a local capability
 kernel that still emits a structured Unbound decision so the mission does not
 block or burn turns.

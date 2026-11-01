@@ -65,6 +65,13 @@ prompt: provider.connection_error: Connection error``. That stayed a retryable
 CLI error, so the next resolution launched Kimi again. A bare connection
 warning, a zero exit, and a token-fetch ``provider.connection_error`` stay on
 their existing paths.
+
+A Grok CLI that exits because the operator is not signed in is an auth
+failure of that kernel. Harvested 2026-08-13 runs exited 1 with ``Not signed
+in. Run grok login`` after ``No auth credentials for cli-chat-proxy``. The
+existing auth markers do not contain that sentence, so the death stayed a
+retryable CLI error and the next resolution launched Grok again. A credentials
+warning without the sign-in death line, and a zero exit, stay off this path.
 """
 
 from __future__ import annotations
@@ -127,6 +134,9 @@ PROVIDER_CONNECTION_FAILED = "provider_connection_failed"
 # breaker too. The 2026-07-31 run exited on provider.connection_error after
 # max_attempts 3. Launching Kimi again hits the same dead prompt path.
 # Token-fetch deaths stay auth_failed and are not this class.
+# An unsigned Grok CLI is auth_failed too. The 2026-08-13 runs exited on
+# "Not signed in. Run grok login". Launching Grok again hits the same login
+# wall. A credentials warning without that death line is not this class.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -186,6 +196,13 @@ _RESPONSES_ENDPOINT_MARKERS = (
 # and then exited on this death line. All three phrases are in that run.
 # A bare "connection error", a zero exit, and the OAuth token-fetch wording
 # are not this class. Token fetch is classified earlier as auth_failed.
+# Harvested Grok death (2026-08-13). Both phrases are in that stderr and
+# stdout. A model-fetch warning that only says "No auth credentials" is not
+# this class, and a zero exit is not this class.
+_GROK_SIGNED_OUT_MARKERS = (
+    "not signed in",
+    "grok login",
+)
 _PROVIDER_CONNECTION_MARKERS = (
     "provider.connection_error: connection error",
     "turn.step.retrying",
@@ -373,6 +390,10 @@ def classify_kernel_failure(
     if int(returncode or 0) != 0 and _contains_any(blob, _TOKEN_FETCH_MARKERS):
         # Token fetch died after a session id existed, so this is not the
         # empty-session transport abort. The kernel cannot authenticate.
+        return KernelFailureClass("auth_failed", False, evidence)
+    if int(returncode or 0) != 0 and all(marker in blob for marker in _GROK_SIGNED_OUT_MARKERS):
+        # The CLI already refused to run because nobody is signed in.
+        # Another launch of this kernel dies on the same login wall.
         return KernelFailureClass("auth_failed", False, evidence)
     if int(returncode or 0) != 0 and all(marker in blob for marker in _PROVIDER_CONNECTION_MARKERS):
         # The CLI already retried APIConnectionError. Another launch of this
@@ -1041,6 +1062,29 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
     )
     checks["bare_403_stays_cli_error"] = (
         plain_forbidden.class_id == "cli_error" and plain_forbidden.retryable
+    )
+    signed_out = classify_kernel_failure(
+        returncode=1,
+        stderr_tail=(
+            'Failed to fetch models: Auth("No auth credentials for cli-chat-proxy")\n'
+            "Error: Not signed in. Run `grok login` to authenticate "
+            "(or `grok login --device-code` if no browser is available).\n"
+        ),
+        stdout_tail=(
+            '{"type":"error","message":"Not signed in. Run `grok login` to authenticate"}\n'
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    checks["grok_signed_out_is_auth"] = (
+        signed_out.class_id == "auth_failed" and not signed_out.retryable
+    )
+    credential_warning = classify_kernel_failure(
+        returncode=1,
+        stderr_tail='WARN Failed to fetch models: Auth("No auth credentials for cli-chat-proxy")',
+        error="Grok CLI failed with exit code 1",
+    )
+    checks["grok_credential_warning_stays_cli_error"] = (
+        credential_warning.class_id == "cli_error" and credential_warning.retryable
     )
 
     events = classify_unbound_turn(

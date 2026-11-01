@@ -611,6 +611,58 @@ def test_kimi_connection_error_after_step_retries_is_not_retryable():
     assert zero_exit.class_id != "provider_connection_failed"
 
 
+def test_grok_signed_out_is_not_retryable():
+    death = classify_run_artifact(
+        {
+            "returncode": 1,
+            "stderr_tail": (
+                "WARN config: ignored unrecognized or invalid entry path=privacy\n"
+                'WARN Failed to fetch models: Auth("No auth credentials for cli-chat-proxy")\n'
+                "Error: Not signed in. Run `grok login` to authenticate "
+                "(or `grok login --device-code` if no browser is available).\n"
+            ),
+            "stdout_tail": (
+                '{"type":"error","message":"Not signed in. Run `grok login` to authenticate '
+                '(or `grok login --device-code` if no browser is available)."}\n'
+            ),
+            "last_message": "",
+            "session_id": "",
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert death.class_id == "auth_failed"
+    assert death.retryable is False
+    salvaged = salvage_kernel_failure(
+        error="Grok CLI failed with exit code 1",
+        current_kernel="grok",
+        artifact={
+            "returncode": 1,
+            "stderr_tail": "Error: Not signed in. Run `grok login` to authenticate.",
+            "stdout_tail": '{"type":"error","message":"Not signed in. Run `grok login`."}',
+            "last_message": "",
+        },
+        installed_kernels={"grok", "codex"},
+    )
+    assert salvaged.class_id == "auth_failed"
+    assert salvaged.failover_kernel == "codex"
+    assert salvaged.decision["status"] == "continue"
+
+    warning = classify_kernel_failure(
+        returncode=1,
+        stderr_tail='WARN Failed to fetch models: Auth("No auth credentials for cli-chat-proxy")',
+        error="Grok CLI failed with exit code 1",
+    )
+    assert warning.class_id == "cli_error"
+    assert warning.retryable is True
+
+    zero_exit = classify_kernel_failure(
+        returncode=0,
+        stderr_tail="Error: Not signed in. Run `grok login` to authenticate.",
+        last_message="finished",
+    )
+    assert zero_exit.class_id != "auth_failed"
+
+
 def test_builtin_proof_replays_harvested_failure():
     report = builtin_kernel_decision_salvage_proof()
     assert report["ok"] is True
