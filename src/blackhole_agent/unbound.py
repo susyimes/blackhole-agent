@@ -1350,6 +1350,159 @@ def _normalize_repo_relpath(path: str) -> str:
     return value
 
 
+_UNACCEPTED_SKIP_NAMES = frozenset({".env", ".env.local", "credentials.json", "id_rsa", "id_rsa.pub"})
+_UNACCEPTED_SKIP_SUFFIXES = frozenset({".pem", ".key"})
+_REPARSE_ATTRIBUTE = 0x400
+
+
+def _porcelain_entries(
+    workspace: Path,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> list[tuple[str, str]]:
+    completed = run_command(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=workspace,
+        command_runner=command_runner,
+    )
+    entries: list[tuple[str, str]] = []
+    for line in (completed.stdout or "").splitlines():
+        line = line.rstrip()
+        if len(line) < 4:
+            continue
+        status = line[:2]
+        raw = line[3:]
+        parts = raw.split(" -> ", 1) if " -> " in raw else (raw,)
+        for part in parts:
+            path = _normalize_repo_relpath(part)
+            if path:
+                entries.append((status, path))
+    return entries
+
+
+def _leave_unaccepted_path(path: str) -> bool:
+    pure = Path(path)
+    if ".git" in pure.parts:
+        return True
+    name = pure.name.lower()
+    return name in _UNACCEPTED_SKIP_NAMES or pure.suffix.lower() in _UNACCEPTED_SKIP_SUFFIXES
+
+
+def _path_is_reparse(path: Path) -> bool:
+    try:
+        attributes = getattr(os.lstat(path), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & _REPARSE_ATTRIBUTE)
+
+
+def _strictly_inside_workspace(workspace: Path, candidate: Path) -> bool:
+    try:
+        candidate.resolve().relative_to(workspace)
+    except (OSError, ValueError):
+        return False
+    return candidate.resolve() != workspace
+
+
+def _head_contains(
+    workspace: Path,
+    path: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> bool:
+    completed = run_command(
+        ["git", "cat-file", "-e", f"HEAD:{path}"],
+        cwd=workspace,
+        command_runner=command_runner,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def restore_unaccepted_workspace(
+    workspace: Path,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> dict[str, Any]:
+    """Drop unaccepted workspace edits without moving HEAD.
+
+    Tracked paths are restored from HEAD. Untracked files that porcelain
+    lists inside the workspace are removed one file at a time. Ignored
+    files stay because porcelain does not list them. Credentials, ``.git``,
+    reparse points, and anything that resolves outside the workspace stay.
+    This does not use ``reset --hard`` or a recursive delete.
+    """
+
+    workspace = workspace.resolve()
+    restored: list[str] = []
+    removed: list[str] = []
+    skipped: list[dict[str, str]] = []
+    tracked: list[str] = []
+    for status, path in _porcelain_entries(workspace, command_runner=command_runner):
+        if _leave_unaccepted_path(path):
+            skipped.append({"path": path, "reason": "protected_name"})
+            continue
+        raw = workspace / Path(path)
+        if _path_is_reparse(raw):
+            skipped.append({"path": path, "reason": "reparse"})
+            continue
+        if not _strictly_inside_workspace(workspace, raw):
+            skipped.append({"path": path, "reason": "outside_workspace"})
+            continue
+        if _head_contains(workspace, path, command_runner=command_runner):
+            if path not in tracked:
+                tracked.append(path)
+            continue
+        if raw.is_file():
+            if status != "??":
+                run_command(
+                    ["git", "rm", "--cached", "-q", "--", path],
+                    cwd=workspace,
+                    command_runner=command_runner,
+                    check=False,
+                )
+            raw.unlink()
+            removed.append(path)
+        elif raw.exists():
+            skipped.append({"path": path, "reason": "not_a_file"})
+        elif status != "??":
+            run_command(
+                ["git", "rm", "--cached", "-q", "--", path],
+                cwd=workspace,
+                command_runner=command_runner,
+                check=False,
+            )
+            removed.append(path)
+    if tracked:
+        run_command(
+            ["git", "restore", "--source=HEAD", "--worktree", "--staged", "--", *tracked],
+            cwd=workspace,
+            command_runner=command_runner,
+        )
+        restored.extend(tracked)
+    remaining = [
+        path
+        for _status, path in _porcelain_entries(workspace, command_runner=command_runner)
+        if path
+    ]
+    return {
+        "restored_tracked": restored,
+        "removed_untracked": removed,
+        "skipped": skipped,
+        "clean": not remaining,
+    }
+
+
+def _prior_genesis_selection_rejected(state: UnboundMission) -> bool:
+    if state.stage != "genesis" or not state.recent_turns:
+        return False
+    prior = state.recent_turns[-1]
+    if not isinstance(prior, dict):
+        return False
+    gate = prior.get("selection_gate")
+    return isinstance(gate, dict) and gate.get("accepted") is False
+
+
 def status_changed_paths(
     workspace: Path,
     *,
@@ -1929,6 +2082,8 @@ def run_unbound_turn(
         workspace = Path(state.workspace_path)
         if not workspace.exists():
             raise FileNotFoundError(f"Mission workspace does not exist: {workspace}")
+        if _prior_genesis_selection_rejected(state):
+            restore_unaccepted_workspace(workspace, command_runner=command_runner)
         iteration = state.iteration + 1
         started_at = utc_now_iso()
         turn_dir = state_path.parent / "turns" / f"{iteration:04d}"
@@ -2087,7 +2242,11 @@ def run_unbound_turn(
         state.iteration = iteration
         state.session_id = kernel_result.session_id or state.session_id
         state.session_started = bool(state.session_id) or state.session_started
+        rejection_restore = None
         if selection_gate is not None and not selection_gate.accepted:
+            rejection_restore = restore_unaccepted_workspace(
+                workspace, command_runner=command_runner
+            )
             rejection_summary = (
                 f"Autonomous mission selection rejected ({selection_rejection_count}/"
                 f"{SELECTION_REJECTION_LIMIT}): {'; '.join(selection_gate.reasons)}"
@@ -2138,6 +2297,7 @@ def run_unbound_turn(
             "progress_watchdog": progress,
             "selection_gate": selection_gate.to_dict() if selection_gate is not None else None,
             "selection_rejection_count": selection_rejection_count,
+            "rejected_workspace_restore": rejection_restore,
         }
         from blackhole_agent.mission_journal_bound import write_bounded_turn_files
 

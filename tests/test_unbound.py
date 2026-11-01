@@ -549,6 +549,114 @@ def test_genesis_rejects_repetitive_scalar_mission_and_blocks_after_three_attemp
     assert state.goal == ""
 
 
+def test_rejected_genesis_restores_workspace_before_the_next_turn(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    init_repository(repo)
+    (repo / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (repo / "src" / "other.py").write_text("OTHER = 1\n", encoding="utf-8")
+    venv = repo / ".venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").write_text("keep-venv\n", encoding="utf-8")
+    subprocess.run(["git", "add", ".gitignore", "src/other.py"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "ignore local env"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep-outside\n", encoding="utf-8")
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    state_path = tmp_path / "mission" / "state.json"
+    save_mission(
+        state_path,
+        UnboundMission(
+            schema_version=1,
+            mission_id="restore-probe",
+            created_at="2026-10-30T00:00:00Z",
+            updated_at="2026-10-30T00:00:00Z",
+            repo_path=str(repo),
+            workspace_path=str(repo),
+            branch="main",
+            target_branch="main",
+            goal="",
+            done_when="",
+            stage="genesis",
+            status="active",
+            kernel="grok",
+            base_head=head,
+            last_milestone_head=head,
+        ),
+    )
+    seen: dict[str, object] = {}
+
+    def kernel(state, prompt, turn_dir, **kwargs):
+        workspace = Path(state.workspace_path)
+        if not seen:
+            (workspace / "src" / "seed.py").write_text("VALUE = rejected\n", encoding="utf-8")
+            (workspace / "src" / "rejected_extra.py").write_text("rejected\n", encoding="utf-8")
+            seen["phase"] = "rejected"
+            return KernelTurnResult(
+                kernel=state.kernel,
+                last_message=decision_payload(
+                    "complete",
+                    mission_goal="none",
+                    done_when="none",
+                    summary="Submitted a goal the selector refuses.",
+                    done_when_met=True,
+                ),
+                session_id=state.session_id,
+                command=("fake-kernel",),
+                result_path=str(turn_dir / "fake-result.json"),
+            )
+        seen["seed"] = (workspace / "src" / "seed.py").read_text(encoding="utf-8")
+        seen["extra"] = (workspace / "src" / "rejected_extra.py").exists()
+        (workspace / "src" / "seed.py").write_text("VALUE = kept\n", encoding="utf-8")
+        (workspace / "src" / "kept_extra.py").write_text("kept\n", encoding="utf-8")
+        return KernelTurnResult(
+            kernel=state.kernel,
+            last_message=decision_payload(
+                "continue",
+                mission_goal=(
+                    "Repair the failed sample marker so the operator can read the recovered text."
+                ),
+                done_when="The marker file contains the recovered word.",
+                summary="Recovered the marker after the rejected edit was cleared.",
+            ),
+            session_id=state.session_id,
+            command=("fake-kernel",),
+            result_path=str(turn_dir / "fake-result.json"),
+        )
+
+    first = run_unbound_turn(state_path, kernel_runner=kernel)
+    assert (repo / "src" / "seed.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert not (repo / "src" / "rejected_extra.py").exists()
+    assert first["selection_gate"]["accepted"] is False
+    assert first["rejected_workspace_restore"]["clean"] is True
+
+    (repo / "src" / "seed.py").write_text("VALUE = leftover\n", encoding="utf-8")
+    (repo / "src" / "rejected_extra.py").write_text("leftover\n", encoding="utf-8")
+    second = run_unbound_turn(state_path, kernel_runner=kernel)
+
+    assert seen["seed"] == "VALUE = 1\n"
+    assert seen["extra"] is False
+    assert (repo / "src" / "seed.py").read_text(encoding="utf-8") == "VALUE = kept\n"
+    assert (repo / "src" / "kept_extra.py").read_text(encoding="utf-8") == "kept\n"
+    assert (repo / "src" / "other.py").read_text(encoding="utf-8") == "OTHER = 1\n"
+    assert (venv / "pyvenv.cfg").read_text(encoding="utf-8") == "keep-venv\n"
+    assert outside.read_text(encoding="utf-8") == "keep-outside\n"
+    assert second["selection_gate"]["accepted"] is True
+    assert second["rejected_workspace_restore"] is None
+
+
 def test_create_mission_recovers_when_worktree_add_times_out_after_clean_checkout(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
