@@ -742,6 +742,29 @@ def test_grok_response_stream_is_not_retryable():
     )
     assert zero_exit.class_id != "response_stream_failed"
 
+    hidden_by_mcp_timeout = classify_kernel_failure(
+        returncode=1,
+        timed_out=False,
+        stderr_tail=(
+            "WARN MCP server init failed server=gmail error=MCP server 'gmail' timed out after 90s\n"
+            "ERROR error=Internal error: "
+            '"reqwest error stream: error sending request for url '
+            '(https://cli-chat-proxy.grok.com/v1/responses)"\n'
+        ),
+        error="Grok CLI failed with exit code 1",
+    )
+    assert hidden_by_mcp_timeout.class_id == "response_stream_failed"
+    assert hidden_by_mcp_timeout.retryable is False
+
+    bare_mcp_timeout = classify_kernel_failure(
+        returncode=1,
+        timed_out=False,
+        stderr_tail="WARN MCP server init failed server=gmail error=MCP server 'gmail' timed out after 90s\n",
+        error="Grok CLI failed with exit code 1",
+    )
+    assert bare_mcp_timeout.class_id == "timeout"
+    assert bare_mcp_timeout.retryable is True
+
 
 def test_grok_inference_idle_timeout_is_not_a_tool_timeout():
     from blackhole_agent.kernel_salvage import INFERENCE_IDLE_TIMEOUT, classify_run_artifact

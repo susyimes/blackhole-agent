@@ -83,6 +83,13 @@ Salvage resumes that session once with a continuation prompt. A second stream
 death opens the Grok circuit and failsover. A telemetry export network error,
 a settings-fetch warning, and a zero exit stay off this path.
 
+An MCP timeout warning in the same log is not that death. Harvested
+2026-08-27 run ``20260827T073025Z`` exited 1 on ``reqwest error stream`` for
+session ``65d6a254-5d25-4f20-a720-f59f834e7962`` while the gmail MCP server
+``timed out after 90s``. The timeout substring used to win, so the next
+resolution replayed the mission and left the session. The stream sentence
+wins over that warning. A bare MCP timeout stays a retryable timeout.
+
 A post-wake authentication blip is not a signed-out account and not a generic
 timeout. Harvested 2026-08-13 and 2026-08-23 runs exited 124 with
 ``timed_out`` after many model calls. The transcript says authentication is
@@ -215,9 +222,11 @@ DOOM_LOOP_REPETITION = "doom_loop_repetition"
 # wall. A credentials warning without that death line is not this class.
 # A Grok responses stream that already died mid-session trips the breaker
 # on the second death. The 2026-07-29 and 2026-09-10 runs exited on
-# "reqwest error stream" after model calls. The first death resumes that
-# session once. Launching Grok again after the resume dies hits the same
-# proxy. A telemetry network error is not this class.
+# "reqwest error stream" after model calls. The 2026-08-27 run exited 1 on
+# the same sentence while gmail MCP said "timed out"; that substring is not
+# the death. The first death resumes that session once. Launching Grok again
+# after the resume dies hits the same proxy. A telemetry network error is
+# not this class. A bare MCP timeout is not this class.
 # A post-wake authentication blip does not trip the breaker. The 2026-08-23
 # run exited 124 after 90 model calls and said the session was still signed
 # in. Opening auth_failed would take Grok offline. The first blip resumes
@@ -605,6 +614,13 @@ def classify_kernel_failure(
         # contains tool and MCP timeouts. The doom-loop sentence is the death.
         # A max_tokens truncation in the same log is classified above.
         return KernelFailureClass(DOOM_LOOP_REPETITION, False, evidence)
+    if int(returncode or 0) != 0 and _contains_any(blob, _RESPONSE_STREAM_MARKERS):
+        # An MCP or tool line that says "timed out" is not this process death.
+        # The 2026-08-27 run exited 1 on reqwest error stream while gmail MCP
+        # timed out, and the generic timeout rule used to discard that session.
+        # A settings-fetch warning, a telemetry export error, and a zero exit
+        # do not contain this phrase.
+        return KernelFailureClass(RESPONSE_STREAM_FAILED, False, evidence)
     if timed_out or "timed out" in blob:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
@@ -634,11 +650,6 @@ def classify_kernel_failure(
         # The CLI already refused to run because nobody is signed in.
         # Another launch of this kernel dies on the same login wall.
         return KernelFailureClass("auth_failed", False, evidence)
-    if int(returncode or 0) != 0 and _contains_any(blob, _RESPONSE_STREAM_MARKERS):
-        # The responses stream already died after this session did work.
-        # Replaying the mission prompt discards that session. One continuation
-        # is allowed; another launch of this kernel hits the same proxy.
-        return KernelFailureClass(RESPONSE_STREAM_FAILED, False, evidence)
     if int(returncode or 0) != 0 and all(marker in blob for marker in _PROVIDER_CONNECTION_MARKERS):
         # The CLI already retried APIConnectionError. Another launch of this
         # kernel dies on the same provider.connection_error death line.
