@@ -110,6 +110,16 @@ out``, so the death was a retryable timeout and the next resolution replayed
 the mission on another kernel. Salvage resumes that session once. A second
 idle death fails over without opening the auth circuit. A bare timeout, a
 file-lock wait, and a zero exit stay on their existing paths.
+
+A reply cut off by the output token limit is still that truncation when a
+tool timeout shares the log. Harvested 2026-08-25 run
+``20260825T054458Z-daa11fd7`` exited 1 after 25 turns with ``error_kind``
+``max_tokens_truncation`` and ``response truncated by max_tokens``. The same
+stderr says ``grep timed out`` and ``signal sync timed out``, so the death
+was a retryable timeout and the next resolution replayed the mission prompt.
+Salvage resumes that session once with the decision-only prompt. A bare tool
+timeout, one truncation phrase beside a timeout string, and a zero exit stay
+on their existing paths.
 """
 
 from __future__ import annotations
@@ -468,6 +478,22 @@ def _is_model_unavailable(blob: str) -> bool:
     return "model " in blob and _contains_any(blob, _MODEL_CONFIG_MARKERS)
 
 
+def _output_truncated_death(blob: str, *, returncode: int, timed_out: bool) -> bool:
+    """True when max_tokens cut the reply off.
+
+    A tool-timeout line in the same stderr used to win, so the harvested
+    2026-08-25 run stayed a retryable timeout. Both truncation phrases are
+    required when a timeout string is also present. A zero exit that only
+    quotes the phrases is not this death.
+    """
+
+    if int(returncode or 0) == 0:
+        return False
+    if timed_out or "timed out" in blob:
+        return all(marker in blob for marker in _OUTPUT_TRUNCATION_MARKERS)
+    return _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS)
+
+
 def classify_kernel_failure(
     *,
     returncode: int = 0,
@@ -499,6 +525,10 @@ def classify_kernel_failure(
         # contains tool and file-lock timeouts. The idle sentence is the death.
         # The session already made model calls, so this is not an auth failure.
         return KernelFailureClass(INFERENCE_IDLE_TIMEOUT, False, evidence)
+    if _output_truncated_death(blob, returncode=returncode, timed_out=timed_out):
+        # A grep or signal-sync "timed out" line is not this process death.
+        # The reply was cut off, so the mission prompt must not be sent again.
+        return KernelFailureClass(OUTPUT_TRUNCATED, False, evidence)
     if timed_out or "timed out" in blob:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
@@ -545,10 +575,6 @@ def classify_kernel_failure(
         # The CLI already retried websocket and HTTPS. Another launch of this
         # kernel dies on the same missing responses URL.
         return KernelFailureClass(RESPONSES_ENDPOINT_MISSING, False, evidence)
-    if int(returncode or 0) != 0 and _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS):
-        # The kernel is healthy. Replaying the mission prompt repeats the
-        # truncation. Resume the same session with a decision-only prompt.
-        return KernelFailureClass(OUTPUT_TRUNCATED, False, evidence)
     if int(returncode or 0) != 0 and all(marker in blob for marker in _STEP_RETRY_MARKERS):
         # The CLI already retried the step. Replaying the mission prompt on
         # another kernel abandons the session that was doing the work.

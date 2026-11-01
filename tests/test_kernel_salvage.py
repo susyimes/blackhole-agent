@@ -828,6 +828,83 @@ def test_grok_token_generation_500_is_not_a_tool_timeout():
     assert bare_timeout.retryable is True
 
 
+def test_grok_max_tokens_truncation_hidden_by_grep_timeout():
+    from blackhole_agent.kernel_salvage import OUTPUT_TRUNCATED, classify_run_artifact
+
+    harvested = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stderr_tail": (
+                "WARN grep timed out timeout_secs=20\n"
+                "ERROR error=Internal error: {\n"
+                '  "message": "response truncated by max_tokens",\n'
+                '  "error_kind": "max_tokens_truncation"\n'
+                "}\n"
+                "WARN Final signal sync timed out during exit\n"
+            ),
+            "stdout_tail": (
+                '{"type":"error","message":"response truncated by max_tokens",'
+                '"error_kind":"max_tokens_truncation","num_turns":25}'
+            ),
+            "last_message": "",
+            "command": ["grok.EXE", "--session-id", "7878ab71-f28d-4a71-a2d6-bc40e293145e"],
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert harvested.class_id == OUTPUT_TRUNCATED
+    assert harvested.retryable is False
+
+    bare_timeout = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stderr_tail": "WARN grep timed out timeout_secs=20\n",
+            "last_message": "",
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert bare_timeout.class_id == "timeout"
+    assert bare_timeout.retryable is True
+
+    one_phrase = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stderr_tail": (
+                "WARN grep timed out timeout_secs=20\n"
+                "notes mention max_tokens_truncation only\n"
+            ),
+            "last_message": "",
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert one_phrase.class_id == "timeout"
+
+    clean = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stderr_tail": 'ERROR error=Internal error: "response truncated by max_tokens"',
+            "last_message": "",
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert clean.class_id == OUTPUT_TRUNCATED
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stderr_tail": (
+                "response truncated by max_tokens error_kind max_tokens_truncation"
+            ),
+            "last_message": "finished",
+        },
+    )
+    assert zero_exit.class_id != OUTPUT_TRUNCATED
+
+
 def test_grok_auth_wake_blip_resumes_session_without_tripping_auth():
     from blackhole_agent.kernel_salvage import AUTH_TEMPORARILY_UNAVAILABLE, classify_run_artifact
 
