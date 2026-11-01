@@ -28,6 +28,11 @@ SIZE_KIND = "logical_file_size"
 CAP_BYTES = 32_212_254_720
 PREVENTIVE_BYTES = 25_769_803_776
 DEFAULT_LOG_TAIL_BYTES = 65_536
+# Checkout sha this process last bound to the storage gate. Empty means the
+# import never recorded one. Publication fast-forwards main before the next
+# mission create, so a gate loaded at another sha has to be reimported even
+# when that create does not itself move HEAD.
+LOADED_CONTROLLER_SHA = ""
 _REPARSE = 0x400
 _REPRO_DIRS = frozenset(
     {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "htmlcov"}

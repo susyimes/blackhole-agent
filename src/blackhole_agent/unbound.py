@@ -960,21 +960,18 @@ def create_mission(
     operator_supplied = bool(goal.strip())
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be greater than zero")
-    # The editable install loads this checkout. Catch origin/main before the
-    # storage gate imports, and reload that module when the checkout moved so
-    # this process does not keep the pre-publication function.
-    from blackhole_agent.controller_adoption import adopt_remote_controller
+    # Publication fast-forwards this checkout before the next create. Reload
+    # the storage gate when the in-memory module was imported at another sha,
+    # not only when this call is the one that moves HEAD.
+    from blackhole_agent.controller_adoption import reimport_published_storage_budget
 
     try:
-        adoption = adopt_remote_controller(repo_path, command_runner=command_runner)
+        storage_budget = reimport_published_storage_budget(
+            repo_path,
+            command_runner=command_runner,
+        )
     except Exception:
-        adoption = {"moved": False}
-    import blackhole_agent.storage_budget as storage_budget
-
-    if adoption.get("moved"):
-        import importlib
-
-        storage_budget = importlib.reload(storage_budget)
+        import blackhole_agent.storage_budget as storage_budget
     # Refuse before mkdir or git worktree add. A cap refusal must not leave a
     # destination directory behind, and it must not delete fixture files.
     storage_budget.authorize_mission_worktree(repo_path)

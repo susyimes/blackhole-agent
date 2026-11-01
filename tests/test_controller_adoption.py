@@ -10,6 +10,7 @@ from blackhole_agent.controller_adoption import (
     adopt_remote_controller,
     commands_use_reset,
     import_checkout_attribute,
+    storage_gate_needs_reimport,
 )
 from blackhole_agent.unbound import create_mission
 
@@ -47,6 +48,15 @@ def _controller(repo: Path) -> str:
     _git(repo, "update-ref", "refs/remotes/origin/main", published)
     _git(repo, "checkout", "main")
     return published
+
+
+def test_storage_gate_reimports_when_publication_already_fast_forwarded() -> None:
+    already = {"moved": False, "reason": "already_current", "adopted": True}
+    assert storage_gate_needs_reimport(already, loaded_sha="old", checkout_sha="new") is True
+    assert storage_gate_needs_reimport(already, loaded_sha="", checkout_sha="new") is True
+    assert storage_gate_needs_reimport(already, loaded_sha="same", checkout_sha="same") is False
+    assert storage_gate_needs_reimport({"moved": True}, loaded_sha="same", checkout_sha="same") is True
+    assert storage_gate_needs_reimport(already, loaded_sha="old", checkout_sha="") is False
 
 
 def test_clean_checkout_adopts_published_marker(tmp_path: Path) -> None:

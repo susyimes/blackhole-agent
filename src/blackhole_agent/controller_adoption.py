@@ -293,6 +293,65 @@ def import_checkout_attribute(
     }
 
 
+def storage_gate_needs_reimport(
+    adoption: Mapping[str, Any],
+    *,
+    loaded_sha: str,
+    checkout_sha: str,
+) -> bool:
+    """True when the in-memory storage gate is not the published checkout.
+
+    The loop fast-forwards ``main`` during publication, before the next
+    ``create_mission``. A reload that waits for this call to move HEAD keeps
+    the module imported at process start, and the published gate never runs.
+    An empty loaded sha has not been bound to a checkout either.
+    """
+
+    if adoption.get("moved"):
+        return True
+    checkout = str(checkout_sha or "").strip()
+    if not checkout:
+        return False
+    return str(loaded_sha or "").strip() != checkout
+
+
+def reimport_published_storage_budget(
+    repo_path: Path,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> Any:
+    """Return the storage-budget module that matches the controller checkout.
+
+    Reloads when publication already moved HEAD, or when this process imported
+    the gate at a different sha. Records the bound sha on the returned module.
+    """
+
+    import importlib
+
+    import blackhole_agent.storage_budget as storage_budget
+
+    try:
+        adoption = adopt_remote_controller(repo_path, command_runner=command_runner)
+    except Exception:
+        adoption = {"moved": False, "reason": "adoption_failed"}
+    head_cmd = _run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        Path(repo_path),
+        command_runner,
+    )
+    checkout_sha = _text(head_cmd) if head_cmd.returncode == 0 else ""
+    loaded_sha = str(getattr(storage_budget, "LOADED_CONTROLLER_SHA", "") or "")
+    if storage_gate_needs_reimport(
+        adoption,
+        loaded_sha=loaded_sha,
+        checkout_sha=checkout_sha,
+    ):
+        storage_budget = importlib.reload(storage_budget)
+    if checkout_sha:
+        storage_budget.LOADED_CONTROLLER_SHA = checkout_sha
+    return storage_budget
+
+
 def commands_use_reset(report: Mapping[str, Any]) -> bool:
     """True when a reported git command resets history."""
 
