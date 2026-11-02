@@ -73,6 +73,9 @@ def getDomBuilder(DomImplementation):
                 self.element.appendChild(text)
 
         def insertBefore(self, node, refNode):
+            if refNode is None:
+                self.appendChild(node)
+                return
             self.element.insertBefore(node.element, refNode.element)
             node.parent = self
 

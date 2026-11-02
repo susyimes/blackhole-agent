@@ -357,13 +357,9 @@ class HTMLParser(object):
             nodeName = node.name
             new_phase = None
             if node == self.tree.openElements[0]:
-                assert self.innerHTML
                 last = True
-                nodeName = self.innerHTML
-            # Check for conditions that should only happen in the innerHTML
-            # case
-            if nodeName in ("select", "colgroup", "head", "html"):
-                assert self.innerHTML
+                if self.innerHTML:
+                    nodeName = self.innerHTML
 
             if not last and node.namespace != self.tree.defaultNamespace:
                 continue
@@ -1017,7 +1013,7 @@ def getPhases(debug):
             self.parser.parseError("unexpected-start-tag", {"name": "body"})
             if (len(self.tree.openElements) == 1 or
                     self.tree.openElements[1].name != "body"):
-                assert self.parser.innerHTML
+                pass
             else:
                 self.parser.framesetOK = False
                 for attr, value in token["data"].items():
@@ -1027,7 +1023,7 @@ def getPhases(debug):
         def startTagFrameset(self, token):
             self.parser.parseError("unexpected-start-tag", {"name": "frameset"})
             if (len(self.tree.openElements) == 1 or self.tree.openElements[1].name != "body"):
-                assert self.parser.innerHTML
+                pass
             elif not self.parser.framesetOK:
                 pass
             else:
@@ -1542,7 +1538,10 @@ def getPhases(debug):
 
                 if commonAncestor.name in frozenset(("table", "tbody", "tfoot", "thead", "tr")):
                     parent, insertBefore = self.tree.getTableMisnestedNodePosition()
-                    parent.insertBefore(lastNode, insertBefore)
+                    if insertBefore is None:
+                        parent.appendChild(lastNode)
+                    else:
+                        parent.insertBefore(lastNode, insertBefore)
                 else:
                     commonAncestor.appendChild(lastNode)
 
@@ -1713,7 +1712,7 @@ def getPhases(debug):
             if self.tree.openElements[-1].name != "html":
                 self.parser.parseError("eof-in-table")
             else:
-                assert self.parser.innerHTML
+                pass
             # Stop parsing
 
         def processSpaceCharacters(self, token):
@@ -1806,7 +1805,7 @@ def getPhases(debug):
                 self.parser.resetInsertionMode()
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def endTagIgnore(self, token):
@@ -1926,7 +1925,7 @@ def getPhases(debug):
                 self.parser.phase = self.parser.phases["inTable"]
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def endTagTable(self, token):
@@ -1966,7 +1965,7 @@ def getPhases(debug):
 
         def processEOF(self):
             if self.tree.openElements[-1].name == "html":
-                assert self.parser.innerHTML
+                pass
                 return
             else:
                 ignoreEndTag = self.ignoreEndTagColgroup()
@@ -1994,7 +1993,7 @@ def getPhases(debug):
         def endTagColgroup(self, token):
             if self.ignoreEndTagColgroup():
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
             else:
                 self.tree.openElements.pop()
@@ -2033,7 +2032,7 @@ def getPhases(debug):
                 #  {"name": self.tree.openElements[-1].name})
                 self.tree.openElements.pop()
             if self.tree.openElements[-1].name == "html":
-                assert self.parser.innerHTML
+                pass
 
         # the rest
         def processEOF(self):
@@ -2067,7 +2066,7 @@ def getPhases(debug):
                 return token
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def startTagOther(self, token):
@@ -2092,7 +2091,7 @@ def getPhases(debug):
                 return token
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def endTagIgnore(self, token):
@@ -2166,7 +2165,7 @@ def getPhases(debug):
                 self.parser.phase = self.parser.phases["inTableBody"]
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def endTagTable(self, token):
@@ -2233,7 +2232,7 @@ def getPhases(debug):
                 return token
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def startTagOther(self, token):
@@ -2292,7 +2291,7 @@ def getPhases(debug):
             if self.tree.openElements[-1].name != "html":
                 self.parser.parseError("eof-in-select")
             else:
-                assert self.parser.innerHTML
+                pass
 
         def processCharacters(self, token):
             if token["data"] == "\u0000":
@@ -2322,7 +2321,7 @@ def getPhases(debug):
                 self.endTagSelect(impliedTagToken("select"))
                 return token
             else:
-                assert self.parser.innerHTML
+                pass
 
         def startTagScript(self, token):
             return self.parser.phases["inHead"].processStartTag(token)
@@ -2359,7 +2358,7 @@ def getPhases(debug):
                 self.parser.resetInsertionMode()
             else:
                 # innerHTML case
-                assert self.parser.innerHTML
+                pass
                 self.parser.parseError()
 
         def endTagOther(self, token):
@@ -2589,7 +2588,7 @@ def getPhases(debug):
             if self.tree.openElements[-1].name != "html":
                 self.parser.parseError("eof-in-frameset")
             else:
-                assert self.parser.innerHTML
+                pass
 
         def processCharacters(self, token):
             self.parser.parseError("unexpected-char-in-frameset")

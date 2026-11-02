@@ -98,6 +98,9 @@ def getETreeBuilder(ElementTreeImplementation, fullTree=False):
             node.parent = self
 
         def insertBefore(self, node, refNode):
+            if refNode is None:
+                self.appendChild(node)
+                return
             index = list(self._element).index(refNode._element)
             self._element.insert(index, node._element)
             node.parent = self
