@@ -5,6 +5,11 @@ matches one of those classes keeps that class. Three failures that share a
 stack fingerprint and match none of those classes become one candidate card.
 Confirming the card registers it on the pattern register, so a later copy
 increments the same class and the required pattern mission can name it.
+
+A proved closer hides that whole class from genesis fuel. The latest forced
+occurrence still becomes a symptom card when its command text is outside the
+closer and outside a later completed repair. A covered command, a repaired
+command, a selection-gate rejection, and an open class stay off that card.
 """
 
 from __future__ import annotations
@@ -244,18 +249,148 @@ def collect_unclassified_failures(repo_path: Path, *, limit: int = SCAN_LIMIT) -
     return failures
 
 
+_GENERIC_SYMPTOM_TOKENS = frozenset(
+    {
+        "acceptance",
+        "behavior",
+        "capability",
+        "closer",
+        "command",
+        "commands",
+        "complete",
+        "controller",
+        "exit",
+        "failed",
+        "failure",
+        "false",
+        "milestone",
+        "mission",
+        "none",
+        "proved",
+        "python",
+        "rejected",
+        "replay",
+        "reported",
+        "structural",
+        "true",
+        "unbound",
+        "validation",
+    }
+)
+_RARE_TOKEN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def rare_symptom_tokens(text: str) -> set[str]:
+    """Distinctive command tokens. Generic replay words do not count."""
+
+    found: set[str] = set()
+    for token in _RARE_TOKEN.findall(str(text or "").lower()):
+        if len(token) < 8 or token in _GENERIC_SYMPTOM_TOKENS or token.isdigit():
+            continue
+        found.add(token)
+    return found
+
+
+def _later_repair_text(repo_path: Path, occurrence_at: str) -> str:
+    """Goal and summary text from completed missions at or after ``occurrence_at``."""
+
+    missions = Path(repo_path) / ".blackhole-agent" / "unbound" / "missions"
+    if not missions.is_dir() or not occurrence_at:
+        return ""
+    try:
+        paths = sorted(
+            (path for path in missions.glob("*/state.json") if path.is_file()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return ""
+    chunks: list[str] = []
+    for path in paths[:SCAN_LIMIT]:
+        state = _read_json(path)
+        if str(state.get("status") or "") != "complete":
+            continue
+        stamps = [str(state.get("created_at") or ""), str(state.get("updated_at") or "")]
+        for item in state.get("milestones") or []:
+            if isinstance(item, dict):
+                stamps.append(str(item.get("at") or ""))
+        if not any(stamp and stamp >= occurrence_at for stamp in stamps):
+            continue
+        chunks.append(str(state.get("goal") or ""))
+        chunks.append(str(state.get("last_summary") or ""))
+    return "\n".join(chunks)
+
+
+def novel_closed_class_symptoms(repo_path: Path) -> list[dict[str, Any]]:
+    """Latest forced occurrence a proved closer and later repairs do not name.
+
+    The occurrence must be a replay failure. Its rare command tokens must fall
+    outside the class structural fix, and none of those unseen tokens may
+    appear in a completed mission that started at or after the occurrence.
+    """
+
+    root = Path(repo_path)
+    try:
+        from blackhole_agent.kernel_class_closure import class_is_closed, load_effective_ledger
+
+        ledger = load_effective_ledger(root)
+    except Exception:  # noqa: BLE001 - growth text must still render other cards
+        return []
+    register = load_register(root)
+    cards: list[dict[str, Any]] = []
+    for class_id in sorted(register.classes):
+        entry = register.classes[class_id]
+        if entry.status != "forced" or not entry.occurrences:
+            continue
+        try:
+            closed = class_is_closed(class_id, root, ledger=ledger)
+        except Exception:  # noqa: BLE001 - one bad class must not hide the rest
+            continue
+        if not closed:
+            continue
+        latest = entry.occurrences[-1]
+        evidence = str(latest.evidence or latest.summary or "").strip()
+        if "replay" not in evidence.lower():
+            continue
+        outside = rare_symptom_tokens(evidence) - rare_symptom_tokens(entry.structural_fix)
+        if not outside:
+            continue
+        repairs = _later_repair_text(root, str(latest.at or ""))
+        repair_tokens = rare_symptom_tokens(repairs)
+        if outside & repair_tokens:
+            continue
+        cards.append(
+            {
+                "class_id": class_id,
+                "evidence": evidence[:400],
+                "unseen_tokens": sorted(outside),
+                "occurred_at": str(latest.at or ""),
+            }
+        )
+    return cards
+
+
 def render_unclassified_growth_for_genesis(repo_path: Path) -> str:
     """Compact candidate cards for a genesis prompt. Empty when none qualify."""
 
     cards = cluster_unclassified_failures(collect_unclassified_failures(repo_path))
-    if not cards:
+    symptoms = novel_closed_class_symptoms(repo_path)
+    if not cards and not symptoms:
         return ""
-    lines = [
-        "Unclassified failure clusters (a card is ready to confirm into the pattern register):"
-    ]
-    for card in cards[:5]:
+    lines: list[str] = []
+    if cards:
         lines.append(
-            f"- `{card['class_id']}` samples={card['sample_count']} "
-            f"signature={card['signature'][:160]}"
+            "Unclassified failure clusters (a card is ready to confirm into the pattern register):"
         )
+        for card in cards[:5]:
+            lines.append(
+                f"- `{card['class_id']}` samples={card['sample_count']} "
+                f"signature={card['signature'][:160]}"
+            )
+    if symptoms:
+        lines.append(
+            "Closed-class novel symptoms (a proved closer does not name this command):"
+        )
+        for card in symptoms[:5]:
+            lines.append(f"- `{card['class_id']}` evidence={card['evidence'][:240]}")
     return "\n".join(lines)
