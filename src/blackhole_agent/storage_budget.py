@@ -410,6 +410,114 @@ def _read_storage_receipt(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _receipt_measure_roots(receipt: dict[str, Any], repo: Path) -> list[Path]:
+    """Roots the receipt already claimed, otherwise the checkout roots only.
+
+    The turn must not widen the measurement to temp directories or provider
+    sessions. The stale creator counted checkout roots, and the after-figure
+    has to be the same scope with the removed checkouts gone.
+    """
+
+    listed = receipt.get("roots")
+    roots: list[Path] = []
+    if isinstance(listed, list):
+        for item in listed:
+            text = str(item or "").strip()
+            if text:
+                roots.append(Path(text))
+    if roots:
+        return roots
+    return mission_checkout_roots(repo)
+
+
+def _measurement_child_names(block: Any) -> set[str]:
+    names: set[str] = set()
+    if not isinstance(block, dict):
+        return names
+    for root in block.get("roots") or []:
+        if not isinstance(root, dict):
+            continue
+        for child in root.get("top_children") or []:
+            if isinstance(child, dict) and child.get("name"):
+                names.add(str(child["name"]))
+    return names
+
+
+def _receipt_still_counts_removed_checkout(receipt: dict[str, Any]) -> bool:
+    """True when a removed checkout is gone on disk but the after-figure still counts it.
+
+    The 2026-11-01 23:47 receipt records the removals, then leaves
+    ``bytes_after`` equal to ``bytes_before`` and ``expansion.additional_bytes``
+    at 0 while ``measurement_after`` still names those directories.
+    """
+
+    record = receipt.get("worktree_reclaim")
+    if not isinstance(record, dict):
+        return False
+    removed_names: list[str] = []
+    for item in record.get("reclaimed") or []:
+        if not isinstance(item, dict) or item.get("removed") is not True:
+            continue
+        workspace = str(item.get("workspace") or "")
+        if not workspace or os.path.exists(workspace):
+            continue
+        removed_names.append(Path(workspace).name)
+    if not removed_names:
+        return False
+    names = _measurement_child_names(receipt.get("measurement_after"))
+    if not names:
+        names = _measurement_child_names(receipt.get("measurement_before"))
+    if any(name in names for name in removed_names):
+        return True
+    expansion = receipt.get("expansion") if isinstance(receipt.get("expansion"), dict) else {}
+    additional = int(expansion.get("additional_bytes") or 0)
+    before = receipt.get("bytes_before")
+    after = receipt.get("bytes_after")
+    return additional == 0 and before is not None and before == after
+
+
+def _refresh_receipt_after_checkout_reclaim(repo: Path, receipt: dict[str, Any]) -> None:
+    """Replace the after-figure with a measurement taken after checkout removal.
+
+    ``bytes_before`` stays the creator's pre-removal total when it was already
+    recorded. ``expansion.additional_bytes`` becomes the surviving main
+    checkout's logical size outside ``.git``, which is what the next worktree
+    adds. A zero growth estimate is how the 23:47 receipt priced that checkout.
+    """
+
+    roots = _receipt_measure_roots(receipt, repo)
+    after = measure_roots(roots)
+    growth = checkout_growth_bytes(after, repo)
+    cap = int(receipt.get("cap_bytes") or CAP_BYTES)
+    preventive = int(receipt.get("preventive_bytes") or PREVENTIVE_BYTES)
+    if preventive > cap:
+        preventive = cap
+    if cap < 1 or preventive < 1:
+        cap = CAP_BYTES
+        preventive = PREVENTIVE_BYTES
+    policy = BudgetPolicy(cap_bytes=cap, preventive_bytes=preventive)
+    allowed, reason, cap_satisfied = _authorize(after, growth, policy)
+    if "bytes_before" not in receipt and receipt.get("bytes_after") is not None:
+        receipt["bytes_before"] = receipt.get("bytes_after")
+    if "file_count_before" not in receipt and receipt.get("file_count_after") is not None:
+        receipt["file_count_before"] = receipt.get("file_count_after")
+    receipt["bytes_after"] = int(after["logical_bytes"])
+    receipt["file_count_after"] = int(after["file_count"])
+    receipt["measurement_after"] = _compact_measurement(after)
+    receipt["roots"] = [str(Path(root)) for root in roots]
+    receipt["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    receipt["honesty"] = after["honesty"]
+    receipt["size_kind"] = after["size_kind"]
+    receipt["cap_bytes"] = policy.cap_bytes
+    receipt["preventive_bytes"] = policy.preventive_bytes
+    receipt["expansion"] = {
+        "allowed": allowed,
+        "reason": reason,
+        "additional_bytes": growth,
+        "cap_satisfied": cap_satisfied,
+    }
+
+
 def reclaim_published_checkouts_on_turn(repo_path: Path) -> dict[str, Any]:
     """Remove completed published checkouts from a turn and record the receipt.
 
@@ -417,9 +525,12 @@ def reclaim_published_checkouts_on_turn(repo_path: Path) -> dict[str, Any]:
     process start. That creator still writes a storage receipt with no
     ``worktree_reclaim`` key, so the published gate never runs. The mission
     turn loads this module in a fresh interpreter. A receipt that already
-    records the key is left alone. Otherwise the verified reclaim runs and
-    the same receipt gains the key. A checkout with unique untracked work
-    stays. Removal is ``git worktree remove`` without ``--force``.
+    records a reclaim whose after-measurement no longer names a removed
+    checkout is left alone. Otherwise the verified reclaim runs when the key
+    is absent, and the after-measurement is taken again so ``bytes_after``
+    drops the removed checkout and ``expansion.additional_bytes`` is the
+    surviving main checkout size outside ``.git``. A checkout with unique
+    untracked work stays. Removal is ``git worktree remove`` without ``--force``.
     """
 
     repo = Path(repo_path)
@@ -427,7 +538,11 @@ def reclaim_published_checkouts_on_turn(repo_path: Path) -> dict[str, Any]:
     existing = _read_storage_receipt(receipt_path)
     recorded = existing.get("worktree_reclaim")
     if isinstance(recorded, dict):
-        return recorded
+        if _receipt_still_counts_removed_checkout(existing):
+            _refresh_receipt_after_checkout_reclaim(repo, existing)
+            _write_receipt(receipt_path, existing)
+        refreshed = existing.get("worktree_reclaim")
+        return refreshed if isinstance(refreshed, dict) else recorded
     report = reclaim_completed_for_budget(repo)
     compact = _compact_worktree_reclaim(report)
     receipt = _read_storage_receipt(receipt_path)
@@ -447,6 +562,7 @@ def reclaim_published_checkouts_on_turn(repo_path: Path) -> dict[str, Any]:
             }
         )
     receipt["cleanup_targets"] = targets
+    _refresh_receipt_after_checkout_reclaim(repo, receipt)
     _write_receipt(receipt_path, receipt)
     return compact
 

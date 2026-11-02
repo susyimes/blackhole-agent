@@ -116,6 +116,9 @@ def _exercise(reclaim) -> dict[str, object]:
                 "dirty_exists": dirty.exists(),
                 "source_text": source.read_text(encoding="utf-8") if source.is_file() else "",
                 "bytes_after": receipt.get("bytes_after"),
+                "additional_bytes": (receipt.get("expansion") or {}).get("additional_bytes")
+                if isinstance(receipt.get("expansion"), dict)
+                else None,
                 "removed_ids": removed_ids,
                 "returned_removed_ids": [
                     item.get("mission_id")
@@ -136,7 +139,10 @@ def _exercise(reclaim) -> dict[str, object]:
             and observed["newer_exists"] is True
             and observed["dirty_exists"] is True
             and observed["source_text"] == 'VALUE = "keep"\n'
-            and observed["bytes_after"] == 11
+            and isinstance(observed["bytes_after"], int)
+            and observed["bytes_after"] > 11
+            and isinstance(observed["additional_bytes"], int)
+            and observed["additional_bytes"] > 0
             and observed["removed_ids"] == ["older"]
             and observed["returned_removed_ids"] == ["older"]
             and forced is False
