@@ -1722,6 +1722,11 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # prefix, not a PowerShell statement. cmd.exe runs ``PYTHONPATH=src`` as
 # the program and exits 1. pwsh does not accept that prefix either, so
 # routing the text to pwsh cannot reproduce the exit the agent reported.
+# Harvested 2026-10-10: ``.venv/Scripts/python.exe -m pytest ...`` exited 0
+# in pwsh. cmd.exe treats ``/`` as a switch, so it tries to run ``.venv``
+# and exits 1. An absolute ``C:/...`` program already starts. Only the
+# first program token is rewritten to backslashes. A later argument that
+# contains a slash, and a URL used as the program, stay unchanged.
 _POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|;)\s*&\s*['\"]")
 _POWERSHELL_ENV_STATEMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
@@ -1844,6 +1849,51 @@ def split_posix_env_prefix(command: str) -> tuple[dict[str, str], str] | None:
     return assigned, body
 
 
+def _cmd_program_token_span(text: str) -> tuple[int, int] | None:
+    """Return the first program token, excluding one pair of wrapping quotes."""
+
+    if not text:
+        return None
+    if text[0] in {"'", '"'}:
+        end = text.find(text[0], 1)
+        if end < 0:
+            return None
+        return 1, end
+    end = 0
+    while end < len(text) and not text[end].isspace():
+        end += 1
+    return 0, end
+
+
+def normalize_cmd_program_slashes(command: str) -> str:
+    """Rewrite a forward-slash program path so cmd.exe can start it.
+
+    The harvested form is ``.venv/Scripts/python.exe -m pytest ...``. cmd.exe
+    splits that token on ``/`` and executes ``.venv``. A slash that appears
+    only inside a later argument is left alone, and a ``scheme://`` program
+    is not a filesystem path.
+    """
+
+    if os.name != "nt":
+        return command
+    body = str(command or "")
+    stripped = body.lstrip()
+    if not stripped:
+        return body
+    span = _cmd_program_token_span(stripped)
+    if span is None:
+        return body
+    start, end = span
+    token = stripped[start:end]
+    if "/" not in token or "://" in token or token.startswith("-"):
+        return body
+    rewritten = token.replace("/", "\\")
+    if rewritten == token:
+        return body
+    offset = len(body) - len(stripped)
+    return body[: offset + start] + rewritten + body[offset + end :]
+
+
 def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str] | None:
     if not overlay:
         return None
@@ -1884,6 +1934,7 @@ def replay_validation_command(
                     env=environment,
                 )
             else:
+                run_command = normalize_cmd_program_slashes(run_command)
                 completed = run_text_command(
                     run_command,
                     cwd=workspace,
