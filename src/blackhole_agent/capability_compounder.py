@@ -1775,19 +1775,19 @@ def _soft_extract_outcome_predicates(chunk: str) -> list[dict[str, Any]]:
     # Require a namespaced id (contains '.') so English "prove unhealed" never
     # becomes capability_proved:unhealed and false-fails complete gates.
     m = re.search(
-        r"(?:prove[sd]?|capability_proved)\s+([a-z][a-z0-9_-]*\.[a-z0-9._-]{2,})",
+        r"(?:prove[sd]?|capability_proved)\s+((?:capability|domain|evolution|repo|unbound)\.[a-z0-9._-]{2,})",
         lower,
     )
     if m and "min_" not in m.group(0):
         found.append({"kind": "capability_proved", "arg": m.group(1), "source": chunk})
     m = re.search(
-        r"(?:ledger\s+has|capability_exists|includes)\s+([a-z][a-z0-9_-]*\.[a-z0-9._-]{2,})",
+        r"(?:ledger\s+has|capability_exists|includes)\s+((?:capability|domain|evolution|repo|unbound)\.[a-z0-9._-]{2,})",
         lower,
     )
     if m:
         found.append({"kind": "capability_exists", "arg": m.group(1), "source": chunk})
     m = re.search(
-        r"\b([a-z][a-z0-9_-]*\.[a-z0-9._-]{2,})\s+is\s+registered\b",
+        r"\b((?:capability|domain|evolution|repo|unbound)\.[a-z0-9._-]{2,})\s+is\s+registered\b",
         lower,
     )
     if m:

@@ -236,6 +236,98 @@ for _extra in CONFIG.get("extra_paths") or []:
 sys.path.insert(0, str(_ROOT / CONFIG["path_root"]))
 
 
+def _annotation_label(annotation):
+    origin = getattr(annotation, "__origin__", None)
+    name = getattr(origin, "__name__", "") or getattr(annotation, "__name__", "") or ""
+    return str(name).split(".")[-1].lower() or "arg"
+
+
+def _sample_annotation(annotation, depth=0):
+    """Build one positional sample from a constructor annotation.
+
+    A top-level ``str`` stays empty so the older empty-string trial remains
+    the winner when it works. A string inside a collection is non-empty, so
+    ``list[str]`` is ``["x"]`` rather than a list the constructor rejects.
+    """
+
+    if depth > 6:
+        return None
+    origin = getattr(annotation, "__origin__", None)
+    args = tuple(getattr(annotation, "__args__", ()) or ())
+    union_type = None
+    try:
+        import typing
+        union_type = typing.Union
+    except Exception:
+        union_type = None
+    if origin is union_type:
+        picked = [item for item in args if item is not type(None)]
+        if len(picked) == 1:
+            return _sample_annotation(picked[0], depth + 1)
+        return None
+    concrete = origin or annotation
+    name = str(getattr(concrete, "__name__", "") or "")
+    if name in ("list", "List", "Sequence", "Iterable", "MutableSequence"):
+        inner = "x"
+        if args:
+            sampled = _sample_annotation(args[0], depth + 1)
+            if isinstance(sampled, str) and sampled:
+                inner = sampled
+            elif sampled is not None and not isinstance(sampled, str):
+                inner = sampled
+        return [inner]
+    if name in ("tuple", "Tuple"):
+        return ("x",)
+    if name in ("dict", "Dict", "Mapping", "MutableMapping"):
+        return {{}}
+    if name in ("bytes", "ByteString"):
+        return b"x"
+    if name == "bytearray":
+        return bytearray(b"x")
+    if name == "str":
+        return "x" if depth else ""
+    if name == "int":
+        return 1
+    if name == "float":
+        return 1.0
+    if name == "bool":
+        return True
+    return None
+
+
+def _annotated_args(ctor):
+    try:
+        init = ctor.__init__
+        if init is object.__init__:
+            return None
+        signature = inspect.signature(init)
+        samples = []
+        labels = []
+        for param in signature.parameters.values():
+            if param.name in ("self", "cls"):
+                continue
+            if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+                continue
+            if param.kind is param.KEYWORD_ONLY:
+                if param.default is inspect.Parameter.empty:
+                    return None
+                continue
+            if param.default is not inspect.Parameter.empty:
+                break
+            if param.annotation is inspect.Parameter.empty:
+                return None
+            sample = _sample_annotation(param.annotation)
+            if sample is None:
+                return None
+            samples.append(sample)
+            labels.append(_annotation_label(param.annotation))
+        if not samples:
+            return None
+        return tuple(samples), "+".join(labels)
+    except Exception:
+        return None
+
+
 def _construct_instance(ctor):
     if not inspect.isclass(ctor):
         return None
@@ -244,7 +336,13 @@ def _construct_instance(ctor):
             return ctor(*args)
         except Exception:
             continue
-    return None
+    built = _annotated_args(ctor)
+    if built is None:
+        return None
+    try:
+        return ctor(*built[0])
+    except Exception:
+        return None
 
 
 def _load_step(parent, part, imported):
