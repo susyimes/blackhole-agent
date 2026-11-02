@@ -172,7 +172,7 @@ def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):
     assert record.returncode == 0
     assert record.worktree_result is not None
     assert record.worktree_result.created is True
-    assert record.worktree_result.removed is True
+    assert record.worktree_result.removed is False
     assert record.commit_result is not None
     assert record.commit_result.committed is True
     assert record.promotion_result is not None
@@ -181,7 +181,7 @@ def test_run_wake_once_promotes_candidate_worktree_and_pushes(tmp_path):
     assert record.promotion_result.rollback_artifact_exists is True
     assert record.promotion_result.restart_requested is True
     assert state["pushed"] is True
-    assert state["removed"] is True
+    assert state["removed"] is False
 
     latest = json.loads((output_dir / "latest-supervisor-pass.json").read_text(encoding="utf-8"))
     heartbeat = json.loads((output_dir / "latest-supervisor-heartbeat.json").read_text(encoding="utf-8"))

@@ -185,6 +185,16 @@ class WorktreeResult:
 
 
 @dataclass(frozen=True)
+class CandidateRemoval:
+    """Outcome of cleaning one finished supervisor candidate."""
+
+    removed: bool
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+@dataclass(frozen=True)
 class HealthCheckResult:
     """Result of one health command."""
 
@@ -442,6 +452,91 @@ def run_supervisor_loop(
         sleep(max(0.0, config.interval_seconds - elapsed))
 
 
+def _published_lineage_refs(repo: Path) -> tuple[str, ...]:
+    """Prefer ``origin/main`` so a local-only commit is not treated as published."""
+
+    completed = subprocess.run(
+        ["git", "rev-parse", "--verify", "--end-of-options", "refs/remotes/origin/main"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if completed.returncode == 0 and (completed.stdout or "").strip():
+        return ("origin/main",)
+    return ("main",)
+
+
+def remove_finished_candidate_worktree(
+    config: SupervisorConfig,
+    workspace: Path,
+    *,
+    branch: str,
+    head: str,
+    command_runner: Any = subprocess.run,
+) -> CandidateRemoval:
+    """Remove a finished candidate only when it is clean and already published.
+
+    ``git worktree remove --force`` deletes uncommitted files, ignored secrets,
+    and commits that never reached the remote. A wake must not do that. The
+    checkout stays when lineage is unproved, the tree has unique work, a
+    process is using the directory, or the git remove itself fails.
+    """
+
+    from blackhole_agent.worktree_reclaim_verify import (
+        assess_worktree_removal,
+        directory_in_use,
+        git_worktree_remove_command,
+    )
+
+    repo = Path(config.repo_path)
+    target = Path(workspace)
+    parent = config.resolved_worktree_parent_dir
+    refs = _published_lineage_refs(repo)
+
+    def assess() -> Any:
+        return assess_worktree_removal(
+            repo,
+            target,
+            branch=branch,
+            milestone_head=head,
+            ancestor_refs=refs,
+            command_runner=command_runner,
+            managed_parent=parent,
+        )
+
+    assessment = assess()
+    if not assessment.removable:
+        reason = assessment.reason or "not_removable"
+        return CandidateRemoval(False, 0, "", f"kept:{reason}")
+    in_use = directory_in_use(target)
+    if in_use:
+        return CandidateRemoval(False, 0, "", f"kept:{in_use}")
+    confirmed = assess()
+    if not confirmed.removable or confirmed.stale_published_tree:
+        reason = confirmed.reason or "not_removable"
+        return CandidateRemoval(False, 0, "", f"kept:{reason}")
+    command = git_worktree_remove_command(target)
+    completed = command_runner(
+        command,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    returncode = int(completed.returncode)
+    return CandidateRemoval(
+        returncode == 0,
+        returncode,
+        completed.stdout or "",
+        completed.stderr or "",
+    )
+
+
 def run_wake_once(
     config: SupervisorConfig,
     *,
@@ -549,17 +644,17 @@ def run_wake_once(
 
     if worktree_created and config.cleanup_candidate_worktree:
         worktree_remove_attempted = True
-        remove_completed = command_runner(
-            ["git", "worktree", "remove", "--force", str(child_repo_path)],
-            cwd=config.repo_path,
-            capture_output=True,
-            text=True,
-            timeout=120,
+        removal = remove_finished_candidate_worktree(
+            config,
+            child_repo_path,
+            branch=finish_branch,
+            head=finish_head,
+            command_runner=command_runner,
         )
-        worktree_remove_returncode = int(remove_completed.returncode)
-        worktree_removed = remove_completed.returncode == 0
-        create_stdout = "\n".join(part for part in (create_stdout, remove_completed.stdout or "") if part)
-        create_stderr = "\n".join(part for part in (create_stderr, remove_completed.stderr or "") if part)
+        worktree_remove_returncode = removal.returncode
+        worktree_removed = removal.removed
+        create_stdout = "\n".join(part for part in (create_stdout, removal.stdout) if part)
+        create_stderr = "\n".join(part for part in (create_stderr, removal.stderr) if part)
 
     if config.use_candidate_worktree and config.evolution_mode == "codex":
         worktree_result = WorktreeResult(
