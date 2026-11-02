@@ -1092,7 +1092,7 @@ def ensure_ldap_actuation_capability(*, repo_path: Path | None = None) -> Capabi
 def builtin_ldap_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: opted-in LDAP actuation seals a BIND/ADD/SEARCH entry."""
 
-    from blackhole_agent.dns_actuation import DNS_ACTUATION_GOAL, DNS_ACTUATION_ID
+    from blackhole_agent.kernel_genesis_diversify import DNS_ACTUATION_GOAL, DNS_ACTUATION_ID
     from blackhole_agent.imap_actuation import IMAP_ACTUATION_GOAL, IMAP_ACTUATION_ID
     from blackhole_agent.kernel_genesis_bind import _register_proved as register_catalog_proved
     from blackhole_agent.kernel_genesis_diversify import (

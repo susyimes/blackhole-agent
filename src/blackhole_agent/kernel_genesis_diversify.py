@@ -230,11 +230,6 @@ from blackhole_agent.mqtt_actuation import (
     MQTT_ACTUATION_GOAL,
     MQTT_ACTUATION_ID,
 )
-from blackhole_agent.dns_actuation import (
-    DNS_ACTUATION_DONE_WHEN,
-    DNS_ACTUATION_GOAL,
-    DNS_ACTUATION_ID,
-)
 from blackhole_agent.ldap_actuation import (
     LDAP_ACTUATION_DONE_WHEN,
     LDAP_ACTUATION_GOAL,
@@ -265,11 +260,6 @@ from blackhole_agent.mcp_structured_output import (
     MCP_STRUCTURED_GOAL,
     MCP_STRUCTURED_ID,
 )
-from blackhole_agent.websocket_actuation import (
-    WEBSOCKET_ACTUATION_DONE_WHEN,
-    WEBSOCKET_ACTUATION_GOAL,
-    WEBSOCKET_ACTUATION_ID,
-)
 from blackhole_agent.ssh_actuation import (
     SSH_ACTUATION_DONE_WHEN,
     SSH_ACTUATION_GOAL,
@@ -284,16 +274,6 @@ from blackhole_agent.amqp_actuation import (
     AMQP_ACTUATION_DONE_WHEN,
     AMQP_ACTUATION_GOAL,
     AMQP_ACTUATION_ID,
-)
-from blackhole_agent.ftp_actuation import (
-    FTP_ACTUATION_DONE_WHEN,
-    FTP_ACTUATION_GOAL,
-    FTP_ACTUATION_ID,
-)
-from blackhole_agent.tftp_actuation import (
-    TFTP_ACTUATION_DONE_WHEN,
-    TFTP_ACTUATION_GOAL,
-    TFTP_ACTUATION_ID,
 )
 from blackhole_agent.leftover_handoff_rebind import (
     LEFTOVER_HANDOFF_REBIND_DONE_WHEN,
@@ -428,6 +408,62 @@ COMPOUNDING_THROUGH_FABRIC = (
     PROGRAM_TOWER_ID,
     PROGRAM_LATTICE_ID,
     PROGRAM_FABRIC_ID,
+)
+
+# These four clones stay in the catalog as contracts. Live proofs read the
+# contract here, so importing this module no longer loads their implementations.
+DNS_ACTUATION_ID = "capability.dns-actuation"
+DNS_ACTUATION_DONE_WHEN = (
+    "capability_exists:capability.dns-actuation;"
+    "capability_proved:capability.dns-actuation;"
+    "no_skill_route"
+)
+DNS_ACTUATION_GOAL = (
+    "Repair nameserver TSIG-gated apex record: hosted nameserver tools remain "
+    "unsupported so an UPDATE/TSIG/QUERY cycle cannot land and a sealed apex "
+    "TXT cannot be produced. A missing TSIG secret stays forbidden; "
+    "fail-closed routing never opts the dns provider in."
+)
+WEBSOCKET_ACTUATION_ID = "capability.websocket-actuation"
+WEBSOCKET_ACTUATION_DONE_WHEN = (
+    "capability_exists:capability.websocket-actuation;"
+    "capability_proved:capability.websocket-actuation;"
+    "no_skill_route"
+)
+WEBSOCKET_ACTUATION_GOAL = (
+    "Repair rfc6455 websocket upgrade framing: hosted websocket tools remain "
+    "unsupported so an HTTP-Upgrade/masked-SEND/RECEIVE/PONG cycle cannot "
+    "land and a sealed frame digest cannot be produced. A missing websocket "
+    "token stays forbidden; fail-closed routing never opts the websocket "
+    "provider in. The 101 Switching Protocols accept key and later-connection "
+    "replay keep the hole falsifiable."
+)
+FTP_ACTUATION_ID = "capability.ftp-actuation"
+FTP_ACTUATION_DONE_WHEN = (
+    "capability_exists:capability.ftp-actuation;"
+    "capability_proved:capability.ftp-actuation;"
+    "no_skill_route"
+)
+FTP_ACTUATION_GOAL = (
+    "Repair rfc959 ftpd pasv transfer: hosted ftp tools remain unsupported so "
+    "a USER/PASS/PASV/TYPE/STOR/RETR cycle cannot land and a sealed file "
+    "digest cannot be produced. A missing ftp password stays forbidden; "
+    "fail-closed routing never opts the ftp provider in. The separate data "
+    "connection and later-session RETR replay keep the hole falsifiable."
+)
+TFTP_ACTUATION_ID = "capability.tftp-actuation"
+TFTP_ACTUATION_DONE_WHEN = (
+    "capability_exists:capability.tftp-actuation;"
+    "capability_proved:capability.tftp-actuation;"
+    "no_skill_route"
+)
+TFTP_ACTUATION_GOAL = (
+    "Repair rfc1350 tftp rrq/wrq/data/ack cycle cannot land over udp lockstep "
+    "opcodes: hosted tftp tools remain unsupported so a WRQ then DATA/ACK "
+    "opcode exchange cannot land and a sealed block digest cannot be produced. "
+    "A missing tftp tid stays forbidden; fail-closed routing never opts the "
+    "tftp provider in. An independent later RRQ of the stored octet stream "
+    "keeps the hole falsifiable."
 )
 
 DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
@@ -828,6 +864,22 @@ DIVERSITY_CATALOG: tuple[dict[str, str], ...] = (
         "source": "genesis_bind_loop_login_journal_prune",
     },
 )
+
+
+def catalog_entry(capability_id: str) -> dict[str, str] | None:
+    """Return one diversity-catalog contract without importing its module."""
+
+    wanted = str(capability_id or "")
+    for item in DIVERSITY_CATALOG:
+        if str(item.get("id") or "") == wanted:
+            return {
+                "id": str(item["id"]),
+                "goal": str(item["goal"]),
+                "done_when": str(item["done_when"]),
+                "source": str(item.get("source") or ""),
+            }
+    return None
+
 
 _LIVE_SHAPED_GOALS = (
     PROGRAM_TOWER_GOAL,

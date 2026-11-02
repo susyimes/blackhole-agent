@@ -36,7 +36,7 @@ from blackhole_agent.tool_routing import (
     build_tool_routing_preflight,
     route_tool_descriptor,
 )
-from blackhole_agent.websocket_actuation import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
+from blackhole_agent.kernel_genesis_diversify import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
 
 
 def test_goal_binds_amqp_actuation_plane() -> None:

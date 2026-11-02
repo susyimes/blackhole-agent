@@ -1478,7 +1478,7 @@ def builtin_ssh_actuation_proof() -> dict[str, Any]:
     from blackhole_agent.postgres_actuation import POSTGRES_ACTUATION_GOAL, POSTGRES_ACTUATION_ID
     from blackhole_agent.s3_actuation import S3_ACTUATION_GOAL, S3_ACTUATION_ID
     from blackhole_agent.watch_actuation import WATCH_ACTUATION_GOAL, WATCH_ACTUATION_ID
-    from blackhole_agent.websocket_actuation import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
+    from blackhole_agent.kernel_genesis_diversify import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
 
     catalog = DIVERSITY_CATALOG
     checks: dict[str, bool] = {}

@@ -44,11 +44,6 @@ from blackhole_agent.kernel_leftover import (
     leftover_satisfied_by,
 )
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
-from blackhole_agent.tftp_actuation import (
-    TFTP_ACTUATION_DONE_WHEN,
-    TFTP_ACTUATION_GOAL,
-    TFTP_ACTUATION_ID,
-)
 
 SCHEMA_VERSION = 1
 LEFTOVER_CATALOG_HANDOFF_ID = "capability.leftover-catalog-handoff"
@@ -114,7 +109,6 @@ def ensure_leftover_catalog_handoff_capability(*, repo_path: Path | None = None)
             "src/blackhole_agent/experience_fuel.py",
             "src/blackhole_agent/kernel_leftover.py",
             "src/blackhole_agent/kernel_genesis_diversify.py",
-            "src/blackhole_agent/tftp_actuation.py",
             "src/blackhole_agent/local_capability_kernel.py",
             "capabilities/ledger.json",
         ),
@@ -157,7 +151,13 @@ def _register_proved(root: Path, capability_id: str, *, name: str = "") -> None:
 def builtin_leftover_catalog_handoff_proof() -> dict[str, Any]:
     """Hermetic proof: catalog-handoff leftovers leave fuel; later genesis binds TFTP."""
 
-    from blackhole_agent.ftp_actuation import FTP_ACTUATION_GOAL, FTP_ACTUATION_ID
+    from blackhole_agent.kernel_genesis_diversify import (
+        FTP_ACTUATION_GOAL,
+        FTP_ACTUATION_ID,
+        TFTP_ACTUATION_DONE_WHEN,
+        TFTP_ACTUATION_GOAL,
+        TFTP_ACTUATION_ID,
+    )
     from blackhole_agent.kernel_genesis_bind import (
         _register_proved as register_catalog_proved,
         bind_gate_passing_successor,

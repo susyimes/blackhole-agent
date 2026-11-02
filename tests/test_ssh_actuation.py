@@ -35,7 +35,7 @@ from blackhole_agent.tool_routing import (
     ssh_tool_descriptor,
 )
 from blackhole_agent.watch_actuation import WATCH_ACTUATION_GOAL, WATCH_ACTUATION_ID
-from blackhole_agent.websocket_actuation import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
+from blackhole_agent.kernel_genesis_diversify import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
 
 
 def test_goal_binds_ssh_actuation_plane() -> None:

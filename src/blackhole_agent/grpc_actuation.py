@@ -1271,7 +1271,7 @@ def builtin_grpc_actuation_proof() -> dict[str, Any]:
     from blackhole_agent.ssh_actuation import SSH_ACTUATION_GOAL, SSH_ACTUATION_ID
     from blackhole_agent.tool_routing import GRPC_TOOL_PROVIDER
     from blackhole_agent.watch_actuation import WATCH_ACTUATION_GOAL, WATCH_ACTUATION_ID
-    from blackhole_agent.websocket_actuation import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
+    from blackhole_agent.kernel_genesis_diversify import WEBSOCKET_ACTUATION_GOAL, WEBSOCKET_ACTUATION_ID
 
     catalog = DIVERSITY_CATALOG
     checks: dict[str, bool] = {}

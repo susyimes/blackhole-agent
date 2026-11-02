@@ -1067,7 +1067,7 @@ def ensure_s3_actuation_capability(*, repo_path: Path | None = None) -> Capabili
 def builtin_s3_actuation_proof() -> dict[str, Any]:
     """Hermetic proof: opted-in S3 actuation seals a SigV4 PUT/GET/LIST object."""
 
-    from blackhole_agent.dns_actuation import DNS_ACTUATION_GOAL, DNS_ACTUATION_ID
+    from blackhole_agent.kernel_genesis_diversify import DNS_ACTUATION_GOAL, DNS_ACTUATION_ID
     from blackhole_agent.imap_actuation import IMAP_ACTUATION_GOAL, IMAP_ACTUATION_ID
     from blackhole_agent.kernel_genesis_bind import _register_proved as register_catalog_proved
     from blackhole_agent.kernel_genesis_diversify import (

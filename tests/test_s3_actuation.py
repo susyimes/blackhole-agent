@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
-from blackhole_agent.dns_actuation import DNS_ACTUATION_GOAL, DNS_ACTUATION_ID
+from blackhole_agent.kernel_genesis_diversify import DNS_ACTUATION_GOAL, DNS_ACTUATION_ID
 from blackhole_agent.imap_actuation import IMAP_ACTUATION_GOAL, IMAP_ACTUATION_ID
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 from blackhole_agent.ldap_actuation import LDAP_ACTUATION_GOAL, LDAP_ACTUATION_ID

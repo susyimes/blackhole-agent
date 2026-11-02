@@ -2,7 +2,12 @@ from pathlib import Path
 
 from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
 from blackhole_agent.experience_fuel import leftover_next_step
-from blackhole_agent.ftp_actuation import FTP_ACTUATION_GOAL, FTP_ACTUATION_ID
+from blackhole_agent.kernel_genesis_diversify import (
+    FTP_ACTUATION_GOAL,
+    FTP_ACTUATION_ID,
+    TFTP_ACTUATION_GOAL,
+    TFTP_ACTUATION_ID,
+)
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 from blackhole_agent.leftover_catalog_handoff import (
     HARVESTED_CATALOG_HANDOFF,
@@ -13,7 +18,6 @@ from blackhole_agent.leftover_catalog_handoff import (
     builtin_leftover_catalog_handoff_proof,
 )
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
-from blackhole_agent.tftp_actuation import TFTP_ACTUATION_GOAL, TFTP_ACTUATION_ID
 
 
 def test_catalog_handoff_is_not_leftover() -> None:
