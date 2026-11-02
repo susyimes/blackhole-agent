@@ -1710,7 +1710,11 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # even when that same command exited 0, and the milestone is rejected.
 # The same death happens without the call operator:
 # `$env:PYTHONPATH = 'src'; python probe.py`.
-_POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|[;&])\s*&\s*['\"]")
+# Harvested 2026-11-02: `& '<python>' -m ruff check ...` has no `$env:`
+# assignment. cmd.exe answers "the & operator was unexpected" and exits 1.
+# A cmd chain `set VAR=value&& "exe"` is not that operator: the ampersand
+# there belongs to `&&`, so only a leading `&` or one after `;` counts.
+_POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|;)\s*&\s*['\"]")
 _POWERSHELL_ENV_ASSIGNMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
     re.IGNORECASE,
@@ -1721,8 +1725,9 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     """Return a pwsh argv for a PowerShell validation command.
 
     The harvested forms are an ``$env:`` assignment plus the call operator,
-    and an ``$env:`` assignment at the start of the command without that
-    operator. Other commands stay on ``shell=True`` (cmd.exe on Windows).
+    an ``$env:`` assignment at the start of the command without that
+    operator, and a quoted call operator with no ``$env:`` assignment.
+    Other commands stay on ``shell=True`` (cmd.exe on Windows).
     PowerShell 7 turns a native exit 3 into process exit 1, and
     ``exit $LASTEXITCODE`` alone turns a missing executable into exit 0, so
     the wrapper keeps a real native code and still fails a command that
@@ -1732,9 +1737,9 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     if os.name != "nt":
         return None
     text = str(command or "")
-    if "$env:" not in text.lower():
-        return None
-    if _POWERSHELL_CALL_OPERATOR.search(text) is None and _POWERSHELL_ENV_ASSIGNMENT.match(text) is None:
+    call_operator = _POWERSHELL_CALL_OPERATOR.search(text) is not None
+    env_assignment = _POWERSHELL_ENV_ASSIGNMENT.match(text) is not None
+    if not call_operator and not env_assignment:
         return None
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if not executable:

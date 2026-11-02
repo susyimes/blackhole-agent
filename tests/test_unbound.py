@@ -288,11 +288,44 @@ def test_powershell_validation_replay_keeps_cmd_commands_on_cmd():
 
     harvested = "$env:PYTHONPATH = 'src'; & 'C:\\Python\\python.exe' probe.py"
     assignment = "$env:PYTHONPATH = 'src'; python probe.py"
+    bare_call = "& 'C:\\Python\\python.exe' -m ruff check src\\pkg.py"
     assert powershell_replay_argv(harvested) is not None
     assert powershell_replay_argv(assignment) is not None
     assert powershell_replay_argv(assignment)[1:4] == ["-NoProfile", "-NonInteractive", "-Command"]
+    assert "$env:" not in bare_call.lower()
+    assert powershell_replay_argv(bare_call) is not None
+    assert powershell_replay_argv(bare_call)[1:4] == ["-NoProfile", "-NonInteractive", "-Command"]
     assert powershell_replay_argv("set PYTHONPATH=src&& python probe.py") is None
+    assert powershell_replay_argv('set PYTHONPATH=C:\\Temp\\x&& "C:\\Python\\python.exe" probe.py') is None
+    assert powershell_replay_argv('echo hi & "C:\\Python\\python.exe" probe.py') is None
     assert powershell_replay_argv("python -c \"print('$env:FOO')\"") is None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="cmd and pwsh replay is the Windows controller")
+def test_powershell_call_operator_without_env_replays_native_exit(tmp_path):
+    """A quoted call operator with no $env: assignment must keep the native exit.
+
+    cmd.exe treats a leading ``&`` as unexpected and returns exit 1. The
+    harvested ruff command had that shape and no environment assignment.
+    """
+
+    from blackhole_agent.unbound import replay_validation_command
+
+    python = str(Path(sys.executable))
+    success = f"& '{python}' -c 'import sys; raise SystemExit(0)'"
+    failure = f"& '{python}' -c 'import sys; raise SystemExit(3)'"
+    missing = "& 'C:\\no\\such\\blackhole-python.exe' -c 'import sys; raise SystemExit(0)'"
+    assert "$env:" not in success.lower()
+    ok = replay_validation_command(tmp_path, success, timeout=30)
+    bad = replay_validation_command(tmp_path, failure, timeout=30)
+    absent = replay_validation_command(tmp_path, missing, timeout=30)
+
+    assert ok["ok"] is True
+    assert ok["reproduced_exit_code"] == 0
+    assert bad["ok"] is False
+    assert bad["reproduced_exit_code"] == 3
+    assert absent["ok"] is False
+    assert absent["reproduced_exit_code"] not in (0, None)
 
 
 def test_unbound_grok_turn_keeps_one_persistent_agent_with_full_tools(tmp_path, monkeypatch):
