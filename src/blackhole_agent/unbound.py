@@ -1861,19 +1861,141 @@ def _agent_shell_argv(text: str) -> list[str] | None:
 
 
 def powershell_replay_argv(command: str) -> list[str] | None:
-    """Return a pwsh argv when the command is classified as PowerShell.
-
-    Harvested forms include ``$env:`` assignments, a quoted call operator,
-    ``$name = ...`` followed by ``& $name`` across a newline, a Verb-Noun
-    command at any pipeline position, and a language statement such as
-    ``foreach`` or ``try``. Other commands stay on cmd.exe unless that launch
-    fails and the agent shell can run them.
-    """
+    """Return a pwsh argv when the command is classified as PowerShell."""
 
     text = str(command or "")
     if not _powershell_script(text):
         return None
     return _agent_shell_argv(text)
+
+
+_CMD_LAUNCH_FRAGMENTS: tuple[str, ...] | None = None
+
+
+def _console_encoding() -> str:
+    """OEM code page cmd.exe uses for its own parser and launch errors."""
+
+    if os.name != "nt":
+        return "utf-8"
+    try:
+        import ctypes
+
+        code_page = int(ctypes.windll.kernel32.GetOEMCP())
+    except (AttributeError, OSError, ValueError):
+        return "mbcs"
+    return f"cp{code_page}" if code_page > 0 else "mbcs"
+
+
+def _oem_decode(payload: bytes) -> str:
+    if not payload:
+        return ""
+    return payload.decode(_console_encoding(), errors="replace")
+
+
+def _cmd_launch_fragments() -> tuple[str, ...]:
+    """Stable pieces of this machine's cmd.exe parser and launch errors.
+
+    The text is learned from cmd itself so a Chinese or English console matches
+    without a hard-coded language table. A program traceback does not contain
+    those pieces.
+    """
+
+    global _CMD_LAUNCH_FRAGMENTS
+    if _CMD_LAUNCH_FRAGMENTS is not None:
+        return _CMD_LAUNCH_FRAGMENTS
+    found: list[str] = []
+    if os.name == "nt":
+        probes = (
+            ("bh_missing_token_zz", "bh_missing_token_zz"),
+            ("if (1 -eq 0) { exit 9 }", "-eq"),
+            ("echo hi &&", ""),
+        )
+        probe_cwd = os.environ.get("SYSTEMROOT") or os.environ.get("WINDIR") or "."
+        for command, token in probes:
+            try:
+                completed = subprocess.run(
+                    command,
+                    cwd=probe_cwd,
+                    capture_output=True,
+                    timeout=15,
+                    shell=True,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+            text = " ".join(
+                f"{_oem_decode(completed.stdout or b'')} {_oem_decode(completed.stderr or b'')}".split()
+            )
+            pieces = text.split(token, 1) if token and token in text else (text,)
+            for piece in pieces:
+                cleaned = piece.strip(" '\"。．.")
+                if len(cleaned) >= 4:
+                    found.append(cleaned)
+    kept: list[str] = []
+    for piece in sorted(set(found), key=len, reverse=True):
+        if any(piece in prior for prior in kept):
+            continue
+        kept.append(piece)
+    _CMD_LAUNCH_FRAGMENTS = tuple(kept)
+    return _CMD_LAUNCH_FRAGMENTS
+
+
+def _text_has_launch_fragment(text: str) -> bool:
+    compact = " ".join(str(text or "").split())
+    if not compact:
+        return False
+    return any(fragment in compact for fragment in _cmd_launch_fragments())
+
+
+def _decode_cmd_output(payload: bytes) -> str:
+    """Prefer OEM text when it is a cmd parser banner; keep UTF-8 program output."""
+
+    if not payload:
+        return ""
+    oem = _oem_decode(payload)
+    try:
+        utf8 = payload.decode("utf-8")
+    except UnicodeDecodeError:
+        return oem
+    if _text_has_launch_fragment(oem) and not _text_has_launch_fragment(utf8):
+        return oem
+    return utf8
+
+
+def _run_cmd_replay(
+    command: str,
+    *,
+    cwd: Path,
+    timeout: int,
+    env: dict[str, str] | None,
+) -> subprocess.CompletedProcess[str]:
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        capture_output=True,
+        timeout=timeout,
+        shell=True,
+        env=env,
+    )
+    return subprocess.CompletedProcess(
+        completed.args,
+        completed.returncode,
+        _decode_cmd_output(completed.stdout or b""),
+        _decode_cmd_output(completed.stderr or b""),
+    )
+
+
+def _cmd_launch_rejected(completed: subprocess.CompletedProcess[str]) -> bool:
+    """True when cmd.exe rejected the text before a program could exit.
+
+    Parser and 'not recognized' failures on this host are exit 1 and carry a
+    learned banner. A program cmd.exe actually started keeps its own exit,
+    including exit 1.
+    """
+
+    if os.name != "nt" or completed.returncode != 1:
+        return False
+    text = " ".join(f"{completed.stdout or ''} {completed.stderr or ''}".split())
+    return _text_has_launch_fragment(text)
 
 
 def _posix_prefix_token(body: str) -> tuple[str, str, str] | None:
@@ -2076,16 +2198,16 @@ def replay_validation_command(
                 run_command = normalize_cmd_single_quoted_args(
                     normalize_cmd_program_slashes(run_command)
                 )
-                completed = run_text_command(
+                completed = _run_cmd_replay(
                     run_command,
                     cwd=workspace,
                     timeout=timeout,
-                    shell=True,
                     env=environment,
                 )
-                # A shape the classifier missed still fails in cmd.exe. The
-                # agent shell is pwsh. Accept that shell only when it exits 0,
-                # so a native non-zero exit recorded by cmd stays recorded.
+                # cmd.exe is the replay default. A command it cannot start is
+                # run again in the agent shell, and that shell's exit stands
+                # even when the program fails. A program cmd already ran keeps
+                # cmd's exit, including a non-zero one.
                 if completed.returncode not in (0, None):
                     fallback = _agent_shell_argv(agent_command)
                     if fallback is not None:
@@ -2101,10 +2223,12 @@ def replay_validation_command(
                             raise
                         except Exception:
                             alternate = None
+                        launch_rejected = _cmd_launch_rejected(completed)
                         if (
                             alternate is not None
-                            and alternate.returncode == 0
                             and isinstance(alternate.stdout, str)
+                            and alternate.returncode is not None
+                            and (alternate.returncode == 0 or launch_rejected)
                         ):
                             completed = alternate
                             shell_fallback = True
