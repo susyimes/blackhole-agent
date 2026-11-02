@@ -22,7 +22,7 @@ inputs. This module removes that last human input — **foraging**:
   arguments and instance-own methods visible only after construction),
   or a nested namespace class such as ``buffer.Buffer.byteLength``,
   Python class instance methods such as ``Parser(opts).loads``
-  (constructed with ``()``, ``{}``, or ``""``, including methods that
+  (constructed with ``()``, ``{}``, ``""``, or ``1``, including methods that
   exist only on the instance after construction), Python class
   static methods such as ``Class.method`` / ``HTMLRenderer.escape_html``
   (``@staticmethod`` / ``@classmethod`` called on the class, including
@@ -942,18 +942,20 @@ def _consider_inner(name, target, flags, skip_self=False):
 
 
 def _construct_instance(cls):
-    try:
-        return cls(), False
-    except Exception:
-        pass
-    try:
-        return cls({}), True
-    except Exception:
-        pass
-    try:
-        return cls(""), True
-    except Exception:
-        return None, True
+    # Integer ``1`` follows the older trials. A dict or empty string still wins
+    # when that constructor accepts it.
+    trials = (
+        ("none", ()),
+        ("dict", ({},)),
+        ("str", ("",)),
+        ("int", (1,)),
+    )
+    for trial, args in trials:
+        try:
+            return cls(*args), trial != "none", trial
+        except Exception:
+            continue
+    return None, True, ""
 
 
 def _instance_method_names(cls, instance):
@@ -1098,12 +1100,13 @@ def _consider_class(prefix, target, depth=0):
         for attr in sorted(_static_method_names(target)):
             fn = _safe_getattr(target, attr, None)
             _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
-        instance, requires_args = _construct_instance(target)
+        instance, requires_args, trial = _construct_instance(target)
         if instance is None:
             return
         flags = {key.format(kind="instance"): (index == depth) for index, key in enumerate(kind_keys)}
         flags["python_nested_class_depth"] = depth
         flags["constructor_requires_args"] = bool(requires_args)
+        flags["constructor_trial"] = trial
         for attr in sorted(_instance_method_names(target, instance)):
             fn = _safe_getattr(instance, attr, None)
             _consider(f"{prefix}.{attr}", fn, flags, skip_self=False)
@@ -1467,6 +1470,115 @@ def reflect_python_class_instance_depth(depth: int, *, timeout: int = 120) -> di
             "named_depth_limit": named_limit,
             "error": "",
         }
+
+
+_INT_WIDTH_CODEC = (
+    "class Codec:\n"
+    "    def __init__(self, width):\n"
+    "        self.width = int(width)\n"
+    "    def encode(self, text):\n"
+    "        if not isinstance(text, str):\n"
+    "            raise TypeError('encode expects a string')\n"
+    "        return text.upper() + str(self.width)\n"
+)
+_ZERO_ARG_CODEC = (
+    "class Codec:\n"
+    "    def encode(self, text):\n"
+    "        if not isinstance(text, str):\n"
+    "            raise TypeError('encode expects a string')\n"
+    "        return text.upper()\n"
+)
+
+
+def _invoke_reflected_codec(pkg: Path, path_root: str, import_name: str, trial: str) -> str:
+    """Construct Codec with the trial introspection recorded and call encode."""
+
+    import importlib
+
+    root = pkg if path_root in {"", "."} else pkg / path_root
+    inserted = os_fs_path(root)
+    sys.path.insert(0, inserted)
+    try:
+        module = importlib.import_module(import_name)
+        codec = module.Codec
+        if trial == "none":
+            instance = codec()
+        elif trial == "dict":
+            instance = codec({})
+        elif trial == "str":
+            instance = codec("")
+        elif trial == "int":
+            instance = codec(1)
+        else:
+            return ""
+        value = instance.encode("ab")
+        return value if isinstance(value, str) else ""
+    except Exception:
+        return ""
+    finally:
+        sys.path = [item for item in sys.path if item != inserted]
+        for name in list(sys.modules):
+            if name == import_name or name.startswith(import_name + "."):
+                sys.modules.pop(name, None)
+
+
+def _reflect_local_codec(source: str, *, timeout: int) -> dict[str, Any]:
+    empty = {"visible": False, "trial": "", "invoked": "", "error": ""}
+    with tempfile.TemporaryDirectory(prefix="bh-ctor-", ignore_cleanup_errors=True) as tmp:
+        pkg = Path(tmp) / "pkg"
+        pkg.mkdir()
+        (pkg / "bhcodec.py").write_text(source, encoding="utf-8")
+        try:
+            path_root, import_name = detect_import_root(pkg, "bhcodec")
+        except ValueError as exc:
+            return {**empty, "error": str(exc)}
+        reflected = introspect_module(pkg, import_name, path_root, timeout=timeout)
+        if not reflected.get("ok"):
+            return {**empty, "error": str(reflected.get("error") or "introspection failed")}
+        match = next(
+            (
+                item
+                for item in reflected["candidates"]
+                if str(item.get("name") or "").endswith("Codec.encode")
+            ),
+            None,
+        )
+        if match is None:
+            return {**empty, "error": "Codec.encode was not reflected"}
+        trial = str(match.get("constructor_trial") or "")
+        invoked = _invoke_reflected_codec(pkg, path_root, import_name, trial)
+        return {"visible": True, "trial": trial, "invoked": invoked, "error": ""}
+
+
+def reflect_required_constructor_method(*, timeout: int = 60) -> dict[str, Any]:
+    """Call an instance method whose constructor accepts an integer and nothing older.
+
+    ``Codec.__init__(self, width)`` stores ``int(width)``. Construction used
+    to stop after ``()``, ``{}``, and ``""``, so ``encode`` was not reflected
+    and could not be called. A zero-argument ``Codec.encode`` still returns
+    ``AB``.
+    """
+
+    required = _reflect_local_codec(_INT_WIDTH_CODEC, timeout=timeout)
+    zero = _reflect_local_codec(_ZERO_ARG_CODEC, timeout=timeout)
+    return {
+        "ok": (
+            required.get("visible") is True
+            and required.get("trial") == "int"
+            and required.get("invoked") == "AB1"
+            and zero.get("visible") is True
+            and zero.get("trial") == "none"
+            and zero.get("invoked") == "AB"
+        ),
+        "required_visible": required.get("visible"),
+        "required_trial": required.get("trial"),
+        "required_invoked": required.get("invoked"),
+        "required_error": required.get("error"),
+        "zero_visible": zero.get("visible"),
+        "zero_trial": zero.get("trial"),
+        "zero_invoked": zero.get("invoked"),
+        "zero_error": zero.get("error"),
+    }
 
 
 def _skip_node_dir(path: Path, root: Path) -> bool:

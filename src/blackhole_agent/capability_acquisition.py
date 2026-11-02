@@ -239,7 +239,7 @@ sys.path.insert(0, str(_ROOT / CONFIG["path_root"]))
 def _construct_instance(ctor):
     if not inspect.isclass(ctor):
         return None
-    for args in ((), ({{}},), ("",)):
+    for args in ((), ({{}},), ("",), (1,)):
         try:
             return ctor(*args)
         except Exception:
