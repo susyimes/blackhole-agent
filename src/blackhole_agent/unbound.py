@@ -1749,19 +1749,23 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # Unquoted statement boundaries are the start, `;`, and a newline.
 # A cmd `set VAR=value&&` chain stays on cmd. Quoted text stays text.
 # POSIX prefixes and forward-slash program paths are handled below.
-# Harvested Set-Location statements (20261102T061647Z, 20261102T065739Z)
-# are PowerShell cmdlets. cmd.exe exits 1 because the cmdlet is not a program.
+# A fixed verb-prefix table missed a pipeline command (`| Out-Null`,
+# `| Tee-Object`) and a language statement (`foreach`, `try`). Any unquoted
+# Verb-Noun command name is PowerShell, including after a pipe. A path
+# segment such as `\blackhole-agent` is not a command name.
 _POWERSHELL_CALL_OPERATOR = re.compile(r"\s*&\s*(?:['\"]|\$[A-Za-z_])")
 _POWERSHELL_ENV_STATEMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
     re.IGNORECASE,
 )
 _POWERSHELL_VAR_ASSIGNMENT = re.compile(r"\s*\$[A-Za-z_][A-Za-z0-9_]*\s*=")
-_POWERSHELL_CMDLET = re.compile(
-    r"\s*(?:Add|Clear|ConvertFrom|ConvertTo|Copy|Enter|Exit|Export|ForEach|Format|"
-    r"Get|Import|Invoke|Join|Measure|Move|New|Out|Pop|Push|Remove|Rename|Resolve|"
-    r"Select|Set|Sort|Split|Start|Stop|Test|Where|Write)-[A-Za-z][A-Za-z0-9]*\b",
+_POWERSHELL_LANGUAGE = re.compile(
+    r"\s*(?:foreach|try|catch|finally|switch|while|param|throw|trap|class|enum|"
+    r"function|filter|using)\b",
     re.IGNORECASE,
+)
+_POWERSHELL_COMMAND_NAME = re.compile(
+    r"(?<![A-Za-z0-9_\\/.=-])[A-Za-z][A-Za-z0-9]*-[A-Za-z][A-Za-z0-9]*\b"
 )
 _POSIX_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -1790,17 +1794,46 @@ def _powershell_env_assignment(text: str) -> bool:
     )
 
 
+def _unquoted_pieces(text: str) -> list[str]:
+    """Pieces outside single and double quotes. An unclosed quote drops its tail."""
+
+    pieces: list[str] = []
+    start = 0
+    in_single = False
+    in_double = False
+    for index, character in enumerate(text):
+        if character == "'" and not in_double:
+            if not in_single:
+                pieces.append(text[start:index])
+            in_single = not in_single
+            start = index + 1
+        elif character == '"' and not in_single:
+            if not in_double:
+                pieces.append(text[start:index])
+            in_double = not in_double
+            start = index + 1
+    if not in_single and not in_double:
+        pieces.append(text[start:])
+    return pieces
+
+
+def _powershell_command_name(text: str) -> bool:
+    """True when an unquoted token is a Verb-Noun command, including after a pipe."""
+
+    return any(_POWERSHELL_COMMAND_NAME.search(piece) for piece in _unquoted_pieces(text))
+
+
 def _powershell_script(text: str) -> bool:
     """True when one unquoted statement is PowerShell rather than cmd."""
 
-    if _powershell_env_assignment(text):
+    if _powershell_env_assignment(text) or _powershell_command_name(text):
         return True
     for start in _statement_starts(text):
         segment = text[start:]
         if (
             _POWERSHELL_VAR_ASSIGNMENT.match(segment)
             or _POWERSHELL_CALL_OPERATOR.match(segment)
-            or _POWERSHELL_CMDLET.match(segment)
+            or _POWERSHELL_LANGUAGE.match(segment)
         ):
             return True
     return False
@@ -1810,12 +1843,13 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     """Return a pwsh argv for a PowerShell validation command.
 
     Harvested forms include ``$env:`` assignments, a quoted call operator,
-    ``$name = ...`` followed by ``& $name`` across a newline, and a
-    PowerShell cmdlet statement such as ``Set-Location``. Other commands
-    stay on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns
-    a native exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone
-    turns a missing executable into exit 0, so the wrapper keeps a real
-    native code and still fails a command that never started.
+    ``$name = ...`` followed by ``& $name`` across a newline, a Verb-Noun
+    command at any pipeline position, and a language statement such as
+    ``foreach`` or ``try``. Other commands stay on ``shell=True`` (cmd.exe
+    on Windows). PowerShell 7 turns a native exit 3 into process exit 1,
+    and ``exit $LASTEXITCODE`` alone turns a missing executable into exit 0,
+    so the wrapper keeps a real native code and still fails a command that
+    never started.
     """
 
     if os.name != "nt":
