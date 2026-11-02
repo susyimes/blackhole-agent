@@ -48,6 +48,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -186,6 +187,135 @@ def tree_digest(root: Path) -> str:
         content = hashlib.sha256(path.read_bytes()).hexdigest()
         entries.append((relative, content))
     return _digest(entries)
+
+
+def _reparse_point(path: Path) -> bool:
+    """True for a symlink or another reparse point. Those trees are not relinked."""
+
+    try:
+        if path.is_symlink():
+            return True
+        attributes = getattr(path.lstat(), "st_file_attributes", 0)
+    except OSError:
+        return True
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
+
+def _sealed_files(root: Path) -> list[tuple[str, Path]]:
+    """Files ``tree_digest`` covers, in digest order."""
+
+    found: list[tuple[str, Path]] = []
+    for path in sorted(root.rglob("*")):
+        if any(_tree_skip_part(part) for part in path.parts):
+            continue
+        if path.is_symlink() or not path.is_file():
+            continue
+        found.append((path.relative_to(root).as_posix(), path))
+    return found
+
+
+def _share_file(keeper: Path, dest: Path) -> bool:
+    """Make ``dest`` a hardlink to ``keeper`` without changing the bytes read there."""
+
+    try:
+        if dest.is_symlink() or not dest.is_file() or not keeper.is_file() or keeper.is_symlink():
+            return False
+        if os.path.samestat(keeper.stat(), dest.stat()):
+            return True
+    except OSError:
+        return False
+    temporary = dest.with_name(f".{dest.name}.bh-share")
+    try:
+        if temporary.exists():
+            temporary.unlink()
+        os.link(os.fspath(keeper), os.fspath(temporary))
+        os.replace(os.fspath(temporary), os.fspath(dest))
+    except OSError:
+        try:
+            if temporary.exists():
+                temporary.unlink()
+        except OSError:
+            pass
+        return False
+    try:
+        return os.path.samestat(keeper.stat(), dest.stat())
+    except OSError:
+        return False
+
+
+def collapse_duplicate_package_payloads(
+    absorbed_root: Path,
+    *,
+    relative: str = "package",
+) -> dict[str, Any]:
+    """Hardlink identical package payloads so two slugs share one file body.
+
+    Adapter files stay in each slug. A payload whose sealed bytes differ stays
+    private. The sealed tree digest does not change: every relative path still
+    reads the same bytes. A reparse point is left alone. An empty payload is
+    not a duplicate.
+    """
+
+    root = Path(absorbed_root)
+    empty: dict[str, Any] = {
+        "ok": False,
+        "shared_slug_count": 0,
+        "linked_files": 0,
+        "groups": [],
+        "private_slugs": [],
+        "error": "",
+    }
+    if not root.is_dir() or _reparse_point(root):
+        return {**empty, "error": "absorbed root is not a real directory"}
+    grouped: dict[str, list[tuple[str, Path]]] = {}
+    for child in sorted(root.iterdir(), key=lambda item: item.name):
+        if (
+            not child.is_dir()
+            or child.name.startswith(".")
+            or child.name == "_corpus"
+            or _reparse_point(child)
+        ):
+            continue
+        payload = child / relative
+        if not payload.is_dir() or _reparse_point(payload) or not _sealed_files(payload):
+            continue
+        grouped.setdefault(tree_digest(payload), []).append((child.name, payload))
+    linked = 0
+    groups: list[dict[str, Any]] = []
+    private: list[str] = []
+    shared: list[str] = []
+    ok = True
+    for digest, members in sorted(grouped.items()):
+        ordered = sorted(members, key=lambda item: item[0])
+        if len(ordered) < 2:
+            private.append(ordered[0][0])
+            continue
+        keeper_files = {name: path for name, path in _sealed_files(ordered[0][1])}
+        group_linked = 0
+        group_ok = True
+        for _slug, payload in ordered[1:]:
+            for name, keeper_path in keeper_files.items():
+                dest = payload.joinpath(*name.split("/"))
+                if _share_file(keeper_path, dest):
+                    group_linked += 1
+                else:
+                    group_ok = False
+        if not group_ok:
+            ok = False
+            private.extend(slug for slug, _payload in ordered)
+            continue
+        linked += group_linked
+        slugs = [slug for slug, _payload in ordered]
+        shared.extend(slugs)
+        groups.append({"digest": digest, "slugs": slugs, "linked_files": group_linked})
+    return {
+        "ok": ok and bool(groups),
+        "shared_slug_count": len(shared),
+        "linked_files": linked,
+        "groups": groups,
+        "private_slugs": private,
+        "error": "" if ok else "one identical payload could not be hardlinked",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1220,6 +1350,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     verify_parser.add_argument("--report-dir", type=Path, default=DEFAULT_ARTIFACT_DIR)
     verify_parser.add_argument("--slug", default=None)
 
+    share_parser = sub.add_parser(
+        "share-payloads",
+        help="hardlink identical package payloads across absorbed slugs",
+    )
+    share_parser.add_argument("--root", required=True, type=Path)
+
     args = parser.parse_args(argv)
     if args.command_name == "absorb":
         origin = {
@@ -1238,6 +1374,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = run_absorption_plane()
     elif args.command_name == "scenario":
         result = run_absorption_scenario(args.slug, args.output_dir)
+    elif args.command_name == "share-payloads":
+        result = collapse_duplicate_package_payloads(args.root)
     else:
         result = verify_absorption_plane(args.report_dir, slug=args.slug)
     print(json.dumps(result, indent=2, sort_keys=True))
