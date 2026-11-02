@@ -27,6 +27,14 @@ The persona layer is stable operational policy. The self-model in `docs/self-mod
 
 The self-model may influence proposal choice and run notes, but it does not grant permissions. Runtime configuration, rollback, validation, and supervisor promotion gates remain external constraints.
 
+## Soul Boundary
+
+The philosophical drive layer lives in `soul.md` at the repository root. It sits between the persona layer and the self-model: governance and promotion gates judge, the persona prescribes procedure, the soul supplies desire (what to want, what to despise) inside those bounds, and the self-model remains free-form self-description.
+
+Priority is: governance gates > persona > soul > self-model. The soul grants no permissions, cannot override protected paths, the size ratchet, validation replay, rollback, or health gates, and exists to make evolution bolder *within* them — larger and stranger hypotheses, deletion as growth, failed runs as fuel. A soul amendment proposed in a run takes effect from the next run, so a run cannot rewrite its own desire to excuse itself.
+
+Reach: the soul is wired into both kernel prompt paths via `blackhole_agent.soul`. The legacy growth task (`render_self_evolution_task` in `github_growth.py`) embeds the full bounded soul text right after the persona layer. Unbound turns (`build_turn_prompt` in `unbound.py`) embed only the soul's one-pager section plus a pointer to the full file, because Unbound prompts are compacted to a fixed budget; the decision-only resume prompt stays soul-free by design. A checkout without `soul.md` degrades gracefully: the legacy task notes its absence and Unbound prompts simply omit the block.
+
 ## Restart Boundary
 
 The agent may prepare code that supports restart, but it does not restart itself inside the local Codex kernel. A future restart path should:
