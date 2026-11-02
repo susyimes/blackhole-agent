@@ -1712,13 +1712,38 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # `$env:PYTHONPATH = 'src'; python probe.py`.
 # Harvested 2026-11-02: `& '<python>' -m ruff check ...` has no `$env:`
 # assignment. cmd.exe answers "the & operator was unexpected" and exits 1.
+# The same death happens when the assignment follows another statement:
+# `Set-Location <dir>; $env:NAME = 'value'; <python>`. A leading-only match
+# leaves that command on cmd.exe, which exits 1 and drops native exit 3.
 # A cmd chain `set VAR=value&& "exe"` is not that operator: the ampersand
 # there belongs to `&&`, so only a leading `&` or one after `;` counts.
+# An `$env:` assignment inside quotes is text, not a statement.
 _POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|;)\s*&\s*['\"]")
-_POWERSHELL_ENV_ASSIGNMENT = re.compile(
+_POWERSHELL_ENV_STATEMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
     re.IGNORECASE,
 )
+
+
+def _powershell_env_assignment(text: str) -> bool:
+    """True when an ``$env:`` assignment is its own unquoted statement.
+
+    Statement boundaries are the start of the command and a semicolon that
+    is not inside quotes. ``python -c "print('a; $env:FOO = 1')"`` stays a
+    cmd command. ``Set-Location dir; $env:FOO = 'bar'; python`` does not.
+    """
+
+    starts = [0]
+    in_single = False
+    in_double = False
+    for index, character in enumerate(text):
+        if character == "'" and not in_double:
+            in_single = not in_single
+        elif character == '"' and not in_single:
+            in_double = not in_double
+        elif character == ";" and not in_single and not in_double:
+            starts.append(index + 1)
+    return any(_POWERSHELL_ENV_STATEMENT.match(text[start:]) for start in starts)
 
 
 def powershell_replay_argv(command: str) -> list[str] | None:
@@ -1726,19 +1751,19 @@ def powershell_replay_argv(command: str) -> list[str] | None:
 
     The harvested forms are an ``$env:`` assignment plus the call operator,
     an ``$env:`` assignment at the start of the command without that
-    operator, and a quoted call operator with no ``$env:`` assignment.
-    Other commands stay on ``shell=True`` (cmd.exe on Windows).
-    PowerShell 7 turns a native exit 3 into process exit 1, and
-    ``exit $LASTEXITCODE`` alone turns a missing executable into exit 0, so
-    the wrapper keeps a real native code and still fails a command that
-    never started.
+    operator, a quoted call operator with no ``$env:`` assignment, and an
+    ``$env:`` assignment that follows another statement. Other commands stay
+    on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns a native
+    exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone turns a
+    missing executable into exit 0, so the wrapper keeps a real native code
+    and still fails a command that never started.
     """
 
     if os.name != "nt":
         return None
     text = str(command or "")
     call_operator = _POWERSHELL_CALL_OPERATOR.search(text) is not None
-    env_assignment = _POWERSHELL_ENV_ASSIGNMENT.match(text) is not None
+    env_assignment = _powershell_env_assignment(text)
     if not call_operator and not env_assignment:
         return None
     executable = shutil.which("pwsh") or shutil.which("powershell")

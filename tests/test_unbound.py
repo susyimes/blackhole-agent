@@ -295,10 +295,14 @@ def test_powershell_validation_replay_keeps_cmd_commands_on_cmd():
     assert "$env:" not in bare_call.lower()
     assert powershell_replay_argv(bare_call) is not None
     assert powershell_replay_argv(bare_call)[1:4] == ["-NoProfile", "-NonInteractive", "-Command"]
+    prefixed = "Set-Location src; $env:PYTHONPATH = 'src'; python probe.py"
+    assert powershell_replay_argv(prefixed) is not None
+    assert powershell_replay_argv(prefixed)[1:4] == ["-NoProfile", "-NonInteractive", "-Command"]
     assert powershell_replay_argv("set PYTHONPATH=src&& python probe.py") is None
     assert powershell_replay_argv('set PYTHONPATH=C:\\Temp\\x&& "C:\\Python\\python.exe" probe.py') is None
     assert powershell_replay_argv('echo hi & "C:\\Python\\python.exe" probe.py') is None
     assert powershell_replay_argv("python -c \"print('$env:FOO')\"") is None
+    assert powershell_replay_argv("python -c \"print('a; $env:FOO = 1')\"") is None
 
 
 @pytest.mark.skipif(os.name != "nt", reason="cmd and pwsh replay is the Windows controller")
