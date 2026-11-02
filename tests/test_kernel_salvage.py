@@ -862,6 +862,49 @@ def test_grok_doom_loop_is_not_a_tool_timeout():
     assert zero_exit.class_id != DOOM_LOOP_REPETITION
 
 
+def test_kimi_background_task_wait_is_not_a_tool_timeout():
+    from blackhole_agent.kernel_salvage import BACKGROUND_TASK_WAIT, classify_run_artifact
+
+    harvested = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": (
+                "WARN grep timed out timeout_secs=20\n"
+                "Waiting 14s / 10m · 1 background task still running\n"
+            ),
+            "last_message": "Confirmed the failures reproduce at HEAD.",
+            "session_id": "",
+            "command": ["node.EXE", "main.mjs", "--prompt", "task.md"],
+        },
+        error="Kimi CLI timed out after 7200 seconds",
+    )
+    assert harvested.class_id == BACKGROUND_TASK_WAIT
+    assert harvested.retryable is False
+
+    bare_timeout = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stderr_tail": "WARN grep timed out timeout_secs=20\n",
+            "last_message": "",
+        },
+        error="Kimi CLI timed out after 7200 seconds",
+    )
+    assert bare_timeout.class_id == "timeout"
+    assert bare_timeout.retryable is True
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stderr_tail": "Waiting 1s / 10m · 1 background task still running\n",
+            "last_message": "The milestone gate rejected the claim.",
+        },
+    )
+    assert zero_exit.class_id != BACKGROUND_TASK_WAIT
+
+
 def test_grok_dead_session_actor_is_not_a_file_lock_timeout():
     from blackhole_agent.kernel_salvage import SESSION_ACTOR_DEAD, classify_run_artifact
 

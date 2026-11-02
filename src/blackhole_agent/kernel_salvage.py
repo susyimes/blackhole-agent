@@ -149,6 +149,16 @@ replayed the mission prompt. Salvage resumes that session once with a
 stop-repeating continuation. A second doom loop fails over without opening
 the circuit. A bare tool timeout, one of the two phrases, and a zero exit
 stay on their existing paths.
+
+A CLI that sits on a background shell until the controller kills it is not
+a generic process timeout. Harvested 2026-09-12 run
+``20260912T181339Z-47f10307`` exited 124 with ``timed_out`` after stderr
+repeated ``Waiting … / 10m · 1 background task still running`` seventy
+times. The command line had no session id. The same sentence in an exit-0
+transcript is not this death. Salvage continues that kernel once with a
+short prompt that forbids another background wait and does not resend the
+mission prompt. A recorded session id is kept. A second wait fails over
+without opening the circuit. A bare tool timeout stays a retryable timeout.
 """
 
 from __future__ import annotations
@@ -191,6 +201,7 @@ TOKEN_GENERATION_FAILED = "token_generation_failed"
 INFERENCE_IDLE_TIMEOUT = "inference_idle_timeout"
 SESSION_ACTOR_DEAD = "session_actor_dead"
 DOOM_LOOP_REPETITION = "doom_loop_repetition"
+BACKGROUND_TASK_WAIT = "background_task_wait"
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -249,6 +260,11 @@ DOOM_LOOP_REPETITION = "doom_loop_repetition"
 # 124 while recovery was still resampling tail_repetition. A grep timeout in
 # that stderr is not the death. The first doom loop resumes that session. A
 # second doom loop fails over and leaves the circuit closed.
+# A background-task wait does not trip the breaker. The 2026-09-12 Kimi run
+# exited 124 while stderr repeated that one background task was still
+# running. A grep or MCP "timed out" line is not this death, and an exit 0
+# that only quotes the sentence is not this death. The first wait continues
+# on the same kernel. A second wait fails over and leaves the circuit closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -366,6 +382,13 @@ _DOOM_LOOP_MARKERS = (
     "doom loop detected",
     "tail_repetition",
 )
+# Harvested Kimi death (2026-09-12, mission 20260912T181339Z-47f10307).
+# The stderr repeats this sentence until the controller records exit 124.
+# A bare tool timeout does not contain it. An exit 0 that quotes it is not
+# this death: those transcripts already returned.
+_BACKGROUND_TASK_MARKERS = (
+    "background task still running",
+)
 # Harvested Kimi deaths (2026-07-31, mission 20260731T101902Z-e1bfdef8).
 # cmd.exe printed GBK "命令行太长。" and the UTF-8 capture stored U+FFFD around
 # the one byte sequence that survived. A bare "too long" warning, a git
@@ -440,6 +463,12 @@ DOOM_LOOP_CONTINUE_PROMPT = (
     "The previous response repeated itself in a thinking tail-repetition doom loop. "
     "Do not restart the mission from the beginning. Continue the same session from work already done. "
     "Stop repeating. Finish the unfinished edit, then reply with only the JSON decision object."
+)
+BACKGROUND_CONTINUE_PROMPT = (
+    "The previous process was killed while it waited on a background task. "
+    "Do not wait, poll, or start another background shell. "
+    "Do not restart the mission from the beginning. Continue from files already changed in the workspace. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
 )
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -562,6 +591,21 @@ def _is_model_unavailable(blob: str) -> bool:
     return "model " in blob and _contains_any(blob, _MODEL_CONFIG_MARKERS)
 
 
+def _background_task_wait(blob: str, *, returncode: int, timed_out: bool) -> bool:
+    """True when the process was killed while waiting on a background shell.
+
+    Exit 124 is the harvested controller kill. A zero exit that only quotes
+    the wait sentence, and a non-timeout failure that happens to contain it,
+    stay on their existing paths.
+    """
+
+    if int(returncode or 0) == 0 and not timed_out:
+        return False
+    if not (timed_out or int(returncode or 0) == 124):
+        return False
+    return all(marker in blob for marker in _BACKGROUND_TASK_MARKERS)
+
+
 def _output_truncated_death(blob: str, *, returncode: int, timed_out: bool) -> bool:
     """True when max_tokens cut the reply off.
 
@@ -639,6 +683,12 @@ def classify_kernel_failure(
         # A settings-fetch warning, a telemetry export error, and a zero exit
         # do not contain this phrase.
         return KernelFailureClass(RESPONSE_STREAM_FAILED, False, evidence)
+    if _background_task_wait(blob, returncode=returncode, timed_out=timed_out):
+        # The controller records this exit as timed_out. The stderr is the
+        # wait line, not a tool timeout. An exit 0 that quotes the sentence
+        # is excluded above. The kernel already did work, so the mission
+        # prompt must not be sent again on the first wait.
+        return KernelFailureClass(BACKGROUND_TASK_WAIT, False, evidence)
     if timed_out or "timed out" in blob:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
@@ -1078,6 +1128,7 @@ def execute_kernel_turn_with_salvage(
     idle_resumes: set[str] = set()
     dead_actor_retries: set[str] = set()
     doom_resumes: set[str] = set()
+    background_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
@@ -1087,6 +1138,7 @@ def execute_kernel_turn_with_salvage(
     pending_idle_resume = False
     pending_dead_actor = False
     pending_doom_resume = False
+    pending_background_resume = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -1123,6 +1175,8 @@ def execute_kernel_turn_with_salvage(
                 source = "dead_actor_fresh_session"
             elif pending_doom_resume:
                 source = "doom_loop_resume"
+            elif pending_background_resume:
+                source = "background_task_resume"
             else:
                 source = "failover"
             meta.update(
@@ -1145,6 +1199,7 @@ def execute_kernel_turn_with_salvage(
             pending_idle_resume = False
             pending_dead_actor = False
             pending_doom_resume = False
+            pending_background_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -1152,6 +1207,7 @@ def execute_kernel_turn_with_salvage(
                 state.session_started = bool(state.session_id) or state.session_started
             tried.add(state.kernel)
             pending_doom_resume = False
+            pending_background_resume = False
             artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
             if state.kernel == "cursor" and artifact.get("session_id"):
                 state.session_id = str(artifact["session_id"])
@@ -1388,11 +1444,38 @@ def execute_kernel_turn_with_salvage(
                     pending_idle_resume = False
                     pending_dead_actor = False
                     pending_doom_resume = True
+                    pending_background_resume = False
                     continue
                 # The same doom loop happened again. Another kernel gets the
                 # mission prompt. This kernel stays available.
                 prompt = original_prompt
                 pending_doom_resume = False
+            if salvaged.class_id == BACKGROUND_TASK_WAIT:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                if state.kernel not in background_resumes:
+                    # One continuation on the kernel that was already working.
+                    # The original mission prompt is not sent again, and the
+                    # circuit stays closed: the process was waiting, not signed out.
+                    background_resumes.add(state.kernel)
+                    prompt = BACKGROUND_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = False
+                    pending_token_resume = False
+                    pending_idle_resume = False
+                    pending_dead_actor = False
+                    pending_doom_resume = False
+                    pending_background_resume = True
+                    continue
+                # The same wait happened again. Another kernel gets the
+                # mission prompt. This kernel stays available.
+                prompt = original_prompt
+                pending_background_resume = False
             pending_fresh_session = False
             pending_token_resume = False
             pending_idle_resume = False
