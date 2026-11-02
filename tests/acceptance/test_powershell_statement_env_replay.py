@@ -27,9 +27,8 @@ def observe() -> tuple[bool, dict]:
     with tempfile.TemporaryDirectory(prefix="bh-ps-stmt-") as directory:
         root = Path(directory)
         python = str(Path(sys.executable))
-        # Bind the interpreter in a variable, then call it. A quoted
-        # ``& '<python>'`` is already routed; ``& $py`` is not, so a leading
-        # statement is what must move this command onto pwsh.
+        # The routing under test is the ``$env:`` assignment after another
+        # statement. The variable call that follows it is a separate script.
         prefix = f"$py = {_ps_quote(python)}; Set-Location {_ps_quote(str(root))}; "
         success_code = (
             'import os,sys; raise SystemExit(0 if os.environ.get("BH_REPLAY_MARK")=="kept" else 4)'

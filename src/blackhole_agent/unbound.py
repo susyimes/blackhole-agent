@@ -1745,43 +1745,25 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
     return "reproduced_exit_code" in replay or bool(replay.get("timed_out"))
 
 
-# Harvested mission 20261101T123515Z-b531bbb1. The agent shell is pwsh.
-# cmd.exe replay of `$env:PYTHONPATH = 'src'; & '<python>' <probe>` exits 1
-# even when that same command exited 0, and the milestone is rejected.
-# The same death happens without the call operator:
-# `$env:PYTHONPATH = 'src'; python probe.py`.
-# Harvested 2026-11-02: `& '<python>' -m ruff check ...` has no `$env:`
-# assignment. cmd.exe answers "the & operator was unexpected" and exits 1.
-# The same death happens when the assignment follows another statement:
-# `Set-Location <dir>; $env:NAME = 'value'; <python>`. A leading-only match
-# leaves that command on cmd.exe, which exits 1 and drops native exit 3.
-# A cmd chain `set VAR=value&& "exe"` is not that operator: the ampersand
-# there belongs to `&&`, so only a leading `&` or one after `;` counts.
-# An `$env:` assignment inside quotes is text, not a statement.
-# Harvested 2026-09-13: ``PYTHONPATH=src uv run python ...`` is a POSIX
-# prefix, not a PowerShell statement. cmd.exe runs ``PYTHONPATH=src`` as
-# the program and exits 1. pwsh does not accept that prefix either, so
-# routing the text to pwsh cannot reproduce the exit the agent reported.
-# Harvested 2026-10-10: ``.venv/Scripts/python.exe -m pytest ...`` exited 0
-# in pwsh. cmd.exe treats ``/`` as a switch, so it tries to run ``.venv``
-# and exits 1. An absolute ``C:/...`` program already starts. Only the
-# first program token is rewritten to backslashes. A later argument that
-# contains a slash, and a URL used as the program, stay unchanged.
-_POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|;)\s*&\s*['\"]")
+# The agent shell is pwsh. cmd.exe is the replay default.
+# Harvested 20261102T091949Z-5854d648: `$py = '<python>'\n& $py -c ...`
+# has no `$env:` assignment, and the call operator targets a variable.
+# cmd.exe answers that `$py` is not a command and exits 1.
+# Unquoted statement boundaries are the start, `;`, and a newline.
+# A cmd `set VAR=value&&` chain stays on cmd: its ampersand belongs to `&&`.
+# An assignment or call operator inside quotes is text. POSIX `NAME=value`
+# prefixes and forward-slash program paths are handled below.
+_POWERSHELL_CALL_OPERATOR = re.compile(r"\s*&\s*(?:['\"]|\$[A-Za-z_])")
 _POWERSHELL_ENV_STATEMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
     re.IGNORECASE,
 )
+_POWERSHELL_VAR_ASSIGNMENT = re.compile(r"\s*\$[A-Za-z_][A-Za-z0-9_]*\s*=")
 _POSIX_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
-def _powershell_env_assignment(text: str) -> bool:
-    """True when an ``$env:`` assignment is its own unquoted statement.
-
-    Statement boundaries are the start of the command and a semicolon that
-    is not inside quotes. ``python -c "print('a; $env:FOO = 1')"`` stays a
-    cmd command. ``Set-Location dir; $env:FOO = 'bar'; python`` does not.
-    """
+def _statement_starts(text: str) -> list[int]:
+    """Indexes of unquoted statement starts. Semicolons and newlines split."""
 
     starts = [0]
     in_single = False
@@ -1791,30 +1773,46 @@ def _powershell_env_assignment(text: str) -> bool:
             in_single = not in_single
         elif character == '"' and not in_single:
             in_double = not in_double
-        elif character == ";" and not in_single and not in_double:
+        elif character in ";\n" and not in_single and not in_double:
             starts.append(index + 1)
-    return any(_POWERSHELL_ENV_STATEMENT.match(text[start:]) for start in starts)
+    return starts
+
+
+def _powershell_env_assignment(text: str) -> bool:
+    """True when an ``$env:`` assignment is its own unquoted statement."""
+
+    return any(
+        _POWERSHELL_ENV_STATEMENT.match(text[start:]) for start in _statement_starts(text)
+    )
+
+
+def _powershell_script(text: str) -> bool:
+    """True when one unquoted statement is PowerShell rather than cmd."""
+
+    if _powershell_env_assignment(text):
+        return True
+    for start in _statement_starts(text):
+        segment = text[start:]
+        if _POWERSHELL_VAR_ASSIGNMENT.match(segment) or _POWERSHELL_CALL_OPERATOR.match(segment):
+            return True
+    return False
 
 
 def powershell_replay_argv(command: str) -> list[str] | None:
     """Return a pwsh argv for a PowerShell validation command.
 
-    The harvested forms are an ``$env:`` assignment plus the call operator,
-    an ``$env:`` assignment at the start of the command without that
-    operator, a quoted call operator with no ``$env:`` assignment, and an
-    ``$env:`` assignment that follows another statement. Other commands stay
-    on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns a native
-    exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone turns a
-    missing executable into exit 0, so the wrapper keeps a real native code
-    and still fails a command that never started.
+    Harvested forms include ``$env:`` assignments, a quoted call operator,
+    and ``$name = ...`` followed by ``& $name`` across a newline. Other
+    commands stay on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns
+    a native exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone
+    turns a missing executable into exit 0, so the wrapper keeps a real
+    native code and still fails a command that never started.
     """
 
     if os.name != "nt":
         return None
     text = str(command or "")
-    call_operator = _POWERSHELL_CALL_OPERATOR.search(text) is not None
-    env_assignment = _powershell_env_assignment(text)
-    if not call_operator and not env_assignment:
+    if not _powershell_script(text):
         return None
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if not executable:
