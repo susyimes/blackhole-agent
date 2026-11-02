@@ -1159,6 +1159,14 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
     hydrate_mission_from_campaign(state)
     if state.stage == "genesis":
         experience_block = render_experience_for_genesis(Path(state.repo_path))
+        try:
+            from blackhole_agent.failure_class_growth import render_unclassified_growth_for_genesis
+
+            growth_block = render_unclassified_growth_for_genesis(Path(state.repo_path))
+        except Exception:  # noqa: BLE001 - genesis still runs when clustering fails
+            growth_block = ""
+        if growth_block:
+            experience_block = f"{experience_block}\n\n{growth_block}" if experience_block else growth_block
         experience_text = f"\n\n{experience_block}" if experience_block else ""
         mission_block = (
             "Mission genesis is still open. Inspect the repository and choose one ambitious, high-impact capability "
