@@ -13,8 +13,8 @@ const htmlEntities = {
     "copyright" : { regex: /&(copy|#169);/g, val: "©" },
     "reg" : { regex: /&(reg|#174);/g, val: "®" },
     "inr" : { regex: /&(inr|#8377);/g, val: "₹" },
-    "num_dec": { regex: /&#([0-9]{1,7});/g, val : (_, str) => String.fromCodePoint(Number.parseInt(str, 10)) },
-    "num_hex": { regex: /&#x([0-9a-fA-F]{1,6});/g, val : (_, str) => String.fromCodePoint(Number.parseInt(str, 16)) },
+    "num_dec": { regex: /&#([0-9]{1,7});/g, val : (_, str) => fromCodePoint(str, 10, "&#") },
+    "num_hex": { regex: /&#x([0-9a-fA-F]{1,6});/g, val : (_, str) => fromCodePoint(str, 16, "&#x") },
 };
 export default class EntitiesParser{
     constructor(replaceHtmlEntities) {
@@ -101,4 +101,13 @@ function validateEntityName(name){
         if(name.indexOf(ch) !== -1) throw new Error(`Invalid character ${ch} in entity name`);
     }
     return name;
+}
+
+function fromCodePoint(str, base, prefix){
+  const codePoint = Number.parseInt(str, base);
+  if (codePoint >= 0 && codePoint <= 0x10FFFF) {
+      return String.fromCodePoint(codePoint);
+  } else {
+      return prefix + str + ";";
+  }
 }
