@@ -1746,19 +1746,23 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 
 
 # The agent shell is pwsh. cmd.exe is the replay default.
-# Harvested 20261102T091949Z-5854d648: `$py = '<python>'\n& $py -c ...`
-# has no `$env:` assignment, and the call operator targets a variable.
-# cmd.exe answers that `$py` is not a command and exits 1.
 # Unquoted statement boundaries are the start, `;`, and a newline.
-# A cmd `set VAR=value&&` chain stays on cmd: its ampersand belongs to `&&`.
-# An assignment or call operator inside quotes is text. POSIX `NAME=value`
-# prefixes and forward-slash program paths are handled below.
+# A cmd `set VAR=value&&` chain stays on cmd. Quoted text stays text.
+# POSIX prefixes and forward-slash program paths are handled below.
+# Harvested Set-Location statements (20261102T061647Z, 20261102T065739Z)
+# are PowerShell cmdlets. cmd.exe exits 1 because the cmdlet is not a program.
 _POWERSHELL_CALL_OPERATOR = re.compile(r"\s*&\s*(?:['\"]|\$[A-Za-z_])")
 _POWERSHELL_ENV_STATEMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
     re.IGNORECASE,
 )
 _POWERSHELL_VAR_ASSIGNMENT = re.compile(r"\s*\$[A-Za-z_][A-Za-z0-9_]*\s*=")
+_POWERSHELL_CMDLET = re.compile(
+    r"\s*(?:Add|Clear|ConvertFrom|ConvertTo|Copy|Enter|Exit|Export|ForEach|Format|"
+    r"Get|Import|Invoke|Join|Measure|Move|New|Out|Pop|Push|Remove|Rename|Resolve|"
+    r"Select|Set|Sort|Split|Start|Stop|Test|Where|Write)-[A-Za-z][A-Za-z0-9]*\b",
+    re.IGNORECASE,
+)
 _POSIX_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -1793,7 +1797,11 @@ def _powershell_script(text: str) -> bool:
         return True
     for start in _statement_starts(text):
         segment = text[start:]
-        if _POWERSHELL_VAR_ASSIGNMENT.match(segment) or _POWERSHELL_CALL_OPERATOR.match(segment):
+        if (
+            _POWERSHELL_VAR_ASSIGNMENT.match(segment)
+            or _POWERSHELL_CALL_OPERATOR.match(segment)
+            or _POWERSHELL_CMDLET.match(segment)
+        ):
             return True
     return False
 
@@ -1802,8 +1810,9 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     """Return a pwsh argv for a PowerShell validation command.
 
     Harvested forms include ``$env:`` assignments, a quoted call operator,
-    and ``$name = ...`` followed by ``& $name`` across a newline. Other
-    commands stay on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns
+    ``$name = ...`` followed by ``& $name`` across a newline, and a
+    PowerShell cmdlet statement such as ``Set-Location``. Other commands
+    stay on ``shell=True`` (cmd.exe on Windows). PowerShell 7 turns
     a native exit 3 into process exit 1, and ``exit $LASTEXITCODE`` alone
     turns a missing executable into exit 0, so the wrapper keeps a real
     native code and still fails a command that never started.
