@@ -282,8 +282,10 @@ def test_builtin_proof_refuses_diverged_remote_head() -> None:
     assert report["action"] == "publication_resilience"
     assert report["used_skill_route_discovery"] is False
     assert report["passed_count"] == len(report["checks"])
-    assert report["checks"]["diverged_remote_is_refused"]
-    assert report["checks"]["diverged_remote_is_unchanged"]
+    assert report["checks"]["diverged_clean_merge_publishes"]
+    assert report["checks"]["diverged_clean_merge_fast_forwards"]
+    assert report["checks"]["conflicting_divergence_is_refused"]
+    assert report["checks"]["conflicting_remote_is_unchanged"]
     assert report["checks"]["same_sha_republication_is_idempotent"]
     assert report["checks"]["ancestor_fast_forward_publishes"]
     assert report["checks"]["terminal_mismatch_drops_pending"]

@@ -623,6 +623,11 @@ def publish_lineage(
     abort, and a harvested empty-reply, connect, or DNS abort, including the
     same abort from ``ls-remote``, are attempted once more with the original
     command. Other push failures stay single-attempt.
+
+    A remote head that shares history with the lineage tip and merges cleanly
+    is published as a merge commit whose first parent is that remote head.
+    The push stays a fast-forward. Unrelated histories and content conflicts
+    are refused before push.
     """
 
     command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
@@ -680,33 +685,45 @@ def publish_lineage(
             error="",
             command=command,
         )
+    publish_sha = commit_sha
     if not remote_head_is_fast_forward(
         repo_path,
         remote_before,
         commit_sha,
         command_runner=command_runner,
     ):
-        from blackhole_agent.publication_resilience import REMOTE_HEAD_MISMATCH_PREFIX
-
-        return PublicationResult(
-            ok=False,
-            commit_sha=commit_sha,
-            remote=remote,
-            branch=branch,
-            remote_before=remote_before,
-            remote_after="",
-            error=(
-                f"{REMOTE_HEAD_MISMATCH_PREFIX}: {remote_before} is not a "
-                f"fast-forward ancestor of {commit_sha}"
-            ),
-            command=command,
+        from blackhole_agent.publication_resilience import (
+            REMOTE_HEAD_MISMATCH_PREFIX,
+            integrate_clean_divergence,
         )
+
+        publish_sha = integrate_clean_divergence(
+            repo_path,
+            remote_before,
+            commit_sha,
+            command_runner=command_runner,
+        )
+        if not publish_sha:
+            return PublicationResult(
+                ok=False,
+                commit_sha=commit_sha,
+                remote=remote,
+                branch=branch,
+                remote_before=remote_before,
+                remote_after="",
+                error=(
+                    f"{REMOTE_HEAD_MISMATCH_PREFIX}: {remote_before} is not a "
+                    f"fast-forward ancestor of {commit_sha}"
+                ),
+                command=command,
+            )
+        command = ("git", "push", remote, f"{publish_sha}:refs/heads/{branch}")
     if remote_before:
         protected = evaluate_candidate_protected_paths(
             target_repo_path=repo_path,
             candidate_repo_path=repo_path,
             target_before=remote_before,
-            candidate_head=commit_sha,
+            candidate_head=publish_sha,
             operator_acknowledged=operator_acknowledged,
             command_runner=command_runner,
         )
@@ -745,10 +762,10 @@ def publish_lineage(
                 f"http.postBuffer={POST_BUFFER_RETRY_BYTES}",
                 "push",
                 remote,
-                f"{commit_sha}:refs/heads/{branch}",
+                f"{publish_sha}:refs/heads/{branch}",
             )
         elif _same_command_transport_retry(details):
-            command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
+            command = ("git", "push", remote, f"{publish_sha}:refs/heads/{branch}")
         else:
             return PublicationResult(
                 ok=False,
@@ -792,9 +809,9 @@ def publish_lineage(
             branch,
             command_runner=command_runner,
         )
-    if lookup_error or remote_after != commit_sha:
+    if lookup_error or remote_after != publish_sha:
         details = lookup_error or (
-            f"Remote verification mismatch: expected {commit_sha}, observed {remote_after or '(missing)'}"
+            f"Remote verification mismatch: expected {publish_sha}, observed {remote_after or '(missing)'}"
         )
         return PublicationResult(
             ok=False,
@@ -3313,6 +3330,7 @@ def run_continuous_loop(
         )
 
         def attempt_publication() -> bool:
+            nonlocal lineage_ref
             commit_sha = str(loop_state["pending_publish_ref"])
             mission_id = str(loop_state["pending_publish_mission_id"])
             loop_state["status"] = "publishing"
@@ -3355,6 +3373,10 @@ def run_continuous_loop(
                 loop_state["last_published_ref"] = result.remote_after
                 loop_state["last_published_at"] = utc_now_iso()
                 loop_state["last_publish_error"] = ""
+                published = str(result.remote_after or "").strip()
+                if published:
+                    lineage_ref = published
+                    loop_state["lineage_ref"] = published
                 try:
                     from blackhole_agent.controller_adoption import adopt_published_controller
 

@@ -18,10 +18,17 @@ publish.
 ``publication_failed`` is a catalog class without a closer, so harvest could
 never drop it.
 
+A later stall is different. On 2026-11-02 origin/main gained one sibling
+commit (soul.md) while the proved lineage gained another. The tips shared
+history and did not touch the same files, but publication treated every
+non-ancestor as terminal, so the proved commit never reached the remote.
+
 This module closes that class:
 
-- refuse a remote head that is not a fast-forward ancestor before push
-- keep same-SHA republication idempotent and ancestor fast-forwards live
+- fast-forward an ancestor remote, and keep same-SHA republication idempotent
+- when the tips share history and merge cleanly, publish a merge commit whose
+  first parent is the remote head so the push is a fast-forward
+- refuse unrelated histories and content conflicts before push
 - drop pending publish on a terminal remote-head mismatch so the loop does
   not stall; keep pending on transient transport errors
 - drop pending publish on a protected-path acknowledgment refusal so the
@@ -236,6 +243,78 @@ def ensure_publication_resilience_capability(*, repo_path: Path | None = None) -
     return capability
 
 
+def integrate_clean_divergence(
+    repo_path: Path,
+    remote_head: str,
+    lineage_tip: str,
+    *,
+    command_runner: Callable[..., Any] = subprocess.run,
+) -> str:
+    """Return a merge commit that fast-forwards ``remote_head``, or empty.
+
+    The harvested 2026-11-02 stall was two children of one parent with
+    disjoint files. Unrelated histories, a remote that already contains the
+    lineage, and content conflicts return empty so publication still refuses
+    them. This writes a commit object only. It does not push or move HEAD.
+    """
+
+    from blackhole_agent.unbound import git_is_ancestor, run_command
+
+    remote_oid = str(remote_head or "").strip()
+    lineage_oid = str(lineage_tip or "").strip()
+    if not remote_oid or not lineage_oid or remote_oid == lineage_oid:
+        return ""
+    try:
+        if git_is_ancestor(
+            repo_path,
+            lineage_oid,
+            remote_oid,
+            command_runner=command_runner,
+        ):
+            return ""
+    except RuntimeError:
+        return ""
+    base = run_command(
+        ["git", "merge-base", remote_oid, lineage_oid],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=False,
+    )
+    if base.returncode != 0 or not (base.stdout or "").strip():
+        return ""
+    merged = run_command(
+        ["git", "merge-tree", "--write-tree", remote_oid, lineage_oid],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=False,
+    )
+    if merged.returncode != 0:
+        return ""
+    tree = (merged.stdout or "").strip().splitlines()
+    tree_oid = tree[0].strip() if tree else ""
+    if not tree_oid:
+        return ""
+    created = run_command(
+        [
+            "git",
+            "commit-tree",
+            tree_oid,
+            "-p",
+            remote_oid,
+            "-p",
+            lineage_oid,
+            "-m",
+            "Integrate a clean remote sibling with the proved lineage",
+        ],
+        cwd=repo_path,
+        command_runner=command_runner,
+        check=False,
+    )
+    if created.returncode != 0:
+        return ""
+    return (created.stdout or "").strip()
+
+
 def _git(repo: Path, *arguments: str) -> str:
     completed = subprocess.run(
         ["git", *arguments],
@@ -422,6 +501,54 @@ def builtin_publication_resilience_proof() -> dict[str, Any]:
         _git(repo, "commit", "-m", "local advance")
         local_tip = _git(repo, "rev-parse", "HEAD")
         pushes = []
+        integrated = publish_lineage(
+            repo,
+            local_tip,
+            "origin",
+            "main",
+            command_runner=_recording_runner(pushes),
+        )
+        merged = integrated.remote_after
+        first_parent = _git(repo, "rev-parse", f"{merged}^1") if integrated.ok else ""
+        second_parent = _git(repo, "rev-parse", f"{merged}^2") if integrated.ok else ""
+        remote_text = _git(repo, "show", f"{merged}:remote-only.txt") if integrated.ok else ""
+        local_text = _git(repo, "show", f"{merged}:local.txt") if integrated.ok else ""
+        checks["diverged_clean_merge_publishes"] = (
+            integrated.ok
+            and integrated.remote_before == remote_tip
+            and merged not in {local_tip, remote_tip}
+            and first_parent == remote_tip
+            and second_parent == local_tip
+            and remote_text == "remote"
+            and local_text == "local"
+            and any(item[:2] == ["git", "push"] for item in pushes)
+            and not any("--force" in item or "--force-with-lease" in item for item in pushes)
+        )
+        checks["diverged_clean_merge_fast_forwards"] = (
+            _remote_head(remote) == merged
+            and remote_head_is_fast_forward(repo, remote_tip, merged)
+        )
+        checks["unknown_remote_sha_is_not_ancestor"] = (
+            remote_head_is_fast_forward(repo, remote_tip, local_tip) is False
+            and remote_head_is_fast_forward(repo, "0" * 40, local_tip) is False
+        )
+
+    with tempfile.TemporaryDirectory(prefix="publication-conflict-") as tmp:
+        root = Path(tmp)
+        repo = _init_repo(root)
+        remote = _bare_remote(root, repo)
+        seed = _git(repo, "rev-parse", "HEAD")
+        (repo / "shared.txt").write_text("remote\n", encoding="utf-8")
+        _git(repo, "add", "shared.txt")
+        _git(repo, "commit", "-m", "remote edit")
+        remote_tip = _git(repo, "rev-parse", "HEAD")
+        _git(repo, "push", "origin", "main")
+        _git(repo, "reset", "--hard", seed)
+        (repo / "shared.txt").write_text("local\n", encoding="utf-8")
+        _git(repo, "add", "shared.txt")
+        _git(repo, "commit", "-m", "local edit")
+        local_tip = _git(repo, "rev-parse", "HEAD")
+        pushes = []
         refused = publish_lineage(
             repo,
             local_tip,
@@ -429,17 +556,13 @@ def builtin_publication_resilience_proof() -> dict[str, Any]:
             "main",
             command_runner=_recording_runner(pushes),
         )
-        checks["diverged_remote_is_refused"] = (
+        checks["conflicting_divergence_is_refused"] = (
             refused.ok is False
             and is_remote_head_mismatch(refused.error)
             and refused.remote_before == remote_tip
             and not any(item[:2] == ["git", "push"] for item in pushes)
         )
-        checks["diverged_remote_is_unchanged"] = _remote_head(remote) == remote_tip
-        checks["unknown_remote_sha_is_not_ancestor"] = (
-            remote_head_is_fast_forward(repo, remote_tip, local_tip) is False
-            and remote_head_is_fast_forward(repo, "0" * 40, local_tip) is False
-        )
+        checks["conflicting_remote_is_unchanged"] = _remote_head(remote) == remote_tip
 
     with tempfile.TemporaryDirectory(prefix="publication-new-branch-") as tmp:
         root = Path(tmp)
