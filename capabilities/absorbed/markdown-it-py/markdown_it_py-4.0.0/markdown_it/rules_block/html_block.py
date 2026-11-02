@@ -64,12 +64,18 @@ def html_block(state: StateBlock, startLine: int, endLine: int, silent: bool) ->
 
     nextLine = startLine + 1
 
+    # Types 6 and 7 end on a blank line; their closer matches "".
+    # Types 1-5 continue through a blank line until the closer. A blank
+    # line inside a list item is outdented, so indent alone must not end them.
+    ends_on_blank_line = html_seq[1].search("") is not None
+
     # If we are here - we detected HTML block.
     # Let's roll down till block end.
     if not html_seq[1].search(lineText):
         while nextLine < endLine:
             if state.sCount[nextLine] < state.blkIndent:
-                break
+                if ends_on_blank_line or not state.isEmpty(nextLine):
+                    break
 
             pos = state.bMarks[nextLine] + state.tShift[nextLine]
             maximum = state.eMarks[nextLine]
