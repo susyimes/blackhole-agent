@@ -214,6 +214,51 @@ def _sealed_files(root: Path) -> list[tuple[str, Path]]:
     return found
 
 
+def _file_digest(path: Path) -> str | None:
+    """SHA-256 of one payload file. None when the file cannot be read."""
+
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
+
+
+def _slug_payload(slug_dir: Path, relative: str) -> Path | None:
+    """Return the vendored payload directory for one absorbed slug.
+
+    An explicit relative path is used when the caller names one. A directory
+    named ``package`` is the fixture layout. A real absorbed slug has one
+    non-hidden child directory such as ``virtualenv-21.7.4``; dependency
+    caches (``.forage-deps``) and skip-directories are not that payload.
+    """
+
+    if relative:
+        candidate = slug_dir / relative
+        if candidate.is_dir() and not _reparse_point(candidate):
+            return candidate
+        return None
+    named = slug_dir / "package"
+    if named.is_dir() and not _reparse_point(named):
+        return named
+    skipped = _TREE_SKIP_DIRS | {"tests", "_corpus"}
+    children = [
+        child
+        for child in slug_dir.iterdir()
+        if child.is_dir()
+        and not child.name.startswith(".")
+        and child.name not in skipped
+        and not child.name.endswith(_TREE_SKIP_SUFFIXES)
+        and not _reparse_point(child)
+    ]
+    if len(children) == 1:
+        return children[0]
+    return None
+
+
 def _share_file(keeper: Path, dest: Path) -> bool:
     """Make ``dest`` a hardlink to ``keeper`` without changing the bytes read there."""
 
@@ -246,14 +291,16 @@ def _share_file(keeper: Path, dest: Path) -> bool:
 def collapse_duplicate_package_payloads(
     absorbed_root: Path,
     *,
-    relative: str = "package",
+    relative: str = "",
 ) -> dict[str, Any]:
-    """Hardlink identical package payloads so two slugs share one file body.
+    """Hardlink matching payload files so slugs share one body per path.
 
-    Adapter files stay in each slug. A payload whose sealed bytes differ stays
-    private. The sealed tree digest does not change: every relative path still
-    reads the same bytes. A reparse point is left alone. An empty payload is
-    not a duplicate.
+    The payload is ``package/`` when that directory exists, otherwise the
+    slug's single versioned directory. Adapter files and hidden dependency
+    caches stay private. A relative path whose bytes match becomes one
+    hardlink even when the rest of the tree differs. A path whose bytes
+    differ stays private. The sealed tree digest does not change. A reparse
+    point is left alone. An empty payload is not a duplicate.
     """
 
     root = Path(absorbed_root)
@@ -263,11 +310,12 @@ def collapse_duplicate_package_payloads(
         "linked_files": 0,
         "groups": [],
         "private_slugs": [],
+        "payloads": {},
         "error": "",
     }
     if not root.is_dir() or _reparse_point(root):
         return {**empty, "error": "absorbed root is not a real directory"}
-    grouped: dict[str, list[tuple[str, Path]]] = {}
+    payloads: dict[str, Path] = {}
     for child in sorted(root.iterdir(), key=lambda item: item.name):
         if (
             not child.is_dir()
@@ -276,45 +324,59 @@ def collapse_duplicate_package_payloads(
             or _reparse_point(child)
         ):
             continue
-        payload = child / relative
-        if not payload.is_dir() or _reparse_point(payload) or not _sealed_files(payload):
+        payload = _slug_payload(child, relative)
+        if payload is None or _reparse_point(payload) or not _sealed_files(payload):
             continue
-        grouped.setdefault(tree_digest(payload), []).append((child.name, payload))
+        payloads[child.name] = payload
+    grouped: dict[tuple[str, str], list[tuple[str, Path]]] = {}
+    readable = True
+    for slug, payload in payloads.items():
+        for name, path in _sealed_files(payload):
+            digest = _file_digest(path)
+            if digest is None:
+                readable = False
+                continue
+            grouped.setdefault((name, digest), []).append((slug, path))
     linked = 0
     groups: list[dict[str, Any]] = []
-    private: list[str] = []
-    shared: list[str] = []
-    ok = True
-    for digest, members in sorted(grouped.items()):
+    shared: set[str] = set()
+    ok = readable
+    for (name, digest), members in sorted(grouped.items()):
         ordered = sorted(members, key=lambda item: item[0])
         if len(ordered) < 2:
-            private.append(ordered[0][0])
             continue
-        keeper_files = {name: path for name, path in _sealed_files(ordered[0][1])}
+        _keeper_slug, keeper_path = ordered[0]
         group_linked = 0
         group_ok = True
-        for _slug, payload in ordered[1:]:
-            for name, keeper_path in keeper_files.items():
-                dest = payload.joinpath(*name.split("/"))
-                if _share_file(keeper_path, dest):
-                    group_linked += 1
-                else:
-                    group_ok = False
+        linked_slugs = [ordered[0][0]]
+        for slug, dest in ordered[1:]:
+            if _share_file(keeper_path, dest):
+                group_linked += 1
+                linked_slugs.append(slug)
+            else:
+                group_ok = False
         if not group_ok:
             ok = False
-            private.extend(slug for slug, _payload in ordered)
             continue
         linked += group_linked
-        slugs = [slug for slug, _payload in ordered]
-        shared.extend(slugs)
-        groups.append({"digest": digest, "slugs": slugs, "linked_files": group_linked})
+        shared.update(linked_slugs)
+        groups.append(
+            {
+                "path": name,
+                "digest": digest,
+                "slugs": linked_slugs,
+                "linked_files": group_linked,
+            }
+        )
+    private = sorted(slug for slug in payloads if slug not in shared)
     return {
         "ok": ok and bool(groups),
         "shared_slug_count": len(shared),
         "linked_files": linked,
         "groups": groups,
         "private_slugs": private,
-        "error": "" if ok else "one identical payload could not be hardlinked",
+        "payloads": {slug: path.name for slug, path in sorted(payloads.items())},
+        "error": "" if ok else "one matching payload file could not be hardlinked",
     }
 
 
@@ -1352,7 +1414,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     share_parser = sub.add_parser(
         "share-payloads",
-        help="hardlink identical package payloads across absorbed slugs",
+        help="hardlink matching files across versioned absorbed payloads",
     )
     share_parser.add_argument("--root", required=True, type=Path)
 
