@@ -1,5 +1,5 @@
 {
-  "absorbed_at": "2026-09-12T18:59:30.029668Z",
+  "absorbed_at": "2026-11-02T20:56:03.013170Z",
   "kind": "absorbed_steps",
   "schema_version": 1,
   "steps": [
@@ -2887,13 +2887,13 @@
       "provides": [
         "rendered_html"
       ],
-      "record_digest": "2890338e67512abacb4d278231611c65ae379b314ac0190b8706d3fb385f565b",
+      "record_digest": "56b2cca4af76ce6f8864912ff51b393ef28c192d9e4640ec726860eb881a3e25",
       "requires": [
         "markdown_source"
       ],
       "schema_version": 1,
       "slug": "mistune-markdown",
-      "vendored_tree_digest": "af67e45549be307964ded36b5b7273a5aea0770fa8bb336c31909d3d7ca0c7ea",
+      "vendored_tree_digest": "4cd473f9b388c77a1e9c214f61818e0ad1ba662236d8c13456b3b1cb65a19e87",
       "version": "3.4.0"
     },
     {
@@ -4623,5 +4623,5 @@
       "version": "21.7.4"
     }
   ],
-  "steps_digest": "63155ff9b224e14d9d47e87bc25f17897d4638077cdd5e23f8f2ae0796ec03a9"
+  "steps_digest": "7c720854098111c43de3d3ab3c2bcd7fe5675c5b51753ecd8c931cb4313e25d2"
 }
