@@ -1,34 +1,27 @@
-"""TOML integer literals must fail as decode errors, not interpreter leaks.
+"""TOML loading for documents the standard library still rejects.
 
-CPython's ``tomllib`` and tomli 2.4.1 raise ``ValueError`` when a decimal
-integer has more digits than ``sys.get_int_max_str_digits()``. That limit is
-the CVE-2020-10735 mitigation. Invalid TOML is ``TOMLDecodeError``. A
+CPython ``tomllib`` is a TOML 1.0 parser: a multiline inline table, a trailing
+comma in that table, ``\\e`` and ``\\xHH`` escapes, and a time written without
+seconds are decode errors. It also leaks ``ValueError`` when a decimal integer
+has more digits than ``sys.get_int_max_str_digits()``. The absorbed parser
+accepts those 1.1 forms and raises ``TOMLDecodeError`` for that integer. A
 ``parse_float`` callback's own ``ValueError`` is not a digit-limit leak and
-still propagates.
+still propagates. An unknown escape stays a decode error.
 """
 
 from __future__ import annotations
 
 import importlib
 import sys
-import tomllib
 from pathlib import Path
 
-_DIGIT_LIMIT_TEXT = "integer string conversion"
 _VENDORED_SLUGS = ("tomli", "tomli-foraged", "tomli-parser")
 
 
 def loads(text: str, *, parse_float=float):
-    """Parse ``text`` with ``tomllib``, translating only the digit-limit leak."""
+    """Parse ``text`` with the absorbed TOML 1.1 parser."""
 
-    try:
-        return tomllib.loads(text, parse_float=parse_float)
-    except tomllib.TOMLDecodeError:
-        raise
-    except ValueError as exc:
-        if _DIGIT_LIMIT_TEXT not in str(exc):
-            raise
-        raise tomllib.TOMLDecodeError(str(exc), text, 0) from None
+    return vendored_loads("tomli", text, parse_float=parse_float)
 
 
 def vendored_slugs() -> tuple[str, ...]:
