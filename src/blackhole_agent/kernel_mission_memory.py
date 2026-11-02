@@ -156,6 +156,7 @@ def events_from_turn(record: Mapping[str, Any] | None) -> list[dict[str, str]]:
                 "summary": f"salvaged {salvage_class} without stalling",
                 "evidence": str(salvage.get("evidence") or salvage.get("source") or "")[:400],
                 "at": str(turn.get("finished_at") or turn.get("started_at") or ""),
+                "iteration": str(turn.get("iteration") if turn.get("iteration") is not None else ""),
             }
         )
     for event in classify_unbound_turn(turn):
@@ -169,9 +170,45 @@ def events_from_turn(record: Mapping[str, Any] | None) -> list[dict[str, str]]:
                 "summary": str(event.get("summary") or ""),
                 "evidence": str(event.get("evidence") or "")[:400],
                 "at": str(event.get("at") or ""),
+                "iteration": str(turn.get("iteration") if turn.get("iteration") is not None else ""),
             }
         )
     return events
+
+
+def _remember_identity(mission_id: str, event: Mapping[str, Any]) -> str:
+    return "\n".join(
+        (
+            str(mission_id or ""),
+            str(event.get("iteration") or ""),
+            str(event.get("class_id") or ""),
+            str(event.get("summary") or ""),
+        )
+    )
+
+
+def _same_remembered_turn(stored: str, mission_id: str, event: Mapping[str, Any]) -> bool:
+    """True when two identities name one turn.
+
+    Ingest during the turn can omit the mission id. A later genesis read of
+    that same turn includes it. Those are one occurrence. Two non-empty
+    mission ids stay distinct.
+    """
+
+    parts = str(stored or "").split("\n")
+    if len(parts) != 4:
+        return False
+    stored_mission, iteration, class_id, summary = parts
+    event_mission = str(mission_id or "")
+    if iteration != str(event.get("iteration") or ""):
+        return False
+    if class_id != str(event.get("class_id") or ""):
+        return False
+    if summary != str(event.get("summary") or ""):
+        return False
+    if stored_mission == event_mission:
+        return True
+    return not stored_mission or not event_mission
 
 
 def iter_turn_records(state_path: Path, state: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -245,27 +282,48 @@ def remember_events(
     payload = load_mission_memory(root)
     classes = dict(payload.get("classes") or {})
     written = 0
+    changed = False
     now = _utc_now()
     for event in events:
         class_id = str(event.get("class_id") or "").strip()
         if class_id in _SKIP_MEMORY_CLASSES:
             continue
-        existing = classes.get(class_id) if isinstance(classes.get(class_id), Mapping) else {}
-        stamp = str(event.get("at") or "") or now
+        raw_existing = classes.get(class_id)
+        existing = dict(raw_existing) if isinstance(raw_existing, Mapping) else {}
+        seen = [str(item) for item in existing.get("seen") or [] if str(item)]
+        if any(_same_remembered_turn(item, source_mission_id, event) for item in seen):
+            continue
+        stamp = str(event.get("at") or "")
+        last_seen = str(existing.get("last_seen") or "")
+        summary = str(event.get("summary") or "")
+        # Rows written before identities existed already contain every replay
+        # of turns at or before last_seen. Seal those reads. A later stamp is
+        # a new occurrence and still increments.
+        legacy = "seen" not in existing and bool(existing)
+        if legacy and not (stamp and last_seen and stamp > last_seen):
+            seen.append(_remember_identity(source_mission_id, event))
+            existing["seen"] = seen
+            classes[class_id] = existing
+            changed = True
+            continue
+        stamp = stamp or now
+        seen.append(_remember_identity(source_mission_id, event))
         classes[class_id] = {
             "class_id": class_id,
             "count": int(existing.get("count") or 0) + 1,
             "evidence": str(event.get("evidence") or existing.get("evidence") or "")[:400],
             "first_seen": str(existing.get("first_seen") or stamp),
-            "last_seen": stamp,
+            "last_seen": stamp if not last_seen or stamp >= last_seen else last_seen,
             "source": str(event.get("source") or existing.get("source") or "unbound"),
             "source_mission_id": str(
                 source_mission_id or existing.get("source_mission_id") or ""
             ),
-            "summary": str(event.get("summary") or existing.get("summary") or "")[:400],
+            "summary": str(summary or existing.get("summary") or "")[:400],
+            "seen": seen,
         }
         written += 1
-    if not written:
+        changed = True
+    if not changed:
         return 0
     payload["classes"] = classes
     save_mission_memory(root, payload)

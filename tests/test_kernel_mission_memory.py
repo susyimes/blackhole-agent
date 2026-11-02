@@ -16,6 +16,22 @@ from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
 from blackhole_agent.pattern_register import classify_unbound_turn
 
 
+def test_repeated_remember_does_not_inflate_count(tmp_path: Path) -> None:
+    from blackhole_agent.kernel_mission_memory import load_mission_memory, remember_turn_record
+
+    turn = dict(HARVESTED_ERROR_TURN)
+    remember_turn_record(tmp_path, turn, source_mission_id="")
+    remember_turn_record(tmp_path, turn, source_mission_id="mission-a")
+    row = load_mission_memory(tmp_path)["classes"]["kernel_turn_failed"]
+    assert row["count"] == 1
+    later = dict(turn)
+    later["iteration"] = 14
+    later["finished_at"] = "2026-08-16T06:10:00Z"
+    later["summary"] = "turn 14 failed before a structured decision"
+    remember_turn_record(tmp_path, later, source_mission_id="mission-a")
+    assert load_mission_memory(tmp_path)["classes"]["kernel_turn_failed"]["count"] == 2
+
+
 def test_goal_binds_mission_memory_plane() -> None:
     assert leftover_marker_ids(MISSION_MEMORY_GOAL) == (MISSION_MEMORY_ID,)
     assert MISSION_MEMORY_ID in LOCAL_DENYLIST
