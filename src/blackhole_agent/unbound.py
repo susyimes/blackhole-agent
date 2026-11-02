@@ -1718,11 +1718,16 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # A cmd chain `set VAR=value&& "exe"` is not that operator: the ampersand
 # there belongs to `&&`, so only a leading `&` or one after `;` counts.
 # An `$env:` assignment inside quotes is text, not a statement.
+# Harvested 2026-09-13: ``PYTHONPATH=src uv run python ...`` is a POSIX
+# prefix, not a PowerShell statement. cmd.exe runs ``PYTHONPATH=src`` as
+# the program and exits 1. pwsh does not accept that prefix either, so
+# routing the text to pwsh cannot reproduce the exit the agent reported.
 _POWERSHELL_CALL_OPERATOR = re.compile(r"(?:^|;)\s*&\s*['\"]")
 _POWERSHELL_ENV_STATEMENT = re.compile(
     r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
     re.IGNORECASE,
 )
+_POSIX_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def _powershell_env_assignment(text: str) -> bool:
@@ -1778,6 +1783,75 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     return [executable, "-NoProfile", "-NonInteractive", "-Command", script]
 
 
+def _posix_prefix_token(body: str) -> tuple[str, str, str] | None:
+    """Parse one leading ``NAME=value`` token. None when it is not a prefix."""
+
+    name = _POSIX_ENV_NAME.match(body)
+    if name is None:
+        return None
+    index = name.end()
+    if index >= len(body) or body[index] != "=":
+        return None
+    rest = body[index + 1 :]
+    if rest.startswith(("'", '"')):
+        quote = rest[0]
+        end = rest.find(quote, 1)
+        if end < 0:
+            return None
+        value = rest[1:end]
+        rest = rest[end + 1 :]
+    else:
+        end = 0
+        while end < len(rest) and not rest[end].isspace():
+            if rest[end] in "&|;<>":
+                return None
+            end += 1
+        value = rest[:end]
+        rest = rest[end:]
+    if not rest or not rest[0].isspace():
+        return None
+    remainder = rest.lstrip()
+    if not remainder:
+        return None
+    return name.group(0), value, remainder
+
+
+def _starts_posix_prefix(body: str) -> bool:
+    name = _POSIX_ENV_NAME.match(body)
+    return bool(name and name.end() < len(body) and body[name.end()] == "=")
+
+
+def split_posix_env_prefix(command: str) -> tuple[dict[str, str], str] | None:
+    """Split a leading POSIX ``NAME=value`` command prefix.
+
+    The harvested form is ``PYTHONPATH=src uv run python ...``. A cmd
+    ``set NAME=value&&`` chain contains no space-separated ``NAME=value``
+    token, and an assignment inside quotes is not at the start of the
+    command. A ``NAME=value&&`` token is not this prefix. The caller runs
+    the returned command with the returned variables in the child environment.
+    """
+
+    body = str(command or "").lstrip()
+    assigned: dict[str, str] = {}
+    while _starts_posix_prefix(body):
+        parsed = _posix_prefix_token(body)
+        if parsed is None:
+            return None
+        name, value, body = parsed
+        assigned[name] = value
+    if not assigned or not body:
+        return None
+    return assigned, body
+
+
+def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str] | None:
+    if not overlay:
+        return None
+    environment = {str(key): str(value) for key, value in os.environ.items()}
+    environment.update({str(key): str(value) for key, value in overlay.items()})
+    return environment
+
+
 def replay_validation_command(
     workspace: Path,
     command: str,
@@ -1794,11 +1868,29 @@ def replay_validation_command(
 
     try:
         if command_runner is subprocess.run:
-            argv = powershell_replay_argv(command)
+            prefix = split_posix_env_prefix(command)
+            run_command = command
+            overlay = None
+            if prefix is not None:
+                overlay, run_command = prefix
+            environment = _replay_environment(overlay)
+            argv = powershell_replay_argv(run_command)
             if argv is not None:
-                completed = run_text_command(argv, cwd=workspace, timeout=timeout, shell=False)
+                completed = run_text_command(
+                    argv,
+                    cwd=workspace,
+                    timeout=timeout,
+                    shell=False,
+                    env=environment,
+                )
             else:
-                completed = run_text_command(command, cwd=workspace, timeout=timeout, shell=True)
+                completed = run_text_command(
+                    run_command,
+                    cwd=workspace,
+                    timeout=timeout,
+                    shell=True,
+                    env=environment,
+                )
         else:
             completed = command_runner(
                 command,
