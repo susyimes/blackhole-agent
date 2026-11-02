@@ -1094,6 +1094,7 @@ def _consider_class(prefix, target, depth=0):
     kind_keys = tuple(item + "_{kind}" for item in _CLASS_KIND_PREFIXES)
     try:
         static_flags = {key.format(kind="static"): (index == depth) for index, key in enumerate(kind_keys)}
+        static_flags["python_nested_class_depth"] = depth
         for attr in sorted(_static_method_names(target)):
             fn = _safe_getattr(target, attr, None)
             _consider(f"{prefix}.{attr}", fn, static_flags, skip_self=True)
@@ -1101,6 +1102,7 @@ def _consider_class(prefix, target, depth=0):
         if instance is None:
             return
         flags = {key.format(kind="instance"): (index == depth) for index, key in enumerate(kind_keys)}
+        flags["python_nested_class_depth"] = depth
         flags["constructor_requires_args"] = bool(requires_args)
         for attr in sorted(_instance_method_names(target, instance)):
             fn = _safe_getattr(instance, attr, None)
@@ -1273,7 +1275,10 @@ for name, target in _child_modules(module, "").items():
 
 _FUNC_KEYS = __FUNC_KEYS__
 level = submodules
-max_depth = len(_CLASS_KIND_PREFIXES) - 1
+named_depth_limit = len(_CLASS_KIND_PREFIXES) - 1
+# The latin table names depths that already have proofs. The walk continues
+# past that table so an unnamed package depth still yields its class method.
+max_depth = max(named_depth_limit, 512)
 for depth in range(1, max_depth + 1):
     nxt = {}
     func_flags = {key: (index == depth - 1) for index, key in enumerate(_FUNC_KEYS)}
@@ -1346,6 +1351,122 @@ def introspect_module(
     if not payload.get("ok"):
         return {"ok": False, "error": str(payload.get("error") or "introspection failed")}
     return {"ok": True, "candidates": payload.get("candidates") or []}
+
+
+_DEPTH_CODEC_SOURCE = (
+    "class Codec:\n"
+    "    def encode(self, text):\n"
+    "        if not isinstance(text, str):\n"
+    "            raise TypeError('encode expects a string')\n"
+    "        return text.upper()\n"
+)
+
+
+def _write_depth_codec(pkg: Path, root_name: str, parts: Sequence[str]) -> None:
+    """Write ``root.<parts>.Codec.encode``. The last part is a module file."""
+
+    *dirs, module = [str(part) for part in parts]
+    rels = [root_name]
+    for part in dirs:
+        rels.append(f"{rels[-1]}/{part}")
+    leaf = pkg.joinpath(*rels[-1].split("/"))
+    Path(os_fs_path(leaf)).mkdir(parents=True, exist_ok=True)
+    for rel in rels:
+        init_path = pkg.joinpath(*rel.split("/"), "__init__.py")
+        Path(os_fs_path(init_path)).write_text("", encoding="utf-8")
+    Path(os_fs_path(leaf / f"{module}.py")).write_text(_DEPTH_CODEC_SOURCE, encoding="utf-8")
+
+
+def _invoke_depth_codec(pkg: Path, path_root: str, import_name: str, candidate_name: str) -> str:
+    """Call the reflected instance method in-process and return its text."""
+
+    import importlib
+
+    relative = str(candidate_name or "")
+    if not relative.endswith(".encode"):
+        return ""
+    class_path = relative[: -len(".encode")]
+    module_rel, _, class_name = class_path.rpartition(".")
+    full_module = import_name if not module_rel else f"{import_name}.{module_rel}"
+    root = pkg if path_root in {"", "."} else pkg / path_root
+    inserted = os_fs_path(root)
+    sys.path.insert(0, inserted)
+    try:
+        module = importlib.import_module(full_module)
+        codec = getattr(module, class_name)
+        value = codec().encode("ab")
+        return value if isinstance(value, str) else ""
+    except Exception:
+        return ""
+    finally:
+        sys.path = [item for item in sys.path if item != inserted]
+        for name in list(sys.modules):
+            if name == import_name or name.startswith(import_name + "."):
+                sys.modules.pop(name, None)
+
+
+def reflect_python_class_instance_depth(depth: int, *, timeout: int = 120) -> dict[str, Any]:
+    """Reflect and invoke a class instance method nested ``depth`` modules down.
+
+    The latin prefix table is not consulted as a walk limit and is not
+    extended. A depth the table does not name still returns that numeric
+    depth and the result of calling ``Codec.encode``.
+    """
+
+    requested = int(depth)
+    named_limit = len(PYTHON_NESTED_CLASS_DEPTH_PREFIXES) - 1
+    empty = {
+        "ok": False,
+        "requested": requested,
+        "depth": None,
+        "name": "",
+        "invoked": "",
+        "latin_instance_flag": False,
+        "past_named_table": requested > named_limit,
+        "named_depth_limit": named_limit,
+        "error": "",
+    }
+    if requested < 1 or requested > 512:
+        return {**empty, "error": "depth is outside the walk"}
+    with tempfile.TemporaryDirectory(prefix="bh-unnamed-depth-", ignore_cleanup_errors=True) as tmp:
+        pkg = Path(tmp) / "pkg"
+        Path(os_fs_path(pkg)).mkdir(parents=True, exist_ok=True)
+        _write_depth_codec(pkg, "bhdepth", ["n"] * requested)
+        try:
+            path_root, import_name = detect_import_root(pkg, "bhdepth")
+        except ValueError as exc:
+            return {**empty, "error": str(exc)}
+        introspection = introspect_module(pkg, import_name, path_root, timeout=timeout)
+        if not introspection.get("ok"):
+            return {**empty, "error": str(introspection.get("error") or "introspection failed")}
+        match = next(
+            (
+                item
+                for item in introspection["candidates"]
+                if int(item.get("python_nested_class_depth") if item.get("python_nested_class_depth") is not None else -1)
+                == requested
+                and str(item.get("name") or "").endswith(".Codec.encode")
+            ),
+            None,
+        )
+        if match is None:
+            return {**empty, "error": "no Codec.encode at the requested depth"}
+        latin_instance_flag = any(
+            bool(match.get(f"{prefix}_instance")) for prefix in PYTHON_NESTED_CLASS_DEPTH_PREFIXES
+        )
+        invoked = _invoke_depth_codec(pkg, path_root, import_name, str(match.get("name") or ""))
+        found = int(match.get("python_nested_class_depth"))
+        return {
+            "ok": invoked == "AB" and found == requested,
+            "requested": requested,
+            "depth": found,
+            "name": str(match.get("name") or ""),
+            "invoked": invoked,
+            "latin_instance_flag": latin_instance_flag,
+            "past_named_table": requested > named_limit,
+            "named_depth_limit": named_limit,
+            "error": "",
+        }
 
 
 def _skip_node_dir(path: Path, root: Path) -> bool:
