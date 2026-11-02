@@ -73,16 +73,21 @@ def assess_worktree_removal(
     milestone_head: str,
     ancestor_refs: Sequence[str],
     command_runner: Callable[..., Any] = subprocess.run,
+    managed_parent: Path | None = None,
 ) -> WorktreeRemovalAssessment:
     """Return whether this workspace is safe to remove.
 
     Does not rename or delete. Call :func:`directory_in_use` immediately
     before the actual removal; a process can appear after this assessment.
+    ``managed_parent`` defaults to the unbound mission directory. Supervisor
+    evolution checkouts pass their own sibling directory and are not treated
+    as outside the owned root.
     """
 
     repo = Path(repo_path)
     target = Path(workspace)
-    if _is_reparse(target) or not _inside_managed_parent(repo, target):
+    parent = Path(managed_parent) if managed_parent is not None else managed_worktree_parent(repo)
+    if _is_reparse(target) or not _inside_parent(parent, target):
         return WorktreeRemovalAssessment(False, "outside_owned_root")
 
     lineage = _lineage_block_reason(
@@ -463,15 +468,21 @@ def _contains_reparse(root: Path) -> bool:
     return False
 
 
-def _inside_managed_parent(repo: Path, workspace: Path) -> bool:
+def _inside_parent(parent: Path, workspace: Path) -> bool:
     try:
-        parent = managed_worktree_parent(repo).resolve()
+        if _is_reparse(parent) or _is_reparse(workspace):
+            return False
+        parent_resolved = parent.resolve()
         resolved = workspace.resolve()
     except OSError:
         return False
-    if resolved == parent:
+    if resolved == parent_resolved:
         return False
-    return _is_relative_to(resolved, parent)
+    return _is_relative_to(resolved, parent_resolved)
+
+
+def _inside_managed_parent(repo: Path, workspace: Path) -> bool:
+    return _inside_parent(managed_worktree_parent(repo), workspace)
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:

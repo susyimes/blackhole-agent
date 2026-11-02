@@ -562,9 +562,279 @@ def reclaim_published_checkouts_on_turn(repo_path: Path) -> dict[str, Any]:
             }
         )
     receipt["cleanup_targets"] = targets
+    supervisor = reclaim_supervisor_evolution_checkouts(repo, record_receipt=False)
+    _merge_supervisor_reclaim(receipt, supervisor)
     _refresh_receipt_after_checkout_reclaim(repo, receipt)
     _write_receipt(receipt_path, receipt)
     return compact
+
+
+def supervisor_evolution_parent(repo_path: Path) -> Path:
+    """Sibling directory that holds supervisor evolution checkouts.
+
+    ``default_ba_roots`` already counts ``.{repo}-blackhole-worktrees``.
+    Mission reclaim only visits ``.{repo}-unbound-worktrees``.
+    """
+
+    repo = Path(repo_path).resolve()
+    return repo.parent / f".{repo.name}-blackhole-worktrees"
+
+
+def _parse_worktree_porcelain(payload: str) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+    current: dict[str, str] = {}
+    for line in str(payload or "").splitlines():
+        if not line.strip():
+            if current.get("worktree"):
+                records.append(current)
+            current = {}
+            continue
+        if line.startswith("worktree "):
+            if current.get("worktree"):
+                records.append(current)
+            current = {"worktree": line[len("worktree ") :].strip()}
+        elif line.startswith("HEAD "):
+            current["head"] = line[len("HEAD ") :].strip()
+        elif line.startswith("branch "):
+            current["branch"] = line[len("branch ") :].strip()
+        elif line.strip() == "detached":
+            current["detached"] = "1"
+    if current.get("worktree"):
+        records.append(current)
+    return records
+
+
+def _path_key(path: Path | str) -> str:
+    return os.path.normcase(os.path.abspath(path))
+
+
+def reclaim_supervisor_evolution_checkouts(
+    repo_path: Path,
+    *,
+    ancestor_refs: Sequence[str] | None = None,
+    command_runner: Any = None,
+    dry_run: bool = False,
+    record_receipt: bool = True,
+) -> dict[str, Any]:
+    """Remove clean supervisor checkouts whose commits are already published.
+
+    The storage budget counts ``.{repo}-blackhole-worktrees``, and mission
+    reclaim never opens that directory. A checkout is removed only when it is
+    a registered git worktree strictly inside that directory, its HEAD and
+    branch tip are contained in the verified remote lineage, and tracked,
+    untracked, and ignored files hold no unique work. Removal is
+    ``git worktree remove`` without ``--force``. Dirty checkouts, unpublished
+    commits, in-use directories, reparse points, unregistered children, and
+    unbound mission checkouts stay on disk.
+    """
+
+    import subprocess
+
+    from blackhole_agent.worktree_reclaim_verify import (
+        assess_worktree_removal,
+        directory_in_use,
+        git_worktree_remove_command,
+    )
+
+    repo = Path(repo_path).resolve()
+    parent = supervisor_evolution_parent(repo)
+    runner = command_runner or subprocess.run
+    refs = tuple(ancestor_refs) if ancestor_refs is not None else _remote_lineage_refs(repo)
+    report: dict[str, Any] = {
+        "ok": True,
+        "action": "supervisor_evolution_reclaim",
+        "dry_run": dry_run,
+        "force_removal": False,
+        "ancestor_refs": list(refs),
+        "parent": str(parent),
+        "scanned": 0,
+        "reclaimed": [],
+        "kept": [],
+        "errors": [],
+    }
+    if not parent.is_dir() or _is_reparse(str(parent)):
+        if record_receipt:
+            _record_supervisor_reclaim(repo, report)
+        return report
+
+    listed = runner(
+        ["git", "worktree", "list", "--porcelain"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if getattr(listed, "returncode", 1) != 0:
+        report["ok"] = False
+        report["errors"].append(
+            {
+                "error": (getattr(listed, "stderr", "") or getattr(listed, "stdout", "") or "worktree list failed")[
+                    :400
+                ]
+            }
+        )
+        if record_receipt:
+            _record_supervisor_reclaim(repo, report)
+        return report
+
+    registered: dict[str, dict[str, str]] = {}
+    for record in _parse_worktree_porcelain(getattr(listed, "stdout", "") or ""):
+        workspace = Path(record.get("worktree") or "")
+        if not workspace:
+            continue
+        if _is_reparse(str(workspace)):
+            report["kept"].append({"workspace": str(workspace), "reason": "reparse_point_present"})
+            continue
+        try:
+            if not _strictly_inside(parent, workspace):
+                continue
+        except OSError:
+            report["kept"].append({"workspace": str(workspace), "reason": "outside_owned_root"})
+            continue
+        registered[_path_key(workspace)] = record
+
+    try:
+        children = list(parent.iterdir())
+    except OSError as error:
+        report["ok"] = False
+        report["errors"].append({"error": str(error)[:400]})
+        if record_receipt:
+            _record_supervisor_reclaim(repo, report)
+        return report
+
+    for child in children:
+        report["scanned"] += 1
+        if _is_reparse(str(child)):
+            report["kept"].append({"workspace": str(child), "reason": "reparse_point_present"})
+            continue
+        record = registered.get(_path_key(child))
+        if record is None:
+            report["kept"].append({"workspace": str(child), "reason": "not_a_registered_worktree"})
+            continue
+        head = str(record.get("head") or "")
+        branch = str(record.get("branch") or "")
+        assessment = assess_worktree_removal(
+            repo,
+            child,
+            branch=branch,
+            milestone_head=head,
+            ancestor_refs=refs,
+            command_runner=runner,
+            managed_parent=parent,
+        )
+        if not assessment.removable:
+            report["kept"].append(
+                {"workspace": str(child), "reason": assessment.reason or "not_removable", "head": head, "branch": branch}
+            )
+            continue
+        entry: dict[str, Any] = {
+            "workspace": str(child),
+            "head": head,
+            "branch": branch,
+            "force": False,
+        }
+        if dry_run:
+            entry["removed"] = False
+            entry["reason"] = "dry_run"
+            report["reclaimed"].append(entry)
+            continue
+        in_use = directory_in_use(child)
+        if in_use:
+            report["kept"].append({"workspace": str(child), "reason": in_use, "head": head, "branch": branch})
+            continue
+        confirmed = assess_worktree_removal(
+            repo,
+            child,
+            branch=branch,
+            milestone_head=head,
+            ancestor_refs=refs,
+            command_runner=runner,
+            managed_parent=parent,
+        )
+        if not confirmed.removable or confirmed.stale_published_tree:
+            report["kept"].append(
+                {
+                    "workspace": str(child),
+                    "reason": confirmed.reason or "stale_supervisor_tree_not_removed_by_git",
+                    "head": head,
+                    "branch": branch,
+                }
+            )
+            continue
+        command = git_worktree_remove_command(child)
+        entry["remove_command"] = command
+        if "--force" in command or "-f" in command:
+            report["kept"].append({"workspace": str(child), "reason": "force_removal_refused"})
+            continue
+        try:
+            removed = runner(
+                command,
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=600,
+            )
+        except subprocess.TimeoutExpired as error:
+            report["ok"] = False
+            report["errors"].append({"workspace": str(child), "error": str(error)[:400], "timed_out": True})
+            report["kept"].append({"workspace": str(child), "reason": "remove_timed_out"})
+            continue
+        if getattr(removed, "returncode", 1) != 0:
+            report["ok"] = False
+            detail = (getattr(removed, "stderr", "") or getattr(removed, "stdout", "") or "remove failed")[:400]
+            report["errors"].append({"workspace": str(child), "error": detail})
+            report["kept"].append({"workspace": str(child), "reason": "remove_failed", "error": detail})
+            continue
+        entry["removed"] = True
+        report["reclaimed"].append(entry)
+
+    if record_receipt:
+        _record_supervisor_reclaim(repo, report)
+    return report
+
+
+def _merge_supervisor_reclaim(receipt: dict[str, Any], report: dict[str, Any]) -> None:
+    if int(report.get("scanned") or 0) < 1 and not report.get("reclaimed") and not report.get("errors"):
+        return
+    receipt["supervisor_worktree_reclaim"] = {
+        "ok": report.get("ok"),
+        "force_removal": False,
+        "dry_run": report.get("dry_run"),
+        "parent": report.get("parent"),
+        "ancestor_refs": list(report.get("ancestor_refs") or []),
+        "scanned": report.get("scanned"),
+        "reclaimed": list(report.get("reclaimed") or []),
+        "kept": list(report.get("kept") or []),
+        "errors": list(report.get("errors") or []),
+    }
+    targets = [item for item in receipt.get("cleanup_targets") or [] if isinstance(item, dict)]
+    for item in report.get("reclaimed") or []:
+        if not isinstance(item, dict) or item.get("removed") is not True:
+            continue
+        targets.append(
+            {
+                "path": item.get("workspace"),
+                "action": "git_worktree_remove",
+                "outcome": "removed",
+                "command": item.get("remove_command"),
+                "force": False,
+            }
+        )
+    receipt["cleanup_targets"] = targets
+
+
+def _record_supervisor_reclaim(repo: Path, report: dict[str, Any]) -> None:
+    path = repo / ".blackhole-agent" / "unbound" / "storage-budget.json"
+    receipt = _read_storage_receipt(path)
+    _merge_supervisor_reclaim(receipt, report)
+    if "supervisor_worktree_reclaim" not in receipt and int(report.get("scanned") or 0) < 1:
+        return
+    _write_receipt(path, receipt)
 
 
 def authorization_measurement_roots(repo_path: Path) -> list[Path]:
@@ -769,7 +1039,9 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     read at call time so a caller can point a fixture at a small cap. A
     complete measurement removes older completed published worktrees with no
     unique work before the new checkout, including while usage is still below
-    the preventive line. An incomplete measurement removes nothing. Removal is
+    the preventive line. It also removes a clean supervisor evolution checkout
+    whose commits are already in the remote lineage. An incomplete measurement
+    removes nothing. Removal is
     ``git worktree remove`` without ``--force``. The receipt is written under
     the repository's unbound directory.
     """
@@ -783,8 +1055,10 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
     before = measure_roots(roots)
     growth = checkout_growth_bytes(before, repo)
     reclaim_report: dict[str, Any] | None = None
+    supervisor_report: dict[str, Any] | None = None
     if completed_checkout_reclaim_allowed(before):
         reclaim_report = reclaim_completed_for_budget(repo)
+        supervisor_report = reclaim_supervisor_evolution_checkouts(repo, record_receipt=False)
     receipt = govern_expansion(
         roots,
         additional_bytes=growth,
@@ -813,6 +1087,8 @@ def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
                 }
             )
         receipt["cleanup_targets"] = targets
+    if supervisor_report is not None:
+        _merge_supervisor_reclaim(receipt, supervisor_report)
     receipt["temp_reclaim"] = {
         "removed": list(temp_reclaim.get("removed") or []),
         "skipped": list(temp_reclaim.get("skipped") or [])[:20],
