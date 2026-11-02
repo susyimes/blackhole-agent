@@ -54,6 +54,7 @@ from blackhole_agent.pattern_register import (
     required_pattern_mission,
 )
 from blackhole_agent.protected_paths import evaluate_candidate_protected_paths
+from blackhole_agent.soul import read_soul_snapshot, render_soul_layer
 from blackhole_agent.capability_compounder import (
     CONTEXT_ONLY_OUTCOME_KINDS,
     OUTCOME_PREDICATE_PATTERN,
@@ -1126,6 +1127,25 @@ def repository_snapshot(
     }
 
 
+def soul_for_prompt(workspace: Path, repo_path: Path) -> str:
+    """Render the soul one-pager for a turn prompt; empty when no soul exists.
+
+    The mission workspace is the kernel's world, so read its soul first
+    and fall back to the controller checkout. Prompt construction must
+    never fail a turn, so read errors degrade to no soul block.
+    """
+
+    try:
+        snapshot = read_soul_snapshot(workspace)
+        if not snapshot.exists and repo_path != workspace:
+            snapshot = read_soul_snapshot(repo_path)
+        if not snapshot.exists:
+            return ""
+        return render_soul_layer(snapshot, style="one-pager")
+    except Exception:  # noqa: BLE001 - prompt construction must not fail a turn
+        return ""
+
+
 def capability_ledger_for_prompt(workspace: Path) -> str:
     """Load the in-repo capability ledger for turn context, seeding if needed."""
 
@@ -1201,6 +1221,8 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
                 row["gate_feedback"] = "milestone rejected: " + "; ".join(gate_reasons)
         history.append(row)
     ledger_block = capability_ledger_for_prompt(Path(state.workspace_path))
+    soul_body = soul_for_prompt(Path(state.workspace_path), Path(state.repo_path))
+    soul_block = f"\n{soul_body}\n" if soul_body else ""
     try:
         from blackhole_agent.local_mission_sovereignty import render_local_campaign_for_prompt
 
@@ -1211,6 +1233,7 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
     prompt = f"""You are Blackhole Unbound, the single long-running agent responsible for this mission.
 
 There are no child agents in this version. Do not spawn, delegate to, fork, or simulate subagents. Work directly.
+{soul_block}
 
 {mission_block}
 

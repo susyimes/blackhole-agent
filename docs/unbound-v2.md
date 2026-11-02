@@ -5,6 +5,12 @@ separate path from `github_growth`; trend digests, capability-theme pass counts,
 skill-route pipelines, and the legacy self-model are not injected into Unbound
 turns.
 
+The one exception is the soul layer: the one-pager section of the repo-root
+`soul.md` (plus a pointer to the full text) is injected near the top of every
+regular turn prompt when the file exists in the mission workspace or the
+controller checkout. It is desire, not procedure: it grants no permissions and
+cannot override the milestone, selection, or promotion gates below.
+
 ## Runtime Contract
 
 One mission owns:

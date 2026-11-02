@@ -27,6 +27,7 @@ from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, Co
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel, GrokCliRunResult
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
 from blackhole_agent.persona import render_persona_layer
+from blackhole_agent.soul import SoulSnapshot, read_soul_snapshot, render_soul_layer
 from blackhole_agent.protected_paths import PROTECTED_PATH_INSTRUCTION
 from blackhole_agent.proposal_synthesis import (
     DEFAULT_PROPOSAL_MODE,
@@ -3035,6 +3036,7 @@ def render_self_evolution_task(
     repo_path: Path,
     branch_name: str,
     self_model_snapshot: SelfModelSnapshot,
+    soul_snapshot: SoulSnapshot | None = None,
     digest_id: str,
     digest_generated_at: str,
     capability_theme_window: dict[str, Any] | None = None,
@@ -3066,6 +3068,7 @@ def render_self_evolution_task(
     capability_step_lines = render_upstream_evidence_capability_step_lines(
         upstream_evidence_capability_step or {}
     )
+    soul_text = render_soul_layer(soul_snapshot or read_soul_snapshot(repo_path))
     extra = f"\nAdditional operator instructions:\n{extra_instructions.strip()}\n" if extra_instructions.strip() else ""
     fuel = harvest_experience(repo_path)
     if fuel.forced:
@@ -3092,6 +3095,8 @@ def render_self_evolution_task(
             "You are Codex running as the local kernel for blackhole-agent.",
             "",
             render_persona_layer(),
+            "",
+            soul_text,
             "",
             f"Repository path: {repo_path}",
             f"Working branch prepared by controller: {branch_name}",
