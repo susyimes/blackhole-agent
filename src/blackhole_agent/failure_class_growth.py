@@ -8,8 +8,10 @@ increments the same class and the required pattern mission can name it.
 
 A proved closer hides that whole class from genesis fuel. The latest forced
 occurrence still becomes a symptom card when its command text is outside the
-closer and outside a later completed repair. A covered command, a repaired
-command, a selection-gate rejection, and an open class stay off that card.
+closer and outside a later completed repair. Directory segments of a
+filesystem path are not that command; the leaf name still is. A covered
+command, a repaired command, a selection-gate rejection, and an open class
+stay off that card.
 """
 
 from __future__ import annotations
@@ -278,6 +280,13 @@ _GENERIC_SYMPTOM_TOKENS = frozenset(
     }
 )
 _RARE_TOKEN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+# Absolute, relative, and POSIX paths. The leaf after the last separator is
+# the command or file name; earlier segments only locate the checkout.
+_LOCATION_SPAN = re.compile(
+    r"[a-z]:\\[^\s'\"]+"
+    r"|(?:(?<=^)|(?<=[\s'\"]))(?:[\w.-]+[\\/])+[\w.-]+"
+    r"|/(?:[\w.-]+/)+[\w.-]+"
+)
 
 
 def rare_symptom_tokens(text: str) -> set[str]:
@@ -286,6 +295,37 @@ def rare_symptom_tokens(text: str) -> set[str]:
     found: set[str] = set()
     for token in _RARE_TOKEN.findall(str(text or "").lower()):
         if len(token) < 8 or token in _GENERIC_SYMPTOM_TOKENS or token.isdigit():
+            continue
+        found.add(token)
+    return found
+
+
+def command_symptom_tokens(text: str) -> set[str]:
+    """Rare tokens that name a command, not the directory that holds it.
+
+    ``Documents\\Playground\\blackhole-agent`` is where this checkout lives.
+    It must not keep an already-closed replay class in genesis fuel. The leaf
+    filename still counts, and so does the same token written outside a path.
+    """
+
+    raw = str(text or "").lower()
+    directory_ranges: list[tuple[int, int]] = []
+    for match in _LOCATION_SPAN.finditer(raw):
+        span = match.group(0)
+        leaf_at = max(span.rfind("\\"), span.rfind("/"))
+        if leaf_at <= 0:
+            continue
+        directory_ranges.append((match.start(), match.start() + leaf_at))
+
+    def in_directory(pos: int) -> bool:
+        return any(start <= pos < end for start, end in directory_ranges)
+
+    found: set[str] = set()
+    for match in _RARE_TOKEN.finditer(raw):
+        token = match.group(0)
+        if len(token) < 8 or token in _GENERIC_SYMPTOM_TOKENS or token.isdigit():
+            continue
+        if in_directory(match.start()):
             continue
         found.add(token)
     return found
@@ -327,6 +367,7 @@ def novel_closed_class_symptoms(repo_path: Path) -> list[dict[str, Any]]:
     The occurrence must be a replay failure. Its rare command tokens must fall
     outside the class structural fix, and none of those unseen tokens may
     appear in a completed mission that started at or after the occurrence.
+    Directory segments of a filesystem path are not command tokens.
     """
 
     root = Path(repo_path)
@@ -352,7 +393,7 @@ def novel_closed_class_symptoms(repo_path: Path) -> list[dict[str, Any]]:
         evidence = str(latest.evidence or latest.summary or "").strip()
         if "replay" not in evidence.lower():
             continue
-        outside = rare_symptom_tokens(evidence) - rare_symptom_tokens(entry.structural_fix)
+        outside = command_symptom_tokens(evidence) - rare_symptom_tokens(entry.structural_fix)
         if not outside:
             continue
         repairs = _later_repair_text(root, str(latest.at or ""))
