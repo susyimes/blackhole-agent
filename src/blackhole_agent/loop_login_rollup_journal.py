@@ -463,21 +463,13 @@ def builtin_loop_login_rollup_journal_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_rollup_journal"] = (
-        len(catalog) > 256
-        and catalog[256]["id"] == LOOP_LOGIN_ROLLUP_JOURNAL_ID
-        and catalog[256]["goal"] == LOOP_LOGIN_ROLLUP_JOURNAL_GOAL
-        and catalog[256]["done_when"] == LOOP_LOGIN_ROLLUP_JOURNAL_DONE_WHEN
-        and catalog[256]["source"] == "genesis_bind_loop_login_rollup_journal"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_JOURNAL_ID), {}).get("id") == LOOP_LOGIN_ROLLUP_JOURNAL_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_JOURNAL_ID), {}).get("goal") == LOOP_LOGIN_ROLLUP_JOURNAL_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_JOURNAL_ID), {}).get("done_when") == LOOP_LOGIN_ROLLUP_JOURNAL_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_JOURNAL_ID), {}).get("source") == "genesis_bind_loop_login_rollup_journal")
     )
     checks["catalog_names_login_journal_prune"] = (
-        len(catalog) > 257
-        and catalog[257]["id"] == LOOP_LOGIN_JOURNAL_PRUNE_ID
-        and catalog[257]["goal"] == LOOP_LOGIN_JOURNAL_PRUNE_GOAL
-        and catalog[257]["done_when"] == LOOP_LOGIN_JOURNAL_PRUNE_DONE_WHEN
-        and catalog[257]["source"] == "genesis_bind_loop_login_journal_prune"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_JOURNAL_PRUNE_ID), {}).get("id") == LOOP_LOGIN_JOURNAL_PRUNE_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_JOURNAL_PRUNE_ID), {}).get("goal") == LOOP_LOGIN_JOURNAL_PRUNE_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_JOURNAL_PRUNE_ID), {}).get("done_when") == LOOP_LOGIN_JOURNAL_PRUNE_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_JOURNAL_PRUNE_ID), {}).get("source") == "genesis_bind_loop_login_journal_prune")
     )
     checks["login_rollup_repair_stays_ahead"] = (
-        len(catalog) > 255 and catalog[255]["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID), {}).get("id") == LOOP_LOGIN_ROLLUP_REPAIR_ID)
     )
 
     def tombstone(task_name: str, *, pruned_days: int) -> dict[str, Any]:

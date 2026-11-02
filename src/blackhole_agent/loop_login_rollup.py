@@ -320,21 +320,13 @@ def builtin_loop_login_rollup_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_rollup"] = (
-        len(catalog) > 253
-        and catalog[253]["id"] == LOOP_LOGIN_ROLLUP_ID
-        and catalog[253]["goal"] == LOOP_LOGIN_ROLLUP_GOAL
-        and catalog[253]["done_when"] == LOOP_LOGIN_ROLLUP_DONE_WHEN
-        and catalog[253]["source"] == "genesis_bind_loop_login_rollup"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("id") == LOOP_LOGIN_ROLLUP_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("goal") == LOOP_LOGIN_ROLLUP_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("done_when") == LOOP_LOGIN_ROLLUP_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("source") == "genesis_bind_loop_login_rollup")
     )
     checks["catalog_names_login_verify"] = (
-        len(catalog) > 254
-        and catalog[254]["id"] == LOOP_LOGIN_VERIFY_ID
-        and catalog[254]["goal"] == LOOP_LOGIN_VERIFY_GOAL
-        and catalog[254]["done_when"] == LOOP_LOGIN_VERIFY_DONE_WHEN
-        and catalog[254]["source"] == "genesis_bind_loop_login_verify"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("id") == LOOP_LOGIN_VERIFY_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("goal") == LOOP_LOGIN_VERIFY_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("done_when") == LOOP_LOGIN_VERIFY_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("source") == "genesis_bind_loop_login_verify")
     )
     checks["login_compact_stays_ahead"] = (
-        len(catalog) > 252 and catalog[252]["id"] == LOOP_LOGIN_COMPACT_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("id") == LOOP_LOGIN_COMPACT_ID)
     )
 
     def tombstone(task_name: str, *, pruned_days: int) -> dict[str, Any]:

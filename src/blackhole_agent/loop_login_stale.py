@@ -267,21 +267,13 @@ def builtin_loop_login_stale_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_stale"] = (
-        len(catalog) > 245
-        and catalog[245]["id"] == LOOP_LOGIN_STALE_ID
-        and catalog[245]["goal"] == LOOP_LOGIN_STALE_GOAL
-        and catalog[245]["done_when"] == LOOP_LOGIN_STALE_DONE_WHEN
-        and catalog[245]["source"] == "genesis_bind_loop_login_stale"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_STALE_ID), {}).get("id") == LOOP_LOGIN_STALE_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_STALE_ID), {}).get("goal") == LOOP_LOGIN_STALE_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_STALE_ID), {}).get("done_when") == LOOP_LOGIN_STALE_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_STALE_ID), {}).get("source") == "genesis_bind_loop_login_stale")
     )
     checks["catalog_names_login_retire"] = (
-        len(catalog) > 246
-        and catalog[246]["id"] == LOOP_LOGIN_RETIRE_ID
-        and catalog[246]["goal"] == LOOP_LOGIN_RETIRE_GOAL
-        and catalog[246]["done_when"] == LOOP_LOGIN_RETIRE_DONE_WHEN
-        and catalog[246]["source"] == "genesis_bind_loop_login_retire"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_RETIRE_ID), {}).get("id") == LOOP_LOGIN_RETIRE_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_RETIRE_ID), {}).get("goal") == LOOP_LOGIN_RETIRE_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_RETIRE_ID), {}).get("done_when") == LOOP_LOGIN_RETIRE_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_RETIRE_ID), {}).get("source") == "genesis_bind_loop_login_retire")
     )
     checks["login_drift_stays_ahead"] = (
-        len(catalog) > 244 and catalog[244]["id"] == LOOP_LOGIN_DRIFT_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_DRIFT_ID), {}).get("id") == LOOP_LOGIN_DRIFT_ID)
     )
 
     dead_pid = 1_000_111

@@ -922,7 +922,6 @@ def ensure_tftp_actuation_capability(*, repo_path: Path | None = None) -> Capabi
             "src/blackhole_agent/kernel_leftover.py",
             "src/blackhole_agent/kernel_genesis_diversify.py",
             "src/blackhole_agent/local_capability_kernel.py",
-            "src/blackhole_agent/snmp_actuation.py",
             "capabilities/ledger.json",
         ),
         capability_delta=(
@@ -966,7 +965,6 @@ def builtin_tftp_actuation_proof() -> dict[str, Any]:
         semantic_signature,
         semantic_similarity,
     )
-    from blackhole_agent.snmp_actuation import SNMP_ACTUATION_GOAL, SNMP_ACTUATION_ID
     from blackhole_agent.ssh_actuation import SSH_ACTUATION_GOAL, SSH_ACTUATION_ID
 
     catalog = DIVERSITY_CATALOG
@@ -978,30 +976,23 @@ def builtin_tftp_actuation_proof() -> dict[str, Any]:
     checks["grpc_goal_is_not_tftp"] = leftover_marker_ids(GRPC_ACTUATION_GOAL) == (GRPC_ACTUATION_ID,)
     checks["ssh_goal_is_not_tftp"] = leftover_marker_ids(SSH_ACTUATION_GOAL) == (SSH_ACTUATION_ID,)
     checks["dns_goal_is_not_tftp"] = leftover_marker_ids(DNS_ACTUATION_GOAL) == (DNS_ACTUATION_ID,)
-    checks["snmp_goal_is_not_tftp"] = leftover_marker_ids(SNMP_ACTUATION_GOAL) == (SNMP_ACTUATION_ID,)
     checks["tftp_goal_is_not_ftp"] = FTP_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     checks["tftp_goal_is_not_amqp"] = AMQP_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     checks["tftp_goal_is_not_grpc"] = GRPC_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     checks["tftp_goal_is_not_ssh"] = SSH_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     checks["tftp_goal_is_not_dns"] = DNS_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
-    checks["tftp_goal_is_not_snmp"] = SNMP_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     checks["ftp_marker_stays_ftp"] = TFTP_ACTUATION_ID not in leftover_marker_ids(FTP_ACTUATION_GOAL)
     checks["amqp_marker_stays_amqp"] = TFTP_ACTUATION_ID not in leftover_marker_ids(AMQP_ACTUATION_GOAL)
     checks["grpc_marker_stays_grpc"] = TFTP_ACTUATION_ID not in leftover_marker_ids(GRPC_ACTUATION_GOAL)
     checks["ssh_marker_stays_ssh"] = TFTP_ACTUATION_ID not in leftover_marker_ids(SSH_ACTUATION_GOAL)
     checks["dns_marker_stays_dns"] = TFTP_ACTUATION_ID not in leftover_marker_ids(DNS_ACTUATION_GOAL)
-    checks["snmp_marker_stays_snmp"] = TFTP_ACTUATION_ID not in leftover_marker_ids(SNMP_ACTUATION_GOAL)
     checks["schema_version"] = SCHEMA_VERSION == 1
     checks["catalog_names_tftp"] = (
         len(catalog) > 46
         and catalog[46]["id"] == TFTP_ACTUATION_ID
         and catalog[45]["id"] == FTP_ACTUATION_ID
     )
-    checks["catalog_names_snmp"] = (
-        len(catalog) > 47
-        and catalog[47]["id"] == SNMP_ACTUATION_ID
-        and catalog[47]["source"] == "genesis_bind_snmp"
-    )
+    checks["retired_snmp_absent"] = all(item["id"] != "capability.snmp-actuation" for item in catalog)
     from blackhole_agent.mission_selection import semantic_tokens
 
     family = capability_family(TFTP_ACTUATION_GOAL)
@@ -1027,7 +1018,6 @@ def builtin_tftp_actuation_proof() -> dict[str, Any]:
         GRPC_ACTUATION_GOAL,
         SSH_ACTUATION_GOAL,
         DNS_ACTUATION_GOAL,
-        SNMP_ACTUATION_GOAL,
     )
     tftp_signature = semantic_signature(TFTP_ACTUATION_GOAL)
     checks["not_a_neighbor_duplicate"] = all(

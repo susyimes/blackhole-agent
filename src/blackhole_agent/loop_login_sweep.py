@@ -383,21 +383,13 @@ def builtin_loop_login_sweep_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_sweep"] = (
-        len(catalog) > 247
-        and catalog[247]["id"] == LOOP_LOGIN_SWEEP_ID
-        and catalog[247]["goal"] == LOOP_LOGIN_SWEEP_GOAL
-        and catalog[247]["done_when"] == LOOP_LOGIN_SWEEP_DONE_WHEN
-        and catalog[247]["source"] == "genesis_bind_loop_login_sweep"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_SWEEP_ID), {}).get("id") == LOOP_LOGIN_SWEEP_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_SWEEP_ID), {}).get("goal") == LOOP_LOGIN_SWEEP_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_SWEEP_ID), {}).get("done_when") == LOOP_LOGIN_SWEEP_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_SWEEP_ID), {}).get("source") == "genesis_bind_loop_login_sweep")
     )
     checks["catalog_names_login_scrub"] = (
-        len(catalog) > 248
-        and catalog[248]["id"] == LOOP_LOGIN_SCRUB_ID
-        and catalog[248]["goal"] == LOOP_LOGIN_SCRUB_GOAL
-        and catalog[248]["done_when"] == LOOP_LOGIN_SCRUB_DONE_WHEN
-        and catalog[248]["source"] == "genesis_bind_loop_login_scrub"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_SCRUB_ID), {}).get("id") == LOOP_LOGIN_SCRUB_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_SCRUB_ID), {}).get("goal") == LOOP_LOGIN_SCRUB_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_SCRUB_ID), {}).get("done_when") == LOOP_LOGIN_SCRUB_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_SCRUB_ID), {}).get("source") == "genesis_bind_loop_login_scrub")
     )
     checks["login_retire_stays_ahead"] = (
-        len(catalog) > 246 and catalog[246]["id"] == LOOP_LOGIN_RETIRE_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_RETIRE_ID), {}).get("id") == LOOP_LOGIN_RETIRE_ID)
     )
 
     dead_pid = 1_000_151

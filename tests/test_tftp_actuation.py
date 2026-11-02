@@ -13,7 +13,6 @@ from blackhole_agent.mission_selection import (
     semantic_signature,
     semantic_similarity,
 )
-from blackhole_agent.snmp_actuation import SNMP_ACTUATION_GOAL, SNMP_ACTUATION_ID
 from blackhole_agent.ssh_actuation import SSH_ACTUATION_GOAL, SSH_ACTUATION_ID
 from blackhole_agent.tftp_actuation import (
     BLOCK_SIZE,
@@ -48,19 +47,16 @@ def test_goal_binds_tftp_actuation_plane() -> None:
     assert leftover_marker_ids(GRPC_ACTUATION_GOAL) == (GRPC_ACTUATION_ID,)
     assert leftover_marker_ids(SSH_ACTUATION_GOAL) == (SSH_ACTUATION_ID,)
     assert leftover_marker_ids(DNS_ACTUATION_GOAL) == (DNS_ACTUATION_ID,)
-    assert leftover_marker_ids(SNMP_ACTUATION_GOAL) == (SNMP_ACTUATION_ID,)
     assert TFTP_ACTUATION_ID not in leftover_marker_ids(FTP_ACTUATION_GOAL)
     assert TFTP_ACTUATION_ID not in leftover_marker_ids(AMQP_ACTUATION_GOAL)
     assert TFTP_ACTUATION_ID not in leftover_marker_ids(GRPC_ACTUATION_GOAL)
     assert TFTP_ACTUATION_ID not in leftover_marker_ids(SSH_ACTUATION_GOAL)
     assert TFTP_ACTUATION_ID not in leftover_marker_ids(DNS_ACTUATION_GOAL)
-    assert TFTP_ACTUATION_ID not in leftover_marker_ids(SNMP_ACTUATION_GOAL)
     assert FTP_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     assert AMQP_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     assert GRPC_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     assert SSH_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     assert DNS_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
-    assert SNMP_ACTUATION_ID not in leftover_marker_ids(TFTP_ACTUATION_GOAL)
     tftp_signature = semantic_signature(TFTP_ACTUATION_GOAL)
     for neighbor in (
         FTP_ACTUATION_GOAL,
@@ -68,7 +64,6 @@ def test_goal_binds_tftp_actuation_plane() -> None:
         GRPC_ACTUATION_GOAL,
         SSH_ACTUATION_GOAL,
         DNS_ACTUATION_GOAL,
-        SNMP_ACTUATION_GOAL,
     ):
         assert semantic_similarity(tftp_signature, semantic_signature(neighbor)) < 0.82
 

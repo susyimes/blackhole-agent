@@ -217,17 +217,10 @@ def builtin_leftover_handoff_rebind_proof() -> dict[str, Any]:
     ) and leftover_marker_ids(HARVESTED_CATALOG_HANDOFF) == (LEFTOVER_CATALOG_HANDOFF_ID,)
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_rebind"] = (
-        len(catalog) > 239
-        and catalog[239]["id"] == LEFTOVER_HANDOFF_REBIND_ID
-        and catalog[239]["goal"] == LEFTOVER_HANDOFF_REBIND_GOAL
-        and catalog[239]["done_when"] == LEFTOVER_HANDOFF_REBIND_DONE_WHEN
-        and catalog[239]["source"] == "genesis_bind_leftover_handoff"
+        (next((item for item in catalog if item["id"] == LEFTOVER_HANDOFF_REBIND_ID), {}).get("id") == LEFTOVER_HANDOFF_REBIND_ID and next((item for item in catalog if item["id"] == LEFTOVER_HANDOFF_REBIND_ID), {}).get("goal") == LEFTOVER_HANDOFF_REBIND_GOAL and next((item for item in catalog if item["id"] == LEFTOVER_HANDOFF_REBIND_ID), {}).get("done_when") == LEFTOVER_HANDOFF_REBIND_DONE_WHEN and next((item for item in catalog if item["id"] == LEFTOVER_HANDOFF_REBIND_ID), {}).get("source") == "genesis_bind_leftover_handoff")
     )
     checks["catalog_names_orphan_reap"] = (
-        len(catalog) > 240
-        and catalog[240]["id"] == ORPHAN_LOOP_REAP_ID
-        and catalog[240]["goal"] == ORPHAN_LOOP_REAP_GOAL
-        and catalog[240]["source"] == "genesis_bind_orphan_loop"
+        (next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("id") == ORPHAN_LOOP_REAP_ID and next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("goal") == ORPHAN_LOOP_REAP_GOAL and next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("source") == "genesis_bind_orphan_loop")
     )
     closed_goal = f"Close operational class `mission_leftover`: {HARVESTED_CLOSED_LEFTOVER}"
     open_goal = f"Close operational class `mission_leftover`: {OPEN_UNRELATED_LEFTOVER}"

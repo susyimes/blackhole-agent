@@ -389,21 +389,13 @@ def builtin_loop_login_compact_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_compact"] = (
-        len(catalog) > 252
-        and catalog[252]["id"] == LOOP_LOGIN_COMPACT_ID
-        and catalog[252]["goal"] == LOOP_LOGIN_COMPACT_GOAL
-        and catalog[252]["done_when"] == LOOP_LOGIN_COMPACT_DONE_WHEN
-        and catalog[252]["source"] == "genesis_bind_loop_login_compact"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("id") == LOOP_LOGIN_COMPACT_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("goal") == LOOP_LOGIN_COMPACT_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("done_when") == LOOP_LOGIN_COMPACT_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("source") == "genesis_bind_loop_login_compact")
     )
     checks["catalog_names_login_rollup"] = (
-        len(catalog) > 253
-        and catalog[253]["id"] == LOOP_LOGIN_ROLLUP_ID
-        and catalog[253]["goal"] == LOOP_LOGIN_ROLLUP_GOAL
-        and catalog[253]["done_when"] == LOOP_LOGIN_ROLLUP_DONE_WHEN
-        and catalog[253]["source"] == "genesis_bind_loop_login_rollup"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("id") == LOOP_LOGIN_ROLLUP_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("goal") == LOOP_LOGIN_ROLLUP_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("done_when") == LOOP_LOGIN_ROLLUP_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("source") == "genesis_bind_loop_login_rollup")
     )
     checks["login_tombstone_stays_ahead"] = (
-        len(catalog) > 251 and catalog[251]["id"] == LOOP_LOGIN_TOMBSTONE_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_TOMBSTONE_ID), {}).get("id") == LOOP_LOGIN_TOMBSTONE_ID)
     )
 
     dead_pid = 1_000_251

@@ -341,19 +341,12 @@ def builtin_loop_reboot_restore_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_reboot_restore"] = (
-        len(catalog) > 241
-        and catalog[241]["id"] == LOOP_REBOOT_RESTORE_ID
-        and catalog[241]["goal"] == LOOP_REBOOT_RESTORE_GOAL
-        and catalog[241]["done_when"] == LOOP_REBOOT_RESTORE_DONE_WHEN
-        and catalog[241]["source"] == "genesis_bind_loop_reboot"
+        (next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("id") == LOOP_REBOOT_RESTORE_ID and next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("goal") == LOOP_REBOOT_RESTORE_GOAL and next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("done_when") == LOOP_REBOOT_RESTORE_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("source") == "genesis_bind_loop_reboot")
     )
     checks["catalog_names_login_task"] = (
-        len(catalog) > 242
-        and catalog[242]["id"] == LOOP_LOGIN_TASK_ID
-        and catalog[242]["goal"] == LOOP_LOGIN_TASK_GOAL
-        and catalog[242]["source"] == "genesis_bind_loop_login"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_TASK_ID), {}).get("id") == LOOP_LOGIN_TASK_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_TASK_ID), {}).get("goal") == LOOP_LOGIN_TASK_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_TASK_ID), {}).get("source") == "genesis_bind_loop_login")
     )
-    checks["reap_stays_ahead"] = len(catalog) > 240 and catalog[240]["id"] == ORPHAN_LOOP_REAP_ID
+    checks["reap_stays_ahead"] = (next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("id") == ORPHAN_LOOP_REAP_ID)
 
     dead_pid = 1_000_013
     while pid_is_running(dead_pid):

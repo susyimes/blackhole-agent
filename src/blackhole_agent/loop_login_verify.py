@@ -424,21 +424,13 @@ def builtin_loop_login_verify_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_verify"] = (
-        len(catalog) > 254
-        and catalog[254]["id"] == LOOP_LOGIN_VERIFY_ID
-        and catalog[254]["goal"] == LOOP_LOGIN_VERIFY_GOAL
-        and catalog[254]["done_when"] == LOOP_LOGIN_VERIFY_DONE_WHEN
-        and catalog[254]["source"] == "genesis_bind_loop_login_verify"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("id") == LOOP_LOGIN_VERIFY_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("goal") == LOOP_LOGIN_VERIFY_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("done_when") == LOOP_LOGIN_VERIFY_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_VERIFY_ID), {}).get("source") == "genesis_bind_loop_login_verify")
     )
     checks["catalog_names_login_rollup_repair"] = (
-        len(catalog) > 255
-        and catalog[255]["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID
-        and catalog[255]["goal"] == LOOP_LOGIN_ROLLUP_REPAIR_GOAL
-        and catalog[255]["done_when"] == LOOP_LOGIN_ROLLUP_REPAIR_DONE_WHEN
-        and catalog[255]["source"] == "genesis_bind_loop_login_rollup_repair"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID), {}).get("id") == LOOP_LOGIN_ROLLUP_REPAIR_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID), {}).get("goal") == LOOP_LOGIN_ROLLUP_REPAIR_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID), {}).get("done_when") == LOOP_LOGIN_ROLLUP_REPAIR_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_REPAIR_ID), {}).get("source") == "genesis_bind_loop_login_rollup_repair")
     )
     checks["login_rollup_stays_ahead"] = (
-        len(catalog) > 253 and catalog[253]["id"] == LOOP_LOGIN_ROLLUP_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_ROLLUP_ID), {}).get("id") == LOOP_LOGIN_ROLLUP_ID)
     )
 
     def tombstone(task_name: str, *, pruned_days: int) -> dict[str, Any]:

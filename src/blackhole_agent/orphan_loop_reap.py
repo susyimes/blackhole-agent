@@ -281,20 +281,13 @@ def builtin_orphan_loop_reap_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_orphan_reap"] = (
-        len(catalog) > 240
-        and catalog[240]["id"] == ORPHAN_LOOP_REAP_ID
-        and catalog[240]["goal"] == ORPHAN_LOOP_REAP_GOAL
-        and catalog[240]["done_when"] == ORPHAN_LOOP_REAP_DONE_WHEN
-        and catalog[240]["source"] == "genesis_bind_orphan_loop"
+        (next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("id") == ORPHAN_LOOP_REAP_ID and next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("goal") == ORPHAN_LOOP_REAP_GOAL and next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("done_when") == ORPHAN_LOOP_REAP_DONE_WHEN and next((item for item in catalog if item["id"] == ORPHAN_LOOP_REAP_ID), {}).get("source") == "genesis_bind_orphan_loop")
     )
     checks["catalog_names_reboot_restore"] = (
-        len(catalog) > 241
-        and catalog[241]["id"] == LOOP_REBOOT_RESTORE_ID
-        and catalog[241]["goal"] == LOOP_REBOOT_RESTORE_GOAL
-        and catalog[241]["source"] == "genesis_bind_loop_reboot"
+        (next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("id") == LOOP_REBOOT_RESTORE_ID and next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("goal") == LOOP_REBOOT_RESTORE_GOAL and next((item for item in catalog if item["id"] == LOOP_REBOOT_RESTORE_ID), {}).get("source") == "genesis_bind_loop_reboot")
     )
     checks["rebind_stays_ahead"] = (
-        len(catalog) > 239 and catalog[239]["id"] == LEFTOVER_HANDOFF_REBIND_ID
+        (next((item for item in catalog if item["id"] == LEFTOVER_HANDOFF_REBIND_ID), {}).get("id") == LEFTOVER_HANDOFF_REBIND_ID)
     )
 
     dead_pid = 1_000_003

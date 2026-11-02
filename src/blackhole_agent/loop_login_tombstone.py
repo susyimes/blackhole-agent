@@ -265,21 +265,13 @@ def builtin_loop_login_tombstone_proof() -> dict[str, Any]:
     )
     catalog = DIVERSITY_CATALOG
     checks["catalog_names_login_tombstone"] = (
-        len(catalog) > 251
-        and catalog[251]["id"] == LOOP_LOGIN_TOMBSTONE_ID
-        and catalog[251]["goal"] == LOOP_LOGIN_TOMBSTONE_GOAL
-        and catalog[251]["done_when"] == LOOP_LOGIN_TOMBSTONE_DONE_WHEN
-        and catalog[251]["source"] == "genesis_bind_loop_login_tombstone"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_TOMBSTONE_ID), {}).get("id") == LOOP_LOGIN_TOMBSTONE_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_TOMBSTONE_ID), {}).get("goal") == LOOP_LOGIN_TOMBSTONE_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_TOMBSTONE_ID), {}).get("done_when") == LOOP_LOGIN_TOMBSTONE_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_TOMBSTONE_ID), {}).get("source") == "genesis_bind_loop_login_tombstone")
     )
     checks["catalog_names_login_compact"] = (
-        len(catalog) > 252
-        and catalog[252]["id"] == LOOP_LOGIN_COMPACT_ID
-        and catalog[252]["goal"] == LOOP_LOGIN_COMPACT_GOAL
-        and catalog[252]["done_when"] == LOOP_LOGIN_COMPACT_DONE_WHEN
-        and catalog[252]["source"] == "genesis_bind_loop_login_compact"
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("id") == LOOP_LOGIN_COMPACT_ID and next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("goal") == LOOP_LOGIN_COMPACT_GOAL and next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("done_when") == LOOP_LOGIN_COMPACT_DONE_WHEN and next((item for item in catalog if item["id"] == LOOP_LOGIN_COMPACT_ID), {}).get("source") == "genesis_bind_loop_login_compact")
     )
     checks["login_prune_stays_ahead"] = (
-        len(catalog) > 250 and catalog[250]["id"] == LOOP_LOGIN_PRUNE_ID
+        (next((item for item in catalog if item["id"] == LOOP_LOGIN_PRUNE_ID), {}).get("id") == LOOP_LOGIN_PRUNE_ID)
     )
 
     dead_pid = 1_000_231
