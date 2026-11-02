@@ -1839,23 +1839,14 @@ def _powershell_script(text: str) -> bool:
     return False
 
 
-def powershell_replay_argv(command: str) -> list[str] | None:
-    """Return a pwsh argv for a PowerShell validation command.
+def _agent_shell_argv(text: str) -> list[str] | None:
+    """pwsh argv that keeps a native exit code and fails a command that never started.
 
-    Harvested forms include ``$env:`` assignments, a quoted call operator,
-    ``$name = ...`` followed by ``& $name`` across a newline, a Verb-Noun
-    command at any pipeline position, and a language statement such as
-    ``foreach`` or ``try``. Other commands stay on ``shell=True`` (cmd.exe
-    on Windows). PowerShell 7 turns a native exit 3 into process exit 1,
-    and ``exit $LASTEXITCODE`` alone turns a missing executable into exit 0,
-    so the wrapper keeps a real native code and still fails a command that
-    never started.
+    PowerShell 7 turns a native exit 3 into process exit 1. ``exit $LASTEXITCODE``
+    alone turns a missing executable into exit 0. The wrapper does neither.
     """
 
     if os.name != "nt":
-        return None
-    text = str(command or "")
-    if not _powershell_script(text):
         return None
     executable = shutil.which("pwsh") or shutil.which("powershell")
     if not executable:
@@ -1867,6 +1858,22 @@ def powershell_replay_argv(command: str) -> list[str] | None:
         "exit $LASTEXITCODE\n"
     )
     return [executable, "-NoProfile", "-NonInteractive", "-Command", script]
+
+
+def powershell_replay_argv(command: str) -> list[str] | None:
+    """Return a pwsh argv when the command is classified as PowerShell.
+
+    Harvested forms include ``$env:`` assignments, a quoted call operator,
+    ``$name = ...`` followed by ``& $name`` across a newline, a Verb-Noun
+    command at any pipeline position, and a language statement such as
+    ``foreach`` or ``try``. Other commands stay on cmd.exe unless that launch
+    fails and the agent shell can run them.
+    """
+
+    text = str(command or "")
+    if not _powershell_script(text):
+        return None
+    return _agent_shell_argv(text)
 
 
 def _posix_prefix_token(body: str) -> tuple[str, str, str] | None:
@@ -2046,6 +2053,7 @@ def replay_validation_command(
     authority; it only removes the need to trust the reported exit code.
     """
 
+    shell_fallback = False
     try:
         if command_runner is subprocess.run:
             prefix = split_posix_env_prefix(command)
@@ -2064,6 +2072,7 @@ def replay_validation_command(
                     env=environment,
                 )
             else:
+                agent_command = run_command
                 run_command = normalize_cmd_single_quoted_args(
                     normalize_cmd_program_slashes(run_command)
                 )
@@ -2074,6 +2083,31 @@ def replay_validation_command(
                     shell=True,
                     env=environment,
                 )
+                # A shape the classifier missed still fails in cmd.exe. The
+                # agent shell is pwsh. Accept that shell only when it exits 0,
+                # so a native non-zero exit recorded by cmd stays recorded.
+                if completed.returncode not in (0, None):
+                    fallback = _agent_shell_argv(agent_command)
+                    if fallback is not None:
+                        try:
+                            alternate = run_text_command(
+                                fallback,
+                                cwd=workspace,
+                                timeout=timeout,
+                                shell=False,
+                                env=environment,
+                            )
+                        except subprocess.TimeoutExpired:
+                            raise
+                        except Exception:
+                            alternate = None
+                        if (
+                            alternate is not None
+                            and alternate.returncode == 0
+                            and isinstance(alternate.stdout, str)
+                        ):
+                            completed = alternate
+                            shell_fallback = True
         else:
             completed = command_runner(
                 command,
@@ -2115,6 +2149,7 @@ def replay_validation_command(
         "reproduced_exit_code": completed.returncode,
         "timed_out": False,
         "ok": completed.returncode == 0 and not transcript_lost,
+        "shell_fallback": shell_fallback,
         "stdout_tail": stdout[-4000:],
         "stderr_tail": stderr[-4000:],
     }
