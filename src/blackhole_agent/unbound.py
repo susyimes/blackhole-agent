@@ -1941,6 +1941,55 @@ def normalize_cmd_program_slashes(command: str) -> str:
     return body[: offset + start] + rewritten + body[offset + end :]
 
 
+def normalize_cmd_single_quoted_args(command: str) -> str:
+    """Rewrite single-quoted cmd arguments so a space stays inside one token.
+
+    Harvested login-audit replay ``pytest -k 'not builtin'`` exited 4.
+    cmd.exe keeps the quote characters and splits on the space, so pytest
+    looks for a path named ``builtin'``. A quote inside an existing double
+    quoted region stays there. An unclosed quote stays. A trailing percent
+    stays literal under this cmd launch. A ``%NAME%`` variable inside the
+    argument can still expand. PowerShell commands are routed before this runs.
+    """
+
+    if os.name != "nt" or "'" not in command:
+        return command
+    chars = str(command)
+    out: list[str] = []
+    index = 0
+    limit = len(chars)
+    in_double = False
+    while index < limit:
+        character = chars[index]
+        if character == '"':
+            if in_double and index + 1 < limit and chars[index + 1] == '"':
+                out.append('""')
+                index += 2
+                continue
+            in_double = not in_double
+            out.append(character)
+            index += 1
+            continue
+        if character != "'" or in_double:
+            out.append(character)
+            index += 1
+            continue
+        end = chars.find("'", index + 1)
+        if end < 0:
+            out.append(character)
+            index += 1
+            continue
+        body = chars[index + 1 : end]
+        if "\n" in body or "\r" in body:
+            out.append(chars[index : end + 1])
+        else:
+            out.append('"')
+            out.append(body.replace('"', '""'))
+            out.append('"')
+        index = end + 1
+    return "".join(out)
+
+
 def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str] | None:
     if not overlay:
         return None
@@ -1981,7 +2030,9 @@ def replay_validation_command(
                     env=environment,
                 )
             else:
-                run_command = normalize_cmd_program_slashes(run_command)
+                run_command = normalize_cmd_single_quoted_args(
+                    normalize_cmd_program_slashes(run_command)
+                )
                 completed = run_text_command(
                     run_command,
                     cwd=workspace,
