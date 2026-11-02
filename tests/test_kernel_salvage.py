@@ -905,6 +905,102 @@ def test_kimi_background_task_wait_is_not_a_tool_timeout():
     assert zero_exit.class_id != BACKGROUND_TASK_WAIT
 
 
+def test_windows_all_ones_exit_with_a_session_is_not_a_cli_error():
+    from blackhole_agent.kernel_salvage import ABNORMAL_PROCESS_EXIT, classify_run_artifact
+
+    session = "b3c94acc-389f-43e5-ad01-34ad7502e679"
+    harvested = classify_run_artifact(
+        {
+            "returncode": 4294967295,
+            "timed_out": False,
+            "stdout_tail": "",
+            "stderr_tail": (
+                "auto worktree gc failed: neither $GROK_HOME nor $HOME is set\n"
+                "extract_initial_tokens warning\n"
+            ),
+            "last_message": "",
+            "session_id": "",
+            "command": ["grok.EXE", "--resume", session, "--prompt", "task.md"],
+        },
+        error="Grok CLI failed with exit code 4294967295",
+    )
+    assert harvested.class_id == ABNORMAL_PROCESS_EXIT
+    assert harvested.retryable is False
+
+    signed = classify_run_artifact(
+        {
+            "returncode": -1,
+            "timed_out": False,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "last_message": "",
+            "session_id": session,
+            "command": ["grok.EXE", "--prompt", "task.md"],
+        },
+        error="Grok CLI failed with exit code 4294967295",
+    )
+    assert signed.class_id == ABNORMAL_PROCESS_EXIT
+    assert signed.retryable is False
+
+    exit_one = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "last_message": "",
+            "session_id": session,
+            "command": ["grok.EXE", "--resume", session],
+        },
+        error="Grok CLI failed with exit code 1",
+    )
+    assert exit_one.class_id == "cli_error"
+    assert exit_one.retryable is True
+
+    timed = classify_run_artifact(
+        {
+            "returncode": 124,
+            "timed_out": True,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "last_message": "",
+            "session_id": session,
+            "command": ["grok.EXE", "--resume", session],
+        },
+        error="Grok CLI timed out after 7200 seconds",
+    )
+    assert timed.class_id == "timeout"
+    assert timed.retryable is True
+
+    zero_exit = classify_run_artifact(
+        {
+            "returncode": 0,
+            "timed_out": False,
+            "stdout_tail": "",
+            "stderr_tail": "",
+            "last_message": "finished",
+            "session_id": session,
+            "command": ["grok.EXE", "--resume", session],
+        },
+    )
+    assert zero_exit.class_id != ABNORMAL_PROCESS_EXIT
+
+    no_session = classify_run_artifact(
+        {
+            "returncode": 4294967295,
+            "timed_out": False,
+            "stdout_tail": "tool output that is not a session",
+            "stderr_tail": "",
+            "last_message": "",
+            "session_id": "",
+            "command": ["kimi", "--prompt", "task.md"],
+        },
+        error="Kimi CLI failed with exit code 4294967295",
+    )
+    assert no_session.class_id == "cli_error"
+    assert no_session.retryable is True
+
+
 def test_grok_dead_session_actor_is_not_a_file_lock_timeout():
     from blackhole_agent.kernel_salvage import SESSION_ACTOR_DEAD, classify_run_artifact
 

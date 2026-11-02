@@ -159,6 +159,16 @@ transcript is not this death. Salvage continues that kernel once with a
 short prompt that forbids another background wait and does not resend the
 mission prompt. A recorded session id is kept. A second wait fails over
 without opening the circuit. A bare tool timeout stays a retryable timeout.
+
+A Windows process exit of 4294967295 (the unsigned form of -1) while a
+session is already on the command line is not a provider CLI error.
+Harvested 2026-07-31 Grok run ``20260731T101316Z`` exited 4294967295 with
+``timed_out`` false, an empty transcript, and ``--resume`` session
+``b3c94acc-389f-43e5-ad01-34ad7502e679``. That stayed a retryable CLI
+error, so the next resolution replayed the mission prompt. Salvage
+continues that same session once with a short prompt. A second all-ones
+exit fails over without opening the circuit. Exit 1, exit 124, exit 0,
+and an all-ones exit with no session id stay on their existing paths.
 """
 
 from __future__ import annotations
@@ -202,6 +212,8 @@ INFERENCE_IDLE_TIMEOUT = "inference_idle_timeout"
 SESSION_ACTOR_DEAD = "session_actor_dead"
 DOOM_LOOP_REPETITION = "doom_loop_repetition"
 BACKGROUND_TASK_WAIT = "background_task_wait"
+ABNORMAL_PROCESS_EXIT = "abnormal_process_exit"
+_UNSIGNED_PROCESS_EXIT = 0xFFFFFFFF
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
 # as a retryable CLI error relaunched the same kernel on resume.
@@ -265,6 +277,11 @@ BACKGROUND_TASK_WAIT = "background_task_wait"
 # running. A grep or MCP "timed out" line is not this death, and an exit 0
 # that only quotes the sentence is not this death. The first wait continues
 # on the same kernel. A second wait fails over and leaves the circuit closed.
+# An all-ones Windows exit does not trip the breaker. The 2026-07-31 Grok
+# run exited 4294967295 while --resume named a live session and the
+# transcript was empty. Exit 1, exit 124, exit 0, and the same code with no
+# session id are not this death. The first death resumes that session. A
+# second all-ones exit fails over and leaves the circuit closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -470,6 +487,11 @@ BACKGROUND_CONTINUE_PROMPT = (
     "Do not restart the mission from the beginning. Continue from files already changed in the workspace. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
+ABNORMAL_EXIT_CONTINUE_PROMPT = (
+    "The previous process exited with Windows status 4294967295 before a JSON decision. "
+    "Do not restart the mission from the beginning. Continue the same session from work already done. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
+)
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
     "latest-grok-run.json",
@@ -622,6 +644,26 @@ def _output_truncated_death(blob: str, *, returncode: int, timed_out: bool) -> b
     return _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS)
 
 
+def _unsigned_process_exit(returncode: int) -> bool:
+    """True for Windows exit 4294967295, the unsigned form of -1."""
+
+    code = int(returncode or 0)
+    if code == 0:
+        return False
+    return (code & _UNSIGNED_PROCESS_EXIT) == _UNSIGNED_PROCESS_EXIT
+
+
+def _resume_session_id(session_id: str, command: Any) -> str:
+    """Session id already chosen for this launch, including ``--resume``."""
+
+    direct = str(session_id or "").strip()
+    if direct:
+        return direct
+    if isinstance(command, (list, tuple)):
+        return session_id_from_artifact({"command": list(command)})
+    return ""
+
+
 def classify_kernel_failure(
     *,
     returncode: int = 0,
@@ -631,6 +673,7 @@ def classify_kernel_failure(
     last_message: str = "",
     error: str = "",
     session_id: str = "",
+    command: Any = None,
 ) -> KernelFailureClass:
     blob = _haystack(stdout_tail, stderr_tail, last_message, error)
     evidence = (error or stderr_tail or stdout_tail or last_message or "")[:400]
@@ -734,6 +777,15 @@ def classify_kernel_failure(
         # The CLI already retried the step. Replaying the mission prompt on
         # another kernel abandons the session that was doing the work.
         return KernelFailureClass(STEP_RETRIES_EXHAUSTED, False, evidence)
+    if (
+        not timed_out
+        and _unsigned_process_exit(returncode)
+        and _resume_session_id(session_id, command)
+    ):
+        # Windows recorded -1 while a session was already selected. Replaying
+        # the mission prompt discards that session. Exit 1, exit 124, exit 0,
+        # and this code with no session id are classified above or below.
+        return KernelFailureClass(ABNORMAL_PROCESS_EXIT, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -750,6 +802,7 @@ def classify_run_artifact(artifact: dict[str, Any], *, error: str = "") -> Kerne
         last_message=str(artifact.get("last_message") or ""),
         error=error,
         session_id=str(artifact.get("session_id") or ""),
+        command=artifact.get("command"),
     )
 
 
@@ -892,6 +945,21 @@ def synthesize_decision(
             ),
             strategy=strategy,
             next_step=f"Resume on the {current_kernel} kernel with a fresh session.",
+            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        )
+    if failure.class_id == ABNORMAL_PROCESS_EXIT:
+        return empty_decision(
+            status="continue",
+            summary=(
+                f"Kernel {current_kernel} exited with Windows status 4294967295 "
+                "while a session was already selected. The same session continues "
+                "once and the original mission prompt is not replayed."
+            ),
+            strategy=(
+                "Resume the same session with a continuation prompt. "
+                "Do not replay the full mission prompt."
+            ),
+            next_step=f"Resume the {current_kernel} session after the abnormal process exit.",
             outcome_evidence=[failure.evidence] if failure.evidence else [],
         )
     if failover_kernel:
@@ -1129,6 +1197,7 @@ def execute_kernel_turn_with_salvage(
     dead_actor_retries: set[str] = set()
     doom_resumes: set[str] = set()
     background_resumes: set[str] = set()
+    abnormal_resumes: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
@@ -1139,6 +1208,7 @@ def execute_kernel_turn_with_salvage(
     pending_dead_actor = False
     pending_doom_resume = False
     pending_background_resume = False
+    pending_abnormal_resume = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -1177,6 +1247,8 @@ def execute_kernel_turn_with_salvage(
                 source = "doom_loop_resume"
             elif pending_background_resume:
                 source = "background_task_resume"
+            elif pending_abnormal_resume:
+                source = "abnormal_process_resume"
             else:
                 source = "failover"
             meta.update(
@@ -1200,6 +1272,7 @@ def execute_kernel_turn_with_salvage(
             pending_dead_actor = False
             pending_doom_resume = False
             pending_background_resume = False
+            pending_abnormal_resume = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -1208,6 +1281,7 @@ def execute_kernel_turn_with_salvage(
             tried.add(state.kernel)
             pending_doom_resume = False
             pending_background_resume = False
+            pending_abnormal_resume = False
             artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
             if state.kernel == "cursor" and artifact.get("session_id"):
                 state.session_id = str(artifact["session_id"])
@@ -1445,6 +1519,7 @@ def execute_kernel_turn_with_salvage(
                     pending_dead_actor = False
                     pending_doom_resume = True
                     pending_background_resume = False
+                    pending_abnormal_resume = False
                     continue
                 # The same doom loop happened again. Another kernel gets the
                 # mission prompt. This kernel stays available.
@@ -1471,11 +1546,39 @@ def execute_kernel_turn_with_salvage(
                     pending_dead_actor = False
                     pending_doom_resume = False
                     pending_background_resume = True
+                    pending_abnormal_resume = False
                     continue
                 # The same wait happened again. Another kernel gets the
                 # mission prompt. This kernel stays available.
                 prompt = original_prompt
                 pending_background_resume = False
+            if salvaged.class_id == ABNORMAL_PROCESS_EXIT:
+                adopted = session_id_from_artifact(artifact)
+                if adopted and not str(getattr(state, "session_id", "") or "").strip():
+                    state.session_id = adopted
+                    state.session_started = True
+                if state.kernel not in abnormal_resumes:
+                    # One continuation on the session that was already selected.
+                    # The original mission prompt is not sent again, and the
+                    # circuit stays closed: Windows recorded -1, not a sign-out.
+                    abnormal_resumes.add(state.kernel)
+                    prompt = ABNORMAL_EXIT_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = False
+                    pending_token_resume = False
+                    pending_idle_resume = False
+                    pending_dead_actor = False
+                    pending_doom_resume = False
+                    pending_background_resume = False
+                    pending_abnormal_resume = True
+                    continue
+                # The same all-ones exit happened again. Another kernel gets
+                # the mission prompt. This kernel stays available.
+                prompt = original_prompt
+                pending_abnormal_resume = False
             pending_fresh_session = False
             pending_token_resume = False
             pending_idle_resume = False
