@@ -167,8 +167,21 @@ Harvested 2026-07-31 Grok run ``20260731T101316Z`` exited 4294967295 with
 ``b3c94acc-389f-43e5-ad01-34ad7502e679``. That stayed a retryable CLI
 error, so the next resolution replayed the mission prompt. Salvage
 continues that same session once with a short prompt. A second all-ones
-exit fails over without opening the circuit. Exit 1, exit 124, exit 0,
-and an all-ones exit with no session id stay on their existing paths.
+exit fails over without opening the circuit. Exit 1, exit 124, and exit 0
+stay on their existing paths. An all-ones exit with no session id and no
+tool result stays a CLI error.
+
+A Kimi process that aborts with that same Windows status after it has
+already emitted a tool result is not a session resume and not a CLI retry.
+Harvested 2026-07-31 run ``20260731T102420Z`` exited 4294967295 with
+``timed_out`` false, an empty last message, no ``--resume`` flag, and a
+stdout tail containing ``{"role":"tool"``. That stayed a retryable CLI
+error, so the next resolution replayed the mission prompt and discarded
+the partial transcript. Salvage continues that kernel once with a short
+prompt and does not attach a session id. A second abort fails over
+without opening the circuit. The same status with an empty transcript, a
+short sentence that only mentions a tool, exit 1, and a resumed Grok
+session stay on their existing paths.
 """
 
 from __future__ import annotations
@@ -213,6 +226,7 @@ SESSION_ACTOR_DEAD = "session_actor_dead"
 DOOM_LOOP_REPETITION = "doom_loop_repetition"
 BACKGROUND_TASK_WAIT = "background_task_wait"
 ABNORMAL_PROCESS_EXIT = "abnormal_process_exit"
+SESSIONLESS_PROCESS_ABORT = "sessionless_process_abort"
 _UNSIGNED_PROCESS_EXIT = 0xFFFFFFFF
 # Quota and auth trip the breaker. A pre-session TLS abort does too: the
 # 2026-10-18 Cursor run exited before a session id existed, and treating it
@@ -282,6 +296,11 @@ _UNSIGNED_PROCESS_EXIT = 0xFFFFFFFF
 # transcript was empty. Exit 1, exit 124, exit 0, and the same code with no
 # session id are not this death. The first death resumes that session. A
 # second all-ones exit fails over and leaves the circuit closed.
+# A tool result with no session id is not this death either. The 2026-07-31
+# Kimi run exited 4294967295 after stdout contained {"role":"tool" and the
+# command line had no --resume. That continues once on the same kernel
+# without a session. An empty transcript and a sentence that only mentions
+# a tool stay a retryable CLI error. The circuit stays closed.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -492,6 +511,13 @@ ABNORMAL_EXIT_CONTINUE_PROMPT = (
     "Do not restart the mission from the beginning. Continue the same session from work already done. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
+SESSIONLESS_ABORT_CONTINUE_PROMPT = (
+    "The previous process exited with Windows status 4294967295 after a tool result "
+    "and before a JSON decision. No session id was recorded. Do not resume a session. "
+    "Do not restart the mission from the beginning. Continue from files already changed in the workspace. "
+    "Finish the unfinished edit, then reply with only the JSON decision object."
+)
+_TOOL_RESULT_MARKER = '"role":"tool"'
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
     "latest-grok-run.json",
@@ -653,6 +679,16 @@ def _unsigned_process_exit(returncode: int) -> bool:
     return (code & _UNSIGNED_PROCESS_EXIT) == _UNSIGNED_PROCESS_EXIT
 
 
+def _has_tool_result(text: str) -> bool:
+    """True when a transcript contains a tool-result record.
+
+    The harvested Kimi abort writes ``{"role":"tool"``. A sentence that only
+    mentions a tool does not. Spaces around the colon still count.
+    """
+
+    return _TOOL_RESULT_MARKER in str(text or "").replace(" ", "")
+
+
 def _resume_session_id(session_id: str, command: Any) -> str:
     """Session id already chosen for this launch, including ``--resume``."""
 
@@ -786,6 +822,17 @@ def classify_kernel_failure(
         # the mission prompt discards that session. Exit 1, exit 124, exit 0,
         # and this code with no session id are classified above or below.
         return KernelFailureClass(ABNORMAL_PROCESS_EXIT, False, evidence)
+    if (
+        not timed_out
+        and _unsigned_process_exit(returncode)
+        and not _resume_session_id(session_id, command)
+        and _has_tool_result(f"{stdout_tail}\n{stderr_tail}")
+    ):
+        # Windows recorded -1 after a tool result and before a session id
+        # existed. Replaying the mission prompt discards that transcript.
+        # An empty transcript and a sentence that only mentions a tool stay
+        # a retryable CLI error below. A resumed session was classified above.
+        return KernelFailureClass(SESSIONLESS_PROCESS_ABORT, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -960,6 +1007,21 @@ def synthesize_decision(
                 "Do not replay the full mission prompt."
             ),
             next_step=f"Resume the {current_kernel} session after the abnormal process exit.",
+            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        )
+    if failure.class_id == SESSIONLESS_PROCESS_ABORT:
+        return empty_decision(
+            status="continue",
+            summary=(
+                f"Kernel {current_kernel} exited with Windows status 4294967295 "
+                "after a tool result and before a session id existed. The same "
+                "kernel continues once and the original mission prompt is not replayed."
+            ),
+            strategy=(
+                "Continue on the same kernel from files already changed. "
+                "Do not attach a session id. Do not replay the full mission prompt."
+            ),
+            next_step=f"Continue on the {current_kernel} kernel after the sessionless process abort.",
             outcome_evidence=[failure.evidence] if failure.evidence else [],
         )
     if failover_kernel:
@@ -1198,6 +1260,7 @@ def execute_kernel_turn_with_salvage(
     doom_resumes: set[str] = set()
     background_resumes: set[str] = set()
     abnormal_resumes: set[str] = set()
+    sessionless_aborts: set[str] = set()
     pending_fresh_session = False
     pending_decision_resume = False
     pending_step_resume = False
@@ -1209,6 +1272,7 @@ def execute_kernel_turn_with_salvage(
     pending_doom_resume = False
     pending_background_resume = False
     pending_abnormal_resume = False
+    pending_sessionless_abort = False
     original_prompt = prompt
     kernel_result = None
     salvaged = None
@@ -1249,6 +1313,8 @@ def execute_kernel_turn_with_salvage(
                 source = "background_task_resume"
             elif pending_abnormal_resume:
                 source = "abnormal_process_resume"
+            elif pending_sessionless_abort:
+                source = "sessionless_abort_continue"
             else:
                 source = "failover"
             meta.update(
@@ -1273,6 +1339,7 @@ def execute_kernel_turn_with_salvage(
             pending_doom_resume = False
             pending_background_resume = False
             pending_abnormal_resume = False
+            pending_sessionless_abort = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
@@ -1282,6 +1349,7 @@ def execute_kernel_turn_with_salvage(
             pending_doom_resume = False
             pending_background_resume = False
             pending_abnormal_resume = False
+            pending_sessionless_abort = False
             artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
             if state.kernel == "cursor" and artifact.get("session_id"):
                 state.session_id = str(artifact["session_id"])
@@ -1579,6 +1647,33 @@ def execute_kernel_turn_with_salvage(
                 # the mission prompt. This kernel stays available.
                 prompt = original_prompt
                 pending_abnormal_resume = False
+            if salvaged.class_id == SESSIONLESS_PROCESS_ABORT:
+                if state.kernel not in sessionless_aborts:
+                    # One continuation on the kernel that already produced a
+                    # tool result. There is no session to resume. The original
+                    # mission prompt is not sent again, and the circuit stays
+                    # closed: Windows recorded -1 after the tool result.
+                    sessionless_aborts.add(state.kernel)
+                    state.session_id = ""
+                    state.session_started = False
+                    prompt = SESSIONLESS_ABORT_CONTINUE_PROMPT
+                    pending_fresh_session = False
+                    pending_decision_resume = False
+                    pending_step_resume = False
+                    pending_stream_resume = False
+                    pending_wake_resume = False
+                    pending_token_resume = False
+                    pending_idle_resume = False
+                    pending_dead_actor = False
+                    pending_doom_resume = False
+                    pending_background_resume = False
+                    pending_abnormal_resume = False
+                    pending_sessionless_abort = True
+                    continue
+                # The same abort happened again. Another kernel gets the
+                # mission prompt. This kernel stays available.
+                prompt = original_prompt
+                pending_sessionless_abort = False
             pending_fresh_session = False
             pending_token_resume = False
             pending_idle_resume = False

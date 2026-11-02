@@ -1001,6 +1001,93 @@ def test_windows_all_ones_exit_with_a_session_is_not_a_cli_error():
     assert no_session.retryable is True
 
 
+def test_kimi_tool_result_all_ones_exit_is_not_a_cli_retry():
+    from blackhole_agent.kernel_salvage import (
+        ABNORMAL_PROCESS_EXIT,
+        SESSIONLESS_PROCESS_ABORT,
+        classify_run_artifact,
+    )
+
+    harvested = classify_run_artifact(
+        {
+            "returncode": 4294967295,
+            "timed_out": False,
+            "stdout_tail": (
+                '{"role":"tool","tool_call_id":"tool_1FCbhacfvBuQt0pEYfZwgckE",'
+                '"content":"structural identity alliance vs pact: 1028/2306 = 44.6%"}'
+            ),
+            "stderr_tail": "def builtin_federation_plane() -> dict[str, Any]:",
+            "last_message": "",
+            "session_id": "",
+            "command": [
+                "node.EXE",
+                "main.mjs",
+                "--output-format",
+                "stream-json",
+                "--prompt",
+                "task.md",
+            ],
+        },
+        error="Kimi CLI failed with exit code 4294967295",
+    )
+    assert harvested.class_id == SESSIONLESS_PROCESS_ABORT
+    assert harvested.retryable is False
+
+    spaced = classify_run_artifact(
+        {
+            "returncode": -1,
+            "timed_out": False,
+            "stdout_tail": '{"role": "tool", "content": "partial"}',
+            "last_message": "",
+            "session_id": "",
+            "command": ["node.EXE", "main.mjs", "--prompt", "task.md"],
+        },
+        error="Kimi CLI failed with exit code 4294967295",
+    )
+    assert spaced.class_id == SESSIONLESS_PROCESS_ABORT
+
+    mentioned = classify_run_artifact(
+        {
+            "returncode": 4294967295,
+            "timed_out": False,
+            "stdout_tail": "tool output that is not a session",
+            "last_message": "",
+            "session_id": "",
+            "command": ["kimi", "--prompt", "task.md"],
+        },
+        error="Kimi CLI failed with exit code 4294967295",
+    )
+    assert mentioned.class_id == "cli_error"
+    assert mentioned.retryable is True
+
+    resumed = classify_run_artifact(
+        {
+            "returncode": 4294967295,
+            "timed_out": False,
+            "stdout_tail": '{"role":"tool","content":"partial"}',
+            "last_message": "",
+            "session_id": "",
+            "command": ["grok.EXE", "--resume", "b3c94acc-389f-43e5-ad01-34ad7502e679"],
+        },
+        error="Grok CLI failed with exit code 4294967295",
+    )
+    assert resumed.class_id == ABNORMAL_PROCESS_EXIT
+
+    exit_one = classify_run_artifact(
+        {
+            "returncode": 1,
+            "timed_out": False,
+            "stdout_tail": '{"role":"tool","content":"partial"}',
+            "last_message": "",
+            "session_id": "",
+            "command": ["node.EXE", "main.mjs", "--prompt", "task.md"],
+        },
+        error="Kimi CLI failed with exit code 1",
+    )
+    assert exit_one.class_id == "cli_error"
+    assert exit_one.retryable is True
+
+
 def test_grok_dead_session_actor_is_not_a_file_lock_timeout():
     from blackhole_agent.kernel_salvage import SESSION_ACTOR_DEAD, classify_run_artifact
 
