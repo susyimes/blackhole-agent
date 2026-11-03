@@ -15587,1073 +15587,6 @@ def demo_application_python_sextuple_nested_namespace_class_instance_growth_plan
     }
 
 
-def load_python_septuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_SEPTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_septuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: seven-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "seven submodule levels down so sdists whose covering API is a seven-level nested "
-        "Class().method instance rather than a six-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-sept-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core"),
-        slug="forage-ns-septuple-codec-instance",
-        catalog=load_python_septuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_SEPTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_SEPTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_septuple_nested_namespace_class_instance",
-        prior_instance_flag="python_sextuple_nested_namespace_class_instance",
-        static_flag="python_septuple_nested_namespace_class_static",
-        action="application_python_septuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_septuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-septuple-nested-instance-proof"
-    )
-
-
-def register_application_python_septuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-static-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-sept-nested-instance-growth-plane",
-        name="Application python septuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance seven submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.Codec.encode as a constructable "
-            "instance rather than a six-level nested Class().method instance, and extra "
-            "bundle leaves extract to a short cache dir so Windows MAX_PATH does not "
-            "fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_septuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_septuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_septuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance seven submodule levels down: "
-            "introspection reflects codec.text.safe.inner.leaf.more.core.Codec.encode "
-            "rather than a six-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "septuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_septuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from a seven-level nested-namespace class instance method."""
-
-    result = replay_application_python_septuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_octuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_OCTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_octuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: eight-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "eight submodule levels down so sdists whose covering API is an eight-level nested Class().method instance rather than a seven-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-oct-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit"),
-        slug="forage-ns-octuple-codec-instance",
-        catalog=load_python_octuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_OCTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_OCTUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_octuple_nested_namespace_class_instance",
-        prior_instance_flag="python_septuple_nested_namespace_class_instance",
-        static_flag="python_octuple_nested_namespace_class_static",
-        action="application_python_octuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_octuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-octuple-nested-instance-proof"
-    )
-
-
-def register_application_python_octuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-oct-nested-instance-growth-plane",
-        name="Application python octuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance eight submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.Codec.encode as a constructable "
-            "instance rather than a seven-level nested Class().method instance, and extra "
-            "bundle leaves extract to a short cache dir so Windows MAX_PATH does not "
-            "fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_octuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_octuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_octuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance eight submodule levels down: "
-            "introspection reflects codec.text.safe.inner.leaf.more.core.unit.Codec.encode "
-            "rather than a seven-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "octuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_octuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from an eight-level nested-namespace class instance method."""
-
-    result = replay_application_python_octuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_nonuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_NONUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_nonuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: nine-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "nine submodule levels down so sdists whose covering API is a nine-level nested Class().method instance rather than an eight-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-nona-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit", "cell"),
-        slug="forage-ns-nonuple-codec-instance",
-        catalog=load_python_nonuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_NONUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_NONUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_nonuple_nested_namespace_class_instance",
-        prior_instance_flag="python_octuple_nested_namespace_class_instance",
-        static_flag="python_nonuple_nested_namespace_class_static",
-        action="application_python_nonuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_nonuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-nonuple-nested-instance-proof"
-    )
-
-
-def register_application_python_nonuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-oct-nested-instance-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-nona-nested-instance-growth-plane",
-        name="Application python nonuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance nine submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.Codec.encode as a constructable "
-            "instance rather than an eight-level nested Class().method instance, and extra "
-            "bundle leaves extract to a short cache dir so Windows MAX_PATH does not "
-            "fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_nonuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_nonuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_nonuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance nine submodule levels down: "
-            "introspection reflects codec.text.safe.inner.leaf.more.core.unit.cell.Codec.encode "
-            "rather than an eight-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "nonuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_nonuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from a nine-level nested-namespace class instance method."""
-
-    result = replay_application_python_nonuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_decuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_DECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_decuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: ten-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "ten submodule levels down so sdists whose covering API is a ten-level nested Class().method instance rather than a nine-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-deca-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit", "cell", "atom"),
-        slug="forage-ns-decuple-codec-instance",
-        catalog=load_python_decuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_DECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_DECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_decuple_nested_namespace_class_instance",
-        prior_instance_flag="python_nonuple_nested_namespace_class_instance",
-        static_flag="python_decuple_nested_namespace_class_static",
-        action="application_python_decuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_decuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-decuple-nested-instance-proof"
-    )
-
-
-def register_application_python_decuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-nona-nested-instance-growth-plane",
-            "capability.application-python-oct-nested-instance-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-deca-nested-instance-growth-plane",
-        name="Application python decuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance ten submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.Codec.encode as a constructable "
-            "instance rather than a nine-level nested Class().method instance, and extra "
-            "bundle leaves extract to a short cache dir so Windows MAX_PATH does not "
-            "fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_decuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_decuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_decuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance ten submodule levels down: "
-            "introspection reflects codec.text.safe.inner.leaf.more.core.unit.cell.atom.Codec.encode "
-            "rather than a nine-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "decuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_decuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from a ten-level nested-namespace class instance method."""
-
-    result = replay_application_python_decuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_undecuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_UNDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_undecuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: eleven-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "eleven submodule levels down so sdists whose covering API is an eleven-level nested Class().method instance rather than a ten-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-undec-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit", "cell", "atom", "quark"),
-        slug="forage-ns-undecuple-codec-instance",
-        catalog=load_python_undecuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_UNDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_UNDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_undecuple_nested_namespace_class_instance",
-        prior_instance_flag="python_decuple_nested_namespace_class_instance",
-        static_flag="python_undecuple_nested_namespace_class_static",
-        action="application_python_undecuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_undecuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-undecuple-nested-instance-proof"
-    )
-
-
-def register_application_python_undecuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-deca-nested-instance-growth-plane",
-            "capability.application-python-nona-nested-instance-growth-plane",
-            "capability.application-python-oct-nested-instance-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-undec-nested-instance-growth-plane",
-        name="Application python undecuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance eleven submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.Codec.encode as a "
-            "constructable instance rather than a ten-level nested Class().method instance, "
-            "and extra bundle leaves extract to a short cache dir so Windows MAX_PATH does "
-            "not fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_undecuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_undecuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_undecuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance eleven submodule levels down: "
-            "introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.Codec.encode "
-            "rather than a ten-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "undecuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_undecuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from an eleven-level nested-namespace class instance method."""
-
-    result = replay_application_python_undecuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_duodecuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_DUODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: twelve-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "twelve submodule levels down so sdists whose covering API is a twelve-level nested Class().method instance rather than an eleven-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-dodec-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit", "cell", "atom", "quark", "gluon"),
-        slug="forage-ns-duodecuple-codec-instance",
-        catalog=load_python_duodecuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_DUODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_DUODECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_duodecuple_nested_namespace_class_instance",
-        prior_instance_flag="python_undecuple_nested_namespace_class_instance",
-        static_flag="python_duodecuple_nested_namespace_class_static",
-        action="application_python_duodecuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-duodecuple-nested-instance-proof"
-    )
-
-
-def register_application_python_duodecuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-undec-nested-instance-growth-plane",
-            "capability.application-python-deca-nested-instance-growth-plane",
-            "capability.application-python-nona-nested-instance-growth-plane",
-            "capability.application-python-oct-nested-instance-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-dodec-nested-instance-growth-plane",
-        name="Application python duodecuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance twelve submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.Codec.encode as a "
-            "constructable instance rather than an eleven-level nested Class().method instance, "
-            "and extra bundle leaves extract to a short cache dir so Windows MAX_PATH does "
-            "not fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_duodecuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_duodecuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance twelve submodule levels down: "
-            "introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.Codec.encode "
-            "rather than an eleven-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "duodecuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_duodecuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from a twelve-level nested-namespace class instance method."""
-
-    result = replay_application_python_duodecuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_tredecuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: thirteen-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "thirteen submodule levels down so sdists whose covering API is a thirteen-level nested Class().method instance rather than a twelve-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-trede-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit", "cell", "atom", "quark", "gluon", "lepton"),
-        slug="forage-ns-tredecuple-codec-instance",
-        catalog=load_python_tredecuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_TREDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_tredecuple_nested_namespace_class_instance",
-        prior_instance_flag="python_duodecuple_nested_namespace_class_instance",
-        static_flag="python_tredecuple_nested_namespace_class_static",
-        action="application_python_tredecuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-tredecuple-nested-instance-proof"
-    )
-
-
-def register_application_python_tredecuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-dodec-nested-instance-growth-plane",
-            "capability.application-python-undec-nested-instance-growth-plane",
-            "capability.application-python-deca-nested-instance-growth-plane",
-            "capability.application-python-nona-nested-instance-growth-plane",
-            "capability.application-python-oct-nested-instance-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-trede-nested-instance-growth-plane",
-        name="Application python tredecuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance thirteen submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.Codec.encode as a "
-            "constructable instance rather than a twelve-level nested Class().method instance, "
-            "and extra bundle leaves extract to a short cache dir so Windows MAX_PATH does "
-            "not fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_tredecuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_tredecuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance thirteen submodule levels down: "
-            "introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.Codec.encode "
-            "rather than a twelve-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "tredecuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_tredecuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from a thirteen-level nested-namespace class instance method."""
-
-    result = replay_application_python_tredecuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-def load_python_quattuordecuple_nested_namespace_class_instance_apply_catalog() -> dict[str, Any]:
-    return _load_replay_apply_catalog(DEFAULT_PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG)
-
-
-def replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof() -> dict[str, Any]:
-    """Fast registered proof: fourteen-level Class().method instance still forages."""
-
-    leftover = (
-        "Optional later work is reflecting Python nested-namespace class instance methods "
-        "fourteen submodule levels down so sdists whose covering API is a fourteen-level nested Class().method instance rather than a thirteen-level nested Class().method instance "
-        "can be foraged the same way."
-    )
-    return _replay_synthetic_nested_codec_instance_proof(
-        capability_id="capability.application-python-quatt-nested-instance-growth-plane",
-        leftover=leftover,
-        modules=("codec", "text", "safe", "inner", "leaf", "more", "core", "unit", "cell", "atom", "quark", "gluon", "lepton", "photon"),
-        slug="forage-ns-quattuordecuple-codec-instance",
-        catalog=load_python_quattuordecuple_nested_namespace_class_instance_apply_catalog(),
-        grow_task=PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK,
-        winner=PYTHON_QUATTUORDECUPLE_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE,
-        selected_flag="python_quattuordecuple_nested_namespace_class_instance",
-        prior_instance_flag="python_tredecuple_nested_namespace_class_instance",
-        static_flag="python_quattuordecuple_nested_namespace_class_static",
-        action="application_python_quattuordecuple_nested_namespace_class_instance_growth_plane",
-    )
-
-
-def application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof_command() -> str:
-    return (
-        "uv run python -m blackhole_agent.capability_application_growth "
-        "python-quattuordecuple-nested-instance-proof"
-    )
-
-
-def register_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_capability(
-    repo_root: Path = REPO_ROOT,
-) -> dict[str, Any]:
-    ledger_path = default_ledger_path(repo_root)
-    ledger = load_ledger(ledger_path)
-    dependencies = tuple(
-        dependency
-        for dependency in (
-            "repo.import-health",
-            "capability.ledger-inventory",
-            "capability.foraging-plane",
-            "capability.forage-target-plane",
-            "capability.forage-growth-plane",
-            "capability.application-python-trede-nested-instance-growth-plane",
-            "capability.application-python-dodec-nested-instance-growth-plane",
-            "capability.application-python-undec-nested-instance-growth-plane",
-            "capability.application-python-deca-nested-instance-growth-plane",
-            "capability.application-python-nona-nested-instance-growth-plane",
-            "capability.application-python-oct-nested-instance-growth-plane",
-            "capability.application-python-sept-nested-instance-growth-plane",
-            "capability.application-python-sext-nested-instance-growth-plane",
-            "capability.application-growth-plane",
-            "capability.application-plane",
-        )
-        if dependency in ledger.capabilities
-    )
-    capability = Capability(
-        id="capability.application-python-quatt-nested-instance-growth-plane",
-        name="Application python quattuordecuple nested-namespace class-instance growth plane",
-        description=(
-            "An unplannable application goal grows itself from a sdist whose covering "
-            "Class().method is a Python nested-namespace class instance fourteen submodule "
-            "levels down: introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.Codec.encode as a "
-            "constructable instance rather than a thirteen-level nested Class().method instance, "
-            "and extra bundle leaves extract to a short cache dir so Windows MAX_PATH does "
-            "not fail the forage."
-        ),
-        kind="python",
-        entry=(
-            "blackhole_agent.capability_application_growth:"
-            "demo_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane"
-        ),
-        proof_command=application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof_command(),
-        dependencies=dependencies,
-        behavior_paths=(
-            "src/blackhole_agent/capability_application_growth.py",
-            "src/blackhole_agent/capability_foraging.py",
-            "src/blackhole_agent/capability_acquisition.py",
-            "src/blackhole_agent/capability_forage_growth.py",
-            "tests/fixtures/forage_python_quattuordecuple_nested_namespace_class_instance_catalog.json",
-            "capabilities/ledger.json",
-        ),
-        capability_delta=(
-            "Application-growth no longer skips sdists whose covering Class().method "
-            "is a Python nested-namespace class instance fourteen submodule levels down: "
-            "introspection reflects "
-            "codec.text.safe.inner.leaf.more.core.unit.cell.atom.quark.gluon.lepton.photon.Codec.encode "
-            "rather than a thirteen-level nested Class().method instance, and extra bundle "
-            "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
-            "not fail extra bundle leaves."
-        ),
-        tags=(
-            "foraging",
-            "plane",
-            "application",
-            "growth",
-            "python",
-            "nested-namespace",
-            "class-instance",
-            "quattuordecuple-nested",
-        ),
-    )
-    ledger = register_capability(ledger, capability, replace=True)
-    save_ledger(ledger_path, ledger)
-    ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
-    stamped = ledger.capabilities[capability.id]
-    disk = load_ledger(ledger_path)
-    merged = dict(disk.capabilities)
-    merged[stamped.id] = stamped
-    save_ledger(
-        ledger_path,
-        CapabilityLedger(
-            schema_version=disk.schema_version,
-            updated_at=utc_now_iso(),
-            capabilities=merged,
-        ),
-    )
-    return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
-
-
-def demo_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane() -> dict[str, Any]:
-    """Entry surface: grow from a fourteen-level nested-namespace class instance method."""
-
-    result = replay_application_python_quattuordecuple_nested_namespace_class_instance_growth_plane_proof()
-    return {
-        "ok": bool(result["ok"]),
-        "winner": result.get("winner"),
-        "query": result.get("query"),
-        "action": result.get("action"),
-    }
-
-
-
 # Quindecuple and later nested class-instance planes share one body.
 # The latin name, capability id, slug, modules, leftover text, and
 # dependency list are the only differences the expanded copies had.
@@ -16949,6 +15882,250 @@ def _uniform_nested_instance_modules(record: dict[str, Any]) -> tuple[str, ...]:
     if isinstance(modules, str):
         modules = globals()[modules]
     return tuple(modules)
+
+
+_COPIED_NESTED_LATINS: tuple[str, ...] = (
+    "septuple",
+    "octuple",
+    "nonuple",
+    "decuple",
+    "undecuple",
+    "duodecuple",
+    "tredecuple",
+    "quattuordecuple",
+)
+_COPIED_NESTED_STEMS: dict[str, str] = {
+    "septuple": "sept",
+    "octuple": "oct",
+    "nonuple": "nona",
+    "decuple": "deca",
+    "undecuple": "undec",
+    "duodecuple": "dodec",
+    "tredecuple": "trede",
+    "quattuordecuple": "quatt",
+}
+
+
+def _copied_nested_dependencies(index: int) -> tuple[str, ...]:
+    common = (
+        "repo.import-health",
+        "capability.ledger-inventory",
+        "capability.foraging-plane",
+        "capability.forage-target-plane",
+        "capability.forage-growth-plane",
+    )
+    if index == 0:
+        chain = (
+            "capability.application-python-sext-nested-instance-growth-plane",
+            "capability.application-python-sext-nested-static-growth-plane",
+        )
+    else:
+        chain_list = [
+            "capability.application-python-"
+            f"{_COPIED_NESTED_STEMS[_COPIED_NESTED_LATINS[prev]]}-nested-instance-growth-plane"
+            for prev in range(index - 1, -1, -1)
+        ]
+        chain_list.append("capability.application-python-sext-nested-instance-growth-plane")
+        chain = tuple(chain_list)
+    return common + chain + (
+        "capability.application-growth-plane",
+        "capability.application-plane",
+    )
+
+
+def _copied_nested_description(depth: int, dotted: str, prior: str) -> str:
+    current = _english_depth(depth)
+    return (
+        "An unplannable application goal grows itself from a sdist whose covering "
+        f"Class().method is a Python nested-namespace class instance {current} submodule "
+        "levels down: introspection reflects "
+        f"{dotted} as a constructable "
+        "instance rather than "
+        f"{_depth_article(prior)} {prior}-level nested Class().method instance, and extra "
+        "bundle leaves extract to a short cache dir so Windows MAX_PATH does not "
+        "fail the forage."
+    )
+
+
+def _copied_nested_delta(depth: int, dotted: str, prior: str) -> str:
+    current = _english_depth(depth)
+    return (
+        "Application-growth no longer skips sdists whose covering Class().method "
+        f"is a Python nested-namespace class instance {current} submodule levels down: "
+        f"introspection reflects {dotted} "
+        f"rather than {_depth_article(prior)} {prior}-level nested Class().method instance, and extra bundle "
+        "leaves extract without embedding a .whl filename so Windows MAX_PATH does "
+        "not fail extra bundle leaves."
+    )
+
+
+def copied_nested_instance_planes_share_body() -> bool:
+    """Return whether septuple through quattuordecuple replay share one body."""
+
+    codes = {
+        globals()[
+            "replay_application_python_"
+            f"{latin}_nested_namespace_class_instance_growth_plane_proof"
+        ].__code__.co_code
+        for latin in _COPIED_NESTED_LATINS
+    }
+    return len(codes) == 1
+
+
+def _install_copied_nested_instance_planes() -> None:
+    """Bind septuple through quattuordecuple to one body.
+
+    The historical functions differed only by latin, stem, depth, and the
+    dependency chain. ``cache_decision`` is not in this family.
+    """
+
+    for index, latin in enumerate(_COPIED_NESTED_LATINS):
+        depth = 7 + index
+        stem = _COPIED_NESTED_STEMS[latin]
+        modules = _UNIFORM_BASE_MODULES[:depth]
+        dotted = ".".join(modules) + ".Codec.encode"
+        prior_latin = "sextuple" if index == 0 else _COPIED_NESTED_LATINS[index - 1]
+        prior_phrase = _hyphen_depth(depth - 1)
+        capability_id = f"capability.application-python-{stem}-nested-instance-growth-plane"
+        upper = latin.upper()
+
+        def load(_upper: str = upper) -> dict[str, Any]:
+            catalog = globals()[f"DEFAULT_PYTHON_{_upper}_NESTED_NAMESPACE_CLASS_INSTANCE_CATALOG"]
+            return _load_replay_apply_catalog(catalog)
+
+        def replay(
+            _latin: str = latin,
+            _upper: str = upper,
+            _modules: tuple[str, ...] = modules,
+            _capability_id: str = capability_id,
+            _prior_latin: str = prior_latin,
+            _depth: int = depth,
+            _prior_phrase: str = prior_phrase,
+        ) -> dict[str, Any]:
+            return _replay_synthetic_nested_codec_instance_proof(
+                capability_id=_capability_id,
+                leftover=_nested_instance_leftover(_depth),
+                modules=_modules,
+                slug=f"forage-ns-{_latin}-codec-instance",
+                catalog=globals()[
+                    f"load_python_{_latin}_nested_namespace_class_instance_apply_catalog"
+                ](),
+                grow_task=globals()[f"PYTHON_{_upper}_NESTED_NAMESPACE_CLASS_INSTANCE_GROW_TASK"],
+                winner=globals()[f"PYTHON_{_upper}_NESTED_NAMESPACE_CLASS_INSTANCE_CALLABLE"],
+                selected_flag=f"python_{_latin}_nested_namespace_class_instance",
+                prior_instance_flag=f"python_{_prior_latin}_nested_namespace_class_instance",
+                static_flag=f"python_{_latin}_nested_namespace_class_static",
+                action=f"application_python_{_latin}_nested_namespace_class_instance_growth_plane",
+            )
+
+        def proof_command(_latin: str = latin) -> str:
+            return (
+                "uv run python -m blackhole_agent.capability_application_growth "
+                f"python-{_latin}-nested-instance-proof"
+            )
+
+        def register(
+            repo_root: Path = REPO_ROOT,
+            _latin: str = latin,
+            _stem: str = stem,
+            _depth: int = depth,
+            _dotted: str = dotted,
+            _prior_phrase: str = prior_phrase,
+            _capability_id: str = capability_id,
+            _dependencies: tuple[str, ...] = _copied_nested_dependencies(index),
+        ) -> dict[str, Any]:
+            ledger_path = default_ledger_path(repo_root)
+            ledger = load_ledger(ledger_path)
+            dependency_ids = tuple(
+                dependency for dependency in _dependencies if dependency in ledger.capabilities
+            )
+            capability = Capability(
+                id=_capability_id,
+                name=(
+                    f"Application python {_latin} nested-namespace class-instance growth plane"
+                ),
+                description=_copied_nested_description(_depth, _dotted, _prior_phrase),
+                kind="python",
+                entry=(
+                    "blackhole_agent.capability_application_growth:"
+                    f"demo_application_python_{_latin}_nested_namespace_class_instance_growth_plane"
+                ),
+                proof_command=globals()[
+                    "application_python_"
+                    f"{_latin}_nested_namespace_class_instance_growth_plane_proof_command"
+                ](),
+                dependencies=dependency_ids,
+                behavior_paths=(
+                    "src/blackhole_agent/capability_application_growth.py",
+                    "src/blackhole_agent/capability_foraging.py",
+                    "src/blackhole_agent/capability_acquisition.py",
+                    "src/blackhole_agent/capability_forage_growth.py",
+                    "tests/fixtures/"
+                    f"forage_python_{_latin}_nested_namespace_class_instance_catalog.json",
+                    "capabilities/ledger.json",
+                ),
+                capability_delta=_copied_nested_delta(_depth, _dotted, _prior_phrase),
+                tags=(
+                    "foraging",
+                    "plane",
+                    "application",
+                    "growth",
+                    "python",
+                    "nested-namespace",
+                    "class-instance",
+                    f"{_latin}-nested",
+                ),
+            )
+            ledger = register_capability(ledger, capability, replace=True)
+            save_ledger(ledger_path, ledger)
+            ledger, proof = prove_capability(ledger, capability.id, cwd=repo_root, timeout=180)
+            stamped = ledger.capabilities[capability.id]
+            disk = load_ledger(ledger_path)
+            merged = dict(disk.capabilities)
+            merged[stamped.id] = stamped
+            save_ledger(
+                ledger_path,
+                CapabilityLedger(
+                    schema_version=disk.schema_version,
+                    updated_at=utc_now_iso(),
+                    capabilities=merged,
+                ),
+            )
+            return {"ok": proof.ok, "exit_code": proof.exit_code, "summary": proof.summary}
+
+        def demo(_latin: str = latin) -> dict[str, Any]:
+            result = globals()[
+                "replay_application_python_"
+                f"{_latin}_nested_namespace_class_instance_growth_plane_proof"
+            ]()
+            return {
+                "ok": bool(result["ok"]),
+                "winner": result.get("winner"),
+                "query": result.get("query"),
+                "action": result.get("action"),
+            }
+
+        load.__name__ = f"load_python_{latin}_nested_namespace_class_instance_apply_catalog"
+        replay.__name__ = (
+            f"replay_application_python_{latin}_nested_namespace_class_instance_growth_plane_proof"
+        )
+        proof_command.__name__ = (
+            f"application_python_{latin}_nested_namespace_class_instance_growth_plane_proof_command"
+        )
+        register.__name__ = (
+            f"register_application_python_{latin}_nested_namespace_class_instance_growth_plane_capability"
+        )
+        demo.__name__ = (
+            f"demo_application_python_{latin}_nested_namespace_class_instance_growth_plane"
+        )
+        globals()[load.__name__] = load
+        globals()[replay.__name__] = replay
+        globals()[proof_command.__name__] = proof_command
+        globals()[register.__name__] = register
+        globals()[demo.__name__] = demo
+
+
+_install_copied_nested_instance_planes()
 
 
 def _install_uniform_nested_instance_planes() -> None:
