@@ -161,43 +161,20 @@ def hpack_int(value: int, n: int, leading: int = 0) -> bytes:
     return bytes(out)
 
 
-def read_hpack_int(data: bytes, offset: int, n: int) -> tuple[int, int]:
-    if offset >= len(data):
-        raise GrpcActuationError("truncated hpack int")
-    mask = (1 << n) - 1
-    value = data[offset] & mask
-    offset += 1
-    if value < mask:
-        return value, offset
-    shift = 0
-    while True:
-        if offset >= len(data):
-            raise GrpcActuationError("truncated hpack int")
-        byte = data[offset]
-        offset += 1
-        value += (byte & 0x7F) << shift
-        shift += 7
-        if byte & 0x80 == 0:
-            return value, offset
-        if shift > 63:
-            raise GrpcActuationError("hpack int overflow")
-
-
 def hpack_string(text: str) -> bytes:
     raw = str(text).encode("ascii")
     return hpack_int(len(raw), 7) + raw
 
 
 def read_hpack_string(data: bytes, offset: int) -> tuple[str, int]:
-    if offset >= len(data):
-        raise GrpcActuationError("truncated hpack string")
-    if data[offset] & 0x80:
-        raise GrpcActuationError("huffman unsupported")
-    length, offset = read_hpack_int(data, offset, 7)
-    raw = data[offset : offset + length]
-    if len(raw) != length:
-        raise GrpcActuationError("truncated hpack string body")
-    return raw.decode("ascii", errors="replace"), offset + length
+    """Read one string, including a Huffman literal the old reader rejected."""
+
+    from blackhole_agent.hpack import HpackError, read_string
+
+    try:
+        return read_string(data, offset)
+    except HpackError as exc:
+        raise GrpcActuationError(str(exc)) from exc
 
 
 def encode_hpack_headers(headers: Sequence[tuple[str, str]]) -> bytes:
@@ -210,34 +187,15 @@ def encode_hpack_headers(headers: Sequence[tuple[str, str]]) -> bytes:
 
 
 def decode_hpack_headers(payload: bytes) -> dict[str, str]:
-    headers: dict[str, str] = {}
-    offset = 0
-    data = bytes(payload or b"")
-    while offset < len(data):
-        first = data[offset]
-        if first & 0x80:
-            _index, offset = read_hpack_int(data, offset, 7)
-            continue
-        if first & 0xC0 == 0x40:
-            index, offset = read_hpack_int(data, offset, 6)
-            if index == 0:
-                name, offset = read_hpack_string(data, offset)
-            else:
-                name = f"idx{index}"
-            value, offset = read_hpack_string(data, offset)
-            headers[name] = value
-            continue
-        if first & 0xE0 == 0x20:
-            _size, offset = read_hpack_int(data, offset, 5)
-            continue
-        index, offset = read_hpack_int(data, offset, 4)
-        if index == 0:
-            name, offset = read_hpack_string(data, offset)
-        else:
-            name = f"idx{index}"
-        value, offset = read_hpack_string(data, offset)
-        headers[name] = value
-    return headers
+    """Decode one block. Indexed fields resolve; they are no longer skipped."""
+
+    from blackhole_agent.hpack import HpackError, decode_hpack_block
+
+    try:
+        rows = decode_hpack_block(bytes(payload or b""))
+    except HpackError as exc:
+        raise GrpcActuationError(str(exc)) from exc
+    return {name: value for name, value in rows}
 
 
 def write_varint(value: int) -> bytes:
