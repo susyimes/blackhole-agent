@@ -9,6 +9,8 @@ relatives, and file URLs whose Windows drive letter, UNC host, and localhost
 host are not what ``urllib`` emits.
 
 This is the standard's special-URL parser, not a wrapper around ``urllib``.
+A domain is mapped with UTS #46 nontransitional processing: a sharp s stays a
+punycode label, and a final sigma does not fold into sigma.
 """
 
 from __future__ import annotations
@@ -503,35 +505,129 @@ def _parse_ipv4(text: str) -> str:
 
 
 def _domain_to_ascii(text: str) -> str:
-    """Domain to ASCII after UTF-8 percent-decoding.
+    """Domain parser after UTF-8 percent-decoding, with beStrict false.
 
-    An ASCII domain is lowercased and then rejected when it still contains a
-    forbidden domain code point such as ``%``. A non-ASCII domain goes through
-    IDNA, which maps a soft hyphen away and rejects a label that becomes empty.
+    An ASCII domain is lowercased even when strict ToASCII would reject it.
+    Anything else is UTS #46 ToASCII with CheckHyphens, UseSTD3ASCIIRules, and
+    VerifyDnsLength false, and with Transitional_Processing false. Nameprep is
+    not used: it maps U+00DF to ``ss`` and folds U+03C2 into sigma.
     """
 
     decoded = _percent_decode_utf8(text)
     if "\ufffd" in decoded:
         raise URLParseError("invalid domain")
-    trailing = decoded.endswith(".")
-    body = decoded[:-1] if trailing else decoded
-    if body == "":
-        result = "." if trailing else ""
-    elif all(ord(char) < 128 for char in body):
-        result = body.lower() + ("." if trailing else "")
+    if all(ord(char) < 128 for char in decoded):
+        result = decoded.lower()
     else:
-        labels: list[str] = []
-        try:
-            for label in body.split("."):
-                labels.append(label.encode("idna").decode("ascii") if label else "")
-        except UnicodeError as exc:
-            raise URLParseError("invalid domain") from exc
-        result = ".".join(labels)
-        if trailing:
-            result += "."
+        result = _uts46_to_ascii(decoded)
     if result == "" or _has_forbidden_domain(result):
         raise URLParseError("forbidden host code point")
     return result
+
+
+def _uts46_to_ascii(text: str) -> str:
+    """Nontransitional ToASCII for a domain that is not an ASCII string."""
+
+    import idna
+
+    try:
+        remapped = idna.uts46_remap(text, std3_rules=False, transitional=False)
+    except idna.IDNAError as exc:
+        raise URLParseError("invalid domain") from exc
+    if remapped == "":
+        raise URLParseError("invalid domain")
+    labels = remapped.split(".")
+    trailing = labels[-1] == ""
+    if trailing:
+        labels = labels[:-1]
+    if not labels:
+        raise URLParseError("invalid domain")
+    encoded = [_uts46_label(label) for label in labels]
+    result = ".".join(encoded)
+    if trailing:
+        result += "."
+    return result
+
+
+def _uts46_label(label: str) -> str:
+    if label == "":
+        raise URLParseError("invalid domain")
+    if all(ord(char) < 128 for char in label):
+        if label.startswith("xn--"):
+            _validate_alabel(label)
+        return label
+    _validate_ulabel(label)
+    try:
+        punycode = label.encode("punycode").decode("ascii")
+    except UnicodeError as exc:
+        raise URLParseError("invalid domain") from exc
+    return "xn--" + punycode
+
+
+def _validate_alabel(label: str) -> None:
+    """Reject an A-label whose decoded form is not a stable U-label.
+
+    IgnoreInvalidPunycode is false. A decoded label that still contains a
+    mapped character, such as fullwidth letters, does not round-trip.
+    """
+
+    import idna
+
+    rest = label[4:]
+    if rest == "" or rest.endswith("-"):
+        raise URLParseError("invalid domain")
+    try:
+        decoded = rest.encode("ascii").decode("punycode")
+    except UnicodeError as exc:
+        raise URLParseError("invalid domain") from exc
+    if decoded == "" or any(char == "." or ord(char) in (0x3002, 0xFF0E, 0xFF61) for char in decoded):
+        raise URLParseError("invalid domain")
+    try:
+        round_trip = decoded.encode("punycode").decode("ascii")
+    except UnicodeError as exc:
+        raise URLParseError("invalid domain") from exc
+    if "xn--" + round_trip != label:
+        raise URLParseError("invalid domain")
+    try:
+        remapped = idna.uts46_remap(decoded, std3_rules=False, transitional=False)
+    except idna.IDNAError as exc:
+        raise URLParseError("invalid domain") from exc
+    if remapped != decoded:
+        raise URLParseError("invalid domain")
+    _validate_ulabel(decoded)
+
+
+def _validate_ulabel(label: str) -> None:
+    """Check joiners and bidi. Do not apply IDNA2008 PVALID or CheckHyphens.
+
+    UTS #46 marks emoji and deviation characters valid. ``idna.alabel`` rejects
+    those, and it also rejects a leading hyphen and an underscore, both of
+    which the non-strict domain parser keeps.
+    """
+
+    import idna
+    from idna.idnadata import codepoint_classes
+
+    try:
+        idna.check_initial_combiner(label)
+        idna.check_bidi(label)
+    except idna.IDNAError as exc:
+        raise URLParseError("invalid domain") from exc
+    joiners = codepoint_classes["CONTEXTJ"]
+    contextual = codepoint_classes["CONTEXTO"]
+    for pos, char in enumerate(label):
+        code = ord(char)
+        try:
+            if idna.intranges_contain(code, joiners):
+                allowed = idna.valid_contextj(label, pos)
+            elif idna.intranges_contain(code, contextual):
+                allowed = idna.valid_contexto(label, pos)
+            else:
+                continue
+        except (idna.IDNAError, ValueError) as exc:
+            raise URLParseError("invalid domain") from exc
+        if not allowed:
+            raise URLParseError("invalid domain")
 
 
 def _percent_decode_utf8(text: str) -> str:
