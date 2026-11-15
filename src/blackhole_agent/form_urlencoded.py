@@ -15,32 +15,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-# Encoding Standard output labels. iso-8859-1 and ascii are windows-1252.
-_OUTPUT_CODECS = {
-    "unicode-1-1-utf-8": "utf-8",
-    "unicode11utf8": "utf-8",
-    "unicode20utf8": "utf-8",
-    "utf-8": "utf-8",
-    "utf8": "utf-8",
-    "x-unicode20utf8": "utf-8",
-    "ansi_x3.4-1968": "cp1252",
-    "ascii": "cp1252",
-    "cp1252": "cp1252",
-    "cp819": "cp1252",
-    "csisolatin1": "cp1252",
-    "ibm819": "cp1252",
-    "iso-8859-1": "cp1252",
-    "iso-ir-100": "cp1252",
-    "iso8859-1": "cp1252",
-    "iso88591": "cp1252",
-    "iso_8859-1": "cp1252",
-    "iso_8859-1:1987": "cp1252",
-    "l1": "cp1252",
-    "latin1": "cp1252",
-    "us-ascii": "cp1252",
-    "windows-1252": "cp1252",
-    "x-cp1252": "cp1252",
-}
+from blackhole_agent.encoding_standard import encoding_name
 _PASS_THROUGH = frozenset(b"*-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz")
 
 
@@ -109,8 +84,14 @@ def serialize_html_form(
 
 
 def _output_codec(label: str) -> str:
-    key = str(label or "").strip().lower()
-    return _OUTPUT_CODECS.get(key, "utf-8")
+    # HTML form output encoding is windows-1252 for that label family and
+    # UTF-8 for every other label, including an unknown one. The label table
+    # lives in encoding_standard; this function does not keep a second copy.
+    if not isinstance(label, str):
+        return "utf-8"
+    if encoding_name(label) == "windows-1252":
+        return "cp1252"
+    return "utf-8"
 
 
 def _scalar_value(text: str) -> str:
