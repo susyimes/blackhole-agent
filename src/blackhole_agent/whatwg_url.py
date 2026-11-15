@@ -2,9 +2,11 @@
 
 Python's ``urllib.parse`` keeps a default port, leaves a backslash in an http(s)
 URL, and does not rewrite an octal IPv4 octet. ``parse_href`` follows the URL
-standard for the special schemes ``http``, ``https``, ``ws``, ``wss``, and
-``ftp``: tab and newline stripping, default-port omission, backslash as slash,
-octal and hexadecimal IPv4, dot-segment resolution, and same-scheme relatives.
+standard for the special schemes ``http``, ``https``, ``ws``, ``wss``, ``ftp``,
+and ``file``: tab and newline stripping, default-port omission, backslash as
+slash, octal and hexadecimal IPv4, dot-segment resolution, same-scheme
+relatives, and file URLs whose Windows drive letter, UNC host, and localhost
+host are not what ``urllib`` emits.
 
 This is the standard's special-URL parser, not a wrapper around ``urllib``.
 """
@@ -14,6 +16,7 @@ from __future__ import annotations
 import ipaddress
 
 _SPECIAL_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443, "ftp": 21}
+_SPECIAL_SCHEMES = frozenset({*_SPECIAL_PORTS, "file"})
 _FORBIDDEN_HOST = frozenset("\x00\t\n\r #/:<>?@[\\]^|")
 _QUERY_EXTRA = frozenset(' "<>#')
 _PATH_EXTRA = _QUERY_EXTRA | frozenset("?`{}")
@@ -99,10 +102,10 @@ def _parse(text: str, base: _URL | None) -> _URL:
                 url.scheme = buffer
                 buffer = ""
                 if url.scheme == "file":
-                    raise URLParseError("file URLs are not parsed")
-                if url.scheme not in _SPECIAL_PORTS:
+                    state = "file"
+                elif url.scheme not in _SPECIAL_SCHEMES:
                     raise URLParseError(f"scheme {url.scheme!r} is not a special scheme")
-                if base is not None and base.scheme == url.scheme:
+                elif base is not None and base.scheme == url.scheme:
                     state = "special relative or authority"
                 else:
                     state = "special authority slashes"
@@ -114,8 +117,70 @@ def _parse(text: str, base: _URL | None) -> _URL:
         elif state == "no scheme":
             if base is None:
                 raise URLParseError("relative URL without a base")
-            state = "relative"
+            # A file base never enters the generic relative state. The file
+            # state is what keeps a Windows drive letter on the path.
+            state = "file" if base.scheme == "file" else "relative"
             hold = True
+        elif state == "file":
+            url.scheme = "file"
+            url.host = ""
+            if char in {"/", "\\"}:
+                state = "file slash"
+            elif base is not None and base.scheme == "file":
+                url.host = base.host
+                url.path = list(base.path)
+                url.query = base.query
+                if char == "?":
+                    url.query = ""
+                    state = "query"
+                elif char == "#":
+                    url.fragment = ""
+                    state = "fragment"
+                elif char is not None:
+                    url.query = None
+                    if not _starts_with_windows_drive(chars[index:]):
+                        _shorten(url)
+                    else:
+                        url.path = []
+                    state = "path"
+                    hold = True
+                else:
+                    return url
+            else:
+                state = "path"
+                hold = True
+        elif state == "file slash":
+            if char in {"/", "\\"}:
+                state = "file host"
+            else:
+                if base is not None and base.scheme == "file":
+                    url.host = base.host
+                    if (
+                        not _starts_with_windows_drive(chars[index:])
+                        and base.path
+                        and _is_normalized_windows_drive(base.path[0])
+                    ):
+                        url.path.append(base.path[0])
+                state = "path"
+                hold = True
+        elif state == "file host":
+            if char is None or char in "/\\?#":
+                if _is_windows_drive(buffer):
+                    # The drive letter is a path segment, not a host. The
+                    # buffer stays so path state can normalize "|" to ":".
+                    state = "path"
+                    hold = True
+                elif buffer == "":
+                    url.host = ""
+                    state = "path start"
+                    hold = True
+                else:
+                    url.host = _parse_file_host(buffer)
+                    buffer = ""
+                    state = "path start"
+                    hold = True
+            else:
+                buffer += char
         elif state == "special relative or authority":
             if char == "/" and _peek(chars, index) == "/":
                 state = "special authority ignore slashes"
@@ -136,7 +201,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
                 hold = True
         elif state == "relative":
             url.scheme = base.scheme if base is not None else ""
-            if char == "/" or (char == "\\" and url.scheme in _SPECIAL_PORTS):
+            if char == "/" or (char == "\\" and _is_special(url.scheme)):
                 state = "relative slash"
             else:
                 if base is None:
@@ -152,8 +217,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
                     state = "fragment"
                 elif char is not None:
                     url.query = None
-                    if url.path:
-                        url.path.pop()
+                    _shorten(url)
                     state = "path"
                     hold = True
                 else:
@@ -161,7 +225,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
         elif state == "relative slash":
             if base is None:
                 raise URLParseError("relative URL without a base")
-            if char in {"/", "\\"} and url.scheme in _SPECIAL_PORTS:
+            if char in {"/", "\\"} and _is_special(url.scheme):
                 state = "special authority ignore slashes"
             elif char == "/":
                 state = "authority"
@@ -178,7 +242,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
                     buffer, url.username, url.password, password_token
                 )
                 buffer = ""
-            elif char is None or char in "/?#" or (char == "\\" and url.scheme in _SPECIAL_PORTS):
+            elif char is None or char in "/?#" or (char == "\\" and _is_special(url.scheme)):
                 if at_sign and buffer == "":
                     raise URLParseError("empty host")
                 index -= len(buffer)
@@ -190,13 +254,13 @@ def _parse(text: str, base: _URL | None) -> _URL:
                 buffer += char
         elif state == "host":
             if char == ":" and not inside_brackets:
-                url.host = _parse_host(buffer, special=url.scheme in _SPECIAL_PORTS)
+                url.host = _parse_host(buffer, special=_is_special(url.scheme))
                 buffer = ""
                 state = "port"
-            elif char is None or char in "/?#" or (char == "\\" and url.scheme in _SPECIAL_PORTS):
-                if url.scheme in _SPECIAL_PORTS and buffer == "":
+            elif char is None or char in "/?#" or (char == "\\" and _is_special(url.scheme)):
+                if _is_special(url.scheme) and buffer == "":
                     raise URLParseError("empty host")
-                url.host = _parse_host(buffer, special=url.scheme in _SPECIAL_PORTS)
+                url.host = _parse_host(buffer, special=_is_special(url.scheme))
                 buffer = ""
                 state = "path start"
                 hold = True
@@ -209,7 +273,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
         elif state == "port":
             if char is not None and char.isascii() and char.isdigit():
                 buffer += char
-            elif char is None or char in "/?#" or (char == "\\" and url.scheme in _SPECIAL_PORTS):
+            elif char is None or char in "/?#" or (char == "\\" and _is_special(url.scheme)):
                 if buffer != "":
                     port = int(buffer, 10)
                     if port > 65535:
@@ -221,7 +285,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
             else:
                 raise URLParseError("invalid port")
         elif state == "path start":
-            if char in {"/", "\\"} and url.scheme in _SPECIAL_PORTS:
+            if char in {"/", "\\"} and _is_special(url.scheme):
                 state = "path"
             elif char == "?":
                 url.query = ""
@@ -235,7 +299,7 @@ def _parse(text: str, base: _URL | None) -> _URL:
             else:
                 return url
         elif state == "path":
-            if char is None or char in "/?#" or (char == "\\" and url.scheme in _SPECIAL_PORTS):
+            if char is None or char in "/?#" or (char == "\\" and _is_special(url.scheme)):
                 _commit_path(url, buffer, char)
                 buffer = ""
                 if char == "?":
@@ -309,8 +373,7 @@ def _commit_path(url: _URL, buffer: str, char: str | None) -> None:
     kind = buffer.lower()
     directory = char is None or char in "?#"
     if kind in _DOUBLE_DOT:
-        if url.path:
-            url.path.pop()
+        _shorten(url)
         if directory:
             url.path.append("")
         return
@@ -318,7 +381,52 @@ def _commit_path(url: _URL, buffer: str, char: str | None) -> None:
         if directory:
             url.path.append("")
         return
+    if url.scheme == "file" and not url.path and _is_windows_drive(buffer):
+        buffer = buffer[0] + ":"
     url.path.append(buffer)
+
+
+def _is_special(scheme: str) -> bool:
+    return scheme in _SPECIAL_SCHEMES
+
+
+def _is_windows_drive(text: str) -> bool:
+    return (
+        len(text) == 2
+        and text[0].isascii()
+        and text[0].isalpha()
+        and text[1] in ":|"
+    )
+
+
+def _is_normalized_windows_drive(text: str) -> bool:
+    return len(text) == 2 and text[0].isascii() and text[0].isalpha() and text[1] == ":"
+
+
+def _starts_with_windows_drive(text: str) -> bool:
+    if not _is_windows_drive(text[:2]):
+        return False
+    return len(text) == 2 or text[2] in "/\\?#"
+
+
+def _shorten(url: _URL) -> None:
+    """Pop one path segment, except a file URL's lone Windows drive letter."""
+
+    if (
+        url.scheme == "file"
+        and len(url.path) == 1
+        and _is_normalized_windows_drive(url.path[0])
+    ):
+        return
+    if url.path:
+        url.path.pop()
+
+
+def _parse_file_host(text: str) -> str:
+    host = _parse_host(text, special=True)
+    if host == "localhost":
+        return ""
+    return host
 
 
 def _parse_host(text: str, *, special: bool) -> str:
@@ -332,11 +440,12 @@ def _parse_host(text: str, *, special: bool) -> str:
         packed = int(address)
         pieces = [(packed >> shift) & 0xFFFF for shift in (112, 96, 80, 64, 48, 32, 16, 0)]
         return "[" + _compress_ipv6(pieces) + "]"
-    if _ends_in_a_number(text):
-        return _parse_ipv4(text)
     if special and text == "":
         raise URLParseError("empty host")
-    return _domain_to_ascii(text)
+    ascii_domain = _domain_to_ascii(text)
+    if _ends_in_a_number(ascii_domain):
+        return _parse_ipv4(ascii_domain)
+    return ascii_domain
 
 
 def _ends_in_a_number(text: str) -> bool:
@@ -394,48 +503,64 @@ def _parse_ipv4(text: str) -> str:
 
 
 def _domain_to_ascii(text: str) -> str:
-    decoded = _percent_decode(text)
-    if _has_forbidden_host(text) or _has_forbidden_host(decoded):
-        raise URLParseError("forbidden host code point")
+    """Domain to ASCII after UTF-8 percent-decoding.
+
+    An ASCII domain is lowercased and then rejected when it still contains a
+    forbidden domain code point such as ``%``. A non-ASCII domain goes through
+    IDNA, which maps a soft hyphen away and rejects a label that becomes empty.
+    """
+
+    decoded = _percent_decode_utf8(text)
+    if "\ufffd" in decoded:
+        raise URLParseError("invalid domain")
     trailing = decoded.endswith(".")
     body = decoded[:-1] if trailing else decoded
     if body == "":
-        return "." if trailing else ""
-    labels: list[str] = []
-    for label in body.split("."):
-        if any(ord(char) > 127 for char in label):
-            try:
-                labels.append(label.encode("idna").decode("ascii"))
-            except UnicodeError as exc:
-                raise URLParseError("invalid domain") from exc
-        else:
-            labels.append(label.lower())
-    result = ".".join(labels)
-    if trailing:
-        result += "."
+        result = "." if trailing else ""
+    elif all(ord(char) < 128 for char in body):
+        result = body.lower() + ("." if trailing else "")
+    else:
+        labels: list[str] = []
+        try:
+            for label in body.split("."):
+                labels.append(label.encode("idna").decode("ascii") if label else "")
+        except UnicodeError as exc:
+            raise URLParseError("invalid domain") from exc
+        result = ".".join(labels)
+        if trailing:
+            result += "."
+    if result == "" or _has_forbidden_domain(result):
+        raise URLParseError("forbidden host code point")
     return result
 
 
-def _has_forbidden_host(text: str) -> bool:
-    return any(char in _FORBIDDEN_HOST or ord(char) < 0x20 or ord(char) == 0x7F for char in text)
-
-
-def _percent_decode(text: str) -> str:
-    output: list[str] = []
+def _percent_decode_utf8(text: str) -> str:
+    raw = text.encode("utf-8")
+    output = bytearray()
     index = 0
-    while index < len(text):
+    hex_digits = b"0123456789abcdefABCDEF"
+    while index < len(raw):
+        byte = raw[index]
         if (
-            text[index] == "%"
-            and index + 2 < len(text)
-            and text[index + 1] in "0123456789abcdefABCDEF"
-            and text[index + 2] in "0123456789abcdefABCDEF"
+            byte == 0x25
+            and index + 2 < len(raw)
+            and raw[index + 1] in hex_digits
+            and raw[index + 2] in hex_digits
         ):
-            output.append(chr(int(text[index + 1 : index + 3], 16)))
+            output.append(int(raw[index + 1 : index + 3], 16))
             index += 3
             continue
-        output.append(text[index])
+        output.append(byte)
         index += 1
-    return "".join(output)
+    return output.decode("utf-8", errors="replace")
+
+
+def _has_forbidden_domain(text: str) -> bool:
+    for char in text:
+        code = ord(char)
+        if code <= 0x1F or code == 0x7F or char in _FORBIDDEN_HOST or char == "%":
+            return True
+    return False
 
 
 def _compress_ipv6(pieces: list[int]) -> str:
