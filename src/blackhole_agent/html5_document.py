@@ -79,11 +79,17 @@ def _html5lib():
     return html5lib
 
 
+def parse_tree(markup: str):
+    """Parse a document and return the html5lib element tree."""
+
+    return _html5lib().parse(markup)
+
+
 def parse_html(markup: str) -> str:
     """Parse a document and return the html5lib serialization of its tree."""
 
     html5lib = _html5lib()
-    document = html5lib.parse(markup)
+    document = parse_tree(markup)
     walker = html5lib.getTreeWalker("etree")
     from html5lib.serializer import HTMLSerializer
 
