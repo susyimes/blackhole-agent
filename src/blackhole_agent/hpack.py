@@ -222,6 +222,22 @@ class HpackDecoder:
 
         return self._size
 
+    def set_protocol_max(self, size: int) -> None:
+        """Apply the peer's SETTINGS_HEADER_TABLE_SIZE limit.
+
+        A larger limit does not grow the table by itself. The next header
+        block must carry the HPACK size update. A smaller limit evicts entries
+        immediately so the table is never above the advertised maximum.
+        """
+
+        if isinstance(size, bool) or not isinstance(size, int):
+            raise TypeError("table size must be an int")
+        if size < 0:
+            raise ValueError("table size must be non-negative")
+        self._protocol_max = size
+        if self._max > size:
+            self._set_max(size)
+
     def decode(self, block: bytes) -> list[tuple[str, str]]:
         """Decode one header block and apply its table updates."""
 
