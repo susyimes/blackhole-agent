@@ -49,8 +49,12 @@ list wrapped in ``:is()``, so the nested rule takes the most specific
 parent's specificity for every parent. A nested selector with no ``&`` is
 relative to the parent: a leading combinator is kept, and the default
 combinator is a descendant. An invalid nested selector is dropped with its
-block and leaves the parent rule in place. Nested style rules inside
-``@scope`` stay outside this reader. ``@media`` keeps its block only when
+block and leaves the parent rule in place. The same expansion works inside
+``@scope``: the inner rule keeps that scope's root, limit, and proximity.
+A scope-relative parent keeps its implied relationship after ``&``
+substitution, and that relationship adds no specificity. An invalid inner
+selector still does not discard the parent declaration or later rules.
+``@media`` keeps its block only when
 the query matches the media map: type, width, height, derived orientation,
 ``prefers-color-scheme``, and ``prefers-reduced-motion``. Lengths are px.
 ``not``, ``and``, ``or``, a comma, and ``only`` follow Media Queries 4. A
@@ -833,7 +837,14 @@ def _contains_scope_ref(selector: Complex) -> bool:
 
 
 def _list_matches(tree: _Tree, element, selectors: tuple[Complex, ...], scope_el=None) -> bool:
-    return any(_complex_matches(tree, element, selector, scope_el) for selector in selectors)
+    """Match one selector. An anchored selector stays relative to ``scope_el``.
+
+    Nesting wraps a scope-relative parent in ``:is()``. The parent's implied
+    relationship is an anchor, not a written ``:scope``, so it must still
+    apply or ``> span { em }`` inside ``@scope`` would match every span.
+    """
+
+    return any(_one_matches(tree, element, selector, scope_el) for selector in selectors)
 
 
 def _matching_specificity(
@@ -1811,8 +1822,6 @@ def _fill_style_body(
                 _store_declaration(text, selectors, node, scopes, found, counter)
             continue
         prelude = parser.take_prelude()
-        if scopes or any(item.anchor for item in selectors):
-            raise CssSelectorError("nested style rules inside @scope are outside this reader")
         try:
             nested = _parse_nested_selectors(prelude)
         except CssSelectorError:
