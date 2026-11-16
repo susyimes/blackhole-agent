@@ -2153,11 +2153,19 @@ def normalize_cmd_single_quoted_args(command: str) -> str:
     return "".join(out)
 
 
-def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str] | None:
-    if not overlay:
-        return None
+def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str]:
+    """Copy the controller environment and drop an inherited PYTHONHOME.
+
+    A tick points PYTHONHOME at a different CPython than the interpreter
+    under test. Replaying ``python -c`` then dies in the standard library
+    before the claimed checks. A prefix on the command may still set it.
+    """
+
     environment = {str(key): str(value) for key, value in os.environ.items()}
-    environment.update({str(key): str(value) for key, value in overlay.items()})
+    for key in [key for key in environment if str(key).casefold() == "pythonhome"]:
+        del environment[key]
+    if overlay:
+        environment.update({str(key): str(value) for key, value in overlay.items()})
     return environment
 
 
