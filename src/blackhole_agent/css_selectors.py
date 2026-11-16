@@ -48,8 +48,15 @@ the query matches the media map: type, width, height, derived orientation,
 ``prefers-color-scheme``, and ``prefers-reduced-motion``. Lengths are px.
 ``not``, ``and``, ``or``, a comma, and ``only`` follow Media Queries 4. A
 query nested in a style rule uses that rule's selectors. An unknown feature
-or a malformed query does not match, and later rules stay. Animation
-tainting stays outside.
+or a malformed query does not match, and later rules stay. ``@supports``
+keeps its block when the condition is supported: ``color`` accepts a color
+or a CSS-wide keyword, a custom property accepts any non-empty value, and
+``selector()`` accepts one complex selector this reader can parse.
+``font-tech()``, ``font-format()``, and any other function are unsupported.
+``not``, ``and``, and ``or`` combine those answers. An empty prelude or a
+mix of ``and`` and ``or`` drops that block and leaves later rules. The block
+stays in its layer, scope, and nesting parent. Animation tainting stays
+outside.
 """
 
 from __future__ import annotations
@@ -1182,6 +1189,222 @@ def _take_at_block(parser: _Parser) -> tuple[str, str]:
     raise CssSelectorError("expected an @media block")
 
 
+class _Supports:
+    """Cursor over one ``@supports`` condition."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.length = len(text)
+        self.index = 0
+
+    def peek(self) -> str:
+        return self.text[self.index] if self.index < self.length else ""
+
+    def skip(self) -> None:
+        while self.peek() and self.peek().isspace():
+            self.index += 1
+
+    def ident(self) -> str | None:
+        self.skip()
+        start = self.index
+        if self.peek() == "-":
+            self.index += 1
+            if self.peek() == "-":
+                self.index += 1
+        char = self.peek()
+        if not char or not (char.isalpha() or char == "_" or ord(char) > 127):
+            self.index = start
+            return None
+        self.index += 1
+        while self.index < self.length:
+            char = self.peek()
+            if not (char.isalnum() or char in "-_" or ord(char) > 127):
+                break
+            self.index += 1
+        return self.text[start : self.index]
+
+    def take(self, word: str) -> bool:
+        saved = self.index
+        found = self.ident()
+        if found is not None and found.lower() == word:
+            return True
+        self.index = saved
+        return False
+
+    def paren(self) -> str:
+        self.skip()
+        if self.peek() != "(":
+            raise CssSelectorError("expected a supports condition")
+        self.index += 1
+        start = self.index
+        depth = 1
+        while self.index < self.length:
+            char = self.peek()
+            if char in "\"'":
+                self.index = _skip_string(self.text, self.index)
+                continue
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    body = self.text[start : self.index]
+                    self.index += 1
+                    return body
+            self.index += 1
+        raise CssSelectorError("unclosed supports condition")
+
+
+def _supports_matches(prelude: str) -> bool:
+    text = prelude.strip()
+    if not text:
+        return False
+    try:
+        parser = _Supports(text)
+        value = _supports_condition(parser)
+        parser.skip()
+        if parser.peek():
+            return False
+        return value
+    except CssSelectorError:
+        return False
+
+
+def _supports_condition(parser: _Supports) -> bool:
+    parser.skip()
+    if parser.take("not"):
+        return not _supports_in_parens(parser)
+    first = _supports_in_parens(parser)
+    parser.skip()
+    if parser.take("and"):
+        values = [first]
+        while True:
+            values.append(_supports_in_parens(parser))
+            parser.skip()
+            if not parser.take("and"):
+                break
+        if parser.take("or"):
+            raise CssSelectorError("supports condition mixes and and or")
+        return all(values)
+    if parser.take("or"):
+        values = [first]
+        while True:
+            values.append(_supports_in_parens(parser))
+            parser.skip()
+            if not parser.take("or"):
+                break
+        if parser.take("and"):
+            raise CssSelectorError("supports condition mixes and and or")
+        return any(values)
+    return first
+
+
+def _supports_in_parens(parser: _Supports) -> bool:
+    parser.skip()
+    if parser.peek() == "(":
+        return _supports_paren_body(parser.paren())
+    return _supports_function(parser)
+
+
+def _supports_function(parser: _Supports) -> bool:
+    name = parser.ident()
+    if name is None or parser.peek() != "(":
+        raise CssSelectorError("expected a supports feature")
+    return _named_supports_feature(name, parser.paren())
+
+
+def _supports_paren_body(body: str) -> bool:
+    parser = _Supports(body)
+    parser.skip()
+    if not parser.peek():
+        return False
+    if parser.peek() == "(" or _supports_looks_like_not(parser):
+        value = _supports_condition(parser)
+        parser.skip()
+        if parser.peek():
+            raise CssSelectorError("trailing text in supports condition")
+        return value
+    saved = parser.index
+    name = parser.ident()
+    if name is None:
+        return False
+    if parser.peek() == "(":
+        argument = parser.paren()
+        parser.skip()
+        if not parser.peek():
+            return _named_supports_feature(name, argument)
+        value_parser = _Supports(body)
+        value = _supports_condition(value_parser)
+        value_parser.skip()
+        if value_parser.peek():
+            raise CssSelectorError("trailing text in supports condition")
+        return value
+    if parser.peek().isspace():
+        parser.skip()
+    if parser.peek() == ":":
+        return _declaration_supported(body)
+    parser.index = saved
+    return False
+
+
+def _supports_looks_like_not(parser: _Supports) -> bool:
+    saved = parser.index
+    matched = parser.take("not")
+    follows = False
+    if matched:
+        parser.skip()
+        if parser.peek() == "(":
+            follows = True
+        else:
+            name = parser.ident()
+            follows = name is not None and parser.peek() == "("
+    parser.index = saved
+    return matched and follows
+
+
+def _named_supports_feature(name: str, argument: str) -> bool:
+    lowered = name.lower()
+    if lowered == "selector":
+        return _selector_feature(argument)
+    return False
+
+
+def _selector_feature(argument: str) -> bool:
+    text = argument.strip()
+    if not text:
+        return False
+    try:
+        parser = _Parser(text)
+        parser.complex_selector()
+        parser.skip_space()
+        return not parser.peek()
+    except CssSelectorError:
+        return False
+
+
+def _declaration_supported(body: str) -> bool:
+    parser = _Supports(body)
+    parser.skip()
+    name = parser.ident()
+    if name is None:
+        return False
+    parser.skip()
+    if parser.peek() != ":":
+        return False
+    parser.index += 1
+    raw = parser.text[parser.index :].strip()
+    if not raw or ";" in raw:
+        return False
+    value, _important_flag = _important(raw)
+    if not value:
+        return False
+    if name.startswith("--"):
+        return len(name) > 2
+    if name.lower() == "color":
+        return value.lower() in _CSS_WIDE_IDENTS or _is_color(value)
+    return False
+
+
 def _stylesheet(stylesheet: str, *, media: dict | None = None) -> tuple[list[_Decl], dict[str, _Registration]]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
@@ -1262,6 +1485,11 @@ def _at_rule(
     if keyword == "media":
         prelude, body = _take_at_block(parser)
         if _media_matches(prelude, media):
+            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media)
+        return
+    if keyword == "supports":
+        prelude, body = _take_at_block(parser)
+        if _supports_matches(prelude):
             _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media)
         return
     if keyword != "layer":
@@ -1417,6 +1645,11 @@ def _nested_media(
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
+    if keyword == "supports":
+        prelude, body = _take_at_block(parser)
+        if _supports_matches(prelude):
+            _fill_style_body(body, selectors, node, scopes, found, counter, media)
+        return
     if keyword != "media":
         raise CssSelectorError("at-rules are outside this reader")
     prelude, body = _take_at_block(parser)

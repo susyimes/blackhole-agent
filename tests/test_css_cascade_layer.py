@@ -56,8 +56,10 @@ def test_revert_layer_with_no_lower_layer_inherits_at_computed_value_time() -> N
     assert computed_value(MARKUP, sheet, "t", "color") == "navy"
 
 
+def test_supports_color_is_readable_inside_the_cascade() -> None:
+    assert _color("#t { color: blue } @supports (color: red) { #t { color: red } }") == "red"
+
+
 def test_other_at_rules_stay_outside_the_reader() -> None:
-    with pytest.raises(CssSelectorError):
-        _color("@supports (color: red) { #t { color: red } }")
     with pytest.raises(CssSelectorError):
         _color("@layer base, theme { #t { color: red } }")

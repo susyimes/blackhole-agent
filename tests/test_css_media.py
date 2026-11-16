@@ -35,7 +35,10 @@ def test_computed_color_follows_media():
     assert computed_value(markup, sheet, "t", "color", media={"width": 0}) == "blue"
 
 
-def test_supports_stays_outside_the_reader():
+def test_supports_selects_a_supported_color():
     markup = "<!DOCTYPE html><html><body><p id='t'></p></body></html>"
+    sheet = "#t { color: blue } @supports (color: red) { #t { color: red } }"
+    assert cascaded_value(markup, sheet, "t", "color") == "red"
+    assert computed_value(markup, sheet, "t", "color") == "red"
     with pytest.raises(CssSelectorError, match="at-rules are outside this reader"):
-        cascaded_value(markup, "@supports (color: red) { #t { color: red } }", "t", "color")
+        cascaded_value(markup, "@keyframes bump { to { color: red } }", "t", "color")
