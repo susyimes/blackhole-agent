@@ -7,8 +7,15 @@ argument even when a less specific argument matched. ``:where()`` adds none.
 combinator means a descendant, and ``>``, ``+``, and ``~`` keep their usual
 direction. Its specificity is the most specific argument. An author
 ``!important`` declaration beats a normal declaration of higher specificity.
-The reader covers type, class, id, the universal selector, and the descendant,
-child, next-sibling, and subsequent-sibling combinators.
+The reader covers type, class, id, attribute selectors, the universal selector,
+and the descendant, child, next-sibling, and subsequent-sibling combinators.
+An attribute has specificity (0, 1, 0). Presence matches an empty value.
+``=``, ``~=``, ``|=``, ``^=``, ``$=``, and ``*=`` compare the stored value.
+In an HTML element, the HTML keyword attributes (including ``type``, ``lang``,
+and ``rel``) fold ASCII case unless the ``s`` flag is set. Other values,
+including ``href`` and ``data-*``, stay sensitive unless the ``i`` flag is set.
+An empty ``~=``, ``|=``, ``^=``, ``$=``, or ``*=`` value, a whitespace word,
+two flags, or a namespace prefix is rejected.
 
 ``computed_value`` substitutes ``var()`` after the cascade. A custom property
 inherits the value its parent already computed, so a child that overrides a
@@ -70,6 +77,59 @@ from blackhole_agent.html5_document import parse_tree
 _HTML_SPACE = re.compile(r"[ \t\n\f\r]+")
 _ANB = re.compile(r"([+-]?(?:\d+)?)n([+-]\d+)?\Z")
 _NUMBER = re.compile(r"[+-]?\d+\Z")
+_HTML_NAMESPACE = "http://www.w3.org/1999/xhtml"
+_ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+# HTML: these attribute values fold ASCII case in selectors unless `s` is set.
+_HTML_CASELESS_ATTRIBUTES = frozenset(
+    {
+        "accept",
+        "accept-charset",
+        "align",
+        "alink",
+        "axis",
+        "bgcolor",
+        "charset",
+        "checked",
+        "clear",
+        "codetype",
+        "color",
+        "compact",
+        "declare",
+        "defer",
+        "dir",
+        "direction",
+        "disabled",
+        "enctype",
+        "face",
+        "frame",
+        "hreflang",
+        "http-equiv",
+        "lang",
+        "language",
+        "link",
+        "media",
+        "method",
+        "multiple",
+        "nohref",
+        "noresize",
+        "noshade",
+        "nowrap",
+        "readonly",
+        "rel",
+        "rev",
+        "rules",
+        "scope",
+        "scrolling",
+        "selected",
+        "shape",
+        "target",
+        "text",
+        "type",
+        "valign",
+        "valuetype",
+        "vlink",
+    }
+)
 
 
 class CssSelectorError(ValueError):
@@ -83,6 +143,9 @@ class _Simple:
     selectors: tuple[Complex, ...] = ()
     a: int = 0
     b: int = 0
+    operator: str = ""
+    value: str = ""
+    case: str = ""
 
 
 @dataclass(frozen=True)
@@ -239,6 +302,56 @@ def _classes(element) -> frozenset[str]:
     if not raw:
         return frozenset()
     return frozenset(part for part in _HTML_SPACE.split(raw) if part)
+
+
+def _ascii_lower(text: str) -> str:
+    return text.translate(_ASCII_LOWER)
+
+
+def _html_element(element) -> bool:
+    tag = element.tag
+    if not isinstance(tag, str):
+        return False
+    if tag.startswith("{") and "}" in tag:
+        return tag[1:].split("}", 1)[0] == _HTML_NAMESPACE
+    return True
+
+
+def _attribute_values_fold(element, simple: _Simple) -> bool:
+    if simple.case == "i":
+        return True
+    if simple.case == "s":
+        return False
+    return _html_element(element) and simple.name in _HTML_CASELESS_ATTRIBUTES
+
+
+def _attribute_matches(element, simple: _Simple) -> bool:
+    raw = _attr(element, simple.name)
+    if raw is None:
+        return False
+    if not simple.operator:
+        return True
+    actual = raw
+    expected = simple.value
+    if _attribute_values_fold(element, simple):
+        actual = _ascii_lower(actual)
+        expected = _ascii_lower(expected)
+    operator = simple.operator
+    if operator == "=":
+        return actual == expected
+    if operator == "~=":
+        if not expected or any(char in " \t\n\r\f" for char in expected):
+            return False
+        return expected in _HTML_SPACE.split(actual)
+    if operator == "|=":
+        return bool(expected) and (actual == expected or actual.startswith(expected + "-"))
+    if operator == "^=":
+        return bool(expected) and actual.startswith(expected)
+    if operator == "$=":
+        return bool(expected) and actual.endswith(expected)
+    if operator == "*=":
+        return bool(expected) and expected in actual
+    return False
 
 
 class _Parser:
@@ -422,6 +535,8 @@ class _Parser:
 
     def simple(self) -> _Simple:
         char = self.peek()
+        if char == "[":
+            return self.attribute()
         if char == "&":
             self.index += 1
             if self.style_nesting:
@@ -469,6 +584,77 @@ class _Parser:
             return _Simple("pseudo", name, selectors, step, offset)
         raise CssSelectorError(f":{name} is outside this reader")
 
+    def attribute(self) -> _Simple:
+        self.index += 1
+        self.skip_space()
+        if self.peek() in {"*", "|"}:
+            raise CssSelectorError("attribute namespaces are outside this reader")
+        name = self.ident().lower()
+        self.skip_space()
+        if self.peek() == "|":
+            nxt = self.text[self.index + 1] if self.index + 1 < self.length else ""
+            if nxt != "=":
+                raise CssSelectorError("attribute namespaces are outside this reader")
+        if self.peek() == "]":
+            self.index += 1
+            return _Simple("attribute", name)
+        operator = ""
+        if self.peek() in "~|^$*":
+            operator = self.peek()
+            self.index += 1
+            if self.peek() != "=":
+                raise CssSelectorError("attribute matcher is missing equals")
+        if self.peek() != "=":
+            raise CssSelectorError("expected an attribute matcher")
+        self.index += 1
+        operator = f"{operator}="
+        self.skip_space()
+        value = self.attribute_value()
+        self.skip_space()
+        flag = ""
+        if self._ident_start():
+            flag = self.ident().lower()
+            if flag not in {"i", "s"}:
+                raise CssSelectorError("attribute case flag is outside this reader")
+            self.skip_space()
+            if self._ident_start():
+                raise CssSelectorError("attribute selector has two case flags")
+        if self.peek() != "]":
+            raise CssSelectorError("unclosed attribute selector")
+        self.index += 1
+        if operator == "~=" and (value == "" or any(char in " \t\n\r\f" for char in value)):
+            raise CssSelectorError("attribute word contains whitespace")
+        if operator != "=" and value == "":
+            raise CssSelectorError("attribute matcher value is empty")
+        return _Simple("attribute", name, operator=operator, value=value, case=flag)
+
+    def attribute_value(self) -> str:
+        quote = self.peek()
+        if quote in {"'", '"'}:
+            self.index += 1
+            chars: list[str] = []
+            while self.peek() and self.peek() != quote:
+                if self.peek() == "\\":
+                    self.index += 1
+                    escaped = self.peek()
+                    if not escaped:
+                        raise CssSelectorError("attribute string escape is unfinished")
+                    if escaped not in "\n\r\f":
+                        chars.append(escaped)
+                    self.index += 1
+                    continue
+                if self.peek() in "\n\r\f":
+                    raise CssSelectorError("attribute string contains a newline")
+                chars.append(self.peek())
+                self.index += 1
+            if self.peek() != quote:
+                raise CssSelectorError("unclosed attribute string")
+            self.index += 1
+            return "".join(chars)
+        if not self._ident_start():
+            raise CssSelectorError("expected an attribute value")
+        return self.ident()
+
     def balanced(self, open_char: str, close_char: str) -> str:
         depth = 1
         start = self.index
@@ -500,7 +686,7 @@ class _Parser:
         char = self.peek()
         if char == "&":
             return self.nesting or self.style_nesting
-        return char in {"*", ".", "#", ":"} or self._ident_start()
+        return char in {"*", ".", "#", ":", "["} or self._ident_start()
 
     def _ident_start(self) -> bool:
         char = self.peek()
@@ -612,7 +798,7 @@ def _specificity(selector: Complex) -> tuple[int, int, int]:
         for simple in compound:
             if simple.kind == "id":
                 ids += 1
-            elif simple.kind == "class":
+            elif simple.kind in {"class", "attribute"}:
                 classes += 1
             elif simple.kind == "type":
                 types += 1
@@ -770,6 +956,8 @@ def _simple_matches(tree: _Tree, element, simple: _Simple, scope_el=None) -> boo
         return simple.name in _classes(element)
     if simple.kind == "id":
         return _attr(element, "id") == simple.name
+    if simple.kind == "attribute":
+        return _attribute_matches(element, simple)
     if simple.name in {"is", "where"}:
         return _list_matches(tree, element, simple.selectors, scope_el)
     if simple.name == "has":
