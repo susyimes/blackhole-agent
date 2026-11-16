@@ -3,9 +3,12 @@
 Selectors Level 4 counts ``:nth-child(An+B of S)`` only among siblings that
 match S. ``:is()`` and ``:not()`` take the specificity of their most specific
 argument even when a less specific argument matched. ``:where()`` adds none.
-An author ``!important`` declaration beats a normal declaration of higher
-specificity. The reader covers type, class, id, the universal selector, and
-the descendant, child, next-sibling, and subsequent-sibling combinators.
+``:has()`` matches when a relative selector reaches another element: a missing
+combinator means a descendant, and ``>``, ``+``, and ``~`` keep their usual
+direction. Its specificity is the most specific argument. An author
+``!important`` declaration beats a normal declaration of higher specificity.
+The reader covers type, class, id, the universal selector, and the descendant,
+child, next-sibling, and subsequent-sibling combinators.
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ class _Simple:
 class Complex:
     compounds: tuple[tuple[_Simple, ...], ...]
     combinators: tuple[str, ...]
+    anchor: str = ""
 
 
 @dataclass(frozen=True)
@@ -201,6 +205,31 @@ class _Parser:
             compounds.append(self.compound())
         return Complex(tuple(tuple(item) for item in compounds), tuple(combinators))
 
+    def relative_selector_list(self) -> tuple[Complex, ...]:
+        self.skip_space()
+        if not self.peek():
+            raise CssSelectorError("selector is empty")
+        items = [self.relative_selector()]
+        while True:
+            self.skip_space()
+            if self.peek() != ",":
+                break
+            self.index += 1
+            self.skip_space()
+            if not self.peek():
+                raise CssSelectorError("selector is empty")
+            items.append(self.relative_selector())
+        return tuple(items)
+
+    def relative_selector(self) -> Complex:
+        self.skip_space()
+        anchor = " "
+        if self.peek() in {">", "+", "~"}:
+            anchor = self.peek()
+            self.index += 1
+        parsed = self.complex_selector()
+        return Complex(parsed.compounds, parsed.combinators, anchor)
+
     def compound(self) -> list[_Simple]:
         if not self._simple_start():
             raise CssSelectorError("expected a selector")
@@ -235,6 +264,9 @@ class _Parser:
         argument = self.balanced("(", ")")
         if name in {"is", "not", "where"}:
             selectors = _Parser(argument).selector_list()
+            return _Simple("pseudo", name, selectors)
+        if name == "has":
+            selectors = _Parser(argument).relative_selector_list()
             return _Simple("pseudo", name, selectors)
         if name in {"nth-child", "nth-last-child"}:
             nth, of_selector = _split_of(argument)
@@ -399,7 +431,7 @@ def _specificity(selector: Complex) -> tuple[int, int, int]:
 def _pseudo_specificity(simple: _Simple) -> tuple[int, int, int]:
     if simple.name == "where":
         return 0, 0, 0
-    if simple.name in {"is", "not"}:
+    if simple.name in {"is", "not", "has"}:
         return max((_specificity(item) for item in simple.selectors), default=(0, 0, 0))
     if simple.name in {"nth-child", "nth-last-child"}:
         extra = max((_specificity(item) for item in simple.selectors), default=(0, 0, 0))
@@ -458,6 +490,47 @@ def _identity_index(elements: list, element) -> int:
     raise ValueError(element)
 
 
+def _anchored_matches(tree: _Tree, scope, selector: Complex) -> bool:
+    return any(
+        _match_forward(tree, start, selector, 0) for start in _related(tree, scope, selector.anchor)
+    )
+
+
+def _match_forward(tree: _Tree, element, selector: Complex, index: int) -> bool:
+    if not _compound_matches(tree, element, selector.compounds[index]):
+        return False
+    if index + 1 == len(selector.compounds):
+        return True
+    combinator = selector.combinators[index]
+    return any(
+        _match_forward(tree, nxt, selector, index + 1) for nxt in _related(tree, element, combinator)
+    )
+
+
+def _related(tree: _Tree, element, combinator: str):
+    if combinator == ">":
+        return list(tree.children.get(element, ()))
+    if combinator == "+":
+        nxt = _neighbor(tree, element, 1)
+        return [] if nxt is None else [nxt]
+    if combinator == "~":
+        found = []
+        nxt = _neighbor(tree, element, 1)
+        while nxt is not None:
+            found.append(nxt)
+            nxt = _neighbor(tree, nxt, 1)
+        return found
+    if combinator == " ":
+        found = []
+        pending = list(tree.children.get(element, ()))
+        while pending:
+            current = pending.pop()
+            found.append(current)
+            pending.extend(tree.children.get(current, ()))
+        return found
+    return []
+
+
 def _neighbor(tree: _Tree, element, direction: int):
     parent = tree.parent.get(element)
     if parent is None:
@@ -484,6 +557,8 @@ def _simple_matches(tree: _Tree, element, simple: _Simple) -> bool:
         return _attr(element, "id") == simple.name
     if simple.name in {"is", "where"}:
         return _list_matches(tree, element, simple.selectors)
+    if simple.name == "has":
+        return any(_anchored_matches(tree, element, selector) for selector in simple.selectors)
     if simple.name == "not":
         return not _list_matches(tree, element, simple.selectors)
     if simple.name in {"nth-child", "nth-last-child"}:

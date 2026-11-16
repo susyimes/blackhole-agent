@@ -58,3 +58,41 @@ def test_important_identifier_beats_an_important_class() -> None:
 def test_unsupported_pseudo_is_rejected() -> None:
     with pytest.raises(CssSelectorError):
         selector_specificity(":hover")
+    with pytest.raises(CssSelectorError):
+        selector_specificity(":has()")
+    with pytest.raises(CssSelectorError):
+        matched_ids(BOX, "span:has(>)")
+
+
+def test_has_relative_direction_and_specificity() -> None:
+    gallery = (
+        "<!DOCTYPE html><html><body><section id=\"gallery\">"
+        "<article id=\"nest\"><p><img id=\"shot\"></p></article>"
+        "<article id=\"direct\"><img id=\"child\"></article>"
+        "<article id=\"plain\"><span>text</span></article>"
+        "<article id=\"before\"></article><img id=\"between\">"
+        "<article id=\"after\"></article></section><img id=\"solo\"></body></html>"
+    )
+    assert matched_ids(gallery, "article:has(img)") == ["nest", "direct"]
+    assert matched_ids(gallery, "article:has(> img)") == ["direct"]
+    assert matched_ids(gallery, "article:has(> p > img)") == ["nest"]
+    assert matched_ids(gallery, "article:has(+ img)") == ["before"]
+    assert matched_ids(gallery, "article:has(~ img)") == ["nest", "direct", "plain", "before"]
+    assert matched_ids(gallery, "img:has(+ article)") == ["between"]
+    assert matched_ids(gallery, "img:has(img)") == []
+    assert matched_ids(gallery, "section:has(article:has(> img))") == ["gallery"]
+    assert selector_specificity("article:has(img)") == [[0, 0, 2]]
+    assert selector_specificity("article:has(#shot, span)") == [[1, 0, 1]]
+    assert selector_specificity("article:has(:where(#shot))") == [[0, 0, 1]]
+    assert cascaded_value(
+        gallery,
+        "article { color: blue } article:has(img) { color: red }",
+        "nest",
+        "color",
+    ) == "red"
+    assert cascaded_value(
+        gallery,
+        "article { color: blue } article:has(img) { color: red }",
+        "plain",
+        "color",
+    ) == "blue"
