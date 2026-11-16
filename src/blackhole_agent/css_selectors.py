@@ -1,4 +1,4 @@
-"""Match CSS selectors and resolve one author declaration.
+"""Match CSS selectors and resolve author declarations.
 
 Selectors Level 4 counts ``:nth-child(An+B of S)`` only among siblings that
 match S. ``:is()`` and ``:not()`` take the specificity of their most specific
@@ -9,6 +9,14 @@ direction. Its specificity is the most specific argument. An author
 ``!important`` declaration beats a normal declaration of higher specificity.
 The reader covers type, class, id, the universal selector, and the descendant,
 child, next-sibling, and subsequent-sibling combinators.
+
+``computed_value`` substitutes ``var()`` after the cascade. A custom property
+inherits the value its parent already computed, so a child that overrides a
+dependency does not retarget that inherited value. A cycle is
+guaranteed-invalid even when the cyclic declaration carries a fallback. A
+fallback on a property outside the cycle still applies, and a fallback that
+is never used does not create a cycle. Registered ``@property`` rules,
+``revert-layer``, and animation tainting are outside this reader.
 """
 
 from __future__ import annotations
@@ -90,24 +98,14 @@ def cascaded_value(markup: str, stylesheet: str, element_id: str, property_name:
 
     if not isinstance(element_id, str) or not element_id:
         raise CssSelectorError("element id must be a non-empty string")
-    prop = property_name.strip().lower()
+    prop = _property_key(property_name)
     if not prop:
         raise CssSelectorError("property name is empty")
     tree, order = _document(markup)
     target = next((element for element in order if _attr(element, "id") == element_id), None)
     if target is None:
         return ""
-    winner: tuple[tuple[bool, tuple[int, int, int], int], str] | None = None
-    for decl in _stylesheet(stylesheet):
-        if decl.prop != prop:
-            continue
-        specificity = _matching_specificity(tree, target, decl.selectors)
-        if specificity is None:
-            continue
-        key = (decl.important, specificity, decl.order)
-        if winner is None or key > winner[0]:
-            winner = (key, decl.value)
-    return "" if winner is None else winner[1]
+    return _cascaded_map(tree, target, _stylesheet(stylesheet)).get(prop, "")
 
 
 def _document(markup: str) -> tuple[_Tree, list]:
@@ -604,7 +602,7 @@ def _stylesheet(stylesheet: str) -> list[_Decl]:
             if ":" not in chunk:
                 raise CssSelectorError("declaration is missing a colon")
             name, raw_value = chunk.split(":", 1)
-            prop = name.strip().lower()
+            prop = _property_key(name)
             value, important = _important(raw_value.strip())
             if not prop or not value:
                 raise CssSelectorError("declaration is empty")
@@ -617,3 +615,313 @@ def _important(value: str) -> tuple[str, bool]:
     if match is None:
         return value.strip(), False
     return match.group(1).strip(), True
+
+
+def _property_key(name: str) -> str:
+    """Custom properties keep author case. Every other property is ASCII-lower."""
+
+    text = name.strip()
+    if text.startswith("--"):
+        return text
+    return text.lower()
+
+
+def _cascaded_map(tree: _Tree, element, declarations: list[_Decl]) -> dict[str, str]:
+    winners: dict[str, tuple[tuple[bool, tuple[int, int, int], int], str]] = {}
+    for decl in declarations:
+        specificity = _matching_specificity(tree, element, decl.selectors)
+        if specificity is None:
+            continue
+        key = (decl.important, specificity, decl.order)
+        current = winners.get(decl.prop)
+        if current is None or key > current[0]:
+            winners[decl.prop] = (key, decl.value)
+    return {prop: value for prop, (_rank, value) in winners.items()}
+
+
+class _GuaranteedInvalid:
+    """Initial value of a custom property, and the result of a failed substitution."""
+
+
+_INVALID = _GuaranteedInvalid()
+_WIDE_KEYWORDS = frozenset({"inherit", "initial", "unset", "revert"})
+
+
+def computed_value(markup: str, stylesheet: str, element_id: str, property_name: str) -> str:
+    """Computed value of one property on ``element_id``.
+
+    Custom properties and ``color`` inherit. A guaranteed-invalid custom
+    property serializes as the empty string. A valid empty custom property
+    serializes as one space. Any other property is substituted from its own
+    cascaded declaration and does not inherit.
+    """
+
+    if not isinstance(element_id, str) or not element_id:
+        raise CssSelectorError("element id must be a non-empty string")
+    prop = _property_key(property_name)
+    if not prop:
+        raise CssSelectorError("property name is empty")
+    tree, order = _document(markup)
+    declarations = _stylesheet(stylesheet)
+    styles: dict = {}
+    for element in order:
+        parent = tree.parent.get(element)
+        parent_custom, parent_color = styles.get(parent, ({}, ""))
+        styles[element] = _computed_style(tree, element, declarations, parent_custom, parent_color)
+    target = next((element for element in order if _attr(element, "id") == element_id), None)
+    if target is None:
+        return ""
+    custom, color = styles[target]
+    if prop.startswith("--"):
+        return custom.get(prop, "")
+    if prop == "color":
+        return color
+    raw = _cascaded_map(tree, target, declarations).get(prop)
+    if raw is None or _wide_keyword(raw) is not None:
+        return ""
+    substituted = _substitute(raw, lambda name: custom.get(name, _INVALID))
+    if substituted is _INVALID:
+        return ""
+    return substituted
+
+
+def _computed_style(
+    tree: _Tree,
+    element,
+    declarations: list[_Decl],
+    parent_custom: dict[str, str],
+    parent_color: str,
+) -> tuple[dict[str, str], str]:
+    winners = _cascaded_map(tree, element, declarations)
+    specified: dict[str, str] = {}
+    forced_invalid: set[str] = set()
+    for name, value in winners.items():
+        if not name.startswith("--"):
+            continue
+        keyword = _wide_keyword(value)
+        if keyword in {"inherit", "unset"}:
+            continue
+        if keyword in {"initial", "revert"}:
+            forced_invalid.add(name)
+            continue
+        specified[name] = value
+    dependencies = {name: _active_dependencies(value) for name, value in specified.items()}
+    cyclic = _cyclic_properties(dependencies)
+    memo: dict[str, str | _GuaranteedInvalid] = {}
+    resolving: set[str] = set()
+
+    def lookup(name: str) -> str | _GuaranteedInvalid:
+        if name in resolving:
+            return _INVALID
+        if name in memo:
+            return memo[name]
+        if name in cyclic or name in forced_invalid:
+            memo[name] = _INVALID
+            return _INVALID
+        if name in specified:
+            return resolve(name)
+        return parent_custom.get(name, _INVALID)
+
+    def resolve(name: str) -> str | _GuaranteedInvalid:
+        if name in memo:
+            return memo[name]
+        if name in cyclic or name in forced_invalid:
+            memo[name] = _INVALID
+            return _INVALID
+        resolving.add(name)
+        try:
+            value = _substitute(specified[name], lookup)
+        finally:
+            resolving.discard(name)
+        memo[name] = value
+        return value
+
+    custom = dict(parent_custom)
+    for name in forced_invalid:
+        custom.pop(name, None)
+    for name in specified:
+        value = resolve(name)
+        if value is _INVALID:
+            custom.pop(name, None)
+            continue
+        custom[name] = " " if value == "" else value
+    color = _computed_color(winners.get("color"), parent_color, lambda name: custom.get(name, _INVALID))
+    return custom, color
+
+
+def _computed_color(raw: str | None, parent_color: str, lookup) -> str:
+    if raw is None:
+        return parent_color
+    keyword = _wide_keyword(raw)
+    if keyword in {"inherit", "unset"}:
+        return parent_color
+    if keyword in {"initial", "revert"}:
+        return ""
+    substituted = _substitute(raw, lookup)
+    if substituted is _INVALID or not substituted.strip():
+        return parent_color
+    return substituted
+
+
+def _wide_keyword(value: str) -> str | None:
+    token = value.strip().lower()
+    if token in _WIDE_KEYWORDS:
+        return token
+    return None
+
+
+def _cyclic_properties(dependencies: dict[str, tuple[str, ...]]) -> set[str]:
+    """Names that sit on a cycle of used ``var()`` first arguments.
+
+    A fallback is not an edge. Issue 11500 made ``var()`` short-circuit, so a
+    cycle that exists only inside an unused fallback is not a cycle. A property
+    that does sit on a cycle is wholly guaranteed-invalid; its own fallback is
+    not applied.
+    """
+
+    cyclic: set[str] = set()
+    color: dict[str, int] = {}
+    stack: list[str] = []
+
+    def visit(name: str) -> None:
+        color[name] = 1
+        stack.append(name)
+        for nxt in dependencies.get(name, ()):
+            if nxt not in dependencies:
+                continue
+            state = color.get(nxt, 0)
+            if state == 1:
+                cyclic.update(stack[stack.index(nxt) :])
+            elif state == 0:
+                visit(nxt)
+        stack.pop()
+        color[name] = 2
+
+    for name in dependencies:
+        if color.get(name, 0) == 0:
+            visit(name)
+    return cyclic
+
+
+def _active_dependencies(value: str) -> tuple[str, ...]:
+    found: list[str] = []
+    _scan_dependencies(value, found)
+    return tuple(found)
+
+
+def _scan_dependencies(text: str, found: list[str]) -> None:
+    index = 0
+    while index < len(text):
+        if text[index] in "\"'":
+            index = _skip_string(text, index)
+            continue
+        if _var_at(text, index):
+            argument, __, end = _split_var(text, index)
+            _scan_dependencies(argument, found)
+            literal = _literal_custom_name(argument)
+            if literal is not None:
+                found.append(literal)
+            index = end
+            continue
+        index += 1
+
+
+def _substitute(text: str, lookup) -> str | _GuaranteedInvalid:
+    parts: list[str] = []
+    index = 0
+    while index < len(text):
+        if text[index] in "\"'":
+            end = _skip_string(text, index)
+            parts.append(text[index:end])
+            index = end
+            continue
+        if _var_at(text, index):
+            argument, fallback, end = _split_var(text, index)
+            name = _resolve_custom_name(argument, lookup)
+            result: str | _GuaranteedInvalid = _INVALID if name is None else lookup(name)
+            if result is _INVALID:
+                if fallback is None:
+                    return _INVALID
+                result = _substitute(fallback.strip(), lookup)
+                if result is _INVALID:
+                    return _INVALID
+            parts.append(result)
+            index = end
+            continue
+        parts.append(text[index])
+        index += 1
+    return "".join(parts)
+
+
+def _resolve_custom_name(argument: str, lookup) -> str | None:
+    substituted = _substitute(argument, lookup)
+    if substituted is _INVALID:
+        return None
+    return _literal_custom_name(substituted)
+
+
+def _literal_custom_name(text: str) -> str | None:
+    token = text.strip()
+    if len(token) < 3 or not token.startswith("--"):
+        return None
+    if any(char.isspace() or char in "(),{}:;\"'\\/" for char in token):
+        return None
+    return token
+
+
+def _var_at(text: str, index: int) -> bool:
+    if not text.startswith("var", index):
+        return False
+    if index > 0 and _ident_char(text[index - 1]):
+        return False
+    cursor = index + 3
+    if cursor < len(text) and _ident_char(text[cursor]):
+        return False
+    while cursor < len(text) and text[cursor] in " \t\n\f\r":
+        cursor += 1
+    return cursor < len(text) and text[cursor] == "("
+
+
+def _ident_char(char: str) -> bool:
+    return char.isalnum() or char in "_-" or ord(char) > 127
+
+
+def _split_var(text: str, index: int) -> tuple[str, str | None, int]:
+    open_paren = text.find("(", index)
+    if open_paren < 0:
+        raise CssSelectorError("var( is missing its opening parenthesis")
+    depth = 1
+    cursor = open_paren + 1
+    comma: int | None = None
+    while cursor < len(text) and depth:
+        if text[cursor] in "\"'":
+            cursor = _skip_string(text, cursor)
+            continue
+        char = text[cursor]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        elif char == "," and depth == 1 and comma is None:
+            comma = cursor
+        cursor += 1
+    if depth != 0:
+        raise CssSelectorError("unclosed var(")
+    if comma is None:
+        return text[open_paren + 1 : cursor], None, cursor + 1
+    return text[open_paren + 1 : comma], text[comma + 1 : cursor], cursor + 1
+
+
+def _skip_string(text: str, index: int) -> int:
+    quote = text[index]
+    index += 1
+    while index < len(text):
+        if text[index] == "\\":
+            index += 2
+            continue
+        if text[index] == quote:
+            return index + 1
+        index += 1
+    raise CssSelectorError("unclosed string")
