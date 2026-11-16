@@ -15833,8 +15833,14 @@ def _describe_numeric_nested_instance_plane(depth: int) -> dict[str, Any]:
 
 
 def invoke_described_nested_instance_plane(depth: int, text: str = "ab") -> str:
-    """Call Codec.encode at a numeric depth and return its text."""
+    """Call Codec.encode at a numeric depth on the caller's text.
 
+    ``text`` used to be discarded, so every string came back as ``AB``.
+    A non-string is refused before a package is written.
+    """
+
+    if not isinstance(text, str):
+        return ""
     spec = describe_nested_instance_plane(depth)
     if len(spec["modules"]) != int(depth):
         return ""
@@ -15849,7 +15855,13 @@ def invoke_described_nested_instance_plane(depth: int, text: str = "ab") -> str:
             path_root, import_name = detect_import_root(pkg, "bhdepth")
         except ValueError:
             return ""
-        return _invoke_depth_codec(pkg, path_root, import_name, "n." * (int(depth) - 1) + "n.Codec.encode")
+        return _invoke_depth_codec(
+            pkg,
+            path_root,
+            import_name,
+            "n." * (int(depth) - 1) + "n.Codec.encode",
+            text,
+        )
 
 
 

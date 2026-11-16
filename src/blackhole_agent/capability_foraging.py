@@ -1474,11 +1474,24 @@ def _write_depth_codec(pkg: Path, root_name: str, parts: Sequence[str]) -> None:
     Path(os_fs_path(leaf / f"{module}.py")).write_text(_DEPTH_CODEC_SOURCE, encoding="utf-8")
 
 
-def _invoke_depth_codec(pkg: Path, path_root: str, import_name: str, candidate_name: str) -> str:
-    """Call the reflected instance method in-process and return its text."""
+def _invoke_depth_codec(
+    pkg: Path,
+    path_root: str,
+    import_name: str,
+    candidate_name: str,
+    text: str = "ab",
+) -> str:
+    """Call the reflected instance method in-process and return its text.
+
+    The default argument stays ``ab`` so an omitted value still uppercases to
+    ``AB``. Any other string is what ``Codec.encode`` receives. A non-string
+    is refused before import.
+    """
 
     import importlib
 
+    if not isinstance(text, str):
+        return ""
     relative = str(candidate_name or "")
     if not relative.endswith(".encode"):
         return ""
@@ -1491,7 +1504,7 @@ def _invoke_depth_codec(pkg: Path, path_root: str, import_name: str, candidate_n
     try:
         module = importlib.import_module(full_module)
         codec = getattr(module, class_name)
-        value = codec().encode("ab")
+        value = codec().encode(text)
         return value if isinstance(value, str) else ""
     except Exception:
         return ""
