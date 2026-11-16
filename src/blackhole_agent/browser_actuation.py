@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlencode, urljoin
+from urllib.parse import parse_qs, urljoin
 from urllib.request import HTTPCookieProcessor, ProxyHandler, Request, build_opener
 
 from blackhole_agent.capability_compounder import (
@@ -42,6 +42,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.html_form_submission import build_form_submission
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
 from blackhole_agent.tool_routing import (
@@ -195,27 +196,35 @@ class BrowserSession:
     def submit(self) -> BrowserPage:
         if self.page is None:
             raise BrowserActuationError("submit requires a loaded page")
-        forms = parse_forms(self.page.html)
-        if not forms:
+        submission = build_form_submission(self.page.html, overrides=dict(self.fields))
+        if not submission["ok"]:
             raise BrowserActuationError("no form on the current page")
-        form = forms[0]
-        payload = {**form["fields"], **self.fields}
-        target = urljoin(self.page.url, str(form["action"] or self.page.url))
-        method = str(form["method"] or "GET").upper()
+        target = urljoin(self.page.url, str(submission["action"] or self.page.url))
+        method = str(submission["method"] or "GET").upper()
         if method == "GET":
-            joined = target + ("&" if "?" in target else "?") + urlencode(payload)
+            query = str(submission["urlencoded"])
+            joined = target + (("&" if "?" in target else "?") + query if query else "")
             return self._open("GET", joined)
-        return self._open("POST", target, urlencode(payload).encode("utf-8"))
+        body = submission["body_bytes"]
+        if not isinstance(body, (bytes, bytearray)):
+            raise BrowserActuationError("form submission produced no body")
+        return self._open("POST", target, bytes(body), str(submission["content_type"]))
 
     def snapshot(self) -> str:
         if self.page is None:
             return ""
         return self.page.text()
 
-    def _open(self, method: str, url: str, data: bytes | None = None) -> BrowserPage:
+    def _open(
+        self,
+        method: str,
+        url: str,
+        data: bytes | None = None,
+        content_type: str = "",
+    ) -> BrowserPage:
         request = Request(url, data=data, method=method)
-        if method == "POST":
-            request.add_header("Content-Type", "application/x-www-form-urlencoded")
+        if data is not None and content_type:
+            request.add_header("Content-Type", content_type)
         try:
             with self.opener.open(request, timeout=self.timeout_seconds) as response:
                 body = response.read().decode("utf-8")
