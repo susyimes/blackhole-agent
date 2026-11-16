@@ -43,7 +43,13 @@ parent's specificity for every parent. A nested selector with no ``&`` is
 relative to the parent: a leading combinator is kept, and the default
 combinator is a descendant. An invalid nested selector is dropped with its
 block and leaves the parent rule in place. Nested style rules inside
-``@scope`` stay outside this reader. Animation tainting stays outside too.
+``@scope`` stay outside this reader. ``@media`` keeps its block only when
+the query matches the media map: type, width, height, derived orientation,
+``prefers-color-scheme``, and ``prefers-reduced-motion``. Lengths are px.
+``not``, ``and``, ``or``, a comma, and ``only`` follow Media Queries 4. A
+query nested in a style rule uses that rule's selectors. An unknown feature
+or a malformed query does not match, and later rules stay. Animation
+tainting stays outside.
 """
 
 from __future__ import annotations
@@ -156,8 +162,20 @@ def selector_specificity(selector: str) -> list[list[int]]:
     return [[*triple] for triple in (_specificity(item) for item in _selector_list(selector))]
 
 
-def cascaded_value(markup: str, stylesheet: str, element_id: str, property_name: str) -> str:
-    """Winning author value for ``element_id``, or empty when none applies."""
+def cascaded_value(
+    markup: str,
+    stylesheet: str,
+    element_id: str,
+    property_name: str,
+    *,
+    media: dict | None = None,
+) -> str:
+    """Winning author value for ``element_id``, or empty when none applies.
+
+    ``media`` supplies the viewport for ``@media``. Width and height are px.
+    Orientation is landscape when width is greater than height. An omitted
+    map is a screen of zero width and height.
+    """
 
     if not isinstance(element_id, str) or not element_id:
         raise CssSelectorError("element id must be a non-empty string")
@@ -168,7 +186,7 @@ def cascaded_value(markup: str, stylesheet: str, element_id: str, property_name:
     target = next((element for element in order if _attr(element, "id") == element_id), None)
     if target is None:
         return ""
-    declarations, _registered = _stylesheet(stylesheet)
+    declarations, _registered = _stylesheet(stylesheet, media=media)
     return _cascaded_map(tree, target, declarations).get(prop, "")
 
 
@@ -831,14 +849,357 @@ class _LayerOrder:
 _Found = tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode, tuple[_ScopeFrame, ...]]
 
 
-def _stylesheet(stylesheet: str) -> tuple[list[_Decl], dict[str, _Registration]]:
+_MEDIA_CMP = re.compile(r"(>=|<=|>|<|=)")
+_MEDIA_AXES = {
+    "width": "width",
+    "height": "height",
+    "min-width": "width",
+    "max-width": "width",
+    "min-height": "height",
+    "max-height": "height",
+}
+_MEDIA_DISCRETE = ("orientation", "prefers-color-scheme", "prefers-reduced-motion")
+
+
+class _Mq:
+    """Cursor over one media query. Keywords and feature names are lowercased."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.length = len(text)
+        self.index = 0
+
+    def peek(self) -> str:
+        return self.text[self.index] if self.index < self.length else ""
+
+    def skip(self) -> None:
+        while self.peek() and self.peek().isspace():
+            self.index += 1
+
+    def ident(self) -> str | None:
+        self.skip()
+        char = self.peek()
+        if not (char.isalpha() or char == "_"):
+            return None
+        start = self.index
+        # An empty peek is a substring of every string, so test the character first.
+        while self.index < self.length:
+            char = self.peek()
+            if not (char.isalnum() or char in "-_"):
+                break
+            self.index += 1
+        return self.text[start : self.index].lower()
+
+    def take(self, word: str) -> bool:
+        saved = self.index
+        if self.ident() == word:
+            return True
+        self.index = saved
+        return False
+
+    def paren(self) -> str:
+        self.skip()
+        if self.peek() != "(":
+            raise CssSelectorError("expected a parenthesized media condition")
+        self.index += 1
+        start = self.index
+        depth = 1
+        while self.index < self.length:
+            char = self.peek()
+            if char in "\"'":
+                self.index = _skip_string(self.text, self.index)
+                continue
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    body = self.text[start : self.index]
+                    self.index += 1
+                    return body
+            self.index += 1
+        raise CssSelectorError("unclosed media condition")
+
+
+def _media_context(media: dict | None) -> dict[str, object]:
+    if media is None:
+        media = {}
+    if not isinstance(media, dict):
+        raise CssSelectorError("media context must be a mapping")
+    width = _context_px(media.get("width", 0), "width")
+    height = _context_px(media.get("height", 0), "height")
+    medium = str(media.get("type", "screen")).strip().lower() or "screen"
+    scheme = str(media.get("prefers-color-scheme", "light")).strip().lower()
+    motion = str(media.get("prefers-reduced-motion", "no-preference")).strip().lower()
+    return {
+        "type": medium,
+        "width": width,
+        "height": height,
+        "orientation": "landscape" if width > height else "portrait",
+        "prefers-color-scheme": scheme,
+        "prefers-reduced-motion": motion,
+    }
+
+
+def _context_px(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        raise CssSelectorError(f"media {name} must be a px length")
+    if isinstance(value, str):
+        text = value.strip().lower()
+        parsed = _css_px(text)
+        if parsed is None:
+            try:
+                number = float(text)
+            except ValueError as exc:
+                raise CssSelectorError(f"media {name} must be a px length") from exc
+        else:
+            number = parsed
+    else:
+        number = float(value)
+    if number < 0:
+        raise CssSelectorError(f"media {name} cannot be negative")
+    return number
+
+
+def _css_px(value: str) -> float | None:
+    text = value.strip().lower()
+    if text == "0":
+        return 0.0
+    if re.fullmatch(r"\+?(?:\d+\.\d+|\d+|\.\d+)px", text) is None:
+        return None
+    return float(text[:-2])
+
+
+def _media_queries(text: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    start = 0
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in "\"'":
+            index = _skip_string(text, index)
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            if depth == 0:
+                raise CssSelectorError("unbalanced media query")
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(text[start:index])
+            start = index + 1
+        index += 1
+    if depth:
+        raise CssSelectorError("unbalanced media query")
+    parts.append(text[start:])
+    return parts
+
+
+def _not_then_paren(parser: _Mq) -> bool:
+    saved = parser.index
+    matched = parser.take("not")
+    if matched:
+        parser.skip()
+        matched = parser.peek() == "("
+    parser.index = saved
+    return matched
+
+
+def _media_matches(prelude: str, ctx: dict[str, object]) -> bool:
+    text = prelude.strip()
+    if not text:
+        return True
+    try:
+        parts = _media_queries(text)
+    except CssSelectorError:
+        return False
+    matched = False
+    for part in parts:
+        try:
+            matched = _eval_media_query(part, ctx) or matched
+        except CssSelectorError:
+            continue
+    return matched
+
+
+def _eval_media_query(text: str, ctx: dict[str, object]) -> bool:
+    parser = _Mq(text)
+    parser.skip()
+    if not parser.peek():
+        return False
+    if parser.peek() == "(" or _not_then_paren(parser):
+        value = _eval_condition(parser, ctx)
+        parser.skip()
+        if parser.peek():
+            raise CssSelectorError("trailing text in media query")
+        return value
+    negated = parser.take("not")
+    if not negated:
+        parser.take("only")
+    medium = parser.ident()
+    if medium is None:
+        raise CssSelectorError("media query is missing a type")
+    checks: list[bool] = []
+    while parser.take("and"):
+        checks.append(_eval_parens(parser, ctx))
+    parser.skip()
+    if parser.peek():
+        raise CssSelectorError("trailing text in media query")
+    matched = (medium == "all" or medium == ctx["type"]) and all(checks)
+    return (not matched) if negated else matched
+
+
+def _eval_condition(parser: _Mq, ctx: dict[str, object]) -> bool:
+    parser.skip()
+    if parser.take("not"):
+        return not _eval_parens(parser, ctx)
+    first = _eval_parens(parser, ctx)
+    parser.skip()
+    if parser.take("and"):
+        values = [first]
+        while True:
+            values.append(_eval_parens(parser, ctx))
+            parser.skip()
+            if not parser.take("and"):
+                break
+        if parser.take("or"):
+            raise CssSelectorError("media query mixes and and or")
+        return all(values)
+    if parser.take("or"):
+        values = [first]
+        while True:
+            values.append(_eval_parens(parser, ctx))
+            parser.skip()
+            if not parser.take("or"):
+                break
+        if parser.take("and"):
+            raise CssSelectorError("media query mixes and and or")
+        return any(values)
+    return first
+
+
+def _eval_parens(parser: _Mq, ctx: dict[str, object]) -> bool:
+    return _eval_piece(parser.paren(), ctx)
+
+
+def _eval_piece(body: str, ctx: dict[str, object]) -> bool:
+    parser = _Mq(body)
+    parser.skip()
+    if not parser.peek():
+        return False
+    if parser.peek() == "(" or _not_then_paren(parser):
+        value = _eval_condition(parser, ctx)
+        parser.skip()
+        if parser.peek():
+            raise CssSelectorError("trailing text in media condition")
+        return value
+    return _media_feature(" ".join(body.split()), ctx)
+
+
+def _media_feature(text: str, ctx: dict[str, object]) -> bool:
+    raw = text.strip()
+    if not raw:
+        return False
+    lowered = raw.lower()
+    if ":" not in lowered and any(op in lowered for op in (">=", "<=", ">", "<", "=")):
+        return _feature_range(lowered, ctx)
+    if ":" in raw:
+        name, value = lowered.split(":", 1)
+        return _plain_feature(name.strip(), value.strip(), ctx)
+    return False
+
+
+def _plain_feature(name: str, value: str, ctx: dict[str, object]) -> bool:
+    axis = _MEDIA_AXES.get(name)
+    if axis is not None:
+        px = _css_px(value)
+        if px is None:
+            return False
+        current = float(ctx[axis])
+        if name.startswith("min-"):
+            return current >= px
+        if name.startswith("max-"):
+            return current <= px
+        return current == px
+    if name in _MEDIA_DISCRETE:
+        return ctx[name] == value
+    return False
+
+
+def _feature_range(text: str, ctx: dict[str, object]) -> bool:
+    parts = [part.strip() for part in _MEDIA_CMP.split(text)]
+    if len(parts) == 3:
+        return _compare_ends(parts[0], parts[1], parts[2], ctx)
+    if len(parts) == 5:
+        return _compare_ends(parts[0], parts[1], parts[2], ctx) and _compare_ends(
+            parts[2], parts[3], parts[4], ctx
+        )
+    return False
+
+
+def _compare_ends(left: str, op: str, right: str, ctx: dict[str, object]) -> bool:
+    if left in {"width", "height"}:
+        px = _css_px(right)
+        return px is not None and _apply_op(float(ctx[left]), op, px)
+    if right in {"width", "height"}:
+        px = _css_px(left)
+        return px is not None and _apply_op(px, op, float(ctx[right]))
+    return False
+
+
+def _apply_op(left: float, op: str, right: float) -> bool:
+    if op == ">=":
+        return left >= right
+    if op == "<=":
+        return left <= right
+    if op == ">":
+        return left > right
+    if op == "<":
+        return left < right
+    if op == "=":
+        return left == right
+    return False
+
+
+def _take_at_block(parser: _Parser) -> tuple[str, str]:
+    start = parser.index
+    depth = 0
+    while parser.index < parser.length:
+        char = parser.peek()
+        if char in "\"'":
+            parser.index = _skip_string(parser.text, parser.index)
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")" and depth:
+            depth -= 1
+        elif char == "{" and depth == 0:
+            prelude = parser.text[start : parser.index]
+            parser.index += 1
+            return prelude, parser.balanced("{", "}")
+        parser.index += 1
+    raise CssSelectorError("expected an @media block")
+
+
+def _stylesheet(stylesheet: str, *, media: dict | None = None) -> tuple[list[_Decl], dict[str, _Registration]]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
+    context = _media_context(media)
     layers = _LayerOrder()
     found: list[_Found] = []
     counter = [0]
     registered: dict[str, _Registration] = {}
-    _fill_sheet(_Parser(_strip_comments(stylesheet)), layers, layers.root, (), found, counter, registered)
+    _fill_sheet(
+        _Parser(_strip_comments(stylesheet)),
+        layers,
+        layers.root,
+        (),
+        found,
+        counter,
+        registered,
+        context,
+    )
     layers.freeze()
     declarations = [
         _Decl(selectors, prop, value, important, seq, layers.slot_of(node), scopes)
@@ -855,13 +1216,14 @@ def _fill_sheet(
     found: list[_Found],
     counter: list[int],
     registered: dict[str, _Registration],
+    media: dict[str, object],
 ) -> None:
     while True:
         parser.skip_space()
         if not parser.peek():
             return
         if parser.peek() == "@":
-            _at_rule(parser, layers, current, scopes, found, counter, registered)
+            _at_rule(parser, layers, current, scopes, found, counter, registered, media)
             continue
         if parser.next_kind() == "decl":
             text = parser.take_declaration()
@@ -873,7 +1235,7 @@ def _fill_sheet(
             continue
         prelude = parser.take_prelude()
         selectors = _parse_rule_selectors(prelude, scoped=bool(scopes))
-        _store_block(parser.balanced("{", "}"), selectors, current, scopes, found, counter)
+        _store_block(parser.balanced("{", "}"), selectors, current, scopes, found, counter, media)
 
 
 def _at_rule(
@@ -884,6 +1246,7 @@ def _at_rule(
     found: list[_Found],
     counter: list[int],
     registered: dict[str, _Registration],
+    media: dict[str, object],
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
@@ -894,7 +1257,12 @@ def _at_rule(
         frame = _read_scope_frame(parser, nested=bool(scopes))
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, current, scopes + (frame,), found, counter, registered)
+        _fill_sheet(_Parser(body), layers, current, scopes + (frame,), found, counter, registered, media)
+        return
+    if keyword == "media":
+        prelude, body = _take_at_block(parser)
+        if _media_matches(prelude, media):
+            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media)
         return
     if keyword != "layer":
         raise CssSelectorError("at-rules are outside this reader")
@@ -902,7 +1270,7 @@ def _at_rule(
     if parser.peek() == "{":
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered)
+        _fill_sheet(_Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered, media)
         return
     names = [_layer_name(parser)]
     while True:
@@ -918,7 +1286,7 @@ def _at_rule(
             raise CssSelectorError("@layer block takes one layer name")
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), scopes, found, counter, registered)
+        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), scopes, found, counter, registered, media)
         return
     if parser.peek() == ";":
         parser.index += 1
@@ -997,8 +1365,9 @@ def _store_block(
     scopes: tuple[_ScopeFrame, ...],
     found: list[_Found],
     counter: list[int],
+    media: dict[str, object],
 ) -> None:
-    _fill_style_body(body, selectors, node, scopes, found, counter)
+    _fill_style_body(body, selectors, node, scopes, found, counter, media)
 
 
 def _fill_style_body(
@@ -1008,6 +1377,7 @@ def _fill_style_body(
     scopes: tuple[_ScopeFrame, ...],
     found: list[_Found],
     counter: list[int],
+    media: dict[str, object],
 ) -> None:
     """Declarations keep ``selectors``. Inner style rules expand against them."""
 
@@ -1017,7 +1387,8 @@ def _fill_style_body(
         if not parser.peek():
             return
         if parser.peek() == "@":
-            raise CssSelectorError("at-rules are outside this reader")
+            _nested_media(parser, selectors, node, scopes, found, counter, media)
+            continue
         if parser.next_kind() == "decl":
             text = parser.take_declaration()
             if text.strip():
@@ -1032,7 +1403,25 @@ def _fill_style_body(
             parser.balanced("{", "}")
             continue
         expanded = tuple(_desugar_nested(selectors, item) for item in nested)
-        _fill_style_body(parser.balanced("{", "}"), expanded, node, scopes, found, counter)
+        _fill_style_body(parser.balanced("{", "}"), expanded, node, scopes, found, counter, media)
+
+
+def _nested_media(
+    parser: _Parser,
+    selectors: tuple[Complex, ...],
+    node: _LayerNode,
+    scopes: tuple[_ScopeFrame, ...],
+    found: list[_Found],
+    counter: list[int],
+    media: dict[str, object],
+) -> None:
+    parser.index += 1
+    keyword = parser.ident().lower()
+    if keyword != "media":
+        raise CssSelectorError("at-rules are outside this reader")
+    prelude, body = _take_at_block(parser)
+    if _media_matches(prelude, media):
+        _fill_style_body(body, selectors, node, scopes, found, counter, media)
 
 
 def _parse_nested_selectors(text: str) -> tuple[Complex, ...]:
@@ -1284,7 +1673,14 @@ _INVALID = _GuaranteedInvalid()
 _WIDE_KEYWORDS = frozenset({"inherit", "initial", "unset", "revert"})
 
 
-def computed_value(markup: str, stylesheet: str, element_id: str, property_name: str) -> str:
+def computed_value(
+    markup: str,
+    stylesheet: str,
+    element_id: str,
+    property_name: str,
+    *,
+    media: dict | None = None,
+) -> str:
     """Computed value of one property on ``element_id``.
 
     Custom properties and ``color`` inherit. A guaranteed-invalid custom
@@ -1300,7 +1696,7 @@ def computed_value(markup: str, stylesheet: str, element_id: str, property_name:
     if not prop:
         raise CssSelectorError("property name is empty")
     tree, order = _document(markup)
-    declarations, registrations = _stylesheet(stylesheet)
+    declarations, registrations = _stylesheet(stylesheet, media=media)
     styles: dict = {}
     for element in order:
         parent = tree.parent.get(element)

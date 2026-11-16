@@ -58,6 +58,6 @@ def test_revert_layer_with_no_lower_layer_inherits_at_computed_value_time() -> N
 
 def test_other_at_rules_stay_outside_the_reader() -> None:
     with pytest.raises(CssSelectorError):
-        _color("@media all { #t { color: red } }")
+        _color("@supports (color: red) { #t { color: red } }")
     with pytest.raises(CssSelectorError):
         _color("@layer base, theme { #t { color: red } }")
