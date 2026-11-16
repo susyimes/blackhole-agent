@@ -19,14 +19,20 @@ is never used does not create a cycle. ``@layer`` orders author rules by
 first appearance: nested layers sit before the rules of their parent,
 unlayered rules come last, and ``!important`` reverses that order.
 ``revert-layer`` drops every declaration in its current layer and continues
-with the layer below. Registered ``@property`` rules and animation tainting
-stay outside this reader.
+with the layer below. ``@scope`` keeps a style rule on the inclusive
+descendants of one scope root and off the inclusive descendants of its
+limits. Selectors in the block are relative to that root unless they contain
+``:scope`` or ``&``; the prelude does not add specificity. ``:scope`` is
+(0, 1, 0) and ``&`` is (0, 0, 0). Specificity still outranks scope proximity,
+and proximity outranks source order. A rule with no scope root is infinitely
+far. Registered ``@property`` rules and animation tainting stay outside this
+reader.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from blackhole_agent.html5_document import parse_tree
 
@@ -57,6 +63,15 @@ class Complex:
 
 
 @dataclass(frozen=True)
+class _ScopeFrame:
+    """One ``@scope``. An inner start selector is relative to the outer root."""
+
+    start: tuple[Complex, ...] | None
+    end: tuple[Complex, ...] | None
+    start_relative: bool
+
+
+@dataclass(frozen=True)
 class _Decl:
     selectors: tuple[Complex, ...]
     prop: str
@@ -64,6 +79,7 @@ class _Decl:
     important: bool
     order: int
     layer: int
+    scopes: tuple[_ScopeFrame, ...] = ()
 
 
 @dataclass
@@ -71,6 +87,12 @@ class _Tree:
     parent: dict
     children: dict
     order: list
+    scope_cache: dict = field(default_factory=dict)
+
+
+# Fewer generational hops win. An unscoped rule is farther than any real scope.
+_UNSCOPED = 1_000_000_000
+_ROOT_RULE = (Complex(((_Simple("pseudo", "scope-amp"),),), ()),)
 
 
 def matched_ids(markup: str, selector: str) -> list[str]:
@@ -158,10 +180,11 @@ def _classes(element) -> frozenset[str]:
 
 
 class _Parser:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, *, nesting: bool = False) -> None:
         self.text = text
         self.length = len(text)
         self.index = 0
+        self.nesting = nesting
 
     def peek(self) -> str:
         return self.text[self.index] if self.index < self.length else ""
@@ -233,6 +256,72 @@ class _Parser:
         parsed = self.complex_selector()
         return Complex(parsed.compounds, parsed.combinators, anchor)
 
+    def scoped_selector_list(self) -> tuple[Complex, ...]:
+        """Selectors inside ``@scope``: implied ``:scope`` descendant unless anchored."""
+
+        self.skip_space()
+        if not self.peek():
+            raise CssSelectorError("selector is empty")
+        items = [self.scoped_complex()]
+        while True:
+            self.skip_space()
+            if self.peek() != ",":
+                break
+            self.index += 1
+            self.skip_space()
+            if not self.peek():
+                raise CssSelectorError("selector is empty")
+            items.append(self.scoped_complex())
+        return tuple(items)
+
+    def scoped_complex(self) -> Complex:
+        self.skip_space()
+        if self.peek() in {">", "+", "~"}:
+            return self.relative_selector()
+        parsed = self.complex_selector()
+        if _contains_scope_ref(parsed):
+            return parsed
+        return Complex(parsed.compounds, parsed.combinators, " ")
+
+    def next_kind(self) -> str:
+        kind, _end = self._classify_at(self.index)
+        return kind
+
+    def take_prelude(self) -> str:
+        kind, end = self._classify_at(self.index)
+        if kind != "rule":
+            raise CssSelectorError("expected a declaration block")
+        prelude = self.text[self.index:end]
+        self.index = end + 1
+        return prelude
+
+    def take_declaration(self) -> str:
+        _kind, end = self._classify_at(self.index)
+        text = self.text[self.index:end]
+        if end < self.length and self.text[end] == ";":
+            self.index = end + 1
+        else:
+            self.index = end
+        return text
+
+    def _classify_at(self, index: int) -> tuple[str, int]:
+        depth = 0
+        while index < self.length:
+            char = self.text[index]
+            if char in "\"'":
+                index = _skip_string(self.text, index)
+                continue
+            if char == "(":
+                depth += 1
+            elif char == ")" and depth:
+                depth -= 1
+            elif depth == 0 and char == "{":
+                return "rule", index
+            elif depth == 0 and char == ";":
+                return "decl", index
+            index += 1
+        return "decl", self.length
+
     def compound(self) -> list[_Simple]:
         if not self._simple_start():
             raise CssSelectorError("expected a selector")
@@ -243,6 +332,11 @@ class _Parser:
 
     def simple(self) -> _Simple:
         char = self.peek()
+        if char == "&":
+            if not self.nesting:
+                raise CssSelectorError("& is outside this reader")
+            self.index += 1
+            return _Simple("pseudo", "scope-amp")
         if char == "*":
             self.index += 1
             return _Simple("universal")
@@ -261,20 +355,24 @@ class _Parser:
         if self.peek() == ":":
             raise CssSelectorError("pseudo-elements are outside this reader")
         name = self.ident().lower()
+        if name == "scope":
+            if self.peek() == "(":
+                raise CssSelectorError(":scope does not take arguments")
+            return _Simple("pseudo", "scope")
         if self.peek() != "(":
             raise CssSelectorError(f":{name} is outside this reader")
         self.index += 1
         argument = self.balanced("(", ")")
         if name in {"is", "not", "where"}:
-            selectors = _Parser(argument).selector_list()
+            selectors = _Parser(argument, nesting=self.nesting).selector_list()
             return _Simple("pseudo", name, selectors)
         if name == "has":
-            selectors = _Parser(argument).relative_selector_list()
+            selectors = _Parser(argument, nesting=self.nesting).relative_selector_list()
             return _Simple("pseudo", name, selectors)
         if name in {"nth-child", "nth-last-child"}:
             nth, of_selector = _split_of(argument)
             step, offset = _anb(nth)
-            selectors = _Parser(of_selector).selector_list() if of_selector else ()
+            selectors = _Parser(of_selector, nesting=self.nesting).selector_list() if of_selector else ()
             return _Simple("pseudo", name, selectors, step, offset)
         raise CssSelectorError(f":{name} is outside this reader")
 
@@ -307,6 +405,8 @@ class _Parser:
 
     def _simple_start(self) -> bool:
         char = self.peek()
+        if char == "&":
+            return self.nesting
         return char in {"*", ".", "#", ":"} or self._ident_start()
 
     def _ident_start(self) -> bool:
@@ -432,8 +532,10 @@ def _specificity(selector: Complex) -> tuple[int, int, int]:
 
 
 def _pseudo_specificity(simple: _Simple) -> tuple[int, int, int]:
-    if simple.name == "where":
+    if simple.name in {"where", "scope-amp"}:
         return 0, 0, 0
+    if simple.name == "scope":
+        return 0, 1, 0
     if simple.name in {"is", "not", "has"}:
         return max((_specificity(item) for item in simple.selectors), default=(0, 0, 0))
     if simple.name in {"nth-child", "nth-last-child"}:
@@ -442,44 +544,59 @@ def _pseudo_specificity(simple: _Simple) -> tuple[int, int, int]:
     raise CssSelectorError(f":{simple.name} has no specificity")
 
 
-def _list_matches(tree: _Tree, element, selectors: tuple[Complex, ...]) -> bool:
-    return any(_complex_matches(tree, element, selector) for selector in selectors)
+def _contains_scope_ref(selector: Complex) -> bool:
+    def simple(item: _Simple) -> bool:
+        if item.kind == "pseudo" and item.name in {"scope", "scope-amp"}:
+            return True
+        return any(_contains_scope_ref(child) for child in item.selectors)
+
+    return any(simple(item) for compound in selector.compounds for item in compound)
 
 
-def _matching_specificity(tree: _Tree, element, selectors: tuple[Complex, ...]) -> tuple[int, int, int] | None:
-    matched = [_specificity(selector) for selector in selectors if _complex_matches(tree, element, selector)]
+def _list_matches(tree: _Tree, element, selectors: tuple[Complex, ...], scope_el=None) -> bool:
+    return any(_complex_matches(tree, element, selector, scope_el) for selector in selectors)
+
+
+def _matching_specificity(
+    tree: _Tree, element, selectors: tuple[Complex, ...], scope_el=None
+) -> tuple[int, int, int] | None:
+    matched = [
+        _specificity(selector)
+        for selector in selectors
+        if _complex_matches(tree, element, selector, scope_el)
+    ]
     if not matched:
         return None
     return max(matched)
 
 
-def _complex_matches(tree: _Tree, element, selector: Complex) -> bool:
-    return _chain(tree, element, selector, len(selector.compounds) - 1)
+def _complex_matches(tree: _Tree, element, selector: Complex, scope_el=None) -> bool:
+    return _chain(tree, element, selector, len(selector.compounds) - 1, scope_el)
 
 
-def _chain(tree: _Tree, element, selector: Complex, index: int) -> bool:
-    if not _compound_matches(tree, element, selector.compounds[index]):
+def _chain(tree: _Tree, element, selector: Complex, index: int, scope_el=None) -> bool:
+    if not _compound_matches(tree, element, selector.compounds[index], scope_el):
         return False
     if index == 0:
         return True
     combinator = selector.combinators[index - 1]
     if combinator == ">":
         parent = tree.parent.get(element)
-        return parent is not None and _chain(tree, parent, selector, index - 1)
+        return parent is not None and _chain(tree, parent, selector, index - 1, scope_el)
     if combinator == "+":
         previous = _neighbor(tree, element, -1)
-        return previous is not None and _chain(tree, previous, selector, index - 1)
+        return previous is not None and _chain(tree, previous, selector, index - 1, scope_el)
     if combinator == " ":
         parent = tree.parent.get(element)
         while parent is not None:
-            if _chain(tree, parent, selector, index - 1):
+            if _chain(tree, parent, selector, index - 1, scope_el):
                 return True
             parent = tree.parent.get(parent)
         return False
     if combinator == "~":
         previous = _neighbor(tree, element, -1)
         while previous is not None:
-            if _chain(tree, previous, selector, index - 1):
+            if _chain(tree, previous, selector, index - 1, scope_el):
                 return True
             previous = _neighbor(tree, previous, -1)
         return False
@@ -493,20 +610,22 @@ def _identity_index(elements: list, element) -> int:
     raise ValueError(element)
 
 
-def _anchored_matches(tree: _Tree, scope, selector: Complex) -> bool:
+def _anchored_matches(tree: _Tree, scope, selector: Complex, scope_el=None) -> bool:
     return any(
-        _match_forward(tree, start, selector, 0) for start in _related(tree, scope, selector.anchor)
+        _match_forward(tree, start, selector, 0, scope_el)
+        for start in _related(tree, scope, selector.anchor)
     )
 
 
-def _match_forward(tree: _Tree, element, selector: Complex, index: int) -> bool:
-    if not _compound_matches(tree, element, selector.compounds[index]):
+def _match_forward(tree: _Tree, element, selector: Complex, index: int, scope_el=None) -> bool:
+    if not _compound_matches(tree, element, selector.compounds[index], scope_el):
         return False
     if index + 1 == len(selector.compounds):
         return True
     combinator = selector.combinators[index]
     return any(
-        _match_forward(tree, nxt, selector, index + 1) for nxt in _related(tree, element, combinator)
+        _match_forward(tree, nxt, selector, index + 1, scope_el)
+        for nxt in _related(tree, element, combinator)
     )
 
 
@@ -545,11 +664,11 @@ def _neighbor(tree: _Tree, element, direction: int):
     return siblings[position]
 
 
-def _compound_matches(tree: _Tree, element, compound: tuple[_Simple, ...]) -> bool:
-    return all(_simple_matches(tree, element, simple) for simple in compound)
+def _compound_matches(tree: _Tree, element, compound: tuple[_Simple, ...], scope_el=None) -> bool:
+    return all(_simple_matches(tree, element, simple, scope_el) for simple in compound)
 
 
-def _simple_matches(tree: _Tree, element, simple: _Simple) -> bool:
+def _simple_matches(tree: _Tree, element, simple: _Simple, scope_el=None) -> bool:
     if simple.kind == "universal":
         return True
     if simple.kind == "type":
@@ -559,21 +678,23 @@ def _simple_matches(tree: _Tree, element, simple: _Simple) -> bool:
     if simple.kind == "id":
         return _attr(element, "id") == simple.name
     if simple.name in {"is", "where"}:
-        return _list_matches(tree, element, simple.selectors)
+        return _list_matches(tree, element, simple.selectors, scope_el)
     if simple.name == "has":
-        return any(_anchored_matches(tree, element, selector) for selector in simple.selectors)
+        return any(_anchored_matches(tree, element, selector, scope_el) for selector in simple.selectors)
     if simple.name == "not":
-        return not _list_matches(tree, element, simple.selectors)
+        return not _list_matches(tree, element, simple.selectors, scope_el)
     if simple.name in {"nth-child", "nth-last-child"}:
-        return _nth_matches(tree, element, simple)
+        return _nth_matches(tree, element, simple, scope_el)
+    if simple.name in {"scope", "scope-amp"}:
+        return scope_el is not None and element is scope_el
     return False
 
 
-def _nth_matches(tree: _Tree, element, simple: _Simple) -> bool:
+def _nth_matches(tree: _Tree, element, simple: _Simple, scope_el=None) -> bool:
     parent = tree.parent.get(element)
     siblings = [element] if parent is None else list(tree.children[parent])
     if simple.selectors:
-        siblings = [item for item in siblings if _list_matches(tree, item, simple.selectors)]
+        siblings = [item for item in siblings if _list_matches(tree, item, simple.selectors, scope_el)]
     try:
         position = _identity_index(siblings, element) + 1
     except ValueError:
@@ -639,17 +760,20 @@ class _LayerOrder:
         return node.slot
 
 
+_Found = tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode, tuple[_ScopeFrame, ...]]
+
+
 def _stylesheet(stylesheet: str) -> list[_Decl]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
     layers = _LayerOrder()
-    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]] = []
+    found: list[_Found] = []
     counter = [0]
-    _fill_sheet(_Parser(_strip_comments(stylesheet)), layers, layers.root, found, counter)
+    _fill_sheet(_Parser(_strip_comments(stylesheet)), layers, layers.root, (), found, counter)
     layers.freeze()
     return [
-        _Decl(selectors, prop, value, important, seq, layers.slot_of(node))
-        for selectors, prop, value, important, seq, node in found
+        _Decl(selectors, prop, value, important, seq, layers.slot_of(node), scopes)
+        for selectors, prop, value, important, seq, node, scopes in found
     ]
 
 
@@ -657,7 +781,8 @@ def _fill_sheet(
     parser: _Parser,
     layers: _LayerOrder,
     current: _LayerNode,
-    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]],
+    scopes: tuple[_ScopeFrame, ...],
+    found: list[_Found],
     counter: list[int],
 ) -> None:
     while True:
@@ -665,28 +790,44 @@ def _fill_sheet(
         if not parser.peek():
             return
         if parser.peek() == "@":
-            _at_rule(parser, layers, current, found, counter)
+            _at_rule(parser, layers, current, scopes, found, counter)
             continue
-        selectors = parser.selector_list()
-        _append_declarations(parser, selectors, current, found, counter)
+        if parser.next_kind() == "decl":
+            text = parser.take_declaration()
+            if not text.strip():
+                continue
+            if not scopes:
+                raise CssSelectorError("declaration is outside a style rule")
+            _store_declaration(text, _ROOT_RULE, current, scopes, found, counter)
+            continue
+        prelude = parser.take_prelude()
+        selectors = _parse_rule_selectors(prelude, scoped=bool(scopes))
+        _store_block(parser.balanced("{", "}"), selectors, current, scopes, found, counter)
 
 
 def _at_rule(
     parser: _Parser,
     layers: _LayerOrder,
     current: _LayerNode,
-    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]],
+    scopes: tuple[_ScopeFrame, ...],
+    found: list[_Found],
     counter: list[int],
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
+    if keyword == "scope":
+        frame = _read_scope_frame(parser, nested=bool(scopes))
+        parser.index += 1
+        body = parser.balanced("{", "}")
+        _fill_sheet(_Parser(body), layers, current, scopes + (frame,), found, counter)
+        return
     if keyword != "layer":
         raise CssSelectorError("at-rules are outside this reader")
     parser.skip_space()
     if parser.peek() == "{":
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.anonymous(current), found, counter)
+        _fill_sheet(_Parser(body), layers, layers.anonymous(current), scopes, found, counter)
         return
     names = [_layer_name(parser)]
     while True:
@@ -702,7 +843,7 @@ def _at_rule(
             raise CssSelectorError("@layer block takes one layer name")
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), found, counter)
+        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), scopes, found, counter)
         return
     if parser.peek() == ";":
         parser.index += 1
@@ -720,30 +861,90 @@ def _layer_name(parser: _Parser) -> tuple[str, ...]:
     return tuple(parts)
 
 
-def _append_declarations(
-    parser: _Parser,
+def _read_scope_frame(parser: _Parser, *, nested: bool) -> _ScopeFrame:
+    parser.skip_space()
+    start_text: str | None = None
+    end_text: str | None = None
+    if parser.peek() == "(":
+        parser.index += 1
+        start_text = parser.balanced("(", ")")
+        parser.skip_space()
+    if _at_keyword(parser, "to"):
+        parser.skip_space()
+        if parser.peek() != "(":
+            raise CssSelectorError("@scope limit is missing parentheses")
+        parser.index += 1
+        end_text = parser.balanced("(", ")")
+        parser.skip_space()
+    elif start_text is None and parser.peek() != "{":
+        raise CssSelectorError("expected an @scope block")
+    if parser.peek() != "{":
+        raise CssSelectorError("expected an @scope block")
+    start = None if start_text is None else _boundary_selectors(start_text, relative=nested)
+    end = None if end_text is None else _boundary_selectors(end_text, relative=True)
+    return _ScopeFrame(start, end, nested)
+
+
+def _at_keyword(parser: _Parser, word: str) -> bool:
+    parser.skip_space()
+    saved = parser.index
+    if not parser._ident_start():
+        return False
+    found = parser.ident()
+    if found.lower() != word:
+        parser.index = saved
+        return False
+    return True
+
+
+def _boundary_selectors(text: str, *, relative: bool) -> tuple[Complex, ...]:
+    parser = _Parser(text, nesting=relative)
+    parsed = parser.scoped_selector_list() if relative else parser.selector_list()
+    parser.skip_space()
+    if parser.peek():
+        raise CssSelectorError("trailing text after selector")
+    return parsed
+
+
+def _parse_rule_selectors(text: str, *, scoped: bool) -> tuple[Complex, ...]:
+    parser = _Parser(text, nesting=scoped)
+    parsed = parser.scoped_selector_list() if scoped else parser.selector_list()
+    parser.skip_space()
+    if parser.peek():
+        raise CssSelectorError("trailing text after selector")
+    return parsed
+
+
+def _store_block(
+    body: str,
     selectors: tuple[Complex, ...],
     node: _LayerNode,
-    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]],
+    scopes: tuple[_ScopeFrame, ...],
+    found: list[_Found],
     counter: list[int],
 ) -> None:
-    parser.skip_space()
-    if parser.peek() != "{":
-        raise CssSelectorError("expected a declaration block")
-    parser.index += 1
-    body = parser.balanced("{", "}")
     for chunk in body.split(";"):
-        if not chunk.strip():
-            continue
-        if ":" not in chunk:
-            raise CssSelectorError("declaration is missing a colon")
-        name, raw_value = chunk.split(":", 1)
-        prop = _property_key(name)
-        value, important = _important(raw_value.strip())
-        if not prop or not value:
-            raise CssSelectorError("declaration is empty")
-        found.append((selectors, prop, value, important, counter[0], node))
-        counter[0] += 1
+        if chunk.strip():
+            _store_declaration(chunk, selectors, node, scopes, found, counter)
+
+
+def _store_declaration(
+    chunk: str,
+    selectors: tuple[Complex, ...],
+    node: _LayerNode,
+    scopes: tuple[_ScopeFrame, ...],
+    found: list[_Found],
+    counter: list[int],
+) -> None:
+    if ":" not in chunk:
+        raise CssSelectorError("declaration is missing a colon")
+    name, raw_value = chunk.split(":", 1)
+    prop = _property_key(name)
+    value, important = _important(raw_value.strip())
+    if not prop or not value:
+        raise CssSelectorError("declaration is empty")
+    found.append((selectors, prop, value, important, counter[0], node, scopes))
+    counter[0] += 1
 
 
 def _important(value: str) -> tuple[str, bool]:
@@ -762,15 +963,142 @@ def _property_key(name: str) -> str:
     return text.lower()
 
 
-def _cascaded_map(tree: _Tree, element, declarations: list[_Decl]) -> dict[str, str]:
-    grouped: dict[str, list[tuple[tuple[bool, int, tuple[int, int, int], int], _Decl]]] = {}
-    for decl in declarations:
-        specificity = _matching_specificity(tree, element, decl.selectors)
-        if specificity is None:
+def _document_element(tree: _Tree):
+    for element in tree.order:
+        if not _local_name(element):
             continue
+        parent = tree.parent.get(element)
+        if parent is None or not _local_name(parent):
+            return element
+    return None
+
+
+def _hops(tree: _Tree, element, root) -> int | None:
+    hops = 0
+    current = element
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        if current is root:
+            return hops
+        seen.add(id(current))
+        current = tree.parent.get(current)
+        hops += 1
+    return None
+
+
+def _in_instance(tree: _Tree, element, instance: tuple) -> bool:
+    if _hops(tree, element, instance[0]) is None:
+        return False
+    return all(_hops(tree, element, limit) is None for limit in instance[1])
+
+
+def _one_matches(tree: _Tree, element, selector: Complex, scope_el) -> bool:
+    if not selector.anchor:
+        return _complex_matches(tree, element, selector, scope_el)
+    prefixed = Complex(
+        ((_Simple("pseudo", "scope"),), *selector.compounds),
+        (selector.anchor, *selector.combinators),
+    )
+    return _complex_matches(tree, element, prefixed, scope_el)
+
+
+def _selectors_match(tree: _Tree, element, selectors: tuple[Complex, ...], scope_el, *, relative: bool) -> bool:
+    if relative:
+        return any(_one_matches(tree, element, selector, scope_el) for selector in selectors)
+    return _list_matches(tree, element, selectors, scope_el)
+
+
+def _frame_roots(tree: _Tree, frame: _ScopeFrame, outer: tuple | None) -> list:
+    if frame.start is None:
+        root = _document_element(tree)
+        return [] if root is None else [root]
+    if not frame.start_relative:
+        anchor = _document_element(tree)
+        return [
+            element
+            for element in tree.order
+            if _local_name(element) and _selectors_match(tree, element, frame.start, anchor, relative=False)
+        ]
+    if outer is None:
+        return []
+    return [
+        element
+        for element in tree.order
+        if _local_name(element)
+        and _in_instance(tree, element, outer)
+        and _selectors_match(tree, element, frame.start, outer[0], relative=True)
+    ]
+
+
+def _limit_elements(tree: _Tree, root, end: tuple[Complex, ...] | None) -> tuple:
+    if not end:
+        return ()
+    return tuple(
+        element
+        for element in _related(tree, root, " ")
+        if _selectors_match(tree, element, end, root, relative=True)
+    )
+
+
+def _scope_chains(tree: _Tree, frames: tuple[_ScopeFrame, ...]) -> tuple:
+    cached = tree.scope_cache.get(frames)
+    if cached is not None:
+        return cached
+    found: list[tuple] = []
+
+    def walk(index: int, chain: tuple) -> None:
+        outer = chain[-1] if chain else None
+        for root in _frame_roots(tree, frames[index], outer):
+            nxt = chain + ((root, _limit_elements(tree, root, frames[index].end)),)
+            if index + 1 == len(frames):
+                found.append(nxt)
+            else:
+                walk(index + 1, nxt)
+
+    if frames:
+        walk(0, ())
+    result = tuple(found)
+    tree.scope_cache[frames] = result
+    return result
+
+
+def _declaration_precedence(tree: _Tree, element, decl: _Decl) -> tuple[tuple[int, int, int], int] | None:
+    if not decl.scopes:
+        specificity = _matching_specificity(tree, element, decl.selectors, _document_element(tree))
+        if specificity is None:
+            return None
+        return specificity, _UNSCOPED
+    best: tuple[tuple, tuple[int, int, int], int] | None = None
+    for chain in _scope_chains(tree, decl.scopes):
+        if not all(_in_instance(tree, element, instance) for instance in chain):
+            continue
+        root = chain[-1][0]
+        hops = _hops(tree, element, root)
+        if hops is None:
+            continue
+        for selector in decl.selectors:
+            if not _one_matches(tree, element, selector, root):
+                continue
+            specificity = _specificity(selector)
+            key = (specificity, -hops)
+            if best is None or key > best[0]:
+                best = (key, specificity, hops)
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
+def _cascaded_map(tree: _Tree, element, declarations: list[_Decl]) -> dict[str, str]:
+    grouped: dict[str, list[tuple[tuple, _Decl]]] = {}
+    for decl in declarations:
+        parts = _declaration_precedence(tree, element, decl)
+        if parts is None:
+            continue
+        specificity, proximity = parts
         # Important order is the reverse of normal layer order. A higher tuple wins.
+        # Scope proximity sits after specificity and before source order.
         layer_priority = -decl.layer if decl.important else decl.layer
-        rank = (decl.important, layer_priority, specificity, decl.order)
+        rank = (decl.important, layer_priority, specificity, -proximity, decl.order)
         grouped.setdefault(decl.prop, []).append((rank, decl))
     winners: dict[str, str] = {}
     for prop, items in grouped.items():
