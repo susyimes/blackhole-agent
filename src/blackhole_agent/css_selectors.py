@@ -15,8 +15,12 @@ inherits the value its parent already computed, so a child that overrides a
 dependency does not retarget that inherited value. A cycle is
 guaranteed-invalid even when the cyclic declaration carries a fallback. A
 fallback on a property outside the cycle still applies, and a fallback that
-is never used does not create a cycle. Registered ``@property`` rules,
-``revert-layer``, and animation tainting are outside this reader.
+is never used does not create a cycle. ``@layer`` orders author rules by
+first appearance: nested layers sit before the rules of their parent,
+unlayered rules come last, and ``!important`` reverses that order.
+``revert-layer`` drops every declaration in its current layer and continues
+with the layer below. Registered ``@property`` rules and animation tainting
+stay outside this reader.
 """
 
 from __future__ import annotations
@@ -59,6 +63,7 @@ class _Decl:
     value: str
     important: bool
     order: int
+    layer: int
 
 
 @dataclass
@@ -578,36 +583,167 @@ def _nth_matches(tree: _Tree, element, simple: _Simple) -> bool:
     return _nth_holds(position, simple.a, simple.b)
 
 
+class _LayerNode:
+    """One cascade layer. Its children are ordered before its own rules."""
+
+    def __init__(self) -> None:
+        self.children: list[_LayerNode] = []
+        self.named: dict[str, _LayerNode] = {}
+        self.slot = -1
+
+
+class _LayerOrder:
+    """First-seen layer tree, flattened with each parent after its children."""
+
+    def __init__(self) -> None:
+        self.root = _LayerNode()
+        self.unlayered = 0
+
+    def ensure(self, parent: _LayerNode, name: str) -> _LayerNode:
+        found = parent.named.get(name)
+        if found is not None:
+            return found
+        child = _LayerNode()
+        parent.children.append(child)
+        parent.named[name] = child
+        return child
+
+    def anonymous(self, parent: _LayerNode) -> _LayerNode:
+        child = _LayerNode()
+        parent.children.append(child)
+        return child
+
+    def descend(self, parent: _LayerNode, parts: tuple[str, ...]) -> _LayerNode:
+        node = parent
+        for part in parts:
+            node = self.ensure(node, part)
+        return node
+
+    def freeze(self) -> None:
+        count = 0
+
+        def walk(node: _LayerNode, *, root: bool) -> None:
+            nonlocal count
+            for child in node.children:
+                walk(child, root=False)
+            if not root:
+                node.slot = count
+                count += 1
+
+        walk(self.root, root=True)
+        self.unlayered = count
+
+    def slot_of(self, node: _LayerNode) -> int:
+        if node is self.root:
+            return self.unlayered
+        return node.slot
+
+
 def _stylesheet(stylesheet: str) -> list[_Decl]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
-    parser = _Parser(_strip_comments(stylesheet))
-    declarations: list[_Decl] = []
-    order = 0
+    layers = _LayerOrder()
+    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]] = []
+    counter = [0]
+    _fill_sheet(_Parser(_strip_comments(stylesheet)), layers, layers.root, found, counter)
+    layers.freeze()
+    return [
+        _Decl(selectors, prop, value, important, seq, layers.slot_of(node))
+        for selectors, prop, value, important, seq, node in found
+    ]
+
+
+def _fill_sheet(
+    parser: _Parser,
+    layers: _LayerOrder,
+    current: _LayerNode,
+    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]],
+    counter: list[int],
+) -> None:
     while True:
         parser.skip_space()
         if not parser.peek():
-            return declarations
+            return
         if parser.peek() == "@":
-            raise CssSelectorError("at-rules are outside this reader")
+            _at_rule(parser, layers, current, found, counter)
+            continue
         selectors = parser.selector_list()
-        parser.skip_space()
-        if parser.peek() != "{":
-            raise CssSelectorError("expected a declaration block")
+        _append_declarations(parser, selectors, current, found, counter)
+
+
+def _at_rule(
+    parser: _Parser,
+    layers: _LayerOrder,
+    current: _LayerNode,
+    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]],
+    counter: list[int],
+) -> None:
+    parser.index += 1
+    keyword = parser.ident().lower()
+    if keyword != "layer":
+        raise CssSelectorError("at-rules are outside this reader")
+    parser.skip_space()
+    if parser.peek() == "{":
         parser.index += 1
         body = parser.balanced("{", "}")
-        for chunk in body.split(";"):
-            if not chunk.strip():
-                continue
-            if ":" not in chunk:
-                raise CssSelectorError("declaration is missing a colon")
-            name, raw_value = chunk.split(":", 1)
-            prop = _property_key(name)
-            value, important = _important(raw_value.strip())
-            if not prop or not value:
-                raise CssSelectorError("declaration is empty")
-            declarations.append(_Decl(selectors, prop, value, important, order))
-            order += 1
+        _fill_sheet(_Parser(body), layers, layers.anonymous(current), found, counter)
+        return
+    names = [_layer_name(parser)]
+    while True:
+        parser.skip_space()
+        if parser.peek() != ",":
+            break
+        parser.index += 1
+        parser.skip_space()
+        names.append(_layer_name(parser))
+    parser.skip_space()
+    if parser.peek() == "{":
+        if len(names) != 1:
+            raise CssSelectorError("@layer block takes one layer name")
+        parser.index += 1
+        body = parser.balanced("{", "}")
+        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), found, counter)
+        return
+    if parser.peek() == ";":
+        parser.index += 1
+        for name in names:
+            layers.descend(current, name)
+        return
+    raise CssSelectorError("expected an @layer block or statement")
+
+
+def _layer_name(parser: _Parser) -> tuple[str, ...]:
+    parts = [parser.ident()]
+    while parser.peek() == ".":
+        parser.index += 1
+        parts.append(parser.ident())
+    return tuple(parts)
+
+
+def _append_declarations(
+    parser: _Parser,
+    selectors: tuple[Complex, ...],
+    node: _LayerNode,
+    found: list[tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode]],
+    counter: list[int],
+) -> None:
+    parser.skip_space()
+    if parser.peek() != "{":
+        raise CssSelectorError("expected a declaration block")
+    parser.index += 1
+    body = parser.balanced("{", "}")
+    for chunk in body.split(";"):
+        if not chunk.strip():
+            continue
+        if ":" not in chunk:
+            raise CssSelectorError("declaration is missing a colon")
+        name, raw_value = chunk.split(":", 1)
+        prop = _property_key(name)
+        value, important = _important(raw_value.strip())
+        if not prop or not value:
+            raise CssSelectorError("declaration is empty")
+        found.append((selectors, prop, value, important, counter[0], node))
+        counter[0] += 1
 
 
 def _important(value: str) -> tuple[str, bool]:
@@ -627,16 +763,28 @@ def _property_key(name: str) -> str:
 
 
 def _cascaded_map(tree: _Tree, element, declarations: list[_Decl]) -> dict[str, str]:
-    winners: dict[str, tuple[tuple[bool, tuple[int, int, int], int], str]] = {}
+    grouped: dict[str, list[tuple[tuple[bool, int, tuple[int, int, int], int], _Decl]]] = {}
     for decl in declarations:
         specificity = _matching_specificity(tree, element, decl.selectors)
         if specificity is None:
             continue
-        key = (decl.important, specificity, decl.order)
-        current = winners.get(decl.prop)
-        if current is None or key > current[0]:
-            winners[decl.prop] = (key, decl.value)
-    return {prop: value for prop, (_rank, value) in winners.items()}
+        # Important order is the reverse of normal layer order. A higher tuple wins.
+        layer_priority = -decl.layer if decl.important else decl.layer
+        rank = (decl.important, layer_priority, specificity, decl.order)
+        grouped.setdefault(decl.prop, []).append((rank, decl))
+    winners: dict[str, str] = {}
+    for prop, items in grouped.items():
+        items.sort(key=lambda item: item[0], reverse=True)
+        rejected: set[int] = set()
+        for _rank, decl in items:
+            if decl.layer in rejected:
+                continue
+            if decl.value.strip().lower() == "revert-layer":
+                rejected.add(decl.layer)
+                continue
+            winners[prop] = decl.value
+            break
+    return winners
 
 
 class _GuaranteedInvalid:
