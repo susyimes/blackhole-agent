@@ -25,8 +25,19 @@ limits. Selectors in the block are relative to that root unless they contain
 ``:scope`` or ``&``; the prelude does not add specificity. ``:scope`` is
 (0, 1, 0) and ``&`` is (0, 0, 0). Specificity still outranks scope proximity,
 and proximity outranks source order. A rule with no scope root is infinitely
-far. Registered ``@property`` rules and animation tainting stay outside this
-reader.
+far. A valid ``@property`` rule registers a custom property; the last valid
+rule for that name wins. The rule needs a syntax string and ``inherits``.
+A syntax other than ``*`` also needs a computationally independent initial
+value that matches it. ``inherits: false`` does not pass the parent value
+down. A non-universal value that fails its syntax, including a cycle,
+computes to that initial value. ``*`` still becomes guaranteed-invalid on a
+cycle. An invalid rule leaves the name unregistered. This reader accepts
+``<color>``, ``<length>``, ``<percentage>``, ``<length-percentage>``,
+``<number>``, ``<integer>``, ``<angle>``, ``<time>``, ``<custom-ident>``,
+literal idents, and the ``|``, ``+``, and ``#`` operators. It keeps a
+matching token as written: no unit or color canonicalization, and
+``calc()``, ``currentcolor``, and relative units cannot be an initial value.
+Animation tainting stays outside this reader.
 """
 
 from __future__ import annotations
@@ -82,6 +93,25 @@ class _Decl:
     scopes: tuple[_ScopeFrame, ...] = ()
 
 
+@dataclass(frozen=True)
+class _SyntaxPart:
+    name: str
+    multiplier: str = ""
+
+
+@dataclass(frozen=True)
+class _Syntax:
+    universal: bool
+    parts: tuple[_SyntaxPart, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Registration:
+    syntax: _Syntax
+    inherits: bool
+    initial: str | None
+
+
 @dataclass
 class _Tree:
     parent: dict
@@ -132,7 +162,8 @@ def cascaded_value(markup: str, stylesheet: str, element_id: str, property_name:
     target = next((element for element in order if _attr(element, "id") == element_id), None)
     if target is None:
         return ""
-    return _cascaded_map(tree, target, _stylesheet(stylesheet)).get(prop, "")
+    declarations, _registered = _stylesheet(stylesheet)
+    return _cascaded_map(tree, target, declarations).get(prop, "")
 
 
 def _document(markup: str) -> tuple[_Tree, list]:
@@ -763,18 +794,20 @@ class _LayerOrder:
 _Found = tuple[tuple[Complex, ...], str, str, bool, int, _LayerNode, tuple[_ScopeFrame, ...]]
 
 
-def _stylesheet(stylesheet: str) -> list[_Decl]:
+def _stylesheet(stylesheet: str) -> tuple[list[_Decl], dict[str, _Registration]]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
     layers = _LayerOrder()
     found: list[_Found] = []
     counter = [0]
-    _fill_sheet(_Parser(_strip_comments(stylesheet)), layers, layers.root, (), found, counter)
+    registered: dict[str, _Registration] = {}
+    _fill_sheet(_Parser(_strip_comments(stylesheet)), layers, layers.root, (), found, counter, registered)
     layers.freeze()
-    return [
+    declarations = [
         _Decl(selectors, prop, value, important, seq, layers.slot_of(node), scopes)
         for selectors, prop, value, important, seq, node, scopes in found
     ]
+    return declarations, registered
 
 
 def _fill_sheet(
@@ -784,13 +817,14 @@ def _fill_sheet(
     scopes: tuple[_ScopeFrame, ...],
     found: list[_Found],
     counter: list[int],
+    registered: dict[str, _Registration],
 ) -> None:
     while True:
         parser.skip_space()
         if not parser.peek():
             return
         if parser.peek() == "@":
-            _at_rule(parser, layers, current, scopes, found, counter)
+            _at_rule(parser, layers, current, scopes, found, counter, registered)
             continue
         if parser.next_kind() == "decl":
             text = parser.take_declaration()
@@ -812,14 +846,18 @@ def _at_rule(
     scopes: tuple[_ScopeFrame, ...],
     found: list[_Found],
     counter: list[int],
+    registered: dict[str, _Registration],
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
+    if keyword == "property":
+        _read_property_rule(parser, registered)
+        return
     if keyword == "scope":
         frame = _read_scope_frame(parser, nested=bool(scopes))
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, current, scopes + (frame,), found, counter)
+        _fill_sheet(_Parser(body), layers, current, scopes + (frame,), found, counter, registered)
         return
     if keyword != "layer":
         raise CssSelectorError("at-rules are outside this reader")
@@ -827,7 +865,7 @@ def _at_rule(
     if parser.peek() == "{":
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.anonymous(current), scopes, found, counter)
+        _fill_sheet(_Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered)
         return
     names = [_layer_name(parser)]
     while True:
@@ -843,7 +881,7 @@ def _at_rule(
             raise CssSelectorError("@layer block takes one layer name")
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), scopes, found, counter)
+        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), scopes, found, counter, registered)
         return
     if parser.peek() == ";":
         parser.index += 1
@@ -1129,7 +1167,8 @@ def computed_value(markup: str, stylesheet: str, element_id: str, property_name:
     Custom properties and ``color`` inherit. A guaranteed-invalid custom
     property serializes as the empty string. A valid empty custom property
     serializes as one space. Any other property is substituted from its own
-    cascaded declaration and does not inherit.
+    cascaded declaration and does not inherit. A valid ``@property`` rule
+    changes that for the names it registers.
     """
 
     if not isinstance(element_id, str) or not element_id:
@@ -1138,18 +1177,21 @@ def computed_value(markup: str, stylesheet: str, element_id: str, property_name:
     if not prop:
         raise CssSelectorError("property name is empty")
     tree, order = _document(markup)
-    declarations = _stylesheet(stylesheet)
+    declarations, registrations = _stylesheet(stylesheet)
     styles: dict = {}
     for element in order:
         parent = tree.parent.get(element)
         parent_custom, parent_color = styles.get(parent, ({}, ""))
-        styles[element] = _computed_style(tree, element, declarations, parent_custom, parent_color)
+        styles[element] = _computed_style(
+            tree, element, declarations, parent_custom, parent_color, registrations
+        )
     target = next((element for element in order if _attr(element, "id") == element_id), None)
     if target is None:
         return ""
     custom, color = styles[target]
     if prop.startswith("--"):
-        return custom.get(prop, "")
+        found = custom.get(prop, "")
+        return found if isinstance(found, str) else ""
     if prop == "color":
         return color
     raw = _cascaded_map(tree, target, declarations).get(prop)
@@ -1165,20 +1207,35 @@ def _computed_style(
     tree: _Tree,
     element,
     declarations: list[_Decl],
-    parent_custom: dict[str, str],
+    parent_custom: dict[str, str | _GuaranteedInvalid],
     parent_color: str,
-) -> tuple[dict[str, str], str]:
+    registrations: dict[str, _Registration],
+) -> tuple[dict[str, str | _GuaranteedInvalid], str]:
     winners = _cascaded_map(tree, element, declarations)
     specified: dict[str, str] = {}
     forced_invalid: set[str] = set()
+    explicit_inherit: set[str] = set()
+    use_initial: set[str] = set()
     for name, value in winners.items():
         if not name.startswith("--"):
             continue
         keyword = _wide_keyword(value)
-        if keyword in {"inherit", "unset"}:
+        registered = registrations.get(name)
+        if keyword == "inherit":
+            if registered is None:
+                continue
+            explicit_inherit.add(name)
+            continue
+        if keyword == "unset":
+            if registered is None or registered.inherits:
+                continue
+            use_initial.add(name)
             continue
         if keyword in {"initial", "revert"}:
-            forced_invalid.add(name)
+            if registered is None:
+                forced_invalid.add(name)
+            else:
+                use_initial.add(name)
             continue
         specified[name] = value
     dependencies = {name: _active_dependencies(value) for name, value in specified.items()}
@@ -1186,43 +1243,99 @@ def _computed_style(
     memo: dict[str, str | _GuaranteedInvalid] = {}
     resolving: set[str] = set()
 
+    def failed(name: str) -> str | _GuaranteedInvalid:
+        registered = registrations.get(name)
+        if registered is not None and not registered.syntax.universal:
+            return _registered_initial(registered)
+        return _INVALID
+
     def lookup(name: str) -> str | _GuaranteedInvalid:
         if name in resolving:
             return _INVALID
         if name in memo:
             return memo[name]
+        if name in explicit_inherit:
+            if name in parent_custom:
+                return parent_custom[name]
+            registered = registrations.get(name)
+            return _INVALID if registered is None else _registered_initial(registered)
+        if name in use_initial:
+            return _registered_initial(registrations[name])
         if name in cyclic or name in forced_invalid:
-            memo[name] = _INVALID
-            return _INVALID
+            return failed(name)
         if name in specified:
             return resolve(name)
-        return parent_custom.get(name, _INVALID)
+        registered = registrations.get(name)
+        if registered is None:
+            return parent_custom.get(name, _INVALID)
+        if registered.inherits and name in parent_custom:
+            return parent_custom[name]
+        return _registered_initial(registered)
 
     def resolve(name: str) -> str | _GuaranteedInvalid:
         if name in memo:
             return memo[name]
         if name in cyclic or name in forced_invalid:
-            memo[name] = _INVALID
-            return _INVALID
+            memo[name] = failed(name)
+            return memo[name]
         resolving.add(name)
         try:
             value = _substitute(specified[name], lookup)
         finally:
             resolving.discard(name)
+        registered = registrations.get(name)
+        if (
+            value is not _INVALID
+            and registered is not None
+            and not registered.syntax.universal
+            and not _value_matches(registered.syntax, value)
+        ):
+            value = _registered_initial(registered)
         memo[name] = value
         return value
 
-    custom = dict(parent_custom)
+    custom: dict[str, str | _GuaranteedInvalid] = {}
+    for name, value in parent_custom.items():
+        registered = registrations.get(name)
+        if registered is not None and not registered.inherits:
+            continue
+        custom[name] = value
     for name in forced_invalid:
         custom.pop(name, None)
+    for name in explicit_inherit:
+        _store_custom(custom, name, lookup(name), registered=True)
+    for name in use_initial:
+        _store_custom(custom, name, lookup(name), registered=True)
     for name in specified:
-        value = resolve(name)
-        if value is _INVALID:
-            custom.pop(name, None)
+        _store_custom(custom, name, resolve(name), registered=name in registrations)
+    for name, registered in registrations.items():
+        if name in custom:
             continue
-        custom[name] = " " if value == "" else value
+        _store_custom(custom, name, _registered_initial(registered), registered=True)
     color = _computed_color(winners.get("color"), parent_color, lambda name: custom.get(name, _INVALID))
     return custom, color
+
+
+def _store_custom(
+    custom: dict[str, str | _GuaranteedInvalid],
+    name: str,
+    value: str | _GuaranteedInvalid,
+    *,
+    registered: bool,
+) -> None:
+    if value is _INVALID:
+        if registered:
+            custom[name] = _INVALID
+        else:
+            custom.pop(name, None)
+        return
+    custom[name] = " " if value == "" else value
+
+
+def _registered_initial(registered: _Registration) -> str | _GuaranteedInvalid:
+    if registered.initial is None:
+        return _INVALID
+    return registered.initial
 
 
 def _computed_color(raw: str | None, parent_color: str, lookup) -> str:
@@ -1401,3 +1514,442 @@ def _skip_string(text: str, index: int) -> int:
             return index + 1
         index += 1
     raise CssSelectorError("unclosed string")
+
+
+def _read_property_rule(parser: _Parser, registered: dict[str, _Registration]) -> None:
+    """Consume one ``@property`` rule. An invalid rule registers nothing."""
+
+    names, valid_names = _property_prelude(parser)
+    parser.skip_space()
+    if parser.peek() != "{":
+        raise CssSelectorError("expected an @property block")
+    parser.index += 1
+    body = parser.balanced("{", "}")
+    if not valid_names:
+        return
+    registration = _parse_registration(body)
+    if registration is None:
+        return
+    for name in names:
+        registered[name] = registration
+
+
+def _property_prelude(parser: _Parser) -> tuple[list[str], bool]:
+    names: list[str] = []
+    while True:
+        name = _read_custom_name(parser)
+        if name is None:
+            return names, False
+        names.append(name)
+        parser.skip_space()
+        if parser.peek() != ",":
+            return names, True
+        parser.index += 1
+
+
+def _read_custom_name(parser: _Parser) -> str | None:
+    parser.skip_space()
+    start = parser.index
+    if not parser.text.startswith("--", parser.index):
+        return None
+    parser.index += 2
+    if not parser._ident_char(parser.peek(), start=True):
+        parser.index = start
+        return None
+    parser.index += 1
+    while parser._ident_char(parser.peek(), start=False):
+        parser.index += 1
+    return parser.text[start : parser.index]
+
+
+def _parse_registration(body: str) -> _Registration | None:
+    parser = _Parser(body)
+    syntax: _Syntax | None = None
+    inherits: bool | None = None
+    initials: list[str] = []
+    while True:
+        parser.skip_space()
+        if not parser.peek():
+            break
+        chunk = parser.take_declaration().strip()
+        if not chunk:
+            continue
+        parsed = _descriptor(chunk)
+        if parsed is None:
+            continue
+        key, raw = parsed
+        if key == "syntax":
+            text = _unquote(raw)
+            if text is None:
+                continue
+            consumed = _consume_syntax(text)
+            if consumed is None:
+                continue
+            syntax = consumed
+        elif key == "inherits":
+            token = raw.strip().lower()
+            if token == "true":
+                inherits = True
+            elif token == "false":
+                inherits = False
+        elif key == "initial-value":
+            candidate = raw.strip()
+            if candidate and _computationally_independent(candidate):
+                initials.append(candidate)
+    if syntax is None or inherits is None:
+        return None
+    chosen: str | None = None
+    for candidate in initials:
+        if _initial_ok(syntax, candidate):
+            chosen = candidate
+    if not syntax.universal and chosen is None:
+        return None
+    return _Registration(syntax, inherits, chosen)
+
+
+def _descriptor(chunk: str) -> tuple[str, str] | None:
+    if ":" not in chunk:
+        return None
+    name, raw = chunk.split(":", 1)
+    key = name.strip().lower()
+    value, important = _important(raw.strip())
+    if important or not key or not value.strip():
+        return None
+    return key, value.strip()
+
+
+def _unquote(value: str) -> str | None:
+    text = value.strip()
+    if len(text) < 2 or text[0] not in "\"'" or text[-1] != text[0]:
+        return None
+    quote = text[0]
+    body = text[1:-1]
+    out: list[str] = []
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if char == "\\":
+            if index + 1 >= len(body):
+                return None
+            out.append(body[index + 1])
+            index += 2
+            continue
+        if char == quote or char in "\n\r\f":
+            return None
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+_SYNTAX_TYPES = frozenset(
+    {
+        "<number>",
+        "<integer>",
+        "<length>",
+        "<percentage>",
+        "<length-percentage>",
+        "<angle>",
+        "<time>",
+        "<color>",
+        "<custom-ident>",
+    }
+)
+_ABSOLUTE_LENGTH_UNITS = frozenset({"px", "in", "cm", "mm", "q", "pt", "pc"})
+_RELATIVE_UNITS = frozenset(
+    {
+        "em",
+        "ex",
+        "cap",
+        "ch",
+        "ic",
+        "lh",
+        "rlh",
+        "rem",
+        "vw",
+        "vh",
+        "vi",
+        "vb",
+        "vmin",
+        "vmax",
+        "svw",
+        "svh",
+        "svmin",
+        "svmax",
+        "lvw",
+        "lvh",
+        "lvmin",
+        "lvmax",
+        "dvw",
+        "dvh",
+        "dvmin",
+        "dvmax",
+        "cqw",
+        "cqh",
+        "cqi",
+        "cqb",
+        "cqmin",
+        "cqmax",
+    }
+)
+_LENGTH_UNITS = _ABSOLUTE_LENGTH_UNITS | _RELATIVE_UNITS
+_ANGLE_UNITS = frozenset({"deg", "rad", "grad", "turn"})
+_TIME_UNITS = frozenset({"s", "ms"})
+_CSS_WIDE_IDENTS = frozenset({"inherit", "initial", "unset", "revert", "revert-layer"})
+_NUMBER_TEXT = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
+_DIMENSION = re.compile(rf"({_NUMBER_TEXT})([A-Za-z%]+)?\Z")
+_UNIT_AFTER_NUMBER = re.compile(rf"{_NUMBER_TEXT}([A-Za-z%]+)")
+_IDENT_TEXT = re.compile(r"(?:--|-)?[A-Za-z_\u0080-\U0010FFFF][A-Za-z0-9_\-\u0080-\U0010FFFF]*\Z")
+_NAMED_COLORS = frozenset(
+    """
+    aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown
+    burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan
+    darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid
+    darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet
+    deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro
+    ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki
+    lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow
+    lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray
+    lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine
+    mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise
+    mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab
+    orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru
+    pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown
+    seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan
+    teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen transparent
+    """.split()
+)
+
+
+def _consume_syntax(text: str) -> _Syntax | None:
+    raw = text.strip()
+    if raw == "*":
+        return _Syntax(True, ())
+    if not raw:
+        return None
+    parts: list[_SyntaxPart] = []
+    index = 0
+    length = len(raw)
+    ident = re.compile(r"(?:--|-)?[A-Za-z_\u0080-\U0010FFFF][A-Za-z0-9_\-\u0080-\U0010FFFF]*")
+    while index < length:
+        while index < length and raw[index].isspace():
+            index += 1
+        if index >= length:
+            return None
+        if raw[index] == "<":
+            end = raw.find(">", index)
+            if end < 0:
+                return None
+            name = raw[index : end + 1].lower()
+            if name not in _SYNTAX_TYPES:
+                return None
+            index = end + 1
+        else:
+            matched = ident.match(raw, index)
+            if matched is None:
+                return None
+            name = matched.group(0)
+            index = matched.end()
+        multiplier = ""
+        if index < length and raw[index] in "+#":
+            multiplier = raw[index]
+            index += 1
+        parts.append(_SyntaxPart(name, multiplier))
+        while index < length and raw[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        if raw[index] != "|":
+            return None
+        index += 1
+    if not parts:
+        return None
+    return _Syntax(False, tuple(parts))
+
+
+def _initial_ok(syntax: _Syntax, value: str) -> bool:
+    if not value.strip():
+        return False
+    if syntax.universal:
+        return True
+    return _value_matches(syntax, value)
+
+
+def _computationally_independent(value: str) -> bool:
+    if re.search(r"(?:var|attr|env|calc)\s*\(", value, re.IGNORECASE):
+        return False
+    if re.search(r"currentcolor", value, re.IGNORECASE):
+        return False
+    for match in _UNIT_AFTER_NUMBER.finditer(value):
+        if match.group(1).lower() in _RELATIVE_UNITS:
+            return False
+    return True
+
+
+def _value_matches(syntax: _Syntax, value: str) -> bool:
+    text = value.strip()
+    if syntax.universal:
+        return True
+    if not text:
+        return False
+    return any(_part_matches(part, text) for part in syntax.parts)
+
+
+def _part_matches(part: _SyntaxPart, text: str) -> bool:
+    if part.multiplier == "+":
+        items = _split_top_level(text, comma=False)
+        return bool(items) and all(_base_matches(part.name, item) for item in items)
+    if part.multiplier == "#":
+        items = _split_top_level(text, comma=True)
+        return bool(items) and all(_base_matches(part.name, item) for item in items)
+    return _base_matches(part.name, text.strip())
+
+
+def _split_top_level(text: str, *, comma: bool) -> list[str] | None:
+    items: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    quote = ""
+    index = 0
+
+    def flush() -> bool:
+        item = "".join(buf).strip()
+        buf.clear()
+        if not item:
+            return False
+        items.append(item)
+        return True
+
+    while index < len(text):
+        char = text[index]
+        if quote:
+            buf.append(char)
+            if char == "\\" and index + 1 < len(text):
+                buf.append(text[index + 1])
+                index += 2
+                continue
+            if char == quote:
+                quote = ""
+            index += 1
+            continue
+        if char in "\"'":
+            quote = char
+            buf.append(char)
+            index += 1
+            continue
+        if char == "(":
+            depth += 1
+            buf.append(char)
+            index += 1
+            continue
+        if char == ")" and depth:
+            depth -= 1
+            buf.append(char)
+            index += 1
+            continue
+        if depth == 0 and comma and char == ",":
+            if not flush():
+                return None
+            index += 1
+            continue
+        if depth == 0 and not comma and char.isspace():
+            if "".join(buf).strip() and not flush():
+                return None
+            buf.clear()
+            index += 1
+            continue
+        buf.append(char)
+        index += 1
+    if quote or depth:
+        return None
+    if "".join(buf).strip() and not flush():
+        return None
+    return items
+
+
+def _base_matches(name: str, text: str) -> bool:
+    token = text.strip()
+    if name == "<number>":
+        return _number_unit(token) == (token, None) and _DIMENSION.fullmatch(token) is not None and token[-1:] != "%"
+    if name == "<integer>":
+        return re.fullmatch(r"[+-]?\d+", token) is not None
+    if name == "<length>":
+        return _is_length(token)
+    if name == "<percentage>":
+        return _is_percentage(token)
+    if name == "<length-percentage>":
+        return _is_length(token) or _is_percentage(token)
+    if name == "<angle>":
+        return _is_dimension(token, _ANGLE_UNITS)
+    if name == "<time>":
+        return _is_dimension(token, _TIME_UNITS)
+    if name == "<color>":
+        return _is_color(token)
+    if name == "<custom-ident>":
+        return _IDENT_TEXT.fullmatch(token) is not None and token.lower() not in _CSS_WIDE_IDENTS
+    return _IDENT_TEXT.fullmatch(token) is not None and token == name
+
+
+def _number_unit(text: str) -> tuple[str, str | None] | tuple[None, None]:
+    matched = _DIMENSION.fullmatch(text)
+    if matched is None:
+        return None, None
+    return matched.group(1), matched.group(2)
+
+
+def _is_length(text: str) -> bool:
+    number, unit = _number_unit(text)
+    if number is None:
+        return False
+    if unit is None:
+        return _number_is_zero(number)
+    return unit.lower() in _LENGTH_UNITS
+
+
+def _is_percentage(text: str) -> bool:
+    number, unit = _number_unit(text)
+    return number is not None and unit == "%"
+
+
+def _is_dimension(text: str, units: frozenset[str]) -> bool:
+    number, unit = _number_unit(text)
+    return number is not None and unit is not None and unit.lower() in units
+
+
+def _number_is_zero(number: str) -> bool:
+    try:
+        return float(number) == 0.0
+    except ValueError:
+        return False
+
+
+def _is_color(text: str) -> bool:
+    if text.lower() in _NAMED_COLORS or text.lower() == "currentcolor":
+        return True
+    if re.fullmatch(r"#[0-9a-fA-F]{3,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}", text):
+        return True
+    matched = re.fullmatch(r"(rgba?|hsla?|hwb)\((.*)\)", text, re.IGNORECASE | re.DOTALL)
+    if matched is None:
+        return False
+    return _color_inner_ok(matched.group(2))
+
+
+def _color_inner_ok(inner: str) -> bool:
+    body = inner.strip()
+    if not body:
+        return False
+    cursor = 0
+    while cursor < len(body):
+        char = body[cursor]
+        if char.isspace() or char in ",/%.+-":
+            cursor += 1
+            continue
+        if char.isdigit():
+            cursor += 1
+            while cursor < len(body) and body[cursor] in "0123456789.eE+-":
+                cursor += 1
+            continue
+        if body.startswith("none", cursor) and (cursor + 4 == len(body) or not body[cursor + 4].isalnum()):
+            cursor += 4
+            continue
+        return False
+    return True
