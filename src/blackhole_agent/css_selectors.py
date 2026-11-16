@@ -37,7 +37,13 @@ cycle. An invalid rule leaves the name unregistered. This reader accepts
 literal idents, and the ``|``, ``+``, and ``#`` operators. It keeps a
 matching token as written: no unit or color canonicalization, and
 ``calc()``, ``currentcolor``, and relative units cannot be an initial value.
-Animation tainting stays outside this reader.
+A style rule may contain another style rule. ``&`` is that parent selector
+list wrapped in ``:is()``, so the nested rule takes the most specific
+parent's specificity for every parent. A nested selector with no ``&`` is
+relative to the parent: a leading combinator is kept, and the default
+combinator is a descendant. An invalid nested selector is dropped with its
+block and leaves the parent rule in place. Nested style rules inside
+``@scope`` stay outside this reader. Animation tainting stays outside too.
 """
 
 from __future__ import annotations
@@ -211,11 +217,12 @@ def _classes(element) -> frozenset[str]:
 
 
 class _Parser:
-    def __init__(self, text: str, *, nesting: bool = False) -> None:
+    def __init__(self, text: str, *, nesting: bool = False, style_nesting: bool = False) -> None:
         self.text = text
         self.length = len(text)
         self.index = 0
         self.nesting = nesting
+        self.style_nesting = style_nesting
 
     def peek(self) -> str:
         return self.text[self.index] if self.index < self.length else ""
@@ -314,6 +321,30 @@ class _Parser:
             return parsed
         return Complex(parsed.compounds, parsed.combinators, " ")
 
+    def nested_selector_list(self) -> tuple[Complex, ...]:
+        """Relative selectors inside a style rule. ``&`` refers to the parent."""
+
+        self.skip_space()
+        if not self.peek():
+            raise CssSelectorError("selector is empty")
+        items = [self.nested_complex()]
+        while True:
+            self.skip_space()
+            if self.peek() != ",":
+                break
+            self.index += 1
+            self.skip_space()
+            if not self.peek():
+                raise CssSelectorError("selector is empty")
+            items.append(self.nested_complex())
+        return tuple(items)
+
+    def nested_complex(self) -> Complex:
+        self.skip_space()
+        if self.peek() in {">", "+", "~"}:
+            return self.relative_selector()
+        return self.complex_selector()
+
     def next_kind(self) -> str:
         kind, _end = self._classify_at(self.index)
         return kind
@@ -358,15 +389,20 @@ class _Parser:
             raise CssSelectorError("expected a selector")
         items: list[_Simple] = []
         while self._simple_start():
-            items.append(self.simple())
+            item = self.simple()
+            if self.style_nesting and item.kind == "type" and items:
+                raise CssSelectorError("a type selector must come first in a compound")
+            items.append(item)
         return items
 
     def simple(self) -> _Simple:
         char = self.peek()
         if char == "&":
+            self.index += 1
+            if self.style_nesting:
+                return _Simple("pseudo", "nest")
             if not self.nesting:
                 raise CssSelectorError("& is outside this reader")
-            self.index += 1
             return _Simple("pseudo", "scope-amp")
         if char == "*":
             self.index += 1
@@ -394,16 +430,17 @@ class _Parser:
             raise CssSelectorError(f":{name} is outside this reader")
         self.index += 1
         argument = self.balanced("(", ")")
+        child = {"nesting": self.nesting, "style_nesting": self.style_nesting}
         if name in {"is", "not", "where"}:
-            selectors = _Parser(argument, nesting=self.nesting).selector_list()
+            selectors = _Parser(argument, **child).selector_list()
             return _Simple("pseudo", name, selectors)
         if name == "has":
-            selectors = _Parser(argument, nesting=self.nesting).relative_selector_list()
+            selectors = _Parser(argument, **child).relative_selector_list()
             return _Simple("pseudo", name, selectors)
         if name in {"nth-child", "nth-last-child"}:
             nth, of_selector = _split_of(argument)
             step, offset = _anb(nth)
-            selectors = _Parser(of_selector, nesting=self.nesting).selector_list() if of_selector else ()
+            selectors = _Parser(of_selector, **child).selector_list() if of_selector else ()
             return _Simple("pseudo", name, selectors, step, offset)
         raise CssSelectorError(f":{name} is outside this reader")
 
@@ -437,7 +474,7 @@ class _Parser:
     def _simple_start(self) -> bool:
         char = self.peek()
         if char == "&":
-            return self.nesting
+            return self.nesting or self.style_nesting
         return char in {"*", ".", "#", ":"} or self._ident_start()
 
     def _ident_start(self) -> bool:
@@ -961,9 +998,95 @@ def _store_block(
     found: list[_Found],
     counter: list[int],
 ) -> None:
-    for chunk in body.split(";"):
-        if chunk.strip():
-            _store_declaration(chunk, selectors, node, scopes, found, counter)
+    _fill_style_body(body, selectors, node, scopes, found, counter)
+
+
+def _fill_style_body(
+    body: str,
+    selectors: tuple[Complex, ...],
+    node: _LayerNode,
+    scopes: tuple[_ScopeFrame, ...],
+    found: list[_Found],
+    counter: list[int],
+) -> None:
+    """Declarations keep ``selectors``. Inner style rules expand against them."""
+
+    parser = _Parser(body)
+    while True:
+        parser.skip_space()
+        if not parser.peek():
+            return
+        if parser.peek() == "@":
+            raise CssSelectorError("at-rules are outside this reader")
+        if parser.next_kind() == "decl":
+            text = parser.take_declaration()
+            if text.strip():
+                _store_declaration(text, selectors, node, scopes, found, counter)
+            continue
+        prelude = parser.take_prelude()
+        if scopes or any(item.anchor for item in selectors):
+            raise CssSelectorError("nested style rules inside @scope are outside this reader")
+        try:
+            nested = _parse_nested_selectors(prelude)
+        except CssSelectorError:
+            parser.balanced("{", "}")
+            continue
+        expanded = tuple(_desugar_nested(selectors, item) for item in nested)
+        _fill_style_body(parser.balanced("{", "}"), expanded, node, scopes, found, counter)
+
+
+def _parse_nested_selectors(text: str) -> tuple[Complex, ...]:
+    parser = _Parser(text, style_nesting=True)
+    parsed = parser.nested_selector_list()
+    parser.skip_space()
+    if parser.peek():
+        raise CssSelectorError("trailing text after selector")
+    return parsed
+
+
+def _contains_nesting_selector(selector: Complex) -> bool:
+    def walk(item: _Simple) -> bool:
+        if item.kind == "pseudo" and item.name == "nest":
+            return True
+        return any(_contains_nesting_selector(child) for child in item.selectors)
+
+    return any(walk(item) for compound in selector.compounds for item in compound)
+
+
+def _replace_nesting_selector(selector: Complex, parents: tuple[Complex, ...]) -> Complex:
+    def walk(item: _Simple) -> _Simple:
+        if item.kind == "pseudo" and item.name == "nest":
+            return _Simple("pseudo", "is", parents)
+        if not item.selectors:
+            return item
+        return _Simple(
+            item.kind,
+            item.name,
+            tuple(_replace_nesting_selector(child, parents) for child in item.selectors),
+            item.a,
+            item.b,
+        )
+
+    compounds = tuple(tuple(walk(item) for item in compound) for compound in selector.compounds)
+    return Complex(compounds, selector.combinators)
+
+
+def _desugar_nested(parents: tuple[Complex, ...], selector: Complex) -> Complex:
+    """Replace ``&`` with ``:is(parents)``. A relative selector gets that parent too."""
+
+    if _contains_nesting_selector(selector):
+        replaced = _replace_nesting_selector(selector, parents)
+        if not selector.anchor:
+            return replaced
+        return Complex(
+            ((_Simple("pseudo", "is", parents),), *replaced.compounds),
+            (selector.anchor, *replaced.combinators),
+        )
+    combinator = selector.anchor or " "
+    return Complex(
+        ((_Simple("pseudo", "is", parents),), *selector.compounds),
+        (combinator, *selector.combinators),
+    )
 
 
 def _store_declaration(
