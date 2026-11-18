@@ -10,6 +10,7 @@ when they sum to less. The fixed gap inside a span counts toward that item.
 
 This does not measure content, stretch auto tracks, or size an indefinite
 container. Minimums are definite lengths supplied by the caller.
+``size_content_grid_tracks`` is the pass that starts from content.
 """
 
 from __future__ import annotations
