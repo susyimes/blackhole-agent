@@ -4,7 +4,8 @@ CSS Flexbox §9.7 resolves flexible lengths after the flex base and the
 maximum are known. A numeric minimum is that floor. ``auto`` asks §4.5 for
 the content-based automatic minimum and then uses that floor. An omitted
 minimum stays 0, so an explicit zero still shrinks below the content size.
-This does not compute a content-based flex base, wrapping, or alignment.
+This does not compute a content-based flex base or wrapping. Cross-axis
+placement is ``place_flex_alignment``.
 
 A main-axis gap is included in the hypothetical sum and in free space, as a
 fixed length between items. Main-axis margins are included in the outer size

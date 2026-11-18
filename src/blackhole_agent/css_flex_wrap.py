@@ -16,9 +16,10 @@ container's end edge. Each line is still listed from that main-start, and
 the groups stay the same.
 
 The caller supplies a definite inner main size and a definite flex base.
-Automatic minimum content, an indefinite container, cross size, and
-align-content are not computed. A negative minimum or maximum becomes zero,
-and a minimum above its maximum wins, matching the one-line resolver.
+Automatic minimum content and an indefinite container are not computed.
+Cross sizes and align-content are ``place_flex_alignment``. A negative
+minimum or maximum becomes zero, and a minimum above its maximum wins,
+matching the one-line resolver.
 """
 
 from __future__ import annotations
