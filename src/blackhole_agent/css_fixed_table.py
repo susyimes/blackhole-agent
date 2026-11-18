@@ -17,10 +17,11 @@ already specified and the table is still wider, the extra goes to the
 nonzero lengths in proportion, otherwise to the nonzero percentages, otherwise
 equally to the zero columns.
 
-This does not measure cell content, row heights, captions, or the border
-conflict of collapsed borders. ``spacing`` is only the gap between adjacent
-columns. An automatic width still returns no columns from this function.
-Widths from every row's content are ``layout_auto_columns``.
+This does not measure cell content, row heights, or captions. The border
+chosen where several collapsed borders meet is ``resolve_collapsed_border``.
+``spacing`` is only the gap between adjacent columns. An automatic width
+still returns no columns from this function. Widths from every row's content
+are ``layout_auto_columns``.
 """
 
 from __future__ import annotations
