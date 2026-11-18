@@ -1,8 +1,10 @@
 """Used main sizes on one definite flex line.
 
-CSS Flexbox §9.7 resolves flexible lengths after the flex base, the minimum,
-and the maximum are already definite. This does not compute an automatic
-minimum size, a content-based flex base, wrapping, or alignment.
+CSS Flexbox §9.7 resolves flexible lengths after the flex base and the
+maximum are known. A numeric minimum is that floor. ``auto`` asks §4.5 for
+the content-based automatic minimum and then uses that floor. An omitted
+minimum stays 0, so an explicit zero still shrinks below the content size.
+This does not compute a content-based flex base, wrapping, or alignment.
 
 A main-axis gap is included in the hypothetical sum and in free space, as a
 fixed length between items. Main-axis margins are included in the outer size
@@ -14,7 +16,10 @@ rule that a size raised to the minimum may exceed the maximum.
 
 from __future__ import annotations
 
+from blackhole_agent.css_flex_minimum import automatic_flex_minimum
+
 _NONE = "none"
+_AUTO = "auto"
 
 
 class _Invalid(Exception):
@@ -34,9 +39,12 @@ def resolve_flex_line(
     ``container`` is the inner main size. Each item is a mapping with
     ``base`` (inner flex base, which may be negative), ``grow`` (default 0),
     ``shrink`` (default 1), ``minimum`` (default 0; a negative value computes
-    to 0), ``maximum`` (default ``none``; a negative value computes to 0),
-    and ``margin`` (default 0, the sum of the two main-axis margins, which
-    may be negative). ``gap`` is the fixed main-axis gap between items.
+    to 0; ``auto`` uses the content-based floor), ``maximum`` (default
+    ``none``; a negative value computes to 0), and ``margin`` (default 0,
+    the sum of the two main-axis margins, which may be negative). An ``auto``
+    minimum also reads ``content``, ``specified``, ``ratio``, ``cross``,
+    ``cross_minimum``, ``cross_maximum``, ``replaced``, and ``scrollable``.
+    ``gap`` is the fixed main-axis gap between items.
     """
 
     try:
@@ -67,19 +75,18 @@ def _items(value: object) -> list[dict[str, float | None]]:
         if not isinstance(item, dict):
             raise _Invalid(f"item {index} must be a mapping")
         maximum = item.get("maximum", _NONE)
+        maximum_floor = (
+            None
+            if _is_none(maximum)
+            else _floor_zero(_length(maximum, allow_negative=True, name=f"item {index} maximum"))
+        )
         parsed.append(
             {
                 "base": _length(item.get("base"), allow_negative=True, name=f"item {index} base"),
                 "grow": _factor(item.get("grow", 0), f"item {index} grow"),
                 "shrink": _factor(item.get("shrink", 1), f"item {index} shrink"),
-                "minimum": _floor_zero(
-                    _length(item.get("minimum", 0), allow_negative=True, name=f"item {index} minimum")
-                ),
-                "maximum": None
-                if _is_none(maximum)
-                else _floor_zero(
-                    _length(maximum, allow_negative=True, name=f"item {index} maximum")
-                ),
+                "minimum": _minimum(item, index, maximum_floor),
+                "maximum": maximum_floor,
                 "margin": _length(item.get("margin", 0), allow_negative=True, name=f"item {index} margin"),
             }
         )
@@ -112,6 +119,32 @@ def _factor(value: object, name: str) -> float:
 
 def _floor_zero(value: float) -> float:
     return 0.0 if value < 0 else value
+
+
+def _is_auto(value: object) -> bool:
+    return isinstance(value, str) and " ".join(value.strip().lower().split()) == _AUTO
+
+
+def _minimum(item: dict[str, object], index: int, maximum: float | None) -> float:
+    raw = item.get("minimum", 0)
+    if not _is_auto(raw):
+        return _floor_zero(_length(raw, allow_negative=True, name=f"item {index} minimum"))
+    result = automatic_flex_minimum(
+        item.get("content"),
+        specified=item.get("specified", _AUTO),
+        maximum=_NONE if maximum is None else maximum,
+        ratio=item.get("ratio", _NONE),
+        cross=item.get("cross", _AUTO),
+        cross_minimum=item.get("cross_minimum", _AUTO),
+        cross_maximum=item.get("cross_maximum", _NONE),
+        replaced=item.get("replaced", False),
+        scrollable=item.get("scrollable", False),
+    )
+    floor = result.get("minimum")
+    if result.get("outcome") != "definite" or isinstance(floor, bool) or not isinstance(floor, (int, float)):
+        reason = result.get("reason")
+        raise _Invalid(str(reason or f"item {index} minimum is invalid"))
+    return float(floor)
 
 
 def _clamp(size: float, item: dict[str, float | None]) -> float:
