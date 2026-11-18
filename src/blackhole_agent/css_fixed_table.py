@@ -17,7 +17,8 @@ already specified and the table is still wider, the extra goes to the
 nonzero lengths in proportion, otherwise to the nonzero percentages, otherwise
 equally to the zero columns.
 
-This does not measure cell content, row heights, or captions. The border
+This does not measure cell content or captions. Row heights, baselines, and
+row-spanning block sizes are ``layout_table_rows``. The border
 chosen where several collapsed borders meet is ``resolve_collapsed_border``.
 ``spacing`` is only the gap between adjacent columns. An automatic width
 still returns no columns from this function. Widths from every row's content
