@@ -15,7 +15,6 @@ miss and a hit. A tree without the packer still exits 0.
 from __future__ import annotations
 
 import json
-import sys
 
 
 def _left(width: int, height: int, y: int = 0, x: int = 0) -> dict[str, int]:
@@ -142,18 +141,7 @@ def observe() -> tuple[bool, dict[str, object]]:
 
 
 def _emit(payload: dict[str, object]) -> None:
-    """Write one ASCII JSON line. Isolated Windows runs use a GBK stdout."""
-
-    try:
-        line = json.dumps(payload, ensure_ascii=True)
-    except Exception as exc:  # noqa: BLE001 - the probe must still emit a record
-        line = json.dumps({"passed": False, "observed": {"error": f"{type(exc).__name__}: {exc}"}})
-    buffer = getattr(sys.stdout, "buffer", None)
-    if buffer is not None:
-        buffer.write(line.encode("ascii") + b"\n")
-        buffer.flush()
-        return
-    print(line)
+    print(json.dumps(payload, ensure_ascii=True))
 
 
 def main() -> int:

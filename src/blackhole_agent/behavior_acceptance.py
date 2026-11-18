@@ -4,6 +4,9 @@ The probe is an executable Python file under tests/acceptance. It prints a
 JSON object with boolean passed and nonempty observed, exiting zero even for
 an unmet outcome. Crashes/import errors/timeouts are not a failing baseline.
 This is regression evidence, not an assertion of third-party conformance.
+
+Isolated children run in UTF-8 mode. A captured pipe would otherwise use the
+ANSI code page, and Hangul on that pipe becomes UnicodeEncodeError.
 """
 
 from __future__ import annotations
@@ -18,6 +21,62 @@ import tarfile
 import tempfile
 from pathlib import Path
 from typing import Any
+
+# ``-I`` ignores PYTHONUTF8. ``-X utf8`` is a command flag, so it still applies.
+# The bootstrap reconfigures the pipe again before the probe prints.
+_UTF8_PROBE_BOOTSTRAP = (
+    "import sys,runpy;"
+    "sys.stdout.reconfigure(encoding='utf-8',errors='strict');"
+    "sys.stderr.reconfigure(encoding='utf-8',errors='backslashreplace');"
+    "sys.path.insert(0,sys.argv[1]);"
+    "runpy.run_path(sys.argv[2],run_name='__main__')"
+)
+
+
+def outcome_probe_command(implementation: Path, script: Path) -> list[str]:
+    """Return the isolated argv used to run one acceptance probe."""
+
+    return [
+        sys.executable,
+        "-I",
+        "-X",
+        "utf8",
+        "-c",
+        _UTF8_PROBE_BOOTSTRAP,
+        str(implementation),
+        str(script),
+    ]
+
+
+def execute_outcome_probe(
+    implementation: Path,
+    script: Path,
+    *,
+    timeout: int = 120,
+    cwd: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Run one probe and decode its pipe as UTF-8.
+
+    ``stdout`` contains the characters the probe printed, including Hangul
+    that a GBK pipe would have refused to encode.
+    """
+
+    completed = subprocess.run(
+        outcome_probe_command(implementation, script),
+        cwd=cwd or Path(script).parent,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=timeout,
+    )
+    return {
+        "exit_code": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
 
 
 def replay_behavior_acceptance(
@@ -73,33 +132,27 @@ def replay_behavior_acceptance(
                             destination.write_bytes(stream.read())
             script = scratch / "outcome_probe.py"
             script.write_bytes(source)
-            bootstrap = (
-                "import sys,runpy;sys.path.insert(0,sys.argv[1]);runpy.run_path(sys.argv[2],run_name='__main__')"
-            )
             for label, implementation in (("baseline", baseline / "src"), ("candidate", root / "src")):
                 run_dir = scratch / f"run-{label}"
                 run_dir.mkdir()
                 env = dict(os.environ)
                 env["BLACKHOLE_DURABLE_ROOT"] = str(run_dir / "durable")
-                completed = subprocess.run(
-                    [sys.executable, "-I", "-c", bootstrap, str(implementation), str(script)],
+                completed = execute_outcome_probe(
+                    implementation,
+                    script,
+                    timeout=timeout,
                     cwd=run_dir,
                     env=env,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=timeout,
                 )
                 evidence: dict[str, Any] = {
-                    "exit_code": completed.returncode,
-                    "stdout_tail": completed.stdout[-4000:],
-                    "stderr_tail": completed.stderr[-4000:],
+                    "exit_code": completed["exit_code"],
+                    "stdout_tail": completed["stdout"][-4000:],
+                    "stderr_tail": completed["stderr"][-4000:],
                 }
                 result[label] = evidence
-                if completed.returncode:
+                if completed["exit_code"]:
                     raise ValueError(f"{label} probe crashed; this is not behavioral acceptance evidence")
-                payload = json.loads(completed.stdout.strip().splitlines()[-1])
+                payload = json.loads(completed["stdout"].strip().splitlines()[-1])
                 if (
                     not isinstance(payload, dict)
                     or type(payload.get("passed")) is not bool
