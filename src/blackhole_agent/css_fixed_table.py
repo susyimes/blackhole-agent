@@ -19,7 +19,8 @@ equally to the zero columns.
 
 This does not measure cell content, row heights, captions, or the border
 conflict of collapsed borders. ``spacing`` is only the gap between adjacent
-columns.
+columns. An automatic width still returns no columns from this function.
+Widths from every row's content are ``layout_auto_columns``.
 """
 
 from __future__ import annotations
