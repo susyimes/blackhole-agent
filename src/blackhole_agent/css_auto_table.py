@@ -3,8 +3,9 @@
 CSS Tables 3 §§3.8–3.9 size columns from content. Fixed layout does not:
 ``layout_fixed_columns`` returns no widths when the table width is automatic.
 This is that missing pass. The caller supplies content measures. Text,
-captions, border collapse, column groups, and vertical writing modes stay
-outside. Row heights, baselines, and row-spanning block sizes are
+captions, border collapse, and column groups stay outside. Vertical and
+orthogonal writing modes are ``resolve_flow_size``; this pass still sizes
+physical columns. Row heights, baselines, and row-spanning block sizes are
 ``layout_table_rows``.
 
 A column length raises that column's floor. A cell length on one column does
