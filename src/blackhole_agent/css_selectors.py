@@ -264,10 +264,41 @@ def cascaded_value(
     return _cascaded_map(tree, target, declarations).get(prop, "")
 
 
+def matching_elements(root, selector: str) -> list:
+    """Match an already parsed, possibly mutated tree without serializing it."""
+
+    tree, order = _tree(root)
+    compiled = _selector_list(selector)
+    return [element for element in order if _list_matches(tree, element, compiled)]
+
+
+def cascaded_element_value(
+    root,
+    element,
+    stylesheet: str,
+    property_name: str,
+    *,
+    media: dict | None = None,
+) -> str:
+    """Resolve one element's author value in an already parsed live tree."""
+
+    prop = _property_key(property_name)
+    if not prop:
+        raise CssSelectorError("property name is empty")
+    tree, order = _tree(root)
+    if element not in order:
+        return ""
+    declarations, _registered = _stylesheet(stylesheet, media=media)
+    return _cascaded_map(tree, element, declarations).get(prop, "")
+
+
 def _document(markup: str) -> tuple[_Tree, list]:
     if not isinstance(markup, str):
         raise CssSelectorError("markup must be a string")
-    root = parse_tree(markup)
+    return _tree(parse_tree(markup))
+
+
+def _tree(root) -> tuple[_Tree, list]:
     parent: dict = {}
     children: dict = {}
     order: list = []
