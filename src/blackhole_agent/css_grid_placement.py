@@ -16,8 +16,8 @@ for an automatic span wider than the grid. The cursor starts on the start-most
 implicit line. Sparse packing keeps that cursor: a later column behind the
 cursor moves to the next row, and a span that does not fit the remaining
 columns wraps. Dense packing restarts the search at the start-most line for
-every remaining item. Named lines, named areas, and anonymous items are not
-resolved here.
+every remaining item. ``place_named_grid`` resolves named lines and named
+areas into these numbers first. Anonymous items are not generated here.
 """
 
 from __future__ import annotations
