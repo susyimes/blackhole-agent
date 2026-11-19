@@ -1,14 +1,18 @@
 """Used width of a non-replaced block box in normal flow.
 
 CSS2.1 §10.3.3 makes the margin box match the containing block. A fixed
-size is a content-box or border-box length (css-sizing-3). The content box
-never goes negative: a border-box smaller than its padding and border grows
-to that chrome, and an auto width floors at zero instead of pulling a
-margin negative. min-width and max-width are sizes in the same box and
-restart the solution. This is not a float, a flex item, or a replaced box.
+size is a content-box or border-box length (css-sizing-3). ``calc()``,
+``min()``, ``max()``, and ``clamp()`` resolve against that containing block
+before the margin equation. The content box never goes negative: a
+border-box smaller than its padding and border grows to that chrome, and an
+auto width floors at zero instead of pulling a margin negative. min-width
+and max-width are sizes in the same box and restart the solution. This is
+not a float, a flex item, or a replaced box.
 """
 
 from __future__ import annotations
+
+from blackhole_agent.css_length_math import is_length_math, resolve_length_math
 
 _AUTO = "auto"
 _NONE = "none"
@@ -40,7 +44,9 @@ def used_block_width(
     """Solve content width and the two horizontal margins.
 
     Numbers and ``px`` lengths are pixels. A percentage resolves against
-    the containing block. ``margin_left`` and ``margin_right`` accept
+    the containing block. ``calc()``, ``min()``, ``max()``, and ``clamp()``
+    do too, and a negative math width is rejected while a negative math
+    minimum floors at zero. ``margin_left`` and ``margin_right`` accept
     ``auto``. ``width`` accepts ``auto``. ``min_width`` accepts ``auto``
     (computed as zero). ``max_width`` accepts ``none``. ``box_sizing`` is
     ``content-box`` or ``border-box``. ``direction`` is ``ltr`` or ``rtl``
@@ -51,20 +57,20 @@ def used_block_width(
         cb = _containing_block(containing_block)
         sizing = _keyword(box_sizing, {_CONTENT, _BORDER}, "box-sizing")
         flow = _keyword(direction, {"ltr", "rtl"}, "direction")
-        specified = _size(width, allow_auto=True, name="width")
-        minimum = _size(min_width, allow_auto=True, allow_negative=True, name="min-width")
-        maximum = _size(max_width, allow_auto=False, allow_none=True, allow_negative=True, name="max-width")
+        specified = _size(width, cb, allow_auto=True, name="width")
+        minimum = _size(min_width, cb, allow_auto=True, allow_negative=True, name="min-width")
+        maximum = _size(max_width, cb, allow_auto=False, allow_none=True, allow_negative=True, name="max-width")
         margins = (
-            _size(margin_left, allow_auto=True, allow_negative=True, name="margin-left"),
-            _size(margin_right, allow_auto=True, allow_negative=True, name="margin-right"),
+            _size(margin_left, cb, allow_auto=True, allow_negative=True, name="margin-left"),
+            _size(margin_right, cb, allow_auto=True, allow_negative=True, name="margin-right"),
         )
         padding = (
-            _size(padding_left, name="padding-left"),
-            _size(padding_right, name="padding-right"),
+            _size(padding_left, cb, name="padding-left"),
+            _size(padding_right, cb, name="padding-right"),
         )
         border = (
-            _px_only(border_left, "border-left"),
-            _px_only(border_right, "border-right"),
+            _px_only(border_left, cb, "border-left"),
+            _px_only(border_right, cb, "border-right"),
         )
     except _Invalid as exc:
         return _invalid(exc.reason)
@@ -134,12 +140,24 @@ def _keyword(value: object, allowed: set[str], name: str) -> str:
 
 def _size(
     value: object,
+    basis: float,
     *,
     allow_auto: bool = False,
     allow_none: bool = False,
     allow_negative: bool = False,
+    allow_percent: bool = True,
     name: str,
 ) -> tuple[str, float]:
+    if is_length_math(value):
+        resolved = resolve_length_math(value, percentage_basis=basis, allow_percentage=allow_percent)
+        if resolved.get("outcome") != "resolved":
+            raise _Invalid(f"{name} is invalid")
+        number = resolved.get("px")
+        if isinstance(number, bool) or not isinstance(number, (int, float)):
+            raise _Invalid(f"{name} is invalid")
+        if float(number) < 0 and not allow_negative:
+            raise _Invalid(f"{name} cannot be negative")
+        return ("px", float(number))
     if isinstance(value, bool):
         raise _Invalid(f"{name} is invalid")
     if isinstance(value, (int, float)):
@@ -173,8 +191,8 @@ def _size(
     raise _Invalid(f"{name} is invalid")
 
 
-def _px_only(value: object, name: str) -> float:
-    kind, number = _size(value, name=name)
+def _px_only(value: object, basis: float, name: str) -> float:
+    kind, number = _size(value, basis, allow_percent=False, name=name)
     if kind != "px":
         raise _Invalid(f"{name} must be a length")
     return number
