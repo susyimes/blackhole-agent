@@ -8705,10 +8705,7 @@ def build_federation_bundle(
     return fed
 
 
-def write_federation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(bundle))
-    return target
+write_federation_bundle = write_continuity_bundle
 
 
 def load_federation_bundle(path: Path) -> dict[str, Any]:
@@ -9662,14 +9659,7 @@ def inject_byzantine_package_conflict(
     return cloned
 
 
-def compute_quorum_certificate_hash(payload: Mapping[str, Any]) -> str:
-    body = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"certificate_hash", "ok", "valid"}
-    }
-    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+compute_quorum_certificate_hash = compute_federation_certificate_hash
 
 
 def issue_quorum_certificate(
@@ -9755,10 +9745,7 @@ def verify_quorum_certificate(payload: Mapping[str, Any] | Path) -> dict[str, An
     }
 
 
-def write_quorum_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(certificate))
-    return target
+write_quorum_certificate = write_federation_certificate
 
 
 def stitch_quorum_lineage(
@@ -10034,10 +10021,7 @@ def build_quorum_bundle(
     return qb
 
 
-def write_quorum_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(bundle))
-    return target
+write_quorum_bundle = write_continuity_bundle
 
 
 def load_quorum_bundle(path: Path) -> dict[str, Any]:
@@ -10804,14 +10788,7 @@ def compute_epoch_hash(epoch: Mapping[str, Any]) -> str:
     return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
 
 
-def compute_finality_certificate_hash(payload: Mapping[str, Any]) -> str:
-    body = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"certificate_hash", "ok", "valid"}
-    }
-    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+compute_finality_certificate_hash = compute_federation_certificate_hash
 
 
 def issue_finality_certificate(
@@ -10903,10 +10880,7 @@ def verify_finality_certificate(payload: Mapping[str, Any] | Path) -> dict[str, 
     }
 
 
-def write_finality_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(certificate))
-    return target
+write_finality_certificate = write_federation_certificate
 
 
 def load_finality_certificate(path: Path) -> dict[str, Any]:
@@ -11386,10 +11360,7 @@ def build_finality_bundle(
     return fb
 
 
-def write_finality_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(bundle))
-    return target
+write_finality_bundle = write_continuity_bundle
 
 
 def load_finality_bundle(path: Path) -> dict[str, Any]:
@@ -12241,14 +12212,7 @@ def compute_state_root(state: Mapping[str, Any]) -> str:
     return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
 
 
-def compute_execution_certificate_hash(payload: Mapping[str, Any]) -> str:
-    body = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"certificate_hash", "ok", "valid"}
-    }
-    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+compute_execution_certificate_hash = compute_federation_certificate_hash
 
 
 def compute_execution_bundle_hash(bundle: Mapping[str, Any]) -> str:
@@ -12362,10 +12326,7 @@ def verify_execution_certificate(payload: Mapping[str, Any] | Path) -> dict[str,
     }
 
 
-def write_execution_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(certificate))
-    return target
+write_execution_certificate = write_federation_certificate
 
 
 def apply_epoch_transition(
@@ -12813,10 +12774,7 @@ def build_execution_bundle(
     return eb
 
 
-def write_execution_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(bundle))
-    return target
+write_execution_bundle = write_continuity_bundle
 
 
 def load_execution_bundle(path: Path) -> dict[str, Any]:
@@ -17692,14 +17650,7 @@ def compute_action_root(action: Mapping[str, Any]) -> str:
     return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
 
 
-def compute_actuation_certificate_hash(payload: Mapping[str, Any]) -> str:
-    body = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"certificate_hash", "ok", "valid"}
-    }
-    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+compute_actuation_certificate_hash = compute_federation_certificate_hash
 
 
 def compute_actuation_bundle_hash(bundle: Mapping[str, Any]) -> str:
@@ -17839,10 +17790,7 @@ def verify_actuation_certificate(payload: Mapping[str, Any] | Path) -> dict[str,
     }
 
 
-def write_actuation_certificate(path: Path, certificate: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(certificate))
-    return target
+write_actuation_certificate = write_federation_certificate
 
 
 def derive_action_specs_from_execution(
@@ -18392,10 +18340,7 @@ def build_actuation_bundle(
     return ab
 
 
-def write_actuation_bundle(path: Path, bundle: Mapping[str, Any]) -> Path:
-    target = path.resolve()
-    atomic_write_json(target, dict(bundle))
-    return target
+write_actuation_bundle = write_continuity_bundle
 
 
 def load_actuation_bundle(path: Path) -> dict[str, Any]:
@@ -19580,14 +19525,7 @@ def compute_settlement_root(settlement: Mapping[str, Any]) -> str:
     return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
 
 
-def compute_settlement_certificate_hash(payload: Mapping[str, Any]) -> str:
-    body = {
-        key: value
-        for key, value in payload.items()
-        if key not in {"certificate_hash", "ok", "valid"}
-    }
-    digest = json.dumps(body, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha256(digest.encode("utf-8")).hexdigest()[:24]
+compute_settlement_certificate_hash = compute_federation_certificate_hash
 
 
 def compute_settlement_bundle_hash(bundle: Mapping[str, Any]) -> str:
