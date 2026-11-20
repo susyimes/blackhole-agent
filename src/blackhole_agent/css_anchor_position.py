@@ -12,8 +12,9 @@ the base position is kept.
 
 ``anchor()`` resolves to the inset that lines the inset-modified edge up
 with the requested anchor edge. An unresolvable reference uses its fallback
-length. A physical side on the wrong axis is unresolvable. This does not
-scroll-shift, query ``anchor-size()``, or hide a box with
+length. A physical side on the wrong axis is unresolvable. This placer
+does not scroll-shift. ``resolve_anchor_size`` and
+``resolve_position_visibility`` answer ``anchor-size()`` and
 ``position-visibility``.
 """
 
