@@ -12,6 +12,14 @@ space, not a segment break. hyphens:auto has no dictionary, so only U+00AD
 introduces a hyphenation opportunity. line-break:auto uses the normal
 strictness list. Tab stops are multiples of the space advance measured from
 the line's content start.
+
+``balance_lines`` is CSS Text Level 4 ``text-wrap-style: balance``. Forced
+line breaks split the block into independent groups. A group keeps the
+first-fit breaks when it has fewer than two lines or more than ten, or when
+wrapping is not allowed. Otherwise the breaks are a partition into that same
+number of lines. The partition that strictly lowers the population variance
+of leftover inline space (the measure minus each line's content width) wins.
+A tie keeps the first-fit breaks. Emergency breaks are not rearranged.
 """
 
 from __future__ import annotations
@@ -21,6 +29,8 @@ import unicodedata
 from dataclasses import dataclass
 
 _EPS = 1e-9
+_BALANCE_LINE_CAP = 10
+_BALANCE_NODE_CAP = 200_000
 _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre-line"})
 _OVERFLOWS = frozenset({"normal", "break-word", "anywhere"})
 _WORDS = frozenset({"normal", "keep-all", "break-all", "break-word"})
@@ -190,6 +200,98 @@ def wrap_lines(
     }
 
 
+def balance_lines(
+    text: object,
+    width: object,
+    *,
+    white_space: object = "normal",
+    overflow_wrap: object = "normal",
+    word_break: object = "normal",
+    line_break: object = "auto",
+    hyphens: object = "manual",
+    tab_size: object = 8,
+    lang: object = "",
+    advances: object = None,
+) -> dict[str, object]:
+    """Choose first-fit breaks, then rebalance a short block.
+
+    The line count of each forced-break group is preserved. Leftover inline
+    space is the measure minus the line's content width, taken before
+    justification. More than ten lines in a group stays on the first-fit
+    breaks. ``min_content`` and ``max_content`` stay the first-fit measures.
+    """
+
+    try:
+        source = _text(text)
+        measure = _nonneg(width, "width")
+        white = _keyword(white_space, _WHITES, "white_space")
+        overflow = _keyword(overflow_wrap, _OVERFLOWS, "overflow_wrap")
+        word = _keyword(word_break, _WORDS, "word_break")
+        strictness = _keyword(line_break, _LINES, "line_break")
+        hyphenation = _keyword(hyphens, _HYPHENS, "hyphens")
+        tabs = _nonneg(tab_size, "tab_size")
+        language = _lang(lang)
+        if word == "break-word":
+            word = "normal"
+            overflow = "anywhere"
+        adv = _Adv(source, advances)
+        tokens = _mark_graphemes(_phase1(source, white, adv))
+    except _Invalid as exc:
+        return _invalid(exc.reason)
+
+    try:
+        lines = _balance_lay_out(
+            tokens,
+            measure,
+            white=white,
+            overflow=overflow,
+            word=word,
+            strictness=strictness,
+            hyphens=hyphenation,
+            lang=language,
+            tab_size=tabs,
+            space_advance=adv.space(),
+        )
+    except _Invalid as exc:
+        return _invalid(exc.reason)
+    minimum = _widest(
+        _lay_out(
+            tokens,
+            0.0,
+            white=white,
+            overflow=overflow,
+            word=word,
+            strictness=strictness,
+            hyphens=hyphenation,
+            lang=language,
+            tab_size=tabs,
+            space_advance=adv.space(),
+            intrinsic=True,
+        )
+    )
+    maximum = _widest(
+        _lay_out(
+            tokens,
+            math.inf,
+            white=white,
+            overflow=overflow,
+            word=word,
+            strictness=strictness,
+            hyphens=hyphenation,
+            lang=language,
+            tab_size=tabs,
+            space_advance=adv.space(),
+            intrinsic=False,
+        )
+    )
+    return {
+        "outcome": "wrapped",
+        "lines": lines,
+        "min_content": _number(minimum),
+        "max_content": _number(maximum),
+    }
+
+
 def _invalid(reason: str) -> dict[str, object]:
     return {
         "outcome": "invalid",
@@ -235,6 +337,226 @@ def _lay_out(
             )
         )
     return lines
+
+
+def _balance_lay_out(
+    tokens: list[_Tok],
+    width: float,
+    *,
+    white: str,
+    overflow: str,
+    word: str,
+    strictness: str,
+    hyphens: str,
+    lang: str,
+    tab_size: float,
+    space_advance: float,
+) -> list[dict[str, object]]:
+    segments = _segments(tokens)
+    last = len(segments) - 1
+    lines: list[dict[str, object]] = []
+    for index, segment in enumerate(segments):
+        lines.extend(
+            _balance_segment(
+                segment,
+                width,
+                white=white,
+                overflow=overflow,
+                word=word,
+                strictness=strictness,
+                hyphens=hyphens,
+                lang=lang,
+                tab_size=tab_size,
+                space_advance=space_advance,
+                before_forced=index < last,
+            )
+        )
+    return lines
+
+
+def _balance_segment(
+    tokens: list[_Tok],
+    width: float,
+    *,
+    white: str,
+    overflow: str,
+    word: str,
+    strictness: str,
+    hyphens: str,
+    lang: str,
+    tab_size: float,
+    space_advance: float,
+    before_forced: bool,
+) -> list[dict[str, object]]:
+    fitted = _segment(
+        tokens,
+        width,
+        white=white,
+        overflow=overflow,
+        word=word,
+        strictness=strictness,
+        hyphens=hyphens,
+        lang=lang,
+        tab_size=tab_size,
+        space_advance=space_advance,
+        before_forced=before_forced,
+        intrinsic=False,
+    )
+    count = len(fitted)
+    if white not in _WRAPS or count < 2 or count > _BALANCE_LINE_CAP or not tokens:
+        return fitted
+    breaks = _opportunities(
+        tokens, white=white, word=word, strictness=strictness, hyphens=hyphens, lang=lang
+    )
+    relaxed = None
+    if word == "keep-all" and overflow == "normal" and strictness != "anywhere":
+        relaxed = _opportunities(
+            tokens,
+            white=white,
+            word="normal",
+            strictness=strictness,
+            hyphens=hyphens,
+            lang=lang,
+        )
+    legal = {len(tokens)}
+    for index, allowed in enumerate(breaks):
+        if allowed:
+            legal.add(index)
+    if relaxed is not None:
+        for index, allowed in enumerate(relaxed):
+            if allowed:
+                legal.add(index)
+    ends = _greedy_ends(
+        tokens,
+        width,
+        breaks,
+        relaxed,
+        _emergency_enabled(white, overflow, strictness, False),
+        white=white,
+        hyphens=hyphens,
+        tab_size=tab_size,
+        space_advance=space_advance,
+        before_forced=before_forced,
+    )
+    if len(ends) != count or any(end not in legal for end in ends):
+        return fitted
+    points = [0, *[index for index in range(1, len(tokens)) if index in legal], len(tokens)]
+    cache: dict[tuple[int, int], tuple[str, float, float, bool]] = {}
+
+    def piece(start: int, end: int) -> tuple[str, float, float, bool]:
+        key = (start, end)
+        found = cache.get(key)
+        if found is not None:
+            return found
+        text, content, full = _measure(
+            tokens,
+            start,
+            end,
+            white=white,
+            hyphens=hyphens,
+            tab_size=tab_size,
+            space_advance=space_advance,
+            width=width,
+            at_segment_end=end == len(tokens),
+            before_forced=before_forced,
+        )
+        found = (text, content, full, content <= width + _EPS)
+        cache[key] = found
+        return found
+
+    auto_contents = [float(line["content_width"]) for line in fitted]
+    best_score = _leftover_variance(auto_contents, width)
+    best: list[int] | None = None
+    nodes = 0
+
+    def search(point: int, left: int, contents: list[float], chosen: list[int]) -> None:
+        nonlocal best_score, best, nodes
+        nodes += 1
+        if nodes > _BALANCE_NODE_CAP:
+            return
+        start = points[point]
+        if left == 1:
+            _text_value, content, _full, fits = piece(start, len(tokens))
+            if not fits:
+                return
+            score = _leftover_variance([*contents, content], width)
+            if score + 1e-6 < best_score:
+                best_score = score
+                best = [*chosen, len(tokens)]
+            return
+        last_choice = len(points) - 1
+        for index in range(point + 1, last_choice):
+            if last_choice - index < left - 1:
+                break
+            _text_value, content, _full, fits = piece(start, points[index])
+            if not fits:
+                continue
+            contents.append(content)
+            chosen.append(points[index])
+            search(index, left - 1, contents, chosen)
+            chosen.pop()
+            contents.pop()
+
+    search(0, count, [], [])
+    if best is None:
+        return fitted
+    built: list[dict[str, object]] = []
+    start = 0
+    for end in best:
+        text, content, full, _fits = piece(start, end)
+        built.append(_line(text, content, full))
+        start = end
+    return built
+
+
+def _greedy_ends(
+    tokens: list[_Tok],
+    width: float,
+    breaks: list[bool],
+    relaxed: list[bool] | None,
+    emergency: bool,
+    *,
+    white: str,
+    hyphens: str,
+    tab_size: float,
+    space_advance: float,
+    before_forced: bool,
+) -> list[int]:
+    ends: list[int] = []
+    start = 0
+    count = len(tokens)
+    guard = 0
+    while start < count:
+        guard += 1
+        if guard > count + 2:
+            raise _Invalid("wrap did not advance")
+        end = _choose_end(
+            tokens,
+            start,
+            width,
+            breaks,
+            relaxed,
+            emergency,
+            white=white,
+            hyphens=hyphens,
+            tab_size=tab_size,
+            space_advance=space_advance,
+            before_forced=before_forced,
+        )
+        if end <= start:
+            end = min(count, start + 1)
+        ends.append(end)
+        start = end
+    return ends
+
+
+def _leftover_variance(contents: list[float], width: float) -> float:
+    count = len(contents)
+    if count == 0:
+        return 0.0
+    leftovers = [width - content for content in contents]
+    mean = sum(leftovers) / count
+    return sum((item - mean) ** 2 for item in leftovers) / count
 
 
 def _segment(
