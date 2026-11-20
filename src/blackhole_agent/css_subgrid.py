@@ -17,7 +17,8 @@ Items use subgrid line numbers. A negative line counts back from the explicit
 grid's end. A line past that grid is clamped to it; the subgrid grows no
 implicit track. ``2 / span 3`` on a one-track subgrid occupies that only
 track. This places stretched items on one axis. It does not run the
-track-sizing algorithm or honor ``justify-self``.
+track-sizing algorithm. ``align_grid_item`` aligns a margin box inside one
+of these areas.
 """
 
 from __future__ import annotations
