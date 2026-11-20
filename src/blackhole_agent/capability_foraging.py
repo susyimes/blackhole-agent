@@ -127,7 +127,6 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
-import urllib.request
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import quote
@@ -2978,7 +2977,17 @@ def infer_acquisition_spec(
 
 # ---------------------------------------------------------------------------
 # Live lane: fetch from the PyPI JSON API with sha256 verification.
+# Importing this module must not load urllib.request. Local encode survives
+# a controller Python whose _socket DLL cannot load.
 # ---------------------------------------------------------------------------
+
+
+def _urlopen(url: str, timeout: int):
+    """Open one live registry URL. Callers that only encode text never reach it."""
+
+    import urllib.request
+
+    return urllib.request.urlopen(url, timeout=timeout)
 
 
 def fetch_pypi_sdist(
@@ -2991,7 +3000,7 @@ def fetch_pypi_sdist(
 
     api = f"https://pypi.org/pypi/{name}/json" if not version else f"https://pypi.org/pypi/{name}/{version}/json"
     try:
-        with urllib.request.urlopen(api, timeout=timeout) as response:
+        with _urlopen(api, timeout=timeout) as response:
             meta = json.loads(response.read().decode("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"pypi metadata failed: {exc}"}
@@ -3004,7 +3013,7 @@ def fetch_pypi_sdist(
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / Path(url.split("?")[0]).name
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with _urlopen(url, timeout=timeout) as response:
             payload = response.read()
     except OSError as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"sdist download failed: {exc}"}
@@ -3037,7 +3046,7 @@ def fetch_pypi_wheel(
 
     api = f"https://pypi.org/pypi/{name}/json" if not version else f"https://pypi.org/pypi/{name}/{version}/json"
     try:
-        with urllib.request.urlopen(api, timeout=timeout) as response:
+        with _urlopen(api, timeout=timeout) as response:
             meta = json.loads(response.read().decode("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"pypi metadata failed: {exc}"}
@@ -3072,7 +3081,7 @@ def fetch_pypi_wheel(
             "cache_hit": True,
         }
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with _urlopen(url, timeout=timeout) as response:
             payload = response.read()
     except OSError as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"wheel download failed: {exc}"}
@@ -3110,7 +3119,7 @@ def fetch_npm_tarball(
         else f"https://registry.npmjs.org/{encoded}/latest"
     )
     try:
-        with urllib.request.urlopen(api, timeout=timeout) as response:
+        with _urlopen(api, timeout=timeout) as response:
             meta = json.loads(response.read().decode("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"npm metadata failed: {exc}"}
@@ -3123,7 +3132,7 @@ def fetch_npm_tarball(
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / Path(url.split("?")[0]).name
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with _urlopen(url, timeout=timeout) as response:
             payload = response.read()
     except OSError as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"tarball download failed: {exc}"}

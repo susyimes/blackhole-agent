@@ -15836,7 +15836,8 @@ def invoke_described_nested_instance_plane(depth: int, text: str = "ab") -> str:
     """Call Codec.encode at a numeric depth on the caller's text.
 
     ``text`` used to be discarded, so every string came back as ``AB``.
-    A non-string is refused before a package is written.
+    A non-string is refused before a package is written. Importing and
+    calling this function does not load ``urllib.request`` or ``socket``.
     """
 
     if not isinstance(text, str):

@@ -45,7 +45,6 @@ import hashlib
 import json
 import sys
 import tempfile
-import urllib.request
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import quote
@@ -73,7 +72,12 @@ from blackhole_agent.capability_compounder import (
     slugify_capability_id,
     utc_now_iso,
 )
-from blackhole_agent.capability_foraging import fetch_npm_tarball, fetch_pypi_sdist, forage_package
+from blackhole_agent.capability_foraging import (
+    _urlopen,
+    fetch_npm_tarball,
+    fetch_pypi_sdist,
+    forage_package,
+)
 
 SCHEMA_VERSION = 1
 
@@ -421,7 +425,7 @@ def fetch_npm_search(query: str, *, size: int = 10, timeout: int = 30) -> dict[s
 
     api = f"https://registry.npmjs.org/-/v1/search?text={quote(query)}&size={max(1, int(size))}"
     try:
-        with urllib.request.urlopen(api, timeout=timeout) as response:
+        with _urlopen(api, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return {"ok": False, "query": query, "error": f"npm search failed: {exc}", "items": []}
@@ -510,7 +514,7 @@ def fetch_pypi_search(query: str, *, size: int = 10, timeout: int = 30) -> dict[
     for name in names:
         api = f"https://pypi.org/pypi/{quote(name, safe='-_.')}/json"
         try:
-            with urllib.request.urlopen(api, timeout=timeout) as response:
+            with _urlopen(api, timeout=timeout) as response:
                 meta = json.loads(response.read().decode("utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
