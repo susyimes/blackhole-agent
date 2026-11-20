@@ -17,11 +17,11 @@ size here, because this container is not fragmented further. That size is
 the smallest block size that can hold the run in N columns. The boxes are
 then filled in source order: a later box stays in the current column when
 it still fits, so a shorter last column is not rearranged to look even.
-``column-fill: auto`` needs a constrained column block size and is rejected.
-
-This does not break text, measure an inline min-content, collapse margins,
-paint a column rule, or honor a forced break. Fragment heights are CSS
-pixels and are already the unbreakable border-box block size.
+``column-fill: auto`` needs a constrained column block size and is rejected
+here. ``fragment_columns`` fills that fixed block size and honors column
+breaks. This balancer does not break text, measure an inline min-content,
+collapse margins, or paint a column rule. Fragment heights are CSS pixels
+and are already the unbreakable border-box block size.
 """
 
 from __future__ import annotations
