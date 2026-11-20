@@ -11,9 +11,12 @@ stay inside it.
 
 CSS Color 3 paints a non-positioned box with opacity below one on the same
 band as stack zero, and a positioned box with opacity below one treats an
-automatic z-index as zero. A z-index on a static box is ignored. Float is
-ignored once the box is positioned. Each entry is the element's own background
-and border; outlines and text decorations are not separate entries.
+automatic z-index as zero. A transform other than ``none`` also forms a
+stacking context: a static box, and a positioned box with an automatic
+z-index, then keep their descendants and paint on that same zero band. A
+z-index on a static box is ignored. Float is ignored once the box is
+positioned. Each entry is the element's own background and border; outlines
+and text decorations are not separate entries.
 """
 
 from __future__ import annotations
@@ -23,7 +26,9 @@ from dataclasses import dataclass, field
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
 _DISPLAYS = frozenset({"block", "inline", "inline-block"})
-_FIELDS = frozenset({"id", "position", "z_index", "opacity", "float", "display", "children"})
+_FIELDS = frozenset(
+    {"id", "position", "z_index", "opacity", "float", "display", "transform", "children"}
+)
 
 
 class _Invalid(Exception):
@@ -40,6 +45,7 @@ class _Box:
     opacity: float
     float: str
     display: str
+    transformed: bool
     children: list[_Box] = field(default_factory=list)
 
 
@@ -58,10 +64,11 @@ def paint_order(tree: object) -> dict[str, object]:
 
     ``tree`` is a nested object. ``id`` is a non-empty string. ``position``
     is ``static``, ``relative``, ``absolute``, ``fixed``, or ``sticky``.
-    ``z_index`` is ``auto`` or an integer. ``opacity`` is a number from 0 to
+    ``z_index`` is ``auto`` or an integer.     ``opacity`` is a number from 0 to
     1. ``float`` is ``none``, ``left``, or ``right``. ``display`` is
-    ``block``, ``inline``, or ``inline-block``. ``children`` is a list of
-    the same shape. A repeated id is invalid.
+    ``block``, ``inline``, or ``inline-block``. ``transform`` other than
+    ``none`` forms a stacking context. ``children`` is a list of the same
+    shape. A repeated id is invalid.
     """
 
     try:
@@ -94,6 +101,7 @@ def _parse(value: object, *, seen: set[str]) -> _Box:
     display = value.get("display", "block")
     if display not in _DISPLAYS:
         raise _Invalid("display")
+    transformed = _transformed(value.get("transform", "none"))
     children = value.get("children", [])
     if not isinstance(children, list):
         raise _Invalid("children")
@@ -104,6 +112,7 @@ def _parse(value: object, *, seen: set[str]) -> _Box:
         opacity=opacity,
         float=str(floated),
         display=str(display),
+        transformed=transformed,
     )
     box.children = [_parse(child, seen=seen) for child in children]
     return box
@@ -126,8 +135,17 @@ def _opacity(value: object) -> float:
     return number
 
 
+def _transformed(value: object) -> bool:
+    if not isinstance(value, str):
+        raise _Invalid("transform")
+    text = value.strip().lower()
+    if not text:
+        raise _Invalid("transform")
+    return text != "none"
+
+
 def _real(box: _Box) -> bool:
-    if box.opacity < 1:
+    if box.transformed or box.opacity < 1:
         return True
     return box.position != "static" and box.z_index is not None
 
@@ -137,8 +155,9 @@ def _stack_z(box: _Box) -> int:
 
     if box.position != "static" and box.z_index is not None:
         return box.z_index
-    # A positioned automatic z-index with opacity below one behaves as zero.
-    # A static box with opacity below one is painted on the zero band.
+    # Opacity, or a transform other than none, paints a static box on the
+    # zero band. A positioned automatic z-index does the same once the box
+    # forms a real stacking context.
     return 0
 
 

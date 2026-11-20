@@ -6,9 +6,16 @@ escapes to an ancestor is painted before an in-flow parent, and that parent
 is the target on the overlap. The same child is painted after a parent that
 forms its own stacking context, and then the child is the target.
 
-Coordinates are physical pixels of the border box, not offsets from the
-parent. The box is half-open: it contains the top and left edges and excludes
-the right and bottom edges. ``pointer-events`` and ``visibility`` inherit.
+Layout ``x`` and ``y`` are the border-box top left before transforms, in one
+shared coordinate space. A CSS 2D transform moves the hit region. The point
+passes through the inverse of each ancestor transform and then the element's
+own transform. The half-open test then runs in that local box: it contains
+the top and left edges and excludes the right and bottom edges. ``none``
+leaves the axis-aligned rectangle. Any other transform also makes the element
+a stacking context, so a negative-z child stays inside it. A singular matrix
+hits nothing. An invalid transform rejects the tree.
+
+``pointer-events`` and ``visibility`` inherit.
 ``none`` and ``hidden`` are not targets. A descendant that specifies ``auto``
 or ``visible`` still is. Opacity zero does not remove a target.
 """
@@ -19,6 +26,11 @@ import math
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_paint_order import paint_order
+from blackhole_agent.css_transform import map_transformed_point
+
+_IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+_DET = 1e-12
+_SNAP = 1e-6
 
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
@@ -40,6 +52,8 @@ _FIELDS = frozenset(
         "height",
         "pointer_events",
         "visibility",
+        "transform",
+        "origin",
     }
 )
 
@@ -64,15 +78,20 @@ class _Box:
     height: float
     pointer_events: str
     visibility: str
+    matrix: tuple[float, float, float, float, float, float]
+    stacking: bool
+    transform: str | None = None
+    parent: _Box | None = None
     children: list[_Box] = field(default_factory=list)
 
 
 def element_from_point(tree: object, x: object, y: object) -> dict[str, object]:
-    """Return the frontmost target whose border box contains ``(x, y)``.
+    """Return the frontmost target whose transformed border box contains ``(x, y)``.
 
     ``outcome`` is ``hit``, ``miss``, or ``invalid``. ``id`` is the element
     on a hit and ``None`` otherwise. An invalid tree or point also carries
-    ``reason``.
+    ``reason``. Layout coordinates stay untransformed; the test uses the
+    inverse CSS 2D matrix, including ancestor transforms.
     """
 
     try:
@@ -94,13 +113,14 @@ def element_from_point(tree: object, x: object, y: object) -> dict[str, object]:
             return {"outcome": "invalid", "id": None, "reason": "paint"}
         if box.pointer_events != "auto" or box.visibility != "visible":
             continue
-        if box.x <= point_x < box.x + box.width and box.y <= point_y < box.y + box.height:
+        local = _local_point(box, point_x, point_y)
+        if local is not None and _covers(local[0], local[1], box.width, box.height):
             return {"outcome": "hit", "id": ident}
     return {"outcome": "miss", "id": None}
 
 
 def _paint_node(box: _Box) -> dict[str, object]:
-    return {
+    node = {
         "id": box.id,
         "position": box.position,
         "z_index": "auto" if box.z_index is None else box.z_index,
@@ -109,6 +129,9 @@ def _paint_node(box: _Box) -> dict[str, object]:
         "display": box.display,
         "children": [_paint_node(child) for child in box.children],
     }
+    if box.stacking and box.transform is not None:
+        node["transform"] = box.transform
+    return node
 
 
 def _parse(
@@ -149,6 +172,7 @@ def _parse(
     height = _finite(value["height"])
     if width < 0 or height < 0:
         raise _Invalid("size")
+    matrix, stacking, transform = _matrix(value, width, height)
     if "pointer_events" in value:
         chosen = value["pointer_events"]
         if chosen not in _POINTER:
@@ -175,12 +199,106 @@ def _parse(
         height=height,
         pointer_events=pointer,
         visibility=visibility,
+        matrix=matrix,
+        stacking=stacking,
+        transform=transform,
     )
     boxes[raw_id] = box
-    box.children = [
-        _parse(child, seen=seen, boxes=boxes, pointer=pointer, visibility=visibility) for child in children
-    ]
+    box.children = []
+    for child in children:
+        parsed = _parse(child, seen=seen, boxes=boxes, pointer=pointer, visibility=visibility)
+        parsed.parent = box
+        box.children.append(parsed)
     return box
+
+
+def _matrix(
+    value: dict[str, object], width: float, height: float
+) -> tuple[tuple[float, float, float, float, float, float], bool, str | None]:
+    if "origin" in value and not isinstance(value["origin"], str):
+        raise _Invalid("origin")
+    if "transform" not in value:
+        return _IDENTITY, False, None
+    raw = value["transform"]
+    if not isinstance(raw, str):
+        raise _Invalid("transform")
+    if _transform_none(raw):
+        return _IDENTITY, False, None
+    layer: dict[str, object] = {
+        "x": 0,
+        "y": 0,
+        "width": width,
+        "height": height,
+        "transform": raw,
+        "origin": value.get("origin", "50% 50%"),
+    }
+    result = map_transformed_point(layer, {"x": 0, "y": 0})
+    if result.get("outcome") != "mapped" or not isinstance(result.get("matrix"), list):
+        raise _Invalid(str(result.get("reason") or "transform"))
+    numbers = result["matrix"]
+    if len(numbers) != 6 or any(type(item) not in (int, float) for item in numbers):
+        raise _Invalid("transform")
+    return tuple(float(item) for item in numbers), True, raw
+
+
+def _transform_none(value: str) -> bool:
+    pieces: list[str] = []
+    index = 0
+    while index < len(value):
+        if value.startswith("/*", index):
+            end = value.find("*/", index + 2)
+            if end < 0:
+                return False
+            pieces.append(" ")
+            index = end + 2
+            continue
+        pieces.append(value[index])
+        index += 1
+    return "".join(pieces).strip().lower() == "none"
+
+
+def _local_point(box: _Box, x: float, y: float) -> tuple[float, float] | None:
+    chain: list[_Box] = []
+    current: _Box | None = box
+    while current is not None:
+        chain.append(current)
+        current = current.parent
+    for item in reversed(chain):
+        local = _inverse(item.matrix, x - item.x, y - item.y)
+        if local is None:
+            return None
+        if item is box:
+            return local
+        x = item.x + local[0]
+        y = item.y + local[1]
+    return None
+
+
+def _inverse(
+    matrix: tuple[float, float, float, float, float, float], x: float, y: float
+) -> tuple[float, float] | None:
+    a, b, c, d, e, f = matrix
+    det = a * d - c * b
+    if not math.isfinite(det) or abs(det) <= _DET:
+        return None
+    x -= e
+    y -= f
+    local_x = (d * x - c * y) / det
+    local_y = (a * y - b * x) / det
+    if not math.isfinite(local_x) or not math.isfinite(local_y):
+        return None
+    return local_x, local_y
+
+
+def _covers(x: float, y: float, width: float, height: float) -> bool:
+    return 0.0 <= _snap(x) < width and 0.0 <= _snap(y) < height
+
+
+def _snap(value: float) -> float:
+    nearest = round(value)
+    if abs(value - nearest) <= _SNAP:
+        return float(nearest)
+    return value
 
 
 def _z_index(value: object) -> int | None:
