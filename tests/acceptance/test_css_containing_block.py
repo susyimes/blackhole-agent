@@ -1,9 +1,10 @@
 """Resolve the padding edge that contains an absolute or fixed box.
 
 A merely positioned ancestor captures an absolute box and does not capture a
-fixed box. A transform, filter, perspective, backdrop-filter, or paint
-containment captures both, including a transform of translate(0). An inline
-ancestor is refused.
+fixed box. A transform, filter, perspective, backdrop-filter, paint
+containment, or layout containment captures both, including a transform of
+translate(0). content-visibility: hidden and a capturing will-change do too.
+An inline ancestor is refused.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A tree without the resolver still exits 0.
@@ -232,7 +233,7 @@ def observe() -> tuple[bool, dict[str, object]]:
         border_bottom=5,
         border_left=5,
     )
-    checks.append(_edges(keep("contain_layout", layout_only, "abs")) == ("far", "ancestor", 15, 25, 190, 90))
+    checks.append(_edges(keep("contain_layout", layout_only, "abs")) == ("near", "ancestor", 0, 0, 10, 10))
 
     sticky = _box(
         "stick",
@@ -352,6 +353,186 @@ def observe() -> tuple[bool, dict[str, object]]:
     )
     checks.append(_edges(keep("absolute_in_fixed", nested_fixed, "abs")) == ("outer", "ancestor", 2, 3, 80, 60))
     checks.append(_edges(keep("fixed_in_fixed", nested_fixed, "fix")) == (None, "viewport", 0, 0, 800, 600))
+
+    layout_fixed = _box(
+        "far",
+        (
+            _box(
+                "near",
+                (_box("fix", position="fixed", width=10, height=10),),
+                position="static",
+                contain="layout",
+                x=4,
+                y=6,
+                width=80,
+                height=50,
+                border_top=2,
+                border_right=2,
+                border_bottom=2,
+                border_left=2,
+            ),
+        ),
+        position="relative",
+        x=0,
+        y=0,
+        width=400,
+        height=400,
+    )
+    checks.append(_edges(keep("layout_fixed", layout_fixed, "fix")) == ("near", "ancestor", 6, 8, 76, 46))
+
+    size_only = _box(
+        "far",
+        (
+            _box(
+                "near",
+                (_box("fix", position="fixed", width=10, height=10),),
+                position="static",
+                contain="size",
+            ),
+        ),
+        position="relative",
+        x=1,
+        y=1,
+        width=20,
+        height=20,
+    )
+    checks.append(_edges(keep("contain_size", size_only, "fix")) == (None, "viewport", 0, 0, 800, 600))
+
+    hinted = _box(
+        "hint",
+        (
+            _box("abs", position="absolute", width=10, height=10),
+            _box("fix", position="fixed", width=10, height=10),
+        ),
+        position="static",
+        will_change="position",
+        x=8,
+        y=9,
+        width=40,
+        height=30,
+        border_top=1,
+        border_right=1,
+        border_bottom=1,
+        border_left=1,
+    )
+    checks.append(_edges(keep("will_position_absolute", hinted, "abs")) == ("hint", "ancestor", 9, 10, 38, 28))
+    checks.append(_edges(keep("will_position_fixed", hinted, "fix")) == (None, "viewport", 0, 0, 800, 600))
+
+    will_transform = _box(
+        "layer",
+        (_box("fix", position="fixed", width=10, height=10),),
+        position="static",
+        transform="none",
+        will_change="Transform",
+        x=10,
+        y=20,
+        width=200,
+        height=100,
+        border_top=5,
+        border_right=5,
+        border_bottom=5,
+        border_left=5,
+    )
+    checks.append(_edges(keep("will_transform", will_transform, "fix")) == ("layer", "ancestor", 15, 25, 190, 90))
+
+    skipped = _box(
+        "outer",
+        (
+            _box(
+                "near",
+                (_box("fix", position="fixed", width=10, height=10),),
+                position="static",
+                will_change="position",
+                x=1,
+                y=1,
+                width=30,
+                height=20,
+            ),
+        ),
+        position="static",
+        transform="translate(0)",
+        x=10,
+        y=20,
+        width=200,
+        height=100,
+        border_top=5,
+        border_right=5,
+        border_bottom=5,
+        border_left=5,
+    )
+    checks.append(_edges(keep("will_position_skips_to_transform", skipped, "fix")) == ("outer", "ancestor", 15, 25, 190, 90))
+
+    opacity = _box(
+        "fade",
+        (_box("fix", position="fixed", width=10, height=10),),
+        position="static",
+        will_change="opacity, scroll-position",
+    )
+    checks.append(_edges(keep("will_opacity", opacity, "fix")) == (None, "viewport", 0, 0, 800, 600))
+
+    hidden = _box(
+        "skip",
+        (_box("fix", position="fixed", width=10, height=10),),
+        position="static",
+        content_visibility="hidden",
+        x=3,
+        y=4,
+        width=50,
+        height=40,
+        border_left=2,
+        border_top=1,
+        border_right=0,
+        border_bottom=0,
+    )
+    checks.append(_edges(keep("content_hidden", hidden, "fix")) == ("skip", "ancestor", 5, 5, 48, 39))
+    shown = _box(
+        "show",
+        (_box("fix", position="fixed", width=10, height=10),),
+        position="static",
+        content_visibility="auto",
+        x=3,
+        y=4,
+        width=50,
+        height=40,
+    )
+    checks.append(_edges(keep("content_auto", shown, "fix")) == (None, "viewport", 0, 0, 800, 600))
+
+    refused = keep(
+        "will_none",
+        _box("bad", (_box("fix", position="fixed", width=10, height=10),), will_change="none"),
+        "fix",
+    )
+    checks.append(_no_rectangle(refused) and refused.get("reason") == "will_change")
+
+    for name, feature in (
+        ("will_filter", "filter"),
+        ("will_perspective", "perspective"),
+        ("will_backdrop", "backdrop-filter"),
+        ("will_contain", "contain"),
+        ("will_content_visibility", "content-visibility"),
+    ):
+        captured = _box(
+            name,
+            (_box("fix", position="fixed", width=4, height=4),),
+            position="static",
+            will_change=feature,
+            x=0,
+            y=0,
+            width=20,
+            height=10,
+        )
+        checks.append(_edges(keep(name, captured, "fix")) == (name, "ancestor", 0, 0, 20, 10))
+    contents = _box(
+        "contents",
+        (_box("fix", position="fixed", width=4, height=4),),
+        position="static",
+        will_change="contents",
+        x=0,
+        y=0,
+        width=20,
+        height=10,
+    )
+    checks.append(_edges(keep("will_contents", contents, "fix")) == (None, "viewport", 0, 0, 800, 600))
     return all(checks), observed
 
 

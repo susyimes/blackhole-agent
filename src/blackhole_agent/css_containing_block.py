@@ -2,16 +2,22 @@
 
 CSS 2.1 §10.1 gives an absolute box the padding edge of the nearest ancestor
 whose position is not static. A fixed box ignores those merely positioned
-ancestors and uses the viewport. CSS Transforms, Filters, and Containment
-change that: a transform, filter, perspective, or backdrop-filter other than
-none, and paint containment, establish a containing block for both absolute
-and fixed descendants. ``translate(0)`` and ``blur(0)`` still count.
+ancestors and uses the viewport. A transform, filter, perspective, or
+backdrop-filter other than none captures both, including ``translate(0)``
+and ``blur(0)``. Layout containment and paint containment do too, so
+``contain: layout`` captures a fixed box. Size and style containment do not.
+``content-visibility: hidden`` skips its contents and therefore forces layout
+containment. ``auto`` does not, because this resolver does not decide that
+the box is off-screen. ``container-type`` does not either: size and
+inline-size containment are not layout containment.
 
-The rectangle is the ancestor's border box inset by its own borders. That
-width and height are the percentage basis. A chosen ancestor whose display
-is inline can split across line fragments, so this resolver refuses it
-instead of returning one rectangle. It does not lay out the tree, and it
-does not read will-change or container-type.
+``will-change`` captures when a named property's non-initial value would.
+``position`` captures only absolute boxes. ``opacity``, ``scroll-position``,
+and ``contents`` capture neither. ``auto`` alone captures nothing. ``none``,
+``all``, and a list that includes ``auto`` are invalid.
+
+The rectangle is the ancestor's border box inset by its own borders. An
+inline ancestor that would capture is refused. This does not lay out the tree.
 """
 
 from __future__ import annotations
@@ -36,7 +42,34 @@ _DISPLAYS = frozenset(
     }
 )
 _CONTAIN = frozenset({"none", "paint", "layout", "size", "style", "strict", "content"})
-_PAINT = frozenset({"paint", "strict", "content"})
+_TRAPS = frozenset({"paint", "layout", "strict", "content"})
+_VISIBILITY = frozenset({"visible", "auto", "hidden"})
+_WILL_BOTH = frozenset(
+    {
+        "transform",
+        "filter",
+        "perspective",
+        "backdrop-filter",
+        "contain",
+        "content-visibility",
+    }
+)
+_WILL_ABSOLUTE = frozenset({"position"})
+_WILL_HINT = frozenset({"scroll-position", "contents"})
+_WILL_BAD = frozenset(
+    {
+        "will-change",
+        "none",
+        "all",
+        "auto",
+        "initial",
+        "inherit",
+        "unset",
+        "revert",
+        "revert-layer",
+        "default",
+    }
+)
 _FIELDS = frozenset(
     {
         "id",
@@ -47,6 +80,8 @@ _FIELDS = frozenset(
         "perspective",
         "backdrop_filter",
         "contain",
+        "will_change",
+        "content_visibility",
         "x",
         "y",
         "width",
@@ -72,7 +107,8 @@ class _Node:
     id: str
     position: str
     display: str
-    effects: bool
+    captures_absolute: bool
+    captures_fixed: bool
     x: float
     y: float
     width: float
@@ -122,8 +158,8 @@ def _resolve(path: list[_Node], port: dict[str, float]) -> dict[str, object]:
 
 def _captures(ancestor: _Node, scheme: str) -> bool:
     if scheme == "fixed":
-        return ancestor.effects
-    return ancestor.position != "static" or ancestor.effects
+        return ancestor.captures_fixed
+    return ancestor.position != "static" or ancestor.captures_absolute
 
 
 def _padding(node: _Node) -> dict[str, float]:
@@ -181,20 +217,23 @@ def _node(value: object, seen: set[str]) -> _Node:
         raise _Invalid("width")
     position = _choice(value.get("position", "static"), _POSITIONS, "position")
     display = _choice(value.get("display", "block"), _DISPLAYS, "display")
-    effects = any(
+    trapped = any(
         (
             _effect(value.get("transform", _AUTO_NONE), "transform"),
             _effect(value.get("filter", _AUTO_NONE), "filter"),
             _effect(value.get("perspective", _AUTO_NONE), "perspective"),
             _effect(value.get("backdrop_filter", _AUTO_NONE), "backdrop_filter"),
-            _paint(value.get("contain", _AUTO_NONE)),
+            _contain_traps(value.get("contain", _AUTO_NONE)),
+            _content_hidden(value.get("content_visibility", "visible")),
         )
     )
+    will_absolute, will_fixed = _will_capture(value.get("will_change", "auto"))
     node = _Node(
         id=raw_id,
         position=position,
         display=display,
-        effects=effects,
+        captures_absolute=trapped or will_absolute,
+        captures_fixed=trapped or will_fixed,
         x=_length(value.get("x", 0), "x", minimum=None),
         y=_length(value.get("y", 0), "y", minimum=None),
         width=_length(value["width"], "width", minimum=0.0),
@@ -230,7 +269,7 @@ def _effect(value: object, name: str) -> bool:
     return _token(value, name) != _AUTO_NONE
 
 
-def _paint(value: object) -> bool:
+def _contain_traps(value: object) -> bool:
     if not isinstance(value, str):
         raise _Invalid("contain")
     parts = value.strip().lower().split()
@@ -238,7 +277,52 @@ def _paint(value: object) -> bool:
         raise _Invalid("contain")
     if _AUTO_NONE in parts and parts != [_AUTO_NONE]:
         raise _Invalid("contain")
-    return any(part in _PAINT for part in parts)
+    return any(part in _TRAPS for part in parts)
+
+
+def _content_hidden(value: object) -> bool:
+    text = _token(value, "content_visibility")
+    if text not in _VISIBILITY:
+        raise _Invalid("content_visibility")
+    return text == "hidden"
+
+
+def _will_capture(value: object) -> tuple[bool, bool]:
+    if not isinstance(value, str):
+        raise _Invalid("will_change")
+    text = value.strip().lower()
+    if text == "auto":
+        return False, False
+    parts = [part.strip() for part in text.split(",")]
+    if not parts or any(not _will_feature(part) for part in parts):
+        raise _Invalid("will_change")
+    absolute = False
+    fixed = False
+    for part in parts:
+        if part in _WILL_HINT:
+            continue
+        if part in _WILL_BOTH:
+            absolute = True
+            fixed = True
+        elif part in _WILL_ABSOLUTE:
+            absolute = True
+    return absolute, fixed
+
+
+def _will_feature(text: str) -> bool:
+    if text in _WILL_BAD or text == "":
+        return False
+    if text in _WILL_HINT:
+        return True
+    if text.startswith("--"):
+        body = text[2:]
+    elif text.startswith("-"):
+        body = text[1:]
+    else:
+        body = text
+    if body == "" or not (body[0].isalpha() or body[0] == "_"):
+        return False
+    return all(character.isalnum() or character in "_-" for character in body)
 
 
 def _choice(value: object, allowed: frozenset[str], name: str) -> str:
