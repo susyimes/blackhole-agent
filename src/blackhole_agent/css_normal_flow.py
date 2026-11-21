@@ -34,7 +34,10 @@ instead of collapsing adjoining ones. An automatic height is the block children,
 the stacked line boxes when
 that block's own in-flow content is text, and it also grows to the bottom
 margin edge of a float that block itself placed. Each character, including
-the space, advances by the font size. ``line-height: normal`` uses the font
+the space, advances by the font size. When that whole paragraph fits on one
+horizontal plain line and its Unicode bidi visual order differs from the
+source, each character is also a glyph from the line's left edge. A wrapped
+fragment and a line that is already visual omit glyphs. ``line-height: normal`` uses the font
 size as the strut. ``text-align`` shifts each line inside its line box. A
 block that also has block children keeps those children and does not build
 line boxes. An inline child may set font-size and line-height. Each run advances
@@ -116,6 +119,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_fixed_table import layout_fixed_columns
 from blackhole_agent.css_flex_align import flex_line_cross_size, place_flex_alignment
@@ -288,6 +292,7 @@ class _Line:
     runs: list[dict[str, object]] = field(default_factory=list)
     baseline: int = 0
     atoms: list[dict[str, object]] = field(default_factory=list)
+    glyphs: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -924,6 +929,15 @@ def _record_line(line: _Line) -> dict[str, object]:
             }
             for entry in line.atoms
         ]
+    if line.glyphs:
+        item["glyphs"] = [
+            {
+                "ch": str(glyph["ch"]),
+                "x": line.x + int(glyph["x"]),
+                "width": int(glyph["width"]),
+            }
+            for glyph in line.glyphs
+        ]
     return item
 
 
@@ -1352,7 +1366,12 @@ def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
     box.margin_left = _px(placed.get("margin_left"), "margin-left")
     box.margin_right = _px(placed.get("margin_right"), "margin-right")
     box.solved = placed
-    box.lines = _plain_lines(box, box.content_width, direction)
+    box.lines = _plain_lines(
+        box,
+        box.content_width,
+        direction,
+        place_glyphs=box.writing_mode == "horizontal-tb",
+    )
     _position_lines(box)
 
 
@@ -2132,12 +2151,35 @@ def _fill_lines(box: _Box) -> None:
     if _mixed_runs(box):
         _fill_mixed(box)
         return
-    box.lines = _plain_lines(box, box.content_width, box.direction)
+    box.lines = _plain_lines(box, box.content_width, box.direction, place_glyphs=True)
     if box.lines and box.definite_height is None:
         box.definite_height = sum(line.height for line in box.lines)
 
 
-def _plain_lines(box: _Box, measure: int, direction: str) -> list[_Line]:
+def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, object]]:
+    """Visual x of one line when UAX #9 order differs from the source text.
+
+    ``x`` is the distance from the line's left edge. Characters removed by
+    bidi controls are omitted. A line whose visual string matches its source
+    returns nothing, so an already-left-to-right line stays a plain line.
+    """
+
+    if direction not in {"ltr", "rtl"} or not text:
+        return []
+    ordered = reorder_css_bidi(text, direction=direction)
+    visual = ordered.get("visual")
+    if ordered.get("outcome") != "reordered" or not isinstance(visual, str) or visual == text:
+        return []
+    glyphs: list[dict[str, object]] = []
+    cursor = 0
+    for ch in visual:
+        width = _advance_of(ch, font_size)
+        glyphs.append({"ch": ch, "x": cursor, "width": width})
+        cursor += width
+    return glyphs
+
+
+def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
     text = box.inline_text or ""
     if not text:
         return []
@@ -2154,19 +2196,27 @@ def _plain_lines(box: _Box, measure: int, direction: str) -> list[_Line]:
     records: list[_Line] = []
     cursor = 0
     last = len(lines) - 1
+    # A wrapped fragment is not its own paragraph. Glyphs stay off until the
+    # whole paragraph fits on the line that is being painted.
+    whole_paragraph = place_glyphs and len(lines) == 1
     for index, line in enumerate(lines):
         if not isinstance(line, dict):
             raise _Invalid("line is invalid")
+        rendered = str(line.get("text") or "")
         content = _px(line.get("content_width"), "line width")
         offset = _text_offset(box, measure, content, index == last, direction=direction)
+        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if whole_paragraph else []
+        if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
+            glyphs = []
         records.append(
             _Line(
-                text=str(line.get("text") or ""),
+                text=rendered,
                 x=offset,
                 y=cursor,
                 height=height,
                 content_width=content,
                 baseline=baseline,
+                glyphs=glyphs,
             )
         )
         cursor += height
