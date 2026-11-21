@@ -64,7 +64,11 @@ An automatic column height has no definite block size, so it stays one
 column. A definite ``gap`` is removed from free space before items grow or
 shrink, and the same gutter separates wrapped lines. An automatic cross size
 includes those gutters, so the following block starts after the last gapped
-line. Row-reverse, item margins, and loose text stay rejected.
+line. ``justify-content`` then packs any main-axis leftover, on a row or a
+column and on each wrapped line. ``align-items`` and ``align-self`` place a
+shorter item inside that line. ``align-content`` packs wrapped lines inside
+a definite cross size and does not move a single line. Row-reverse, item
+margins, baseline alignment, and loose text stay rejected.
 A ``display: grid`` container places its element children on explicit column
 tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
 content box after column gaps are removed. Auto-placement fills rows in
@@ -2390,6 +2394,7 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
     wrap = "nowrap"
     justify = "normal"
     align = "normal"
+    content_align = "normal"
     row_gap = 0
     column_gap = 0
     tracked = {
@@ -2419,9 +2424,7 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
         elif prop == "align-items":
             align = _choice(value, "normal", _FLEX_ITEMS, "align-items")
         elif prop == "align-content":
-            chosen = _choice(value, "normal", _FLEX_CONTENT, "align-content")
-            if chosen not in {"normal", "stretch"}:
-                raise _Invalid("flex align is unsupported")
+            content_align = _choice(value, "normal", _FLEX_CONTENT, "align-content")
         elif prop == "gap":
             row_gap, column_gap = _gap_pair(value)
         elif prop == "row-gap":
@@ -2432,13 +2435,12 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
             raise _Invalid("flex order is unsupported")
     if direction == "row-reverse":
         raise _Invalid("flex direction is unsupported")
-    if justify not in {"normal", "flex-start"}:
-        raise _Invalid("flex justify is unsupported")
-    if align not in {"normal", "stretch"}:
-        raise _Invalid("flex align is unsupported")
+    if align == "baseline":
+        raise _Invalid("flex baseline is unsupported")
     return {
         "justify": justify,
         "align": align,
+        "align_content": content_align,
         "wrap": wrap,
         "direction": direction,
         "row_gap": row_gap,
@@ -2509,8 +2511,8 @@ def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
             align = _choice(value, "auto", _FLEX_SELF, "align-self")
         elif value not in {"0", "initial", "unset", "revert"}:
             raise _Invalid("flex order is unsupported")
-    if align not in {"auto", "normal"}:
-        raise _Invalid("flex align is unsupported")
+    if align == "baseline":
+        raise _Invalid("flex baseline is unsupported")
     return {"grow": grow, "shrink": shrink, "basis": basis, "align": align}
 
 
@@ -2765,6 +2767,7 @@ def _place_wrapped_flex_lines(
         grouped,
         justify_content=spec.get("justify", "normal"),
         align_items=spec.get("align", "normal"),
+        align_content=spec.get("align_content", "normal"),
         wrap=str(spec.get("wrap") or "wrap"),
         main_gap=main_gap,
         cross_gap=cross_gap,
@@ -2942,6 +2945,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
         [entries],
         justify_content=spec.get("justify", "normal"),
         align_items=spec.get("align", "normal"),
+        align_content=spec.get("align_content", "normal"),
         wrap="nowrap",
         main_gap=main_gap,
         cross_gap=cross_gap,
