@@ -71,7 +71,13 @@ a definite cross size and does not move a single line. A definite main-axis
 margin sits outside the flexible length. An auto main margin absorbs positive
 free space before that packing. ``align-items: baseline`` lines the first
 text baselines up, and an automatic row grows to that line. A column treats
-baseline as ``flex-start``. Row-reverse and loose text stay rejected.
+baseline as ``flex-start``. ``flex-direction: row-reverse`` packs each line
+from the inline end: the first item's margin box ends on the right content
+edge, a definite margin-left stays on the left of that item, and
+``justify-content: flex-end`` leaves the free space on the right. An auto
+margin-right is the main-start margin and absorbs positive free space before
+that packing. A wrapped row-reverse line uses the same end edge. Loose text
+stays rejected.
 A ``display: grid`` container places its element children on explicit column
 tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
 content box after column gaps are removed. Auto-placement fills rows in
@@ -2438,8 +2444,6 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
             column_gap = _gap_length(value)
         elif value not in {"0", "initial", "unset", "revert"}:
             raise _Invalid("flex order is unsupported")
-    if direction == "row-reverse":
-        raise _Invalid("flex direction is unsupported")
     return {
         "justify": justify,
         "align": align,
@@ -2792,7 +2796,14 @@ def _margin_side(pair: tuple[bool, int]) -> object:
     return "auto" if automatic else length
 
 
-def _flex_entry(row: dict[str, object], inner: object, *, column: bool, container_align: str) -> dict[str, object]:
+def _flex_entry(
+    row: dict[str, object],
+    inner: object,
+    *,
+    column: bool,
+    container_align: str,
+    reverse: bool = False,
+) -> dict[str, object]:
     margins = row["margins"]
     if not isinstance(margins, dict):
         raise _Invalid("flex item margin is unsupported")
@@ -2805,6 +2816,8 @@ def _flex_entry(row: dict[str, object], inner: object, *, column: bool, containe
     else:
         main_pair = (margins["left"], margins["right"])
         cross_pair = (margins["top"], margins["bottom"])
+    if reverse:
+        main_pair = (main_pair[1], main_pair[0])
     align = _used_item_align(str(row["align"]), container_align, column=column)
     entry: dict[str, object] = {
         "id": item.id,
@@ -2905,6 +2918,7 @@ def _place_wrapped_flex_lines(
     column: bool = False,
 ) -> None:
     by_row = {row["item"].id: row for row in rows}
+    reverse = str(spec.get("direction") or "") in {"row-reverse", "column-reverse"}
     main_size = box.definite_height if column else box.content_width
     if main_size is None:
         raise _Invalid("flex column wrap is unsupported")
@@ -2946,7 +2960,9 @@ def _place_wrapped_flex_lines(
             row = by_row.get(str(ident))
             if row is None:
                 raise _Invalid("flex wrap failed")
-            entries.append(_flex_entry(row, inner, column=column, container_align=container_align))
+            entries.append(
+                _flex_entry(row, inner, column=column, container_align=container_align, reverse=reverse)
+            )
             height = max(height, _line_cross(row))
         grouped.append(entries)
         if column:
@@ -2978,7 +2994,6 @@ def _place_wrapped_flex_lines(
             if isinstance(entry, dict) and entry.get("id") is not None:
                 located[str(entry["id"])] = entry
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
-    reverse = column and str(spec.get("direction") or "") == "column-reverse"
     for row in rows:
         item = row["item"]
         entry = located.get(item.id)
@@ -3116,8 +3131,9 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     sizes = line["main_sizes"]
     if len(sizes) != len(rows):
         raise _Invalid("flex line failed")
+    reverse = direction in {"row-reverse", "column-reverse"}
     entries = [
-        _flex_entry(row, inner, column=column, container_align=container_align)
+        _flex_entry(row, inner, column=column, container_align=container_align, reverse=reverse)
         for row, inner in zip(rows, sizes, strict=True)
     ]
     if not column and container_cross is None:
@@ -3141,7 +3157,6 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
         raise _Invalid("flex alignment failed")
     by_id = {str(entry.get("id")): entry for entry in lines[0]["items"] if isinstance(entry, dict)}
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
-    reverse = direction == "column-reverse"
     for row in rows:
         item = row["item"]
         entry = by_id.get(item.id)
