@@ -101,11 +101,14 @@ starts under the last row. ``grid-auto-flow: column`` fills each column
 before the next one, and ``dense`` puts a later item in a hole the sparse
 cursor left behind. ``order`` sorts that automatic sequence first; equal
 values keep source order. A text-only item contributes its min-content and
-max-content to the columns. ``max-content`` keeps the unwrapped line,
-``auto`` then absorbs leftover space in a definite grid, and a fixed column
-keeps its length and wraps the text. An automatic row grows to those line
-boxes. Named lines, item margins, element children, and a definite grid
-height stay rejected.
+max-content to the columns, plus any definite horizontal margin.
+``max-content`` keeps the unwrapped line, ``auto`` then absorbs leftover
+space in a definite grid, and a fixed column keeps its length and wraps the
+text inside the margin box. Definite margins shrink a stretched automatic
+size. An auto margin absorbs positive free space in the area and does not
+grow the track. An automatic row grows to the line boxes plus definite
+vertical margins. Named lines, padding, borders, element children, and a
+definite grid height stay rejected.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -146,6 +149,7 @@ from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
 from blackhole_agent.css_flex_wrap import wrap_flex_lines
 from blackhole_agent.css_float_placement import place_floats
+from blackhole_agent.css_grid_align import align_grid_item
 from blackhole_agent.css_grid_content import size_content_grid_tracks
 from blackhole_agent.css_grid_placement import place_grid_items
 from blackhole_agent.css_grid_tracks import size_grid_tracks
@@ -2825,7 +2829,12 @@ def _wrap_maximum(value: object) -> object:
     return _flex_number(value, "flex maximum")
 
 
-def _margin_token(value: str, name: str) -> tuple[bool, int]:
+def _margin_token(
+    value: str,
+    name: str,
+    *,
+    unsupported: str = "flex item margin is unsupported",
+) -> tuple[bool, int]:
     token = " ".join(value.strip().lower().split())
     if token in _ZERO_EDGE or token in {"0", "0px"}:
         return False, 0
@@ -2833,36 +2842,44 @@ def _margin_token(value: str, name: str) -> tuple[bool, int]:
         return True, 0
     if len(token) > 2 and token.endswith("px"):
         return False, _px(float(token[:-2]), name)
-    raise _Invalid("flex item margin is unsupported")
+    raise _Invalid(unsupported)
 
 
-def _margin_shorthand(value: str) -> dict[str, tuple[bool, int]]:
+def _margin_shorthand(
+    value: str,
+    *,
+    unsupported: str = "flex item margin is unsupported",
+) -> dict[str, tuple[bool, int]]:
     token = " ".join(value.strip().lower().split())
     if token in {"initial", "unset", "revert"}:
         return {side: (False, 0) for side in ("top", "right", "bottom", "left")}
     parts = token.split(" ")
+
+    def one(part: str) -> tuple[bool, int]:
+        return _margin_token(part, "margin", unsupported=unsupported)
+
     if len(parts) == 1:
-        one = _margin_token(parts[0], "margin")
-        return {side: one for side in ("top", "right", "bottom", "left")}
+        side = one(parts[0])
+        return {name: side for name in ("top", "right", "bottom", "left")}
     if len(parts) == 2:
-        block = _margin_token(parts[0], "margin")
-        inline = _margin_token(parts[1], "margin")
+        block = one(parts[0])
+        inline = one(parts[1])
         return {"top": block, "right": inline, "bottom": block, "left": inline}
     if len(parts) == 3:
         return {
-            "top": _margin_token(parts[0], "margin"),
-            "right": _margin_token(parts[1], "margin"),
-            "bottom": _margin_token(parts[2], "margin"),
-            "left": _margin_token(parts[1], "margin"),
+            "top": one(parts[0]),
+            "right": one(parts[1]),
+            "bottom": one(parts[2]),
+            "left": one(parts[1]),
         }
     if len(parts) == 4:
         return {
-            "top": _margin_token(parts[0], "margin"),
-            "right": _margin_token(parts[1], "margin"),
-            "bottom": _margin_token(parts[2], "margin"),
-            "left": _margin_token(parts[3], "margin"),
+            "top": one(parts[0]),
+            "right": one(parts[1]),
+            "bottom": one(parts[2]),
+            "left": one(parts[3]),
         }
-    raise _Invalid("flex item margin is unsupported")
+    raise _Invalid(unsupported)
 
 
 def _flex_margins(box: _Box) -> dict[str, tuple[bool, int]]:
@@ -3417,6 +3434,8 @@ def _reject_grid_edges(box: _Box) -> None:
     if sizing not in {None, "content-box", "initial", "unset", "revert"}:
         raise _Invalid("grid box-sizing is unsupported")
     for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
+        if name == "margin" or name.startswith("margin-"):
+            continue
         raw = _box_decl(box, name)
         if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
             continue
@@ -3530,6 +3549,7 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
         "width": _grid_length(_box_decl(box, "width")),
         "height": _grid_length(_box_decl(box, "height")),
         "order": item_order,
+        "margins": _grid_margin_sides(tree, element, styles, declarations),
     }
 
 
@@ -3729,7 +3749,7 @@ def _place_grid(box: _Box, content_x: int) -> None:
         if isinstance(entry, dict) and entry.get("id") is not None
     }
     column_sizes = _size_grid_columns(box, track_defs, located, column_gap, spec)
-    text_heights = _measure_grid_items(box, located, column_sizes, column_gap)
+    text_heights = _measure_grid_items(box, located, column_sizes, column_gap, content_x)
     row_count = int(placed.get("row_count") or 0)
     auto_rows = spec.get("auto_rows")
     row_sizes: list[int] = []
@@ -3746,22 +3766,32 @@ def _place_grid(box: _Box, content_x: int) -> None:
         entry = located.get(item.id)
         if entry is None:
             raise _Invalid("grid placement failed")
-        column = int(entry.get("column") or 0) - 1
         row = int(entry.get("row") or 0) - 1
-        column_span = int(entry.get("column_span") or 0)
         row_span = int(entry.get("row_span") or 0)
-        item_spec = item.grid or {}
-        item.content_height = _used_grid_size(
-            item_spec.get("height", "auto"),
-            _grid_span(row_sizes, row, row_span, row_gap),
+        specified = (item.grid or {}).get("height", "auto")
+        area = _grid_span(row_sizes, row, row_span, row_gap)
+        aligned = _align_grid_axis(
+            item,
+            area,
+            axis="block",
+            size=specified,
+            automatic=text_heights.get(item.id, 0),
         )
-        item.x = content_x + _grid_offset(column_sizes, column, column_gap)
-        item.anchor_y = origin + _grid_offset(row_sizes, row, row_gap)
+        item.content_height = _px(aligned.get("size"), "grid item")
+        item.anchor_y = (
+            origin
+            + _grid_offset(row_sizes, row, row_gap)
+            + _px(aligned.get("start"), "grid item")
+        )
         item.border_width = item.content_width
         item.border_height = item.content_height
-        item.margin_left = 0
-        item.margin_right = 0
         item.solved = dict(_ZERO_FLEX_EDGES)
+        item.solved.update(
+            margin_top=_px(aligned.get("margin_start"), "grid margin"),
+            margin_bottom=_px(aligned.get("margin_end"), "grid margin"),
+            margin_left=item.margin_left,
+            margin_right=item.margin_right,
+        )
     box.definite_height = _gapped_span(row_sizes, row_gap)
     box.anchor_laid = True
 
@@ -3803,13 +3833,95 @@ def _size_grid_columns(
     return [_px(size, "grid column") for size in raw_sizes]
 
 
+_GRID_MARGIN_UNSUPPORTED = "grid item margin is unsupported"
+
+
+def _grid_margin_sides(tree, element, styles, declarations) -> dict[str, tuple[bool, int]]:
+    """Resolve the item's physical margins. A negative length stays rejected."""
+
+    custom = styles.get(element, ({}, ""))[0]
+    sides = {side: (False, 0) for side in ("top", "right", "bottom", "left")}
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop == "margin":
+            sides.update(
+                _margin_shorthand(_grid_author(raw, custom), unsupported=_GRID_MARGIN_UNSUPPORTED)
+            )
+            continue
+        if prop in {"margin-top", "margin-right", "margin-bottom", "margin-left"}:
+            sides[prop.split("-", 1)[1]] = _margin_token(
+                _grid_author(raw, custom),
+                prop,
+                unsupported=_GRID_MARGIN_UNSUPPORTED,
+            )
+    for automatic, length in sides.values():
+        if not automatic and length < 0:
+            raise _Invalid(_GRID_MARGIN_UNSUPPORTED)
+    return sides
+
+
+def _grid_definite_margins(item: _Box, *names: str) -> int:
+    """Definite margins join the track contribution. Auto margins contribute nothing."""
+
+    margins = (item.grid or {}).get("margins")
+    if not isinstance(margins, dict):
+        return 0
+    total = 0
+    for name in names:
+        pair = margins.get(name)
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            raise _Invalid(_GRID_MARGIN_UNSUPPORTED)
+        automatic, length = pair
+        if not automatic:
+            total += _px(length, "grid item margin")
+    return total
+
+
+def _align_grid_axis(
+    item: _Box,
+    area: int,
+    *,
+    axis: str,
+    size: object,
+    automatic: int,
+) -> dict[str, object]:
+    margins = (item.grid or {}).get("margins")
+    if not isinstance(margins, dict):
+        margins = {side: (False, 0) for side in ("top", "right", "bottom", "left")}
+    start_name, end_name = ("left", "right") if axis == "inline" else ("top", "bottom")
+
+    def edge(name: str) -> object:
+        pair = margins.get(name)
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            raise _Invalid(_GRID_MARGIN_UNSUPPORTED)
+        automatic_margin, length = pair
+        if not automatic_margin and length < 0:
+            raise _Invalid(_GRID_MARGIN_UNSUPPORTED)
+        return "auto" if automatic_margin else length
+
+    aligned = align_grid_item(
+        area,
+        size="auto" if size == "auto" else size,
+        automatic=automatic,
+        margin_start=edge(start_name),
+        margin_end=edge(end_name),
+        align="auto",
+        items="normal",
+        axis=axis,
+    )
+    if aligned.get("outcome") != "aligned":
+        raise _Invalid(str(aligned.get("reason") or _GRID_MARGIN_UNSUPPORTED))
+    return aligned
+
+
 def _grid_content_contribution(item: _Box) -> tuple[int, int]:
+    extra = _grid_definite_margins(item, "left", "right")
     width = (item.grid or {}).get("width", "auto")
     if isinstance(width, int):
-        return width, width
+        return width + extra, width + extra
     if item.inline_text:
-        return _intrinsic_text_sizes(item)
-    return 0, 0
+        minimum, maximum = _intrinsic_text_sizes(item)
+        return minimum + extra, maximum + extra
+    return extra, extra
 
 
 def _measure_grid_items(
@@ -3817,6 +3929,7 @@ def _measure_grid_items(
     located: dict[str, dict[str, object]],
     column_sizes: list[int],
     column_gap: int,
+    content_x: int,
 ) -> dict[str, int]:
     heights: dict[str, int] = {}
     for item in box.children:
@@ -3825,10 +3938,17 @@ def _measure_grid_items(
             raise _Invalid("grid placement failed")
         column = int(entry.get("column") or 0) - 1
         column_span = int(entry.get("column_span") or 0)
-        item.content_width = _used_grid_size(
-            (item.grid or {}).get("width", "auto"),
-            _grid_span(column_sizes, column, column_span, column_gap),
+        area = _grid_span(column_sizes, column, column_span, column_gap)
+        width = (item.grid or {}).get("width", "auto")
+        automatic = _intrinsic_text_sizes(item)[1] if width == "auto" and item.inline_text else 0
+        aligned = _align_grid_axis(item, area, axis="inline", size=width, automatic=automatic)
+        item.content_width = _px(aligned.get("size"), "grid item")
+        item.margin_left = _px(aligned.get("margin_start"), "grid margin")
+        item.margin_right = _px(aligned.get("margin_end"), "grid margin")
+        item.x = content_x + _grid_offset(column_sizes, column, column_gap) + _px(
+            aligned.get("start"), "grid item"
         )
+        item.border_width = item.content_width
         if item.inline_text:
             item.lines = _plain_lines(item, item.content_width, item.direction)
             heights[item.id] = sum(line.height for line in item.lines)
@@ -3856,16 +3976,11 @@ def _content_row_height(
             raise _Invalid("grid row span content is unsupported")
         specified = (item.grid or {}).get("height", "auto")
         if isinstance(specified, int):
-            height = max(height, specified)
+            contribution = specified
         else:
-            height = max(height, text_heights.get(item.id, 0))
+            contribution = text_heights.get(item.id, 0)
+        height = max(height, contribution + _grid_definite_margins(item, "top", "bottom"))
     return height
-
-
-def _used_grid_size(specified: object, area: int) -> int:
-    if specified == "auto":
-        return area
-    return _px(specified, "grid item")
 
 
 _TABLE_LAYOUTS = frozenset({"auto", "fixed"})
