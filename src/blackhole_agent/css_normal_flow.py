@@ -76,6 +76,15 @@ specified length stays at the track start. Implicit rows use a definite
 Automatic height is those rows plus the row gaps, so a following block
 starts under the last row. Column flow, dense packing, named lines, item
 text, item margins, and a definite grid height stay rejected.
+A ``display: table`` sizes columns from the text inside its cells. An
+automatic width replaces the stretched block size with the max-content of
+that text, and never grows past the containing block. ``table-layout: fixed``
+keeps a definite width, takes column widths from the first row, and wraps
+each cell into that column. The row grows to the stacked line boxes.
+``vertical-align: bottom`` sits a shorter cell's lines on the row's bottom
+edge. Automatic height is those rows, so a following block starts under the
+table. Captions, spans, border spacing, collapsed borders, and element
+children inside a cell stay rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -85,6 +94,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_auto_table import layout_auto_columns
+from blackhole_agent.css_fixed_table import layout_fixed_columns
 from blackhole_agent.css_flex_align import place_flex_alignment
 from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
@@ -96,6 +107,7 @@ from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
 from blackhole_agent.css_line_break import _default_advance, wrap_lines
 from blackhole_agent.css_relative import place_relative
+from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
 from blackhole_agent.css_logical_box import (
     _LOGICAL,
@@ -195,7 +207,9 @@ _BLOCK_TAGS = frozenset(
     }
 )
 _SKIP_TAGS = frozenset({"base", "head", "link", "meta", "script", "style", "template", "title"})
-_DISPLAYS = frozenset({"block", "inline", "inline-block", "flex", "grid", "none"})
+_DISPLAYS = frozenset(
+    {"block", "inline", "inline-block", "flex", "grid", "table", "table-row", "table-cell", "none"}
+)
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed"})
 _FLOATS = frozenset({"none", "left", "right"})
 _CLEARS = frozenset({"none", "left", "right", "both"})
@@ -305,6 +319,7 @@ class _Box:
     local_x: int = 0
     flex: dict[str, object] | None = None
     grid: dict[str, object] | None = None
+    table: dict[str, object] | None = None
 
 
 def layout_normal_flow(
@@ -364,6 +379,8 @@ def layout_normal_flow(
         )
         if root.display == "none":
             raise _Invalid("root is not displayed")
+        if root.display in {"table-row", "table-cell"}:
+            raise _Invalid("table box is outside the table")
         if root.position in {"absolute", "fixed"} or root.float_side != "none":
             raise _Invalid("root is outside normal flow")
         root.children, root.floats, root.flow, root.positioned = _walk(
@@ -442,6 +459,18 @@ def _walk(
             counter,
             host,
         )
+    if host.display == "table":
+        return _walk_table(
+            tree,
+            element,
+            inherited,
+            fonts,
+            styles,
+            declarations,
+            ids,
+            counter,
+            host,
+        )
     found: list[_Box] = []
     floats: list[_Box] = []
     flow: list[_Box] = []
@@ -473,6 +502,8 @@ def _walk(
             floats.append(box)
             flow.append(box)
             continue
+        if box.display in {"table-row", "table-cell"}:
+            raise _Invalid("table box is outside the table")
         if box.display == "inline-block":
             if box.position != "static":
                 raise _Invalid("positioned inline-block is unsupported")
@@ -717,6 +748,9 @@ def _solve(box: _Box, parent_width: int, parent_height: int | None, parent_horiz
         return
     if box.display == "flex":
         _place_flex_row(box, content_x)
+        return
+    if box.display == "table":
+        _place_table(box, content_x)
         return
     if box.floats and not box.children:
         _place_floats(box, content_x)
@@ -2291,6 +2325,8 @@ def _walk_flex(
         )
         if item.display == "none":
             continue
+        if item.display in {"table", "table-row", "table-cell"}:
+            raise _Invalid("table formatting in flex is unsupported")
         if item.position != "static" or item.float_side != "none":
             raise _Invalid("flex item is outside the line")
         if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
@@ -3018,6 +3054,8 @@ def _walk_grid(
         )
         if item.display == "none":
             continue
+        if item.display in {"table", "table-row", "table-cell"}:
+            raise _Invalid("table formatting in grid is unsupported")
         if item.position != "static" or item.float_side != "none":
             raise _Invalid("grid item is outside the grid")
         if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
@@ -3393,3 +3431,340 @@ def _used_grid_size(specified: object, area: int) -> int:
     if specified == "auto":
         return area
     return _px(specified, "grid item")
+
+
+_TABLE_LAYOUTS = frozenset({"auto", "fixed"})
+_TABLE_ALIGNS = frozenset({"baseline", "top", "middle", "bottom"})
+_TABLE_CHROME = (
+    "border-spacing",
+    "border-collapse",
+    "caption-side",
+    "empty-cells",
+)
+
+
+def _walk_table(
+    tree,
+    element,
+    inherited: dict[str, str],
+    fonts: dict[str, str],
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+    host: _Box,
+) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
+    host.table = _table_container(tree, element, styles, declarations)
+    if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
+        raise _Invalid("table writing mode is unsupported")
+    _reject_table_text(getattr(element, "text", None))
+    rows: list[_Box] = []
+    for child in tree.children.get(element, []):
+        _reject_table_text(getattr(child, "tail", None))
+        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
+            continue
+        row = _make_box(
+            tree,
+            child,
+            inherited,
+            fonts,
+            host.direction,
+            styles,
+            declarations,
+            ids,
+            counter,
+            root=False,
+        )
+        if row.display == "none":
+            continue
+        if row.display != "table-row":
+            raise _Invalid("table row is unsupported")
+        if row.position != "static" or row.float_side != "none":
+            raise _Invalid("table row is outside the table")
+        if row.writing_mode != "horizontal-tb" or row.direction != "ltr":
+            raise _Invalid("table writing mode is unsupported")
+        _reject_table_text(getattr(child, "text", None))
+        cells = _table_cells(
+            tree,
+            child,
+            inherited,
+            fonts,
+            styles,
+            declarations,
+            ids,
+            counter,
+            host,
+        )
+        if not cells:
+            raise _Invalid("table row is empty")
+        row.children = cells
+        rows.append(row)
+    if not rows:
+        raise _Invalid("table is empty")
+    count = len(rows[0].children)
+    if any(len(row.children) != count for row in rows):
+        raise _Invalid("table columns do not match")
+    return rows, [], rows, []
+
+
+def _table_cells(
+    tree,
+    row_element,
+    inherited: dict[str, str],
+    fonts: dict[str, str],
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+    host: _Box,
+) -> list[_Box]:
+    cells: list[_Box] = []
+    for child in tree.children.get(row_element, []):
+        _reject_table_text(getattr(child, "tail", None))
+        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
+            continue
+        cell = _make_box(
+            tree,
+            child,
+            inherited,
+            fonts,
+            host.direction,
+            styles,
+            declarations,
+            ids,
+            counter,
+            root=False,
+        )
+        if cell.display == "none":
+            continue
+        if cell.display != "table-cell":
+            raise _Invalid("table cell is unsupported")
+        if cell.position != "static" or cell.float_side != "none":
+            raise _Invalid("table cell is outside the table")
+        if cell.writing_mode != "horizontal-tb" or cell.direction != "ltr":
+            raise _Invalid("table writing mode is unsupported")
+        if any(
+            _local_name(grand) and _local_name(grand) not in _SKIP_TAGS
+            for grand in tree.children.get(child, [])
+        ):
+            raise _Invalid("table cell content is unsupported")
+        for grand in tree.children.get(child, []):
+            _reject_table_text(getattr(grand, "tail", None))
+        _reject_table_edges(cell)
+        cell.inline_text = child.text or ""
+        cell.table = _table_cell(tree, child, styles, declarations)
+        cells.append(cell)
+    return cells
+
+
+def _reject_table_text(text: object) -> None:
+    if isinstance(text, str) and text.strip():
+        raise _Invalid("table text is unsupported")
+
+
+def _reject_table_edges(box: _Box) -> None:
+    sizing = _box_decl(box, "box-sizing")
+    if sizing not in {None, "content-box", "initial", "unset", "revert"}:
+        raise _Invalid("table box-sizing is unsupported")
+    for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
+            continue
+        raise _Invalid("table cell edge is unsupported")
+    limits = {
+        "min-width": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "min-height": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "max-width": {"none", "initial", "unset", "revert"},
+        "max-height": {"none", "initial", "unset", "revert"},
+    }
+    for name, allowed in limits.items():
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in allowed:
+            continue
+        raise _Invalid("table cell limit is unsupported")
+
+
+def _table_container(tree, element, styles, declarations) -> dict[str, object]:
+    custom = styles.get(element, ({}, ""))[0]
+    layout = "auto"
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop == "table-layout":
+            layout = _choice(_grid_author(raw, custom), "auto", _TABLE_LAYOUTS, "table-layout")
+            continue
+        if prop not in _TABLE_CHROME:
+            continue
+        value = _grid_author(raw, custom)
+        if prop == "border-spacing" and value not in {"0", "0px", "initial", "unset", "revert"}:
+            raise _Invalid("table spacing is unsupported")
+        if prop == "border-collapse" and value not in {"separate", "initial", "unset", "revert"}:
+            raise _Invalid("table border collapse is unsupported")
+        if prop == "caption-side" and value not in {"top", "initial", "unset", "revert"}:
+            raise _Invalid("table caption is unsupported")
+        if prop == "empty-cells" and value not in {"show", "initial", "unset", "revert"}:
+            raise _Invalid("table empty cells are unsupported")
+    return {"layout": layout}
+
+
+def _table_cell(tree, element, styles, declarations) -> dict[str, object]:
+    custom = styles.get(element, ({}, ""))[0]
+    width: object = "auto"
+    align = "baseline"
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop not in {"width", "vertical-align"}:
+            continue
+        value = _grid_author(raw, custom)
+        if prop == "width":
+            width = _table_length(value)
+        else:
+            align = _choice(value, "baseline", _TABLE_ALIGNS, "vertical-align")
+    return {"width": width, "vertical_align": align}
+
+
+def _table_length(value: str) -> object:
+    if value in {"auto", "initial", "unset", "revert"}:
+        return "auto"
+    if value == "inherit":
+        raise _Invalid("table length inherit is unsupported")
+    if value == "0":
+        return 0
+    if value.endswith("px"):
+        return _px(float(value[:-2]), "table length")
+    raise _Invalid("table length is unsupported")
+
+
+def _table_measures(cell: _Box) -> tuple[int, int]:
+    text = cell.inline_text or ""
+    if not text.strip() and cell.white_space in _COLLAPSED_EMPTY:
+        return 0, 0
+    advances = {ch: cell.font_size * _default_advance(ch) for ch in set(text)}
+    measured = wrap_lines(text, 0, white_space=cell.white_space, advances=advances)
+    if measured.get("outcome") != "wrapped":
+        raise _Invalid(str(measured.get("reason") or "table text is invalid"))
+    return (
+        _px(measured.get("min_content"), "table min-content"),
+        _px(measured.get("max_content"), "table max-content"),
+    )
+
+
+def _place_table(box: _Box, content_x: int) -> None:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("table writing mode is unsupported")
+    rows = box.children
+    if not rows or any(not row.children for row in rows):
+        raise _Invalid("table is empty")
+    count = len(rows[0].children)
+    if any(len(row.children) != count for row in rows):
+        raise _Invalid("table columns do not match")
+    available = box.content_width
+    width_auto = box.solved.get("specified_width") in {None, "auto"}
+    layout = str((box.table or {}).get("layout") or "auto")
+    if layout == "fixed" and not width_auto:
+        sized = layout_fixed_columns(
+            available,
+            ["auto"] * count,
+            cells=[_fixed_cell(cell) for cell in rows[0].children],
+            spacing=0,
+        )
+    else:
+        payload: list[dict[str, object]] = []
+        for row in rows:
+            for column, cell in enumerate(row.children):
+                minimum, maximum = _table_measures(cell)
+                item: dict[str, object] = {
+                    "column": column,
+                    "span": 1,
+                    "min_content": minimum,
+                    "max_content": maximum,
+                }
+                width = (cell.table or {}).get("width", "auto")
+                if width != "auto":
+                    item["width"] = width
+                payload.append(item)
+        sized = layout_auto_columns(
+            "auto" if width_auto else available,
+            ["auto"] * count,
+            payload,
+            containing=available if width_auto else None,
+            spacing=0,
+        )
+    raw_sizes = sized.get("column_widths")
+    if sized.get("outcome") != "resolved" or not isinstance(raw_sizes, list) or len(raw_sizes) != count:
+        raise _Invalid(str(sized.get("reason") or "table columns failed"))
+    column_sizes = [_px(size, "table column") for size in raw_sizes]
+    used_width = _px(sized.get("used_table_width"), "table width")
+    box.content_width = used_width
+    row_cells: list[dict[str, object]] = []
+    for row_index, row in enumerate(rows):
+        for column, cell in enumerate(row.children):
+            cell.content_width = column_sizes[column]
+            if (cell.inline_text or "").strip() or cell.white_space not in _COLLAPSED_EMPTY:
+                _fill_lines(cell)
+            row_cells.append(
+                {
+                    "id": cell.id,
+                    "row": row_index,
+                    "content_height": cell.definite_height or 0,
+                    "baseline": cell.lines[0].baseline if cell.lines else 0,
+                    "vertical_align": str((cell.table or {}).get("vertical_align") or "baseline"),
+                }
+            )
+    laid = layout_table_rows(
+        ["auto"] * len(rows),
+        row_cells,
+        table_height="auto" if box.definite_height is None else box.definite_height,
+        border_spacing=0,
+    )
+    placed = laid.get("cells")
+    heights = laid.get("row_heights")
+    if laid.get("outcome") != "resolved" or not isinstance(placed, list) or not isinstance(heights, list):
+        raise _Invalid(str(laid.get("reason") or "table rows failed"))
+    by_id = {
+        str(entry.get("id")): entry
+        for entry in placed
+        if isinstance(entry, dict) and entry.get("id") is not None
+    }
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    offsets: list[int] = []
+    cursor = 0
+    for size in column_sizes:
+        offsets.append(cursor)
+        cursor += size
+    for row_index, row in enumerate(rows):
+        row_height = _px(heights[row_index], "table row")
+        lead = by_id.get(row.children[0].id)
+        if lead is None:
+            raise _Invalid("table placement failed")
+        row_top = _px(lead.get("border_top"), "table row")
+        row.x = content_x
+        row.anchor_y = origin + row_top
+        row.content_width = used_width
+        row.content_height = row_height
+        row.border_width = used_width
+        row.border_height = row_height
+        row.margin_left = 0
+        row.margin_right = 0
+        row.solved = dict(_ZERO_FLEX_EDGES)
+        for column, cell in enumerate(row.children):
+            entry = by_id.get(cell.id)
+            if entry is None:
+                raise _Invalid("table placement failed")
+            slot = _px(entry.get("border_height"), "table cell")
+            shift = _px(entry.get("content_top"), "table cell")
+            cell.x = content_x + offsets[column]
+            cell.anchor_y = origin + _px(entry.get("border_top"), "table cell")
+            cell.content_width = column_sizes[column]
+            cell.content_height = slot
+            cell.border_width = column_sizes[column]
+            cell.border_height = slot
+            cell.margin_left = 0
+            cell.margin_right = 0
+            cell.solved = dict(_ZERO_FLEX_EDGES)
+            for line in cell.lines:
+                line.y += shift
+    box.definite_height = _px(laid.get("used_table_height"), "table height")
+    box.anchor_laid = True
+
+
+def _fixed_cell(cell: _Box) -> dict[str, object]:
+    width = (cell.table or {}).get("width", "auto")
+    return {"span": 1, "width": "auto" if width == "auto" else width}
