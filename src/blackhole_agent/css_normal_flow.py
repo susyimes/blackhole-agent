@@ -121,7 +121,12 @@ keeps a definite width, takes column widths from the first row, and wraps
 each cell into that column. The row grows to the stacked line boxes.
 ``vertical-align: bottom`` sits a shorter cell's lines on the row's bottom
 edge. Automatic height is those rows, so a following block starts under the
-table. Captions, spans, border spacing, collapsed borders, and element
+table. ``border-collapse: collapse`` on an automatic table shares each grid
+line between the table, the rows, and the cells. A wider border wins before
+style, ``hidden`` removes the line, and the extra pixel of an odd internal
+line stays on its start side. Cell text starts after the half assigned to
+that cell. The following block starts under the table border box. A fixed
+table, a definite table width, captions, spans, border spacing, and element
 children inside a cell stay rejected.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
@@ -148,6 +153,7 @@ from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
+from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
 from blackhole_agent.css_fixed_table import layout_fixed_columns
 from blackhole_agent.css_flex_align import flex_line_cross_size, place_flex_alignment
 from blackhole_agent.css_flex_base import resolve_flex_base
@@ -1036,7 +1042,7 @@ def _each(box: _Box):
 
 
 def _record(box: _Box) -> dict[str, object]:
-    return {
+    item = {
         "id": box.id,
         "x": box.x,
         "y": box.y,
@@ -1048,6 +1054,10 @@ def _record(box: _Box) -> dict[str, object]:
         "margin_right": box.margin_right,
         "lines": [_record_line(line) for line in box.lines],
     }
+    used = (box.table or {}).get("used_edges")
+    if isinstance(used, dict):
+        item["collapsed_borders"] = used
+    return item
 
 
 def _record_line(line: _Line) -> dict[str, object]:
@@ -4149,6 +4159,11 @@ def _walk_table(
     host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     host.table = _table_container(tree, element, styles, declarations)
+    if host.table.get("collapse") is True:
+        host.table["borders"] = _specified_borders(host)
+        host.declarations = [
+            (prop, value) for prop, value in host.declarations if not _border_declaration(prop)
+        ]
     if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
         raise _Invalid("table writing mode is unsupported")
     _reject_table_text(getattr(element, "text", None))
@@ -4177,6 +4192,8 @@ def _walk_table(
             raise _Invalid("table row is outside the table")
         if row.writing_mode != "horizontal-tb" or row.direction != "ltr":
             raise _Invalid("table writing mode is unsupported")
+        if host.table.get("collapse") is True:
+            row.table = {"borders": _specified_borders(row)}
         _reject_table_text(getattr(child, "text", None))
         cells = _table_cells(
             tree,
@@ -4244,9 +4261,12 @@ def _table_cells(
             raise _Invalid("table cell content is unsupported")
         for grand in tree.children.get(child, []):
             _reject_table_text(getattr(grand, "tail", None))
-        _reject_table_edges(cell)
+        collapse = host.table.get("collapse") is True
+        _reject_table_edges(cell, collapse=collapse)
         cell.inline_text = child.text or ""
         cell.table = _table_cell(tree, child, styles, declarations)
+        if collapse:
+            cell.table["borders"] = _specified_borders(cell)
         cells.append(cell)
     return cells
 
@@ -4256,11 +4276,14 @@ def _reject_table_text(text: object) -> None:
         raise _Invalid("table text is unsupported")
 
 
-def _reject_table_edges(box: _Box) -> None:
+def _reject_table_edges(box: _Box, *, collapse: bool = False) -> None:
     sizing = _box_decl(box, "box-sizing")
     if sizing not in {None, "content-box", "initial", "unset", "revert"}:
         raise _Invalid("table box-sizing is unsupported")
+    allowed_border = collapse
     for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
+        if allowed_border and _border_declaration(name):
+            continue
         raw = _box_decl(box, name)
         if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
             continue
@@ -4281,6 +4304,8 @@ def _reject_table_edges(box: _Box) -> None:
 def _table_container(tree, element, styles, declarations) -> dict[str, object]:
     custom = styles.get(element, ({}, ""))[0]
     layout = "auto"
+    collapse = False
+    spacing = "0"
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop == "table-layout":
             layout = _choice(_grid_author(raw, custom), "auto", _TABLE_LAYOUTS, "table-layout")
@@ -4288,15 +4313,22 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
         if prop not in _TABLE_CHROME:
             continue
         value = _grid_author(raw, custom)
-        if prop == "border-spacing" and value not in {"0", "0px", "initial", "unset", "revert"}:
-            raise _Invalid("table spacing is unsupported")
-        if prop == "border-collapse" and value not in {"separate", "initial", "unset", "revert"}:
-            raise _Invalid("table border collapse is unsupported")
+        if prop == "border-spacing":
+            spacing = value
+            continue
+        if prop == "border-collapse":
+            if value == "collapse":
+                collapse = True
+            elif value not in {"separate", "initial", "unset", "revert"}:
+                raise _Invalid("table border collapse is unsupported")
+            continue
         if prop == "caption-side" and value not in {"top", "initial", "unset", "revert"}:
             raise _Invalid("table caption is unsupported")
         if prop == "empty-cells" and value not in {"show", "initial", "unset", "revert"}:
             raise _Invalid("table empty cells are unsupported")
-    return {"layout": layout}
+    if not collapse and spacing not in {"0", "0px", "initial", "unset", "revert"}:
+        raise _Invalid("table spacing is unsupported")
+    return {"layout": layout, "collapse": collapse}
 
 
 def _table_cell(tree, element, styles, declarations) -> dict[str, object]:
@@ -4326,6 +4358,188 @@ def _table_length(value: str) -> object:
     raise _Invalid("table length is unsupported")
 
 
+_BORDER_STYLES = frozenset(
+    {"none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"}
+)
+_BORDER_LINE = {"thin": 1, "medium": 3, "thick": 5}
+
+
+def _border_declaration(prop: str) -> bool:
+    name = prop.strip().lower()
+    if name in {"border-width", "border-style"}:
+        return True
+    return name.startswith("border-") and (name.endswith("-width") or name.endswith("-style"))
+
+
+def _specified_borders(box: _Box) -> dict[str, dict[str, object]]:
+    slots = _physical_slots(box)
+    sides: dict[str, dict[str, object]] = {}
+    for side in ("top", "right", "bottom", "left"):
+        style = slots.get(f"border-{side}-style", "none")
+        if style not in _BORDER_STYLES:
+            raise _Invalid("table border style is unsupported")
+        sides[side] = {"style": style, "width": _specified_border_width(style, slots.get(f"border-{side}-width"))}
+    return sides
+
+
+def _specified_border_width(style: str, raw: str | None) -> int:
+    if style == "none":
+        return 0
+    token = "medium" if raw is None else raw.strip().lower()
+    if token in {"initial", "unset", "revert"}:
+        token = "medium"
+    if token in _BORDER_LINE:
+        return _BORDER_LINE[token]
+    if token == "0":
+        return 0
+    if token.endswith("px"):
+        return _px(float(token[:-2]), "table border")
+    raise _Invalid("table border width is unsupported")
+
+
+def _split_internal(width: int) -> tuple[int, int]:
+    """Share one internal edge. The extra pixel stays on the start side."""
+
+    start = (width + 1) // 2
+    return start, width - start
+
+
+def _collapsed_lines(box: _Box, rows: list[_Box], columns: int) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    cells = [
+        {
+            "row": row_index,
+            "column": column,
+            "span": 1,
+            "rowspan": 1,
+            "borders": (cell.table or {}).get("borders") or {},
+        }
+        for row_index, row in enumerate(rows)
+        for column, cell in enumerate(row.children)
+    ]
+    resolved = resolve_collapsed_grid(
+        columns,
+        len(rows),
+        table=(box.table or {}).get("borders") or {},
+        rows=[(row.table or {}).get("borders") or {} for row in rows],
+        cells=cells,
+        direction="ltr",
+    )
+    vertical = resolved.get("vertical")
+    horizontal = resolved.get("horizontal")
+    if resolved.get("outcome") != "resolved" or not isinstance(vertical, list) or not isinstance(horizontal, list):
+        raise _Invalid(str(resolved.get("reason") or "collapsed border failed"))
+    return vertical, horizontal
+
+
+def _collapsed_axis(
+    sizes: list[int], edges: list[dict[str, object]]
+) -> tuple[list[int], list[int], list[int], int, int, int]:
+    count = len(sizes)
+    if len(edges) != count + 1:
+        raise _Invalid("collapsed border failed")
+    widths = [_px(edge.get("width"), "collapsed border") for edge in edges]
+    positions: list[int] = []
+    starts: list[int] = []
+    ends: list[int] = []
+    cursor = 0
+    for index, size in enumerate(sizes):
+        start = widths[0] if index == 0 else _split_internal(widths[index])[1]
+        end = widths[count] if index == count - 1 else _split_internal(widths[index + 1])[0]
+        positions.append(cursor)
+        starts.append(start)
+        ends.append(end)
+        cursor += start + size + end
+    outer_start = widths[0]
+    outer_end = widths[count]
+    return positions, starts, ends, outer_start, outer_end, cursor - outer_start - outer_end
+
+
+def _used_edge(edge: dict[str, object], inset: int) -> dict[str, object]:
+    return {
+        "width": _px(edge.get("width"), "collapsed border"),
+        "inset": inset,
+        "style": edge.get("style"),
+        "source": edge.get("source"),
+    }
+
+
+def _place_collapsed_table(
+    box: _Box,
+    rows: list[_Box],
+    column_sizes: list[int],
+    heights: list[object],
+    by_id: dict[str, dict[str, object]],
+    content_x: int,
+) -> None:
+    vertical, horizontal = _collapsed_lines(box, rows, len(column_sizes))
+    row_heights = [_px(heights[index], "table row") for index in range(len(rows))]
+    xs, lefts, rights, table_left, table_right, content_width = _collapsed_axis(column_sizes, vertical)
+    ys, tops, bottoms, table_top, table_bottom, content_height = _collapsed_axis(row_heights, horizontal)
+    box.content_width = content_width
+    box.definite_height = content_height
+    solved = dict(box.solved)
+    solved["border_left"] = table_left
+    solved["border_right"] = table_right
+    solved["border_top"] = table_top
+    solved["border_bottom"] = table_bottom
+    box.solved = solved
+    if box.table is None:
+        box.table = {}
+    box.table["used_edges"] = {
+        "left": _used_edge(vertical[0], table_left),
+        "right": _used_edge(vertical[-1], table_right),
+        "top": _used_edge(horizontal[0], table_top),
+        "bottom": _used_edge(horizontal[-1], table_bottom),
+    }
+    full_width = table_left + content_width + table_right
+    for row_index, row in enumerate(rows):
+        row_height = row_heights[row_index]
+        top = tops[row_index]
+        bottom = bottoms[row_index]
+        row.x = content_x
+        row.anchor_y = ys[row_index]
+        row.content_width = full_width
+        row.content_height = top + row_height + bottom
+        row.border_width = full_width
+        row.border_height = top + row_height + bottom
+        row.margin_left = 0
+        row.margin_right = 0
+        row.solved = dict(_ZERO_FLEX_EDGES)
+        for column, cell in enumerate(row.children):
+            entry = by_id.get(cell.id)
+            if entry is None:
+                raise _Invalid("table placement failed")
+            left = lefts[column]
+            right = rights[column]
+            shift = _px(entry.get("content_top"), "table cell")
+            cell_solved = dict(_ZERO_FLEX_EDGES)
+            cell_solved["border_left"] = left
+            cell_solved["border_right"] = right
+            cell_solved["border_top"] = top
+            cell_solved["border_bottom"] = bottom
+            cell.solved = cell_solved
+            cell.x = content_x + xs[column]
+            # The row already carries this grid position. Cells are offset from the row.
+            cell.anchor_y = 0
+            cell.content_width = column_sizes[column]
+            cell.content_height = row_height
+            cell.border_width = left + column_sizes[column] + right
+            cell.border_height = top + row_height + bottom
+            cell.margin_left = 0
+            cell.margin_right = 0
+            if cell.table is None:
+                cell.table = {}
+            cell.table["used_edges"] = {
+                "left": _used_edge(vertical[column], left),
+                "right": _used_edge(vertical[column + 1], right),
+                "top": _used_edge(horizontal[row_index], top),
+                "bottom": _used_edge(horizontal[row_index + 1], bottom),
+            }
+            for line in cell.lines:
+                line.y += shift
+    box.anchor_laid = True
+
+
 def _place_table(box: _Box, content_x: int) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("table writing mode is unsupported")
@@ -4338,6 +4552,9 @@ def _place_table(box: _Box, content_x: int) -> None:
     available = box.content_width
     width_auto = box.solved.get("specified_width") in {None, "auto"}
     layout = str((box.table or {}).get("layout") or "auto")
+    collapse = (box.table or {}).get("collapse") is True
+    if collapse and (layout == "fixed" or not width_auto):
+        raise _Invalid("collapsed table width is unsupported")
     if layout == "fixed" and not width_auto:
         sized = layout_fixed_columns(
             available,
@@ -4403,6 +4620,9 @@ def _place_table(box: _Box, content_x: int) -> None:
         for entry in placed
         if isinstance(entry, dict) and entry.get("id") is not None
     }
+    if collapse:
+        _place_collapsed_table(box, rows, column_sizes, list(heights), by_id, content_x)
+        return
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
     offsets: list[int] = []
     cursor = 0

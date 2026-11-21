@@ -186,3 +186,233 @@ def _number(value: float) -> int | float:
     if abs(value - nearest) <= 1e-9:
         return int(nearest)
     return value
+
+
+_SIDES = ("top", "right", "bottom", "left")
+
+
+def resolve_collapsed_grid(
+    column_count: object,
+    row_count: object,
+    *,
+    table: object = None,
+    rows: object = None,
+    cells: object = None,
+    direction: object = "ltr",
+) -> dict[str, object]:
+    """Resolve every vertical and horizontal line of a collapsed table.
+
+    ``column_count`` and ``row_count`` are the grid. ``table`` and each row
+    map ``top``, ``right``, ``bottom``, and ``left`` to ``style`` and
+    ``width``. Each cell maps ``row``, ``column``, optional ``span`` and
+    ``rowspan``, and ``borders``. Column groups and row groups are absent.
+    A line with no real border is ``none`` at width 0. The result is one
+    edge per grid line, including both outer lines.
+    """
+
+    try:
+        columns = _count(column_count, "column count")
+        row_total = _count(row_count, "row count")
+        table_sides = _side_map(table, "table")
+        row_sides = _row_maps(rows, row_total)
+        parsed = _grid_cells(cells, columns, row_total)
+        inline = _direction(direction)
+    except _Invalid as exc:
+        return _grid_invalid(exc.reason)
+    vertical = [
+        _line(
+            _vertical_contributors(index, columns, table_sides, row_sides, parsed),
+            inline,
+        )
+        for index in range(columns + 1)
+    ]
+    horizontal = [
+        _line(
+            _horizontal_contributors(index, row_total, table_sides, row_sides, parsed),
+            inline,
+        )
+        for index in range(row_total + 1)
+    ]
+    if any(edge.get("outcome") == "invalid" for edge in (*vertical, *horizontal)):
+        reason = next(
+            str(edge.get("reason") or "collapsed border failed")
+            for edge in (*vertical, *horizontal)
+            if edge.get("outcome") == "invalid"
+        )
+        return _grid_invalid(reason)
+    return {
+        "outcome": "resolved",
+        "reason": None,
+        "vertical": [_public_edge(edge) for edge in vertical],
+        "horizontal": [_public_edge(edge) for edge in horizontal],
+    }
+
+
+def _grid_invalid(reason: str) -> dict[str, object]:
+    return {"outcome": "invalid", "reason": reason, "vertical": None, "horizontal": None}
+
+
+def _count(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise _Invalid(f"{name} is invalid")
+    return value
+
+
+def _side_map(value: object, name: str) -> dict[str, tuple[str, float]]:
+    if value is None:
+        value = {}
+    if not isinstance(value, dict):
+        raise _Invalid(f"{name} borders are invalid")
+    unknown = set(value) - set(_SIDES)
+    if unknown:
+        raise _Invalid(f"{name} borders are invalid")
+    sides: dict[str, tuple[str, float]] = {}
+    for side in _SIDES:
+        raw = value.get(side)
+        if raw is None:
+            sides[side] = (_NONE, 0.0)
+            continue
+        if not isinstance(raw, dict):
+            raise _Invalid(f"{name} {side} border is invalid")
+        unknown = set(raw) - {"style", "width", "color"}
+        if unknown:
+            raise _Invalid(f"{name} {side} border is invalid")
+        sides[side] = (_style(raw.get("style", _NONE), 0), _width(raw.get("width", 0), 0))
+    return sides
+
+
+def _row_maps(value: object, count: int) -> list[dict[str, tuple[str, float]]]:
+    if value is None:
+        value = []
+    if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
+        raise _Invalid("row borders are invalid")
+    if len(value) != count:
+        raise _Invalid("row borders are invalid")
+    return [_side_map(item, f"row {index}") for index, item in enumerate(value)]
+
+
+def _grid_cells(value: object, columns: int, rows: int) -> list[dict[str, object]]:
+    if value is None:
+        value = []
+    if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
+        raise _Invalid("cells are invalid")
+    parsed: list[dict[str, object]] = []
+    for index, raw in enumerate(value):
+        if not isinstance(raw, dict):
+            raise _Invalid(f"cell {index} is invalid")
+        unknown = set(raw) - {"row", "column", "span", "rowspan", "borders"}
+        if unknown:
+            raise _Invalid(f"cell {index} is invalid")
+        row = _coordinate(raw.get("row"), f"cell {index} row")
+        column = _coordinate(raw.get("column"), f"cell {index} column")
+        span = _coordinate(raw.get("span", 1), f"cell {index} span")
+        rowspan = _coordinate(raw.get("rowspan", 1), f"cell {index} rowspan")
+        if span < 1 or rowspan < 1 or column + span > columns or row + rowspan > rows:
+            raise _Invalid(f"cell {index} is outside the grid")
+        parsed.append(
+            {
+                "row": row,
+                "column": column,
+                "span": span,
+                "rowspan": rowspan,
+                "borders": _side_map(raw.get("borders"), f"cell {index}"),
+            }
+        )
+    return parsed
+
+
+def _contributor(
+    source: str,
+    side: tuple[str, float],
+    row: int,
+    column: int,
+) -> dict[str, object] | None:
+    style, width = side
+    if style == _NONE:
+        return None
+    return {
+        "source": source,
+        "style": style,
+        "width": width,
+        "color": "currentcolor",
+        "row": row,
+        "column": column,
+    }
+
+
+def _vertical_contributors(
+    line: int,
+    columns: int,
+    table: dict[str, tuple[str, float]],
+    row_sides: list[dict[str, tuple[str, float]]],
+    cells: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    found: list[dict[str, object]] = []
+    if line == 0:
+        _add(found, _contributor("table", table["left"], 0, 0))
+        for index, sides in enumerate(row_sides):
+            _add(found, _contributor("row", sides["left"], index, 0))
+    if line == columns:
+        _add(found, _contributor("table", table["right"], 0, 0))
+        for index, sides in enumerate(row_sides):
+            _add(found, _contributor("row", sides["right"], index, 0))
+    for cell in cells:
+        column = int(cell["column"])
+        span = int(cell["span"])
+        borders = cell["borders"]
+        if not isinstance(borders, dict):
+            continue
+        if column == line:
+            _add(found, _contributor("cell", borders["left"], int(cell["row"]), column))
+        if column + span == line:
+            _add(found, _contributor("cell", borders["right"], int(cell["row"]), column))
+    return found
+
+
+def _horizontal_contributors(
+    line: int,
+    rows: int,
+    table: dict[str, tuple[str, float]],
+    row_sides: list[dict[str, tuple[str, float]]],
+    cells: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    found: list[dict[str, object]] = []
+    if line == 0:
+        _add(found, _contributor("table", table["top"], 0, 0))
+    if line == rows:
+        _add(found, _contributor("table", table["bottom"], 0, 0))
+    if line < rows:
+        _add(found, _contributor("row", row_sides[line]["top"], line, 0))
+    if line > 0:
+        _add(found, _contributor("row", row_sides[line - 1]["bottom"], line - 1, 0))
+    for cell in cells:
+        row = int(cell["row"])
+        rowspan = int(cell["rowspan"])
+        borders = cell["borders"]
+        if not isinstance(borders, dict):
+            continue
+        if row == line:
+            _add(found, _contributor("cell", borders["top"], row, int(cell["column"])))
+        if row + rowspan == line:
+            _add(found, _contributor("cell", borders["bottom"], row, int(cell["column"])))
+    return found
+
+
+def _add(found: list[dict[str, object]], item: dict[str, object] | None) -> None:
+    if item is not None:
+        found.append(item)
+
+
+def _line(contributors: list[dict[str, object]], direction: str) -> dict[str, object]:
+    if not contributors:
+        return {"outcome": "resolved", "width": 0, "style": _NONE, "source": "none", "suppressed": False}
+    return resolve_collapsed_border(contributors, direction=direction)
+
+
+def _public_edge(edge: dict[str, object]) -> dict[str, object]:
+    return {
+        "width": edge.get("width"),
+        "style": edge.get("style"),
+        "source": edge.get("source"),
+        "suppressed": edge.get("suppressed"),
+    }
