@@ -95,8 +95,10 @@ the gutters between them. An automatic item stretches to that area; a
 specified length stays at the track start. Implicit rows use a definite
 ``grid-auto-rows`` length, and explicit rows keep their size when empty.
 Automatic height is those rows plus the row gaps, so a following block
-starts under the last row. Column flow, dense packing, named lines, item
-text, item margins, and a definite grid height stay rejected.
+starts under the last row. ``grid-auto-flow: column`` fills each column
+before the next one, and ``dense`` puts a later item in a hole the sparse
+cursor left behind. Named lines, item text, item margins, and a definite
+grid height stay rejected.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -3412,6 +3414,7 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
     auto_columns: int | None = None
     row_gap = 0
     column_gap = 0
+    flow = "row"
     tracked = {
         "grid-template-columns",
         "grid-template-rows",
@@ -3446,8 +3449,6 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
             auto_columns = _grid_auto_track(value)
         elif prop == "grid-auto-flow":
             flow = _choice(value, "row", _GRID_FLOWS, "grid-auto-flow")
-            if flow != "row":
-                raise _Invalid("grid auto flow is unsupported")
         elif prop in {"justify-items", "align-items", "justify-content", "align-content"}:
             _choice(value, "normal", _GRID_ALIGN, prop)
         elif prop == "gap":
@@ -3465,6 +3466,7 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
         "auto_columns": auto_columns,
         "row_gap": row_gap,
         "column_gap": column_gap,
+        "flow": flow,
     }
 
 
@@ -3666,7 +3668,7 @@ def _place_grid(box: _Box, content_x: int) -> None:
             }
             for item in box.children
         ],
-        flow="row",
+        flow=spec.get("flow", "row"),
     )
     placements = placed.get("placements")
     if placed.get("outcome") != "placed" or not isinstance(placements, list):
