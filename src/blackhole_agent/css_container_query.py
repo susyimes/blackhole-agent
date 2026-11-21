@@ -1,15 +1,27 @@
 """Match a CSS container query against ancestor query containers.
 
 CSS Conditional Rules Level 5 selects, for each element, the nearest ancestor
-that can answer every size feature in one condition. The element itself is
-not a candidate. ``inline-size`` answers only the container's inline axis, so
-a horizontal container answers ``width`` and a vertical one answers
-``height``. A condition that fails on that container does not fall through.
-A name does not select a container of a different name. Each comma-separated
-condition chooses its own container, and ``em`` or ``var()`` uses the
-selected container. Style and scroll-state features are unsupported, so a
-condition that contains one selects no container. This does not lay out;
-callers pass content-box sizes.
+that can answer every feature in one condition. The element itself is not a
+candidate. ``inline-size`` answers only the container's inline axis, so a
+horizontal container answers ``width`` and a vertical one answers ``height``.
+A condition that fails on that container does not fall through. A name does
+not select a container of a different name. Each comma-separated condition
+chooses its own container, and ``em`` or ``var()`` uses the selected container.
+
+Every element can answer ``style()``. A custom property is compared as the
+computed token stream the caller stored: whitespace collapses, case stays, and
+a missing property is not equal. ``style(--name)`` is true when that stream is
+non-empty. A numeric range needs ``registered`` syntax ``<number>``,
+``<integer>``, ``<length>``, or ``<percentage>``; an unregistered name or a
+bound of the wrong type is false. ``style()`` of a non-custom property stays
+unsupported, so that condition selects no container.
+
+``scroll-state()`` needs ``container-type`` to include ``scroll-state``, which
+may sit beside ``size`` or ``inline-size``. Stuck and scrollable states are
+physical edges. Snapped states are the ``x`` and ``y`` axes. Logical keywords
+follow the container's writing mode. ``none`` is true only when that set is
+empty, and ``snapped: both`` needs both axes. This does not lay out; callers
+pass content-box sizes and those states.
 """
 
 from __future__ import annotations
@@ -20,7 +32,14 @@ from dataclasses import dataclass
 
 _HORIZONTAL = frozenset({"horizontal-tb"})
 _VERTICAL = frozenset({"vertical-rl", "vertical-lr", "sideways-rl", "sideways-lr"})
-_TYPES = frozenset({"normal", "size", "inline-size"})
+_TYPE_WORDS = frozenset({"size", "inline-size", "scroll-state"})
+_SYNTAXES = frozenset({"<number>", "<integer>", "<length>", "<percentage>"})
+_EDGES = frozenset({"top", "right", "bottom", "left"})
+_AXES_SCROLL = frozenset({"x", "y"})
+_STUCK_STATES = _EDGES | frozenset(
+    {"none", "block-start", "inline-start", "block-end", "inline-end", "x", "y", "block", "inline"}
+)
+_SNAPPED_STATES = frozenset({"none", "x", "y", "block", "inline", "both"})
 _RESERVED_NAMES = frozenset({"and", "not", "or", "none"})
 _AXES = frozenset({"width", "height", "inline-size", "block-size"})
 _PLAIN = {
@@ -49,6 +68,8 @@ _TOKEN = re.compile(
     r"|(?P<bad>.)"
 )
 _LENGTH = re.compile(r"^(-?(?:\d+\.\d+|\d+\.|\.\d+|\d+))([A-Za-z%]+)$")
+_NUMBER_TEXT = re.compile(r"^[+-]?(?:\d+\.\d+|\d+\.|\.\d+|\d+)$")
+_INTEGER_TEXT = re.compile(r"^[+-]?\d+$")
 _IDENT = re.compile(r"^(?:--|-)?[A-Za-z_][A-Za-z0-9_-]*$")
 
 
@@ -67,6 +88,7 @@ class _Tok:
     kind: str
     value: str
     number: float = 0.0
+    raw: str = ""
 
 
 @dataclass(frozen=True)
@@ -74,6 +96,7 @@ class _Length:
     amount: float
     unit: str
     var: str | None = None
+    raw: str = ""
 
 
 @dataclass(frozen=True)
@@ -84,6 +107,24 @@ class _Feature:
     high: _Length | None = None
     low_op: str = ""
     high_op: str = ""
+
+
+@dataclass(frozen=True)
+class _Style:
+    mode: str
+    name: str
+    value: str = ""
+    op: str = ""
+    bound: _Length | None = None
+    high: _Length | None = None
+    low_op: str = ""
+    high_op: str = ""
+
+
+@dataclass(frozen=True)
+class _Scroll:
+    kind: str
+    state: str
 
 
 @dataclass(frozen=True)
@@ -112,13 +153,18 @@ class _Condition:
 class _Box:
     id: str
     parent: _Box | None
-    container_type: str
+    container_types: frozenset[str]
     names: frozenset[str]
     width: float
     height: float
     vertical: bool
+    writing_mode: str
     font_size: float
     custom: dict[str, str]
+    registered: dict[str, str]
+    stuck: frozenset[str]
+    snapped: frozenset[str]
+    scrollable: frozenset[str]
 
 
 def match_container_query(elements: object, query: object) -> dict[str, object]:
@@ -126,10 +172,11 @@ def match_container_query(elements: object, query: object) -> dict[str, object]:
 
     ``elements`` are tree nodes with ``id``, ``parent``, content-box
     ``width`` and ``height``, and optional ``container_type``,
-    ``container_name``, ``writing_mode``, ``font_size``, and ``custom``.
-    ``query`` is an ``@container`` prelude. ``matches`` lists the ids whose
-    query list is true. ``conditions`` gives each condition's three-valued
-    result and the ancestor it selected.
+    ``container_name``, ``writing_mode``, ``font_size``, ``custom``,
+    ``registered``, ``stuck``, ``snapped``, and ``scrollable``. ``query`` is
+    an ``@container`` prelude. ``matches`` lists the ids whose query list is
+    true. ``conditions`` gives each condition's three-valued result and the
+    ancestor it selected.
     """
 
     try:
@@ -154,7 +201,7 @@ def _invalid(reason: str) -> dict[str, object]:
 def _boxes(value: object) -> list[_Box]:
     if not isinstance(value, list) or not value:
         raise _Invalid("elements")
-    pending: list[tuple[str, str | None, str, frozenset[str], float, float, bool, float, dict[str, str]]] = []
+    pending: list[tuple[str, str | None, _Box]] = []
     seen: set[str] = set()
     for item in value:
         if not isinstance(item, dict):
@@ -166,10 +213,6 @@ def _boxes(value: object) -> list[_Box]:
         parent = item.get("parent")
         if parent is not None and not isinstance(parent, str):
             raise _Invalid("parent")
-        container_type = str(item.get("container_type", "normal")).lower()
-        if container_type not in _TYPES:
-            raise _Invalid("container-type")
-        names = _names(item.get("container_name", "none"))
         writing = str(item.get("writing_mode", "horizontal-tb")).lower()
         if writing in _HORIZONTAL:
             vertical = False
@@ -177,24 +220,25 @@ def _boxes(value: object) -> list[_Box]:
             vertical = True
         else:
             raise _Invalid("writing-mode")
-        pending.append(
-            (
-                identity,
-                parent,
-                container_type,
-                names,
-                _px(item.get("width"), "width"),
-                _px(item.get("height"), "height"),
-                vertical,
-                _font(item.get("font_size", 16)),
-                _custom(item.get("custom", {})),
-            )
+        box = _Box(
+            identity,
+            None,
+            _container_types(item.get("container_type", "normal")),
+            _names(item.get("container_name", "none")),
+            _px(item.get("width"), "width"),
+            _px(item.get("height"), "height"),
+            vertical,
+            writing,
+            _font(item.get("font_size", 16)),
+            _custom(item.get("custom", {})),
+            _registered(item.get("registered", {})),
+            _flag_set(item.get("stuck"), _EDGES, "stuck"),
+            _flag_set(item.get("snapped"), _AXES_SCROLL, "snapped"),
+            _flag_set(item.get("scrollable"), _EDGES, "scrollable"),
         )
-    boxes = {
-        identity: _Box(identity, None, container_type, names, width, height, vertical, font_size, custom)
-        for identity, _, container_type, names, width, height, vertical, font_size, custom in pending
-    }
-    for identity, parent, *_rest in pending:
+        pending.append((identity, parent, box))
+    boxes = {identity: box for identity, _, box in pending}
+    for identity, parent, _box in pending:
         if parent is None:
             continue
         if parent not in boxes:
@@ -208,7 +252,7 @@ def _boxes(value: object) -> list[_Box]:
                 raise _Invalid("cycle")
             seen_ids.add(current.id)
             current = current.parent
-    return [boxes[identity] for identity, *_rest in pending]
+    return [box for _identity, _parent, box in pending]
 
 
 def _names(value: object) -> frozenset[str]:
@@ -248,6 +292,49 @@ def _custom(value: object) -> dict[str, str]:
             raise _Invalid("custom")
         custom[key] = raw
     return custom
+
+
+def _container_types(value: object) -> frozenset[str]:
+    text = str(value if value is not None else "normal").strip().lower()
+    if text == "normal":
+        return frozenset()
+    parts = text.split()
+    if not parts or any(part not in _TYPE_WORDS for part in parts) or len(parts) != len(set(parts)):
+        raise _Invalid("container-type")
+    if "size" in parts and "inline-size" in parts:
+        raise _Invalid("container-type")
+    return frozenset(parts)
+
+
+def _registered(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise _Invalid("registered")
+    registered: dict[str, str] = {}
+    for key, raw in value.items():
+        if not isinstance(key, str) or not key.startswith("--") or not isinstance(raw, str):
+            raise _Invalid("registered")
+        syntax = "".join(raw.split()).lower()
+        if syntax not in _SYNTAXES:
+            raise _Invalid("registered")
+        registered[key] = syntax
+    return registered
+
+
+def _flag_set(value: object, allowed: frozenset[str], name: str) -> frozenset[str]:
+    if value is None:
+        return frozenset()
+    if isinstance(value, str):
+        parts = value.split()
+    elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+        parts = [item for item in value if item]
+    else:
+        raise _Invalid(name)
+    lowered = [part.lower() for part in parts]
+    if not lowered or lowered == ["none"]:
+        return frozenset()
+    if "none" in lowered or any(part not in allowed for part in lowered):
+        raise _Invalid(name)
+    return frozenset(lowered)
 
 
 def _parse(query: object) -> list[_Condition]:
@@ -323,7 +410,7 @@ def _tokenize(text: str) -> list[_Tok]:
             number = float(match.group("num"))
             unit = match.group("unit")
             if unit:
-                tokens.append(_Tok("dim", unit, number))
+                tokens.append(_Tok("dim", unit, number, match.group("num")))
             else:
                 tokens.append(_Tok("number", match.group("num"), number))
             continue
@@ -405,19 +492,14 @@ class _Parser:
     def query_in_parens(self) -> object:
         token = self.peek()
         if token is not None and token.kind == "function":
-            self.take()
-            if self.peek() is None or self.peek().kind != "(":
-                raise _Invalid("query syntax")
-            self.take()
-            self._skip_group()
-            return _Unsupported()
+            return self._function_query()
         if token is None or token.kind != "(":
             raise _Invalid("query syntax")
         self.take()
         inner = self._inner_tokens()
         if not inner:
             return _Unsupported()
-        if inner[0].kind == "(" or (inner[0].kind == "ident" and inner[0].value.lower() == "not"):
+        if inner[0].kind in {"(", "function"} or (inner[0].kind == "ident" and inner[0].value.lower() == "not"):
             return _parse_query(inner)
         if inner[0].kind == "ident" and inner[0].value.lower() in {"style", "scroll-state"}:
             return _Unsupported()
@@ -425,6 +507,13 @@ class _Parser:
             return _parse_feature(inner)
         except _BadFeature:
             return _Unsupported()
+
+    def _function_query(self) -> object:
+        name = self.take().value.lower()
+        if self.peek() is None or self.peek().kind != "(":
+            raise _Invalid("query syntax")
+        self.take()
+        return _style_or_scroll(name, self._inner_tokens())
 
     def _inner_tokens(self) -> list[_Tok]:
         depth = 1
@@ -442,17 +531,147 @@ class _Parser:
             inner.append(token)
         raise _Invalid("query syntax")
 
-    def _skip_group(self) -> None:
-        depth = 1
-        while self.peek() is not None:
-            token = self.take()
-            if token.kind == "(":
-                depth += 1
-            elif token.kind == ")":
-                depth -= 1
-                if depth == 0:
-                    return
-        raise _Invalid("query syntax")
+
+def _style_or_scroll(name: str, inner: list[_Tok]) -> object:
+    try:
+        if name == "style":
+            return _parse_style(inner)
+        if name == "scroll-state":
+            return _parse_scroll(inner)
+    except _BadFeature:
+        return _Unsupported()
+    return _Unsupported()
+
+
+def _parse_style(tokens: list[_Tok]) -> _Style:
+    if len(tokens) == 1 and tokens[0].kind == "ident" and tokens[0].value.startswith("--"):
+        return _Style("boolean", tokens[0].value)
+    if (
+        len(tokens) >= 3
+        and tokens[0].kind == "ident"
+        and tokens[0].value.startswith("--")
+        and tokens[1].kind == ":"
+    ):
+        return _Style("eq", tokens[0].value, _serialize_value(tokens[2:]))
+    return _parse_style_range(tokens)
+
+
+def _parse_style_range(tokens: list[_Tok]) -> _Style:
+    atoms = _style_atoms(tokens)
+    if len(atoms) == 3 and atoms[0][0] == "name" and atoms[1][0] == "op" and atoms[2][0] == "value":
+        return _Style("cmp", _text(atoms[0][1]), op=_CMP[_text(atoms[1][1])], bound=_span(atoms[2][1]))
+    if len(atoms) == 3 and atoms[2][0] == "name" and atoms[1][0] == "op" and atoms[0][0] == "value":
+        return _Style("cmp", _text(atoms[2][1]), op=_flip(_CMP[_text(atoms[1][1])]), bound=_span(atoms[0][1]))
+    if (
+        len(atoms) == 5
+        and atoms[0][0] == "value"
+        and atoms[1][0] == "op"
+        and atoms[2][0] == "name"
+        and atoms[3][0] == "op"
+        and atoms[4][0] == "value"
+    ):
+        left = _CMP[_text(atoms[1][1])]
+        right = _CMP[_text(atoms[3][1])]
+        name = _text(atoms[2][1])
+        if left in _LT and right in _LT:
+            return _Style("between", name, bound=_span(atoms[0][1]), high=_span(atoms[4][1]), low_op=left, high_op=right)
+        if left in _GT and right in _GT:
+            return _Style(
+                "between",
+                name,
+                bound=_span(atoms[4][1]),
+                high=_span(atoms[0][1]),
+                low_op=_flip(right),
+                high_op=_flip(left),
+            )
+    raise _BadFeature()
+
+
+def _text(value: object) -> str:
+    if not isinstance(value, str):
+        raise _BadFeature()
+    return value
+
+
+def _span(value: object) -> _Length:
+    if not isinstance(value, _Length):
+        raise _BadFeature()
+    return value
+
+
+def _style_atoms(tokens: list[_Tok]) -> list[tuple[str, object]]:
+    atoms: list[tuple[str, object]] = []
+    for token in tokens:
+        if token.kind == "ident" and token.value.startswith("--"):
+            atoms.append(("name", token.value))
+            continue
+        if token.kind == "op":
+            if token.value not in _CMP:
+                raise _BadFeature()
+            atoms.append(("op", token.value))
+            continue
+        if token.kind in {"number", "dim"}:
+            atoms.append(("value", _length_token(token)))
+            continue
+        raise _BadFeature()
+    return atoms
+
+
+def _length_token(token: _Tok) -> _Length:
+    if token.kind == "number":
+        return _Length(token.number, "", raw=token.value)
+    if token.kind == "dim":
+        return _Length(token.number, token.value.lower(), raw=token.raw or _format_number(token.number))
+    raise _BadFeature()
+
+
+def _serialize_value(tokens: list[_Tok]) -> str:
+    pieces: list[str] = []
+    for token in tokens:
+        if token.kind in {":", "op"}:
+            raise _BadFeature()
+        if token.kind == ",":
+            pieces.append(",")
+            continue
+        if token.kind == "(":
+            pieces.append("(")
+            continue
+        if token.kind == ")":
+            pieces.append(")")
+            continue
+        lexeme = _lexeme(token)
+        if pieces and pieces[-1] != "(":
+            pieces.append(" ")
+        pieces.append(lexeme)
+    text = "".join(pieces).strip()
+    if not text:
+        raise _BadFeature()
+    return " ".join(text.split())
+
+
+def _lexeme(token: _Tok) -> str:
+    if token.kind == "dim":
+        return f"{token.raw or _format_number(token.number)}{token.value.lower()}"
+    if token.kind == "number":
+        return token.value
+    return token.value
+
+
+def _format_number(number: float) -> str:
+    if number.is_integer():
+        return str(int(number))
+    return str(number)
+
+
+def _parse_scroll(tokens: list[_Tok]) -> _Scroll:
+    if len(tokens) != 3 or tokens[0].kind != "ident" or tokens[1].kind != ":" or tokens[2].kind != "ident":
+        raise _BadFeature()
+    kind = tokens[0].value.lower()
+    state = tokens[2].value.lower()
+    allowed = {"stuck": _STUCK_STATES, "snapped": _SNAPPED_STATES, "scrollable": _STUCK_STATES}.get(kind)
+    if allowed is None or state not in allowed:
+        raise _BadFeature()
+    return _Scroll(kind, state)
 
 
 def _parse_feature(tokens: list[_Tok]) -> _Feature:
@@ -544,7 +763,7 @@ def _named_ancestor(box: _Box, name: str | None) -> _Box | None:
     return None
 
 
-def _size_ancestor(box: _Box, name: str | None, features: list[_Feature]) -> _Box | None:
+def _size_ancestor(box: _Box, name: str | None, features: list[object]) -> _Box | None:
     current = box.parent
     while current is not None:
         if (name is None or name in current.names) and _supports(current, features):
@@ -553,11 +772,20 @@ def _size_ancestor(box: _Box, name: str | None, features: list[_Feature]) -> _Bo
     return None
 
 
-def _supports(box: _Box, features: list[_Feature]) -> bool:
-    provided = {"horizontal", "vertical"} if box.container_type == "size" else set()
-    if box.container_type == "inline-size":
+def _supports(box: _Box, features: list[object]) -> bool:
+    needs_scroll = any(isinstance(feature, _Scroll) for feature in features)
+    size_features = [feature for feature in features if isinstance(feature, _Feature)]
+    if needs_scroll and "scroll-state" not in box.container_types:
+        return False
+    if not size_features:
+        return True
+    if "size" in box.container_types:
+        provided = {"horizontal", "vertical"}
+    elif "inline-size" in box.container_types:
         provided = {"vertical"} if box.vertical else {"horizontal"}
-    for feature in features:
+    else:
+        provided = set()
+    for feature in size_features:
         if not _needed(feature.axis, box.vertical) <= provided:
             return False
     return True
@@ -583,13 +811,13 @@ def _unsupported(node: object) -> bool:
     return False
 
 
-def _features(node: object) -> list[_Feature]:
-    if isinstance(node, _Feature):
+def _features(node: object) -> list[object]:
+    if isinstance(node, (_Feature, _Style, _Scroll)):
         return [node]
     if isinstance(node, _Not):
         return _features(node.inner)
     if isinstance(node, _Bool):
-        found: list[_Feature] = []
+        found: list[object] = []
         for part in node.parts:
             found.extend(_features(part))
         return found
@@ -613,6 +841,10 @@ def _eval(node: object, box: _Box) -> str:
         return "unknown" if any(value == "unknown" for value in values) else "false"
     if isinstance(node, _Feature):
         return _eval_feature(node, box)
+    if isinstance(node, _Style):
+        return _eval_style(node, box)
+    if isinstance(node, _Scroll):
+        return _eval_scroll(node, box)
     return "unknown"
 
 
@@ -660,6 +892,144 @@ def _resolve(length: _Length | None, box: _Box) -> float | None:
     if length.unit == "em":
         return length.amount * box.font_size
     return None
+
+
+def _eval_style(feature: _Style, box: _Box) -> str:
+    raw = box.custom.get(feature.name)
+    if feature.mode == "boolean":
+        return "true" if raw is not None and _collapse(raw) != "" else "false"
+    if feature.mode == "eq":
+        if raw is None:
+            return "false"
+        return "true" if _collapse(raw) == feature.value else "false"
+    syntax = box.registered.get(feature.name)
+    if syntax is None or raw is None:
+        return "false"
+    actual = _typed_number(_collapse(raw), syntax, box.font_size)
+    if actual is None:
+        return "false"
+    if feature.mode == "cmp":
+        bound = _bound_number(feature.bound, syntax, box.font_size)
+        if bound is None:
+            return "false"
+        return "true" if _compare(actual, feature.op, bound) else "false"
+    low = _bound_number(feature.bound, syntax, box.font_size)
+    high = _bound_number(feature.high, syntax, box.font_size)
+    if low is None or high is None:
+        return "false"
+    if not _compare(low, feature.low_op, actual) or not _compare(actual, feature.high_op, high):
+        return "false"
+    return "true"
+
+
+def _eval_scroll(feature: _Scroll, box: _Box) -> str:
+    if feature.kind == "snapped":
+        return "true" if _snapped(feature.state, box) else "false"
+    edges = box.stuck if feature.kind == "stuck" else box.scrollable
+    return "true" if _edge_state(feature.state, edges, box.writing_mode) else "false"
+
+
+def _collapse(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _typed_number(text: str, syntax: str, font_size: float) -> float | None:
+    if syntax == "<number>":
+        if not _NUMBER_TEXT.fullmatch(text):
+            return None
+        return float(text)
+    if syntax == "<integer>":
+        if not _INTEGER_TEXT.fullmatch(text):
+            return None
+        return float(text)
+    if syntax == "<percentage>":
+        if not text.endswith("%"):
+            return None
+        number = text[:-1]
+        if not _NUMBER_TEXT.fullmatch(number):
+            return None
+        return float(number)
+    if syntax == "<length>":
+        match = _LENGTH.fullmatch(text)
+        if match is None:
+            return None
+        amount = float(match.group(1))
+        unit = match.group(2).lower()
+        if unit == "px":
+            return amount
+        if unit == "em":
+            return amount * font_size
+        return None
+    return None
+
+
+def _bound_number(length: _Length | None, syntax: str, font_size: float) -> float | None:
+    if length is None or length.var is not None:
+        return None
+    if syntax in {"<number>", "<integer>"}:
+        if length.unit != "":
+            return None
+        raw = length.raw
+        if syntax == "<integer>" and not _INTEGER_TEXT.fullmatch(raw):
+            return None
+        if syntax == "<number>" and raw and not _NUMBER_TEXT.fullmatch(raw):
+            return None
+        return length.amount
+    if syntax == "<percentage>":
+        if length.unit != "%":
+            return None
+        return length.amount
+    if syntax == "<length>":
+        if length.unit == "px":
+            return length.amount
+        if length.unit == "em":
+            return length.amount * font_size
+        return None
+    return None
+
+
+def _logical_edges(mode: str) -> dict[str, str]:
+    if mode == "horizontal-tb":
+        return {"block-start": "top", "block-end": "bottom", "inline-start": "left", "inline-end": "right"}
+    if mode in {"vertical-rl", "sideways-rl"}:
+        return {"block-start": "right", "block-end": "left", "inline-start": "top", "inline-end": "bottom"}
+    return {"block-start": "left", "block-end": "right", "inline-start": "top", "inline-end": "bottom"}
+
+
+def _edge_state(state: str, edges: frozenset[str], mode: str) -> bool:
+    if state == "none":
+        return not edges
+    if state in _EDGES:
+        return state in edges
+    if state == "x":
+        return bool(edges & {"left", "right"})
+    if state == "y":
+        return bool(edges & {"top", "bottom"})
+    mapping = _logical_edges(mode)
+    if state in mapping:
+        return mapping[state] in edges
+    if state == "block":
+        return mapping["block-start"] in edges or mapping["block-end"] in edges
+    if state == "inline":
+        return mapping["inline-start"] in edges or mapping["inline-end"] in edges
+    return False
+
+
+def _snapped(state: str, box: _Box) -> bool:
+    axes = box.snapped
+    inline_axis = "x" if box.writing_mode == "horizontal-tb" else "y"
+    block_axis = "y" if box.writing_mode == "horizontal-tb" else "x"
+    if state == "none":
+        return not axes
+    if state == "both":
+        return "x" in axes and "y" in axes
+    if state in {"x", "y"}:
+        return state in axes
+    if state == "inline":
+        return inline_axis in axes
+    if state == "block":
+        return block_axis in axes
+    return False
 
 
 def _compare(left: float, op: str, right: float) -> bool:
