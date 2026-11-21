@@ -107,6 +107,17 @@ class _Adv:
             return self.map[" "]
         return 1.0
 
+    def at(self, index: int) -> float:
+        """Width of one collapsed space taken from this source index.
+
+        A dict or omitted map keeps the single space advance. A per-character
+        list uses the advance stored at the whitespace that survived.
+        """
+
+        if self.kind == "list":
+            return self.list[index]
+        return self.space()
+
 
 def wrap_lines(
     text: object,
@@ -1029,13 +1040,14 @@ def _collapse(text: str, white: str, adv: _Adv) -> list[_Tok]:
                 if text[end] == "\n":
                     newlines += 1
                 end += 1
+            advance = adv.at(index)
             if newlines:
                 if white == "pre-line":
                     pieces.extend(_Tok("break", "", 0.0) for _ in range(newlines))
                 else:
-                    pieces.append(_Tok("segment", "", adv.space(), collapsible=True))
+                    pieces.append(_Tok("segment", "", advance, collapsible=True))
             else:
-                pieces.append(_Tok("space", " ", adv.space(), collapsible=True))
+                pieces.append(_Tok("space", " ", advance, collapsible=True))
             index = end
             continue
         pieces.append(_atom(text, index, adv))

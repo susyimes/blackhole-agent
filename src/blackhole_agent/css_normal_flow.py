@@ -34,8 +34,10 @@ margin edge of a float that block itself placed. Each character, including
 the space, advances by the font size. ``line-height: normal`` uses the font
 size as the strut. ``text-align`` shifts each line inside its line box. A
 block that also has block children keeps those children and does not build
-line boxes. An inline child may not set its own font size, line height,
-text alignment, or white space.
+line boxes. An inline child may set font-size and line-height. Each run advances
+by its own font size, and the line grows to the tallest run without
+shrinking the parent's strut. text-align and white-space on an inline
+stay rejected. A float beside those mixed runs is rejected too.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -170,7 +172,7 @@ _ALIGNS = frozenset(
 )
 _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre-line"})
 _COLLAPSED_EMPTY = frozenset({"normal", "nowrap"})
-_INLINE_TYPE = ("font-size", "line-height", "text-align", "white-space")
+_INLINE_REJECTED = ("text-align", "white-space")
 
 
 class _Invalid(Exception):
@@ -188,12 +190,20 @@ class _Edge:
 
 
 @dataclass
+class _Run:
+    text: str
+    font_size: int
+    line_height: str
+
+
+@dataclass
 class _Line:
     text: str
     x: int
     y: int
     height: int
     content_width: int
+    runs: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -234,6 +244,7 @@ class _Box:
     white_space: str = "normal"
     parent_direction: str | None = None
     inline_text: str | None = None
+    inline_runs: list[_Run] = field(default_factory=list)
     lines: list[_Line] = field(default_factory=list)
 
 
@@ -307,7 +318,7 @@ def layout_normal_flow(
             ids,
             counter,
         )
-        root.inline_text = None if root.children else _inline_text(tree, order[0], styles, declarations)
+        _set_inline(root, tree, order[0], styles, declarations)
         _solve(root, viewport_width, viewport_height, True, 0)
         placed = place_collapsed_margins(_collapse_spec(root))
         if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
@@ -407,7 +418,7 @@ def _walk(
             ids,
             counter,
         )
-        box.inline_text = None if box.children else _inline_text(tree, child, styles, declarations)
+        _set_inline(box, tree, child, styles, declarations)
         found.append(box)
         flow.append(box)
     return found, floats, flow, positioned
@@ -726,17 +737,29 @@ def _record(box: _Box) -> dict[str, object]:
         "border_height": box.border_height,
         "margin_left": box.margin_left,
         "margin_right": box.margin_right,
-        "lines": [
-            {
-                "text": line.text,
-                "x": line.x,
-                "y": line.y,
-                "height": line.height,
-                "content_width": line.content_width,
-            }
-            for line in box.lines
-        ],
+        "lines": [_record_line(line) for line in box.lines],
     }
+
+
+def _record_line(line: _Line) -> dict[str, object]:
+    item: dict[str, object] = {
+        "text": line.text,
+        "x": line.x,
+        "y": line.y,
+        "height": line.height,
+        "content_width": line.content_width,
+    }
+    if line.runs:
+        item["runs"] = [
+            {
+                "text": run["text"],
+                "x": line.x + int(run["x"]),
+                "font_size": run["font_size"],
+                "width": run["width"],
+            }
+            for run in line.runs
+        ]
+    return item
 
 
 def _fonts(box: _Box) -> dict[str, str]:
@@ -748,24 +771,61 @@ def _fonts(box: _Box) -> dict[str, str]:
     }
 
 
-def _inline_text(tree, element, styles, declarations) -> str | None:
-    parts = [element.text or ""]
-    for child in list(element):
-        if not _local_name(child):
-            continue
-        kind = _flow_kind(tree, child, styles, declarations)
-        if kind in {"skip", "out"}:
-            parts.append(child.tail or "")
-            continue
-        if kind == "block":
-            return None
-        _reject_inline_type(tree, child, styles, declarations)
-        inner = _inline_text(tree, child, styles, declarations)
-        if inner is None:
-            return None
-        parts.append(inner)
-        parts.append(child.tail or "")
-    return "".join(parts)
+def _set_inline(box: _Box, tree, element, styles, declarations) -> None:
+    if box.children:
+        box.inline_text = None
+        box.inline_runs = []
+        return
+    runs = _inline_runs(tree, element, styles, declarations, _fonts(box))
+    box.inline_runs = [] if runs is None else runs
+    box.inline_text = None if runs is None else "".join(run.text for run in runs)
+
+
+def _inline_runs(tree, element, styles, declarations, fonts: dict[str, str]) -> list[_Run] | None:
+    runs: list[_Run] = []
+
+    def add(text: str, size: int, leading: str) -> None:
+        if not text:
+            return
+        if runs and runs[-1].font_size == size and runs[-1].line_height == leading:
+            runs[-1].text += text
+            return
+        runs.append(_Run(text, size, leading))
+
+    def walk(node, parent_fonts: dict[str, str]) -> bool:
+        size = _positive_px(parent_fonts["font-size"], "font-size")
+        leading = parent_fonts["line-height"]
+        add(node.text or "", size, leading)
+        for child in list(node):
+            if not _local_name(child):
+                continue
+            kind = _flow_kind(tree, child, styles, declarations)
+            if kind in {"skip", "out"}:
+                add(child.tail or "", size, leading)
+                continue
+            if kind == "block":
+                return False
+            _reject_inline_type(tree, child, styles, declarations)
+            if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts)):
+                return False
+            add(child.tail or "", size, leading)
+        return True
+
+    if not walk(element, fonts):
+        return None
+    return runs
+
+
+def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -> dict[str, str]:
+    custom = styles.get(element, ({}, ""))[0]
+    winners = _winners(tree, element, declarations)
+    size = _font_size(_declared(winners, "font-size", custom), parent["font-size"])
+    return {
+        "font-size": f"{size}px",
+        "line-height": _line_height(_declared(winners, "line-height", custom), parent["line-height"]),
+        "text-align": parent["text-align"],
+        "white-space": parent["white-space"],
+    }
 
 
 def _flow_kind(tree, element, styles, declarations) -> str:
@@ -791,7 +851,7 @@ def _flow_kind(tree, element, styles, declarations) -> str:
 def _reject_inline_type(tree, element, styles, declarations) -> None:
     custom = styles.get(element, ({}, ""))[0]
     winners = _winners(tree, element, declarations)
-    for name in _INLINE_TYPE:
+    for name in _INLINE_REJECTED:
         if _declared(winners, name, custom) is not None:
             raise _Invalid(f"inline {name} is unsupported")
 
@@ -1453,9 +1513,191 @@ def _drop_prefix(source: str, rendered: str, white_space: str) -> str:
     return collapsed
 
 
+def _mixed_runs(box: _Box) -> bool:
+    return any(
+        run.font_size != box.font_size or run.line_height != box.line_height for run in box.inline_runs
+    )
+
+
+def _style_stream(runs: list[_Run]) -> list[tuple[int, str]]:
+    styles: list[tuple[int, str]] = []
+    for run in runs:
+        styles.extend((run.font_size, run.line_height) for _ in run.text)
+    return styles
+
+
+def _advance_of(ch: str, size: int) -> int:
+    return _px(size * _default_advance(ch), "advance")
+
+
+def _collapse_styled(text: str, styles: list[tuple[int, str]]) -> tuple[str, list[tuple[int, str]]]:
+    pieces: list[str] = []
+    chosen: list[tuple[int, str]] = []
+    index = 0
+    count = len(text)
+    gap: tuple[int, str] | None = None
+    while index < count:
+        if text[index].isspace():
+            if gap is None:
+                gap = styles[index]
+            index += 1
+            continue
+        if pieces:
+            if gap is None:
+                raise _Invalid("inline font break is unsupported")
+            pieces.append(" ")
+            chosen.append(gap)
+        gap = None
+        while index < count and not text[index].isspace():
+            pieces.append(text[index])
+            chosen.append(styles[index])
+            index += 1
+    collapsed = "".join(pieces)
+    if collapsed != " ".join(text.split()):
+        raise _Invalid("inline font break is unsupported")
+    return collapsed, chosen
+
+
+def _split_styled(
+    source: str,
+    styles: list[tuple[int, str]],
+    rendered: str,
+    white_space: str,
+) -> tuple[list[tuple[int, str]], str, list[tuple[int, str]]]:
+    if len(styles) != len(source):
+        raise _Invalid("inline run is invalid")
+    if white_space in {"pre", "pre-wrap", "break-spaces"}:
+        if rendered and not source.startswith(rendered):
+            raise _Invalid("inline font break is unsupported")
+        used = len(rendered)
+        return styles[:used], source[used:], styles[used:]
+    collapsed, collapsed_styles = _collapse_styled(source, styles)
+    if not rendered:
+        if source.strip():
+            raise _Invalid("inline font break is unsupported")
+        return [], "", []
+    if not collapsed.startswith(rendered):
+        raise _Invalid("inline font break is unsupported")
+    used = len(rendered)
+    rest = collapsed[used:]
+    rest_styles = collapsed_styles[used:]
+    if rest.startswith(" "):
+        rest = rest[1:]
+        rest_styles = rest_styles[1:]
+    return collapsed_styles[:used], rest, rest_styles
+
+
+def _group_runs(rendered: str, styles: list[tuple[int, str]]) -> list[tuple[str, int, str, int]]:
+    if len(rendered) != len(styles):
+        raise _Invalid("inline font break is unsupported")
+    groups: list[tuple[str, int, str, int]] = []
+    for ch, (size, leading) in zip(rendered, styles, strict=True):
+        width = _advance_of(ch, size)
+        if groups and groups[-1][1] == size and groups[-1][2] == leading:
+            text, _, _, previous = groups[-1]
+            groups[-1] = (text + ch, size, leading, previous + width)
+            continue
+        groups.append((ch, size, leading, width))
+    return groups
+
+
+def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> int:
+    boxes = []
+    for index, (_text, size, leading, _width) in enumerate(groups):
+        boxes.append(
+            {
+                "id": f"r{index}",
+                "kind": "text",
+                "vertical_align": "baseline",
+                "ascent": size,
+                "descent": 0,
+                "line_height": _used_line_height(leading, size),
+            }
+        )
+    laid = layout_inline_line(
+        {
+            "ascent": box.font_size,
+            "descent": 0,
+            "line_height": _used_line_height(box.line_height, box.font_size),
+            "x_height": 0,
+        },
+        boxes,
+    )
+    if laid.get("outcome") != "resolved":
+        raise _Invalid(str(laid.get("reason") or "line box failed"))
+    return _px(laid.get("line_height"), "line height")
+
+
+def _fill_mixed(box: _Box) -> None:
+    text = box.inline_text or ""
+    if not text:
+        return
+    if "\t" in text:
+        raise _Invalid("inline font tab is unsupported")
+    styles = _style_stream(box.inline_runs)
+    if len(styles) != len(text):
+        raise _Invalid("inline run is invalid")
+    records: list[_Line] = []
+    cursor = 0
+    remaining = text
+    remaining_styles = styles
+    for _ in range(10000):
+        if not remaining or (box.white_space in _COLLAPSED_EMPTY and not remaining.strip()):
+            break
+        advances = [_advance_of(ch, remaining_styles[index][0]) for index, ch in enumerate(remaining)]
+        wrapped = wrap_lines(remaining, box.content_width, white_space=box.white_space, advances=advances)
+        lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
+        if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
+            raise _Invalid(str(wrapped.get("reason") or "line break failed"))
+        rendered = str(lines[0].get("text") or "")
+        content = _px(lines[0].get("content_width"), "line width")
+        if not rendered and content == 0:
+            raise _Invalid("line break failed")
+        line_styles, rest, rest_styles = _split_styled(remaining, remaining_styles, rendered, box.white_space)
+        if rest == remaining:
+            raise _Invalid("line break failed")
+        groups = _group_runs(rendered, line_styles)
+        height = _runs_line_height(box, groups)
+        last = rest == "" or (box.white_space in _COLLAPSED_EMPTY and not rest.strip())
+        aligned = align_inline_line(
+            box.content_width,
+            [{"id": "text", "width": content, "space_after": 0}],
+            text_align=box.text_align,
+            direction=box.direction,
+            parent_direction=box.parent_direction,
+            white_space=box.white_space,
+            last_line=last,
+        )
+        items = aligned.get("items") if aligned.get("outcome") == "aligned" else None
+        if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict):
+            raise _Invalid(str(aligned.get("reason") or "text alignment failed"))
+        offset = _px(items[0].get("x"), "line x")
+        local = 0
+        runs: list[dict[str, object]] = []
+        for piece, size, _leading, width in groups:
+            runs.append({"text": piece, "x": local, "font_size": size, "width": width})
+            local += width
+        records.append(
+            _Line(text=rendered, x=offset, y=cursor, height=height, content_width=content, runs=runs)
+        )
+        remaining = rest
+        remaining_styles = rest_styles
+        cursor += height
+    else:
+        raise _Invalid("line break failed")
+    box.lines = records
+    if box.definite_height is None:
+        box.definite_height = cursor
+
+
 def _fill_lines(box: _Box) -> None:
+    if _mixed_runs(box) and box.floats and not box.children:
+        raise _Invalid("inline font beside a float is unsupported")
     if box.floats and not box.children:
         _fill_lines_beside_floats(box)
+        return
+    if _mixed_runs(box):
+        _fill_mixed(box)
         return
     text = box.inline_text or ""
     if not text:
