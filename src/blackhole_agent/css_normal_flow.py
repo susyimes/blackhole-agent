@@ -13,8 +13,12 @@ collapse, and the root box keeps its own margin instead of collapsing
 through to the viewport. ``display: none`` and absolute or fixed boxes
 leave the flow. A float inside a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
-shrink. A float that sits next to a block sibling still leaves the flow.
-An automatic height is the block children, or the stacked line boxes when
+shrink. A float beside a following block sibling is placed in that same
+content box: the sibling keeps its width, its line boxes shorten where the
+float margin box overlaps them, and clear moves the sibling's border edge
+down to those floats. That path keeps each vertical margin instead of
+collapsing adjoining ones. An automatic height is the block children, or
+the stacked line boxes when
 that block's own in-flow content is text, and it also grows to the bottom
 margin edge of a float that block itself placed. Each character, including
 the space, advances by the font size. ``line-height: normal`` uses the font
@@ -185,6 +189,9 @@ class _Box:
     clear: str = "none"
     children: list[_Box] = field(default_factory=list)
     floats: list[_Box] = field(default_factory=list)
+    flow: list[_Box] = field(default_factory=list)
+    anchor_y: int | None = None
+    anchor_laid: bool = False
     float_placed: bool = False
     local_y: int = 0
     float_band: tuple[int, int, int, int, str] | None = None
@@ -264,7 +271,7 @@ def layout_normal_flow(
             raise _Invalid("root is not displayed")
         if root.position in {"absolute", "fixed"} or root.float_side != "none":
             raise _Invalid("root is outside normal flow")
-        root.children, root.floats = _walk(
+        root.children, root.floats, root.flow = _walk(
             tree,
             order[0],
             _modes(root),
@@ -311,9 +318,10 @@ def _walk(
     declarations,
     ids: set[str],
     counter: list[int],
-) -> tuple[list[_Box], list[_Box]]:
+) -> tuple[list[_Box], list[_Box], list[_Box]]:
     found: list[_Box] = []
     floats: list[_Box] = []
+    flow: list[_Box] = []
     for child in tree.children.get(element, []):
         if _local_name(child) in _SKIP_TAGS:
             continue
@@ -334,9 +342,10 @@ def _walk(
         if box.float_side != "none":
             _reject_float_content(tree, child)
             floats.append(box)
+            flow.append(box)
             continue
         if box.display == "inline":
-            nested, nested_floats = _walk(
+            nested, nested_floats, nested_flow = _walk(
                 tree,
                 child,
                 _modes(box),
@@ -349,8 +358,9 @@ def _walk(
             )
             found.extend(nested)
             floats.extend(nested_floats)
+            flow.extend(nested_flow)
             continue
-        box.children, box.floats = _walk(
+        box.children, box.floats, box.flow = _walk(
             tree,
             child,
             _modes(box),
@@ -363,7 +373,8 @@ def _walk(
         )
         box.inline_text = None if box.children else _inline_text(tree, child, styles, declarations)
         found.append(box)
-    return found, floats
+        flow.append(box)
+    return found, floats, flow
 
 
 def _make_box(
@@ -392,9 +403,7 @@ def _make_box(
     )
     position = _keyword(_declared(winners, "position", custom), _POSITIONS, "static", "position")
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
-    clear = "none"
-    if float_side != "none":
-        clear = _keyword(_declared(winners, "clear", custom), _CLEARS, "none", "clear")
+    clear = _keyword(_declared(winners, "clear", custom), _CLEARS, "none", "clear")
     overflow = _keyword(_declared(winners, "overflow", custom), _OVERFLOWS, "visible", "overflow")
     box_declarations = [
         (prop, value)
@@ -553,8 +562,13 @@ def _solve(box: _Box, parent_width: int, parent_height: int | None, parent_horiz
         _place_floats(box, content_x)
     if not box.children and (box.inline_text or box.floats):
         _fill_lines(box)
-    for child in box.children:
-        _solve(child, box.content_width, box.definite_height, horizontal, content_x)
+    elif box.floats:
+        for child in box.children:
+            _solve(child, box.content_width, box.definite_height, horizontal, content_x)
+        _lay_sibling_floats(box, content_x)
+    else:
+        for child in box.children:
+            _solve(child, box.content_width, box.definite_height, horizontal, content_x)
 
 
 def _available(
@@ -601,26 +615,36 @@ def _collapse_spec(box: _Box) -> dict[str, object]:
         "position": "relative" if box.position == "relative" else "static",
         "display": "inline-block" if box.display == "inline-block" else "block",
         "clearance": False,
-        "children": [_collapse_spec(child) for child in box.children],
+        "children": [] if box.anchor_laid else [_collapse_spec(child) for child in box.children],
     }
 
 
-def _assign_y(box: _Box, by_id: dict[str, dict[str, object]], origin: int) -> None:
-    placed = by_id.get(box.id)
-    if placed is None:
-        raise _Invalid("placed box is missing")
-    box.y = origin + _px(placed.get("y"), "y")
-    box.border_height = _px(placed.get("border_height"), "border height")
-    chrome = (
-        _px(box.solved.get("padding_top"), "padding-top")
-        + _px(box.solved.get("padding_bottom"), "padding-bottom")
-        + _px(box.solved.get("border_top"), "border-top")
-        + _px(box.solved.get("border_bottom"), "border-bottom")
-    )
-    if box.definite_height is None:
-        box.content_height = box.border_height - chrome
+def _assign_y(
+    box: _Box,
+    by_id: dict[str, dict[str, object]],
+    origin: int,
+    border_at: int | None = None,
+) -> None:
+    if box.anchor_y is None:
+        placed = by_id.get(box.id)
+        if placed is None:
+            raise _Invalid("placed box is missing")
+        box.y = origin + _px(placed.get("y"), "y")
+        box.border_height = _px(placed.get("border_height"), "border height")
+        chrome = (
+            _px(box.solved.get("padding_top"), "padding-top")
+            + _px(box.solved.get("padding_bottom"), "padding-bottom")
+            + _px(box.solved.get("border_top"), "border-top")
+            + _px(box.solved.get("border_bottom"), "border-bottom")
+        )
+        if box.definite_height is None:
+            box.content_height = box.border_height - chrome
+        else:
+            box.content_height = box.definite_height
     else:
-        box.content_height = box.definite_height
+        if border_at is None:
+            raise _Invalid("placed box is missing")
+        box.y = border_at + box.anchor_y
     horizontal = (
         _px(box.solved.get("padding_left"), "padding-left")
         + _px(box.solved.get("padding_right"), "padding-right")
@@ -640,7 +664,7 @@ def _assign_y(box: _Box, by_id: dict[str, dict[str, object]], origin: int) -> No
             continue
         fl.y = content_y + fl.local_y
     for child in box.children:
-        _assign_y(child, by_id, origin)
+        _assign_y(child, by_id, origin, box.y)
 
 
 def _each(box: _Box):
@@ -823,61 +847,69 @@ def _reject_float_content(tree, element) -> None:
         raise _Invalid("float content is unsupported")
 
 
+def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
+    solved = resolve_logical_box(
+        fl.declarations,
+        writing_mode=fl.writing_mode,
+        direction=fl.direction,
+        text_orientation=fl.text_orientation,
+        containing_inline=box.content_width,
+        percentage_basis=box.content_width,
+        containing_block=box.definite_height,
+    )
+    if solved.get("outcome") != "resolved":
+        raise _Invalid(str(solved.get("reason") or "float is invalid"))
+    if solved.get("specified_width") in {None, "auto"} or solved.get("content_width") in {None, "auto"}:
+        raise _Invalid("float width is indefinite")
+    if solved.get("specified_height") in {None, "auto"} or solved.get("content_height") in {None, "auto"}:
+        raise _Invalid("float height is indefinite")
+    content_width = _px(solved.get("content_width"), "float width")
+    content_height = _px(solved.get("content_height"), "float height")
+    margin_left = _float_margin(fl, "margin-left", box.content_width)
+    margin_right = _float_margin(fl, "margin-right", box.content_width)
+    margin_top = _float_margin(fl, "margin-top", box.content_width)
+    margin_bottom = _float_margin(fl, "margin-bottom", box.content_width)
+    border_left = _px(solved.get("border_left"), "border-left")
+    border_right = _px(solved.get("border_right"), "border-right")
+    border_top = _px(solved.get("border_top"), "border-top")
+    border_bottom = _px(solved.get("border_bottom"), "border-bottom")
+    padding_left = _px(solved.get("padding_left"), "padding-left")
+    padding_right = _px(solved.get("padding_right"), "padding-right")
+    padding_top = _px(solved.get("padding_top"), "padding-top")
+    padding_bottom = _px(solved.get("padding_bottom"), "padding-bottom")
+    fl.solved = solved
+    fl.content_width = content_width
+    fl.content_height = content_height
+    fl.margin_left = margin_left
+    fl.margin_right = margin_right
+    fl.border_width = content_width + padding_left + padding_right + border_left + border_right
+    fl.border_height = content_height + padding_top + padding_bottom + border_top + border_bottom
+    fl.local_y = margin_top
+    return {
+        "outer_width": margin_left + border_left + padding_left + content_width + padding_right + border_right + margin_right,
+        "outer_height": margin_top + border_top + padding_top + content_height + padding_bottom + border_bottom + margin_bottom,
+        "margin_left": margin_left,
+        "margin_top": margin_top,
+    }
+
+
 def _place_floats(box: _Box, content_x: int) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("float writing mode is unsupported")
     items: list[dict[str, object]] = []
-    solved_rows: list[tuple[_Box, dict[str, object]]] = []
+    solved_rows: list[tuple[_Box, dict[str, int]]] = []
     for fl in box.floats:
-        solved = resolve_logical_box(
-            fl.declarations,
-            writing_mode=fl.writing_mode,
-            direction=fl.direction,
-            text_orientation=fl.text_orientation,
-            containing_inline=box.content_width,
-            percentage_basis=box.content_width,
-            containing_block=box.definite_height,
-        )
-        if solved.get("outcome") != "resolved":
-            raise _Invalid(str(solved.get("reason") or "float is invalid"))
-        if solved.get("specified_width") in {None, "auto"} or solved.get("content_width") in {None, "auto"}:
-            raise _Invalid("float width is indefinite")
-        if solved.get("specified_height") in {None, "auto"} or solved.get("content_height") in {None, "auto"}:
-            raise _Invalid("float height is indefinite")
-        content_width = _px(solved.get("content_width"), "float width")
-        content_height = _px(solved.get("content_height"), "float height")
-        margin_left = _float_margin(fl, "margin-left", box.content_width)
-        margin_right = _float_margin(fl, "margin-right", box.content_width)
-        margin_top = _float_margin(fl, "margin-top", box.content_width)
-        margin_bottom = _float_margin(fl, "margin-bottom", box.content_width)
-        border_left = _px(solved.get("border_left"), "border-left")
-        border_right = _px(solved.get("border_right"), "border-right")
-        border_top = _px(solved.get("border_top"), "border-top")
-        border_bottom = _px(solved.get("border_bottom"), "border-bottom")
-        padding_left = _px(solved.get("padding_left"), "padding-left")
-        padding_right = _px(solved.get("padding_right"), "padding-right")
-        padding_top = _px(solved.get("padding_top"), "padding-top")
-        padding_bottom = _px(solved.get("padding_bottom"), "padding-bottom")
-        outer_width = margin_left + border_left + padding_left + content_width + padding_right + border_right + margin_right
-        outer_height = margin_top + border_top + padding_top + content_height + padding_bottom + border_bottom + margin_bottom
-        fl.solved = solved
-        fl.content_width = content_width
-        fl.content_height = content_height
-        fl.margin_left = margin_left
-        fl.margin_right = margin_right
-        fl.border_width = content_width + padding_left + padding_right + border_left + border_right
-        fl.border_height = content_height + padding_top + padding_bottom + border_top + border_bottom
-        fl.local_y = margin_top
+        measured = _measure_float(box, fl)
         items.append(
             {
                 "id": fl.id,
                 "float": fl.float_side,
-                "width": outer_width,
-                "height": outer_height,
+                "width": measured["outer_width"],
+                "height": measured["outer_height"],
                 "clear": fl.clear,
             }
         )
-        solved_rows.append((fl, {"margin_left": margin_left, "margin_top": margin_top}))
+        solved_rows.append((fl, measured))
     placed = place_floats(box.content_width, items)
     if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
         raise _Invalid(str(placed.get("reason") or "float placement failed"))
@@ -886,24 +918,141 @@ def _place_floats(box: _Box, content_x: int) -> None:
         row = by_id.get(fl.id)
         if row is None:
             raise _Invalid("float placement failed")
-        margin_x = _px(row.get("x"), "float x")
-        margin_y = _px(row.get("y"), "float y")
-        margin_width = _px(row.get("width"), "float width")
-        margin_height = _px(row.get("height"), "float height")
-        fl.x = content_x + margin_x + int(edges["margin_left"])
-        fl.local_y = margin_y + int(edges["margin_top"])
-        fl.float_band = (margin_x, margin_y, margin_width, margin_height, fl.float_side)
-        fl.float_placed = True
+        _commit_float(fl, content_x, row, edges)
 
 
-def _fill_lines_beside_floats(box: _Box) -> None:
+def _commit_float(fl: _Box, content_x: int, row: dict[str, object], edges: dict[str, int]) -> None:
+    margin_x = _px(row.get("x"), "float x")
+    margin_y = _px(row.get("y"), "float y")
+    margin_width = _px(row.get("width"), "float width")
+    margin_height = _px(row.get("height"), "float height")
+    fl.x = content_x + margin_x + edges["margin_left"]
+    fl.local_y = margin_y + edges["margin_top"]
+    fl.float_band = (margin_x, margin_y, margin_width, margin_height, fl.float_side)
+    fl.float_placed = True
+
+
+def _lay_sibling_floats(box: _Box, content_x: int) -> None:
+    """Place floats in source order and shorten each following block's lines."""
+
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("float writing mode is unsupported")
+    measured = {fl.id: _measure_float(box, fl) for fl in box.floats}
+    for child in box.children:
+        if child.display != "block" or child.children or child.floats:
+            raise _Invalid("float beside nested blocks is unsupported")
+        if child.writing_mode != "horizontal-tb" or child.direction != "ltr":
+            raise _Invalid("float writing mode is unsupported")
+    bands: list[tuple[int, int, int, int, str]] = []
+    cursor = 0
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    for item in box.flow:
+        if item.float_side != "none":
+            spec = measured[item.id]
+            floor = max(cursor, _clear_floor(item.clear, bands))
+            x, y = _fit_float(item.float_side, spec["outer_width"], spec["outer_height"], floor, bands, box.content_width)
+            _commit_float(
+                item,
+                content_x,
+                {"x": x, "y": y, "width": spec["outer_width"], "height": spec["outer_height"]},
+                spec,
+            )
+            if item.float_band is not None:
+                bands.append(item.float_band)
+            continue
+        margin_top = _px(item.solved.get("margin_top"), "margin-top")
+        margin_bottom = _px(item.solved.get("margin_bottom"), "margin-bottom")
+        border_y = max(cursor + margin_top, _clear_floor(item.clear, bands))
+        inset_x = (
+            _px(item.solved.get("margin_left"), "margin-left")
+            + _px(item.solved.get("border_left"), "border-left")
+            + _px(item.solved.get("padding_left"), "padding-left")
+        )
+        content_top = border_y + _px(item.solved.get("border_top"), "border-top") + _px(item.solved.get("padding_top"), "padding-top")
+        local = [(bx - inset_x, by - content_top, bw, bh, side) for bx, by, bw, bh, side in bands]
+        _reflow_beside(item, local)
+        item.anchor_y = origin + border_y
+        cursor = border_y + item.border_height + margin_bottom
+    box.anchor_laid = True
+    if box.definite_height is None:
+        box.definite_height = max([cursor, *(band[1] + band[3] for band in bands)], default=0)
+
+
+def _reflow_beside(box: _Box, bands: list[tuple[int, int, int, int, str]]) -> None:
+    auto = box.solved.get("content_height") == "auto"
+    saved = box.definite_height
+    if auto:
+        box.definite_height = None
+    _fill_lines_beside_floats(box, bands, contain=False)
+    if not auto:
+        box.definite_height = saved
+    if box.definite_height is None:
+        box.definite_height = 0
+    chrome = (
+        _px(box.solved.get("padding_top"), "padding-top")
+        + _px(box.solved.get("padding_bottom"), "padding-bottom")
+        + _px(box.solved.get("border_top"), "border-top")
+        + _px(box.solved.get("border_bottom"), "border-bottom")
+    )
+    box.content_height = box.definite_height
+    box.border_height = box.definite_height + chrome
+
+
+def _clear_floor(clear: str, bands: list[tuple[int, int, int, int, str]]) -> int:
+    if clear == "none":
+        return 0
+    floor = 0
+    for _x, y, _w, height, side in bands:
+        if clear == "both" or clear == side:
+            floor = max(floor, y + height)
+    return floor
+
+
+def _fit_float(
+    side: str,
+    width: int,
+    height: int,
+    floor: int,
+    bands: list[tuple[int, int, int, int, str]],
+    containing: int,
+) -> tuple[int, int]:
+    events = {floor}
+    for _x, y, _w, band_height, _side in bands:
+        bottom = y + band_height
+        if bottom > floor:
+            events.add(bottom)
+    for y in sorted(events):
+        left = 0
+        right = containing
+        for bx, by, bw, bh, band_side in bands:
+            if y < by + bh and y + height > by:
+                if band_side == "left":
+                    left = max(left, bx + bw)
+                elif bx < right:
+                    right = bx
+        if width > containing and left == 0 and right == containing:
+            return (0, y) if side == "left" else (containing - width, y)
+        if side == "left" and left + width <= right:
+            return left, y
+        if side == "right" and right - width >= left:
+            return right - width, y
+    raise _Invalid("float placement failed")
+
+
+def _fill_lines_beside_floats(
+    box: _Box,
+    bands: list[tuple[int, int, int, int, str]] | None = None,
+    *,
+    contain: bool = True,
+) -> None:
     text = box.inline_text or ""
-    bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
+    if bands is None:
+        bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
     used = _used_line_height(box.line_height, box.font_size)
     height = _strut_height(box.font_size, used)
     if not text or (box.white_space in _COLLAPSED_EMPTY and not text.strip()):
         if box.definite_height is None:
-            box.definite_height = _band_bottom(bands)
+            box.definite_height = _band_bottom(bands) if contain else 0
         return
     advances = {ch: box.font_size * _default_advance(ch) for ch in set(text)}
     remaining = text
@@ -959,7 +1108,7 @@ def _fill_lines_beside_floats(box: _Box) -> None:
         raise _Invalid("line break failed")
     box.lines = records
     if box.definite_height is None:
-        box.definite_height = max(cursor, _band_bottom(bands))
+        box.definite_height = max(cursor, _band_bottom(bands)) if contain else cursor
 
 
 def _exclusion(
