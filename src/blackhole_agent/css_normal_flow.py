@@ -61,7 +61,10 @@ an item whose hypothetical block size does not fit starts the next column,
 and ``wrap-reverse`` places the first column at the inline end.
 ``column-reverse`` still packs each of those columns from the bottom.
 An automatic column height has no definite block size, so it stays one
-column. Row-reverse, gaps, item margins, and loose text stay rejected.
+column. A definite ``gap`` is removed from free space before items grow or
+shrink, and the same gutter separates wrapped lines. An automatic cross size
+includes those gutters, so the following block starts after the last gapped
+line. Row-reverse, item margins, and loose text stay rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -2322,6 +2325,8 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
     wrap = "nowrap"
     justify = "normal"
     align = "normal"
+    row_gap = 0
+    column_gap = 0
     tracked = {
         "flex-direction",
         "flex-wrap",
@@ -2352,9 +2357,12 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
             chosen = _choice(value, "normal", _FLEX_CONTENT, "align-content")
             if chosen not in {"normal", "stretch"}:
                 raise _Invalid("flex align is unsupported")
-        elif prop in {"gap", "column-gap", "row-gap"}:
-            if value not in {"0", "0px", "normal", "initial", "unset", "revert"}:
-                raise _Invalid("flex gap is unsupported")
+        elif prop == "gap":
+            row_gap, column_gap = _gap_pair(value)
+        elif prop == "row-gap":
+            row_gap = _gap_length(value)
+        elif prop == "column-gap":
+            column_gap = _gap_length(value)
         elif value not in {"0", "initial", "unset", "revert"}:
             raise _Invalid("flex order is unsupported")
     if direction == "row-reverse":
@@ -2363,7 +2371,55 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
         raise _Invalid("flex justify is unsupported")
     if align not in {"normal", "stretch"}:
         raise _Invalid("flex align is unsupported")
-    return {"justify": justify, "align": align, "wrap": wrap, "direction": direction}
+    return {
+        "justify": justify,
+        "align": align,
+        "wrap": wrap,
+        "direction": direction,
+        "row_gap": row_gap,
+        "column_gap": column_gap,
+    }
+
+
+def _gap_pair(value: str) -> tuple[int, int]:
+    if value in {"initial", "unset", "revert"}:
+        return 0, 0
+    if value == "inherit":
+        raise _Invalid("flex gap inherit is unsupported")
+    parts = value.split(" ")
+    if len(parts) == 1:
+        length = _gap_length(parts[0])
+        return length, length
+    if len(parts) == 2:
+        return _gap_length(parts[0]), _gap_length(parts[1])
+    raise _Invalid("flex gap is unsupported")
+
+
+def _gap_length(value: str) -> int:
+    if value in {"0", "0px", "normal", "initial", "unset", "revert"}:
+        return 0
+    if value == "inherit":
+        raise _Invalid("flex gap inherit is unsupported")
+    if value.endswith("px"):
+        length = _px(float(value[:-2]), "flex gap")
+        if length < 0:
+            raise _Invalid("flex gap is unsupported")
+        return length
+    raise _Invalid("flex gap is unsupported")
+
+
+def _axis_gaps(spec: dict[str, object], *, column: bool) -> tuple[int, int]:
+    row_gap = _px(spec.get("row_gap", 0), "flex gap")
+    column_gap = _px(spec.get("column_gap", 0), "flex gap")
+    if column:
+        return row_gap, column_gap
+    return column_gap, row_gap
+
+
+def _gapped_span(sizes: list[int], gap: int) -> int:
+    if not sizes:
+        return 0
+    return sum(sizes) + gap * (len(sizes) - 1)
 
 
 def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
@@ -2584,6 +2640,7 @@ def _place_wrapped_flex_lines(
     main_size = box.definite_height if column else box.content_width
     if main_size is None:
         raise _Invalid("flex column wrap is unsupported")
+    main_gap, cross_gap = _axis_gaps(spec, column=column)
     broken = wrap_flex_lines(
         main_size,
         [
@@ -2598,6 +2655,7 @@ def _place_wrapped_flex_lines(
             }
             for row in rows
         ],
+        gap=main_gap,
         wrap="wrap",
         direction="column" if column else "row",
     )
@@ -2634,7 +2692,7 @@ def _place_wrapped_flex_lines(
         grouped.append(entries)
         crosses.append(height)
     if not column and box.definite_height is None:
-        box.definite_height = sum(crosses)
+        box.definite_height = _gapped_span(crosses, cross_gap)
     cross_size = box.content_width if column else box.definite_height
     placed = place_flex_alignment(
         main_size,
@@ -2643,6 +2701,8 @@ def _place_wrapped_flex_lines(
         justify_content=spec.get("justify", "normal"),
         align_items=spec.get("align", "normal"),
         wrap=str(spec.get("wrap") or "wrap"),
+        main_gap=main_gap,
+        cross_gap=cross_gap,
     )
     placed_lines = placed.get("lines")
     if placed.get("outcome") != "placed" or not isinstance(placed_lines, list):
@@ -2763,10 +2823,14 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     if str(spec.get("wrap") or "nowrap") != "nowrap" and (not column or box.definite_height is not None):
         _place_wrapped_flex_lines(box, content_x, spec, rows, column=column)
         return
+    main_gap, cross_gap = _axis_gaps(spec, column=column)
     if column:
         container_main = box.definite_height
         if container_main is None:
-            container_main = sum(_px(row["hypothetical_main"], "flex height") for row in rows)
+            container_main = _gapped_span(
+                [_px(row["hypothetical_main"], "flex height") for row in rows],
+                main_gap,
+            )
             box.definite_height = container_main
         container_cross = box.content_width
     else:
@@ -2789,6 +2853,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
             }
             for row in rows
         ],
+        gap=main_gap,
     )
     if line.get("outcome") != "resolved" or not isinstance(line.get("main_sizes"), list):
         raise _Invalid(str(line.get("reason") or "flex line failed"))
@@ -2813,6 +2878,8 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
         justify_content=spec.get("justify", "normal"),
         align_items=spec.get("align", "normal"),
         wrap="nowrap",
+        main_gap=main_gap,
+        cross_gap=cross_gap,
     )
     if placed.get("outcome") != "placed" or not isinstance(placed.get("lines"), list):
         raise _Invalid(str(placed.get("reason") or "flex alignment failed"))
