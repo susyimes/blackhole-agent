@@ -106,6 +106,13 @@ each cell into that column. The row grows to the stacked line boxes.
 edge. Automatic height is those rows, so a following block starts under the
 table. Captions, spans, border spacing, collapsed borders, and element
 children inside a cell stay rejected.
+An ``inline-size`` or ``size`` container answers ``@container`` for descendants
+after its content-box size is known. The container is not a candidate for its
+own query. A named query selects the nearest ancestor with that name which can
+answer the features, and a failed condition does not fall through to an outer
+container. Matching declarations join the cascade at their source order, so a
+later unconditional declaration of the same specificity still wins. A box
+without ``container-type`` does not answer a size query.
 Writing mode, direction and text orientation inherit. Other CSS-wide keywords
 on box properties use their initial values.
 A text-only orthogonal block wraps down its used content height and stacks
@@ -121,6 +128,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_fixed_table import layout_fixed_columns
@@ -344,6 +352,14 @@ class _Box:
     flex: dict[str, object] | None = None
     grid: dict[str, object] | None = None
     table: dict[str, object] | None = None
+    parent_box: _Box | None = None
+    container_type: str = "normal"
+    container_name: str = "none"
+    query_rules: list[tuple[str, object]] = field(default_factory=list)
+    sheet: list = field(default_factory=list)
+    custom: dict = field(default_factory=dict)
+    element: object = None
+    tree: object = None
 
 
 def layout_normal_flow(
@@ -374,7 +390,8 @@ def layout_normal_flow(
         tree, order = _document(markup)
         if not order:
             raise _Invalid("document is empty")
-        declarations, registrations = _stylesheet(stylesheet)
+        container_rules: list[tuple[str, object]] = []
+        declarations, registrations = _stylesheet(stylesheet, container_rules=container_rules)
         styles: dict[object, tuple[dict, str]] = {}
         for element in order:
             parent = tree.parent.get(element)
@@ -400,6 +417,7 @@ def layout_normal_flow(
             ids,
             counter,
             root=True,
+            container_rules=container_rules,
         )
         if root.display == "none":
             raise _Invalid("root is not displayed")
@@ -418,6 +436,7 @@ def layout_normal_flow(
             ids,
             counter,
             root,
+            container_rules,
         )
         _set_inline(root, tree, order[0], styles, declarations)
         _solve(root, viewport_width, viewport_height, viewport_height, 0)
@@ -458,6 +477,7 @@ def _walk(
     ids: set[str],
     counter: list[int],
     host: _Box,
+    container_rules: list | None = None,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     formatting_context = {"grid": _walk_grid, "flex": _walk_flex, "table": _walk_table}.get(host.display)
     if formatting_context is not None:
@@ -480,7 +500,9 @@ def _walk(
             ids,
             counter,
             root=False,
+            container_rules=container_rules,
         )
+        box.parent_box = host
         if box.display == "none":
             continue
         if box.position in {"absolute", "fixed"}:
@@ -505,7 +527,7 @@ def _walk(
             raise _Invalid("positioned inline-block is unsupported")
         nested = _walk(
             tree, child, _modes(box), _fonts(box), box.direction, styles, declarations,
-            ids, counter, host if inline else box,
+            ids, counter, host if inline else box, container_rules,
         )
         if inline:
             children, child_floats, child_flow, child_positioned = nested
@@ -538,6 +560,7 @@ def _make_box(
     counter: list[int],
     *,
     root: bool,
+    container_rules: list | None = None,
 ) -> _Box:
     custom = styles.get(element, ({}, ""))[0]
     winners = _winners(tree, element, declarations)
@@ -554,11 +577,7 @@ def _make_box(
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
     clear = _keyword(_declared(winners, "clear", custom), _CLEARS, "none", "clear")
     overflow = _keyword(_declared(winners, "overflow", custom), _OVERFLOWS, "visible", "overflow")
-    box_declarations = [
-        (prop, value)
-        for prop, value in ((_prop, _declared(winners, _prop, custom)) for _prop in _winner_names(winners))
-        if prop in _BOX_PROPS and value is not None and _wide_keyword(value) is None
-    ]
+    box_declarations = _boxed_declarations(winners, custom)
     author = (_attr(element, "id") or "").strip()
     if author:
         if author in ids:
@@ -603,7 +622,114 @@ def _make_box(
             "white-space",
         ),
         parent_direction=parent_direction,
+        container_type=_container_kind(_declared(winners, "container-type", custom)),
+        container_name=_container_label(_declared(winners, "container-name", custom)),
+        query_rules=_matching_queries(tree, element, container_rules),
+        sheet=declarations,
+        custom=custom,
+        element=element,
+        tree=tree,
     )
+
+
+def _container_kind(value: str | None) -> str:
+    if value is None or value in {"initial", "unset", "revert"}:
+        return "normal"
+    if value == "inherit":
+        raise _Invalid("container-type inherit is unsupported")
+    token = " ".join(value.lower().split())
+    if token not in {"normal", "size", "inline-size"}:
+        raise _Invalid("container-type is invalid")
+    return token
+
+
+def _container_label(value: str | None) -> str:
+    if value is None or value in {"initial", "unset", "revert", "none"}:
+        return "none"
+    if value == "inherit":
+        raise _Invalid("container-name inherit is unsupported")
+    return " ".join(value.split())
+
+
+def _matching_queries(tree, element, rules: list | None) -> list[tuple[str, object]]:
+    matched: list[tuple[str, object]] = []
+    for query, decl in rules or []:
+        if _declaration_precedence(tree, element, decl) is not None:
+            matched.append((str(query), decl))
+    return matched
+
+
+def _boxed_declarations(winners, custom: dict) -> list[tuple[str, str]]:
+    return [
+        (prop, value)
+        for prop, value in ((name, _declared(winners, name, custom)) for name in _winner_names(winners))
+        if prop in _BOX_PROPS and value is not None and _wide_keyword(value) is None
+    ]
+
+
+def _retarget_query_descendants(box: _Box) -> None:
+    if box.container_type not in {"inline-size", "size"}:
+        return
+    for target in _query_targets(box):
+        _retarget_query_target(target)
+
+
+def _query_targets(box: _Box) -> list[_Box]:
+    found: list[_Box] = []
+
+    def walk(node: _Box) -> None:
+        for child in (*node.children, *node.floats, *node.positioned, *node.atoms):
+            found.append(child)
+            if child.container_type in {"inline-size", "size"}:
+                continue
+            walk(child)
+
+    walk(box)
+    return found
+
+
+def _retarget_query_target(target: _Box) -> None:
+    if not target.query_rules or target.tree is None or target.element is None:
+        return
+    chosen = [decl for query, decl in target.query_rules if _query_matches(target, str(query))]
+    if not chosen:
+        return
+    winners = _winners(target.tree, target.element, [*target.sheet, *chosen])
+    target.declarations = _boxed_declarations(winners, target.custom)
+
+
+def _query_matches(target: _Box, query: str) -> bool:
+    result = match_container_query(_query_chain(target), query)
+    if result.get("outcome") != "matched":
+        raise _Invalid(str(result.get("reason") or "container query is invalid"))
+    matches = result.get("matches")
+    return isinstance(matches, list) and target.id in matches
+
+
+def _query_chain(target: _Box) -> list[dict[str, object]]:
+    chain: list[_Box] = []
+    current: _Box | None = target
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        chain.append(current)
+        current = current.parent_box
+    chain.reverse()
+    nodes: list[dict[str, object]] = []
+    for box in chain:
+        nodes.append(
+            {
+                "id": box.id,
+                "parent": None if box.parent_box is None else box.parent_box.id,
+                "width": box.content_width,
+                "height": 0 if box.definite_height is None else box.definite_height,
+                "container_type": box.container_type,
+                "container_name": box.container_name,
+                "writing_mode": box.writing_mode,
+                "font_size": box.font_size,
+            }
+        )
+    return nodes
 
 
 def _winners(tree, element, declarations) -> list[tuple[int, str, str]]:
@@ -772,6 +898,7 @@ def _solve(
     box.x = parent_content_x + box.margin_left
     if vertical_text:
         return
+    _retarget_query_descendants(box)
     content_x = box.x + _edge_extent(solved, "left")
     if box.display == "grid":
         _place_grid(box, content_x)

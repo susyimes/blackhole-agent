@@ -67,7 +67,9 @@ or a CSS-wide keyword, a custom property accepts any non-empty value, and
 ``not``, ``and``, and ``or`` combine those answers. An empty prelude or a
 mix of ``and`` and ``or`` drops that block and leaves later rules. The block
 stays in its layer, scope, and nesting parent. Animation tainting stays
-outside.
+outside. ``@container`` stays out of the unconditional cascade when the
+caller collects container rules; those declarations keep their source order
+for a later query match. Without that collection the at-rule is rejected.
 """
 
 from __future__ import annotations
@@ -1635,12 +1637,18 @@ def _declaration_supported(body: str) -> bool:
     return False
 
 
-def _stylesheet(stylesheet: str, *, media: dict | None = None) -> tuple[list[_Decl], dict[str, _Registration]]:
+def _stylesheet(
+    stylesheet: str,
+    *,
+    media: dict | None = None,
+    container_rules: list | None = None,
+) -> tuple[list[_Decl], dict[str, _Registration]]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
     context = _media_context(media)
     layers = _LayerOrder()
     found: list[_Found] = []
+    held: list[tuple[str, _Found]] | None = [] if container_rules is not None else None
     counter = [0]
     registered: dict[str, _Registration] = {}
     _fill_sheet(
@@ -1652,12 +1660,22 @@ def _stylesheet(stylesheet: str, *, media: dict | None = None) -> tuple[list[_De
         counter,
         registered,
         context,
+        held,
+        "",
     )
     layers.freeze()
     declarations = [
         _Decl(selectors, prop, value, important, seq, layers.slot_of(node), scopes)
         for selectors, prop, value, important, seq, node, scopes in found
     ]
+    if container_rules is not None and held is not None:
+        for query, (selectors, prop, value, important, seq, node, scopes) in held:
+            container_rules.append(
+                (
+                    query,
+                    _Decl(selectors, prop, value, important, seq, layers.slot_of(node), scopes),
+                )
+            )
     return declarations, registered
 
 
@@ -1670,13 +1688,15 @@ def _fill_sheet(
     counter: list[int],
     registered: dict[str, _Registration],
     media: dict[str, object],
+    held: list[tuple[str, _Found]] | None = None,
+    query: str = "",
 ) -> None:
     while True:
         parser.skip_space()
         if not parser.peek():
             return
         if parser.peek() == "@":
-            _at_rule(parser, layers, current, scopes, found, counter, registered, media)
+            _at_rule(parser, layers, current, scopes, found, counter, registered, media, held, query)
             continue
         if parser.next_kind() == "decl":
             text = parser.take_declaration()
@@ -1684,11 +1704,11 @@ def _fill_sheet(
                 continue
             if not scopes:
                 raise CssSelectorError("declaration is outside a style rule")
-            _store_declaration(text, _ROOT_RULE, current, scopes, found, counter)
+            _store_declaration(text, _ROOT_RULE, current, scopes, found, counter, held, query)
             continue
         prelude = parser.take_prelude()
         selectors = _parse_rule_selectors(prelude, scoped=bool(scopes))
-        _store_block(parser.balanced("{", "}"), selectors, current, scopes, found, counter, media)
+        _store_block(parser.balanced("{", "}"), selectors, current, scopes, found, counter, media, held, query)
 
 
 def _at_rule(
@@ -1700,27 +1720,42 @@ def _at_rule(
     counter: list[int],
     registered: dict[str, _Registration],
     media: dict[str, object],
+    held: list[tuple[str, _Found]] | None = None,
+    query: str = "",
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
     if keyword == "property":
         _read_property_rule(parser, registered)
         return
+    if keyword == "container":
+        prelude, body = _take_at_block(parser)
+        if held is None:
+            raise CssSelectorError("at-rules are outside this reader")
+        text = " ".join(prelude.split())
+        if not text:
+            raise CssSelectorError("container query is empty")
+        _fill_sheet(
+            _Parser(body), layers, current, scopes, found, counter, registered, media, held, text
+        )
+        return
     if keyword == "scope":
         frame = _read_scope_frame(parser, nested=bool(scopes))
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, current, scopes + (frame,), found, counter, registered, media)
+        _fill_sheet(
+            _Parser(body), layers, current, scopes + (frame,), found, counter, registered, media, held, query
+        )
         return
     if keyword == "media":
         prelude, body = _take_at_block(parser)
         if _media_matches(prelude, media):
-            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media)
+            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media, held, query)
         return
     if keyword == "supports":
         prelude, body = _take_at_block(parser)
         if _supports_matches(prelude):
-            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media)
+            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media, held, query)
         return
     if keyword != "layer":
         raise CssSelectorError("at-rules are outside this reader")
@@ -1728,7 +1763,9 @@ def _at_rule(
     if parser.peek() == "{":
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered, media)
+        _fill_sheet(
+            _Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered, media, held, query
+        )
         return
     names = [_layer_name(parser)]
     while True:
@@ -1744,7 +1781,18 @@ def _at_rule(
             raise CssSelectorError("@layer block takes one layer name")
         parser.index += 1
         body = parser.balanced("{", "}")
-        _fill_sheet(_Parser(body), layers, layers.descend(current, names[0]), scopes, found, counter, registered, media)
+        _fill_sheet(
+            _Parser(body),
+            layers,
+            layers.descend(current, names[0]),
+            scopes,
+            found,
+            counter,
+            registered,
+            media,
+            held,
+            query,
+        )
         return
     if parser.peek() == ";":
         parser.index += 1
@@ -1824,8 +1872,10 @@ def _store_block(
     found: list[_Found],
     counter: list[int],
     media: dict[str, object],
+    held: list[tuple[str, _Found]] | None = None,
+    query: str = "",
 ) -> None:
-    _fill_style_body(body, selectors, node, scopes, found, counter, media)
+    _fill_style_body(body, selectors, node, scopes, found, counter, media, held, query)
 
 
 def _fill_style_body(
@@ -1836,6 +1886,8 @@ def _fill_style_body(
     found: list[_Found],
     counter: list[int],
     media: dict[str, object],
+    held: list[tuple[str, _Found]] | None = None,
+    query: str = "",
 ) -> None:
     """Declarations keep ``selectors``. Inner style rules expand against them."""
 
@@ -1845,12 +1897,12 @@ def _fill_style_body(
         if not parser.peek():
             return
         if parser.peek() == "@":
-            _nested_media(parser, selectors, node, scopes, found, counter, media)
+            _nested_media(parser, selectors, node, scopes, found, counter, media, held, query)
             continue
         if parser.next_kind() == "decl":
             text = parser.take_declaration()
             if text.strip():
-                _store_declaration(text, selectors, node, scopes, found, counter)
+                _store_declaration(text, selectors, node, scopes, found, counter, held, query)
             continue
         prelude = parser.take_prelude()
         try:
@@ -1859,7 +1911,7 @@ def _fill_style_body(
             parser.balanced("{", "}")
             continue
         expanded = tuple(_desugar_nested(selectors, item) for item in nested)
-        _fill_style_body(parser.balanced("{", "}"), expanded, node, scopes, found, counter, media)
+        _fill_style_body(parser.balanced("{", "}"), expanded, node, scopes, found, counter, media, held, query)
 
 
 def _nested_media(
@@ -1870,19 +1922,21 @@ def _nested_media(
     found: list[_Found],
     counter: list[int],
     media: dict[str, object],
+    held: list[tuple[str, _Found]] | None = None,
+    query: str = "",
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
     if keyword == "supports":
         prelude, body = _take_at_block(parser)
         if _supports_matches(prelude):
-            _fill_style_body(body, selectors, node, scopes, found, counter, media)
+            _fill_style_body(body, selectors, node, scopes, found, counter, media, held, query)
         return
     if keyword != "media":
         raise CssSelectorError("at-rules are outside this reader")
     prelude, body = _take_at_block(parser)
     if _media_matches(prelude, media):
-        _fill_style_body(body, selectors, node, scopes, found, counter, media)
+        _fill_style_body(body, selectors, node, scopes, found, counter, media, held, query)
 
 
 def _parse_nested_selectors(text: str) -> tuple[Complex, ...]:
@@ -1946,6 +2000,8 @@ def _store_declaration(
     scopes: tuple[_ScopeFrame, ...],
     found: list[_Found],
     counter: list[int],
+    held: list[tuple[str, _Found]] | None = None,
+    query: str = "",
 ) -> None:
     if ":" not in chunk:
         raise CssSelectorError("declaration is missing a colon")
@@ -1954,7 +2010,13 @@ def _store_declaration(
     value, important = _important(raw_value.strip())
     if not prop or not value:
         raise CssSelectorError("declaration is empty")
-    found.append((selectors, prop, value, important, counter[0], node, scopes))
+    item = (selectors, prop, value, important, counter[0], node, scopes)
+    if query:
+        if held is None:
+            raise CssSelectorError("at-rules are outside this reader")
+        held.append((query, item))
+    else:
+        found.append(item)
     counter[0] += 1
 
 
