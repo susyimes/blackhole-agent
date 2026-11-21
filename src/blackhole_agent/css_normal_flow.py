@@ -47,8 +47,12 @@ nested inline-block, and positioned content inside it are rejected.
 A ``display: flex`` row lays its element children out on one nowrap line.
 ``flex`` and the flex longhands set each item's used content width from the
 row's content box; an automatic row height is the tallest item, and a
-following block starts under that border box. Column, wrapping, gaps, item
-margins, and loose text in the row are rejected.
+following block starts under that border box. ``flex-wrap: wrap`` breaks
+before free space is distributed, using each item's hypothetical main size:
+an item that does not fit starts the next line, and that line flexes alone.
+Automatic height is the sum of the line cross sizes, so the following block
+starts under the last line. ``wrap-reverse`` mirrors those lines from the
+cross end. Column, gaps, item margins, and loose text in the row are rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -61,6 +65,7 @@ from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_flex_align import place_flex_alignment
 from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
+from blackhole_agent.css_flex_wrap import wrap_flex_lines
 from blackhole_agent.css_float_placement import place_floats
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
@@ -2336,13 +2341,13 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
                 raise _Invalid("flex gap is unsupported")
         elif value not in {"0", "initial", "unset", "revert"}:
             raise _Invalid("flex order is unsupported")
-    if direction != "row" or wrap != "nowrap":
+    if direction != "row":
         raise _Invalid("flex direction is unsupported")
     if justify not in {"normal", "flex-start"}:
         raise _Invalid("flex justify is unsupported")
     if align not in {"normal", "stretch"}:
         raise _Invalid("flex align is unsupported")
-    return {"justify": justify, "align": align}
+    return {"justify": justify, "align": align, "wrap": wrap}
 
 
 def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
@@ -2527,6 +2532,140 @@ def _used_cross(raw: str | None, content: int) -> tuple[object, int]:
     raise _Invalid("flex item height is unsupported")
 
 
+def _flex_number(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise _Invalid(f"{name} is invalid")
+    return float(value)
+
+
+def _wrap_minimum(value: object, content: int) -> float:
+    if value == "auto":
+        return float(content)
+    return _flex_number(value, "flex minimum")
+
+
+def _wrap_maximum(value: object) -> object:
+    if value == "none":
+        return "none"
+    return _flex_number(value, "flex maximum")
+
+
+def _line_cross(row: dict[str, object]) -> int:
+    if row["cross"] == "auto":
+        return _px(row["hypothetical"], "flex height")
+    return _px(row["cross"], "flex height")
+
+
+def _place_wrapped_flex_lines(
+    box: _Box,
+    content_x: int,
+    spec: dict[str, object],
+    rows: list[dict[str, object]],
+) -> None:
+    by_row = {row["item"].id: row for row in rows}
+    broken = wrap_flex_lines(
+        box.content_width,
+        [
+            {
+                "id": row["item"].id,
+                "base": row["base"],
+                "grow": row["grow"],
+                "shrink": row["shrink"],
+                "minimum": _wrap_minimum(row["minimum"], _px(row["content"], "flex content")),
+                "maximum": _wrap_maximum(row["maximum"]),
+                "margin": 0,
+            }
+            for row in rows
+        ],
+        wrap="wrap",
+        direction="row",
+    )
+    lines = broken.get("lines")
+    if broken.get("outcome") != "wrapped" or not isinstance(lines, list):
+        raise _Invalid(str(broken.get("reason") or "flex wrap failed"))
+    grouped: list[list[dict[str, object]]] = []
+    crosses: list[int] = []
+    sizes: dict[str, object] = {}
+    for line in lines:
+        if not isinstance(line, dict):
+            raise _Invalid("flex wrap failed")
+        ids = line.get("ids")
+        mains = line.get("main_sizes")
+        if not isinstance(ids, list) or not isinstance(mains, list) or len(ids) != len(mains) or not ids:
+            raise _Invalid("flex wrap failed")
+        entries: list[dict[str, object]] = []
+        height = 0
+        for ident, inner in zip(ids, mains, strict=True):
+            row = by_row.get(str(ident))
+            if row is None:
+                raise _Invalid("flex wrap failed")
+            entry: dict[str, object] = {
+                "id": row["item"].id,
+                "main": inner,
+                "cross": row["cross"],
+                "align_self": row["align"],
+            }
+            if row["cross"] == "auto":
+                entry["content"] = row["hypothetical"]
+            entries.append(entry)
+            sizes[row["item"].id] = inner
+            height = max(height, _line_cross(row))
+        grouped.append(entries)
+        crosses.append(height)
+    if box.definite_height is None:
+        box.definite_height = sum(crosses)
+    placed = place_flex_alignment(
+        box.content_width,
+        box.definite_height,
+        grouped,
+        justify_content=spec.get("justify", "normal"),
+        align_items=spec.get("align", "normal"),
+        wrap=str(spec.get("wrap") or "wrap"),
+    )
+    placed_lines = placed.get("lines")
+    if placed.get("outcome") != "placed" or not isinstance(placed_lines, list):
+        raise _Invalid(str(placed.get("reason") or "flex alignment failed"))
+    located: dict[str, dict[str, object]] = {}
+    for line in placed_lines:
+        if not isinstance(line, dict) or not isinstance(line.get("items"), list):
+            raise _Invalid("flex alignment failed")
+        for entry in line["items"]:
+            if isinstance(entry, dict) and entry.get("id") is not None:
+                located[str(entry["id"])] = entry
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    for row in rows:
+        item = row["item"]
+        entry = located.get(item.id)
+        if entry is None:
+            raise _Invalid("flex alignment failed")
+        item.content_width = _px(sizes[item.id], "flex width")
+        item.content_height = _px(entry.get("cross_size"), "flex height")
+        item.x = content_x + _px(entry.get("main"), "flex x")
+        item.anchor_y = origin + _px(entry.get("cross"), "flex y")
+        item.border_width = item.content_width
+        item.border_height = item.content_height
+        item.margin_left = 0
+        item.margin_right = 0
+        item.solved = dict(_ZERO_FLEX_EDGES)
+    box.anchor_laid = True
+
+
+_ZERO_FLEX_EDGES = {
+    "margin_top": 0,
+    "margin_right": 0,
+    "margin_bottom": 0,
+    "margin_left": 0,
+    "padding_top": 0,
+    "padding_right": 0,
+    "padding_bottom": 0,
+    "padding_left": 0,
+    "border_top": 0,
+    "border_right": 0,
+    "border_bottom": 0,
+    "border_left": 0,
+}
+
+
 def _place_flex_row(box: _Box, content_x: int) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("flex writing mode is unsupported")
@@ -2571,6 +2710,9 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
         if box.definite_height is None:
             box.definite_height = 0
         box.anchor_laid = True
+        return
+    if str(spec.get("wrap") or "nowrap") != "nowrap":
+        _place_wrapped_flex_lines(box, content_x, spec, rows)
         return
     line = resolve_flex_line(
         box.content_width,
