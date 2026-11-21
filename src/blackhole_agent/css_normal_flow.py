@@ -107,8 +107,13 @@ space in a definite grid, and a fixed column keeps its length and wraps the
 text inside the margin box. Definite margins shrink a stretched automatic
 size. An auto margin absorbs positive free space in the area and does not
 grow the track. An automatic row grows to the line boxes plus definite
-vertical margins. Named lines, padding, borders, element children, and a
-definite grid height stay rejected.
+vertical margins. A block child is placed in that content box: the item is
+an independent formatting context, so the child's margin stays inside the
+item and adjoining child margins collapse. The child's text contributes its
+min-content and max-content, and a narrow column wraps those line boxes.
+The row grows to that content, so the following block starts under it.
+Named lines, item padding, item borders, and a definite grid height stay
+rejected.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -915,7 +920,7 @@ def _solve(
     _retarget_query_descendants(box)
     content_x = box.x + _edge_extent(solved, "left")
     if box.display == "grid":
-        _place_grid(box, content_x)
+        _place_grid(box, content_x, viewport_height)
         return
     if box.display == "flex":
         _place_flex_row(box, content_x)
@@ -3412,9 +3417,10 @@ def _walk_grid(
         if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
             raise _Invalid("grid writing mode is unsupported")
         if _flex_item_elements(tree, child):
-            raise _Invalid("grid item content is unsupported")
+            _adopt_grid_item_blocks(tree, child, item, styles, declarations, ids, counter)
+        else:
+            item.inline_text = child.text or ""
         _reject_grid_edges(item)
-        item.inline_text = child.text or ""
         item.grid = _grid_item(tree, child, styles, declarations, item)
         items.append(item)
     return items, [], items, []
@@ -3701,7 +3707,7 @@ def _grid_span(sizes: list[int], index: int, span: int, gap: int) -> int:
     return sum(sizes[index : index + span]) + gap * (span - 1)
 
 
-def _place_grid(box: _Box, content_x: int) -> None:
+def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("grid writing mode is unsupported")
     if box.definite_height is not None:
@@ -3749,7 +3755,9 @@ def _place_grid(box: _Box, content_x: int) -> None:
         if isinstance(entry, dict) and entry.get("id") is not None
     }
     column_sizes = _size_grid_columns(box, track_defs, located, column_gap, spec)
-    text_heights = _measure_grid_items(box, located, column_sizes, column_gap, content_x)
+    text_heights = _measure_grid_items(
+        box, located, column_sizes, column_gap, content_x, viewport_height
+    )
     row_count = int(placed.get("row_count") or 0)
     auto_rows = spec.get("auto_rows")
     row_sizes: list[int] = []
@@ -3918,10 +3926,143 @@ def _grid_content_contribution(item: _Box) -> tuple[int, int]:
     width = (item.grid or {}).get("width", "auto")
     if isinstance(width, int):
         return width + extra, width + extra
+    if item.children:
+        bounds = [_nested_block_intrinsic(child) for child in item.children]
+        return max(bound[0] for bound in bounds) + extra, max(bound[1] for bound in bounds) + extra
     if item.inline_text:
         minimum, maximum = _intrinsic_text_sizes(item)
         return minimum + extra, maximum + extra
     return extra, extra
+
+
+def _nested_block_intrinsic(box: _Box) -> tuple[int, int]:
+    """Min and max content of a block inside a grid item, before the item margin."""
+
+    specified = _specified_px_width(box)
+    if specified is not None:
+        return specified, specified
+    if box.children:
+        bounds = [_nested_block_intrinsic(child) for child in box.children]
+        return max(bound[0] for bound in bounds), max(bound[1] for bound in bounds)
+    if box.inline_text:
+        return _intrinsic_text_sizes(box)
+    return 0, 0
+
+
+def _specified_px_width(box: _Box) -> int | None:
+    raw = _box_decl(box, "width")
+    if raw is None:
+        return None
+    text = " ".join(raw.strip().lower().split())
+    if text in {"auto", "initial", "unset", "revert"}:
+        return None
+    if text == "0":
+        return 0
+    if text.endswith("px"):
+        return _px(float(text[:-2]), "grid item")
+    return None
+
+
+def _adopt_grid_item_blocks(
+    tree,
+    element,
+    item: _Box,
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+) -> None:
+    """Take a grid item's block children. Mixed text and other displays stay rejected."""
+
+    if _grid_text(getattr(element, "text", None)):
+        raise _Invalid("grid item content is unsupported")
+    for node in tree.children.get(element, []):
+        if _grid_text(getattr(node, "tail", None)):
+            raise _Invalid("grid item content is unsupported")
+    found, floats, _flow, positioned = _walk(
+        tree,
+        element,
+        _modes(item),
+        _fonts(item),
+        item.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        item,
+    )
+    if floats or positioned or item.atoms or not found:
+        raise _Invalid("grid item content is unsupported")
+    for child in found:
+        _reject_grid_item_block(child)
+    item.children = found
+    item.flow = list(found)
+
+
+def _reject_grid_item_block(box: _Box) -> None:
+    if box.display != "block" or box.position != "static" or box.float_side != "none":
+        raise _Invalid("grid item content is unsupported")
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("grid item content is unsupported")
+    sizing = _box_decl(box, "box-sizing")
+    if sizing not in {None, "content-box", "initial", "unset", "revert"}:
+        raise _Invalid("grid item content is unsupported")
+    for child in box.children:
+        _reject_grid_item_block(child)
+
+
+def _lay_grid_item_blocks(item: _Box, viewport_height: int | None) -> int:
+    """Place block children inside the item and return the content height they use.
+
+    The item is an independent formatting context: child margins do not escape,
+    and adjoining vertical margins of those children collapse with each other.
+    """
+
+    for child in item.children:
+        _solve(child, item.content_width, None, viewport_height, item.x)
+    placed = place_collapsed_margins(
+        {
+            "id": item.id,
+            "margin_top": 0,
+            "margin_bottom": 0,
+            "padding_top": 0,
+            "padding_bottom": 0,
+            "border_top": 0,
+            "border_bottom": 0,
+            "height": "auto",
+            "min_height": 0,
+            "overflow": "clip",
+            "float": "none",
+            "position": "static",
+            "display": "block",
+            "clearance": False,
+            "children": [_collapse_spec(child) for child in item.children],
+        }
+    )
+    boxes = placed.get("boxes")
+    if placed.get("outcome") != "placed" or not isinstance(boxes, list):
+        raise _Invalid(str(placed.get("reason") or "grid item content is unsupported"))
+    by_id = {str(entry.get("id")): entry for entry in boxes if isinstance(entry, dict)}
+    parent = by_id.get(item.id)
+    if parent is None:
+        raise _Invalid("grid item content is unsupported")
+    for child in item.children:
+        _stamp_grid_child(child, by_id, 0)
+    return _px(parent.get("border_height"), "grid item")
+
+
+def _stamp_grid_child(box: _Box, by_id: dict[str, dict[str, object]], parent_y: int) -> None:
+    record = by_id.get(box.id)
+    if record is None:
+        raise _Invalid("grid item content is unsupported")
+    border_y = _px(record.get("y"), "y")
+    box.anchor_y = border_y - parent_y
+    box.border_height = _px(record.get("border_height"), "border height")
+    box.content_height = box.border_height - _edge_extent(box.solved, "top", "bottom")
+    if box.content_height < 0:
+        raise _Invalid("content height is invalid")
+    for child in box.children:
+        _stamp_grid_child(child, by_id, border_y)
 
 
 def _measure_grid_items(
@@ -3930,6 +4071,7 @@ def _measure_grid_items(
     column_sizes: list[int],
     column_gap: int,
     content_x: int,
+    viewport_height: int | None,
 ) -> dict[str, int]:
     heights: dict[str, int] = {}
     for item in box.children:
@@ -3949,7 +4091,9 @@ def _measure_grid_items(
             aligned.get("start"), "grid item"
         )
         item.border_width = item.content_width
-        if item.inline_text:
+        if item.children:
+            heights[item.id] = _lay_grid_item_blocks(item, viewport_height)
+        elif item.inline_text:
             item.lines = _plain_lines(item, item.content_width, item.direction)
             heights[item.id] = sum(line.height for line in item.lines)
         else:
