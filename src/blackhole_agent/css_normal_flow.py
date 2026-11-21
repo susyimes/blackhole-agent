@@ -82,7 +82,9 @@ from the inline end: the first item's margin box ends on the right content
 edge, a definite margin-left stays on the left of that item, and
 ``justify-content: flex-end`` leaves the free space on the right. An auto
 margin-right is the main-start margin and absorbs positive free space before
-that packing. A wrapped row-reverse line uses the same end edge. Loose text
+that packing. A wrapped row-reverse line uses the same end edge. Text in a
+row item wraps at its hypothetical main size; an automatic cross size is
+those line boxes, painted in the used content width. Loose container text
 stays rejected.
 A ``display: grid`` container places its element children on explicit column
 tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
@@ -2876,6 +2878,8 @@ def _commit_flex_item(
     item.solved = dict(_ZERO_FLEX_EDGES)
     if isinstance(item.solved, dict):
         item.solved.update(solved_margins)
+    if not column and item.inline_text:
+        item.lines = _plain_lines(item, item.content_width, item.direction)
 
 
 def _line_cross(row: dict[str, object]) -> int:
@@ -3041,6 +3045,14 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
         )
         if basis.get("outcome") != "resolved":
             raise _Invalid(str(basis.get("reason") or "flex base failed"))
+        if not column and text and cross == "auto":
+            preview = _plain_lines(
+                item,
+                _px(basis["hypothetical_inner"], "flex width"),
+                item.direction,
+            )
+            if preview:
+                hypothetical = sum(line.height for line in preview)
         rows.append(
             {
                 "item": item,
