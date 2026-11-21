@@ -10,8 +10,15 @@ This walk kills that split. A stylesheet is cascaded onto the parsed
 document, custom properties are substituted, and each block is sized
 against its parent's used content box. Adjoining vertical margins then
 collapse, and the root box keeps its own margin instead of collapsing
-through to the viewport. ``display: none`` and absolute or fixed boxes
-leave the flow. A float inside a block whose only in-flow content is text
+through to the viewport. ``display: none`` leaves the flow. A relative
+box keeps the space it occupied, then its border box and in-flow descendants
+move by the used left and top; later siblings stay where the static layout
+put them. An absolute box is placed on the padding edge of the nearest
+positioned ancestor, or on the viewport when no ancestor is positioned. A
+fixed box is placed on the viewport. Neither changes the height of the flow.
+An absolute or fixed box that needs the static position, shrink-to-fit, or an
+indefinite height is rejected, and so is any content inside it. A float inside
+a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. A float beside a following block sibling is placed in that same
 content box: the sibling keeps its width, its line boxes shorten where the
@@ -34,16 +41,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_float_placement import place_floats
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
 from blackhole_agent.css_line_break import _default_advance, wrap_lines
+from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_text_align import align_inline_line
 from blackhole_agent.css_logical_box import (
     _LOGICAL,
     _LOGICAL_SHORTHAND,
     _PHYSICAL_SHORTHAND,
     _SIZES,
+    _Invalid as _LogicalInvalid,
+    _cascade,
     resolve_logical_box,
 )
 from blackhole_agent.css_margin_collapse import place_collapsed_margins
@@ -165,6 +176,14 @@ class _Invalid(Exception):
         super().__init__(reason)
 
 
+@dataclass(frozen=True)
+class _Edge:
+    x: int
+    y: int
+    width: int
+    height: int | None
+
+
 @dataclass
 class _Line:
     text: str
@@ -190,6 +209,7 @@ class _Box:
     children: list[_Box] = field(default_factory=list)
     floats: list[_Box] = field(default_factory=list)
     flow: list[_Box] = field(default_factory=list)
+    positioned: list[_Box] = field(default_factory=list)
     anchor_y: int | None = None
     anchor_laid: bool = False
     float_placed: bool = False
@@ -227,7 +247,9 @@ def layout_normal_flow(
     ``viewport_height`` is that block's height, or indefinite when omitted.
     ``x`` and ``y`` are the border edges measured from the viewport origin.
     Lengths are ``px`` or percentages. A unitless zero is rejected. Rules come
-    from the stylesheet; a style attribute is not read.
+    from the stylesheet; a style attribute is not read. Relative offsets are
+    applied after the static positions. Absolute and fixed boxes are included
+    in the returned boxes.
     """
 
     if not isinstance(markup, str) or not isinstance(stylesheet, str):
@@ -271,7 +293,7 @@ def layout_normal_flow(
             raise _Invalid("root is not displayed")
         if root.position in {"absolute", "fixed"} or root.float_side != "none":
             raise _Invalid("root is outside normal flow")
-        root.children, root.floats, root.flow = _walk(
+        root.children, root.floats, root.flow, root.positioned = _walk(
             tree,
             order[0],
             _modes(root),
@@ -290,6 +312,8 @@ def layout_normal_flow(
         by_id = {str(item["id"]): item for item in placed["boxes"] if isinstance(item, dict)}
         margin_top = _px(root.solved.get("margin_top"), "margin-top")
         _assign_y(root, by_id, margin_top)
+        _shift_relatives(root, viewport_width, viewport_height)
+        _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height), [])
         boxes = [_record(box) for box in _each(root)]
     except (CssSelectorError, _Invalid) as exc:
         return _invalid(str(exc))
@@ -318,10 +342,11 @@ def _walk(
     declarations,
     ids: set[str],
     counter: list[int],
-) -> tuple[list[_Box], list[_Box], list[_Box]]:
+) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     found: list[_Box] = []
     floats: list[_Box] = []
     flow: list[_Box] = []
+    positioned: list[_Box] = []
     for child in tree.children.get(element, []):
         if _local_name(child) in _SKIP_TAGS:
             continue
@@ -337,7 +362,11 @@ def _walk(
             counter,
             root=False,
         )
-        if box.display == "none" or box.position in {"absolute", "fixed"}:
+        if box.display == "none":
+            continue
+        if box.position in {"absolute", "fixed"}:
+            _reject_positioned_content(tree, child)
+            positioned.append(box)
             continue
         if box.float_side != "none":
             _reject_float_content(tree, child)
@@ -345,7 +374,9 @@ def _walk(
             flow.append(box)
             continue
         if box.display == "inline":
-            nested, nested_floats, nested_flow = _walk(
+            if box.position == "relative":
+                raise _Invalid("relative inline is unsupported")
+            nested, nested_floats, nested_flow, nested_positioned = _walk(
                 tree,
                 child,
                 _modes(box),
@@ -359,8 +390,9 @@ def _walk(
             found.extend(nested)
             floats.extend(nested_floats)
             flow.extend(nested_flow)
+            positioned.extend(nested_positioned)
             continue
-        box.children, box.floats, box.flow = _walk(
+        box.children, box.floats, box.flow, box.positioned = _walk(
             tree,
             child,
             _modes(box),
@@ -374,7 +406,7 @@ def _walk(
         box.inline_text = None if box.children else _inline_text(tree, child, styles, declarations)
         found.append(box)
         flow.append(box)
-    return found, floats, flow
+    return found, floats, flow, positioned
 
 
 def _make_box(
@@ -674,6 +706,8 @@ def _each(box: _Box):
             yield fl
     for child in box.children:
         yield from _each(child)
+    for abs_box in box.positioned:
+        yield from _each(abs_box)
 
 
 def _record(box: _Box) -> dict[str, object]:
@@ -845,6 +879,191 @@ def _float_margin(box: _Box, name: str, containing: int) -> int:
 def _reject_float_content(tree, element) -> None:
     if (element.text or "").strip() or tree.children.get(element):
         raise _Invalid("float content is unsupported")
+
+
+def _reject_positioned_content(tree, element) -> None:
+    if (element.text or "").strip() or tree.children.get(element):
+        raise _Invalid("positioned content is unsupported")
+
+
+_AUTO_WORDS = frozenset({"auto", "initial", "unset", "revert"})
+
+
+def _is_auto(value: str | None) -> bool:
+    if value is None:
+        return True
+    return value.strip().lower() in _AUTO_WORDS
+
+
+def _physical_slots(box: _Box) -> dict[str, str]:
+    flow = resolve_writing_mode(box.writing_mode, box.direction, text_orientation=box.text_orientation)
+    if flow.get("outcome") != "resolved":
+        raise _Invalid(str(flow.get("reason") or "writing-mode is invalid"))
+    try:
+        return _cascade(box.declarations, flow)
+    except _LogicalInvalid as exc:
+        raise _Invalid(str(exc)) from exc
+
+
+def _inset(slots: dict[str, str], side: str) -> str:
+    return slots.get(f"inset-{side}", "auto")
+
+
+def _border_arg(slots: dict[str, str], side: str) -> object:
+    style = slots.get(f"border-{side}-style", "none").strip().lower()
+    if style in {"none", "hidden"}:
+        return 0
+    width = slots.get(f"border-{side}-width")
+    if width is None:
+        return 3
+    token = width.strip().lower()
+    if token == "thin":
+        return 1
+    if token == "medium":
+        return 3
+    if token == "thick":
+        return 5
+    return width
+
+
+def _shift_relatives(box: _Box, cb_width: int, cb_height: int | None) -> None:
+    if box.position == "relative":
+        dx, dy = _relative_delta(box, cb_width, cb_height)
+        _translate(box, dx, dy)
+    for child in box.children:
+        _shift_relatives(child, box.content_width, box.definite_height)
+    for fl in box.floats:
+        if fl.position == "relative" and fl.float_placed:
+            dx, dy = _relative_delta(fl, box.content_width, box.definite_height)
+            _translate(fl, dx, dy)
+
+
+def _relative_delta(box: _Box, cb_width: int, cb_height: int | None) -> tuple[int, int]:
+    slots = _physical_slots(box)
+    direction = box.direction if box.direction in {"ltr", "rtl"} else "ltr"
+    placed = place_relative(
+        [
+            {
+                "id": box.id,
+                "position": "relative",
+                "direction": direction,
+                "x": box.x,
+                "y": box.y,
+                "width": box.border_width,
+                "height": box.border_height,
+                "left": _inset(slots, "left"),
+                "right": _inset(slots, "right"),
+                "top": _inset(slots, "top"),
+                "bottom": _inset(slots, "bottom"),
+            }
+        ],
+        containing_width=cb_width,
+        containing_height="auto" if cb_height is None else cb_height,
+    )
+    rows = placed.get("boxes")
+    if placed.get("outcome") != "placed" or not isinstance(rows, list) or not rows:
+        raise _Invalid(str(placed.get("reason") or "relative position failed"))
+    row = rows[0]
+    if not isinstance(row, dict):
+        raise _Invalid("relative position failed")
+    return _px(row.get("x"), "x") - box.x, _px(row.get("y"), "y") - box.y
+
+
+def _translate(box: _Box, dx: int, dy: int) -> None:
+    if dx == 0 and dy == 0:
+        return
+    box.x += dx
+    box.y += dy
+    for line in box.lines:
+        line.x += dx
+        line.y += dy
+    for fl in box.floats:
+        if fl.float_placed:
+            _translate(fl, dx, dy)
+    for child in box.children:
+        _translate(child, dx, dy)
+
+
+def _padding_edge(box: _Box) -> _Edge:
+    border_left = _px(box.solved.get("border_left"), "border-left")
+    border_top = _px(box.solved.get("border_top"), "border-top")
+    pad_left = _px(box.solved.get("padding_left"), "padding-left")
+    pad_right = _px(box.solved.get("padding_right"), "padding-right")
+    pad_top = _px(box.solved.get("padding_top"), "padding-top")
+    pad_bottom = _px(box.solved.get("padding_bottom"), "padding-bottom")
+    height = None if box.definite_height is None else box.definite_height + pad_top + pad_bottom
+    return _Edge(box.x + border_left, box.y + border_top, pad_left + box.content_width + pad_right, height)
+
+
+def _place_positioned(box: _Box, viewport: _Edge, stack: list[_Edge]) -> None:
+    frame = stack
+    if box.position in {"relative", "absolute", "fixed"}:
+        frame = [*stack, _padding_edge(box)]
+    for abs_box in box.positioned:
+        cb = viewport if abs_box.position == "fixed" or not frame else frame[-1]
+        _place_one_absolute(abs_box, cb)
+    for child in box.children:
+        _place_positioned(child, viewport, frame)
+
+
+def _place_one_absolute(box: _Box, cb: _Edge) -> None:
+    slots = _physical_slots(box)
+    left, right = _inset(slots, "left"), _inset(slots, "right")
+    top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
+    if _is_auto(left) and _is_auto(right):
+        raise _Invalid("static position is unsupported")
+    if _is_auto(top) and _is_auto(bottom):
+        raise _Invalid("static position is unsupported")
+    if _is_auto(slots.get("width")) and (_is_auto(left) or _is_auto(right)):
+        raise _Invalid("absolute shrink-to-fit is unsupported")
+    if _is_auto(slots.get("height")) and (_is_auto(top) or _is_auto(bottom) or cb.height is None):
+        raise _Invalid("absolute height is indefinite")
+    direction = box.direction if box.direction in {"ltr", "rtl"} else "ltr"
+    placed = place_absolute(
+        cb.width,
+        containing_height="auto" if cb.height is None else cb.height,
+        left=left,
+        right=right,
+        width=slots.get("width", "auto"),
+        top=top,
+        bottom=bottom,
+        height=slots.get("height", "auto"),
+        margin_left=slots.get("margin-left", 0),
+        margin_right=slots.get("margin-right", 0),
+        margin_top=slots.get("margin-top", 0),
+        margin_bottom=slots.get("margin-bottom", 0),
+        padding_left=slots.get("padding-left", 0),
+        padding_right=slots.get("padding-right", 0),
+        padding_top=slots.get("padding-top", 0),
+        padding_bottom=slots.get("padding-bottom", 0),
+        border_left=_border_arg(slots, "left"),
+        border_right=_border_arg(slots, "right"),
+        border_top=_border_arg(slots, "top"),
+        border_bottom=_border_arg(slots, "bottom"),
+        min_width=slots.get("min-width", "auto"),
+        max_width=slots.get("max-width", "none"),
+        min_height=slots.get("min-height", "auto"),
+        max_height=slots.get("max-height", "none"),
+        box_sizing=slots.get("box-sizing", "content-box"),
+        direction=direction,
+        static_left=0,
+        static_right=0,
+        static_top=0,
+        min_content=0,
+        max_content=0,
+        content_height=0,
+    )
+    if placed.get("outcome") != "placed":
+        raise _Invalid(str(placed.get("reason") or "absolute position failed"))
+    box.x = cb.x + _px(placed.get("x"), "x")
+    box.y = cb.y + _px(placed.get("y"), "y")
+    box.content_width = _px(placed.get("width"), "content width")
+    box.content_height = _px(placed.get("height"), "content height")
+    box.border_width = _px(placed.get("border_box_width"), "border width")
+    box.border_height = _px(placed.get("border_box_height"), "border height")
+    box.margin_left = _px(placed.get("margin_left"), "margin-left")
+    box.margin_right = _px(placed.get("margin_right"), "margin-right")
+    box.solved = placed
 
 
 def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
