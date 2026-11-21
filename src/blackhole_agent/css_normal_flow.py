@@ -44,6 +44,11 @@ moves intact to the next line when it does not fit. Its bottom margin edge
 rests on the parent baseline when overflow is not visible or it has no line
 box; otherwise the baseline is its last line. A block sibling, a float, a
 nested inline-block, and positioned content inside it are rejected.
+A ``display: flex`` row lays its element children out on one nowrap line.
+``flex`` and the flex longhands set each item's used content width from the
+row's content box; an automatic row height is the tallest item, and a
+following block starts under that border box. Column, wrapping, gaps, item
+margins, and loose text in the row are rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -53,6 +58,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_flex_align import place_flex_alignment
+from blackhole_agent.css_flex_base import resolve_flex_base
+from blackhole_agent.css_flex_line import resolve_flex_line
 from blackhole_agent.css_float_placement import place_floats
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
@@ -157,7 +165,7 @@ _BLOCK_TAGS = frozenset(
     }
 )
 _SKIP_TAGS = frozenset({"base", "head", "link", "meta", "script", "style", "template", "title"})
-_DISPLAYS = frozenset({"block", "inline", "inline-block", "none"})
+_DISPLAYS = frozenset({"block", "inline", "inline-block", "flex", "none"})
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed"})
 _FLOATS = frozenset({"none", "left", "right"})
 _CLEARS = frozenset({"none", "left", "right", "both"})
@@ -265,6 +273,7 @@ class _Box:
     atoms: list[_Box] = field(default_factory=list)
     pieces: list[_Piece] = field(default_factory=list)
     local_x: int = 0
+    flex: dict[str, object] | None = None
 
 
 def layout_normal_flow(
@@ -378,6 +387,18 @@ def _walk(
     counter: list[int],
     host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
+    if host.display == "flex":
+        return _walk_flex(
+            tree,
+            element,
+            inherited,
+            fonts,
+            styles,
+            declarations,
+            ids,
+            counter,
+            host,
+        )
     found: list[_Box] = []
     floats: list[_Box] = []
     flow: list[_Box] = []
@@ -648,6 +669,9 @@ def _solve(box: _Box, parent_width: int, parent_height: int | None, parent_horiz
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
     content_x = box.x + _px(solved.get("border_left"), "border-left") + _px(solved.get("padding_left"), "padding-left")
+    if box.display == "flex":
+        _place_flex_row(box, content_x)
+        return
     if box.floats and not box.children:
         _place_floats(box, content_x)
     if not box.children and (box.inline_text or box.floats or box.atoms):
@@ -2160,6 +2184,471 @@ def _strut_metrics(font_size: int, line_height: int) -> tuple[int, int]:
 
 def _strut_height(font_size: int, line_height: int) -> int:
     return _strut_metrics(font_size, line_height)[0]
+
+
+_FLEX_DIRECTIONS = frozenset({"row", "row-reverse", "column", "column-reverse"})
+_FLEX_WRAPS = frozenset({"nowrap", "wrap", "wrap-reverse"})
+_FLEX_JUSTIFY = frozenset(
+    {"normal", "flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"}
+)
+_FLEX_ITEMS = frozenset({"normal", "stretch", "flex-start", "flex-end", "center", "baseline"})
+_FLEX_SELF = _FLEX_ITEMS | {"auto"}
+_FLEX_CONTENT = _FLEX_JUSTIFY | {"stretch"}
+_FLEX_EDGES = (
+    "margin-top",
+    "margin-right",
+    "margin-bottom",
+    "margin-left",
+    "padding-top",
+    "padding-right",
+    "padding-bottom",
+    "padding-left",
+    "border-top-width",
+    "border-right-width",
+    "border-bottom-width",
+    "border-left-width",
+)
+_ZERO_EDGE = frozenset({"0", "0px", "initial", "unset", "revert"})
+
+
+def _walk_flex(
+    tree,
+    element,
+    inherited: dict[str, str],
+    fonts: dict[str, str],
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+    host: _Box,
+) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
+    host.flex = _flex_container(tree, element, styles, declarations)
+    if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
+        raise _Invalid("flex writing mode is unsupported")
+    _reject_loose_text(getattr(element, "text", None))
+    items: list[_Box] = []
+    for child in tree.children.get(element, []):
+        _reject_loose_text(getattr(child, "tail", None))
+        if _local_name(child) in _SKIP_TAGS:
+            continue
+        item = _make_box(
+            tree,
+            child,
+            inherited,
+            fonts,
+            host.direction,
+            styles,
+            declarations,
+            ids,
+            counter,
+            root=False,
+        )
+        if item.display == "none":
+            continue
+        if item.position != "static" or item.float_side != "none":
+            raise _Invalid("flex item is outside the line")
+        if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
+            raise _Invalid("flex writing mode is unsupported")
+        if _flex_item_elements(tree, child):
+            raise _Invalid("flex item content is unsupported")
+        _reject_item_edges(item)
+        item.inline_text = child.text or ""
+        item.flex = _flex_item(tree, child, styles, declarations)
+        items.append(item)
+    return items, [], items, []
+
+
+def _flex_item_elements(tree, element) -> bool:
+    return any(_local_name(child) not in _SKIP_TAGS for child in tree.children.get(element, []))
+
+
+def _reject_loose_text(text: object) -> None:
+    if isinstance(text, str) and text.strip():
+        raise _Invalid("flex text is unsupported")
+
+
+def _reject_item_edges(box: _Box) -> None:
+    sizing = _box_decl(box, "box-sizing")
+    if sizing not in {None, "content-box", "initial", "unset", "revert"}:
+        raise _Invalid("flex box-sizing is unsupported")
+    for name in _FLEX_EDGES:
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in _ZERO_EDGE:
+            continue
+        raise _Invalid("flex item edge is unsupported")
+    limits = {
+        "min-height": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "max-height": {"none", "initial", "unset", "revert"},
+    }
+    for name, allowed in limits.items():
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in allowed:
+            continue
+        raise _Invalid("flex item cross limit is unsupported")
+
+
+def _box_decl(box: _Box, name: str) -> str | None:
+    found = None
+    for prop, value in box.declarations:
+        if prop == name:
+            found = value
+    return found
+
+
+def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
+    custom = styles.get(element, ({}, ""))[0]
+    direction = "row"
+    wrap = "nowrap"
+    justify = "normal"
+    align = "normal"
+    tracked = {
+        "flex-direction",
+        "flex-wrap",
+        "flex-flow",
+        "justify-content",
+        "align-items",
+        "align-content",
+        "gap",
+        "column-gap",
+        "row-gap",
+        "order",
+    }
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop not in tracked:
+            continue
+        value = _author_value(raw, custom)
+        if prop == "flex-direction":
+            direction = _choice(value, "row", _FLEX_DIRECTIONS, "flex-direction")
+        elif prop == "flex-wrap":
+            wrap = _choice(value, "nowrap", _FLEX_WRAPS, "flex-wrap")
+        elif prop == "flex-flow":
+            direction, wrap = _flex_flow(value)
+        elif prop == "justify-content":
+            justify = _choice(value, "normal", _FLEX_JUSTIFY, "justify-content")
+        elif prop == "align-items":
+            align = _choice(value, "normal", _FLEX_ITEMS, "align-items")
+        elif prop == "align-content":
+            chosen = _choice(value, "normal", _FLEX_CONTENT, "align-content")
+            if chosen not in {"normal", "stretch"}:
+                raise _Invalid("flex align is unsupported")
+        elif prop in {"gap", "column-gap", "row-gap"}:
+            if value not in {"0", "0px", "normal", "initial", "unset", "revert"}:
+                raise _Invalid("flex gap is unsupported")
+        elif value not in {"0", "initial", "unset", "revert"}:
+            raise _Invalid("flex order is unsupported")
+    if direction != "row" or wrap != "nowrap":
+        raise _Invalid("flex direction is unsupported")
+    if justify not in {"normal", "flex-start"}:
+        raise _Invalid("flex justify is unsupported")
+    if align not in {"normal", "stretch"}:
+        raise _Invalid("flex align is unsupported")
+    return {"justify": justify, "align": align}
+
+
+def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
+    custom = styles.get(element, ({}, ""))[0]
+    grow = 0.0
+    shrink = 1.0
+    basis: object = "auto"
+    align = "auto"
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop not in {"flex", "flex-grow", "flex-shrink", "flex-basis", "align-self", "order"}:
+            continue
+        value = _author_value(raw, custom)
+        if prop == "flex":
+            grow, shrink, basis = _parse_flex(value)
+        elif prop == "flex-grow":
+            grow = _flex_factor(value, 0.0)
+        elif prop == "flex-shrink":
+            shrink = _flex_factor(value, 1.0)
+        elif prop == "flex-basis":
+            basis = _flex_basis(value)
+        elif prop == "align-self":
+            align = _choice(value, "auto", _FLEX_SELF, "align-self")
+        elif value not in {"0", "initial", "unset", "revert"}:
+            raise _Invalid("flex order is unsupported")
+    if align not in {"auto", "normal"}:
+        raise _Invalid("flex align is unsupported")
+    return {"grow": grow, "shrink": shrink, "basis": basis, "align": align}
+
+
+def _author_value(value: str, custom: dict) -> str:
+    if _wide_keyword(value) is not None:
+        return value.strip().lower()
+    substituted = _substitute(value, lambda key: custom.get(key, _INVALID))
+    if substituted is _INVALID or not isinstance(substituted, str) or not substituted.strip():
+        raise _Invalid("flex value is invalid")
+    return " ".join(substituted.strip().lower().split())
+
+
+def _choice(value: str, default: str, allowed: frozenset[str], name: str) -> str:
+    if value == "inherit":
+        raise _Invalid(f"{name} inherit is unsupported")
+    if value in {"initial", "unset", "revert"}:
+        return default
+    if value not in allowed:
+        raise _Invalid(f"{name} is invalid")
+    return value
+
+
+def _flex_flow(value: str) -> tuple[str, str]:
+    if value in {"initial", "unset", "revert"}:
+        return "row", "nowrap"
+    if value == "inherit":
+        raise _Invalid("flex-flow inherit is unsupported")
+    direction = "row"
+    wrap = "nowrap"
+    parts = value.split(" ")
+    if not parts or len(parts) > 2:
+        raise _Invalid("flex-flow is invalid")
+    for part in parts:
+        if part in _FLEX_DIRECTIONS:
+            direction = part
+        elif part in _FLEX_WRAPS:
+            wrap = part
+        else:
+            raise _Invalid("flex-flow is invalid")
+    return direction, wrap
+
+
+def _parse_flex(value: str) -> tuple[float, float, object]:
+    if value in {"initial", "unset", "revert"}:
+        return 0.0, 1.0, "auto"
+    if value == "inherit":
+        raise _Invalid("flex inherit is unsupported")
+    if value == "none":
+        return 0.0, 0.0, "auto"
+    if value == "auto":
+        return 1.0, 1.0, "auto"
+    parts = value.split(" ")
+    if not parts or len(parts) > 3:
+        raise _Invalid("flex is invalid")
+    grow = None
+    shrink = None
+    basis = None
+    for part in parts:
+        if _basis_token(part):
+            if basis is not None:
+                raise _Invalid("flex is invalid")
+            basis = _flex_basis(part)
+            continue
+        number = _flex_factor(part, 0.0)
+        if grow is None:
+            grow = number
+        elif shrink is None:
+            shrink = number
+        else:
+            raise _Invalid("flex is invalid")
+    return (1.0 if grow is None else grow, 1.0 if shrink is None else shrink, 0 if basis is None else basis)
+
+
+def _basis_token(part: str) -> bool:
+    if part in {"auto", "content", "min-content", "max-content", "fit-content"}:
+        return True
+    if part.endswith(("px", "%")):
+        return True
+    return part.startswith(("calc(", "min(", "max(", "clamp("))
+
+
+def _flex_basis(value: str) -> object:
+    if value in {"initial", "unset", "revert", "auto"}:
+        return "auto"
+    if value == "inherit":
+        raise _Invalid("flex inherit is unsupported")
+    if value == "0":
+        return 0
+    if value.endswith("px"):
+        return _px(float(value[:-2]), "flex-basis")
+    if value.endswith("%") or value in {"content", "min-content", "max-content", "fit-content"}:
+        return value
+    if value.startswith(("calc(", "min(", "max(", "clamp(")):
+        return value
+    raise _Invalid("flex-basis is unsupported")
+
+
+def _flex_factor(value: str, default: float) -> float:
+    if value in {"initial", "unset", "revert"}:
+        return default
+    if value == "inherit":
+        raise _Invalid("flex inherit is unsupported")
+    try:
+        number = float(value)
+    except ValueError as exc:
+        raise _Invalid("flex factor is invalid") from exc
+    if number < 0 or number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid("flex factor is invalid")
+    return number
+
+
+def _main_size(raw: str | None, default: str) -> object:
+    if raw is None:
+        return default
+    text = " ".join(raw.strip().lower().split())
+    if text in {"initial", "unset", "revert"}:
+        return default
+    if text == "inherit":
+        raise _Invalid("flex inherit is unsupported")
+    if text in {"auto", "none", "min-content", "max-content", "content", "fit-content"}:
+        return text
+    if text == "0":
+        return 0
+    if text.endswith("px"):
+        return _px(float(text[:-2]), "flex length")
+    if text.endswith("%") or text.startswith(("calc(", "min(", "max(", "clamp(")):
+        return text
+    raise _Invalid("flex length is unsupported")
+
+
+def _line_limit(value: object) -> object:
+    if isinstance(value, bool):
+        raise _Invalid("flex length is unsupported")
+    if isinstance(value, (int, float)) or value in {"auto", "none"}:
+        return value
+    raise _Invalid("flex length is unsupported")
+
+
+def _text_main(text: str, font_size: int) -> int:
+    return sum(_advance_of(ch, font_size) for ch in text)
+
+
+def _used_cross(raw: str | None, content: int) -> tuple[object, int]:
+    if raw is None:
+        return "auto", content
+    text = " ".join(raw.strip().lower().split())
+    if text in {"auto", "initial", "unset", "revert"}:
+        return "auto", content
+    if text == "inherit":
+        raise _Invalid("flex inherit is unsupported")
+    if text == "0":
+        return 0, 0
+    if text.endswith("px"):
+        used = _px(float(text[:-2]), "height")
+        return used, used
+    raise _Invalid("flex item height is unsupported")
+
+
+def _place_flex_row(box: _Box, content_x: int) -> None:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("flex writing mode is unsupported")
+    spec = box.flex or {"justify": "normal", "align": "normal"}
+    rows: list[dict[str, object]] = []
+    for item in box.children:
+        flex = item.flex or {"grow": 0.0, "shrink": 1.0, "basis": "auto", "align": "auto"}
+        text = item.inline_text or ""
+        content_main = _text_main(text, item.font_size)
+        content_cross = (
+            _strut_height(item.font_size, _used_line_height(item.line_height, item.font_size)) if text else 0
+        )
+        width = _main_size(_box_decl(item, "width"), "auto")
+        basis = resolve_flex_base(
+            box.content_width,
+            flex_basis=flex["basis"],
+            main_size=width,
+            minimum="auto",
+            maximum="none",
+            min_content=content_main,
+            max_content=content_main,
+        )
+        if basis.get("outcome") != "resolved":
+            raise _Invalid(str(basis.get("reason") or "flex base failed"))
+        cross, hypothetical = _used_cross(_box_decl(item, "height"), content_cross)
+        rows.append(
+            {
+                "item": item,
+                "base": basis["inner_base"],
+                "grow": flex["grow"],
+                "shrink": flex["shrink"],
+                "minimum": _line_limit(_main_size(_box_decl(item, "min-width"), "auto")),
+                "maximum": _line_limit(_main_size(_box_decl(item, "max-width"), "none")),
+                "content": content_main,
+                "specified": width if isinstance(width, (int, float)) and not isinstance(width, bool) else "auto",
+                "cross": cross,
+                "hypothetical": hypothetical,
+                "align": flex["align"],
+            }
+        )
+    if not rows:
+        if box.definite_height is None:
+            box.definite_height = 0
+        box.anchor_laid = True
+        return
+    line = resolve_flex_line(
+        box.content_width,
+        [
+            {
+                "base": row["base"],
+                "grow": row["grow"],
+                "shrink": row["shrink"],
+                "minimum": row["minimum"],
+                "maximum": row["maximum"],
+                "margin": 0,
+                "content": row["content"],
+                "specified": row["specified"],
+            }
+            for row in rows
+        ],
+    )
+    if line.get("outcome") != "resolved" or not isinstance(line.get("main_sizes"), list):
+        raise _Invalid(str(line.get("reason") or "flex line failed"))
+    sizes = line["main_sizes"]
+    if len(sizes) != len(rows):
+        raise _Invalid("flex line failed")
+    if box.definite_height is None:
+        box.definite_height = max(int(row["hypothetical"]) for row in rows)
+    entries: list[dict[str, object]] = []
+    for row, inner in zip(rows, sizes, strict=True):
+        entry = {
+            "id": row["item"].id,
+            "main": inner,
+            "cross": row["cross"],
+            "align_self": row["align"],
+        }
+        if row["cross"] == "auto":
+            entry["content"] = row["hypothetical"]
+        entries.append(entry)
+    placed = place_flex_alignment(
+        box.content_width,
+        box.definite_height,
+        [entries],
+        justify_content=spec.get("justify", "normal"),
+        align_items=spec.get("align", "normal"),
+        wrap="nowrap",
+    )
+    if placed.get("outcome") != "placed" or not isinstance(placed.get("lines"), list):
+        raise _Invalid(str(placed.get("reason") or "flex alignment failed"))
+    lines = placed["lines"]
+    if len(lines) != 1 or not isinstance(lines[0], dict) or not isinstance(lines[0].get("items"), list):
+        raise _Invalid("flex alignment failed")
+    by_id = {str(entry.get("id")): entry for entry in lines[0]["items"] if isinstance(entry, dict)}
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    for row, inner in zip(rows, sizes, strict=True):
+        item = row["item"]
+        entry = by_id.get(item.id)
+        if entry is None:
+            raise _Invalid("flex alignment failed")
+        item.content_width = _px(inner, "flex width")
+        item.content_height = _px(entry.get("cross_size"), "flex height")
+        item.x = content_x + _px(entry.get("main"), "flex x")
+        item.anchor_y = origin + _px(entry.get("cross"), "flex y")
+        item.border_width = item.content_width
+        item.border_height = item.content_height
+        item.margin_left = 0
+        item.margin_right = 0
+        item.solved = {
+            "margin_top": 0,
+            "margin_right": 0,
+            "margin_bottom": 0,
+            "margin_left": 0,
+            "padding_top": 0,
+            "padding_right": 0,
+            "padding_bottom": 0,
+            "padding_left": 0,
+            "border_top": 0,
+            "border_right": 0,
+            "border_bottom": 0,
+            "border_left": 0,
+        }
+    box.anchor_laid = True
 
 
 def _px(value: object, name: str) -> int:
