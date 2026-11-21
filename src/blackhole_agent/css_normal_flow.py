@@ -37,7 +37,13 @@ block that also has block children keeps those children and does not build
 line boxes. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
 shrinking the parent's strut. text-align and white-space on an inline
-stay rejected. A float beside those mixed runs is rejected too.
+stay rejected. A float beside those mixed runs is rejected too. An
+inline-block is an atomic inline: automatic width is the shrink-to-fit of
+its text, the words before and after stay on the line, and the atomic box
+moves intact to the next line when it does not fit. Its bottom margin edge
+rests on the parent baseline when overflow is not visible or it has no line
+box; otherwise the baseline is its last line. A block sibling, a float, a
+nested inline-block, and positioned content inside it are rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -197,6 +203,14 @@ class _Run:
 
 
 @dataclass
+class _Piece:
+    text: str
+    font_size: int
+    line_height: str
+    atom: _Box | None = None
+
+
+@dataclass
 class _Line:
     text: str
     x: int
@@ -204,6 +218,8 @@ class _Line:
     height: int
     content_width: int
     runs: list[dict[str, object]] = field(default_factory=list)
+    baseline: int = 0
+    atoms: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -246,6 +262,9 @@ class _Box:
     inline_text: str | None = None
     inline_runs: list[_Run] = field(default_factory=list)
     lines: list[_Line] = field(default_factory=list)
+    atoms: list[_Box] = field(default_factory=list)
+    pieces: list[_Piece] = field(default_factory=list)
+    local_x: int = 0
 
 
 def layout_normal_flow(
@@ -317,6 +336,7 @@ def layout_normal_flow(
             declarations,
             ids,
             counter,
+            root,
         )
         _set_inline(root, tree, order[0], styles, declarations)
         _solve(root, viewport_width, viewport_height, True, 0)
@@ -356,6 +376,7 @@ def _walk(
     declarations,
     ids: set[str],
     counter: list[int],
+    host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     found: list[_Box] = []
     floats: list[_Box] = []
@@ -388,6 +409,26 @@ def _walk(
             floats.append(box)
             flow.append(box)
             continue
+        if box.display == "inline-block":
+            if box.position != "static":
+                raise _Invalid("positioned inline-block is unsupported")
+            box.children, box.floats, box.flow, box.positioned = _walk(
+                tree,
+                child,
+                _modes(box),
+                _fonts(box),
+                box.direction,
+                styles,
+                declarations,
+                ids,
+                counter,
+                box,
+            )
+            _set_inline(box, tree, child, styles, declarations)
+            if box.children or box.floats or box.positioned or box.atoms:
+                raise _Invalid("inline-block content is unsupported")
+            host.atoms.append(box)
+            continue
         if box.display == "inline":
             if box.position == "relative":
                 raise _Invalid("relative inline is unsupported")
@@ -401,6 +442,7 @@ def _walk(
                 declarations,
                 ids,
                 counter,
+                host,
             )
             found.extend(nested)
             floats.extend(nested_floats)
@@ -417,6 +459,7 @@ def _walk(
             declarations,
             ids,
             counter,
+            box,
         )
         _set_inline(box, tree, child, styles, declarations)
         found.append(box)
@@ -607,7 +650,7 @@ def _solve(box: _Box, parent_width: int, parent_height: int | None, parent_horiz
     content_x = box.x + _px(solved.get("border_left"), "border-left") + _px(solved.get("padding_left"), "padding-left")
     if box.floats and not box.children:
         _place_floats(box, content_x)
-    if not box.children and (box.inline_text or box.floats):
+    if not box.children and (box.inline_text or box.floats or box.atoms):
         _fill_lines(box)
     elif box.floats:
         for child in box.children:
@@ -706,6 +749,8 @@ def _assign_y(
     for line in box.lines:
         line.x += origin_x
         line.y += content_y
+    for atom in box.atoms:
+        _shift_atom(atom, origin_x, content_y)
     for fl in box.floats:
         if not fl.float_placed:
             continue
@@ -715,11 +760,31 @@ def _assign_y(
         _assign_y(child, by_id, origin, box.y)
 
 
+def _shift_atom(atom: _Box, origin_x: int, content_y: int) -> None:
+    atom.x = origin_x + atom.local_x
+    atom.y = content_y + atom.local_y
+    ax = (
+        atom.x
+        + _px(atom.solved.get("border_left"), "border-left")
+        + _px(atom.solved.get("padding_left"), "padding-left")
+    )
+    ay = (
+        atom.y
+        + _px(atom.solved.get("border_top"), "border-top")
+        + _px(atom.solved.get("padding_top"), "padding-top")
+    )
+    for line in atom.lines:
+        line.x += ax
+        line.y += ay
+
+
 def _each(box: _Box):
     yield box
     for fl in box.floats:
         if fl.float_placed:
             yield fl
+    for atom in box.atoms:
+        yield from _each(atom)
     for child in box.children:
         yield from _each(child)
     for abs_box in box.positioned:
@@ -759,6 +824,15 @@ def _record_line(line: _Line) -> dict[str, object]:
             }
             for run in line.runs
         ]
+    if line.atoms:
+        item["atoms"] = [
+            {
+                "id": str(entry["id"]),
+                "x": line.x + int(entry["x"]),
+                "width": int(entry["width"]),
+            }
+            for entry in line.atoms
+        ]
     return item
 
 
@@ -773,12 +847,32 @@ def _fonts(box: _Box) -> dict[str, str]:
 
 def _set_inline(box: _Box, tree, element, styles, declarations) -> None:
     if box.children:
+        if box.atoms:
+            raise _Invalid("inline-block beside blocks is unsupported")
         box.inline_text = None
         box.inline_runs = []
+        box.pieces = []
+        return
+    if box.atoms:
+        pieces = _inline_pieces(tree, element, styles, declarations, _fonts(box), box.atoms)
+        if pieces is None:
+            raise _Invalid("inline-block beside blocks is unsupported")
+        box.pieces = pieces
+        runs: list[_Run] = []
+        for piece in pieces:
+            if piece.atom is not None or not piece.text:
+                continue
+            if runs and runs[-1].font_size == piece.font_size and runs[-1].line_height == piece.line_height:
+                runs[-1].text += piece.text
+                continue
+            runs.append(_Run(piece.text, piece.font_size, piece.line_height))
+        box.inline_runs = runs
+        box.inline_text = "".join(run.text for run in runs)
         return
     runs = _inline_runs(tree, element, styles, declarations, _fonts(box))
     box.inline_runs = [] if runs is None else runs
     box.inline_text = None if runs is None else "".join(run.text for run in runs)
+    box.pieces = []
 
 
 def _inline_runs(tree, element, styles, declarations, fonts: dict[str, str]) -> list[_Run] | None:
@@ -816,6 +910,54 @@ def _inline_runs(tree, element, styles, declarations, fonts: dict[str, str]) -> 
     return runs
 
 
+def _inline_pieces(tree, element, styles, declarations, fonts: dict[str, str], atoms: list[_Box]) -> list[_Piece] | None:
+    stream = iter(atoms)
+    pieces: list[_Piece] = []
+
+    def add(text: str, size: int, leading: str) -> None:
+        if not text:
+            return
+        if pieces and pieces[-1].atom is None and pieces[-1].font_size == size and pieces[-1].line_height == leading:
+            pieces[-1].text += text
+            return
+        pieces.append(_Piece(text, size, leading))
+
+    def walk(node, parent_fonts: dict[str, str]) -> bool:
+        size = _positive_px(parent_fonts["font-size"], "font-size")
+        leading = parent_fonts["line-height"]
+        add(node.text or "", size, leading)
+        for child in list(node):
+            if not _local_name(child):
+                continue
+            kind = _flow_kind(tree, child, styles, declarations)
+            if kind in {"skip", "out"}:
+                add(child.tail or "", size, leading)
+                continue
+            if kind == "inline-block":
+                try:
+                    atom = next(stream)
+                except StopIteration as exc:
+                    raise _Invalid("inline-block is unsupported") from exc
+                pieces.append(_Piece("", size, leading, atom))
+                add(child.tail or "", size, leading)
+                continue
+            if kind == "block":
+                return False
+            _reject_inline_type(tree, child, styles, declarations)
+            if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts)):
+                return False
+            add(child.tail or "", size, leading)
+        return True
+
+    if not walk(element, fonts):
+        return None
+    try:
+        next(stream)
+    except StopIteration:
+        return pieces
+    raise _Invalid("inline-block is unsupported")
+
+
 def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -> dict[str, str]:
     custom = styles.get(element, ({}, ""))[0]
     winners = _winners(tree, element, declarations)
@@ -845,6 +987,8 @@ def _flow_kind(tree, element, styles, declarations) -> str:
         return "out"
     if display == "inline":
         return "inline"
+    if display == "inline-block":
+        return "inline-block"
     return "block"
 
 
@@ -1161,14 +1305,23 @@ def _has_explicit_limit(box: _Box, names: tuple[str, ...]) -> bool:
     return False
 
 
+def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
+    text = box.inline_text or ""
+    if _mixed_runs(box):
+        styles = _style_stream(box.inline_runs)
+        if len(styles) != len(text):
+            raise _Invalid("inline run is invalid")
+        return [_advance_of(ch, styles[index][0]) for index, ch in enumerate(text)]
+    return {ch: box.font_size * _default_advance(ch) for ch in set(text)}
+
+
 def _shrink_float_width(box: _Box, available: int) -> int:
     """CSS 2.1 shrink-to-fit: min(max(min-content, available), max-content)."""
 
     text = box.inline_text or ""
     if box.white_space in _COLLAPSED_EMPTY and not text.strip():
         return 0
-    advances = {ch: box.font_size * _default_advance(ch) for ch in set(text)}
-    wrapped = wrap_lines(text, max(available, 0), white_space=box.white_space, advances=advances)
+    wrapped = wrap_lines(text, max(available, 0), white_space=box.white_space, advances=_shrink_advances(box))
     if wrapped.get("outcome") != "wrapped":
         raise _Invalid(str(wrapped.get("reason") or "float width is indefinite"))
     minimum = _px(wrapped.get("min_content"), "float width")
@@ -1601,7 +1754,7 @@ def _group_runs(rendered: str, styles: list[tuple[int, str]]) -> list[tuple[str,
     return groups
 
 
-def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> int:
+def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> tuple[int, int]:
     boxes = []
     for index, (_text, size, leading, _width) in enumerate(groups):
         boxes.append(
@@ -1625,7 +1778,7 @@ def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> int
     )
     if laid.get("outcome") != "resolved":
         raise _Invalid(str(laid.get("reason") or "line box failed"))
-    return _px(laid.get("line_height"), "line height")
+    return _px(laid.get("line_height"), "line height"), _px(laid.get("baseline"), "baseline")
 
 
 def _fill_mixed(box: _Box) -> None:
@@ -1657,7 +1810,7 @@ def _fill_mixed(box: _Box) -> None:
         if rest == remaining:
             raise _Invalid("line break failed")
         groups = _group_runs(rendered, line_styles)
-        height = _runs_line_height(box, groups)
+        height, baseline = _runs_line_height(box, groups)
         last = rest == "" or (box.white_space in _COLLAPSED_EMPTY and not rest.strip())
         aligned = align_inline_line(
             box.content_width,
@@ -1678,7 +1831,15 @@ def _fill_mixed(box: _Box) -> None:
             runs.append({"text": piece, "x": local, "font_size": size, "width": width})
             local += width
         records.append(
-            _Line(text=rendered, x=offset, y=cursor, height=height, content_width=content, runs=runs)
+            _Line(
+                text=rendered,
+                x=offset,
+                y=cursor,
+                height=height,
+                content_width=content,
+                runs=runs,
+                baseline=baseline,
+            )
         )
         remaining = rest
         remaining_styles = rest_styles
@@ -1690,7 +1851,229 @@ def _fill_mixed(box: _Box) -> None:
         box.definite_height = cursor
 
 
+_ZWSP = "\u200b"
+_MARK = 0xE000
+
+
+def _atom_edges(parent: _Box, atom: _Box, row: dict[str, int]) -> tuple[int, int]:
+    solved = atom.solved
+    margin_top = row["margin_top"]
+    margin_bottom = _float_margin(atom, "margin-bottom", parent.content_width)
+    border_top = _px(solved.get("border_top"), "border-top")
+    border_bottom = _px(solved.get("border_bottom"), "border-bottom")
+    padding_top = _px(solved.get("padding_top"), "padding-top")
+    padding_bottom = _px(solved.get("padding_bottom"), "padding-bottom")
+    if atom.overflow != "visible" or not atom.lines:
+        return row["outer_height"], 0
+    last = atom.lines[-1]
+    content_base = last.y + last.baseline
+    above = margin_top + border_top + padding_top + content_base
+    below = atom.content_height - content_base + padding_bottom + border_bottom + margin_bottom
+    if below < 0:
+        raise _Invalid("inline-block baseline is invalid")
+    return above, below
+
+
+def _line_extent(
+    box: _Box,
+    groups: list[tuple[str, int, str, int]],
+    edges: list[tuple[int, int]],
+) -> tuple[int, int, list[int]]:
+    payload = []
+    for index, (_text, size, leading, _width) in enumerate(groups):
+        payload.append(
+            {
+                "id": f"t{index}",
+                "kind": "text",
+                "vertical_align": "baseline",
+                "ascent": size,
+                "descent": 0,
+                "line_height": _used_line_height(leading, size),
+            }
+        )
+    if not payload:
+        payload.append(
+            {
+                "id": "strut",
+                "kind": "text",
+                "vertical_align": "baseline",
+                "ascent": box.font_size,
+                "descent": 0,
+                "line_height": _used_line_height(box.line_height, box.font_size),
+            }
+        )
+    laid = layout_inline_line(
+        {
+            "ascent": box.font_size,
+            "descent": 0,
+            "line_height": _used_line_height(box.line_height, box.font_size),
+            "x_height": 0,
+        },
+        payload,
+    )
+    if laid.get("outcome") != "resolved":
+        raise _Invalid(str(laid.get("reason") or "line box failed"))
+    above = _px(laid.get("baseline"), "baseline")
+    below = _px(laid.get("line_height"), "line height") - above
+    for edge_above, edge_below in edges:
+        above = max(above, edge_above)
+        below = max(below, edge_below)
+    return above + below, above, [above - edge_above for edge_above, _edge_below in edges]
+
+
+def _fill_inline_blocks(box: _Box) -> None:
+    """Place inline-blocks as atomic line items around the parent's text."""
+
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("inline-block writing mode is unsupported")
+    if len(box.atoms) > 32:
+        raise _Invalid("inline-block is unsupported")
+    for atom in box.atoms:
+        if atom.writing_mode != "horizontal-tb" or atom.direction != "ltr":
+            raise _Invalid("inline-block writing mode is unsupported")
+    measured = {atom.id: _measure_float(box, atom) for atom in box.atoms}
+    entries: list[tuple[str, int, str, _Box | None]] = []
+    serial = 0
+    for piece in box.pieces:
+        if piece.atom is None:
+            for ch in piece.text:
+                if ch in "\t\r\n" or ch == _ZWSP or _MARK <= ord(ch) <= _MARK + 31:
+                    raise _Invalid("inline-block break is unsupported")
+                entries.append((ch, piece.font_size, piece.line_height, None))
+            continue
+        mark = chr(_MARK + serial)
+        serial += 1
+        entries.append((_ZWSP, piece.font_size, piece.line_height, None))
+        entries.append((mark, piece.font_size, piece.line_height, piece.atom))
+        entries.append((_ZWSP, piece.font_size, piece.line_height, None))
+    if serial != len(box.atoms):
+        raise _Invalid("inline-block is unsupported")
+    source = "".join(item[0] for item in entries)
+    advances = []
+    for ch, size, _leading, atom in entries:
+        if ch == _ZWSP:
+            advances.append(0)
+        elif atom is not None:
+            advances.append(measured[atom.id]["outer_width"])
+        else:
+            advances.append(_advance_of(ch, size))
+    wrapped = wrap_lines(source, max(box.content_width, 0), white_space=box.white_space, advances=advances)
+    raw_lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
+    if not isinstance(raw_lines, list):
+        raise _Invalid(str(wrapped.get("reason") or "line break failed"))
+    records: list[_Line] = []
+    cursor_y = 0
+    index = 0
+    placed: set[str] = set()
+    visible_lines = [line for line in raw_lines if isinstance(line, dict)]
+    last = len(visible_lines) - 1
+    for line_index, line in enumerate(visible_lines):
+        rendered = str(line.get("text") or "")
+        content = _px(line.get("content_width"), "line width")
+        if not rendered and content == 0:
+            continue
+        chosen: list[tuple[str, int, str, _Box | None]] = []
+        for ch in rendered:
+            while index < len(entries) and entries[index][0] != ch:
+                if not entries[index][0].isspace():
+                    raise _Invalid("inline-block line is invalid")
+                index += 1
+            if index >= len(entries):
+                raise _Invalid("inline-block line is invalid")
+            chosen.append(entries[index])
+            index += 1
+        groups: list[tuple[str, int, str, int]] = []
+        runs: list[dict[str, object]] = []
+        atom_records: list[dict[str, object]] = []
+        atoms_here: list[tuple[_Box, int]] = []
+        cursor = 0
+        buf = ""
+        buf_size = 0
+        buf_leading = ""
+        buf_width = 0
+        buf_x = 0
+
+        def flush() -> None:
+            nonlocal buf, buf_width
+            if not buf:
+                return
+            groups.append((buf, buf_size, buf_leading, buf_width))
+            runs.append({"text": buf, "x": buf_x, "font_size": buf_size, "width": buf_width})
+            buf = ""
+            buf_width = 0
+
+        for ch, size, leading, atom in chosen:
+            if ch == _ZWSP:
+                continue
+            if atom is not None:
+                flush()
+                row = measured[atom.id]
+                border_x = cursor + row["margin_left"]
+                atoms_here.append((atom, border_x))
+                atom_records.append({"id": atom.id, "x": border_x, "width": row["outer_width"]})
+                cursor += row["outer_width"]
+                placed.add(atom.id)
+                continue
+            advance = _advance_of(ch, size)
+            if buf and (size != buf_size or leading != buf_leading):
+                flush()
+            if not buf:
+                buf_x = cursor
+                buf_size = size
+                buf_leading = leading
+            buf += ch
+            buf_width += advance
+            cursor += advance
+        flush()
+        if cursor != content:
+            raise _Invalid("inline-block line is invalid")
+        edges = [_atom_edges(box, atom, measured[atom.id]) for atom, _border_x in atoms_here]
+        height, above, tops = _line_extent(box, groups, edges)
+        aligned = align_inline_line(
+            box.content_width,
+            [{"id": "text", "width": content, "space_after": 0}],
+            text_align=box.text_align,
+            direction=box.direction,
+            parent_direction=box.parent_direction,
+            white_space=box.white_space,
+            last_line=line_index == last,
+        )
+        items = aligned.get("items") if aligned.get("outcome") == "aligned" else None
+        if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict):
+            raise _Invalid(str(aligned.get("reason") or "text alignment failed"))
+        offset = _px(items[0].get("x"), "line x")
+        for (atom, border_x), top in zip(atoms_here, tops, strict=True):
+            atom.local_x = offset + border_x
+            atom.local_y = cursor_y + top + measured[atom.id]["margin_top"]
+        visible = "".join(ch for ch, _size, _leading, atom in chosen if atom is None and ch != _ZWSP)
+        records.append(
+            _Line(
+                text=visible,
+                x=offset,
+                y=cursor_y,
+                height=height,
+                content_width=content,
+                runs=runs,
+                baseline=above,
+                atoms=atom_records,
+            )
+        )
+        cursor_y += height
+    while index < len(entries) and entries[index][0].isspace():
+        index += 1
+    if index != len(entries) or placed != {atom.id for atom in box.atoms}:
+        raise _Invalid("inline-block line is invalid")
+    box.lines = records
+    if box.definite_height is None:
+        box.definite_height = cursor_y
+
+
 def _fill_lines(box: _Box) -> None:
+    if box.atoms:
+        if box.floats:
+            raise _Invalid("inline-block beside a float is unsupported")
+        _fill_inline_blocks(box)
+        return
     if _mixed_runs(box) and box.floats and not box.children:
         raise _Invalid("inline font beside a float is unsupported")
     if box.floats and not box.children:
@@ -1703,7 +2086,7 @@ def _fill_lines(box: _Box) -> None:
     if not text:
         return
     used = _used_line_height(box.line_height, box.font_size)
-    height = _strut_height(box.font_size, used)
+    height, baseline = _strut_metrics(box.font_size, used)
     advances = {ch: box.font_size * _default_advance(ch) for ch in set(text)}
     wrapped = wrap_lines(text, box.content_width, white_space=box.white_space, advances=advances)
     lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
@@ -1739,6 +2122,7 @@ def _fill_lines(box: _Box) -> None:
                 y=cursor,
                 height=height,
                 content_width=content,
+                baseline=baseline,
             )
         )
         cursor += height
@@ -1755,7 +2139,7 @@ def _used_line_height(computed: str, font_size: int) -> int:
     return _px(float(computed) * font_size, "line-height")
 
 
-def _strut_height(font_size: int, line_height: int) -> int:
+def _strut_metrics(font_size: int, line_height: int) -> tuple[int, int]:
     laid = layout_inline_line(
         {"ascent": font_size, "descent": 0, "line_height": line_height, "x_height": 0},
         [
@@ -1771,7 +2155,11 @@ def _strut_height(font_size: int, line_height: int) -> int:
     )
     if laid.get("outcome") != "resolved":
         raise _Invalid(str(laid.get("reason") or "line box failed"))
-    return _px(laid.get("line_height"), "line height")
+    return _px(laid.get("line_height"), "line height"), _px(laid.get("baseline"), "baseline")
+
+
+def _strut_height(font_size: int, line_height: int) -> int:
+    return _strut_metrics(font_size, line_height)[0]
 
 
 def _px(value: object, name: str) -> int:
