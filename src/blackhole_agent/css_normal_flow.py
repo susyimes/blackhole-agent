@@ -23,8 +23,11 @@ is placed in that content box, and the line boxes beside its margin box
 shrink. A float beside a following block sibling is placed in that same
 content box: the sibling keeps its width, its line boxes shorten where the
 float margin box overlaps them, and clear moves the sibling's border edge
-down to those floats. That path keeps each vertical margin instead of
-collapsing adjoining ones. An automatic height is the block children, or
+down to those floats. Text in the float is wrapped in its content box.
+Automatic width is the shrink-to-fit size, and automatic height is the
+stacked line boxes; a specified size stays specified. Element children
+inside a float are rejected. That sibling path keeps each vertical margin
+instead of collapsing adjoining ones. An automatic height is the block children, or
 the stacked line boxes when
 that block's own in-flow content is text, and it also grows to the bottom
 margin edge of a float that block itself placed. Each character, including
@@ -370,6 +373,7 @@ def _walk(
             continue
         if box.float_side != "none":
             _reject_float_content(tree, child)
+            box.inline_text = child.text or ""
             floats.append(box)
             flow.append(box)
             continue
@@ -695,6 +699,7 @@ def _assign_y(
         if not fl.float_placed:
             continue
         fl.y = content_y + fl.local_y
+        _place_float_lines(fl)
     for child in box.children:
         _assign_y(child, by_id, origin, box.y)
 
@@ -877,7 +882,7 @@ def _float_margin(box: _Box, name: str, containing: int) -> int:
 
 
 def _reject_float_content(tree, element) -> None:
-    if (element.text or "").strip() or tree.children.get(element):
+    if tree.children.get(element):
         raise _Invalid("float content is unsupported")
 
 
@@ -1066,6 +1071,59 @@ def _place_one_absolute(box: _Box, cb: _Edge) -> None:
     box.solved = placed
 
 
+_WIDTH_LIMITS = ("min-width", "max-width", "min-inline-size", "max-inline-size")
+_HEIGHT_LIMITS = ("min-height", "max-height", "min-block-size", "max-block-size")
+_LIMIT_INITIAL = {
+    "min-width": "auto",
+    "max-width": "none",
+    "min-inline-size": "auto",
+    "max-inline-size": "none",
+    "min-height": "auto",
+    "max-height": "none",
+    "min-block-size": "auto",
+    "max-block-size": "none",
+}
+
+
+def _specified_auto(value: object) -> bool:
+    if value is None:
+        return True
+    return _is_auto(str(value))
+
+
+def _has_explicit_limit(box: _Box, names: tuple[str, ...]) -> bool:
+    declared = {prop: value.strip().lower() for prop, value in box.declarations}
+    for name in names:
+        raw = declared.get(name)
+        if raw is None or raw in {_LIMIT_INITIAL[name], "initial", "unset", "revert"}:
+            continue
+        return True
+    return False
+
+
+def _shrink_float_width(box: _Box, available: int) -> int:
+    """CSS 2.1 shrink-to-fit: min(max(min-content, available), max-content)."""
+
+    text = box.inline_text or ""
+    if box.white_space in _COLLAPSED_EMPTY and not text.strip():
+        return 0
+    advances = {ch: box.font_size * _default_advance(ch) for ch in set(text)}
+    wrapped = wrap_lines(text, max(available, 0), white_space=box.white_space, advances=advances)
+    if wrapped.get("outcome") != "wrapped":
+        raise _Invalid(str(wrapped.get("reason") or "float width is indefinite"))
+    minimum = _px(wrapped.get("min_content"), "float width")
+    maximum = _px(wrapped.get("max_content"), "float width")
+    return min(max(minimum, available), maximum)
+
+
+def _place_float_lines(box: _Box) -> None:
+    origin_x = box.x + _px(box.solved.get("border_left"), "border-left") + _px(box.solved.get("padding_left"), "padding-left")
+    origin_y = box.y + _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    for line in box.lines:
+        line.x += origin_x
+        line.y += origin_y
+
+
 def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     solved = resolve_logical_box(
         fl.declarations,
@@ -1078,12 +1136,6 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     )
     if solved.get("outcome") != "resolved":
         raise _Invalid(str(solved.get("reason") or "float is invalid"))
-    if solved.get("specified_width") in {None, "auto"} or solved.get("content_width") in {None, "auto"}:
-        raise _Invalid("float width is indefinite")
-    if solved.get("specified_height") in {None, "auto"} or solved.get("content_height") in {None, "auto"}:
-        raise _Invalid("float height is indefinite")
-    content_width = _px(solved.get("content_width"), "float width")
-    content_height = _px(solved.get("content_height"), "float height")
     margin_left = _float_margin(fl, "margin-left", box.content_width)
     margin_right = _float_margin(fl, "margin-right", box.content_width)
     margin_top = _float_margin(fl, "margin-top", box.content_width)
@@ -1096,8 +1148,31 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     padding_right = _px(solved.get("padding_right"), "padding-right")
     padding_top = _px(solved.get("padding_top"), "padding-top")
     padding_bottom = _px(solved.get("padding_bottom"), "padding-bottom")
+    width_auto = _specified_auto(solved.get("specified_width"))
+    height_auto = _specified_auto(solved.get("specified_height")) or solved.get("content_height") in {None, "auto"}
+    if width_auto:
+        if _has_explicit_limit(fl, _WIDTH_LIMITS):
+            raise _Invalid("float intrinsic limit is unsupported")
+        if any(prop == "box-sizing" and value.strip().lower() == "border-box" for prop, value in fl.declarations):
+            raise _Invalid("float shrink-to-fit box is unsupported")
+        content_width = _shrink_float_width(
+            fl,
+            box.content_width - margin_left - margin_right - border_left - border_right - padding_left - padding_right,
+        )
+    else:
+        if solved.get("content_width") in {None, "auto"}:
+            raise _Invalid("float width is indefinite")
+        content_width = _px(solved.get("content_width"), "float width")
+    if height_auto and _has_explicit_limit(fl, _HEIGHT_LIMITS):
+        raise _Invalid("float intrinsic limit is unsupported")
     fl.solved = solved
     fl.content_width = content_width
+    fl.definite_height = None if height_auto else _px(solved.get("content_height"), "float height")
+    if fl.inline_text:
+        _fill_lines(fl)
+    if fl.definite_height is None:
+        fl.definite_height = 0
+    content_height = fl.definite_height
     fl.content_height = content_height
     fl.margin_left = margin_left
     fl.margin_right = margin_right
