@@ -13,6 +13,11 @@ definite, then ``min-cross`` and ``max-cross`` clamp it and the minimum wins.
 An automatic cross margin consumes a positive leftover and suppresses stretch.
 A missing baseline falls back to ``flex-start``.
 
+``main`` is the inner main size. Main-axis margins default to 0 and may be
+``auto`` or negative. Positive free space is absorbed by those auto margins
+before ``justify-content`` packs what remains. The returned ``main`` is the
+margin-box start, and ``main_size`` stays the inner size.
+
 A ``nowrap`` line takes the container's inner cross size, so ``align-content``
 cannot move it. A ``wrap`` line takes the larger of its baseline requirement
 and the other items' outer hypothetical cross sizes. ``stretch`` shares a
@@ -60,6 +65,10 @@ class _Item:
     margin_end: float
     align: str
     baseline: float | None
+    margin_main_start_auto: bool = False
+    margin_main_start: float = 0.0
+    margin_main_end_auto: bool = False
+    margin_main_end: float = 0.0
 
     def hypothetical_inner(self) -> float:
         return _clamp(self.cross, self.min_cross, self.max_cross)
@@ -111,13 +120,15 @@ def place_flex_alignment(
 
     ``container_main`` and ``container_cross`` are definite inner sizes.
     ``lines`` runs from the first flex line toward the cross end before
-    ``wrap-reverse`` is applied. Each item has ``id``, outer ``main``, and
+    ``wrap-reverse`` is applied. Each item has ``id``, inner ``main``, and
     ``cross`` (a length or ``auto``). An automatic cross size reads
     ``content``. ``min_cross`` defaults to 0 and a negative value becomes 0.
     ``max_cross`` defaults to ``none`` and a negative value becomes 0. The
-    minimum wins when they disagree. Cross margins default to 0 and may be
-    ``auto`` or negative. ``align_self`` defaults to ``auto``. ``baseline`` is
-    the distance from the cross-start margin edge to the alignment baseline.
+    minimum wins when they disagree. Cross margins and main margins default
+    to 0 and may be ``auto`` or negative. Auto main margins take positive
+    free space before justification. ``align_self`` defaults to ``auto``.
+    ``baseline`` is the distance from the cross-start margin edge to the
+    alignment baseline. The returned ``main`` is the margin-box start.
     """
 
     try:
@@ -188,11 +199,12 @@ def _place_line(
     main_gap: float,
     reverse: bool,
 ) -> dict[str, object]:
-    mains = _pack(main_size, [item.main for item in items], main_gap, justify)
+    main_starts, main_ends, outers = _main_boxes(items, main_size, main_gap)
+    mains = _pack(main_size, outers, main_gap, justify)
     participants = [item.baseline for item in items if item.participates()]
     baseline_at = max(participants) if participants else 0.0
     rendered: list[dict[str, object]] = []
-    for item, main_at in zip(items, mains, strict=True):
+    for index, (item, main_at) in enumerate(zip(items, mains, strict=True)):
         inner = item.used_inner(line_size)
         start, end = _used_margins(item, line_size, inner)
         outer = start + inner + end
@@ -206,6 +218,8 @@ def _place_line(
                 "cross_size": _number(inner),
                 "margin_cross_start": _number(start),
                 "margin_cross_end": _number(end),
+                "margin_main_start": _number(main_starts[index]),
+                "margin_main_end": _number(main_ends[index]),
             }
         )
     return {
@@ -262,6 +276,49 @@ def _used_margins(item: _Item, line_size: float, inner: float) -> tuple[float, f
     if item.margin_end_auto:
         end = share
     return start, end
+
+
+def _main_boxes(items: list[_Item], container: float, gap: float) -> tuple[list[float], list[float], list[float]]:
+    """Resolve main-axis margins. Auto margins absorb positive free space first."""
+
+    starts: list[float] = []
+    ends: list[float] = []
+    outers: list[float] = []
+    autos = 0
+    for item in items:
+        start = 0.0 if item.margin_main_start_auto else item.margin_main_start
+        end = 0.0 if item.margin_main_end_auto else item.margin_main_end
+        autos += int(item.margin_main_start_auto) + int(item.margin_main_end_auto)
+        starts.append(start)
+        ends.append(end)
+        outers.append(start + item.main + end)
+    free = _leftover(container, outers, gap)
+    if free > _EPS and autos:
+        share = free / autos
+        for index, item in enumerate(items):
+            if item.margin_main_start_auto:
+                starts[index] += share
+            if item.margin_main_end_auto:
+                ends[index] += share
+            outers[index] = starts[index] + item.main + ends[index]
+    return starts, ends, outers
+
+
+def flex_line_cross_size(items: object, *, align_items: object = "stretch") -> dict[str, object]:
+    """Return the baseline-aware cross size of one flex line.
+
+    This is the size an automatic flex line uses. A definite container cross
+    size is not an input: nowrap alignment still stretches into the container
+    the caller passes to ``place_flex_alignment``.
+    """
+
+    try:
+        align = _resolve_items(_keyword(align_items, _ITEMS, "align-items"))
+        parsed = _lines([items], align)
+        size = _line_size(parsed[0])
+    except _Invalid as exc:
+        return {"outcome": "invalid", "reason": exc.reason, "cross_size": None}
+    return {"outcome": "resolved", "reason": None, "cross_size": _number(size)}
 
 
 def _pack(container: float, sizes: list[float], gap: float, mode: str) -> list[float]:
@@ -339,6 +396,8 @@ def _item(value: object, line: int, index: int, items_align: str, seen: set[str]
     cross_auto, cross = _cross(value, line, index)
     margin_start_auto, margin_start = _margin(value.get("margin_cross_start", 0), line, index, "start")
     margin_end_auto, margin_end = _margin(value.get("margin_cross_end", 0), line, index, "end")
+    main_start_auto, main_start = _margin(value.get("margin_main_start", 0), line, index, "main start")
+    main_end_auto, main_end = _margin(value.get("margin_main_end", 0), line, index, "main end")
     return _Item(
         ident=ident,
         main=_length(value.get("main"), allow_negative=True, name=f"line {line} item {index} main"),
@@ -357,6 +416,10 @@ def _item(value: object, line: int, index: int, items_align: str, seen: set[str]
             items_align,
         ),
         baseline=_baseline(value, line, index),
+        margin_main_start_auto=main_start_auto,
+        margin_main_start=main_start,
+        margin_main_end_auto=main_end_auto,
+        margin_main_end=main_end,
     )
 
 

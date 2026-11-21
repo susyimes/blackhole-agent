@@ -67,8 +67,11 @@ includes those gutters, so the following block starts after the last gapped
 line. ``justify-content`` then packs any main-axis leftover, on a row or a
 column and on each wrapped line. ``align-items`` and ``align-self`` place a
 shorter item inside that line. ``align-content`` packs wrapped lines inside
-a definite cross size and does not move a single line. Row-reverse, item
-margins, baseline alignment, and loose text stay rejected.
+a definite cross size and does not move a single line. A definite main-axis
+margin sits outside the flexible length. An auto main margin absorbs positive
+free space before that packing. ``align-items: baseline`` lines the first
+text baselines up, and an automatic row grows to that line. A column treats
+baseline as ``flex-start``. Row-reverse and loose text stay rejected.
 A ``display: grid`` container places its element children on explicit column
 tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
 content box after column gaps are removed. Auto-placement fills rows in
@@ -100,7 +103,7 @@ from dataclasses import dataclass, field
 from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_fixed_table import layout_fixed_columns
-from blackhole_agent.css_flex_align import place_flex_alignment
+from blackhole_agent.css_flex_align import flex_line_cross_size, place_flex_alignment
 from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
 from blackhole_agent.css_flex_wrap import wrap_flex_lines
@@ -2359,6 +2362,8 @@ def _reject_item_edges(box: _Box, *, column: bool) -> None:
     if sizing not in {None, "content-box", "initial", "unset", "revert"}:
         raise _Invalid("flex box-sizing is unsupported")
     for name in _FLEX_EDGES:
+        if name.startswith("margin-"):
+            continue
         raw = _box_decl(box, name)
         if raw is None or raw.strip().lower() in _ZERO_EDGE:
             continue
@@ -2435,8 +2440,6 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
             raise _Invalid("flex order is unsupported")
     if direction == "row-reverse":
         raise _Invalid("flex direction is unsupported")
-    if align == "baseline":
-        raise _Invalid("flex baseline is unsupported")
     return {
         "justify": justify,
         "align": align,
@@ -2511,8 +2514,6 @@ def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
             align = _choice(value, "auto", _FLEX_SELF, "align-self")
         elif value not in {"0", "initial", "unset", "revert"}:
             raise _Invalid("flex order is unsupported")
-    if align == "baseline":
-        raise _Invalid("flex baseline is unsupported")
     return {"grow": grow, "shrink": shrink, "basis": basis, "align": align}
 
 
@@ -2689,6 +2690,206 @@ def _wrap_maximum(value: object) -> object:
     return _flex_number(value, "flex maximum")
 
 
+def _margin_token(value: str, name: str) -> tuple[bool, int]:
+    token = " ".join(value.strip().lower().split())
+    if token in _ZERO_EDGE or token in {"0", "0px"}:
+        return False, 0
+    if token == "auto":
+        return True, 0
+    if len(token) > 2 and token.endswith("px"):
+        return False, _px(float(token[:-2]), name)
+    raise _Invalid("flex item margin is unsupported")
+
+
+def _margin_shorthand(value: str) -> dict[str, tuple[bool, int]]:
+    token = " ".join(value.strip().lower().split())
+    if token in {"initial", "unset", "revert"}:
+        return {side: (False, 0) for side in ("top", "right", "bottom", "left")}
+    parts = token.split(" ")
+    if len(parts) == 1:
+        one = _margin_token(parts[0], "margin")
+        return {side: one for side in ("top", "right", "bottom", "left")}
+    if len(parts) == 2:
+        block = _margin_token(parts[0], "margin")
+        inline = _margin_token(parts[1], "margin")
+        return {"top": block, "right": inline, "bottom": block, "left": inline}
+    if len(parts) == 3:
+        return {
+            "top": _margin_token(parts[0], "margin"),
+            "right": _margin_token(parts[1], "margin"),
+            "bottom": _margin_token(parts[2], "margin"),
+            "left": _margin_token(parts[1], "margin"),
+        }
+    if len(parts) == 4:
+        return {
+            "top": _margin_token(parts[0], "margin"),
+            "right": _margin_token(parts[1], "margin"),
+            "bottom": _margin_token(parts[2], "margin"),
+            "left": _margin_token(parts[3], "margin"),
+        }
+    raise _Invalid("flex item margin is unsupported")
+
+
+def _flex_margins(box: _Box) -> dict[str, tuple[bool, int]]:
+    sides = {side: (False, 0) for side in ("top", "right", "bottom", "left")}
+    for prop, value in box.declarations:
+        if prop == "margin":
+            sides.update(_margin_shorthand(value))
+        elif prop in {"margin-top", "margin-right", "margin-bottom", "margin-left"}:
+            sides[prop.split("-", 1)[1]] = _margin_token(value, prop)
+    return sides
+
+
+def _main_margin_sum(margins: dict[str, tuple[bool, int]], *, column: bool) -> int:
+    pair = ("top", "bottom") if column else ("left", "right")
+    total = 0
+    for side in pair:
+        automatic, length = margins[side]
+        if not automatic:
+            total += length
+    return total
+
+
+def _container_align(spec: dict[str, object], *, column: bool) -> str:
+    align = str(spec.get("align", "normal"))
+    if column and align == "baseline":
+        return "flex-start"
+    return align
+
+
+def _used_item_align(item_align: str, container_align: str, *, column: bool) -> str:
+    align = container_align if item_align == "auto" else item_align
+    if align == "normal":
+        align = "stretch"
+    if column and align == "baseline":
+        align = "flex-start"
+    return align
+
+
+def _item_baseline(row: dict[str, object], *, column: bool, align: str) -> int | None:
+    if align != "baseline":
+        return None
+    margins = row["margins"]
+    if not isinstance(margins, dict):
+        raise _Invalid("flex item margin is unsupported")
+    top_auto, top = margins["top"]
+    bottom_auto, bottom = margins["bottom"]
+    if top_auto or bottom_auto:
+        return None
+    item = row["item"]
+    if not isinstance(item, _Box):
+        raise _Invalid("flex item is missing")
+    text = item.inline_text or ""
+    if text.strip() or item.white_space not in _COLLAPSED_EMPTY:
+        used = _used_line_height(item.line_height, item.font_size)
+        return top + _strut_metrics(item.font_size, used)[1]
+    content = _px(row["hypothetical"], "flex cross") if row["cross"] == "auto" else _px(row["cross"], "flex cross")
+    return top + content + bottom
+
+
+def _margin_side(pair: tuple[bool, int]) -> object:
+    automatic, length = pair
+    return "auto" if automatic else length
+
+
+def _flex_entry(row: dict[str, object], inner: object, *, column: bool, container_align: str) -> dict[str, object]:
+    margins = row["margins"]
+    if not isinstance(margins, dict):
+        raise _Invalid("flex item margin is unsupported")
+    item = row["item"]
+    if not isinstance(item, _Box):
+        raise _Invalid("flex item is missing")
+    if column:
+        main_pair = (margins["top"], margins["bottom"])
+        cross_pair = (margins["left"], margins["right"])
+    else:
+        main_pair = (margins["left"], margins["right"])
+        cross_pair = (margins["top"], margins["bottom"])
+    align = _used_item_align(str(row["align"]), container_align, column=column)
+    entry: dict[str, object] = {
+        "id": item.id,
+        "main": inner,
+        "cross": row["cross"],
+        "align_self": align,
+        "margin_main_start": _margin_side(main_pair[0]),
+        "margin_main_end": _margin_side(main_pair[1]),
+        "margin_cross_start": _margin_side(cross_pair[0]),
+        "margin_cross_end": _margin_side(cross_pair[1]),
+    }
+    if row["cross"] == "auto":
+        entry["content"] = row["hypothetical"]
+    baseline = _item_baseline(row, column=column, align=align)
+    if baseline is not None:
+        entry["baseline"] = baseline
+    return entry
+
+
+def _line_cross_size(entries: list[dict[str, object]], align: str) -> int:
+    sized = flex_line_cross_size(entries, align_items=align)
+    if sized.get("outcome") != "resolved":
+        raise _Invalid(str(sized.get("reason") or "flex cross failed"))
+    return _px(sized.get("cross_size"), "flex cross")
+
+
+def _commit_flex_item(
+    item: _Box,
+    entry: dict[str, object],
+    *,
+    column: bool,
+    content_x: int,
+    origin: int,
+    container_main: int,
+    reverse: bool,
+) -> None:
+    inner = _px(entry.get("main_size"), "flex main")
+    margin_box = _px(entry.get("main"), "flex main")
+    main_start = _px(entry.get("margin_main_start", 0), "flex margin")
+    main_end = _px(entry.get("margin_main_end", 0), "flex margin")
+    if reverse:
+        outer = main_start + inner + main_end
+        margin_box = container_main - margin_box - outer
+        border_main = margin_box + main_end
+        used_main_start, used_main_end = main_end, main_start
+    else:
+        border_main = margin_box + main_start
+        used_main_start, used_main_end = main_start, main_end
+    cross_size = _px(entry.get("cross_size"), "flex cross")
+    cross_start = _px(entry.get("margin_cross_start", 0), "flex margin")
+    cross_end = _px(entry.get("margin_cross_end", 0), "flex margin")
+    border_cross = _px(entry.get("cross"), "flex cross") + cross_start
+    if column:
+        item.content_width = cross_size
+        item.content_height = inner
+        item.x = content_x + border_cross
+        item.anchor_y = origin + border_main
+        item.margin_left = cross_start
+        item.margin_right = cross_end
+        solved_margins = {
+            "margin_top": used_main_start,
+            "margin_bottom": used_main_end,
+            "margin_left": cross_start,
+            "margin_right": cross_end,
+        }
+    else:
+        item.content_width = inner
+        item.content_height = cross_size
+        item.x = content_x + border_main
+        item.anchor_y = origin + border_cross
+        item.margin_left = used_main_start
+        item.margin_right = used_main_end
+        solved_margins = {
+            "margin_left": used_main_start,
+            "margin_right": used_main_end,
+            "margin_top": cross_start,
+            "margin_bottom": cross_end,
+        }
+    item.border_width = item.content_width
+    item.border_height = item.content_height
+    item.solved = dict(_ZERO_FLEX_EDGES)
+    if isinstance(item.solved, dict):
+        item.solved.update(solved_margins)
+
+
 def _line_cross(row: dict[str, object]) -> int:
     if row["cross"] == "auto":
         return _px(row["hypothetical"], "flex height")
@@ -2718,7 +2919,7 @@ def _place_wrapped_flex_lines(
                 "shrink": row["shrink"],
                 "minimum": _wrap_minimum(row["minimum"], _px(row["content"], "flex content")),
                 "maximum": _wrap_maximum(row["maximum"]),
-                "margin": 0,
+                "margin": _main_margin_sum(row["margins"], column=column),
             }
             for row in rows
         ],
@@ -2731,7 +2932,6 @@ def _place_wrapped_flex_lines(
         raise _Invalid(str(broken.get("reason") or "flex wrap failed"))
     grouped: list[list[dict[str, object]]] = []
     crosses: list[int] = []
-    sizes: dict[str, object] = {}
     for line in lines:
         if not isinstance(line, dict):
             raise _Invalid("flex wrap failed")
@@ -2741,23 +2941,18 @@ def _place_wrapped_flex_lines(
             raise _Invalid("flex wrap failed")
         entries: list[dict[str, object]] = []
         height = 0
+        container_align = str(spec.get("align", "normal"))
         for ident, inner in zip(ids, mains, strict=True):
             row = by_row.get(str(ident))
             if row is None:
                 raise _Invalid("flex wrap failed")
-            entry: dict[str, object] = {
-                "id": row["item"].id,
-                "main": inner,
-                "cross": row["cross"],
-                "align_self": row["align"],
-            }
-            if row["cross"] == "auto":
-                entry["content"] = row["hypothetical"]
-            entries.append(entry)
-            sizes[row["item"].id] = inner
+            entries.append(_flex_entry(row, inner, column=column, container_align=container_align))
             height = max(height, _line_cross(row))
         grouped.append(entries)
-        crosses.append(height)
+        if column:
+            crosses.append(height)
+        else:
+            crosses.append(_line_cross_size(entries, _container_align(spec, column=False)))
     if not column and box.definite_height is None:
         box.definite_height = _gapped_span(crosses, cross_gap)
     cross_size = box.content_width if column else box.definite_height
@@ -2766,7 +2961,7 @@ def _place_wrapped_flex_lines(
         cross_size,
         grouped,
         justify_content=spec.get("justify", "normal"),
-        align_items=spec.get("align", "normal"),
+        align_items=_container_align(spec, column=column),
         align_content=spec.get("align_content", "normal"),
         wrap=str(spec.get("wrap") or "wrap"),
         main_gap=main_gap,
@@ -2783,32 +2978,21 @@ def _place_wrapped_flex_lines(
             if isinstance(entry, dict) and entry.get("id") is not None:
                 located[str(entry["id"])] = entry
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    reverse = column and str(spec.get("direction") or "") == "column-reverse"
     for row in rows:
         item = row["item"]
         entry = located.get(item.id)
         if entry is None:
             raise _Invalid("flex alignment failed")
-        used_main = _px(sizes[item.id], "flex main")
-        used_cross = _px(entry.get("cross_size"), "flex cross")
-        main_at = _px(entry.get("main"), "flex main")
-        cross_at = _px(entry.get("cross"), "flex cross")
-        if column and str(spec.get("direction") or "") == "column-reverse":
-            main_at = main_size - main_at - used_main
-        if column:
-            item.content_width = used_cross
-            item.content_height = used_main
-            item.x = content_x + cross_at
-            item.anchor_y = origin + main_at
-        else:
-            item.content_width = used_main
-            item.content_height = used_cross
-            item.x = content_x + main_at
-            item.anchor_y = origin + cross_at
-        item.border_width = item.content_width
-        item.border_height = item.content_height
-        item.margin_left = 0
-        item.margin_right = 0
-        item.solved = dict(_ZERO_FLEX_EDGES)
+        _commit_flex_item(
+            item,
+            entry,
+            column=column,
+            content_x=content_x,
+            origin=origin,
+            container_main=main_size,
+            reverse=reverse,
+        )
     box.anchor_laid = True
 
 
@@ -2881,6 +3065,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
                 "cross": cross,
                 "hypothetical": hypothetical,
                 "align": flex["align"],
+                "margins": _flex_margins(item),
             }
         )
     if not rows:
@@ -2892,19 +3077,22 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
         _place_wrapped_flex_lines(box, content_x, spec, rows, column=column)
         return
     main_gap, cross_gap = _axis_gaps(spec, column=column)
+    container_align = str(spec.get("align", "normal"))
     if column:
         container_main = box.definite_height
         if container_main is None:
             container_main = _gapped_span(
-                [_px(row["hypothetical_main"], "flex height") for row in rows],
+                [
+                    _px(row["hypothetical_main"], "flex height")
+                    + _main_margin_sum(row["margins"], column=True)
+                    for row in rows
+                ],
                 main_gap,
             )
             box.definite_height = container_main
         container_cross = box.content_width
     else:
         container_main = box.content_width
-        if box.definite_height is None:
-            box.definite_height = max(int(row["hypothetical"]) for row in rows)
         container_cross = box.definite_height
     line = resolve_flex_line(
         container_main,
@@ -2915,7 +3103,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
                 "shrink": row["shrink"],
                 "minimum": row["minimum"],
                 "maximum": row["maximum"],
-                "margin": 0,
+                "margin": _main_margin_sum(row["margins"], column=column),
                 "content": row["content"],
                 "specified": row["specified"],
             }
@@ -2928,23 +3116,19 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     sizes = line["main_sizes"]
     if len(sizes) != len(rows):
         raise _Invalid("flex line failed")
-    entries: list[dict[str, object]] = []
-    for row, inner in zip(rows, sizes, strict=True):
-        entry = {
-            "id": row["item"].id,
-            "main": inner,
-            "cross": row["cross"],
-            "align_self": row["align"],
-        }
-        if row["cross"] == "auto":
-            entry["content"] = row["hypothetical"]
-        entries.append(entry)
+    entries = [
+        _flex_entry(row, inner, column=column, container_align=container_align)
+        for row, inner in zip(rows, sizes, strict=True)
+    ]
+    if not column and container_cross is None:
+        container_cross = _line_cross_size(entries, _container_align(spec, column=False))
+        box.definite_height = container_cross
     placed = place_flex_alignment(
         container_main,
         container_cross,
         [entries],
         justify_content=spec.get("justify", "normal"),
-        align_items=spec.get("align", "normal"),
+        align_items=_container_align(spec, column=column),
         align_content=spec.get("align_content", "normal"),
         wrap="nowrap",
         main_gap=main_gap,
@@ -2958,32 +3142,20 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     by_id = {str(entry.get("id")): entry for entry in lines[0]["items"] if isinstance(entry, dict)}
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
     reverse = direction == "column-reverse"
-    for row, inner in zip(rows, sizes, strict=True):
+    for row in rows:
         item = row["item"]
         entry = by_id.get(item.id)
         if entry is None:
             raise _Invalid("flex alignment failed")
-        main_size = _px(inner, "flex main")
-        main_at = _px(entry.get("main"), "flex main")
-        if reverse:
-            main_at = container_main - main_at - main_size
-        cross_size = _px(entry.get("cross_size"), "flex cross")
-        cross_at = _px(entry.get("cross"), "flex cross")
-        if column:
-            item.content_width = cross_size
-            item.content_height = main_size
-            item.x = content_x + cross_at
-            item.anchor_y = origin + main_at
-        else:
-            item.content_width = main_size
-            item.content_height = cross_size
-            item.x = content_x + main_at
-            item.anchor_y = origin + cross_at
-        item.border_width = item.content_width
-        item.border_height = item.content_height
-        item.margin_left = 0
-        item.margin_right = 0
-        item.solved = dict(_ZERO_FLEX_EDGES)
+        _commit_flex_item(
+            item,
+            entry,
+            column=column,
+            content_x=content_x,
+            origin=origin,
+            container_main=container_main,
+            reverse=reverse,
+        )
     box.anchor_laid = True
 
 
