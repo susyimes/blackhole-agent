@@ -55,8 +55,13 @@ starts under the last line. ``wrap-reverse`` mirrors those lines from the
 cross end. ``flex-direction: column`` uses the block size as the main size.
 A definite height is shared by the flex factors, and an automatic height is
 the sum of the hypothetical main sizes, so inline free space does not grow
-the items. ``column-reverse`` packs that line from the bottom edge. Column
-wrap, row-reverse, gaps, item margins, and loose text stay rejected.
+the items. ``column-reverse`` packs that line from the bottom edge.
+``flex-wrap`` on a column breaks before that free space is distributed:
+an item whose hypothetical block size does not fit starts the next column,
+and ``wrap-reverse`` places the first column at the inline end.
+``column-reverse`` still packs each of those columns from the bottom.
+An automatic column height has no definite block size, so it stays one
+column. Row-reverse, gaps, item margins, and loose text stay rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -2354,8 +2359,6 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
             raise _Invalid("flex order is unsupported")
     if direction == "row-reverse":
         raise _Invalid("flex direction is unsupported")
-    if direction in {"column", "column-reverse"} and wrap != "nowrap":
-        raise _Invalid("flex column wrap is unsupported")
     if justify not in {"normal", "flex-start"}:
         raise _Invalid("flex justify is unsupported")
     if align not in {"normal", "stretch"}:
@@ -2574,10 +2577,15 @@ def _place_wrapped_flex_lines(
     content_x: int,
     spec: dict[str, object],
     rows: list[dict[str, object]],
+    *,
+    column: bool = False,
 ) -> None:
     by_row = {row["item"].id: row for row in rows}
+    main_size = box.definite_height if column else box.content_width
+    if main_size is None:
+        raise _Invalid("flex column wrap is unsupported")
     broken = wrap_flex_lines(
-        box.content_width,
+        main_size,
         [
             {
                 "id": row["item"].id,
@@ -2591,7 +2599,7 @@ def _place_wrapped_flex_lines(
             for row in rows
         ],
         wrap="wrap",
-        direction="row",
+        direction="column" if column else "row",
     )
     lines = broken.get("lines")
     if broken.get("outcome") != "wrapped" or not isinstance(lines, list):
@@ -2625,11 +2633,12 @@ def _place_wrapped_flex_lines(
             height = max(height, _line_cross(row))
         grouped.append(entries)
         crosses.append(height)
-    if box.definite_height is None:
+    if not column and box.definite_height is None:
         box.definite_height = sum(crosses)
+    cross_size = box.content_width if column else box.definite_height
     placed = place_flex_alignment(
-        box.content_width,
-        box.definite_height,
+        main_size,
+        cross_size,
         grouped,
         justify_content=spec.get("justify", "normal"),
         align_items=spec.get("align", "normal"),
@@ -2651,10 +2660,22 @@ def _place_wrapped_flex_lines(
         entry = located.get(item.id)
         if entry is None:
             raise _Invalid("flex alignment failed")
-        item.content_width = _px(sizes[item.id], "flex width")
-        item.content_height = _px(entry.get("cross_size"), "flex height")
-        item.x = content_x + _px(entry.get("main"), "flex x")
-        item.anchor_y = origin + _px(entry.get("cross"), "flex y")
+        used_main = _px(sizes[item.id], "flex main")
+        used_cross = _px(entry.get("cross_size"), "flex cross")
+        main_at = _px(entry.get("main"), "flex main")
+        cross_at = _px(entry.get("cross"), "flex cross")
+        if column and str(spec.get("direction") or "") == "column-reverse":
+            main_at = main_size - main_at - used_main
+        if column:
+            item.content_width = used_cross
+            item.content_height = used_main
+            item.x = content_x + cross_at
+            item.anchor_y = origin + main_at
+        else:
+            item.content_width = used_main
+            item.content_height = used_cross
+            item.x = content_x + main_at
+            item.anchor_y = origin + cross_at
         item.border_width = item.content_width
         item.border_height = item.content_height
         item.margin_left = 0
@@ -2739,8 +2760,8 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
             box.definite_height = 0
         box.anchor_laid = True
         return
-    if not column and str(spec.get("wrap") or "nowrap") != "nowrap":
-        _place_wrapped_flex_lines(box, content_x, spec, rows)
+    if str(spec.get("wrap") or "nowrap") != "nowrap" and (not column or box.definite_height is not None):
+        _place_wrapped_flex_lines(box, content_x, spec, rows, column=column)
         return
     if column:
         container_main = box.definite_height
