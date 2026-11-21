@@ -65,6 +65,17 @@ column. A definite ``gap`` is removed from free space before items grow or
 shrink, and the same gutter separates wrapped lines. An automatic cross size
 includes those gutters, so the following block starts after the last gapped
 line. Row-reverse, item margins, and loose text stay rejected.
+A ``display: grid`` container places its element children on explicit column
+tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
+content box after column gaps are removed. Auto-placement fills rows in
+order, so a later item starts a new row when the columns are full even if
+inline space remains. A ``span`` covers the tracks it crosses, including
+the gutters between them. An automatic item stretches to that area; a
+specified length stays at the track start. Implicit rows use a definite
+``grid-auto-rows`` length, and explicit rows keep their size when empty.
+Automatic height is those rows plus the row gaps, so a following block
+starts under the last row. Column flow, dense packing, named lines, item
+text, item margins, and a definite grid height stay rejected.
 ``writing-mode``, ``direction``, and ``text-orientation`` inherit. Other
 wide keywords on box properties use the initial value.
 """
@@ -79,6 +90,8 @@ from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
 from blackhole_agent.css_flex_wrap import wrap_flex_lines
 from blackhole_agent.css_float_placement import place_floats
+from blackhole_agent.css_grid_placement import place_grid_items
+from blackhole_agent.css_grid_tracks import size_grid_tracks
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
 from blackhole_agent.css_line_break import _default_advance, wrap_lines
@@ -182,7 +195,7 @@ _BLOCK_TAGS = frozenset(
     }
 )
 _SKIP_TAGS = frozenset({"base", "head", "link", "meta", "script", "style", "template", "title"})
-_DISPLAYS = frozenset({"block", "inline", "inline-block", "flex", "none"})
+_DISPLAYS = frozenset({"block", "inline", "inline-block", "flex", "grid", "none"})
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed"})
 _FLOATS = frozenset({"none", "left", "right"})
 _CLEARS = frozenset({"none", "left", "right", "both"})
@@ -291,6 +304,7 @@ class _Box:
     pieces: list[_Piece] = field(default_factory=list)
     local_x: int = 0
     flex: dict[str, object] | None = None
+    grid: dict[str, object] | None = None
 
 
 def layout_normal_flow(
@@ -404,6 +418,18 @@ def _walk(
     counter: list[int],
     host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
+    if host.display == "grid":
+        return _walk_grid(
+            tree,
+            element,
+            inherited,
+            fonts,
+            styles,
+            declarations,
+            ids,
+            counter,
+            host,
+        )
     if host.display == "flex":
         return _walk_flex(
             tree,
@@ -686,6 +712,9 @@ def _solve(box: _Box, parent_width: int, parent_height: int | None, parent_horiz
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
     content_x = box.x + _px(solved.get("border_left"), "border-left") + _px(solved.get("padding_left"), "padding-left")
+    if box.display == "grid":
+        _place_grid(box, content_x)
+        return
     if box.display == "flex":
         _place_flex_row(box, content_x)
         return
@@ -2928,3 +2957,439 @@ def _px(value: object, name: str) -> int:
     if abs(number - nearest) > 1e-6:
         raise _Invalid(f"{name} is not integral")
     return int(nearest)
+
+
+_GRID_FLOWS = frozenset({"row", "column", "dense", "row dense", "column dense"})
+_GRID_ALIGN = frozenset({"normal", "stretch", "start"})
+_GRID_ITEM_PROPS = frozenset(
+    {
+        "grid-column",
+        "grid-row",
+        "grid-column-start",
+        "grid-column-end",
+        "grid-row-start",
+        "grid-row-end",
+        "grid-area",
+        "order",
+    }
+)
+_GRID_LONGHANDS = frozenset(
+    {
+        "grid-column-start",
+        "grid-column-end",
+        "grid-row-start",
+        "grid-row-end",
+        "grid-area",
+    }
+)
+
+
+def _walk_grid(
+    tree,
+    element,
+    inherited: dict[str, str],
+    fonts: dict[str, str],
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+    host: _Box,
+) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
+    host.grid = _grid_container(tree, element, styles, declarations)
+    if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
+        raise _Invalid("grid writing mode is unsupported")
+    _reject_grid_text(getattr(element, "text", None))
+    items: list[_Box] = []
+    for child in tree.children.get(element, []):
+        _reject_grid_text(getattr(child, "tail", None))
+        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
+            continue
+        item = _make_box(
+            tree,
+            child,
+            inherited,
+            fonts,
+            host.direction,
+            styles,
+            declarations,
+            ids,
+            counter,
+            root=False,
+        )
+        if item.display == "none":
+            continue
+        if item.position != "static" or item.float_side != "none":
+            raise _Invalid("grid item is outside the grid")
+        if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
+            raise _Invalid("grid writing mode is unsupported")
+        if _flex_item_elements(tree, child) or _grid_text(getattr(child, "text", None)):
+            raise _Invalid("grid item content is unsupported")
+        _reject_grid_edges(item)
+        item.grid = _grid_item(tree, child, styles, declarations, item)
+        items.append(item)
+    return items, [], items, []
+
+
+def _grid_text(text: object) -> bool:
+    return isinstance(text, str) and bool(text.strip())
+
+
+def _reject_grid_text(text: object) -> None:
+    if _grid_text(text):
+        raise _Invalid("grid text is unsupported")
+
+
+def _reject_grid_edges(box: _Box) -> None:
+    sizing = _box_decl(box, "box-sizing")
+    if sizing not in {None, "content-box", "initial", "unset", "revert"}:
+        raise _Invalid("grid box-sizing is unsupported")
+    for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
+            continue
+        raise _Invalid("grid item edge is unsupported")
+    limits = {
+        "min-width": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "min-height": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "max-width": {"none", "initial", "unset", "revert"},
+        "max-height": {"none", "initial", "unset", "revert"},
+    }
+    for name, allowed in limits.items():
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in allowed:
+            continue
+        raise _Invalid("grid item limit is unsupported")
+
+
+def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
+    custom = styles.get(element, ({}, ""))[0]
+    columns: list[dict[str, float]] = []
+    rows: list[int] = []
+    auto_rows: int | None = None
+    auto_columns: int | None = None
+    row_gap = 0
+    column_gap = 0
+    tracked = {
+        "grid-template-columns",
+        "grid-template-rows",
+        "grid-template",
+        "grid-template-areas",
+        "grid",
+        "grid-auto-rows",
+        "grid-auto-columns",
+        "grid-auto-flow",
+        "justify-items",
+        "align-items",
+        "justify-content",
+        "align-content",
+        "gap",
+        "column-gap",
+        "row-gap",
+    }
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop not in tracked:
+            continue
+        value = _grid_author(raw, custom)
+        if prop == "grid-template-columns":
+            columns = _grid_track_defs(value)
+        elif prop == "grid-template-rows":
+            rows = _grid_fixed_tracks(value)
+        elif prop in {"grid-template", "grid-template-areas", "grid"}:
+            if value not in {"none", "initial", "unset", "revert"}:
+                raise _Invalid("grid template is unsupported")
+        elif prop == "grid-auto-rows":
+            auto_rows = _grid_auto_track(value)
+        elif prop == "grid-auto-columns":
+            auto_columns = _grid_auto_track(value)
+        elif prop == "grid-auto-flow":
+            flow = _choice(value, "row", _GRID_FLOWS, "grid-auto-flow")
+            if flow != "row":
+                raise _Invalid("grid auto flow is unsupported")
+        elif prop in {"justify-items", "align-items", "justify-content", "align-content"}:
+            _choice(value, "normal", _GRID_ALIGN, prop)
+        elif prop == "gap":
+            row_gap, column_gap = _grid_gap_pair(value)
+        elif prop == "row-gap":
+            row_gap = _grid_gap_length(value)
+        elif prop == "column-gap":
+            column_gap = _grid_gap_length(value)
+    if not columns:
+        raise _Invalid("grid template is unsupported")
+    return {
+        "columns": columns,
+        "rows": rows,
+        "auto_rows": auto_rows,
+        "auto_columns": auto_columns,
+        "row_gap": row_gap,
+        "column_gap": column_gap,
+    }
+
+
+def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, object]:
+    custom = styles.get(element, ({}, ""))[0]
+    column = ("auto", "auto")
+    row = ("auto", "auto")
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop not in _GRID_ITEM_PROPS:
+            continue
+        value = _grid_author(raw, custom)
+        if prop in _GRID_LONGHANDS:
+            if value not in {"auto", "initial", "unset", "revert"}:
+                raise _Invalid("grid line is unsupported")
+            continue
+        if prop == "order":
+            if value not in {"0", "initial", "unset", "revert"}:
+                raise _Invalid("grid order is unsupported")
+            continue
+        if prop == "grid-column":
+            column = _grid_placement(value)
+        elif prop == "grid-row":
+            row = _grid_placement(value)
+    return {
+        "column_start": column[0],
+        "column_end": column[1],
+        "row_start": row[0],
+        "row_end": row[1],
+        "width": _grid_length(_box_decl(box, "width")),
+        "height": _grid_length(_box_decl(box, "height")),
+    }
+
+
+def _grid_author(value: str, custom: dict) -> str:
+    if _wide_keyword(value) is not None:
+        return value.strip().lower()
+    substituted = _substitute(value, lambda key: custom.get(key, _INVALID))
+    if substituted is _INVALID or not isinstance(substituted, str) or not substituted.strip():
+        raise _Invalid("grid value is invalid")
+    return " ".join(substituted.strip().lower().split())
+
+
+def _grid_placement(value: str) -> tuple[object, object]:
+    if value in {"auto", "initial", "unset", "revert"}:
+        return "auto", "auto"
+    if value == "inherit":
+        raise _Invalid("grid line inherit is unsupported")
+    if value.count("/") > 1:
+        raise _Invalid("grid line is unsupported")
+    if "/" not in value:
+        side = _grid_side(value)
+        if isinstance(side, str) and side.startswith("span "):
+            return "auto", side
+        return side, "auto"
+    left, right = (part.strip() for part in value.split("/", 1))
+    return _grid_side(left), _grid_side(right)
+
+
+def _grid_side(token: str) -> object:
+    if token == "auto":
+        return "auto"
+    if token.startswith("span "):
+        count = token[5:]
+        if not count.isdigit() or count.startswith("0"):
+            raise _Invalid("grid line is unsupported")
+        return f"span {int(count)}"
+    sign = -1 if token.startswith("-") else 1
+    digits = token[1:] if sign < 0 else token
+    if not digits.isdigit() or digits.startswith("0"):
+        raise _Invalid("grid line is unsupported")
+    return sign * int(digits)
+
+
+def _grid_track_defs(value: str) -> list[dict[str, float]]:
+    if value in {"initial", "unset", "revert", "none"}:
+        return []
+    if value == "inherit":
+        raise _Invalid("grid template inherit is unsupported")
+    tracks: list[dict[str, float]] = []
+    for part in value.split(" "):
+        if part.endswith("px") or part == "0":
+            token = "0" if part == "0" else part[:-2]
+            try:
+                number = float(token)
+            except ValueError as exc:
+                raise _Invalid("grid track is unsupported") from exc
+            tracks.append({"fixed": float(_px(number, "grid track"))})
+            continue
+        if part.endswith("fr"):
+            try:
+                factor = float(part[:-2])
+            except ValueError as exc:
+                raise _Invalid("grid track is unsupported") from exc
+            if factor <= 0 or factor != factor or factor in {float("inf"), float("-inf")}:
+                raise _Invalid("grid track is unsupported")
+            tracks.append({"flex": factor, "minimum": 0})
+            continue
+        raise _Invalid("grid track is unsupported")
+    return tracks
+
+
+def _grid_fixed_tracks(value: str) -> list[int]:
+    tracks = _grid_track_defs(value)
+    sizes: list[int] = []
+    for track in tracks:
+        if "flex" in track:
+            raise _Invalid("grid row flex is unsupported")
+        sizes.append(_px(track["fixed"], "grid track"))
+    return sizes
+
+
+def _grid_auto_track(value: str) -> int | None:
+    if value in {"auto", "initial", "unset", "revert"}:
+        return None
+    if value == "inherit":
+        raise _Invalid("grid auto track inherit is unsupported")
+    tracks = _grid_track_defs(value)
+    if len(tracks) != 1 or "flex" in tracks[0]:
+        raise _Invalid("grid auto track is unsupported")
+    return _px(tracks[0]["fixed"], "grid auto track")
+
+
+def _grid_gap_pair(value: str) -> tuple[int, int]:
+    if value in {"initial", "unset", "revert"}:
+        return 0, 0
+    if value == "inherit":
+        raise _Invalid("grid gap inherit is unsupported")
+    parts = value.split(" ")
+    if len(parts) == 1:
+        length = _grid_gap_length(parts[0])
+        return length, length
+    if len(parts) == 2:
+        return _grid_gap_length(parts[0]), _grid_gap_length(parts[1])
+    raise _Invalid("grid gap is unsupported")
+
+
+def _grid_gap_length(value: str) -> int:
+    if value in {"0", "0px", "normal", "initial", "unset", "revert"}:
+        return 0
+    if value == "inherit":
+        raise _Invalid("grid gap inherit is unsupported")
+    if value.endswith("px"):
+        length = _px(float(value[:-2]), "grid gap")
+        if length < 0:
+            raise _Invalid("grid gap is unsupported")
+        return length
+    raise _Invalid("grid gap is unsupported")
+
+
+def _grid_length(value: str | None) -> object:
+    if value is None:
+        return "auto"
+    text = " ".join(value.strip().lower().split())
+    if text in {"auto", "initial", "unset", "revert"}:
+        return "auto"
+    if text == "inherit":
+        raise _Invalid("grid length inherit is unsupported")
+    if text == "0":
+        return 0
+    if text.endswith("px"):
+        return _px(float(text[:-2]), "grid length")
+    raise _Invalid("grid length is unsupported")
+
+
+def _grid_offset(sizes: list[int], index: int, gap: int) -> int:
+    if index < 0 or index > len(sizes):
+        raise _Invalid("grid item is outside the tracks")
+    return sum(sizes[:index]) + gap * index
+
+
+def _grid_span(sizes: list[int], index: int, span: int, gap: int) -> int:
+    if span < 1 or index < 0 or index + span > len(sizes):
+        raise _Invalid("grid item is outside the tracks")
+    return sum(sizes[index : index + span]) + gap * (span - 1)
+
+
+def _place_grid(box: _Box, content_x: int) -> None:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("grid writing mode is unsupported")
+    if box.definite_height is not None:
+        raise _Invalid("grid height is unsupported")
+    spec = box.grid or {}
+    columns = spec.get("columns")
+    explicit_rows = spec.get("rows")
+    if not isinstance(columns, list) or not columns or not isinstance(explicit_rows, list):
+        raise _Invalid("grid template is unsupported")
+    column_gap = _px(spec.get("column_gap", 0), "grid gap")
+    row_gap = _px(spec.get("row_gap", 0), "grid gap")
+    placed = place_grid_items(
+        len(columns),
+        len(explicit_rows),
+        [
+            {
+                "id": item.id,
+                "column_start": (item.grid or {}).get("column_start", "auto"),
+                "column_end": (item.grid or {}).get("column_end", "auto"),
+                "row_start": (item.grid or {}).get("row_start", "auto"),
+                "row_end": (item.grid or {}).get("row_end", "auto"),
+            }
+            for item in box.children
+        ],
+        flow="row",
+    )
+    placements = placed.get("placements")
+    if placed.get("outcome") != "placed" or not isinstance(placements, list):
+        raise _Invalid(str(placed.get("reason") or "grid placement failed"))
+    if int(placed.get("column_start_line") or 0) != 1 or int(placed.get("row_start_line") or 0) != 1:
+        raise _Invalid("grid implicit line is unsupported")
+    column_count = int(placed.get("column_count") or 0)
+    extra = column_count - len(columns)
+    if extra < 0:
+        raise _Invalid("grid column is invalid")
+    track_defs = list(columns)
+    if extra:
+        auto_columns = spec.get("auto_columns")
+        if not isinstance(auto_columns, int):
+            raise _Invalid("grid auto column is unsupported")
+        track_defs.extend({"fixed": auto_columns} for _ in range(extra))
+    sized = size_grid_tracks(box.content_width, track_defs, [], gap=column_gap)
+    raw_sizes = sized.get("track_sizes")
+    if sized.get("outcome") != "resolved" or not isinstance(raw_sizes, list):
+        raise _Invalid(str(sized.get("reason") or "grid tracks failed"))
+    column_sizes = [_px(size, "grid column") for size in raw_sizes]
+    row_count = int(placed.get("row_count") or 0)
+    auto_rows = spec.get("auto_rows")
+    row_sizes: list[int] = []
+    for index in range(row_count):
+        if index < len(explicit_rows):
+            row_sizes.append(_px(explicit_rows[index], "grid row"))
+            continue
+        if not isinstance(auto_rows, int):
+            raise _Invalid("grid auto row is unsupported")
+        row_sizes.append(auto_rows)
+    located = {
+        str(entry.get("id")): entry
+        for entry in placements
+        if isinstance(entry, dict) and entry.get("id") is not None
+    }
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    for item in box.children:
+        entry = located.get(item.id)
+        if entry is None:
+            raise _Invalid("grid placement failed")
+        column = int(entry.get("column") or 0) - 1
+        row = int(entry.get("row") or 0) - 1
+        column_span = int(entry.get("column_span") or 0)
+        row_span = int(entry.get("row_span") or 0)
+        item_spec = item.grid or {}
+        item.content_width = _used_grid_size(
+            item_spec.get("width", "auto"),
+            _grid_span(column_sizes, column, column_span, column_gap),
+        )
+        item.content_height = _used_grid_size(
+            item_spec.get("height", "auto"),
+            _grid_span(row_sizes, row, row_span, row_gap),
+        )
+        item.x = content_x + _grid_offset(column_sizes, column, column_gap)
+        item.anchor_y = origin + _grid_offset(row_sizes, row, row_gap)
+        item.border_width = item.content_width
+        item.border_height = item.content_height
+        item.margin_left = 0
+        item.margin_right = 0
+        item.solved = dict(_ZERO_FLEX_EDGES)
+    box.definite_height = _gapped_span(row_sizes, row_gap)
+    box.anchor_laid = True
+
+
+def _used_grid_size(specified: object, area: int) -> int:
+    if specified == "auto":
+        return area
+    return _px(specified, "grid item")
