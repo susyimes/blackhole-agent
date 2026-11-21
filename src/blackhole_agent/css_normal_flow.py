@@ -16,8 +16,11 @@ move by the used left and top; later siblings stay where the static layout
 put them. An absolute box is placed on the padding edge of the nearest
 positioned ancestor, or on the viewport when no ancestor is positioned. A
 fixed box is placed on the viewport. Neither changes the height of the flow.
-An absolute or fixed box that needs the static position, shrink-to-fit, or an
-indefinite height is rejected, and so is any content inside it. A float inside
+Horizontal text inside that box supplies shrink-to-fit width and the stacked
+line-box height. Automatic insets on an axis use the static position between
+block siblings. Element children are rejected, a static position inside a
+line is rejected, and a vertical writing mode still rejects those automatic
+sizes. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. A float beside a following block sibling is placed in that same
@@ -325,6 +328,8 @@ class _Box:
     white_space: str = "normal"
     parent_direction: str | None = None
     inline_text: str | None = None
+    static_index: int = 0
+    flow_y: int = 0
     lines: list[_Line] = field(default_factory=list)
     atoms: list[_Box] = field(default_factory=list)
     pieces: list[_Piece] = field(default_factory=list)
@@ -472,7 +477,10 @@ def _walk(
         if box.display == "none":
             continue
         if box.position in {"absolute", "fixed"}:
-            _reject_positioned_content(tree, child)
+            if tree.children.get(child):
+                raise _Invalid("positioned content is unsupported")
+            box.inline_text = child.text or ""
+            box.static_index = len(found)
             positioned.append(box)
             continue
         if box.float_side != "none":
@@ -825,6 +833,7 @@ def _assign_y(
         if placed is None:
             raise _Invalid("placed box is missing")
         box.y = origin + _px(placed.get("y"), "y")
+        box.flow_y = box.y
         box.border_height = _px(placed.get("border_height"), "border height")
         if box.definite_height is None:
             box.content_height = box.border_height - _edge_extent(box.solved, "top", "bottom")
@@ -834,6 +843,7 @@ def _assign_y(
         if border_at is None:
             raise _Invalid("placed box is missing")
         box.y = border_at + box.anchor_y
+        box.flow_y = box.y
     box.border_width = box.content_width + _edge_extent(box.solved, "left", "right")
     if box.content_height < 0:
         raise _Invalid("content height is invalid")
@@ -1116,11 +1126,6 @@ def _reject_float_content(tree, element) -> None:
         raise _Invalid("float content is unsupported")
 
 
-def _reject_positioned_content(tree, element) -> None:
-    if (element.text or "").strip() or tree.children.get(element):
-        raise _Invalid("positioned content is unsupported")
-
-
 _AUTO_WORDS = frozenset({"auto", "initial", "unset", "revert"})
 
 
@@ -1240,58 +1245,102 @@ def _place_positioned(box: _Box, viewport: _Edge, stack: list[_Edge]) -> None:
         frame = [*stack, _padding_edge(box)]
     for abs_box in box.positioned:
         cb = viewport if abs_box.position == "fixed" or not frame else frame[-1]
-        _place_one_absolute(abs_box, cb)
+        _place_one_absolute(abs_box, cb, box)
     for child in box.children:
         _place_positioned(child, viewport, frame)
 
 
-def _place_one_absolute(box: _Box, cb: _Edge) -> None:
+def _hypothetical_edges(parent: _Box, index: int) -> tuple[int, int, int]:
+    """Margin-edge x, y, and right of a static block in this parent's flow."""
+
+    border_left = _px(parent.solved.get("border_left"), "border-left")
+    border_right = _px(parent.solved.get("border_right"), "border-right")
+    pad_left = _px(parent.solved.get("padding_left"), "padding-left")
+    pad_right = _px(parent.solved.get("padding_right"), "padding-right")
+    content_left = parent.x + border_left + pad_left
+    content_right = parent.x + parent.border_width - border_right - pad_right
+    if index < len(parent.children):
+        sibling = parent.children[index]
+        margin_top = _px(sibling.solved.get("margin_top"), "margin-top")
+        return content_left, sibling.flow_y - margin_top, content_right
+    if parent.children:
+        last = parent.children[-1]
+        margin_bottom = _px(last.solved.get("margin_bottom"), "margin-bottom")
+        return content_left, last.flow_y + last.border_height + margin_bottom, content_right
+    return content_left, parent.y + _edge_extent(parent.solved, "top"), content_right
+
+
+def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
     slots = _physical_slots(box)
     left, right = _inset(slots, "left"), _inset(slots, "right")
     top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
-    if _is_auto(left) and _is_auto(right):
-        raise _Invalid("static position is unsupported")
-    if _is_auto(top) and _is_auto(bottom):
-        raise _Invalid("static position is unsupported")
-    if _is_auto(slots.get("width")) and (_is_auto(left) or _is_auto(right)):
-        raise _Invalid("absolute shrink-to-fit is unsupported")
-    if _is_auto(slots.get("height")) and (_is_auto(top) or _is_auto(bottom) or cb.height is None):
-        raise _Invalid("absolute height is indefinite")
-    direction = box.direction if box.direction in {"ltr", "rtl"} else "ltr"
-    placed = place_absolute(
-        cb.width,
-        containing_height="auto" if cb.height is None else cb.height,
-        left=left,
-        right=right,
-        width=slots.get("width", "auto"),
-        top=top,
-        bottom=bottom,
-        height=slots.get("height", "auto"),
-        margin_left=slots.get("margin-left", 0),
-        margin_right=slots.get("margin-right", 0),
-        margin_top=slots.get("margin-top", 0),
-        margin_bottom=slots.get("margin-bottom", 0),
-        padding_left=slots.get("padding-left", 0),
-        padding_right=slots.get("padding-right", 0),
-        padding_top=slots.get("padding-top", 0),
-        padding_bottom=slots.get("padding-bottom", 0),
-        border_left=_border_arg(slots, "left"),
-        border_right=_border_arg(slots, "right"),
-        border_top=_border_arg(slots, "top"),
-        border_bottom=_border_arg(slots, "bottom"),
-        min_width=slots.get("min-width", "auto"),
-        max_width=slots.get("max-width", "none"),
-        min_height=slots.get("min-height", "auto"),
-        max_height=slots.get("max-height", "none"),
-        box_sizing=slots.get("box-sizing", "content-box"),
-        direction=direction,
-        static_left=0,
-        static_right=0,
-        static_top=0,
-        min_content=0,
-        max_content=0,
-        content_height=0,
+    needs_static = (_is_auto(left) and _is_auto(right)) or (_is_auto(top) and _is_auto(bottom))
+    needs_shrink = _is_auto(slots.get("width")) and (_is_auto(left) or _is_auto(right))
+    needs_height = _is_auto(slots.get("height")) and (
+        _is_auto(top) or _is_auto(bottom) or cb.height is None
     )
+    if box.writing_mode != "horizontal-tb" and (needs_static or needs_shrink or needs_height):
+        if _is_auto(left) and _is_auto(right):
+            raise _Invalid("static position is unsupported")
+        if _is_auto(top) and _is_auto(bottom):
+            raise _Invalid("static position is unsupported")
+        if needs_shrink:
+            raise _Invalid("absolute shrink-to-fit is unsupported")
+        raise _Invalid("absolute height is indefinite")
+    if needs_static and (parent.inline_text or parent.pieces):
+        raise _Invalid("static position inside a line is unsupported")
+    if needs_static:
+        hyp_x, hyp_y, hyp_right = _hypothetical_edges(parent, box.static_index)
+        static_left = hyp_x - cb.x
+        static_right = (cb.x + cb.width) - hyp_right
+        static_top = hyp_y - cb.y
+    else:
+        static_left = static_right = static_top = 0
+    minimum, maximum = _intrinsic_text_sizes(box) if box.inline_text else (0, 0)
+    direction = box.direction if box.direction in {"ltr", "rtl"} else "ltr"
+
+    def solve(content_height: int) -> dict[str, object]:
+        return place_absolute(
+            cb.width,
+            containing_height="auto" if cb.height is None else cb.height,
+            left=left,
+            right=right,
+            width=slots.get("width", "auto"),
+            top=top,
+            bottom=bottom,
+            height=slots.get("height", "auto"),
+            margin_left=slots.get("margin-left", 0),
+            margin_right=slots.get("margin-right", 0),
+            margin_top=slots.get("margin-top", 0),
+            margin_bottom=slots.get("margin-bottom", 0),
+            padding_left=slots.get("padding-left", 0),
+            padding_right=slots.get("padding-right", 0),
+            padding_top=slots.get("padding-top", 0),
+            padding_bottom=slots.get("padding-bottom", 0),
+            border_left=_border_arg(slots, "left"),
+            border_right=_border_arg(slots, "right"),
+            border_top=_border_arg(slots, "top"),
+            border_bottom=_border_arg(slots, "bottom"),
+            min_width=slots.get("min-width", "auto"),
+            max_width=slots.get("max-width", "none"),
+            min_height=slots.get("min-height", "auto"),
+            max_height=slots.get("max-height", "none"),
+            box_sizing=slots.get("box-sizing", "content-box"),
+            direction=direction,
+            static_left=static_left,
+            static_right=static_right,
+            static_top=static_top,
+            min_content=minimum,
+            max_content=maximum,
+            content_height=content_height,
+        )
+
+    placed = solve(0)
+    if placed.get("outcome") == "placed" and box.inline_text:
+        width = _px(placed.get("width"), "content width")
+        measured = sum(line.height for line in _plain_lines(box, width, direction))
+        if measured != 0:
+            placed = solve(measured)
     if placed.get("outcome") != "placed":
         raise _Invalid(str(placed.get("reason") or "absolute position failed"))
     box.x = cb.x + _px(placed.get("x"), "x")
@@ -1303,6 +1352,8 @@ def _place_one_absolute(box: _Box, cb: _Edge) -> None:
     box.margin_left = _px(placed.get("margin_left"), "margin-left")
     box.margin_right = _px(placed.get("margin_right"), "margin-right")
     box.solved = placed
+    box.lines = _plain_lines(box, box.content_width, direction)
+    _position_lines(box)
 
 
 _WIDTH_LIMITS = ("min-width", "max-width", "min-inline-size", "max-inline-size")
