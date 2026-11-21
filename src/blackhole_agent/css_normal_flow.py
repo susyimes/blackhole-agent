@@ -82,7 +82,9 @@ from the inline end: the first item's margin box ends on the right content
 edge, a definite margin-left stays on the left of that item, and
 ``justify-content: flex-end`` leaves the free space on the right. An auto
 margin-right is the main-start margin and absorbs positive free space before
-that packing. A wrapped row-reverse line uses the same end edge. Text in a
+that packing. A wrapped row-reverse line uses the same end edge. ``order``
+sorts items before that packing and before a wrap break; equal values keep
+source order. Text in a
 row item wraps at its hypothetical main size; an automatic cross size is
 those line boxes, painted in the used content width. Loose container text
 stays rejected.
@@ -97,7 +99,8 @@ specified length stays at the track start. Implicit rows use a definite
 Automatic height is those rows plus the row gaps, so a following block
 starts under the last row. ``grid-auto-flow: column`` fills each column
 before the next one, and ``dense`` puts a later item in a hole the sparse
-cursor left behind. Named lines, item text, item margins, and a definite
+cursor left behind. ``order`` sorts that automatic sequence first; equal
+values keep source order. Named lines, item text, item margins, and a definite
 grid height stay rejected.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
@@ -2524,7 +2527,6 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
         "gap",
         "column-gap",
         "row-gap",
-        "order",
     }
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop not in tracked:
@@ -2548,8 +2550,6 @@ def _flex_container(tree, element, styles, declarations) -> dict[str, object]:
             row_gap = _gap_length(value)
         elif prop == "column-gap":
             column_gap = _gap_length(value)
-        elif value not in {"0", "initial", "unset", "revert"}:
-            raise _Invalid("flex order is unsupported")
     return {
         "justify": justify,
         "align": align,
@@ -2608,6 +2608,7 @@ def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
     shrink = 1.0
     basis: object = "auto"
     align = "auto"
+    order = 0
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop not in {"flex", "flex-grow", "flex-shrink", "flex-basis", "align-self", "order"}:
             continue
@@ -2622,9 +2623,28 @@ def _flex_item(tree, element, styles, declarations) -> dict[str, object]:
             basis = _flex_basis(value)
         elif prop == "align-self":
             align = _choice(value, "auto", _FLEX_SELF, "align-self")
-        elif value not in {"0", "initial", "unset", "revert"}:
-            raise _Invalid("flex order is unsupported")
-    return {"grow": grow, "shrink": shrink, "basis": basis, "align": align}
+        else:
+            order = _css_order(value)
+    return {"grow": grow, "shrink": shrink, "basis": basis, "align": align, "order": order}
+
+
+def _css_order(value: str) -> int:
+    if value in {"0", "initial", "unset", "revert"}:
+        return 0
+    if value == "inherit":
+        raise _Invalid("order inherit is unsupported")
+    sign = -1 if value.startswith("-") else 1
+    digits = value[1:] if sign < 0 else value
+    if not digits.isdigit() or (len(digits) > 1 and digits.startswith("0")):
+        raise _Invalid("order is unsupported")
+    return 0 if digits == "0" else sign * int(digits)
+
+
+def _stored_order(spec: object) -> int:
+    raw = spec.get("order", 0) if isinstance(spec, dict) else 0
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise _Invalid("order is unsupported")
+    return raw
 
 
 def _author_value(value: str, custom: dict) -> str:
@@ -3036,6 +3056,7 @@ def _place_wrapped_flex_lines(
         [
             {
                 "id": row["item"].id,
+                "order": _stored_order(row["item"].flex),
                 "base": row["base"],
                 "grow": row["grow"],
                 "shrink": row["shrink"],
@@ -3199,6 +3220,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
                 "margins": _flex_margins(item),
             }
         )
+    rows.sort(key=lambda row: _stored_order(row["item"].flex))
     if not rows:
         if box.definite_height is None:
             box.definite_height = 0
@@ -3474,6 +3496,7 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
     custom = styles.get(element, ({}, ""))[0]
     column = ("auto", "auto")
     row = ("auto", "auto")
+    item_order = 0
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop not in _GRID_ITEM_PROPS:
             continue
@@ -3483,8 +3506,7 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
                 raise _Invalid("grid line is unsupported")
             continue
         if prop == "order":
-            if value not in {"0", "initial", "unset", "revert"}:
-                raise _Invalid("grid order is unsupported")
+            item_order = _css_order(value)
             continue
         if prop == "grid-column":
             column = _grid_placement(value)
@@ -3497,6 +3519,7 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
         "row_end": row[1],
         "width": _grid_length(_box_decl(box, "width")),
         "height": _grid_length(_box_decl(box, "height")),
+        "order": item_order,
     }
 
 
@@ -3666,7 +3689,7 @@ def _place_grid(box: _Box, content_x: int) -> None:
                 "row_start": (item.grid or {}).get("row_start", "auto"),
                 "row_end": (item.grid or {}).get("row_end", "auto"),
             }
-            for item in box.children
+            for item in sorted(box.children, key=lambda child: _stored_order(child.grid))
         ],
         flow=spec.get("flow", "row"),
     )
