@@ -101,13 +101,14 @@ starts under the last row. ``grid-auto-flow: column`` fills each column
 before the next one, and ``dense`` puts a later item in a hole the sparse
 cursor left behind. ``order`` sorts that automatic sequence first; equal
 values keep source order. A text-only item contributes its min-content and
-max-content to the columns, plus any definite horizontal margin.
+max-content to the columns, plus any definite horizontal margin, padding,
+and used border.
 ``max-content`` keeps the unwrapped line, ``auto`` then absorbs leftover
 space in a definite grid, and a fixed column keeps its length and wraps the
-text inside the margin box. Definite margins shrink a stretched automatic
+text inside the content box. Definite margins shrink a stretched automatic
 size. An auto margin absorbs positive free space in the area and does not
 grow the track. An automatic row grows to the line boxes plus definite
-vertical margins. A block child is placed in that content box: the item is
+vertical margins, padding, and used border. A block child is placed in that content box: the item is
 an independent formatting context, so the child's margin stays inside the
 item and adjoining child margins collapse. The child's text contributes its
 min-content and max-content, and a narrow column wraps those line boxes.
@@ -116,7 +117,8 @@ The row grows to that content, so the following block starts under it.
 that rectangle is not the item's source position. A bracketed line name on
 ``grid-template-columns`` or ``grid-template-rows`` is selected by
 ``grid-column`` or ``grid-row``. A name that is not one rectangle is rejected.
-Item padding, item borders, and a definite grid height stay rejected.
+Padding and a used border inset the content box. An absent or hidden border
+style contributes nothing. A definite grid height stays rejected.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -3449,17 +3451,149 @@ def _reject_grid_text(text: object) -> None:
         raise _Invalid("grid text is unsupported")
 
 
+_GRID_EDGE = "grid item edge is unsupported"
+_GRID_SIDES = ("top", "right", "bottom", "left")
+_GRID_BORDER_STYLES = frozenset(
+    {"none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"}
+)
+_GRID_LOGICAL_CHROME = frozenset(
+    {
+        "padding-inline",
+        "padding-inline-start",
+        "padding-inline-end",
+        "padding-block",
+        "padding-block-start",
+        "padding-block-end",
+        "border-inline-width",
+        "border-inline-start-width",
+        "border-inline-end-width",
+        "border-block-width",
+        "border-block-start-width",
+        "border-block-end-width",
+        "border-inline-style",
+        "border-inline-start-style",
+        "border-inline-end-style",
+        "border-block-style",
+        "border-block-start-style",
+        "border-block-end-style",
+    }
+)
+
+
+def _grid_quad(value: str, parse) -> dict[str, object] | None:
+    token = " ".join(value.strip().lower().split())
+    if token in {"initial", "unset", "revert"}:
+        return None
+    parts = token.split(" ")
+    if len(parts) == 1:
+        chosen = (parts[0], parts[0], parts[0], parts[0])
+    elif len(parts) == 2:
+        chosen = (parts[0], parts[1], parts[0], parts[1])
+    elif len(parts) == 3:
+        chosen = (parts[0], parts[1], parts[2], parts[1])
+    elif len(parts) == 4:
+        chosen = (parts[0], parts[1], parts[2], parts[3])
+    else:
+        raise _Invalid(_GRID_EDGE)
+    return {side: parse(part) for side, part in zip(_GRID_SIDES, chosen, strict=True)}
+
+
+def _grid_padding_length(value: str) -> int:
+    token = " ".join(value.strip().lower().split())
+    if token in _ZERO_EDGE:
+        return 0
+    if len(token) > 2 and token.endswith("px"):
+        length = _px(float(token[:-2]), "padding")
+        if length < 0:
+            raise _Invalid(_GRID_EDGE)
+        return length
+    raise _Invalid(_GRID_EDGE)
+
+
+def _grid_border_width_token(value: str) -> object:
+    token = " ".join(value.strip().lower().split())
+    if token in {"initial", "unset", "revert", "medium"}:
+        return "medium"
+    if token in {"thin", "thick"}:
+        return token
+    if token in _ZERO_EDGE:
+        return 0
+    if len(token) > 2 and token.endswith("px"):
+        length = _px(float(token[:-2]), "border-width")
+        if length < 0:
+            raise _Invalid(_GRID_EDGE)
+        return length
+    raise _Invalid(_GRID_EDGE)
+
+
+def _grid_border_style_token(value: str) -> str:
+    token = " ".join(value.strip().lower().split())
+    if token in {"initial", "unset", "revert"}:
+        return "none"
+    if token not in _GRID_BORDER_STYLES:
+        raise _Invalid(_GRID_EDGE)
+    return token
+
+
+def _grid_chrome(box: _Box) -> dict[str, int]:
+    """Used content-box padding and border. A hidden style has no used width."""
+
+    padding = {side: 0 for side in _GRID_SIDES}
+    widths: dict[str, object] = {side: "medium" for side in _GRID_SIDES}
+    styles = {side: "none" for side in _GRID_SIDES}
+    for prop, raw in box.declarations:
+        if prop == "padding":
+            chosen = _grid_quad(raw, _grid_padding_length)
+            padding = {side: 0 for side in _GRID_SIDES} if chosen is None else {**padding, **chosen}
+        elif prop in {"padding-top", "padding-right", "padding-bottom", "padding-left"}:
+            padding[prop.split("-", 1)[1]] = _grid_padding_length(raw)
+        elif prop == "border-width":
+            chosen = _grid_quad(raw, _grid_border_width_token)
+            widths = {side: "medium" for side in _GRID_SIDES} if chosen is None else {**widths, **chosen}
+        elif prop in {"border-top-width", "border-right-width", "border-bottom-width", "border-left-width"}:
+            widths[prop.split("-")[1]] = _grid_border_width_token(raw)
+        elif prop == "border-style":
+            chosen = _grid_quad(raw, _grid_border_style_token)
+            styles = {side: "none" for side in _GRID_SIDES} if chosen is None else {**styles, **chosen}
+        elif prop in {"border-top-style", "border-right-style", "border-bottom-style", "border-left-style"}:
+            styles[prop.split("-")[1]] = _grid_border_style_token(raw)
+    used = {f"padding_{side}": padding[side] for side in _GRID_SIDES}
+    for side in _GRID_SIDES:
+        width = widths[side]
+        if styles[side] in {"none", "hidden"}:
+            used[f"border_{side}"] = 0
+        elif width in {None, "medium"}:
+            used[f"border_{side}"] = 3
+        elif width == "thin":
+            used[f"border_{side}"] = 1
+        elif width == "thick":
+            used[f"border_{side}"] = 5
+        else:
+            used[f"border_{side}"] = _px(width, "border-width")
+    return used
+
+
+def _install_grid_chrome(item: _Box) -> None:
+    solved = dict(_ZERO_FLEX_EDGES)
+    solved.update(_grid_chrome(item))
+    item.solved = solved
+
+
+def _grid_border_content(border: int, chrome: int) -> int:
+    content = border - chrome
+    if content < 0:
+        raise _Invalid(_GRID_EDGE)
+    return content
+
+
 def _reject_grid_edges(box: _Box) -> None:
     sizing = _box_decl(box, "box-sizing")
     if sizing not in {None, "content-box", "initial", "unset", "revert"}:
         raise _Invalid("grid box-sizing is unsupported")
-    for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
-        if name == "margin" or name.startswith("margin-"):
-            continue
-        raw = _box_decl(box, name)
-        if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
-            continue
-        raise _Invalid("grid item edge is unsupported")
+    for prop, raw in box.declarations:
+        if prop in _GRID_LOGICAL_CHROME and raw.strip().lower() not in _ZERO_EDGE | {"none"}:
+            raise _Invalid(_GRID_EDGE)
+    _grid_chrome(box)
     limits = {
         "min-width": {"auto", "0", "0px", "initial", "unset", "revert"},
         "min-height": {"auto", "0", "0px", "initial", "unset", "revert"},
@@ -3969,6 +4103,8 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
         for entry in placements
         if isinstance(entry, dict) and entry.get("id") is not None
     }
+    for item in box.children:
+        _install_grid_chrome(item)
     column_sizes = _size_grid_columns(box, track_defs, located, column_gap, spec)
     text_heights = _measure_grid_items(
         box, located, column_sizes, column_gap, content_x, viewport_height
@@ -3993,22 +4129,27 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
         row_span = int(entry.get("row_span") or 0)
         specified = (item.grid or {}).get("height", "auto")
         area = _grid_span(row_sizes, row, row_span, row_gap)
-        aligned = _align_grid_axis(
-            item,
-            area,
-            axis="block",
-            size=specified,
-            automatic=text_heights.get(item.id, 0),
-        )
-        item.content_height = _px(aligned.get("size"), "grid item")
+        chrome_y = _edge_extent(item.solved, "top", "bottom")
+        if type(specified) is int:
+            aligned = _align_grid_axis(item, area, axis="block", size=specified + chrome_y, automatic=0)
+            item.content_height = specified
+            item.border_height = specified + chrome_y
+        else:
+            aligned = _align_grid_axis(
+                item,
+                area,
+                axis="block",
+                size="auto",
+                automatic=text_heights.get(item.id, 0) + chrome_y,
+            )
+            item.border_height = _px(aligned.get("size"), "grid item")
+            item.content_height = _grid_border_content(item.border_height, chrome_y)
         item.anchor_y = (
             origin
             + _grid_offset(row_sizes, row, row_gap)
             + _px(aligned.get("start"), "grid item")
         )
-        item.border_width = item.content_width
-        item.border_height = item.content_height
-        item.solved = dict(_ZERO_FLEX_EDGES)
+        item.border_width = item.content_width + _edge_extent(item.solved, "left", "right")
         item.solved.update(
             margin_top=_px(aligned.get("margin_start"), "grid margin"),
             margin_bottom=_px(aligned.get("margin_end"), "grid margin"),
@@ -4137,7 +4278,7 @@ def _align_grid_axis(
 
 
 def _grid_content_contribution(item: _Box) -> tuple[int, int]:
-    extra = _grid_definite_margins(item, "left", "right")
+    extra = _grid_definite_margins(item, "left", "right") + _edge_extent(item.solved, "left", "right")
     width = (item.grid or {}).get("width", "auto")
     if isinstance(width, int):
         return width + extra, width + extra
@@ -4233,8 +4374,10 @@ def _lay_grid_item_blocks(item: _Box, viewport_height: int | None) -> int:
     and adjoining vertical margins of those children collapse with each other.
     """
 
+    inset_x = _edge_extent(item.solved, "left")
+    inset_y = _edge_extent(item.solved, "top")
     for child in item.children:
-        _solve(child, item.content_width, None, viewport_height, item.x)
+        _solve(child, item.content_width, None, viewport_height, item.x + inset_x)
     placed = place_collapsed_margins(
         {
             "id": item.id,
@@ -4262,7 +4405,7 @@ def _lay_grid_item_blocks(item: _Box, viewport_height: int | None) -> int:
     if parent is None:
         raise _Invalid("grid item content is unsupported")
     for child in item.children:
-        _stamp_grid_child(child, by_id, 0)
+        _stamp_grid_child(child, by_id, -inset_y)
     return _px(parent.get("border_height"), "grid item")
 
 
@@ -4297,15 +4440,22 @@ def _measure_grid_items(
         column_span = int(entry.get("column_span") or 0)
         area = _grid_span(column_sizes, column, column_span, column_gap)
         width = (item.grid or {}).get("width", "auto")
-        automatic = _intrinsic_text_sizes(item)[1] if width == "auto" and item.inline_text else 0
-        aligned = _align_grid_axis(item, area, axis="inline", size=width, automatic=automatic)
-        item.content_width = _px(aligned.get("size"), "grid item")
+        chrome_x = _edge_extent(item.solved, "left", "right")
+        if type(width) is int:
+            aligned = _align_grid_axis(item, area, axis="inline", size=width + chrome_x, automatic=0)
+            item.content_width = width
+        else:
+            content_auto = _intrinsic_text_sizes(item)[1] if item.inline_text else 0
+            aligned = _align_grid_axis(
+                item, area, axis="inline", size="auto", automatic=content_auto + chrome_x
+            )
+            item.content_width = _grid_border_content(_px(aligned.get("size"), "grid item"), chrome_x)
         item.margin_left = _px(aligned.get("margin_start"), "grid margin")
         item.margin_right = _px(aligned.get("margin_end"), "grid margin")
         item.x = content_x + _grid_offset(column_sizes, column, column_gap) + _px(
             aligned.get("start"), "grid item"
         )
-        item.border_width = item.content_width
+        item.border_width = item.content_width + chrome_x
         if item.children:
             heights[item.id] = _lay_grid_item_blocks(item, viewport_height)
         elif item.inline_text:
@@ -4338,7 +4488,12 @@ def _content_row_height(
             contribution = specified
         else:
             contribution = text_heights.get(item.id, 0)
-        height = max(height, contribution + _grid_definite_margins(item, "top", "bottom"))
+        height = max(
+            height,
+            contribution
+            + _grid_definite_margins(item, "top", "bottom")
+            + _edge_extent(item.solved, "top", "bottom"),
+        )
     return height
 
 
