@@ -38,7 +38,10 @@ block siblings. A static position inside a line is rejected, and a vertical
 writing mode still rejects those automatic sizes. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
-shrink. ``shape-outside`` replaces that rectangle with the shape clipped to
+shrink. An inline-block in that text is an unbreakable item: its margin box
+sits in the gap when the line fits, and the item moves intact below the float
+when it does not. A shaped float, a taller atomic box, and a mixed font stay
+rejected for that item. ``shape-outside`` replaces that rectangle with the shape clipped to
 the margin box: a circle leaves its corner open, an inset releases the next
 line where the shape ends, and ``shape-margin`` expands the shape before
 clipping. A shape that cannot be parsed is rejected. A float beside a
@@ -77,7 +80,8 @@ whitespace between blocks does not generate one. A float is a split in
 that same stream: the text before it, and the text after it, each become an
 anonymous block, and those blocks shorten their lines beside the float. Clear
 on a later sibling starts that sibling below the float. An inline-block, a
-relative inline, or a mixed font beside that float stays rejected. An
+relative inline, or a mixed font in that same mix with a block sibling stays
+rejected. An
 absolute or fixed box still leaves the loose text out. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
 shrinking the parent's strut. text-align and white-space on an inline
@@ -3736,6 +3740,52 @@ def _fill_inline_blocks(box: _Box) -> None:
         if atom.writing_mode != "horizontal-tb" or atom.direction != "ltr":
             raise _Invalid("inline-block writing mode is unsupported")
     measured = {atom.id: _measure_float(box, atom) for atom in box.atoms}
+    entries = _atom_sources(box)
+    source = "".join(item[0] for item in entries)
+    wrapped = wrap_lines(
+        source,
+        max(box.content_width, 0),
+        white_space=box.white_space,
+        advances=_atom_advances(entries, measured),
+    )
+    raw_lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
+    if not isinstance(raw_lines, list):
+        raise _Invalid(str(wrapped.get("reason") or "line break failed"))
+    records: list[_Line] = []
+    cursor_y = 0
+    index = 0
+    placed: set[str] = set()
+    visible_lines = [line for line in raw_lines if isinstance(line, dict)]
+    last_index = len(visible_lines) - 1
+    for line_index, line in enumerate(visible_lines):
+        rendered = str(line.get("text") or "")
+        content = _px(line.get("content_width"), "line width")
+        if not rendered and content == 0:
+            continue
+        chosen, index = _match_atom_line(entries, index, rendered)
+        record, height = _paint_atom_line(
+            box,
+            chosen,
+            content,
+            box.content_width,
+            0,
+            cursor_y,
+            line_index == last_index,
+            measured,
+            placed,
+        )
+        records.append(record)
+        cursor_y += height
+    while index < len(entries) and entries[index][0].isspace():
+        index += 1
+    if index != len(entries) or placed != {atom.id for atom in box.atoms}:
+        raise _Invalid("inline-block line is invalid")
+    box.lines = records
+    if box.definite_height is None:
+        box.definite_height = cursor_y
+
+
+def _atom_sources(box: _Box) -> list[tuple[str, int, str, _Box | None]]:
     entries: list[tuple[str, int, str, _Box | None]] = []
     serial = 0
     for piece in box.pieces:
@@ -3752,8 +3802,13 @@ def _fill_inline_blocks(box: _Box) -> None:
         entries.append((_ZWSP, piece.font_size, piece.line_height, None))
     if serial != len(box.atoms):
         raise _Invalid("inline-block is unsupported")
-    source = "".join(item[0] for item in entries)
-    advances = []
+    return entries
+
+
+def _atom_advances(
+    entries: list[tuple[str, int, str, _Box | None]], measured: dict[str, dict[str, int]]
+) -> list[int]:
+    advances: list[int] = []
     for ch, size, _leading, atom in entries:
         if ch == _ZWSP:
             advances.append(0)
@@ -3761,103 +3816,185 @@ def _fill_inline_blocks(box: _Box) -> None:
             advances.append(measured[atom.id]["outer_width"])
         else:
             advances.append(_advance_of(ch, size))
-    wrapped = wrap_lines(source, max(box.content_width, 0), white_space=box.white_space, advances=advances)
-    raw_lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
-    if not isinstance(raw_lines, list):
-        raise _Invalid(str(wrapped.get("reason") or "line break failed"))
-    records: list[_Line] = []
-    cursor_y = 0
-    index = 0
-    placed: set[str] = set()
-    visible_lines = [line for line in raw_lines if isinstance(line, dict)]
-    last = len(visible_lines) - 1
-    for line_index, line in enumerate(visible_lines):
-        rendered = str(line.get("text") or "")
-        content = _px(line.get("content_width"), "line width")
-        if not rendered and content == 0:
-            continue
-        chosen: list[tuple[str, int, str, _Box | None]] = []
-        for ch in rendered:
-            while index < len(entries) and entries[index][0] != ch:
-                if not entries[index][0].isspace():
-                    raise _Invalid("inline-block line is invalid")
-                index += 1
-            if index >= len(entries):
+    return advances
+
+
+def _match_atom_line(
+    entries: list[tuple[str, int, str, _Box | None]], index: int, rendered: str
+) -> tuple[list[tuple[str, int, str, _Box | None]], int]:
+    chosen: list[tuple[str, int, str, _Box | None]] = []
+    for ch in rendered:
+        while index < len(entries) and entries[index][0] != ch:
+            if not entries[index][0].isspace():
                 raise _Invalid("inline-block line is invalid")
-            chosen.append(entries[index])
             index += 1
-        groups: list[tuple[str, int, str, int]] = []
-        runs: list[dict[str, object]] = []
-        atom_records: list[dict[str, object]] = []
-        atoms_here: list[tuple[_Box, int]] = []
-        cursor = 0
-        buf = ""
-        buf_size = 0
-        buf_leading = ""
-        buf_width = 0
-        buf_x = 0
-
-        def flush() -> None:
-            nonlocal buf, buf_width
-            if not buf:
-                return
-            groups.append((buf, buf_size, buf_leading, buf_width))
-            runs.append({"text": buf, "x": buf_x, "font_size": buf_size, "width": buf_width})
-            buf = ""
-            buf_width = 0
-
-        for ch, size, leading, atom in chosen:
-            if ch == _ZWSP:
-                continue
-            if atom is not None:
-                flush()
-                row = measured[atom.id]
-                border_x = cursor + row["margin_left"]
-                atoms_here.append((atom, border_x))
-                atom_records.append({"id": atom.id, "x": border_x, "width": row["outer_width"]})
-                cursor += row["outer_width"]
-                placed.add(atom.id)
-                continue
-            advance = _advance_of(ch, size)
-            if buf and (size != buf_size or leading != buf_leading):
-                flush()
-            if not buf:
-                buf_x = cursor
-                buf_size = size
-                buf_leading = leading
-            buf += ch
-            buf_width += advance
-            cursor += advance
-        flush()
-        if cursor != content:
+        if index >= len(entries):
             raise _Invalid("inline-block line is invalid")
-        edges = [_atom_edges(box, atom, measured[atom.id]) for atom, _border_x in atoms_here]
-        height, above, tops = _line_extent(box, groups, edges)
-        offset = _text_offset(box, box.content_width, content, line_index == last)
-        for (atom, border_x), top in zip(atoms_here, tops, strict=True):
-            atom.local_x = offset + border_x
-            atom.local_y = cursor_y + top + measured[atom.id]["margin_top"]
-        visible = "".join(ch for ch, _size, _leading, atom in chosen if atom is None and ch != _ZWSP)
-        records.append(
-            _Line(
-                text=visible,
-                x=offset,
-                y=cursor_y,
-                height=height,
-                content_width=content,
-                runs=runs,
-                baseline=above,
-                atoms=atom_records,
-            )
+        chosen.append(entries[index])
+        index += 1
+    return chosen, index
+
+
+def _paint_atom_line(
+    box: _Box,
+    chosen: list[tuple[str, int, str, _Box | None]],
+    content: int,
+    measure: int,
+    left: int,
+    cursor_y: int,
+    last: bool,
+    measured: dict[str, dict[str, int]],
+    placed: set[str],
+) -> tuple[_Line, int]:
+    groups: list[tuple[str, int, str, int]] = []
+    runs: list[dict[str, object]] = []
+    atom_records: list[dict[str, object]] = []
+    atoms_here: list[tuple[_Box, int]] = []
+    cursor = 0
+    buf = ""
+    buf_size = 0
+    buf_leading = ""
+    buf_width = 0
+    buf_x = 0
+
+    def flush() -> None:
+        nonlocal buf, buf_width
+        if not buf:
+            return
+        groups.append((buf, buf_size, buf_leading, buf_width))
+        runs.append({"text": buf, "x": buf_x, "font_size": buf_size, "width": buf_width})
+        buf = ""
+        buf_width = 0
+
+    for ch, size, leading, atom in chosen:
+        if ch == _ZWSP:
+            continue
+        if atom is not None:
+            flush()
+            row = measured[atom.id]
+            border_x = cursor + row["margin_left"]
+            atoms_here.append((atom, border_x))
+            atom_records.append({"id": atom.id, "x": border_x, "width": row["outer_width"]})
+            cursor += row["outer_width"]
+            placed.add(atom.id)
+            continue
+        advance = _advance_of(ch, size)
+        if buf and (size != buf_size or leading != buf_leading):
+            flush()
+        if not buf:
+            buf_x = cursor
+            buf_size = size
+            buf_leading = leading
+        buf += ch
+        buf_width += advance
+        cursor += advance
+    flush()
+    if cursor != content:
+        raise _Invalid("inline-block line is invalid")
+    edges = [_atom_edges(box, atom, measured[atom.id]) for atom, _border_x in atoms_here]
+    height, above, tops = _line_extent(box, groups, edges)
+    offset = _text_offset(box, measure, content, last)
+    for (atom, border_x), top in zip(atoms_here, tops, strict=True):
+        atom.local_x = left + offset + border_x
+        atom.local_y = cursor_y + top + measured[atom.id]["margin_top"]
+    visible = "".join(ch for ch, _size, _leading, atom in chosen if atom is None and ch != _ZWSP)
+    return (
+        _Line(
+            text=visible,
+            x=left + offset,
+            y=cursor_y,
+            height=height,
+            content_width=content,
+            runs=runs,
+            baseline=above,
+            atoms=atom_records,
+        ),
+        height,
+    )
+
+
+def _fill_atoms_beside_floats(box: _Box) -> None:
+    """Place inline-blocks in the gaps already shortened by this box's floats."""
+
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("inline-block writing mode is unsupported")
+    if len(box.atoms) > 32:
+        raise _Invalid("inline-block is unsupported")
+    for atom in box.atoms:
+        if atom.writing_mode != "horizontal-tb" or atom.direction != "ltr":
+            raise _Invalid("inline-block writing mode is unsupported")
+    if _mixed_runs(box) or _relative_pieces(box):
+        raise _Invalid("inline-block beside a float is unsupported")
+    bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
+    if len(bands) != len(box.floats) or any(band[5] for band in bands):
+        raise _Invalid("inline-block beside a float is unsupported")
+    measured = {atom.id: _measure_float(box, atom) for atom in box.atoms}
+    strut = _strut_height(box.font_size, _used_line_height(box.line_height, box.font_size))
+    if any(measured[atom.id]["outer_height"] != strut for atom in box.atoms):
+        raise _Invalid("inline-block beside a float is unsupported")
+    entries = _atom_sources(box)
+    records: list[_Line] = []
+    placed: set[str] = set()
+    index = 0
+    cursor_y = 0
+    for _ in range(10000):
+        if index >= len(entries):
+            break
+        left, right, bottoms = _exclusion(cursor_y, strut, bands, box.content_width)
+        available = right - left
+        obstructed = not (left == 0 and right == box.content_width)
+        if available <= 0:
+            if not bottoms:
+                raise _Invalid("line break failed")
+            nxt = min(bottoms)
+            if nxt <= cursor_y:
+                raise _Invalid("line break failed")
+            cursor_y = nxt
+            continue
+        source = "".join(item[0] for item in entries[index:])
+        wrapped = wrap_lines(
+            source,
+            max(available, 0),
+            white_space=box.white_space,
+            advances=_atom_advances(entries[index:], measured),
         )
+        lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
+        if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
+            raise _Invalid(str(wrapped.get("reason") or "line break failed"))
+        rendered = str(lines[0].get("text") or "")
+        content = _px(lines[0].get("content_width"), "line width")
+        if not rendered and content == 0:
+            raise _Invalid("line break failed")
+        if content > available and obstructed:
+            if not bottoms:
+                raise _Invalid("line break failed")
+            nxt = min(bottoms)
+            if nxt <= cursor_y:
+                raise _Invalid("line break failed")
+            cursor_y = nxt
+            continue
+        chosen, new_index = _match_atom_line(entries, index, rendered)
+        if new_index <= index:
+            raise _Invalid("line break failed")
+        rest = entries[new_index:]
+        last = not any(ch.strip() and ch != _ZWSP for ch, _size, _leading, _atom in rest)
+        record, height = _paint_atom_line(
+            box, chosen, content, available, left, cursor_y, last, measured, placed
+        )
+        if height != strut:
+            raise _Invalid("inline-block beside a float is unsupported")
+        records.append(record)
+        index = new_index
         cursor_y += height
+    else:
+        raise _Invalid("line break failed")
     while index < len(entries) and entries[index][0].isspace():
         index += 1
     if index != len(entries) or placed != {atom.id for atom in box.atoms}:
         raise _Invalid("inline-block line is invalid")
     box.lines = records
     if box.definite_height is None:
-        box.definite_height = cursor_y
+        box.definite_height = max(cursor_y, _band_bottom(bands))
 
 
 def _fill_lines(box: _Box) -> None:
@@ -3883,7 +4020,8 @@ def _fill_lines(box: _Box) -> None:
             raise _Invalid("relative inline font is unsupported")
     if box.atoms:
         if box.floats:
-            raise _Invalid("inline-block beside a float is unsupported")
+            _fill_atoms_beside_floats(box)
+            return
         _fill_inline_blocks(box)
         return
     if _mixed_runs(box) and box.floats and not box.children:
