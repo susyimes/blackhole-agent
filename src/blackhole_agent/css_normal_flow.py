@@ -32,8 +32,12 @@ Horizontal text inside that box supplies shrink-to-fit width and the stacked
 line-box height. A static block child is laid out in that content box: its
 text wraps to the definite width, adjoining child margins collapse inside
 the absolute formatting context, and an automatic height grows to the last
-child's margin edge. Shrink-to-fit width, a float, and a nested positioned
-box stay rejected. Automatic insets on an axis use the static position between
+child's margin edge. An automatic width with an automatic horizontal inset
+shrinks to those children: the used content width is the minimum of their
+max-content and the maximum of their min-content and the available space.
+A child margin stays inside that box. A percentage width, an intrinsic
+limit, a float, and a nested positioned box stay rejected. Automatic insets
+on an axis use the static position between
 block siblings. A static position inside a line is rejected, and a vertical
 writing mode still rejects those automatic sizes. A float inside
 a block whose only in-flow content is text
@@ -2268,8 +2272,8 @@ def _iter_float_descendants(box: _Box):
         yield from _iter_float_descendants(child)
 
 
-def _specified_margin_px(value: str | None) -> int:
-    """Specified horizontal margin. Auto does not enlarge a shrink-to-fit float."""
+def _specified_margin_px(value: str | None, *, reason: str = "float content is unsupported") -> int:
+    """Specified horizontal margin. Auto does not enlarge a shrink-to-fit box."""
 
     if value is None:
         return 0
@@ -2277,11 +2281,13 @@ def _specified_margin_px(value: str | None) -> int:
     if text in {"auto", "initial", "unset", "revert"}:
         return 0
     if not text.endswith("px"):
-        raise _Invalid("float content is unsupported")
+        raise _Invalid(reason)
     return _px(float(text[:-2]), "margin")
 
 
-def _resolve_float_child(box: _Box, containing: int) -> dict[str, object]:
+def _resolve_float_child(
+    box: _Box, containing: int, *, reason: str = "float content is unsupported"
+) -> dict[str, object]:
     solved = resolve_logical_box(
         box.declarations,
         writing_mode=box.writing_mode,
@@ -2292,24 +2298,26 @@ def _resolve_float_child(box: _Box, containing: int) -> dict[str, object]:
         containing_block=None,
     )
     if solved.get("outcome") != "resolved":
-        raise _Invalid(str(solved.get("reason") or "float content is unsupported"))
+        raise _Invalid(str(solved.get("reason") or reason))
     return solved
 
 
-def _float_child_span(box: _Box) -> tuple[int, int]:
+def _float_child_span(box: _Box, *, reason: str = "float content is unsupported") -> tuple[int, int]:
     if any(prop == "box-sizing" and value.strip().lower() == "border-box" for prop, value in box.declarations):
-        raise _Invalid("float content is unsupported")
+        raise _Invalid(reason)
     if _has_explicit_limit(box, _WIDTH_LIMITS):
-        raise _Invalid("float content is unsupported")
-    narrow = _resolve_float_child(box, 0)
-    wide = _resolve_float_child(box, 10000)
+        raise _Invalid(reason)
+    narrow = _resolve_float_child(box, 0, reason=reason)
+    wide = _resolve_float_child(box, 10000, reason=reason)
     for key in ("padding_left", "padding_right", "border_left", "border_right"):
         if narrow.get(key) != wide.get(key):
-            raise _Invalid("float content is unsupported")
+            raise _Invalid(reason)
     slots = _cascade(box.declarations, _writing_flow(box))
     start = "left" if box.direction != "rtl" else "right"
     end = "right" if start == "left" else "left"
-    margins = _specified_margin_px(slots.get(f"margin-{start}")) + _specified_margin_px(slots.get(f"margin-{end}"))
+    margins = _specified_margin_px(slots.get(f"margin-{start}"), reason=reason) + _specified_margin_px(
+        slots.get(f"margin-{end}"), reason=reason
+    )
     chrome = margins + sum(
         _px(narrow.get(key), key.replace("_", "-"))
         for key in ("padding_left", "padding_right", "border_left", "border_right")
@@ -2317,16 +2325,25 @@ def _float_child_span(box: _Box) -> tuple[int, int]:
     specified = narrow.get("specified_width")
     if _specified_auto(specified):
         if box.children:
-            pairs = [_float_child_span(child) for child in box.children]
+            pairs = [_float_child_span(child, reason=reason) for child in box.children]
             inner_min = max(item[0] for item in pairs)
             inner_max = max(item[1] for item in pairs)
         else:
             inner_min, inner_max = _intrinsic_text_sizes(box)
     elif "%" in str(specified) or narrow.get("content_width") != wide.get("content_width"):
-        raise _Invalid("float content is unsupported")
+        raise _Invalid(reason)
     else:
         inner_min = inner_max = _px(narrow.get("content_width"), "width")
     return inner_min + chrome, inner_max + chrome
+
+
+def _absolute_content_span(box: _Box) -> tuple[int, int]:
+    """Min-content and max-content of an absolute box from its block children."""
+
+    pairs = [
+        _float_child_span(child, reason="absolute shrink-to-fit is unsupported") for child in box.children
+    ]
+    return max(item[0] for item in pairs), max(item[1] for item in pairs)
 
 
 def _lay_float_blocks(fl: _Box) -> None:
@@ -2787,7 +2804,12 @@ def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
         static_top = hyp_y - cb.y
     else:
         static_left = static_right = static_top = 0
-    minimum, maximum = _intrinsic_text_sizes(box) if box.inline_text else (0, 0)
+    if box.children and needs_shrink:
+        minimum, maximum = _absolute_content_span(box)
+    elif box.inline_text:
+        minimum, maximum = _intrinsic_text_sizes(box)
+    else:
+        minimum, maximum = (0, 0)
     direction = box.direction if box.direction in {"ltr", "rtl"} else "ltr"
 
     def solve(content_height: int) -> dict[str, object]:
@@ -2828,8 +2850,6 @@ def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
 
     if box.children and box.writing_mode != "horizontal-tb":
         raise _Invalid("positioned content is unsupported")
-    if box.children and needs_shrink:
-        raise _Invalid("absolute shrink-to-fit is unsupported")
     placed = solve(0)
     if placed.get("outcome") == "placed" and box.inline_text and not box.children:
         width = _px(placed.get("width"), "content width")

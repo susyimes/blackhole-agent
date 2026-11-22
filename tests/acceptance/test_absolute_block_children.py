@@ -5,8 +5,8 @@ A 50px-wide absolute box at left 30px and top 40px, with 7px padding-left and
 child's 8px top margin and 4px bottom margin stay inside the absolute box, so
 the automatic content height is 72px and the first line starts at x 37, y 53.
 Two later children collapse a 10px bottom margin with a 30px top margin into
-one 30px gap. The following in-flow block stays at y 0. A float child and a
-shrink-to-fit absolute that contains a block child are rejected.
+one 30px gap. The following in-flow block stays at y 0. A float child is
+rejected. A shrink-to-fit absolute around Hello uses a 50px content width.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the child exits 0 with passed
@@ -132,8 +132,9 @@ def observe() -> tuple[bool, dict[str, object]]:
         "pair_flow_stays": _near(_box(pair_boxes, "next"), y=0, content_height=20),
         "float_rejected": floated.get("outcome") == "invalid"
         and floated.get("reason") == "positioned content is unsupported",
-        "shrink_rejected": shrink.get("outcome") == "invalid"
-        and shrink.get("reason") == "absolute shrink-to-fit is unsupported",
+        "shrink_to_fit_hello": shrink.get("outcome") == "placed"
+        and _near(_box(shrink.get("boxes"), "abs"), x=0, y=0, content_width=50, content_height=10)
+        and _near(_box(shrink.get("boxes"), "copy"), x=0, y=0, content_width=50, content_height=10),
     }
     observed["checks"] = checks
     return all(checks.values()), observed
