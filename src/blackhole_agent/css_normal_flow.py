@@ -235,6 +235,14 @@ padding and border, and the content box does not go below zero. A non-zero
 ``min-height`` stops the bottom margin from collapsing through the block.
 Flex, grid, table, multicol, float, and vertical boxes keep the heights
 their own formatting contexts already chose.
+A preferred ``aspect-ratio`` on one of those horizontal blocks maps the
+definite content width into an automatic height. The used height is at least
+that mapped size, and a taller content stack still grows it. A scrollport,
+or an explicit ``min-height`` including zero, keeps the mapped size and lets
+the extra content overflow. ``max-height`` clamps the mapped size. A
+specified height stays specified. A plain ratio uses the ``box-sizing`` box;
+``auto`` together with a ratio always uses the content box. A zero component
+behaves as ``auto``.
 Writing mode, direction and text orientation inherit. Other CSS-wide keywords
 on box properties use their initial values.
 A text-only orthogonal block wraps down its used content height and stacks
@@ -259,6 +267,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
@@ -558,6 +567,7 @@ class _Box:
     custom: dict = field(default_factory=dict)
     element: object = None
     tree: object = None
+    aspect_ratio: tuple[float, float, bool] | None = None
 
 
 def layout_normal_flow(
@@ -950,6 +960,7 @@ def _make_box(
         custom=custom,
         element=element,
         tree=tree,
+        aspect_ratio=_read_aspect_ratio(winners, custom),
     )
 
 
@@ -1186,6 +1197,18 @@ def _column_text(value: str | None) -> str | None:
     if value is None:
         return None
     return " ".join(value.strip().lower().split())
+
+
+def _read_aspect_ratio(winners, custom: dict) -> tuple[float, float, bool] | None:
+    raw = _declared(winners, "aspect-ratio", custom)
+    if raw is None or raw in {"auto", "initial", "unset", "revert"}:
+        return None
+    if raw == "inherit":
+        raise _Invalid("aspect-ratio inherit is unsupported")
+    try:
+        return parse_aspect_ratio(raw)
+    except ValueError as exc:
+        raise _Invalid("aspect-ratio is invalid") from exc
 
 
 def _read_column_span(winners, custom: dict) -> str:
@@ -1456,6 +1479,7 @@ def _solve(
     box.definite_height = None if content_height == "auto" else _px(content_height, "content height")
     box.min_content_height = _stored_min(solved.get("content_min_height"))
     box.max_content_height = _stored_max(solved.get("content_max_height"))
+    _apply_block_aspect(box)
     box.margin_left = _px(solved.get("margin_left"), "margin-left")
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
@@ -1515,6 +1539,54 @@ def _stored_max(value: object) -> int | None:
     if value is None:
         return None
     return _px(value, "max-height")
+
+
+def _box_sizing(box: _Box) -> str:
+    sizing = "content-box"
+    for name, value in box.declarations:
+        if name != "box-sizing":
+            continue
+        token = " ".join(value.lower().split())
+        if token in {"content-box", "border-box"}:
+            sizing = token
+    return sizing
+
+
+def _aspect_block(box: _Box) -> bool:
+    return (
+        box.display == "block"
+        and box.float_side == "none"
+        and box.position not in {"absolute", "fixed"}
+        and box.writing_mode == "horizontal-tb"
+        and box.multicol is None
+        and box.flex is None
+        and box.grid is None
+        and box.table is None
+    )
+
+
+def _apply_block_aspect(box: _Box) -> None:
+    parsed = box.aspect_ratio
+    if parsed is None or box.definite_height is not None or not _aspect_block(box):
+        return
+    width_part, height_part, content_box = parsed
+    solved = box.solved
+    locked, floor = block_ratio_limits(
+        content_width=box.content_width,
+        horizontal_chrome=_edge_extent(solved, "left", "right"),
+        vertical_chrome=_edge_extent(solved, "top", "bottom"),
+        ratio=(width_part, height_part),
+        content_box=content_box,
+        box_sizing=_box_sizing(box),
+        min_is_auto=solved.get("content_min_height") is None,
+        clips=box.overflow in _SCROLLPORTS,
+        min_content_height=box.min_content_height,
+        max_content_height=box.max_content_height,
+    )
+    if locked is not None:
+        box.definite_height = locked
+        return
+    box.min_content_height = floor
 
 
 def _used_block_limits(box: _Box) -> tuple[int, int | None]:
