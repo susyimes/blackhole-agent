@@ -39,7 +39,16 @@ A child margin stays inside that box. A percentage width, an intrinsic
 limit, a float, and a nested positioned box stay rejected. Automatic insets
 on an axis use the static position between
 block siblings. A static position inside a line is rejected, and a vertical
-writing mode still rejects those automatic sizes. A float inside
+writing mode still rejects those automatic sizes. An absolute or fixed box
+with ``position-anchor`` and ``position-area`` then moves onto that named
+in-flow anchor. The margin box meets the anchor's block-start border edge
+for ``block-start`` and its inline-end border edge for ``inline-end``, and
+it stays centered on the other axis. A specified ``left`` or ``top`` does
+not keep the box away from that edge. The following in-flow block stays
+where it was without the anchored box. A missing name, a duplicated
+``anchor-name``, a float or other out-of-flow anchor, an anchor inside the
+positioned box, a non-horizontal box, an indefinite containing block
+height, and ``position-area`` on a static box are rejected. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. An inline-block in that text is an unbreakable item: its margin box
@@ -305,6 +314,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_anchor_position import place_anchored
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_counters import format_counter, resolve_counters
@@ -641,6 +651,9 @@ class _Box:
     stack_opacity: str | None = None
     stack_pointer: str | None = None
     stack_visibility: str | None = None
+    anchor_name: str = ""
+    position_anchor: str = ""
+    position_area: str = ""
     replaced: bool = False
     intrinsic_width: int | None = None
     intrinsic_height: int | None = None
@@ -1233,6 +1246,7 @@ def _make_box(
     line_height = _line_height(_declared(winners, "line-height", custom), fonts["line-height"])
     columns = _read_columns(winners, custom, font_size)
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
+    position_anchor, position_area = _read_position_anchor(winners, custom, position, mode, direction)
     return _Box(
         id=box_id,
         writing_mode=mode,
@@ -1315,6 +1329,9 @@ def _make_box(
         ),
         counter_reset=_counter_declaration(winners, custom, "counter-reset", tag),
         counter_increment=_counter_declaration(winners, custom, "counter-increment", ""),
+        anchor_name=_read_anchor_name(winners, custom),
+        position_anchor=position_anchor,
+        position_area=position_area,
     )
 
 
@@ -3119,15 +3136,157 @@ def _padding_edge(box: _Box) -> _Edge:
     return _Edge(box.x + border_left, box.y + border_top, pad_left + box.content_width + pad_right, height)
 
 
-def _place_positioned(box: _Box, viewport: _Edge, stack: list[_Edge]) -> None:
+def _dashed_ident(token: str) -> bool:
+    if len(token) < 3 or not token.startswith("--"):
+        return False
+    body = token[2:]
+    first = body[0]
+    if not first.isascii() or not (first.isalpha() or first == "_"):
+        return False
+    return all(char.isascii() and (char.isalnum() or char in "_-") for char in body)
+
+
+def _read_anchor_name(winners, custom: dict) -> str:
+    value = _declared(winners, "anchor-name", custom)
+    if value is None:
+        return ""
+    token = " ".join(value.split())
+    lowered = token.lower()
+    if lowered in {"initial", "unset", "revert", "none"}:
+        return ""
+    if lowered == "inherit":
+        raise _Invalid("anchor-name inherit is unsupported")
+    if "," in token or " " in token:
+        raise _Invalid("anchor-name is unsupported")
+    if not _dashed_ident(token):
+        raise _Invalid("anchor-name is invalid")
+    return token
+
+
+def _read_position_anchor(
+    winners,
+    custom: dict,
+    position: str,
+    writing_mode: str,
+    direction: str,
+) -> tuple[str, str]:
+    anchor_value = _declared(winners, "position-anchor", custom)
+    area_value = _declared(winners, "position-area", custom)
+    anchor = "" if anchor_value is None else " ".join(anchor_value.split())
+    area = "" if area_value is None else " ".join(area_value.split()).lower()
+    if anchor.lower() in {"", "initial", "unset", "revert", "auto"}:
+        anchor = ""
+    elif anchor.lower() == "inherit":
+        raise _Invalid("position-anchor inherit is unsupported")
+    elif "," in anchor or " " in anchor or not _dashed_ident(anchor):
+        raise _Invalid("position-anchor is invalid")
+    if area in {"", "initial", "unset", "revert", "none"}:
+        area = ""
+    elif area == "inherit":
+        raise _Invalid("position-area inherit is unsupported")
+    if not anchor and not area:
+        return "", ""
+    if position not in {"absolute", "fixed"} or writing_mode != "horizontal-tb" or direction != "ltr":
+        raise _Invalid("position-area is unsupported")
+    if not anchor or not area:
+        raise _Invalid("position-area is unsupported")
+    return anchor, area
+
+
+def _anchor_index(root: _Box) -> dict[str, _Box]:
+    found: dict[str, _Box] = {}
+
+    def walk(box: _Box) -> None:
+        if box.anchor_name:
+            if box.anchor_name in found:
+                raise _Invalid("anchor-name is duplicated")
+            found[box.anchor_name] = box
+        for child in (*box.children, *box.floats, *box.atoms, *box.positioned):
+            walk(child)
+
+    walk(root)
+    return found
+
+
+def _box_contains(ancestor: _Box, node: _Box) -> bool:
+    current: _Box | None = node
+    while current is not None:
+        if current is ancestor:
+            return True
+        current = current.parent_box
+    return False
+
+
+def _align_to_anchor(box: _Box, cb: _Edge, anchors: dict[str, _Box]) -> None:
+    """Move an absolute or fixed border box onto its named anchor area."""
+
+    if not box.position_area:
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("position-area is unsupported")
+    name = box.position_anchor
+    anchor = anchors.get(name)
+    if anchor is None:
+        raise _Invalid("default anchor is missing")
+    if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
+        raise _Invalid("anchor is out of flow")
+    if anchor.writing_mode != "horizontal-tb" or anchor.direction != "ltr":
+        raise _Invalid("position-area is unsupported")
+    if _box_contains(box, anchor):
+        raise _Invalid("anchor is inside the positioned box")
+    if cb.height is None:
+        raise _Invalid("anchor containing block is indefinite")
+    placed = place_anchored(
+        {
+            "x": cb.x,
+            "y": cb.y,
+            "width": cb.width,
+            "height": cb.height,
+            "writing_mode": "horizontal-tb",
+            "direction": "ltr",
+        },
+        {
+            "x": anchor.x,
+            "y": anchor.y,
+            "width": anchor.border_width,
+            "height": anchor.border_height,
+            "writing_mode": "horizontal-tb",
+            "direction": "ltr",
+        },
+        {
+            "width": box.border_width,
+            "height": box.border_height,
+            "margin_top": _px(box.solved.get("margin_top"), "margin-top"),
+            "margin_right": box.margin_right,
+            "margin_bottom": _px(box.solved.get("margin_bottom"), "margin-bottom"),
+            "margin_left": box.margin_left,
+            "position_area": box.position_area,
+            "writing_mode": "horizontal-tb",
+            "direction": "ltr",
+        },
+    )
+    if placed.get("outcome") != "placed":
+        raise _Invalid(str(placed.get("reason") or "position-area failed"))
+    _translate(box, _px(placed.get("x"), "x") - box.x, _px(placed.get("y"), "y") - box.y)
+
+
+def _place_positioned(
+    box: _Box,
+    viewport: _Edge,
+    stack: list[_Edge],
+    anchors: dict[str, _Box] | None = None,
+) -> None:
+    if anchors is None:
+        anchors = _anchor_index(box)
     frame = stack
     if box.position in {"relative", "absolute", "fixed", "sticky"}:
         frame = [*stack, _padding_edge(box)]
     for abs_box in box.positioned:
         cb = viewport if abs_box.position == "fixed" or not frame else frame[-1]
         _place_one_absolute(abs_box, cb, box)
+        _align_to_anchor(abs_box, cb, anchors)
     for child in box.children:
-        _place_positioned(child, viewport, frame)
+        _place_positioned(child, viewport, frame, anchors)
 
 
 def _hypothetical_edges(parent: _Box, index: int) -> tuple[int, int, int]:
