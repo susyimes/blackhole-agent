@@ -73,9 +73,12 @@ block that also has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
 box with no margin, border, or padding, stretched to the parent's content
 width and using the parent's font, alignment, and white space. Collapsible
-whitespace between blocks does not generate one. A float or an out-of-flow
-box still leaves that loose text out, and an inline-block beside either of
-those stays rejected. An inline child may set font-size and line-height. Each run advances
+whitespace between blocks does not generate one. A float is a split in
+that same stream: the text before it, and the text after it, each become an
+anonymous block, and those blocks shorten their lines beside the float. Clear
+on a later sibling starts that sibling below the float. An inline-block, a
+relative inline, or a mixed font beside that float stays rejected. An
+absolute or fixed box still leaves the loose text out. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
 shrinking the parent's strut. text-align and white-space on an inline
 stay rejected. A float beside those mixed runs is rejected too. An
@@ -1789,12 +1792,17 @@ def _set_inline(
 
 
 def _anonymous_split_allowed(box: _Box) -> bool:
-    """Ordinary in-flow blocks can wrap inline runs. Other contexts keep the old drop."""
+    """In-flow blocks can wrap inline runs. A float splits those runs.
 
+    An inline-block has no line beside that float, and an absolute or fixed
+    box still drops the loose text.
+    """
+
+    if box.floats and box.atoms:
+        return False
     return (
         box.position in {"static", "relative"}
         and box.float_side == "none"
-        and not box.floats
         and not box.positioned
         and box.display == "block"
         and box.multicol is None
@@ -1809,8 +1817,16 @@ def _anonymous_split_allowed(box: _Box) -> bool:
 def _wrap_anonymous_blocks(
     box: _Box, tree, element, styles, declarations, ids: set[str], counter: list[int]
 ) -> None:
+    float_ids = {id(item.element) for item in box.floats if item.element is not None}
     segments = _inline_segments(
-        tree, element, styles, declarations, _fonts(box), box.atoms, box.relative_layers
+        tree,
+        element,
+        styles,
+        declarations,
+        _fonts(box),
+        box.atoms,
+        box.relative_layers,
+        float_ids,
     )
     visible: list[tuple[str, list[_Piece], list[_Box]]] = []
     for kind, pieces, atoms in segments:
@@ -1822,19 +1838,35 @@ def _wrap_anonymous_blocks(
             raise _Invalid("inline-block beside blocks is unsupported")
         return
     rebuilt: list[_Box] = []
+    flow: list[_Box] = []
     index = 0
+    floats = iter(box.floats)
     for kind, pieces, atoms in visible:
+        if kind == "float":
+            floated = next(floats, None)
+            if floated is None:
+                raise _Invalid("anonymous float split failed")
+            flow.append(floated)
+            continue
         if kind == "block":
             if index >= len(box.children):
                 raise _Invalid("anonymous block split failed")
-            rebuilt.append(box.children[index])
+            child = box.children[index]
             index += 1
+            rebuilt.append(child)
+            flow.append(child)
             continue
-        rebuilt.append(_make_anonymous_block(box, pieces, atoms, ids, counter))
-    if index != len(box.children):
-        raise _Invalid("anonymous block split failed")
+        anon = _make_anonymous_block(box, pieces, atoms, ids, counter)
+        if box.floats and _mixed_runs(anon):
+            raise _Invalid("inline font beside a float is unsupported")
+        if box.floats and _relative_pieces(anon):
+            raise _Invalid("relative inline beside a float is unsupported")
+        rebuilt.append(anon)
+        flow.append(anon)
+    if index != len(box.children) or next(floats, None) is not None:
+        raise _Invalid("anonymous float split failed")
     box.children = rebuilt
-    box.flow = list(rebuilt)
+    box.flow = flow
     box.atoms = []
     box.pieces = []
     box.inline_text = None
@@ -1899,9 +1931,15 @@ def _inline_segments(
     fonts: dict[str, str],
     atoms: list[_Box],
     layers_of: dict[int, _Shift],
+    float_ids: set[int] | None = None,
 ) -> list[tuple[str, list[_Piece], list[_Box]]]:
-    """Split one element's inline stream on its in-flow block children."""
+    """Split one element's inline stream on its in-flow block children.
 
+    A float in ``float_ids`` is its own marker, so the text before that float
+    and the text after it become different anonymous blocks.
+    """
+
+    floats = float_ids or set()
     stream = iter(atoms)
     segments: list[tuple[str, list[_Piece], list[_Box]]] = []
     pieces: list[_Piece] = []
@@ -1943,6 +1981,11 @@ def _inline_segments(
             if not _local_name(child):
                 continue
             kind = _flow_kind(tree, child, styles, declarations)
+            if id(child) in floats:
+                flush()
+                segments.append(("float", [], []))
+                add(child.tail or "", size, leading, layers)
+                continue
             if kind in {"skip", "out"}:
                 add(child.tail or "", size, leading, layers)
                 continue
