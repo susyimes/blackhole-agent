@@ -265,6 +265,14 @@ the extra content overflow. ``max-height`` clamps the mapped size. A
 specified height stays specified. A plain ratio uses the ``box-sizing`` box;
 ``auto`` together with a ratio always uses the content box. A zero component
 behaves as ``auto``.
+An ``img``, ``video``, or ``canvas`` is replaced. Its width and height
+attributes are the intrinsic size. Automatic axes use that size, or 300 by
+150 when neither attribute is present. One specified axis wins, and the
+automatic axis keeps the intrinsic ratio. A block's automatic horizontal
+margins then center that used width. An inline replaced element is an atomic
+line item whose bottom margin edge rests on the strut baseline. ``object-fit``
+places the concrete object inside the content box. A child, a non-horizontal
+writing mode, ``border-box``, and a CSS ``aspect-ratio`` stay rejected.
 Writing mode, direction and text orientation inherit. Other CSS-wide keywords
 on box properties use their initial values.
 A text-only orthogonal block wraps down its used content height and stacks
@@ -309,6 +317,8 @@ from blackhole_agent.css_grid_content import size_content_grid_tracks
 from blackhole_agent.css_grid_placement import place_grid_items
 from blackhole_agent.css_grid_tracks import size_grid_tracks
 from blackhole_agent.css_hit_test import element_from_point
+from blackhole_agent.css_object_fit import fit_object
+from blackhole_agent.css_replaced import used_replaced_size
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
 from blackhole_agent.css_line_break import _default_advance, wrap_lines
@@ -416,6 +426,9 @@ _BLOCK_TAGS = frozenset(
     }
 )
 _SKIP_TAGS = frozenset({"base", "head", "link", "meta", "script", "style", "template", "title"})
+_REPLACED_TAGS = frozenset({"img", "video", "canvas"})
+_REPLACED_SKIP = _SKIP_TAGS | {"source", "track"}
+_OBJECT_FITS = frozenset({"fill", "contain", "cover", "none", "scale-down"})
 _DISPLAYS = frozenset(
     {
         "block",
@@ -596,6 +609,12 @@ class _Box:
     stack_opacity: str | None = None
     stack_pointer: str | None = None
     stack_visibility: str | None = None
+    replaced: bool = False
+    intrinsic_width: int | None = None
+    intrinsic_height: int | None = None
+    object_fit: str = "fill"
+    object_position: str = "50% 50%"
+    object_box: dict[str, int] | None = None
 
 
 def layout_normal_flow(
@@ -972,6 +991,8 @@ def _walk(
         box.parent_box = host
         if box.display == "none":
             continue
+        if box.replaced and _replaced_has_content(tree, child):
+            raise _Invalid("replaced content is unsupported")
         if box.display == "contents":
             if host.float_side != "none" and _float_loose_text(child, host.white_space):
                 raise _Invalid("float content is unsupported")
@@ -1050,6 +1071,11 @@ def _walk(
                 box.inline_text = child.text or ""
             floats.append(box)
             flow.append(box)
+            continue
+        if box.replaced and box.display == "inline" and box.float_side == "none":
+            if box.position != "static":
+                raise _Invalid("positioned replaced element is unsupported")
+            host.atoms.append(box)
             continue
         if box.display in _TABLE_OUTSIDE:
             raise _Invalid("table box is outside the table")
@@ -1148,6 +1174,11 @@ def _make_box(
             counter[0] += 1
             box_id = f"anon-{counter[0]}"
     ids.add(box_id)
+    replaced = _local_name(element) in _REPLACED_TAGS
+    intrinsic_width = _intrinsic_attribute(element, "width") if replaced else None
+    intrinsic_height = _intrinsic_attribute(element, "height") if replaced else None
+    object_fit = _read_object_fit(winners, custom) if replaced else "fill"
+    object_position = _read_object_position(winners, custom) if replaced else "50% 50%"
     font_size = _font_size(_declared(winners, "font-size", custom), fonts["font-size"])
     line_height = _line_height(_declared(winners, "line-height", custom), fonts["line-height"])
     columns = _read_columns(winners, custom, font_size)
@@ -1218,6 +1249,11 @@ def _make_box(
         stack_opacity=_declared(winners, "opacity", custom),
         stack_pointer=_declared(winners, "pointer-events", custom),
         stack_visibility=_declared(winners, "visibility", custom),
+        replaced=replaced,
+        intrinsic_width=intrinsic_width,
+        intrinsic_height=intrinsic_height,
+        object_fit=object_fit,
+        object_position=object_position,
     )
 
 
@@ -1782,6 +1818,15 @@ def _solve(
     box.margin_left = _px(solved.get("margin_left"), "margin-left")
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
+    if (
+        box.replaced
+        and box.display == "block"
+        and box.float_side == "none"
+        and box.position not in {"absolute", "fixed"}
+    ):
+        if vertical_text or box.direction != "ltr":
+            raise _Invalid("replaced writing mode is unsupported")
+        _apply_replaced_block(box, parent_width, parent_height, parent_content_x)
     if vertical_text:
         if box.multicol is not None:
             raise _Invalid("column writing mode is unsupported")
@@ -2009,6 +2054,8 @@ def _record(box: _Box) -> dict[str, object]:
         "margin_right": box.margin_right,
         "lines": [_record_line(line) for line in box.lines],
     }
+    if box.object_box is not None:
+        item["object"] = box.object_box
     used = (box.table or {}).get("used_edges")
     if isinstance(used, dict):
         item["collapsed_borders"] = used
@@ -2420,6 +2467,8 @@ def _flow_kind(tree, element, styles, declarations) -> str:
         return "contents"
     if position in {"absolute", "fixed"} or float_side != "none":
         return "out"
+    if display == "inline" and position == "static" and _local_name(element) in _REPLACED_TAGS:
+        return "inline-block"
     if display == "inline":
         return "inline"
     if display == "inline-block":
@@ -3230,6 +3279,180 @@ def _shrink_float_width(box: _Box, available: int) -> int:
     return min(max(minimum, room), maximum)
 
 
+def _intrinsic_attribute(element, name: str) -> int | None:
+    raw = _attr(element, name)
+    if raw is None:
+        return None
+    text = raw.strip()
+    if not text:
+        return None
+    if not text.isascii() or not text.isdigit():
+        raise _Invalid("replaced size is invalid")
+    return int(text)
+
+
+def _read_object_fit(winners, custom: dict) -> str:
+    value = _declared(winners, "object-fit", custom)
+    if value is None or value in {"initial", "unset", "revert"}:
+        return "fill"
+    if value == "inherit":
+        raise _Invalid("object-fit inherit is unsupported")
+    token = " ".join(value.lower().split())
+    if token not in _OBJECT_FITS:
+        raise _Invalid("object-fit is invalid")
+    return token
+
+
+def _read_object_position(winners, custom: dict) -> str:
+    value = _declared(winners, "object-position", custom)
+    if value is None or value in {"initial", "unset", "revert"}:
+        return "50% 50%"
+    if value == "inherit":
+        raise _Invalid("object-position inherit is unsupported")
+    return " ".join(value.split())
+
+
+def _replaced_has_content(tree, element) -> bool:
+    if (element.text or "").strip():
+        return True
+    for node in tree.children.get(element, []):
+        if _local_name(node) not in _REPLACED_SKIP:
+            return True
+        if (node.tail or "").strip():
+            return True
+    return False
+
+
+def _box_prop(box: _Box, name: str, default: str) -> str:
+    found = default
+    for prop, value in box.declarations:
+        if prop == name:
+            found = value
+    return found
+
+
+def _replaced_layout(box: _Box) -> str:
+    if box.float_side != "none":
+        return "float"
+    if box.display == "inline-block":
+        return "inline-block"
+    if box.display == "inline":
+        return "inline"
+    if box.display == "block":
+        return "block"
+    raise _Invalid("replaced display is unsupported")
+
+
+def _used_replaced(
+    box: _Box,
+    containing_width: int,
+    containing_height: int | None,
+    solved: dict,
+) -> dict:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("replaced writing mode is unsupported")
+    if _box_sizing(box) != "content-box":
+        raise _Invalid("replaced box-sizing is unsupported")
+    if box.aspect_ratio is not None:
+        raise _Invalid("replaced aspect-ratio is unsupported")
+    sized = used_replaced_size(
+        containing_width,
+        containing_height="auto" if containing_height is None else containing_height,
+        width=_box_prop(box, "width", "auto"),
+        height=_box_prop(box, "height", "auto"),
+        min_width=_box_prop(box, "min-width", "auto"),
+        max_width=_box_prop(box, "max-width", "none"),
+        min_height=_box_prop(box, "min-height", "auto"),
+        max_height=_box_prop(box, "max-height", "none"),
+        margin_left=_box_prop(box, "margin-left", "0px"),
+        margin_right=_box_prop(box, "margin-right", "0px"),
+        margin_top=_box_prop(box, "margin-top", "0px"),
+        margin_bottom=_box_prop(box, "margin-bottom", "0px"),
+        padding_left=_px(solved.get("padding_left"), "padding-left"),
+        padding_right=_px(solved.get("padding_right"), "padding-right"),
+        border_left=_px(solved.get("border_left"), "border-left"),
+        border_right=_px(solved.get("border_right"), "border-right"),
+        intrinsic_width=box.intrinsic_width,
+        intrinsic_height=box.intrinsic_height,
+        layout=_replaced_layout(box),
+        direction=box.direction,
+    )
+    if sized.get("outcome") != "sized":
+        raise _Invalid(str(sized.get("reason") or "replaced size is invalid"))
+    return sized
+
+
+def _store_replaced(box: _Box, sized: dict) -> None:
+    box.content_width = _px(sized.get("width"), "content width")
+    box.content_height = _px(sized.get("height"), "content height")
+    box.definite_height = box.content_height
+    box.margin_left = _px(sized.get("margin_left"), "margin-left")
+    box.margin_right = _px(sized.get("margin_right"), "margin-right")
+    box.solved["margin_left"] = box.margin_left
+    box.solved["margin_right"] = box.margin_right
+    box.solved["margin_top"] = _px(sized.get("margin_top"), "margin-top")
+    box.solved["margin_bottom"] = _px(sized.get("margin_bottom"), "margin-bottom")
+    _fit_replaced_object(box)
+
+
+def _fit_replaced_object(box: _Box) -> None:
+    fitted = fit_object(
+        box.content_width,
+        box.content_height,
+        fit=box.object_fit,
+        position=box.object_position,
+        natural_width=box.intrinsic_width,
+        natural_height=box.intrinsic_height,
+    )
+    if fitted.get("outcome") != "fitted":
+        raise _Invalid(str(fitted.get("reason") or "object-fit is invalid"))
+    box.object_box = {
+        "x": _px(fitted.get("x"), "object x"),
+        "y": _px(fitted.get("y"), "object y"),
+        "width": _px(fitted.get("width"), "object width"),
+        "height": _px(fitted.get("height"), "object height"),
+    }
+
+
+def _apply_replaced_block(
+    box: _Box,
+    containing_width: int,
+    containing_height: int | None,
+    parent_content_x: int,
+) -> None:
+    sized = _used_replaced(box, containing_width, containing_height, box.solved)
+    _store_replaced(box, sized)
+    box.x = parent_content_x + box.margin_left
+
+
+def _measure_replaced(
+    parent: _Box,
+    fl: _Box,
+    solved: dict,
+    padding_left: int,
+    padding_right: int,
+    padding_top: int,
+    padding_bottom: int,
+    border_left: int,
+    border_right: int,
+    border_top: int,
+    border_bottom: int,
+) -> dict[str, int]:
+    sized = _used_replaced(fl, parent.content_width, parent.definite_height, solved)
+    _store_replaced(fl, sized)
+    margin_top = _px(sized.get("margin_top"), "margin-top")
+    margin_bottom = _px(sized.get("margin_bottom"), "margin-bottom")
+    fl.border_width = fl.content_width + padding_left + padding_right + border_left + border_right
+    fl.border_height = fl.content_height + padding_top + padding_bottom + border_top + border_bottom
+    fl.local_y = margin_top
+    return {
+        "outer_width": fl.margin_left + fl.border_width + fl.margin_right,
+        "outer_height": margin_top + fl.border_height + margin_bottom,
+        "margin_left": fl.margin_left,
+        "margin_top": margin_top,
+    }
+
+
 def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     solved = resolve_logical_box(
         fl.declarations,
@@ -3254,6 +3477,21 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     padding_right = _px(solved.get("padding_right"), "padding-right")
     padding_top = _px(solved.get("padding_top"), "padding-top")
     padding_bottom = _px(solved.get("padding_bottom"), "padding-bottom")
+    if fl.replaced:
+        fl.solved = solved
+        return _measure_replaced(
+            box,
+            fl,
+            solved,
+            padding_left,
+            padding_right,
+            padding_top,
+            padding_bottom,
+            border_left,
+            border_right,
+            border_top,
+            border_bottom,
+        )
     width_auto = _specified_auto(solved.get("specified_width"))
     height_auto = _specified_auto(solved.get("specified_height")) or solved.get("content_height") in {None, "auto"}
     if width_auto:
