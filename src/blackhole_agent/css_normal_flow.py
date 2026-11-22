@@ -204,9 +204,17 @@ A block with ``column-count`` or ``column-width`` is a multicol container.
 Each text-only child is an unbreakable border box: it wraps at the used
 column width, and ``column-span: all`` takes the whole content box and ends
 that column line. The shortest balanced line sets an automatic height, so
-the following block starts under the multicol box. ``column-fill: auto``,
-a nested formatting context, a non-zero margin, and a non-horizontal
-writing mode are rejected. An omitted ``column-gap`` is ``1em``.
+the following block starts under the multicol box. ``column-fill: auto``
+with an automatic height still balances, because a continuous container has
+no constrained column block size. A definite height fills in source order up
+to that content height: a child that does not fit starts the next column,
+``column`` or ``always`` breaks do the same unless the break would leave a
+column empty, ``avoid-column`` keeps a fitting suffix with the next child,
+and content past the last column overflows it. ``page`` does not start a
+column. The following block stays under that specified border box.
+``column-span: all`` inside the fixed fill stays rejected. A nested
+formatting context, a non-zero margin, and a non-horizontal writing mode
+stay rejected. An omitted ``column-gap`` is ``1em``.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
 own query. A named query selects the nearest ancestor with that name which can
@@ -264,6 +272,7 @@ from blackhole_agent.css_logical_box import (
     resolve_logical_box,
 )
 from blackhole_agent.css_margin_collapse import place_collapsed_margins
+from blackhole_agent.css_column_break import fragment_columns
 from blackhole_agent.css_multicol import layout_multicol
 from blackhole_agent.css_selectors import (
     CssSelectorError,
@@ -392,6 +401,24 @@ _ALIGNS = frozenset(
 _LAST_ALIGNS = frozenset({"auto", "start", "end", "left", "right", "center", "justify"})
 _JUSTIFY_MODES = frozenset({"auto", "none", "inter-word", "inter-character"})
 _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre-line"})
+_FRAGMENT_BREAKS = frozenset(
+    {
+        "auto",
+        "avoid",
+        "always",
+        "all",
+        "avoid-page",
+        "page",
+        "left",
+        "right",
+        "recto",
+        "verso",
+        "avoid-column",
+        "column",
+        "avoid-region",
+        "region",
+    }
+)
 _COLLAPSED_EMPTY = frozenset({"normal", "nowrap"})
 _INLINE_REJECTED = ("text-align", "white-space")
 
@@ -495,6 +522,8 @@ class _Box:
     table: dict[str, object] | None = None
     multicol: dict[str, object] | None = None
     column_span: str = "none"
+    break_before: str = "auto"
+    break_after: str = "auto"
     parent_box: _Box | None = None
     anonymous: bool = False
     container_type: str = "normal"
@@ -833,6 +862,8 @@ def _make_box(
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
+        break_before=_read_fragment_break(winners, custom, "break-before"),
+        break_after=_read_fragment_break(winners, custom, "break-after"),
         shape_outside=shape_outside,
         shape_margin=shape_margin,
         container_type=_container_kind(_declared(winners, "container-type", custom)),
@@ -1150,16 +1181,45 @@ def _column_fill(value: str | None) -> str:
     if value == "inherit":
         raise _Invalid("column-fill inherit is unsupported")
     if value == "auto":
-        raise _Invalid("column-fill auto is unsupported")
+        return "auto"
     raise _Invalid("column-fill is invalid")
 
 
+def _read_fragment_break(winners, custom: dict, name: str) -> str:
+    value = _column_text(_declared(winners, name, custom))
+    if value is None or value in {"auto", "initial", "unset", "revert"}:
+        return "auto"
+    if value == "inherit":
+        raise _Invalid(f"{name} inherit is unsupported")
+    if value in _FRAGMENT_BREAKS:
+        return value
+    raise _Invalid(f"{name} is invalid")
+
+
+def _column_inline_offset(index: int, available: int, gap: int, count: int) -> int:
+    """Used inline start of one column, matching the multicol column formula."""
+
+    if count < 1:
+        raise _Invalid("column count is invalid")
+    product = index * (available + gap)
+    if product % count != 0:
+        raise _Invalid("column inline is not integral")
+    return product // count
+
+
 def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> None:
-    """Lay text-only children into balanced columns and anchor them there."""
+    """Lay text-only children into columns and anchor them there.
+
+    ``column-fill: auto`` with a definite height fills that content height in
+    source order. An automatic height still balances.
+    """
 
     spec = box.multicol or {}
     if box.floats or box.positioned or box.atoms or box.inline_text:
         raise _Invalid("column content is unsupported")
+    fill = str(spec.get("fill", "balance"))
+    # A continuous auto fill has no column block size, so it balances.
+    sizing_fill = "balance" if fill == "auto" else fill
     available = box.content_width
     preview = layout_multicol(
         available,
@@ -1167,7 +1227,7 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
         column_width=spec.get("width", "auto"),
         column_count=spec.get("count", "auto"),
         column_gap=spec.get("gap", 0),
-        column_fill=spec.get("fill", "balance"),
+        column_fill=sizing_fill,
     )
     if preview.get("outcome") != "flowed":
         raise _Invalid(str(preview.get("reason") or "columns failed"))
@@ -1185,29 +1245,89 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
         child.content_height = content_height
         child.border_height = content_height + chrome
         fragments.append({"id": child.id, "height": child.border_height, "span": child.column_span})
+    if fill == "auto" and box.definite_height is not None:
+        _anchor_fixed_columns(box, content_x, available, preview)
+        return
     flowed = layout_multicol(
         available,
         fragments,
         column_width=spec.get("width", "auto"),
         column_count=spec.get("count", "auto"),
         column_gap=spec.get("gap", 0),
-        column_fill=spec.get("fill", "balance"),
+        column_fill=sizing_fill,
     )
     placed = flowed.get("boxes")
     if flowed.get("outcome") != "flowed" or not isinstance(placed, list):
         raise _Invalid(str(flowed.get("reason") or "columns failed"))
+    _anchor_column_rows(box, content_x, placed, "inline", "block")
+    if box.definite_height is None:
+        box.definite_height = _px(flowed.get("block_size"), "column block size")
+    box.anchor_laid = True
+
+
+def _anchor_fixed_columns(
+    box: _Box,
+    content_x: int,
+    available: int,
+    preview: dict[str, object],
+) -> None:
+    """Fill a definite column block size sequentially and keep that height."""
+
+    if any(child.column_span == "all" for child in box.children):
+        raise _Invalid("column span in auto fill is unsupported")
+    count = _px(preview.get("column_count"), "column count")
+    gap = _px((box.multicol or {}).get("gap", 0), "column gap")
+    limit = box.definite_height
+    if limit is None:
+        raise _Invalid("column block size is indefinite")
+    fragmented = fragment_columns(
+        count,
+        limit,
+        [
+            {
+                "id": child.id,
+                "height": child.border_height,
+                "break_before": child.break_before,
+                "break_after": child.break_after,
+            }
+            for child in box.children
+        ],
+    )
+    placed = fragmented.get("boxes")
+    if fragmented.get("outcome") != "fragmented" or not isinstance(placed, list):
+        raise _Invalid(str(fragmented.get("reason") or "columns failed"))
+    rows: list[dict[str, object]] = []
+    for item in placed:
+        if not isinstance(item, dict):
+            raise _Invalid("column placement failed")
+        column = _px(item.get("column"), "column")
+        rows.append(
+            {
+                "id": item.get("id"),
+                "inline": _column_inline_offset(column, available, gap, count),
+                "block": item.get("block"),
+            }
+        )
+    _anchor_column_rows(box, content_x, rows, "inline", "block")
+    box.anchor_laid = True
+
+
+def _anchor_column_rows(
+    box: _Box,
+    content_x: int,
+    placed: list[dict[str, object]],
+    inline_key: str,
+    block_key: str,
+) -> None:
     by_id = {str(item.get("id")): item for item in placed if isinstance(item, dict)}
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
     for child in box.children:
         row = by_id.get(child.id)
         if row is None:
             raise _Invalid("column placement failed")
-        child.x = content_x + _px(row.get("inline"), "column inline") + child.margin_left
-        child.anchor_y = origin + _px(row.get("block"), "column block")
+        child.x = content_x + _px(row.get(inline_key), "column inline") + child.margin_left
+        child.anchor_y = origin + _px(row.get(block_key), "column block")
         child.border_width = child.content_width + _edge_extent(child.solved, "left", "right")
-    if box.definite_height is None:
-        box.definite_height = _px(flowed.get("block_size"), "column block size")
-    box.anchor_laid = True
 
 
 def _reject_column_child(child: _Box) -> None:

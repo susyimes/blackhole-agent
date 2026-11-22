@@ -3,7 +3,7 @@
 A column-count of 2 wraps a child at the used column width and parks the
 next child in the other column. Three short boxes balance by stacking two
 in the first column. column-span all ends that line. column-width stretches
-into the content box. column-fill auto is rejected. The following block
+into the content box. column-fill auto without a height balances. The following block
 starts under the multicol box.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
@@ -120,6 +120,9 @@ def observe() -> tuple[bool, dict[str, object]]:
         "stretch_next_y": None if take(stretch, "next") is None else take(stretch, "next").get("y"),
         "auto_outcome": auto.get("outcome"),
         "auto_reason": auto.get("reason"),
+        "auto_a": _view(auto, "a"),
+        "auto_b": _view(auto, "b"),
+        "auto_next_y": None if take(auto, "next") is None else take(auto, "next").get("y"),
     }
     checks = {
         "wrapped_child_uses_the_column_and_the_next_child_sits_beside_it": (
@@ -155,7 +158,12 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(take(stretch, "b"), x=55, y=0, content_width=45, content_height=10)
             and _near(take(stretch, "next"), y=10)
         ),
-        "column_fill_auto_is_rejected": auto.get("outcome") == "invalid",
+        "unconstrained_column_fill_auto_balances": (
+            auto.get("outcome") == "placed"
+            and _near(take(auto, "a"), x=0, y=0, content_width=40, content_height=10)
+            and _near(take(auto, "b"), x=40, y=0, content_width=40, content_height=10)
+            and _near(take(auto, "next"), y=10)
+        ),
     }
     observed["checks"] = checks
     return all(checks.values()), observed
