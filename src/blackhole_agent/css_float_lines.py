@@ -98,6 +98,76 @@ def pack_line_boxes(
     return {"outcome": "placed", "lines": lines, "reason": None}
 
 
+def shaped_gap_at(
+    containing_width: object,
+    floats: object,
+    line_height: object,
+    y: object,
+) -> dict[str, object]:
+    """Return the float intrusion at one line, without moving that line.
+
+    ``blocked`` is true when a float area intersects the line. A shape-outside
+    that misses the line does not shrink it. Coordinates match ``pack_line_boxes``.
+    """
+
+    try:
+        containing, bands, height, start = _gap_inputs(containing_width, floats, line_height, y)
+        left, right, blocked = _shape_gap(start, height, bands, containing)
+    except _Invalid as exc:
+        return {"outcome": "invalid", "left": None, "right": None, "blocked": None, "reason": exc.reason}
+    return {
+        "outcome": "placed",
+        "left": _number(left),
+        "right": _number(right),
+        "blocked": blocked,
+        "reason": None,
+    }
+
+
+def seek_shaped_gap(
+    containing_width: object,
+    floats: object,
+    line_height: object,
+    y: object,
+    need: object,
+) -> dict[str, object]:
+    """Return the first line at or below ``y`` whose gap can hold ``need``."""
+
+    try:
+        containing, bands, height, start = _gap_inputs(containing_width, floats, line_height, y)
+        width = _finite(need, "need")
+        if width < 0:
+            raise _Invalid("need")
+        found, left, right = _seek(start, width, bands, containing, height)
+    except _Invalid as exc:
+        return {"outcome": "invalid", "y": None, "left": None, "right": None, "reason": exc.reason}
+    return {
+        "outcome": "placed",
+        "y": _number(found),
+        "left": _number(left),
+        "right": _number(right),
+        "reason": None,
+    }
+
+
+def _gap_inputs(
+    containing_width: object,
+    floats: object,
+    line_height: object,
+    y: object,
+) -> tuple[float, list[_Band], float, float]:
+    containing = _finite(containing_width, "containing_width")
+    if containing < 0:
+        raise _Invalid("containing_width")
+    height = _finite(line_height, "line_height")
+    if height <= 0:
+        raise _Invalid("line_height")
+    start = _finite(y, "y")
+    if start < 0:
+        raise _Invalid("y")
+    return containing, _bands(floats), height, start
+
+
 def _inputs(
     containing_width: object,
     atoms: object,

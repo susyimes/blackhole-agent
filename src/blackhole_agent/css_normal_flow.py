@@ -23,9 +23,13 @@ line is rejected, and a vertical writing mode still rejects those automatic
 sizes. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
-shrink. A float beside a following block sibling is placed in that same
+shrink. ``shape-outside`` replaces that rectangle with the shape clipped to
+the margin box: a circle leaves its corner open, an inset releases the next
+line where the shape ends, and ``shape-margin`` expands the shape before
+clipping. A shape that cannot be parsed is rejected. A float beside a
+following block sibling is placed in that same
 content box: the sibling keeps its width, its line boxes shorten where the
-float margin box overlaps them, and clear moves the sibling's border edge
+float area overlaps them, and clear moves the sibling's border edge
 down to those floats. Text in the float is wrapped in its content box.
 Automatic width is the shrink-to-fit size, and automatic height is the
 stacked line boxes; a specified size stays specified. Element children
@@ -192,7 +196,9 @@ from blackhole_agent.css_flex_align import flex_line_cross_size, place_flex_alig
 from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
 from blackhole_agent.css_flex_wrap import wrap_flex_lines
+from blackhole_agent.css_float_lines import seek_shaped_gap, shaped_gap_at
 from blackhole_agent.css_float_placement import place_floats
+from blackhole_agent.css_shape_outside import ShapeError, prepare_shape
 from blackhole_agent.css_grid_align import align_grid_item
 from blackhole_agent.css_grid_areas import place_named_grid
 from blackhole_agent.css_grid_content import size_content_grid_tracks
@@ -386,7 +392,9 @@ class _Box:
     anchor_laid: bool = False
     float_placed: bool = False
     local_y: int = 0
-    float_band: tuple[int, int, int, int, str] | None = None
+    float_band: tuple[int, int, int, int, str, str, float] | None = None
+    shape_outside: str = ""
+    shape_margin: float = 0.0
     solved: dict[str, object] = field(default_factory=dict)
     definite_height: int | None = None
     x: int = 0
@@ -656,6 +664,7 @@ def _make_box(
     ids.add(box_id)
     font_size = _font_size(_declared(winners, "font-size", custom), fonts["font-size"])
     columns = _read_columns(winners, custom, font_size)
+    shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     return _Box(
         id=box_id,
         writing_mode=mode,
@@ -687,6 +696,8 @@ def _make_box(
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
+        shape_outside=shape_outside,
+        shape_margin=shape_margin,
         container_type=_container_kind(_declared(winners, "container-type", custom)),
         container_name=_container_label(_declared(winners, "container-name", custom)),
         query_rules=_matching_queries(tree, element, container_rules),
@@ -1882,7 +1893,20 @@ def _commit_float(fl: _Box, content_x: int, row: dict[str, object], edges: dict[
     margin_height = _px(row.get("height"), "float height")
     fl.x = content_x + margin_x + edges["margin_left"]
     fl.local_y = margin_y + edges["margin_top"]
-    fl.float_band = (margin_x, margin_y, margin_width, margin_height, fl.float_side)
+    if fl.shape_outside:
+        try:
+            prepare_shape(fl.shape_outside, margin_width, margin_height, fl.shape_margin)
+        except ShapeError as exc:
+            raise _Invalid(exc.reason) from exc
+    fl.float_band = (
+        margin_x,
+        margin_y,
+        margin_width,
+        margin_height,
+        fl.float_side,
+        fl.shape_outside,
+        fl.shape_margin,
+    )
     fl.float_placed = True
 
 
@@ -1897,7 +1921,7 @@ def _lay_sibling_floats(box: _Box, content_x: int) -> None:
             raise _Invalid("float beside nested blocks is unsupported")
         if child.writing_mode != "horizontal-tb" or child.direction != "ltr":
             raise _Invalid("float writing mode is unsupported")
-    bands: list[tuple[int, int, int, int, str]] = []
+    bands: list[tuple[int, int, int, int, str, str, float]] = []
     cursor = 0
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
     for item in box.flow:
@@ -1923,7 +1947,7 @@ def _lay_sibling_floats(box: _Box, content_x: int) -> None:
             + _px(item.solved.get("padding_left"), "padding-left")
         )
         content_top = border_y + _px(item.solved.get("border_top"), "border-top") + _px(item.solved.get("padding_top"), "padding-top")
-        local = [(bx - inset_x, by - content_top, bw, bh, side) for bx, by, bw, bh, side in bands]
+        local = [_shift_band(band, inset_x, content_top) for band in bands]
         _reflow_beside(item, local)
         item.anchor_y = origin + border_y
         cursor = border_y + item.border_height + margin_bottom
@@ -1932,7 +1956,7 @@ def _lay_sibling_floats(box: _Box, content_x: int) -> None:
         box.definite_height = max([cursor, *(band[1] + band[3] for band in bands)], default=0)
 
 
-def _reflow_beside(box: _Box, bands: list[tuple[int, int, int, int, str]]) -> None:
+def _reflow_beside(box: _Box, bands: list[tuple[int, int, int, int, str, str, float]]) -> None:
     auto = box.solved.get("content_height") == "auto"
     saved = box.definite_height
     if auto:
@@ -1952,11 +1976,11 @@ def _reflow_beside(box: _Box, bands: list[tuple[int, int, int, int, str]]) -> No
     box.border_height = box.definite_height + chrome
 
 
-def _clear_floor(clear: str, bands: list[tuple[int, int, int, int, str]]) -> int:
+def _clear_floor(clear: str, bands: list[tuple[int, int, int, int, str, str, float]]) -> int:
     if clear == "none":
         return 0
     floor = 0
-    for _x, y, _w, height, side in bands:
+    for _x, y, _w, height, side, *_rest in bands:
         if clear == "both" or clear == side:
             floor = max(floor, y + height)
     return floor
@@ -1967,18 +1991,18 @@ def _fit_float(
     width: int,
     height: int,
     floor: int,
-    bands: list[tuple[int, int, int, int, str]],
+    bands: list[tuple[int, int, int, int, str, str, float]],
     containing: int,
 ) -> tuple[int, int]:
     events = {floor}
-    for _x, y, _w, band_height, _side in bands:
+    for _x, y, _w, band_height, _side, *_rest in bands:
         bottom = y + band_height
         if bottom > floor:
             events.add(bottom)
     for y in sorted(events):
         left = 0
         right = containing
-        for bx, by, bw, bh, band_side in bands:
+        for bx, by, bw, bh, band_side, *_rest in bands:
             if y < by + bh and y + height > by:
                 if band_side == "left":
                     left = max(left, bx + bw)
@@ -2007,7 +2031,7 @@ def _text_offset(box: _Box, measure: int, content: int, last: bool, *, direction
 
 def _fill_lines_beside_floats(
     box: _Box,
-    bands: list[tuple[int, int, int, int, str]] | None = None,
+    bands: list[tuple[int, int, int, int, str, str, float]] | None = None,
     *,
     contain: bool = True,
 ) -> None:
@@ -2027,7 +2051,16 @@ def _fill_lines_beside_floats(
     for _ in range(10000):
         if not remaining or (box.white_space in _COLLAPSED_EMPTY and not remaining.strip()):
             break
-        left, right, bottoms = _exclusion(cursor, height, bands, box.content_width)
+        shaped = _shaped_float_payload(bands)
+        if shaped is None:
+            left, right, bottoms = _exclusion(cursor, height, bands, box.content_width)
+        else:
+            gap = shaped_gap_at(box.content_width, shaped, height, cursor)
+            if gap.get("outcome") != "placed":
+                raise _Invalid(str(gap.get("reason") or "shape-outside is invalid"))
+            left = _px(gap.get("left"), "line x")
+            right = _px(gap.get("right"), "line x")
+            bottoms = []
         available = right - left
         wrapped = wrap_lines(remaining, max(available, 0), white_space=box.white_space, advances=advances)
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
@@ -2036,6 +2069,15 @@ def _fill_lines_beside_floats(
         content = _px(lines[0].get("content_width"), "line width")
         obstructed = not (left == 0 and right == box.content_width)
         if available <= 0 or (content > available and obstructed):
+            if shaped is not None:
+                found = seek_shaped_gap(box.content_width, shaped, height, cursor, content)
+                if found.get("outcome") != "placed":
+                    raise _Invalid(str(found.get("reason") or "shape-outside is invalid"))
+                nxt = _px(found.get("y"), "float clearance")
+                if nxt <= cursor:
+                    raise _Invalid("line break failed")
+                cursor = nxt
+                continue
             if not bottoms:
                 raise _Invalid("line break failed")
             nxt = min(bottoms)
@@ -2070,7 +2112,7 @@ def _fill_lines_beside_floats(
 def _exclusion(
     y: int,
     line_height: int,
-    bands: list[tuple[int, int, int, int, str] | None],
+    bands: list[tuple[int, int, int, int, str, str, float] | None],
     containing: int,
 ) -> tuple[int, int, list[int]]:
     left = 0
@@ -2079,7 +2121,7 @@ def _exclusion(
     for band in bands:
         if band is None:
             continue
-        edge_x, edge_y, width, band_height, side = band
+        edge_x, edge_y, width, band_height, side, *_rest = band
         bottom = edge_y + band_height
         if band_height <= 0 or not (y < bottom and y + line_height > edge_y):
             continue
@@ -2093,9 +2135,68 @@ def _exclusion(
     return left, right, bottoms
 
 
-def _band_bottom(bands: list[tuple[int, int, int, int, str] | None]) -> int:
+def _band_bottom(bands: list[tuple[int, int, int, int, str, str, float] | None]) -> int:
     bottoms = [band[1] + band[3] for band in bands if band is not None]
     return max(bottoms) if bottoms else 0
+
+
+def _shift_band(
+    band: tuple[int, int, int, int, str, str, float],
+    inset_x: int,
+    content_top: int,
+) -> tuple[int, int, int, int, str, str, float]:
+    edge_x, edge_y, width, height, side, shape, margin = band
+    return (edge_x - inset_x, edge_y - content_top, width, height, side, shape, margin)
+
+
+def _shaped_float_payload(
+    bands: list[tuple[int, int, int, int, str, str, float] | None],
+) -> list[dict[str, object]] | None:
+    payload: list[dict[str, object]] = []
+    shaped = False
+    for band in bands:
+        if band is None:
+            continue
+        edge_x, edge_y, width, height, side, shape, margin = band
+        item: dict[str, object] = {
+            "side": side,
+            "x": edge_x,
+            "y": edge_y,
+            "width": width,
+            "height": height,
+        }
+        if shape:
+            item["shape"] = shape
+            item["shape_margin"] = margin
+            shaped = True
+        payload.append(item)
+    if not shaped:
+        return None
+    return payload
+
+
+def _read_float_shape(winners, custom: dict) -> tuple[str, float]:
+    raw = _declared(winners, "shape-outside", custom)
+    if raw is None or raw.strip().lower() in {"none", "initial", "unset", "revert"}:
+        return "", 0.0
+    if raw.strip().lower() == "inherit":
+        raise _Invalid("shape-outside inherit is unsupported")
+    shape = raw.strip().lower()
+    margin_raw = _declared(winners, "shape-margin", custom)
+    if margin_raw is None or margin_raw.strip().lower() in {"initial", "unset", "revert", "0px"}:
+        return shape, 0.0
+    if margin_raw.strip().lower() == "inherit":
+        raise _Invalid("shape-margin inherit is unsupported")
+    text = margin_raw.strip().lower()
+    if not text.endswith("px"):
+        raise _Invalid("shape-margin is invalid")
+    try:
+        number = float(text[:-2])
+    except ValueError as exc:
+        raise _Invalid("shape-margin is invalid") from exc
+    if number < 0 or number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid("shape-margin is invalid")
+    return shape, number
 
 
 def _drop_prefix(source: str, rendered: str, white_space: str) -> str:
