@@ -122,6 +122,11 @@ style contributes nothing. A definite grid height is the used content height:
 fixed rows keep their size, ``fr`` rows share the free space after row gaps,
 and a following block starts at that border edge even when the tracks overflow
 it. An ``fr`` row without a definite height stays rejected.
+``minmax()`` clamps a track between a length floor and a length ceiling.
+That ceiling is filled before a flexible sibling takes leftover space, and
+a flexible ceiling keeps a floor that already exceeds its share. A ceiling
+below its floor is ignored. A flexible row still needs a definite height.
+A flexible floor is rejected.
 ``justify-items`` and ``align-items`` pack each item margin box inside its
 area. ``normal`` and ``stretch`` fill an automatic size. ``start``,
 ``center``, and ``end`` keep a definite size, or the max-content size when
@@ -3822,29 +3827,125 @@ def _grid_track_defs(value: str) -> list[dict[str, object]]:
     if value == "inherit":
         raise _Invalid("grid template inherit is unsupported")
     tracks: list[dict[str, object]] = []
-    for part in value.split(" "):
-        if part.endswith("px") or part == "0":
-            token = "0" if part == "0" else part[:-2]
-            try:
-                number = float(token)
-            except ValueError as exc:
-                raise _Invalid("grid track is unsupported") from exc
-            tracks.append({"fixed": float(_px(number, "grid track"))})
-            continue
-        if part.endswith("fr"):
-            try:
-                factor = float(part[:-2])
-            except ValueError as exc:
-                raise _Invalid("grid track is unsupported") from exc
-            if factor <= 0 or factor != factor or factor in {float("inf"), float("-inf")}:
-                raise _Invalid("grid track is unsupported")
-            tracks.append({"flex": factor, "minimum": 0})
-            continue
-        if part in {"auto", "min-content", "max-content"}:
-            tracks.append({"breadth": part})
-            continue
-        raise _Invalid("grid track is unsupported")
+    for kind, token in _grid_track_atoms(value):
+        if kind != "track":
+            raise _Invalid("grid track is unsupported")
+        tracks.append(_parse_track_token(token))
     return tracks
+
+
+def _grid_track_atoms(value: str) -> list[tuple[str, str]]:
+    """Split a track list without cutting a ``minmax()`` on its spaces."""
+
+    atoms: list[tuple[str, str]] = []
+    index = 0
+    length = len(value)
+    while index < length:
+        while index < length and value[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        if value[index] == "[":
+            end = value.find("]", index + 1)
+            if end < 0:
+                raise _Invalid("grid line is unsupported")
+            atoms.append(("names", value[index + 1 : end]))
+            index = end + 1
+            continue
+        if value[index] == "]":
+            raise _Invalid("grid line is unsupported")
+        if value.startswith("minmax(", index):
+            end = _matching_paren(value, index + 6)
+            atoms.append(("track", value[index : end + 1]))
+            index = end + 1
+            continue
+        start = index
+        while index < length and not value[index].isspace() and value[index] not in "[]":
+            index += 1
+        atoms.append(("track", value[start:index]))
+    return atoms
+
+
+def _matching_paren(value: str, open_index: int) -> int:
+    if open_index >= len(value) or value[open_index] != "(":
+        raise _Invalid("grid track is unsupported")
+    depth = 0
+    for index in range(open_index, len(value)):
+        char = value[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    raise _Invalid("grid track is unsupported")
+
+
+def _parse_track_token(token: str) -> dict[str, object]:
+    if token.startswith("minmax("):
+        return _minmax_track(token)
+    return _plain_track(token)
+
+
+def _minmax_track(token: str) -> dict[str, object]:
+    if not token.endswith(")") or token.count("(") != 1 or token.count(")") != 1:
+        raise _Invalid("grid track is unsupported")
+    inner = token[len("minmax(") : -1].strip()
+    if "(" in inner or ")" in inner:
+        raise _Invalid("grid track is unsupported")
+    parts = [part.strip() for part in inner.split(",")]
+    if len(parts) != 2 or any(not part for part in parts):
+        raise _Invalid("grid track is unsupported")
+    floor_kind, floor = _minmax_bound(parts[0])
+    ceiling_kind, ceiling = _minmax_bound(parts[1])
+    if floor_kind == "flex":
+        raise _Invalid("grid track is unsupported")
+    if ceiling_kind == "flex":
+        return {"flex": ceiling, "minimum": floor}
+    return {"minimum": floor, "maximum": ceiling}
+
+
+def _minmax_bound(token: str) -> tuple[str, float]:
+    if token.endswith("fr"):
+        try:
+            factor = float(token[:-2])
+        except ValueError as exc:
+            raise _Invalid("grid track is unsupported") from exc
+        if factor <= 0 or factor != factor or factor in {float("inf"), float("-inf")}:
+            raise _Invalid("grid track is unsupported")
+        return "flex", factor
+    if token == "0" or token.endswith("px"):
+        raw = "0" if token == "0" else token[:-2]
+        try:
+            number = float(raw)
+        except ValueError as exc:
+            raise _Invalid("grid track is unsupported") from exc
+        length = float(_px(number, "grid track"))
+        if length < 0:
+            raise _Invalid("grid track is unsupported")
+        return "length", length
+    raise _Invalid("grid track is unsupported")
+
+
+def _plain_track(part: str) -> dict[str, object]:
+    if part.endswith("px") or part == "0":
+        raw = "0" if part == "0" else part[:-2]
+        try:
+            number = float(raw)
+        except ValueError as exc:
+            raise _Invalid("grid track is unsupported") from exc
+        return {"fixed": float(_px(number, "grid track"))}
+    if part.endswith("fr"):
+        try:
+            factor = float(part[:-2])
+        except ValueError as exc:
+            raise _Invalid("grid track is unsupported") from exc
+        if factor <= 0 or factor != factor or factor in {float("inf"), float("-inf")}:
+            raise _Invalid("grid track is unsupported")
+        return {"flex": factor, "minimum": 0}
+    if part in {"auto", "min-content", "max-content"}:
+        return {"breadth": part}
+    raise _Invalid("grid track is unsupported")
 
 
 def _grid_auto_track(value: str) -> int | None:
@@ -3982,42 +4083,20 @@ def _grid_named_row_tracks(value: str) -> tuple[list[dict[str, object]], list[li
 def _read_named_tracks(value: str) -> tuple[list[dict[str, object]], list[list[str]] | None]:
     lines: list[list[str]] = [[]]
     tracks: list[dict[str, object]] = []
-    index = 0
-    length = len(value)
-    while index < length:
-        while index < length and value[index].isspace():
-            index += 1
-        if index >= length:
-            break
-        if value[index] == "[":
-            end = value.find("]", index + 1)
-            if end < 0:
-                raise _Invalid("grid line is unsupported")
-            for name in value[index + 1 : end].split():
+    for kind, token in _grid_track_atoms(value):
+        if kind == "names":
+            for name in token.split():
                 if not _grid_ident(name):
                     raise _Invalid("grid line is unsupported")
                 lines[-1].append(name)
-            index = end + 1
             continue
-        if value[index] == "]":
-            raise _Invalid("grid line is unsupported")
-        start = index
-        while index < length and not value[index].isspace() and value[index] not in "[]":
-            index += 1
-        tracks.append(_one_grid_track(value[start:index]))
+        tracks.append(_parse_track_token(token))
         lines.append([])
     if not tracks:
         raise _Invalid("grid template is unsupported")
     if not any(lines):
         return tracks, None
     return tracks, lines
-
-
-def _one_grid_track(token: str) -> dict[str, object]:
-    tracks = _grid_track_defs(token)
-    if len(tracks) != 1:
-        raise _Invalid("grid track is unsupported")
-    return tracks[0]
 
 
 def _named_grid_side(value: object) -> bool:
@@ -4103,6 +4182,10 @@ def _fixed_row_breadth(track: object) -> int:
 
     if isinstance(track, dict) and "flex" in track:
         raise _Invalid("grid row flex is unsupported")
+    if isinstance(track, dict) and "minimum" in track and "maximum" in track and "breadth" not in track:
+        floor = _px(track["minimum"], "grid track")
+        ceiling = _px(track["maximum"], "grid track")
+        return ceiling if ceiling >= floor else floor
     if isinstance(track, dict) and "fixed" in track and "breadth" not in track:
         return _px(track["fixed"], "grid track")
     raise _Invalid("grid row track is unsupported")
@@ -4115,7 +4198,13 @@ def _definite_row_track(track: object) -> dict[str, object]:
         factor = track["flex"]
         if isinstance(factor, bool) or not isinstance(factor, (int, float)):
             raise _Invalid("grid row flex is unsupported")
-        return {"flex": factor, "minimum": 0}
+        minimum = track.get("minimum", 0)
+        return {"flex": factor, "minimum": _px(minimum, "grid track")}
+    if isinstance(track, dict) and "minimum" in track and "maximum" in track and "breadth" not in track:
+        return {
+            "minimum": _px(track["minimum"], "grid track"),
+            "maximum": _px(track["maximum"], "grid track"),
+        }
     if isinstance(track, dict) and "fixed" in track and "breadth" not in track:
         return {"fixed": _px(track["fixed"], "grid track")}
     raise _Invalid("grid row track is unsupported")
