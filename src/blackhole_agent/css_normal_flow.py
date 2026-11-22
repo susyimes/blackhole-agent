@@ -98,8 +98,12 @@ inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
 rests on the parent baseline when overflow is not visible or it has no line
-box; otherwise the baseline is its last line. A block sibling, a float, a
-nested inline-block, and positioned content inside it are rejected.
+box; otherwise the baseline is its last line. ``vertical-align`` moves that
+margin box: ``top`` and ``bottom`` meet the line edges, ``middle`` centers it
+on the baseline, ``text-top`` and ``text-bottom`` meet the parent content
+edges, and a length or percentage raises the baseline alignment. ``sub`` and
+``super`` are rejected. A block sibling, a float, a nested inline-block, and
+positioned content inside it are rejected.
 A ``display: flex`` row lays its element children out on one nowrap line.
 ``flex`` and the flex longhands set each item's used content width from the
 row's content box; an automatic row height is the tallest item, and a
@@ -586,6 +590,7 @@ class _Box:
     element: object = None
     tree: object = None
     aspect_ratio: tuple[float, float, bool] | None = None
+    vertical_align: str | float = "baseline"
 
 
 def layout_normal_flow(
@@ -920,6 +925,7 @@ def _make_box(
             box_id = f"anon-{counter[0]}"
     ids.add(box_id)
     font_size = _font_size(_declared(winners, "font-size", custom), fonts["font-size"])
+    line_height = _line_height(_declared(winners, "line-height", custom), fonts["line-height"])
     columns = _read_columns(winners, custom, font_size)
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     return _Box(
@@ -935,7 +941,12 @@ def _make_box(
         declarations=box_declarations,
         root=root,
         font_size=font_size,
-        line_height=_line_height(_declared(winners, "line-height", custom), fonts["line-height"]),
+        line_height=line_height,
+        vertical_align=(
+            _read_inline_align(_declared(winners, "vertical-align", custom), font_size, line_height)
+            if display == "inline-block"
+            else "baseline"
+        ),
         text_align=_inherited_keyword(
             _declared(winners, "text-align", custom),
             _ALIGNS,
@@ -3752,12 +3763,61 @@ def _atom_edges(parent: _Box, atom: _Box, row: dict[str, int]) -> tuple[int, int
     return above, below
 
 
+def _read_inline_align(value: str | None, font_size: int, line_height: str) -> str | float:
+    """Used vertical-align for an inline-block. The initial value is baseline."""
+
+    if value is None or value in {"initial", "unset", "revert", "baseline"}:
+        return "baseline"
+    if value == "inherit":
+        raise _Invalid("vertical-align inherit is unsupported")
+    token = value.strip().lower()
+    if token in {"top", "bottom", "middle", "text-top", "text-bottom", "baseline"}:
+        return token
+    if token in {"sub", "super"}:
+        raise _Invalid("vertical-align is unsupported")
+    if token == "0":
+        return 0
+    if token.endswith("%"):
+        number = _align_number(token[:-1])
+        resolved = number * _used_line_height(line_height, font_size) / 100.0
+    elif token.endswith("px"):
+        resolved = _align_number(token[:-2])
+    else:
+        raise _Invalid("vertical-align is unsupported")
+    nearest = round(resolved)
+    if abs(resolved - nearest) > 1e-6:
+        raise _Invalid("vertical-align is unsupported")
+    return int(nearest)
+
+
+def _align_number(text: str) -> float:
+    try:
+        number = float(text)
+    except ValueError as exc:
+        raise _Invalid("vertical-align is unsupported") from exc
+    if number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid("vertical-align is unsupported")
+    return number
+
+
+def _atom_align(atom: _Box, below: int) -> str | float:
+    """Shift that puts the atomic baseline on the parent baseline, or a keyword."""
+
+    spec = atom.vertical_align
+    if spec == "baseline":
+        return -below
+    if isinstance(spec, str):
+        return spec
+    return spec - below
+
+
 def _line_extent(
     box: _Box,
     groups: list[tuple[str, int, str, int]],
-    edges: list[tuple[int, int]],
+    atoms_here: list[tuple[_Box, int]],
+    measured: dict[str, dict[str, int]],
 ) -> tuple[int, int, list[int]]:
-    payload = []
+    payload: list[dict[str, object]] = []
     for index, (_text, size, leading, _width) in enumerate(groups):
         payload.append(
             {
@@ -3780,6 +3840,22 @@ def _line_extent(
                 "line_height": _used_line_height(box.line_height, box.font_size),
             }
         )
+    for index, (atom, _border_x) in enumerate(atoms_here):
+        row = measured[atom.id]
+        above, below = _atom_edges(box, atom, row)
+        outer = row["outer_height"]
+        if above + below != outer:
+            raise _Invalid("inline-block baseline is invalid")
+        payload.append(
+            {
+                "id": f"a{index}",
+                "kind": "atomic",
+                "vertical_align": _atom_align(atom, below),
+                "height": outer,
+                "margin_top": 0,
+                "margin_bottom": 0,
+            }
+        )
     laid = layout_inline_line(
         {
             "ascent": box.font_size,
@@ -3789,14 +3865,20 @@ def _line_extent(
         },
         payload,
     )
-    if laid.get("outcome") != "resolved":
+    if laid.get("outcome") != "resolved" or not isinstance(laid.get("boxes"), list):
         raise _Invalid(str(laid.get("reason") or "line box failed"))
-    above = _px(laid.get("baseline"), "baseline")
-    below = _px(laid.get("line_height"), "line height") - above
-    for edge_above, edge_below in edges:
-        above = max(above, edge_above)
-        below = max(below, edge_below)
-    return above + below, above, [above - edge_above for edge_above, _edge_below in edges]
+    placed = {
+        str(item.get("id")): item for item in laid["boxes"] if isinstance(item, dict)
+    }
+    height = _px(laid.get("line_height"), "line height")
+    baseline = _px(laid.get("baseline"), "baseline")
+    tops: list[int] = []
+    for index, _atom in enumerate(atoms_here):
+        item = placed.get(f"a{index}")
+        if not isinstance(item, dict):
+            raise _Invalid("line box failed")
+        tops.append(_px(item.get("top"), "atom top"))
+    return height, baseline, tops
 
 
 def _fill_inline_blocks(box: _Box) -> None:
@@ -3961,8 +4043,7 @@ def _paint_atom_line(
     flush()
     if cursor != content:
         raise _Invalid("inline-block line is invalid")
-    edges = [_atom_edges(box, atom, measured[atom.id]) for atom, _border_x in atoms_here]
-    height, above, tops = _line_extent(box, groups, edges)
+    height, above, tops = _line_extent(box, groups, atoms_here, measured)
     offset = _text_offset(box, measure, content, last)
     for (atom, border_x), top in zip(atoms_here, tops, strict=True):
         atom.local_x = left + offset + border_x
