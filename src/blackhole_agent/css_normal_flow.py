@@ -243,6 +243,15 @@ horizontal parent resolves auto margins and stacks the physical border box.
 Widths and heights in line records are physical. Text uses the engine's
 uniform glyph advances. Nested formatting contexts, mixed fonts and
 justification inside this orthogonal block are unsupported.
+``display: contents`` generates no box. The element is replaced by its
+children and text in the parent's formatting context, so its own width,
+padding, border, and margin do not move them. A percentage on a child uses
+that parent. ``font-size`` and ``line-height`` still inherit through the
+element, including onto an inline run that stays on the parent's line.
+Nested contents unwraps. A flex or grid parent takes the children as items,
+and a table parent takes them as rows or cells. Float, absolute, and
+relative on the contents element do not generate a box: the child stays in
+flow. The root element's contents computes to block.
 """
 
 from __future__ import annotations
@@ -387,6 +396,7 @@ _DISPLAYS = frozenset(
         "table-cell",
         "table-caption",
         "none",
+        "contents",
     }
 )
 _TABLE_OUTSIDE = frozenset({"table-row", "table-cell", "table-caption"})
@@ -705,6 +715,27 @@ def _walk(
         box.parent_box = host
         if box.display == "none":
             continue
+        if box.display == "contents":
+            if host.float_side != "none" and _float_loose_text(child, host.white_space):
+                raise _Invalid("float content is unsupported")
+            children, child_floats, child_flow, child_positioned = _walk(
+                tree,
+                child,
+                _modes(box),
+                _fonts(box),
+                box.direction,
+                styles,
+                declarations,
+                ids,
+                counter,
+                host,
+                container_rules,
+            )
+            found.extend(children)
+            floats.extend(child_floats)
+            flow.extend(child_flow)
+            positioned.extend(child_positioned)
+            continue
         if box.position in {"absolute", "fixed"}:
             nested = _walk(
                 tree, child, _modes(box), _fonts(box), box.direction, styles, declarations,
@@ -839,6 +870,8 @@ def _make_box(
         "block" if _local_name(element) in _BLOCK_TAGS else "inline",
         "display",
     )
+    if root and display == "contents":
+        display = "block"
     position = _keyword(_declared(winners, "position", custom), _POSITIONS, "static", "position")
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
     clear = _keyword(_declared(winners, "clear", custom), _CLEARS, "none", "clear")
@@ -1841,6 +1874,10 @@ def _inline_segments(
             if kind in {"skip", "out"}:
                 add(child.tail or "", size, leading, layers)
                 continue
+            if kind == "contents":
+                walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
+                add(child.tail or "", size, leading, layers)
+                continue
             if kind == "inline-block":
                 if layers:
                     raise _Invalid("relative inline content is unsupported")
@@ -1911,6 +1948,11 @@ def _inline_pieces(
             if kind in {"skip", "out"}:
                 add(child.tail or "", size, leading, layers)
                 continue
+            if kind == "contents":
+                if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
+                    return False
+                add(child.tail or "", size, leading, layers)
+                continue
             if kind == "inline-block":
                 if layers:
                     raise _Invalid("relative inline content is unsupported")
@@ -1963,7 +2005,11 @@ def _flow_kind(tree, element, styles, declarations) -> str:
     )
     position = _keyword(_declared(winners, "position", custom), _POSITIONS, "static", "position")
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
-    if display == "none" or position in {"absolute", "fixed"} or float_side != "none":
+    if display == "none":
+        return "out"
+    if display == "contents":
+        return "contents"
+    if position in {"absolute", "fixed"} or float_side != "none":
         return "out"
     if display == "inline":
         return "inline"
@@ -4023,6 +4069,52 @@ _FLEX_EDGES = (
 _ZERO_EDGE = frozenset({"0", "0px", "initial", "unset", "revert"})
 
 
+def _generating_children(
+    tree,
+    element,
+    inherited: dict[str, str],
+    fonts: dict[str, str],
+    parent_direction: str | None,
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+    *,
+    reject_text,
+) -> list[tuple[_Box, object]]:
+    """Boxes that participate in the parent. ``display: contents`` is not one of them."""
+
+    found: list[tuple[_Box, object]] = []
+
+    def absorb(node, node_inherited: dict[str, str], node_fonts: dict[str, str], direction: str | None) -> None:
+        for child in tree.children.get(node, []):
+            reject_text(getattr(child, "tail", None))
+            if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
+                continue
+            box = _make_box(
+                tree,
+                child,
+                node_inherited,
+                node_fonts,
+                direction,
+                styles,
+                declarations,
+                ids,
+                counter,
+                root=False,
+            )
+            if box.display == "none":
+                continue
+            if box.display == "contents":
+                reject_text(getattr(child, "text", None))
+                absorb(child, _modes(box), _fonts(box), box.direction)
+                continue
+            found.append((box, child))
+
+    absorb(element, inherited, fonts, parent_direction)
+    return found
+
+
 def _walk_flex(
     tree,
     element,
@@ -4039,24 +4131,18 @@ def _walk_flex(
         raise _Invalid("flex writing mode is unsupported")
     _reject_loose_text(getattr(element, "text", None))
     items: list[_Box] = []
-    for child in tree.children.get(element, []):
-        _reject_loose_text(getattr(child, "tail", None))
-        if _local_name(child) in _SKIP_TAGS:
-            continue
-        item = _make_box(
-            tree,
-            child,
-            inherited,
-            fonts,
-            host.direction,
-            styles,
-            declarations,
-            ids,
-            counter,
-            root=False,
-        )
-        if item.display == "none":
-            continue
+    for item, child in _generating_children(
+        tree,
+        element,
+        inherited,
+        fonts,
+        host.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        reject_text=_reject_loose_text,
+    ):
         if item.display in {"table", *_TABLE_OUTSIDE}:
             raise _Invalid("table formatting in flex is unsupported")
         if item.position != "static" or item.float_side != "none":
@@ -5006,24 +5092,18 @@ def _walk_grid(
         raise _Invalid("grid writing mode is unsupported")
     _reject_grid_text(getattr(element, "text", None))
     items: list[_Box] = []
-    for child in tree.children.get(element, []):
-        _reject_grid_text(getattr(child, "tail", None))
-        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
-            continue
-        item = _make_box(
-            tree,
-            child,
-            inherited,
-            fonts,
-            host.direction,
-            styles,
-            declarations,
-            ids,
-            counter,
-            root=False,
-        )
-        if item.display == "none":
-            continue
+    for item, child in _generating_children(
+        tree,
+        element,
+        inherited,
+        fonts,
+        host.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        reject_text=_reject_grid_text,
+    ):
         if item.display in {"table", *_TABLE_OUTSIDE}:
             raise _Invalid("table formatting in grid is unsupported")
         if item.position != "static" or item.float_side != "none":
@@ -6474,24 +6554,18 @@ def _walk_table(
     _reject_table_text(getattr(element, "text", None))
     rows: list[_Box] = []
     captions: list[_Box] = []
-    for child in tree.children.get(element, []):
-        _reject_table_text(getattr(child, "tail", None))
-        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
-            continue
-        row = _make_box(
-            tree,
-            child,
-            inherited,
-            fonts,
-            host.direction,
-            styles,
-            declarations,
-            ids,
-            counter,
-            root=False,
-        )
-        if row.display == "none":
-            continue
+    for row, child in _generating_children(
+        tree,
+        element,
+        inherited,
+        fonts,
+        host.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        reject_text=_reject_table_text,
+    ):
         if row.display == "table-caption":
             _take_table_caption(tree, child, row, host, styles, declarations)
             captions.append(row)
@@ -6543,24 +6617,18 @@ def _table_cells(
     host: _Box,
 ) -> list[_Box]:
     cells: list[_Box] = []
-    for child in tree.children.get(row_element, []):
-        _reject_table_text(getattr(child, "tail", None))
-        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
-            continue
-        cell = _make_box(
-            tree,
-            child,
-            inherited,
-            fonts,
-            host.direction,
-            styles,
-            declarations,
-            ids,
-            counter,
-            root=False,
-        )
-        if cell.display == "none":
-            continue
+    for cell, child in _generating_children(
+        tree,
+        row_element,
+        inherited,
+        fonts,
+        host.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        reject_text=_reject_table_text,
+    ):
         if cell.display != "table-cell":
             raise _Invalid("table cell is unsupported")
         if cell.position != "static" or cell.float_side != "none":
