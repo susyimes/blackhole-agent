@@ -315,6 +315,12 @@ Nested contents unwraps. A flex or grid parent takes the children as items,
 and a table parent takes them as rows or cells. Float, absolute, and
 relative on the contents element do not generate a box: the child stays in
 flow. The root element's contents computes to block.
+``sibling-index()`` and ``sibling-count()`` resolve in a used box length.
+The number is that element's place among its DOM element siblings, so a
+``display: none`` sibling still counts and a ``display: contents`` parent
+does not reparent the child. A percentage stays a percentage of the
+containing block. A call with an argument is invalid. A comment that only
+mentions the function does not call it.
 """
 
 from __future__ import annotations
@@ -353,6 +359,7 @@ from blackhole_agent.css_line_break import _default_advance, wrap_lines
 from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
+from blackhole_agent.css_tree_counting import resolve_tree_counting
 from blackhole_agent.css_logical_box import (
     _LOGICAL,
     _LOGICAL_SHORTHAND,
@@ -697,7 +704,9 @@ def layout_normal_flow(
     move a sticky box whose scrollport is the viewport and leave every other
     box at its static position. ``x`` and ``y`` are the border edges measured
     from the unscrolled viewport origin. Lengths are ``px`` or percentages. A
-    unitless zero is rejected. Rules come from the stylesheet; a style
+    unitless zero is rejected. ``sibling-index()`` and ``sibling-count()``
+    inside a box length use the element's DOM siblings before that length is
+    solved. Rules come from the stylesheet; a style
     attribute is not read. Relative offsets are applied after the static
     positions, then sticky offsets. Absolute and fixed boxes are included
     in the returned boxes.
@@ -1231,7 +1240,7 @@ def _make_box(
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
     clear = _keyword(_declared(winners, "clear", custom), _CLEARS, "none", "clear")
     overflow = _keyword(_declared(winners, "overflow", custom), _OVERFLOWS, "visible", "overflow")
-    box_declarations = _boxed_declarations(winners, custom)
+    box_declarations = _counted_declarations(tree, element, _boxed_declarations(winners, custom))
     author = (_attr(element, "id") or "").strip()
     if author:
         if author in ids:
@@ -1379,6 +1388,67 @@ def _boxed_declarations(winners, custom: dict) -> list[tuple[str, str]]:
     ]
 
 
+def _counted_declarations(tree, element, declarations: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Replace tree-counting calls with the integers the length solver can see.
+
+    The substituted expression keeps percentages symbolic. A call that takes
+    an argument cannot be a length. A mention that is only a comment stays
+    untouched, because the counter finds no call.
+    """
+
+    if not any(_mentions_tree_count(value) for _prop, value in declarations):
+        return declarations
+    counting, labels = _counting_context(tree)
+    label = labels.get(element)
+    if label is None:
+        raise _Invalid("sibling function is invalid")
+    rewritten: list[tuple[str, str]] = []
+    for prop, value in declarations:
+        if not _mentions_tree_count(value):
+            rewritten.append((prop, value))
+            continue
+        result = resolve_tree_counting(value, counting, label, percentage_basis=0)
+        reason = str(result.get("reason") or "")
+        if reason == "argument":
+            raise _Invalid("sibling function argument is invalid")
+        if reason == "function":
+            rewritten.append((prop, value))
+            continue
+        substituted = result.get("value")
+        if not isinstance(substituted, str) or not substituted.strip():
+            raise _Invalid(reason or "sibling function is invalid")
+        rewritten.append((prop, substituted))
+    return rewritten
+
+
+def _mentions_tree_count(value: str) -> bool:
+    lowered = value.lower()
+    return "sibling-index" in lowered or "sibling-count" in lowered
+
+
+def _counting_context(tree) -> tuple[dict[str, object], dict[object, str]]:
+    cached = getattr(tree, "_sibling_counts", None)
+    if cached is not None:
+        return cached
+    labels: dict[object, str] = {}
+
+    def build(node) -> dict[str, object]:
+        label = f"e{id(node)}"
+        labels[node] = label
+        return {
+            "tag": _local_name(node) or "element",
+            "id": label,
+            "children": [build(child) for child in tree.children.get(node, ())],
+        }
+
+    root = next((node for node, parent in tree.parent.items() if parent is None), None)
+    if root is None:
+        raise _Invalid("sibling function is invalid")
+    cached = (build(root), labels)
+    tree._sibling_counts = cached
+    return cached
+
+
 def _retarget_query_descendants(box: _Box) -> None:
     if box.container_type not in {"inline-size", "size"}:
         return
@@ -1407,7 +1477,9 @@ def _retarget_query_target(target: _Box) -> None:
     if not chosen:
         return
     winners = _winners(target.tree, target.element, [*target.sheet, *chosen])
-    target.declarations = _boxed_declarations(winners, target.custom)
+    target.declarations = _counted_declarations(
+        target.tree, target.element, _boxed_declarations(winners, target.custom)
+    )
 
 
 def _query_matches(target: _Box, query: str) -> bool:
