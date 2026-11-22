@@ -166,8 +166,12 @@ that cell. The following block starts under the table border box.
 later cell starts at the next free slot, and the span's max-content is spread
 across its columns. A span that lands on an occupied slot is rejected, and a
 span of zero is rejected. A span past the rows that exist covers only those
-rows. Captions, border spacing, and element children inside a cell stay
-rejected.
+rows. A static block child inside a cell is an independent formatting
+context: its margin stays inside the cell, adjoining child margins collapse,
+and the row grows to that content. A narrow column wraps the child's text,
+and an automatic column takes the child's max-content. Floats, positioned
+boxes, and loose text beside those children stay rejected. Captions and
+border spacing stay rejected.
 A block with ``column-count`` or ``column-width`` is a multicol container.
 Each text-only child is an unbreakable border box: it wraps at the used
 column width, and ``column-span: all`` takes the whole content box and ends
@@ -5527,16 +5531,14 @@ def _table_cells(
             raise _Invalid("table cell is outside the table")
         if cell.writing_mode != "horizontal-tb" or cell.direction != "ltr":
             raise _Invalid("table writing mode is unsupported")
-        if any(
-            _local_name(grand) and _local_name(grand) not in _SKIP_TAGS
-            for grand in tree.children.get(child, [])
-        ):
-            raise _Invalid("table cell content is unsupported")
-        for grand in tree.children.get(child, []):
-            _reject_table_text(getattr(grand, "tail", None))
         collapse = host.table.get("collapse") is True
         _reject_table_edges(cell, collapse=collapse)
-        cell.inline_text = child.text or ""
+        if _table_cell_elements(tree, child):
+            _adopt_table_cell_blocks(tree, child, cell, styles, declarations, ids, counter)
+        else:
+            for grand in tree.children.get(child, []):
+                _reject_table_text(getattr(grand, "tail", None))
+            cell.inline_text = child.text or ""
         cell.table = _table_cell(tree, child, styles, declarations)
         if collapse:
             cell.table["borders"] = _specified_borders(cell)
@@ -5820,7 +5822,107 @@ def _place_collapsed_table(
             }
             for line in cell.lines:
                 line.y += shift
+            _shift_cell_children(cell, shift)
     box.anchor_laid = True
+
+
+def _table_cell_elements(tree, element) -> bool:
+    return any(
+        _local_name(node) and _local_name(node) not in _SKIP_TAGS
+        for node in tree.children.get(element, [])
+    )
+
+
+def _adopt_table_cell_blocks(
+    tree,
+    element,
+    cell: _Box,
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+) -> None:
+    """Take a cell's static block children. Mixed text and other displays stay rejected."""
+
+    if _grid_text(getattr(element, "text", None)):
+        raise _Invalid("table cell content is unsupported")
+    for node in tree.children.get(element, []):
+        if _grid_text(getattr(node, "tail", None)):
+            raise _Invalid("table cell content is unsupported")
+    found, floats, _flow, positioned = _walk(
+        tree,
+        element,
+        _modes(cell),
+        _fonts(cell),
+        cell.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        cell,
+    )
+    if floats or positioned or cell.atoms or not found:
+        raise _Invalid("table cell content is unsupported")
+    for child in found:
+        _reject_table_cell_block(child)
+    cell.children = found
+    cell.flow = list(found)
+
+
+def _reject_table_cell_block(box: _Box) -> None:
+    if box.display != "block" or box.position != "static" or box.float_side != "none":
+        raise _Invalid("table cell content is unsupported")
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("table cell content is unsupported")
+    if box.floats or box.positioned or box.atoms or box.multicol is not None:
+        raise _Invalid("table cell content is unsupported")
+    if box.flex is not None or box.grid is not None or box.table is not None:
+        raise _Invalid("table cell content is unsupported")
+    if box.children and box.inline_text:
+        raise _Invalid("table cell content is unsupported")
+    sizing = _box_decl(box, "box-sizing")
+    if sizing not in {None, "content-box", "initial", "unset", "revert"}:
+        raise _Invalid("table cell content is unsupported")
+    for child in box.children:
+        _reject_table_cell_block(child)
+
+
+def _cell_content_bounds(cell: _Box) -> tuple[int, int]:
+    """Min and max content of a cell, including a block child's text."""
+
+    if cell.children:
+        bounds = [_nested_block_intrinsic(child) for child in cell.children]
+        return max(bound[0] for bound in bounds), max(bound[1] for bound in bounds)
+    return _intrinsic_text_sizes(cell)
+
+
+def _cell_content_baseline(cell: _Box) -> int:
+    """Distance from the cell content top to the first line baseline."""
+
+    if cell.lines:
+        return int(cell.lines[0].baseline)
+    found = _first_block_baseline(cell, -_edge_extent(cell.solved, "top"))
+    return 0 if found is None else found
+
+
+def _first_block_baseline(box: _Box, border_top: int) -> int | None:
+    if box.lines:
+        return border_top + _edge_extent(box.solved, "top") + int(box.lines[0].y) + int(box.lines[0].baseline)
+    for child in box.children:
+        if child.anchor_y is None:
+            continue
+        found = _first_block_baseline(child, border_top + child.anchor_y)
+        if found is not None:
+            return found
+    return None
+
+
+def _shift_cell_children(cell: _Box, shift: int) -> None:
+    if shift == 0:
+        return
+    for child in cell.children:
+        if child.anchor_y is not None:
+            child.anchor_y += shift
 
 
 def _place_table(box: _Box, content_x: int) -> None:
@@ -5849,7 +5951,7 @@ def _place_table(box: _Box, content_x: int) -> None:
         for row in rows:
             for cell in row.children:
                 column, span, _rowspan = _cell_slot(cell)
-                minimum, maximum = _intrinsic_text_sizes(cell)
+                minimum, maximum = _cell_content_bounds(cell)
                 item: dict[str, object] = {
                     "column": column,
                     "span": span,
@@ -5874,10 +5976,20 @@ def _place_table(box: _Box, content_x: int) -> None:
     used_width = _px(sized.get("used_table_width"), "table width")
     box.content_width = used_width
     inline_axis: tuple[list[int], list[int], list[int]] | None = None
+    block_tops: list[int] | None = None
+    column_offsets: list[int] = []
+    column_cursor = 0
+    for size in column_sizes:
+        column_offsets.append(column_cursor)
+        column_cursor += size
     if collapse:
-        vertical, _horizontal = _collapsed_lines(box, rows, len(column_sizes))
+        vertical, horizontal = _collapsed_lines(box, rows, len(column_sizes))
         xs, lefts, rights, _outer_left, _outer_right, _inner = _collapsed_axis(column_sizes, vertical)
         inline_axis = (xs, lefts, rights)
+        if any(cell.children for row in rows for cell in row.children):
+            _ignored, block_tops, _bottoms, _table_top, _table_bottom, _inner_height = _collapsed_axis(
+                [0] * len(rows), horizontal
+            )
     row_cells: list[dict[str, object]] = []
     for row_index, row in enumerate(rows):
         for cell in row.children:
@@ -5889,7 +6001,26 @@ def _place_table(box: _Box, content_x: int) -> None:
                 cell.content_width = _span_metrics(
                     axis_x, axis_left, axis_right, column_sizes, column, span
                 )[1]
-            if (cell.inline_text or "").strip() or cell.white_space not in _COLLAPSED_EMPTY:
+            if cell.children:
+                if inline_axis is None:
+                    cell.x = content_x + column_offsets[column]
+                    cell.solved = dict(_ZERO_FLEX_EDGES)
+                else:
+                    axis_x, axis_left, axis_right = inline_axis
+                    _x_off, _content_w, left, right = _span_metrics(
+                        axis_x, axis_left, axis_right, column_sizes, column, span
+                    )
+                    cell.x = content_x + axis_x[column]
+                    top = block_tops[row_index] if block_tops is not None else 0
+                    solved = dict(_ZERO_FLEX_EDGES)
+                    solved["border_left"] = left
+                    solved["border_right"] = right
+                    solved["border_top"] = top
+                    cell.solved = solved
+                cell.definite_height = _lay_grid_item_blocks(
+                    cell, None, reason="table cell content is unsupported"
+                )
+            elif (cell.inline_text or "").strip() or cell.white_space not in _COLLAPSED_EMPTY:
                 _fill_lines(cell)
             row_cells.append(
                 {
@@ -5897,7 +6028,7 @@ def _place_table(box: _Box, content_x: int) -> None:
                     "row": row_index,
                     "rowspan": rowspan,
                     "content_height": cell.definite_height or 0,
-                    "baseline": cell.lines[0].baseline if cell.lines else 0,
+                    "baseline": _cell_content_baseline(cell),
                     "vertical_align": str((cell.table or {}).get("vertical_align") or "baseline"),
                 }
             )
@@ -5960,6 +6091,7 @@ def _place_table(box: _Box, content_x: int) -> None:
             cell.solved = dict(_ZERO_FLEX_EDGES)
             for line in cell.lines:
                 line.y += shift
+            _shift_cell_children(cell, shift)
     box.definite_height = _px(laid.get("used_table_height"), "table height")
     box.anchor_laid = True
 
