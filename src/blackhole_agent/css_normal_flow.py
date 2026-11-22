@@ -59,7 +59,12 @@ source, each character is also a glyph from the line's left edge. A wrapped
 fragment and a line that is already visual omit glyphs. ``line-height: normal`` uses the font
 size as the strut. ``text-align`` shifts each line inside its line box. A
 block that also has block children keeps those children and does not build
-line boxes. An inline child may set font-size and line-height. Each run advances
+line boxes. Inline content beside those children becomes an anonymous block
+box with no margin, border, or padding, stretched to the parent's content
+width and using the parent's font, alignment, and white space. Collapsible
+whitespace between blocks does not generate one. A float or an out-of-flow
+box still leaves that loose text out, and an inline-block beside either of
+those stays rejected. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
 shrinking the parent's strut. text-align and white-space on an inline
 stay rejected. A float beside those mixed runs is rejected too. An
@@ -477,6 +482,7 @@ class _Box:
     multicol: dict[str, object] | None = None
     column_span: str = "none"
     parent_box: _Box | None = None
+    anonymous: bool = False
     container_type: str = "normal"
     container_name: str = "none"
     query_rules: list[tuple[str, object]] = field(default_factory=list)
@@ -573,7 +579,7 @@ def layout_normal_flow(
             root,
             container_rules,
         )
-        _set_inline(root, tree, order[0], styles, declarations)
+        _set_inline(root, tree, order[0], styles, declarations, ids, counter)
         _solve(root, viewport_width, viewport_height, viewport_height, 0)
         placed = place_collapsed_margins(_collapse_spec(root))
         if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
@@ -647,7 +653,7 @@ def _walk(
                 ids, counter, box, container_rules,
             )
             box.children, box.floats, box.flow, box.positioned = nested
-            _set_inline(box, tree, child, styles, declarations)
+            _set_inline(box, tree, child, styles, declarations, ids, counter)
             if box.children or box.floats or box.positioned or box.atoms:
                 if (
                     box.display != "block"
@@ -710,7 +716,7 @@ def _walk(
             positioned.extend(child_positioned)
             continue
         box.children, box.floats, box.flow, box.positioned = nested
-        _set_inline(box, tree, child, styles, declarations)
+        _set_inline(box, tree, child, styles, declarations, ids, counter)
         if box.display == "inline-block":
             if box.children or box.floats or box.positioned or box.atoms:
                 raise _Invalid("inline-block content is unsupported")
@@ -1423,10 +1429,15 @@ def _fonts(box: _Box) -> dict[str, str]:
     }
 
 
-def _set_inline(box: _Box, tree, element, styles, declarations) -> None:
-    if box.children:
+def _set_inline(
+    box: _Box, tree, element, styles, declarations, ids: set[str], counter: list[int]
+) -> None:
+    if box.children and not _anonymous_split_allowed(box):
         if box.atoms:
             raise _Invalid("inline-block beside blocks is unsupported")
+        return
+    if box.children:
+        _wrap_anonymous_blocks(box, tree, element, styles, declarations, ids, counter)
         return
     pieces = _inline_pieces(
         tree, element, styles, declarations, _fonts(box), box.atoms, box.relative_layers
@@ -1435,6 +1446,189 @@ def _set_inline(box: _Box, tree, element, styles, declarations) -> None:
         raise _Invalid("inline-block beside blocks is unsupported")
     box.pieces = pieces or []
     box.inline_text = None if pieces is None else "".join(piece.text for piece in pieces)
+
+
+def _anonymous_split_allowed(box: _Box) -> bool:
+    """Ordinary in-flow blocks can wrap inline runs. Other contexts keep the old drop."""
+
+    return (
+        box.position in {"static", "relative"}
+        and box.float_side == "none"
+        and not box.floats
+        and not box.positioned
+        and box.display == "block"
+        and box.multicol is None
+        and box.flex is None
+        and box.grid is None
+        and box.table is None
+        and box.writing_mode == "horizontal-tb"
+        and box.direction == "ltr"
+    )
+
+
+def _wrap_anonymous_blocks(
+    box: _Box, tree, element, styles, declarations, ids: set[str], counter: list[int]
+) -> None:
+    segments = _inline_segments(
+        tree, element, styles, declarations, _fonts(box), box.atoms, box.relative_layers
+    )
+    visible: list[tuple[str, list[_Piece], list[_Box]]] = []
+    for kind, pieces, atoms in segments:
+        if kind == "inline" and not _inline_segment_visible(pieces, atoms, box.white_space):
+            continue
+        visible.append((kind, pieces, atoms))
+    if not any(kind == "inline" for kind, _pieces, _atoms in visible):
+        if box.atoms:
+            raise _Invalid("inline-block beside blocks is unsupported")
+        return
+    rebuilt: list[_Box] = []
+    index = 0
+    for kind, pieces, atoms in visible:
+        if kind == "block":
+            if index >= len(box.children):
+                raise _Invalid("anonymous block split failed")
+            rebuilt.append(box.children[index])
+            index += 1
+            continue
+        rebuilt.append(_make_anonymous_block(box, pieces, atoms, ids, counter))
+    if index != len(box.children):
+        raise _Invalid("anonymous block split failed")
+    box.children = rebuilt
+    box.flow = list(rebuilt)
+    box.atoms = []
+    box.pieces = []
+    box.inline_text = None
+
+
+def _inline_segment_visible(pieces: list[_Piece], atoms: list[_Box], white_space: str) -> bool:
+    if atoms:
+        return True
+    text = "".join(piece.text for piece in pieces)
+    if white_space in {"pre", "pre-wrap", "break-spaces"}:
+        return bool(text)
+    return bool(text.strip())
+
+
+def _make_anonymous_block(
+    parent: _Box,
+    pieces: list[_Piece],
+    atoms: list[_Box],
+    ids: set[str],
+    counter: list[int],
+) -> _Box:
+    anon = _Box(
+        id=_anonymous_id(ids, counter),
+        writing_mode=parent.writing_mode,
+        direction=parent.direction,
+        text_orientation=parent.text_orientation,
+        display="block",
+        position="static",
+        float_side="none",
+        overflow="visible",
+        declarations=[],
+        font_size=parent.font_size,
+        line_height=parent.line_height,
+        text_align=parent.text_align,
+        white_space=parent.white_space,
+        parent_direction=parent.direction,
+        anonymous=True,
+        parent_box=parent,
+        pieces=pieces,
+        atoms=atoms,
+        inline_text="".join(piece.text for piece in pieces),
+    )
+    return anon
+
+
+def _anonymous_id(ids: set[str], counter: list[int]) -> str:
+    while True:
+        counter[0] += 1
+        box_id = f"anon-{counter[0]}"
+        if box_id not in ids:
+            ids.add(box_id)
+            return box_id
+
+
+def _inline_segments(
+    tree,
+    element,
+    styles,
+    declarations,
+    fonts: dict[str, str],
+    atoms: list[_Box],
+    layers_of: dict[int, _Shift],
+) -> list[tuple[str, list[_Piece], list[_Box]]]:
+    """Split one element's inline stream on its in-flow block children."""
+
+    stream = iter(atoms)
+    segments: list[tuple[str, list[_Piece], list[_Box]]] = []
+    pieces: list[_Piece] = []
+    used: list[_Box] = []
+    block_size = _positive_px(fonts["font-size"], "font-size")
+    block_leading = fonts["line-height"]
+
+    def flush() -> None:
+        nonlocal pieces, used
+        if pieces or used:
+            segments.append(("inline", pieces, used))
+            pieces = []
+            used = []
+
+    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...]) -> None:
+        nonlocal pieces
+        if not text:
+            return
+        if layers and (size != block_size or leading != block_leading):
+            raise _Invalid("relative inline font is unsupported")
+        if (
+            pieces
+            and pieces[-1].atom is None
+            and pieces[-1].font_size == size
+            and pieces[-1].line_height == leading
+            and pieces[-1].shifts == layers
+        ):
+            pieces[-1].text += text
+            return
+        pieces.append(_Piece(text, size, leading, shifts=layers))
+
+    def walk(node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...]) -> None:
+        own = layers_of.get(id(node))
+        layers = inherited + ((own,) if own is not None else ())
+        size = _positive_px(parent_fonts["font-size"], "font-size")
+        leading = parent_fonts["line-height"]
+        add(node.text or "", size, leading, layers)
+        for child in list(node):
+            if not _local_name(child):
+                continue
+            kind = _flow_kind(tree, child, styles, declarations)
+            if kind in {"skip", "out"}:
+                add(child.tail or "", size, leading, layers)
+                continue
+            if kind == "inline-block":
+                if layers:
+                    raise _Invalid("relative inline content is unsupported")
+                try:
+                    atom = next(stream)
+                except StopIteration as exc:
+                    raise _Invalid("inline-block is unsupported") from exc
+                pieces.append(_Piece("", size, leading, atom))
+                used.append(atom)
+                add(child.tail or "", size, leading, layers)
+                continue
+            if kind == "block":
+                flush()
+                segments.append(("block", [], []))
+                add(child.tail or "", size, leading, layers)
+                continue
+            _reject_inline_type(tree, child, styles, declarations)
+            walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
+            add(child.tail or "", size, leading, layers)
+
+    walk(element, fonts, ())
+    flush()
+    if next(stream, None) is not None:
+        raise _Invalid("inline-block is unsupported")
+    return segments
 
 
 def _inline_pieces(
@@ -1775,6 +1969,9 @@ def _translate(box: _Box, dx: int, dy: int) -> None:
             _translate(fl, dx, dy)
     for child in box.children:
         _translate(child, dx, dy)
+    if box.anonymous:
+        for atom in box.atoms:
+            _translate(atom, dx, dy)
 
 
 def _shift_stickies(
