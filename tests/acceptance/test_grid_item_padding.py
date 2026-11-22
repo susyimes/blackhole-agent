@@ -4,7 +4,8 @@ A stretched item keeps the padding and solid border inside a fixed area.
 An automatic row grows by uneven vertical edges. A max-content column grows
 by the horizontal edges. A specified width stays the content width. A hidden
 border style contributes no inset. A block child starts inside the padding.
-A definite grid height stays invalid.
+A definite grid height keeps an empty implicit row at its content size and
+places the following block at that used height.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A tree that still rejects grid item padding exits 0.
@@ -159,6 +160,9 @@ def observe() -> tuple[bool, dict[str, object]]:
         "nested_after": _view(nested, "after"),
         "height_outcome": tall.get("outcome"),
         "height_reason": tall.get("reason"),
+        "height_grid": _view(tall, "grid"),
+        "height_item": _view(tall, "item"),
+        "height_after": _view(tall, "after"),
     }
     checks = {
         "stretched_edges_inset_the_line": (
@@ -212,10 +216,11 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(child, x=10, y=10, content_width=60, content_height=10)
             and _near(_box(nested.get("boxes"), "after"), y=30)
         ),
-        "definite_grid_height_stays_invalid": (
-            tall.get("outcome") == "invalid"
-            and tall.get("boxes") is None
-            and "height" in str(tall.get("reason") or "")
+        "definite_grid_height_keeps_the_used_edge": (
+            tall.get("outcome") == "placed"
+            and _near(_box(tall.get("boxes"), "grid"), y=0, content_height=40, border_height=40)
+            and _near(_box(tall.get("boxes"), "item"), y=0, content_height=0, border_height=0)
+            and _near(_box(tall.get("boxes"), "after"), y=40)
         ),
     }
     observed["checks"] = checks

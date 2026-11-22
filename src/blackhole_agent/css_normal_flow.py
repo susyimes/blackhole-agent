@@ -118,7 +118,10 @@ that rectangle is not the item's source position. A bracketed line name on
 ``grid-template-columns`` or ``grid-template-rows`` is selected by
 ``grid-column`` or ``grid-row``. A name that is not one rectangle is rejected.
 Padding and a used border inset the content box. An absent or hidden border
-style contributes nothing. A definite grid height stays rejected.
+style contributes nothing. A definite grid height is the used content height:
+fixed rows keep their size, ``fr`` rows share the free space after row gaps,
+and a following block starts at that border edge even when the tracks overflow
+it. An ``fr`` row without a definite height stays rejected.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -3610,7 +3613,7 @@ def _reject_grid_edges(box: _Box) -> None:
 def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
     custom = styles.get(element, ({}, ""))[0]
     columns: list[dict[str, object]] = []
-    rows: list[int] = []
+    rows: list[dict[str, object]] = []
     areas: list[str] | None = None
     column_lines: list[list[str]] | None = None
     row_lines: list[list[str]] | None = None
@@ -3799,18 +3802,6 @@ def _grid_track_defs(value: str) -> list[dict[str, object]]:
     return tracks
 
 
-def _grid_fixed_tracks(value: str) -> list[int]:
-    tracks = _grid_track_defs(value)
-    sizes: list[int] = []
-    for track in tracks:
-        if "flex" in track:
-            raise _Invalid("grid row flex is unsupported")
-        if "fixed" not in track:
-            raise _Invalid("grid row track is unsupported")
-        sizes.append(_px(track["fixed"], "grid track"))
-    return sizes
-
-
 def _grid_auto_track(value: str) -> int | None:
     if value in {"auto", "initial", "unset", "revert"}:
         return None
@@ -3937,18 +3928,10 @@ def _grid_named_column_tracks(value: str) -> tuple[list[dict[str, object]], list
     return _read_named_tracks(value)
 
 
-def _grid_named_row_tracks(value: str) -> tuple[list[int], list[list[str]] | None]:
+def _grid_named_row_tracks(value: str) -> tuple[list[dict[str, object]], list[list[str]] | None]:
     if "[" not in value and "]" not in value:
-        return _grid_fixed_tracks(value), None
-    tracks, lines = _read_named_tracks(value)
-    sizes: list[int] = []
-    for track in tracks:
-        if "flex" in track:
-            raise _Invalid("grid row flex is unsupported")
-        if "fixed" not in track:
-            raise _Invalid("grid row track is unsupported")
-        sizes.append(_px(track["fixed"], "grid track"))
-    return sizes, lines
+        return _grid_track_defs(value), None
+    return _read_named_tracks(value)
 
 
 def _read_named_tracks(value: str) -> tuple[list[dict[str, object]], list[list[str]] | None]:
@@ -4070,11 +4053,105 @@ def _place_grid_items(
     return placed if isinstance(placed, dict) else {"outcome": "invalid", "reason": "grid placement failed"}
 
 
+def _fixed_row_breadth(track: object) -> int:
+    """Used size of one explicit row when the grid block size is indefinite."""
+
+    if isinstance(track, dict) and "flex" in track:
+        raise _Invalid("grid row flex is unsupported")
+    if isinstance(track, dict) and "fixed" in track and "breadth" not in track:
+        return _px(track["fixed"], "grid track")
+    raise _Invalid("grid row track is unsupported")
+
+
+def _definite_row_track(track: object) -> dict[str, object]:
+    """One explicit row inside a definite grid content box."""
+
+    if isinstance(track, dict) and "flex" in track and "breadth" not in track:
+        factor = track["flex"]
+        if isinstance(factor, bool) or not isinstance(factor, (int, float)):
+            raise _Invalid("grid row flex is unsupported")
+        return {"flex": factor, "minimum": 0}
+    if isinstance(track, dict) and "fixed" in track and "breadth" not in track:
+        return {"fixed": _px(track["fixed"], "grid track")}
+    raise _Invalid("grid row track is unsupported")
+
+
+def _grid_row_minimum(item: _Box, text_heights: dict[str, int]) -> int:
+    specified = (item.grid or {}).get("height", "auto")
+    contribution = specified if type(specified) is int else text_heights.get(item.id, 0)
+    return (
+        contribution
+        + _grid_definite_margins(item, "top", "bottom")
+        + _edge_extent(item.solved, "top", "bottom")
+    )
+
+
+def _automatic_row_sizes(
+    box: _Box,
+    explicit_rows: list,
+    row_count: int,
+    auto_rows: object,
+    located: dict[str, dict[str, object]],
+    text_heights: dict[str, int],
+) -> list[int]:
+    sizes: list[int] = []
+    for index in range(row_count):
+        if index < len(explicit_rows):
+            sizes.append(_fixed_row_breadth(explicit_rows[index]))
+            continue
+        if isinstance(auto_rows, int):
+            sizes.append(auto_rows)
+            continue
+        sizes.append(_content_row_height(index, box, located, text_heights))
+    return sizes
+
+
+def _definite_row_sizes(
+    box: _Box,
+    explicit_rows: list,
+    row_count: int,
+    auto_rows: object,
+    row_gap: int,
+    located: dict[str, dict[str, object]],
+    text_heights: dict[str, int],
+    specified_height: int,
+) -> list[int]:
+    """Size rows in a definite content box. Flexible rows take the leftover."""
+
+    tracks: list[dict[str, object]] = []
+    for index in range(row_count):
+        if index < len(explicit_rows):
+            tracks.append(_definite_row_track(explicit_rows[index]))
+            continue
+        if isinstance(auto_rows, int):
+            tracks.append({"fixed": auto_rows})
+            continue
+        tracks.append({"fixed": _content_row_height(index, box, located, text_heights)})
+    if not tracks:
+        return []
+    contributions: list[dict[str, object]] = []
+    for item in box.children:
+        entry = located.get(item.id)
+        if entry is None:
+            raise _Invalid("grid placement failed")
+        contributions.append(
+            {
+                "start": int(entry.get("row") or 0) - 1,
+                "span": int(entry.get("row_span") or 0),
+                "minimum": _grid_row_minimum(item, text_heights),
+            }
+        )
+    sized = size_grid_tracks(specified_height, tracks, contributions, gap=row_gap)
+    raw_sizes = sized.get("track_sizes")
+    if sized.get("outcome") != "resolved" or not isinstance(raw_sizes, list):
+        raise _Invalid(str(sized.get("reason") or "grid tracks failed"))
+    return [_px(size, "grid row") for size in raw_sizes]
+
+
 def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("grid writing mode is unsupported")
-    if box.definite_height is not None:
-        raise _Invalid("grid height is unsupported")
+    specified_height = box.definite_height
     spec = box.grid or {}
     columns = spec.get("columns")
     explicit_rows = spec.get("rows")
@@ -4111,15 +4188,21 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
     )
     row_count = int(placed.get("row_count") or 0)
     auto_rows = spec.get("auto_rows")
-    row_sizes: list[int] = []
-    for index in range(row_count):
-        if index < len(explicit_rows):
-            row_sizes.append(_px(explicit_rows[index], "grid row"))
-            continue
-        if isinstance(auto_rows, int):
-            row_sizes.append(auto_rows)
-            continue
-        row_sizes.append(_content_row_height(index, box, located, text_heights))
+    if specified_height is None:
+        row_sizes = _automatic_row_sizes(
+            box, explicit_rows, row_count, auto_rows, located, text_heights
+        )
+    else:
+        row_sizes = _definite_row_sizes(
+            box,
+            explicit_rows,
+            row_count,
+            auto_rows,
+            row_gap,
+            located,
+            text_heights,
+            specified_height,
+        )
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
     for item in box.children:
         entry = located.get(item.id)
@@ -4156,7 +4239,10 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
             margin_left=item.margin_left,
             margin_right=item.margin_right,
         )
-    box.definite_height = _gapped_span(row_sizes, row_gap)
+    if specified_height is None:
+        box.definite_height = _gapped_span(row_sizes, row_gap)
+    else:
+        box.definite_height = specified_height
     box.anchor_laid = True
 
 
