@@ -57,7 +57,15 @@ the space, advances by the font size. When that whole paragraph fits on one
 horizontal plain line and its Unicode bidi visual order differs from the
 source, each character is also a glyph from the line's left edge. A wrapped
 fragment and a line that is already visual omit glyphs. ``line-height: normal`` uses the font
-size as the strut. ``text-align`` shifts each line inside its line box. A
+size as the strut. ``text-align`` shifts each line inside its line box.
+``justify`` and ``justify-all`` give the aligner one item per word, so leftover
+inline space is added to the interior gaps instead of sitting after the line.
+The last line of ``justify`` stays packed unless ``text-align-last: justify``
+or ``justify-all`` stretches it. ``text-justify: none`` leaves the gaps alone,
+and ``inter-character`` also opens the gaps inside a word. A line with no
+interior gap does not move, and leftover space is never compressed. Preserved
+white space, a vertical writing mode, a non-ltr direction, a mixed font, an
+inline-block, and a relative inline stay rejected. A
 block that also has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
 box with no margin, border, or padding, stretched to the parent's content
@@ -374,11 +382,15 @@ _FONT = {
     "font-size": "16px",
     "line-height": "normal",
     "text-align": "start",
+    "text-align-last": "auto",
+    "text-justify": "auto",
     "white-space": "normal",
 }
 _ALIGNS = frozenset(
     {"start", "end", "left", "right", "center", "justify", "justify-all", "match-parent"}
 )
+_LAST_ALIGNS = frozenset({"auto", "start", "end", "left", "right", "center", "justify"})
+_JUSTIFY_MODES = frozenset({"auto", "none", "inter-word", "inter-character"})
 _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre-line"})
 _COLLAPSED_EMPTY = frozenset({"normal", "nowrap"})
 _INLINE_REJECTED = ("text-align", "white-space")
@@ -466,6 +478,8 @@ class _Box:
     font_size: int = 16
     line_height: str = "normal"
     text_align: str = "start"
+    text_align_last: str = "auto"
+    text_justify: str = "auto"
     white_space: str = "normal"
     parent_direction: str | None = None
     inline_text: str | None = None
@@ -795,6 +809,20 @@ def _make_box(
             _FONT["text-align"],
             "text-align",
         ),
+        text_align_last=_inherited_keyword(
+            _declared(winners, "text-align-last", custom),
+            _LAST_ALIGNS,
+            fonts["text-align-last"],
+            _FONT["text-align-last"],
+            "text-align-last",
+        ),
+        text_justify=_inherited_keyword(
+            _declared(winners, "text-justify", custom),
+            _JUSTIFY_MODES,
+            fonts["text-justify"],
+            _FONT["text-justify"],
+            "text-justify",
+        ),
         white_space=_inherited_keyword(
             _declared(winners, "white-space", custom),
             _WHITES,
@@ -993,7 +1021,7 @@ def _vertical_geometry(
 ) -> dict[str, object]:
     if box.children or box.floats or box.atoms or box.positioned or _mixed_runs(box):
         raise _Invalid("vertical block requires uniform inline text")
-    if box.text_align in {"justify", "justify-all"}:
+    if box.text_align in {"justify", "justify-all"} or box.text_align_last == "justify":
         raise _Invalid("vertical justification is unsupported")
 
     # Resolve logical declarations in the child's axes once. Physical margins
@@ -1425,6 +1453,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "font-size": f"{box.font_size}px",
         "line-height": box.line_height,
         "text-align": box.text_align,
+        "text-align-last": box.text_align_last,
+        "text-justify": box.text_justify,
         "white-space": box.white_space,
     }
 
@@ -1529,6 +1559,8 @@ def _make_anonymous_block(
         font_size=parent.font_size,
         line_height=parent.line_height,
         text_align=parent.text_align,
+        text_align_last=parent.text_align_last,
+        text_justify=parent.text_justify,
         white_space=parent.white_space,
         parent_direction=parent.direction,
         anonymous=True,
@@ -1707,6 +1739,8 @@ def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -
         "font-size": f"{size}px",
         "line-height": _line_height(_declared(winners, "line-height", custom), parent["line-height"]),
         "text-align": parent["text-align"],
+        "text-align-last": parent["text-align-last"],
+        "text-justify": parent["text-justify"],
         "white-space": parent["white-space"],
     }
 
@@ -2597,16 +2631,154 @@ def _fit_float(
     raise _Invalid("float placement failed")
 
 
+def _gap_alignment(box: _Box) -> bool:
+    return box.text_align in {"justify", "justify-all"} or box.text_align_last == "justify"
+
+
+def _uses_gap_items(box: _Box, last: bool) -> bool:
+    if box.text_align in {"justify", "justify-all"}:
+        return True
+    return last and box.text_align_last == "justify"
+
+
+def _snap(value: object, name: str) -> int:
+    if type(value) is bool or not isinstance(value, (int, float)):
+        raise _Invalid(f"{name} is invalid")
+    number = float(value)
+    if number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid(f"{name} is invalid")
+    return int(round(number))
+
+
+def _word_gaps(rendered: str, font_size: int) -> list[tuple[str, int]]:
+    words: list[tuple[str, int]] = []
+    index = 0
+    count = len(rendered)
+    while index < count:
+        if rendered[index] == " ":
+            raise _Invalid("justified leading space is unsupported")
+        end = index
+        while end < count and rendered[end] != " ":
+            end += 1
+        space_at = end
+        while space_at < count and rendered[space_at] == " ":
+            space_at += 1
+        space = sum(_advance_of(rendered[pos], font_size) for pos in range(end, space_at))
+        words.append((rendered[index:end], space))
+        index = space_at
+    return words
+
+
+def _gap_items(
+    rendered: str, font_size: int, *, character: bool
+) -> tuple[list[dict[str, object]], list[tuple[str, list[str]]]]:
+    items: list[dict[str, object]] = []
+    groups: list[tuple[str, list[str]]] = []
+    serial = 0
+    for word, space in _word_gaps(rendered, font_size):
+        ids: list[str] = []
+        if character:
+            last = len(word) - 1
+            for offset, ch in enumerate(word):
+                ident = f"c{serial}"
+                serial += 1
+                items.append(
+                    {
+                        "id": ident,
+                        "width": _advance_of(ch, font_size),
+                        "space_after": space if offset == last else 0,
+                    }
+                )
+                ids.append(ident)
+        else:
+            ident = f"w{serial}"
+            serial += 1
+            items.append(
+                {
+                    "id": ident,
+                    "width": sum(_advance_of(ch, font_size) for ch in word),
+                    "space_after": space,
+                }
+            )
+            ids.append(ident)
+        groups.append((word, ids))
+    return items, groups
+
+
 def _text_offset(box: _Box, measure: int, content: int, last: bool, *, direction: str | None = None) -> int:
     aligned = align_inline_line(
-        measure, [{"id": "text", "width": content}],
-        text_align=box.text_align, direction=direction or box.direction,
-        parent_direction=box.parent_direction, white_space=box.white_space, last_line=last,
+        measure,
+        [{"id": "text", "width": content}],
+        text_align=box.text_align,
+        text_align_last=box.text_align_last,
+        text_justify=box.text_justify,
+        direction=direction or box.direction,
+        parent_direction=box.parent_direction,
+        white_space=box.white_space,
+        last_line=last,
     )
     items = aligned.get("items") if aligned["outcome"] == "aligned" else None
     if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict):
         raise _Invalid(str(aligned.get("reason") or "text alignment failed"))
     return _px(items[0].get("x"), "line offset")
+
+
+def _align_content(
+    box: _Box,
+    measure: int,
+    rendered: str,
+    packed: int,
+    last: bool,
+    direction: str | None,
+) -> tuple[int, int, list[dict[str, object]]]:
+    """Place one line. Justification returns word runs inside the line box."""
+
+    flow = direction or box.direction
+    if not rendered or not _uses_gap_items(box, last):
+        return _text_offset(box, measure, packed, last, direction=flow), packed, []
+    if flow != "ltr" or box.writing_mode != "horizontal-tb":
+        raise _Invalid("justified writing mode is unsupported")
+    if box.white_space not in {"normal", "nowrap", "pre-line"}:
+        raise _Invalid("justified white-space is unsupported")
+    if any(ch in rendered for ch in "\t\r\n"):
+        raise _Invalid("justified break is unsupported")
+    items, groups = _gap_items(rendered, box.font_size, character=box.text_justify == "inter-character")
+    if not items:
+        return _text_offset(box, measure, packed, last, direction=flow), packed, []
+    aligned = align_inline_line(
+        measure,
+        items,
+        text_align=box.text_align,
+        text_align_last=box.text_align_last,
+        text_justify=box.text_justify,
+        direction=flow,
+        parent_direction=box.parent_direction,
+        white_space=box.white_space,
+        last_line=last,
+    )
+    placed = aligned.get("items") if aligned.get("outcome") == "aligned" else None
+    if not isinstance(placed, list) or len(placed) != len(items):
+        raise _Invalid(str(aligned.get("reason") or "text alignment failed"))
+    by_id = {str(row.get("id")): row for row in placed if isinstance(row, dict)}
+    if any(ident not in by_id for _word, ids in groups for ident in ids):
+        raise _Invalid("text alignment failed")
+    origin = _snap(by_id[groups[0][1][0]].get("x"), "x")
+    runs: list[dict[str, object]] = []
+    for word, ids in groups:
+        start = _snap(by_id[ids[0]].get("x"), "x")
+        last_row = by_id[ids[-1]]
+        end = _snap(last_row.get("x"), "x") + _snap(last_row.get("width"), "width")
+        runs.append(
+            {
+                "text": word,
+                "x": start - origin,
+                "y": 0,
+                "font_size": box.font_size,
+                "width": end - start,
+            }
+        )
+    used = int(runs[-1]["x"]) + int(runs[-1]["width"])
+    return origin, used, runs
 
 
 def _fill_lines_beside_floats(
@@ -2670,14 +2842,15 @@ def _fill_lines_beside_floats(
             raise _Invalid("line break failed")
         rest = _drop_prefix(remaining, rendered, box.white_space)
         last = rest == "" or (box.white_space in _COLLAPSED_EMPTY and not rest.strip())
-        offset = _text_offset(box, available, content, last)
+        offset, used, runs = _align_content(box, available, rendered, content, last, box.direction)
         records.append(
             _Line(
                 text=rendered,
                 x=_px(left, "line x") + offset,
                 y=cursor,
                 height=height,
-                content_width=content,
+                content_width=used,
+                runs=runs,
             )
         )
         remaining = rest
@@ -3175,6 +3348,17 @@ def _fill_inline_blocks(box: _Box) -> None:
 
 
 def _fill_lines(box: _Box) -> None:
+    if _gap_alignment(box):
+        if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+            raise _Invalid("justified writing mode is unsupported")
+        if box.white_space not in {"normal", "nowrap", "pre-line"}:
+            raise _Invalid("justified white-space is unsupported")
+        if _relative_pieces(box):
+            raise _Invalid("justified relative inline is unsupported")
+        if box.atoms:
+            raise _Invalid("justified inline-block is unsupported")
+        if _mixed_runs(box):
+            raise _Invalid("justified mixed font is unsupported")
     if _relative_pieces(box):
         if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space != "normal":
             raise _Invalid("relative inline is unsupported")
@@ -3390,12 +3574,13 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
             raise _Invalid("line is invalid")
         rendered = str(line.get("text") or "")
         content = _px(line.get("content_width"), "line width")
-        offset = _text_offset(box, measure, content, index == last, direction=direction)
-        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if whole_paragraph else []
+        offset, used, runs = _align_content(box, measure, rendered, content, index == last, direction)
+        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if whole_paragraph and not runs else []
         if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
             glyphs = []
-        runs: list[dict[str, object]] = []
         if shifted:
+            if runs:
+                raise _Invalid("justified relative inline is unsupported")
             if rendered and not collapsed.startswith(rendered):
                 raise _Invalid("relative inline is unsupported")
             line_shifts = collapsed_shifts[shift_index : shift_index + len(rendered)]
@@ -3420,7 +3605,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 x=offset,
                 y=cursor,
                 height=height,
-                content_width=content,
+                content_width=used,
                 baseline=baseline,
                 glyphs=glyphs,
                 runs=runs,
