@@ -122,6 +122,15 @@ style contributes nothing. A definite grid height is the used content height:
 fixed rows keep their size, ``fr`` rows share the free space after row gaps,
 and a following block starts at that border edge even when the tracks overflow
 it. An ``fr`` row without a definite height stays rejected.
+``justify-items`` and ``align-items`` pack each item margin box inside its
+area. ``normal`` and ``stretch`` fill an automatic size. ``start``,
+``center``, and ``end`` keep a definite size, or the max-content size when
+the size is automatic, and sit on that edge. ``justify-self`` and
+``align-self`` override the container for one item; ``auto`` uses the
+container keyword. ``left`` and ``right`` apply only on the inline axis.
+A distribution keyword such as ``space-between`` stays invalid on an item
+axis. ``justify-content`` still only decides whether content-sized columns
+grow into leftover inline space.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -3372,6 +3381,22 @@ def _px(value: object, name: str) -> int:
 
 _GRID_FLOWS = frozenset({"row", "column", "dense", "row dense", "column dense"})
 _GRID_ALIGN = frozenset({"normal", "stretch", "start"})
+_GRID_ITEM_ALIGN = frozenset(
+    {
+        "normal",
+        "stretch",
+        "start",
+        "end",
+        "center",
+        "self-start",
+        "self-end",
+        "flex-start",
+        "flex-end",
+    }
+)
+_GRID_JUSTIFY_ITEMS = _GRID_ITEM_ALIGN | {"left", "right"}
+_GRID_JUSTIFY_SELF = _GRID_JUSTIFY_ITEMS | {"auto"}
+_GRID_ALIGN_SELF = _GRID_ITEM_ALIGN | {"auto"}
 _GRID_ITEM_PROPS = frozenset(
     {
         "grid-column",
@@ -3382,6 +3407,8 @@ _GRID_ITEM_PROPS = frozenset(
         "grid-row-end",
         "grid-area",
         "order",
+        "justify-self",
+        "align-self",
     }
 )
 _GRID_LONGHANDS = frozenset(
@@ -3623,6 +3650,8 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
     column_gap = 0
     flow = "row"
     justify = "normal"
+    justify_items = "normal"
+    align_items = "normal"
     tracked = {
         "grid-template-columns",
         "grid-template-rows",
@@ -3659,10 +3688,14 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
             auto_columns = _grid_auto_track(value)
         elif prop == "grid-auto-flow":
             flow = _choice(value, "row", _GRID_FLOWS, "grid-auto-flow")
-        elif prop in {"justify-items", "align-items", "justify-content", "align-content"}:
-            chosen = _choice(value, "normal", _GRID_ALIGN, prop)
-            if prop == "justify-content":
-                justify = chosen
+        elif prop == "justify-items":
+            justify_items = _choice(value, "normal", _GRID_JUSTIFY_ITEMS, prop)
+        elif prop == "align-items":
+            align_items = _choice(value, "normal", _GRID_ITEM_ALIGN, prop)
+        elif prop == "justify-content":
+            justify = _choice(value, "normal", _GRID_ALIGN, prop)
+        elif prop == "align-content":
+            _choice(value, "normal", _GRID_ALIGN, prop)
         elif prop == "gap":
             row_gap, column_gap = _grid_gap_pair(value)
         elif prop == "row-gap":
@@ -3680,6 +3713,8 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
         "column_gap": column_gap,
         "flow": flow,
         "justify": justify,
+        "justify_items": justify_items,
+        "align_items": align_items,
         "areas": areas,
         "column_lines": column_lines,
         "row_lines": row_lines,
@@ -3694,6 +3729,8 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
     column_set = False
     row_set = False
     item_order = 0
+    justify_self = "auto"
+    align_self = "auto"
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop not in _GRID_ITEM_PROPS:
             continue
@@ -3707,6 +3744,12 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
             continue
         if prop == "order":
             item_order = _css_order(value)
+            continue
+        if prop == "justify-self":
+            justify_self = _choice(value, "auto", _GRID_JUSTIFY_SELF, prop)
+            continue
+        if prop == "align-self":
+            align_self = _choice(value, "auto", _GRID_ALIGN_SELF, prop)
             continue
         if prop == "grid-column":
             column = _grid_placement(value)
@@ -3725,6 +3768,8 @@ def _grid_item(tree, element, styles, declarations, box: _Box) -> dict[str, obje
         "width": _grid_length(_box_decl(box, "width")),
         "height": _grid_length(_box_decl(box, "height")),
         "order": item_order,
+        "justify_self": justify_self,
+        "align_self": align_self,
         "margins": _grid_margin_sides(tree, element, styles, declarations),
     }
 
@@ -4213,8 +4258,17 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
         specified = (item.grid or {}).get("height", "auto")
         area = _grid_span(row_sizes, row, row_span, row_gap)
         chrome_y = _edge_extent(item.solved, "top", "bottom")
+        align, items_keyword = _grid_axis_keywords(box, item, "block")
         if type(specified) is int:
-            aligned = _align_grid_axis(item, area, axis="block", size=specified + chrome_y, automatic=0)
+            aligned = _align_grid_axis(
+                item,
+                area,
+                axis="block",
+                size=specified + chrome_y,
+                automatic=0,
+                align=align,
+                items=items_keyword,
+            )
             item.content_height = specified
             item.border_height = specified + chrome_y
         else:
@@ -4224,6 +4278,8 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
                 axis="block",
                 size="auto",
                 automatic=text_heights.get(item.id, 0) + chrome_y,
+                align=align,
+                items=items_keyword,
             )
             item.border_height = _px(aligned.get("size"), "grid item")
             item.content_height = _grid_border_content(item.border_height, chrome_y)
@@ -4326,6 +4382,22 @@ def _grid_definite_margins(item: _Box, *names: str) -> int:
     return total
 
 
+def _grid_axis_keywords(box: _Box, item: _Box, axis: str) -> tuple[str, str]:
+    """Self alignment, then the container's items keyword, for one axis."""
+
+    container = box.grid or {}
+    spec = item.grid or {}
+    if axis == "inline":
+        return (
+            str(spec.get("justify_self") or "auto"),
+            str(container.get("justify_items") or "normal"),
+        )
+    return (
+        str(spec.get("align_self") or "auto"),
+        str(container.get("align_items") or "normal"),
+    )
+
+
 def _align_grid_axis(
     item: _Box,
     area: int,
@@ -4333,6 +4405,8 @@ def _align_grid_axis(
     axis: str,
     size: object,
     automatic: int,
+    align: str = "auto",
+    items: str = "normal",
 ) -> dict[str, object]:
     margins = (item.grid or {}).get("margins")
     if not isinstance(margins, dict):
@@ -4354,8 +4428,8 @@ def _align_grid_axis(
         automatic=automatic,
         margin_start=edge(start_name),
         margin_end=edge(end_name),
-        align="auto",
-        items="normal",
+        align=align,
+        items=items,
         axis=axis,
     )
     if aligned.get("outcome") != "aligned":
@@ -4527,13 +4601,28 @@ def _measure_grid_items(
         area = _grid_span(column_sizes, column, column_span, column_gap)
         width = (item.grid or {}).get("width", "auto")
         chrome_x = _edge_extent(item.solved, "left", "right")
+        align, items_keyword = _grid_axis_keywords(box, item, "inline")
         if type(width) is int:
-            aligned = _align_grid_axis(item, area, axis="inline", size=width + chrome_x, automatic=0)
+            aligned = _align_grid_axis(
+                item,
+                area,
+                axis="inline",
+                size=width + chrome_x,
+                automatic=0,
+                align=align,
+                items=items_keyword,
+            )
             item.content_width = width
         else:
             content_auto = _intrinsic_text_sizes(item)[1] if item.inline_text else 0
             aligned = _align_grid_axis(
-                item, area, axis="inline", size="auto", automatic=content_auto + chrome_x
+                item,
+                area,
+                axis="inline",
+                size="auto",
+                automatic=content_auto + chrome_x,
+                align=align,
+                items=items_keyword,
             )
             item.content_width = _grid_border_content(_px(aligned.get("size"), "grid item"), chrome_x)
         item.margin_left = _px(aligned.get("margin_start"), "grid margin")
