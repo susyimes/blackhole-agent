@@ -47,8 +47,11 @@ content box: the sibling keeps its width, its line boxes shorten where the
 float area overlaps them, and clear moves the sibling's border edge
 down to those floats. Text in the float is wrapped in its content box.
 Automatic width is the shrink-to-fit size, and automatic height is the
-stacked line boxes; a specified size stays specified. Element children
-inside a float are rejected. That sibling path keeps each vertical margin
+stacked line boxes; a specified size stays specified. In-flow block
+children lay out in the float: their margins stay inside, automatic
+widths stretch, and an automatic float shrinks to the widest child.
+Inline children, nested floats, and loose text beside those blocks stay
+rejected. That sibling path keeps each vertical margin
 instead of collapsing adjoining ones. An automatic height is the block children, or
 the stacked line boxes when
 that block's own in-flow content is text, and it also grows to the bottom
@@ -726,8 +729,37 @@ def _walk(
         if box.float_side != "none":
             if box.position == "sticky":
                 raise _Invalid("sticky float is unsupported")
-            _reject_float_content(tree, child)
-            box.inline_text = child.text or ""
+            element_children = [
+                node for node in tree.children.get(child, []) if _local_name(node) not in _SKIP_TAGS
+            ]
+            if element_children:
+                if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+                    raise _Invalid("float content is unsupported")
+                nested = _walk(
+                    tree,
+                    child,
+                    _modes(box),
+                    _fonts(box),
+                    box.direction,
+                    styles,
+                    declarations,
+                    ids,
+                    counter,
+                    box,
+                    container_rules,
+                )
+                box.children, box.floats, box.flow, box.positioned = nested
+                if (
+                    not box.children
+                    or box.floats
+                    or box.positioned
+                    or box.atoms
+                    or _float_loose_text(child, box.white_space)
+                    or any(not _float_block_child(item) for item in box.children)
+                ):
+                    raise _Invalid("float content is unsupported")
+            else:
+                box.inline_text = child.text or ""
             floats.append(box)
             flow.append(box)
             continue
@@ -1532,6 +1564,8 @@ def _assign_y(
             continue
         fl.y = content_y + fl.local_y
         _position_lines(fl)
+        if fl.children:
+            _position_float_children(fl)
     for child in box.children:
         _assign_y(child, by_id, origin, box.y)
 
@@ -1549,7 +1583,7 @@ def _each(box: _Box):
     yield box
     for fl in box.floats:
         if fl.float_placed:
-            yield fl
+            yield from _each(fl)
     for atom in box.atoms:
         yield from _each(atom)
     for child in box.children:
@@ -2031,9 +2065,148 @@ def _float_margin(box: _Box, name: str, containing: int) -> int:
     raise _Invalid(f"{name} is invalid")
 
 
-def _reject_float_content(tree, element) -> None:
-    if tree.children.get(element):
+def _float_loose_text(element, white_space: str) -> bool:
+    chunks = [element.text or ""]
+    for node in list(element):
+        chunks.append(node.tail or "")
+    raw = "".join(chunks)
+    if white_space in {"pre", "pre-wrap", "break-spaces"}:
+        return raw != ""
+    return any(not character.isspace() for character in raw)
+
+
+def _float_block_child(box: _Box) -> bool:
+    if (
+        box.display != "block"
+        or box.float_side != "none"
+        or box.position != "static"
+        or box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or box.floats
+        or box.positioned
+        or box.atoms
+        or box.multicol is not None
+        or box.flex is not None
+        or box.grid is not None
+        or box.table is not None
+        or box.anonymous
+    ):
+        return False
+    return all(_float_block_child(child) for child in box.children)
+
+
+def _iter_float_descendants(box: _Box):
+    for child in box.children:
+        yield child
+        yield from _iter_float_descendants(child)
+
+
+def _specified_margin_px(value: str | None) -> int:
+    """Specified horizontal margin. Auto does not enlarge a shrink-to-fit float."""
+
+    if value is None:
+        return 0
+    text = value.strip().lower()
+    if text in {"auto", "initial", "unset", "revert"}:
+        return 0
+    if not text.endswith("px"):
         raise _Invalid("float content is unsupported")
+    return _px(float(text[:-2]), "margin")
+
+
+def _resolve_float_child(box: _Box, containing: int) -> dict[str, object]:
+    solved = resolve_logical_box(
+        box.declarations,
+        writing_mode=box.writing_mode,
+        direction=box.direction,
+        text_orientation=box.text_orientation,
+        containing_inline=containing,
+        percentage_basis=containing,
+        containing_block=None,
+    )
+    if solved.get("outcome") != "resolved":
+        raise _Invalid(str(solved.get("reason") or "float content is unsupported"))
+    return solved
+
+
+def _float_child_span(box: _Box) -> tuple[int, int]:
+    if any(prop == "box-sizing" and value.strip().lower() == "border-box" for prop, value in box.declarations):
+        raise _Invalid("float content is unsupported")
+    if _has_explicit_limit(box, _WIDTH_LIMITS):
+        raise _Invalid("float content is unsupported")
+    narrow = _resolve_float_child(box, 0)
+    wide = _resolve_float_child(box, 10000)
+    for key in ("padding_left", "padding_right", "border_left", "border_right"):
+        if narrow.get(key) != wide.get(key):
+            raise _Invalid("float content is unsupported")
+    slots = _cascade(box.declarations, _writing_flow(box))
+    start = "left" if box.direction != "rtl" else "right"
+    end = "right" if start == "left" else "left"
+    margins = _specified_margin_px(slots.get(f"margin-{start}")) + _specified_margin_px(slots.get(f"margin-{end}"))
+    chrome = margins + sum(
+        _px(narrow.get(key), key.replace("_", "-"))
+        for key in ("padding_left", "padding_right", "border_left", "border_right")
+    )
+    specified = narrow.get("specified_width")
+    if _specified_auto(specified):
+        if box.children:
+            pairs = [_float_child_span(child) for child in box.children]
+            inner_min = max(item[0] for item in pairs)
+            inner_max = max(item[1] for item in pairs)
+        else:
+            inner_min, inner_max = _intrinsic_text_sizes(box)
+    elif "%" in str(specified) or narrow.get("content_width") != wide.get("content_width"):
+        raise _Invalid("float content is unsupported")
+    else:
+        inner_min = inner_max = _px(narrow.get("content_width"), "width")
+    return inner_min + chrome, inner_max + chrome
+
+
+def _lay_float_blocks(fl: _Box) -> None:
+    for child in fl.children:
+        _solve(child, fl.content_width, fl.definite_height, None, 0)
+    spec = _collapse_spec(fl)
+    spec["float"] = fl.float_side
+    spec["margin_top"] = 0
+    spec["margin_bottom"] = 0
+    spec["min_height"] = 0
+    spec["max_height"] = "none"
+    spec["height"] = "auto" if fl.definite_height is None else fl.definite_height
+    placed = place_collapsed_margins(spec)
+    rows = placed.get("boxes") if placed.get("outcome") == "placed" else None
+    if not isinstance(rows, list):
+        raise _Invalid(str(placed.get("reason") or "float content failed"))
+    by_id = {str(item.get("id")): item for item in rows if isinstance(item, dict)}
+    own = by_id.get(fl.id)
+    if own is None:
+        raise _Invalid("float content failed")
+    fl.border_height = _px(own.get("border_height"), "border height")
+    vertical = _edge_extent(fl.solved, "top", "bottom")
+    fl.content_height = fl.border_height - vertical
+    if fl.content_height < 0:
+        raise _Invalid("content height is invalid")
+    fl.definite_height = fl.content_height
+    for child in _iter_float_descendants(fl):
+        row = by_id.get(child.id)
+        if row is None:
+            raise _Invalid("float content failed")
+        child.anchor_y = _px(row.get("y"), "y")
+        child.border_height = _px(row.get("border_height"), "border height")
+        child.border_width = child.content_width + _edge_extent(child.solved, "left", "right")
+        child.content_height = child.border_height - _edge_extent(child.solved, "top", "bottom")
+        if child.content_height < 0:
+            raise _Invalid("content height is invalid")
+
+
+def _position_float_children(fl: _Box) -> None:
+    origin_x = fl.x + _edge_extent(fl.solved, "left")
+    for child in _iter_float_descendants(fl):
+        if child.anchor_y is None:
+            raise _Invalid("float content failed")
+        child.x += origin_x
+        child.y = fl.y + child.anchor_y
+        child.flow_y = child.y
+        _position_lines(child)
 
 
 _AUTO_WORDS = frozenset({"auto", "initial", "unset", "revert"})
@@ -2576,8 +2749,14 @@ def _intrinsic_text_sizes(box: _Box) -> tuple[int, int]:
 
 
 def _shrink_float_width(box: _Box, available: int) -> int:
-    minimum, maximum = _intrinsic_text_sizes(box)
-    return min(max(minimum, available), maximum)
+    if box.children:
+        pairs = [_float_child_span(child) for child in box.children]
+        minimum = max(item[0] for item in pairs)
+        maximum = max(item[1] for item in pairs)
+    else:
+        minimum, maximum = _intrinsic_text_sizes(box)
+    room = available if available > 0 else 0
+    return min(max(minimum, room), maximum)
 
 
 def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
@@ -2624,20 +2803,22 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     fl.solved = solved
     fl.content_width = content_width
     fl.definite_height = None if height_auto else _px(solved.get("content_height"), "float height")
-    if fl.inline_text:
-        _fill_lines(fl)
-    if fl.definite_height is None:
-        fl.definite_height = 0
-    content_height = fl.definite_height
-    fl.content_height = content_height
     fl.margin_left = margin_left
     fl.margin_right = margin_right
     fl.border_width = content_width + padding_left + padding_right + border_left + border_right
-    fl.border_height = content_height + padding_top + padding_bottom + border_top + border_bottom
     fl.local_y = margin_top
+    if fl.children:
+        _lay_float_blocks(fl)
+    else:
+        if fl.inline_text:
+            _fill_lines(fl)
+        if fl.definite_height is None:
+            fl.definite_height = 0
+        fl.content_height = fl.definite_height
+        fl.border_height = fl.content_height + padding_top + padding_bottom + border_top + border_bottom
     return {
-        "outer_width": margin_left + border_left + padding_left + content_width + padding_right + border_right + margin_right,
-        "outer_height": margin_top + border_top + padding_top + content_height + padding_bottom + border_bottom + margin_bottom,
+        "outer_width": margin_left + fl.border_width + margin_right,
+        "outer_height": margin_top + fl.border_height + margin_bottom,
         "margin_left": margin_left,
         "margin_top": margin_top,
     }
