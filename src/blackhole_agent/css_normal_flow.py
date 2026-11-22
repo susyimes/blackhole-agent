@@ -175,7 +175,13 @@ separates those cells. A horizontal length opens a gap between adjoining
 columns, and a vertical length opens a gap between rows. An automatic table
 width also keeps that horizontal gap outside both edges. A fixed table width
 keeps it only between columns. ``border-collapse: collapse`` ignores the
-spacing. A negative length is rejected. Captions stay rejected.
+spacing. A negative length is rejected. A static text caption stacks in
+that content box: ``caption-side: top`` sits above the grid and
+``caption-side: bottom`` sits under it. The caption wraps to the table's
+used width and does not change the columns, so the following block starts
+under the caption plus the grid. The caption's own ``caption-side`` wins
+over the table's. A collapsed table, a table border or padding, a second
+caption, caption children, and any other caption side stay rejected.
 A block with ``column-count`` or ``column-width`` is a multicol container.
 Each text-only child is an unbreakable border box: it wraps at the used
 column width, and ``column-span: all`` takes the whole content box and ends
@@ -330,8 +336,20 @@ _BLOCK_TAGS = frozenset(
 )
 _SKIP_TAGS = frozenset({"base", "head", "link", "meta", "script", "style", "template", "title"})
 _DISPLAYS = frozenset(
-    {"block", "inline", "inline-block", "flex", "grid", "table", "table-row", "table-cell", "none"}
+    {
+        "block",
+        "inline",
+        "inline-block",
+        "flex",
+        "grid",
+        "table",
+        "table-row",
+        "table-cell",
+        "table-caption",
+        "none",
+    }
 )
+_TABLE_OUTSIDE = frozenset({"table-row", "table-cell", "table-caption"})
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
 _CLEARS = frozenset({"none", "left", "right", "both"})
@@ -520,7 +538,7 @@ def layout_normal_flow(
         )
         if root.display == "none":
             raise _Invalid("root is not displayed")
-        if root.display in {"table-row", "table-cell"}:
+        if root.display in _TABLE_OUTSIDE:
             raise _Invalid("table box is outside the table")
         if root.position in {"absolute", "fixed"} or root.float_side != "none":
             raise _Invalid("root is outside normal flow")
@@ -636,7 +654,7 @@ def _walk(
             floats.append(box)
             flow.append(box)
             continue
-        if box.display in {"table-row", "table-cell"}:
+        if box.display in _TABLE_OUTSIDE:
             raise _Invalid("table box is outside the table")
         inline = box.display == "inline"
         if inline and box.position == "relative":
@@ -3035,7 +3053,7 @@ def _walk_flex(
         )
         if item.display == "none":
             continue
-        if item.display in {"table", "table-row", "table-cell"}:
+        if item.display in {"table", *_TABLE_OUTSIDE}:
             raise _Invalid("table formatting in flex is unsupported")
         if item.position != "static" or item.float_side != "none":
             raise _Invalid("flex item is outside the line")
@@ -4002,7 +4020,7 @@ def _walk_grid(
         )
         if item.display == "none":
             continue
-        if item.display in {"table", "table-row", "table-cell"}:
+        if item.display in {"table", *_TABLE_OUTSIDE}:
             raise _Invalid("table formatting in grid is unsupported")
         if item.position != "static" or item.float_side != "none":
             raise _Invalid("grid item is outside the grid")
@@ -5451,6 +5469,7 @@ def _walk_table(
         raise _Invalid("table writing mode is unsupported")
     _reject_table_text(getattr(element, "text", None))
     rows: list[_Box] = []
+    captions: list[_Box] = []
     for child in tree.children.get(element, []):
         _reject_table_text(getattr(child, "tail", None))
         if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
@@ -5468,6 +5487,10 @@ def _walk_table(
             root=False,
         )
         if row.display == "none":
+            continue
+        if row.display == "table-caption":
+            _take_table_caption(tree, child, row, host, styles, declarations)
+            captions.append(row)
             continue
         if row.display != "table-row":
             raise _Invalid("table row is unsupported")
@@ -5493,9 +5516,14 @@ def _walk_table(
             raise _Invalid("table row is empty")
         row.children = cells
         rows.append(row)
+    if len(captions) > 1:
+        raise _Invalid("table caption count is unsupported")
     if not rows:
         raise _Invalid("table is empty")
     _assign_table_slots(rows)
+    if host.table is None:
+        raise _Invalid("table placement failed")
+    host.table["captions"] = captions
     return rows, [], rows, []
 
 
@@ -5586,6 +5614,7 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
     collapse = False
     spacing_x = 0
     spacing_y = 0
+    caption_side = "top"
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop == "table-layout":
             layout = _choice(_grid_author(raw, custom), "auto", _TABLE_LAYOUTS, "table-layout")
@@ -5602,8 +5631,9 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
             elif value not in {"separate", "initial", "unset", "revert"}:
                 raise _Invalid("table border collapse is unsupported")
             continue
-        if prop == "caption-side" and value not in {"top", "initial", "unset", "revert"}:
-            raise _Invalid("table caption is unsupported")
+        if prop == "caption-side":
+            caption_side = _caption_side_token(value)
+            continue
         if prop == "empty-cells" and value not in {"show", "initial", "unset", "revert"}:
             raise _Invalid("table empty cells are unsupported")
     return {
@@ -5611,7 +5641,75 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
         "collapse": collapse,
         "spacing_x": spacing_x,
         "spacing_y": spacing_y,
+        "caption_side": caption_side,
     }
+
+
+def _caption_side_token(value: str) -> str:
+    if value in {"top", "initial", "unset", "revert"}:
+        return "top"
+    if value == "bottom":
+        return "bottom"
+    if value == "inherit":
+        raise _Invalid("table caption inherit is unsupported")
+    raise _Invalid("table caption is unsupported")
+
+
+def _element_caption_side(tree, element, styles, declarations) -> str | None:
+    custom = styles.get(element, ({}, ""))[0]
+    chosen = None
+    for _order, prop, raw in _winners(tree, element, declarations):
+        if prop == "caption-side":
+            chosen = _grid_author(raw, custom)
+    if chosen is None:
+        return None
+    return _caption_side_token(chosen)
+
+
+def _take_table_caption(tree, element, caption: _Box, host: _Box, styles, declarations) -> None:
+    if caption.position != "static" or caption.float_side != "none":
+        raise _Invalid("table caption is outside the table")
+    if caption.writing_mode != "horizontal-tb" or caption.direction != "ltr":
+        raise _Invalid("table caption writing mode is unsupported")
+    if _table_cell_elements(tree, element):
+        raise _Invalid("table caption content is unsupported")
+    for node in tree.children.get(element, []):
+        _reject_table_text(getattr(node, "tail", None))
+    text = getattr(element, "text", None) or ""
+    if not str(text).strip():
+        raise _Invalid("table caption is empty")
+    _reject_caption_chrome(caption)
+    declared = _element_caption_side(tree, element, styles, declarations)
+    fallback = str((host.table or {}).get("caption_side") or "top")
+    caption.inline_text = str(text)
+    caption.table = {"caption_side": declared if declared is not None else fallback}
+
+
+def _reject_caption_chrome(box: _Box) -> None:
+    sizing = _box_decl(box, "box-sizing")
+    if sizing not in {None, "content-box", "initial", "unset", "revert"}:
+        raise _Invalid("table caption edge is unsupported")
+    for name in (*_FLEX_EDGES, "margin", "padding", "border-width", "width", "height"):
+        raw = _box_decl(box, name)
+        if raw is None:
+            continue
+        token = raw.strip().lower()
+        if name in {"width", "height"} and token in {"auto", "initial", "unset", "revert"}:
+            continue
+        if token in _ZERO_EDGE | {"none", "auto"}:
+            continue
+        raise _Invalid("table caption edge is unsupported")
+    limits = {
+        "min-width": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "min-height": {"auto", "0", "0px", "initial", "unset", "revert"},
+        "max-width": {"none", "initial", "unset", "revert"},
+        "max-height": {"none", "initial", "unset", "revert"},
+    }
+    for name, allowed in limits.items():
+        raw = _box_decl(box, name)
+        if raw is None or raw.strip().lower() in allowed:
+            continue
+        raise _Invalid("table caption edge is unsupported")
 
 
 def _table_cell(tree, element, styles, declarations) -> dict[str, object]:
@@ -5990,6 +6088,9 @@ def _place_table(box: _Box, content_x: int) -> None:
     width_auto = box.solved.get("specified_width") in {None, "auto"}
     layout = str((box.table or {}).get("layout") or "auto")
     collapse = (box.table or {}).get("collapse") is True
+    captions = list((box.table or {}).get("captions") or [])
+    if captions and collapse:
+        raise _Invalid("table caption collapse is unsupported")
     if collapse and (layout == "fixed" or not width_auto):
         raise _Invalid("collapsed table width is unsupported")
     spacing_x, spacing_y = (0, 0) if collapse else _used_table_spacing(box)
@@ -6140,7 +6241,57 @@ def _place_table(box: _Box, content_x: int) -> None:
                 line.y += shift
             _shift_cell_children(cell, shift)
     box.definite_height = _px(laid.get("used_table_height"), "table height")
+    _lay_table_caption(box, rows, content_x)
     box.anchor_laid = True
+
+
+def _lay_table_caption(box: _Box, rows: list[_Box], content_x: int) -> None:
+    """Stack the one text caption above or below the grid. Columns stay put."""
+
+    captions = list((box.table or {}).get("captions") or [])
+    if not captions:
+        return
+    if len(captions) != 1 or not isinstance(captions[0], _Box):
+        raise _Invalid("table caption count is unsupported")
+    caption = captions[0]
+    side = str((caption.table or {}).get("caption_side") or "top")
+    if side not in {"top", "bottom"}:
+        raise _Invalid("table caption is unsupported")
+    for key in (
+        "border_top",
+        "border_right",
+        "border_bottom",
+        "border_left",
+        "padding_top",
+        "padding_right",
+        "padding_bottom",
+        "padding_left",
+    ):
+        if _px(box.solved.get(key), key) != 0:
+            raise _Invalid("table caption edge is unsupported")
+    if box.definite_height is None:
+        raise _Invalid("table placement failed")
+    caption.content_width = box.content_width
+    caption.x = content_x
+    caption.solved = dict(_ZERO_FLEX_EDGES)
+    caption.margin_left = 0
+    caption.margin_right = 0
+    _fill_lines(caption)
+    caption_height = 0 if caption.definite_height is None else caption.definite_height
+    caption.content_height = caption_height
+    caption.border_width = box.content_width
+    caption.border_height = caption_height
+    grid_height = box.definite_height
+    if side == "top":
+        for row in rows:
+            if row.anchor_y is None:
+                raise _Invalid("table placement failed")
+            row.anchor_y += caption_height
+        caption.anchor_y = 0
+    else:
+        caption.anchor_y = grid_height
+    box.definite_height = grid_height + caption_height
+    box.children.append(caption)
 
 
 def _fixed_cell(cell: _Box) -> dict[str, object]:
