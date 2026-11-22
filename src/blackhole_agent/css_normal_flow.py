@@ -147,9 +147,13 @@ table. ``border-collapse: collapse`` on an automatic table shares each grid
 line between the table, the rows, and the cells. A wider border wins before
 style, ``hidden`` removes the line, and the extra pixel of an odd internal
 line stays on its start side. Cell text starts after the half assigned to
-that cell. The following block starts under the table border box. A fixed
-table, a definite table width, captions, spans, border spacing, and element
-children inside a cell stay rejected.
+that cell. The following block starts under the table border box.
+``colspan`` and ``rowspan`` assign slots. The cell covers those tracks, a
+later cell starts at the next free slot, and the span's max-content is spread
+across its columns. A span that lands on an occupied slot is rejected, and a
+span of zero is rejected. A span past the rows that exist covers only those
+rows. Captions, border spacing, and element children inside a cell stay
+rejected.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
 own query. A named query selects the nearest ancestor with that name which can
@@ -4763,6 +4767,114 @@ def _content_row_height(
 
 _TABLE_LAYOUTS = frozenset({"auto", "fixed"})
 _TABLE_ALIGNS = frozenset({"baseline", "top", "middle", "bottom"})
+_TABLE_SPAN_LIMIT = 1000
+
+
+def _html_table_span(element, name: str) -> int:
+    raw = _attr(element, name)
+    if raw is None or not raw.strip():
+        return 1
+    token = raw.strip()
+    if not token.isdigit():
+        raise _Invalid("table span is unsupported")
+    value = int(token)
+    if value < 1:
+        raise _Invalid("table span is unsupported")
+    if value > _TABLE_SPAN_LIMIT:
+        return _TABLE_SPAN_LIMIT
+    return value
+
+
+def _assign_table_slots(rows: list[_Box]) -> None:
+    """Occupy grid slots the way an HTML table does.
+
+    A cell starts at the first free column of its row. ``colspan`` and
+    ``rowspan`` mark that rectangle. A later cell skips occupied slots.
+    A span that would cover an occupied slot is a document error. Rows that
+    were never generated are not invented; the span stops at the last row.
+    """
+
+    occupied: set[tuple[int, int]] = set()
+    row_count = len(rows)
+    for row_index, row in enumerate(rows):
+        cursor = 0
+        for cell in row.children:
+            table = cell.table or {}
+            span = table.get("span")
+            rowspan = table.get("rowspan")
+            if (
+                isinstance(span, bool)
+                or isinstance(rowspan, bool)
+                or not isinstance(span, int)
+                or not isinstance(rowspan, int)
+                or span < 1
+                or rowspan < 1
+            ):
+                raise _Invalid("table span is unsupported")
+            while (row_index, cursor) in occupied:
+                cursor += 1
+            covered = min(rowspan, row_count - row_index)
+            for dy in range(covered):
+                for dx in range(span):
+                    if (row_index + dy, cursor + dx) in occupied:
+                        raise _Invalid("table cell overlap is unsupported")
+            for dy in range(covered):
+                for dx in range(span):
+                    occupied.add((row_index + dy, cursor + dx))
+            table["column"] = cursor
+            table["span"] = span
+            table["rowspan"] = covered
+            cell.table = table
+            cursor += span
+
+
+def _cell_slot(cell: _Box) -> tuple[int, int, int]:
+    table = cell.table or {}
+    column = table.get("column")
+    span = table.get("span")
+    rowspan = table.get("rowspan")
+    if (
+        isinstance(column, bool)
+        or isinstance(span, bool)
+        or isinstance(rowspan, bool)
+        or not isinstance(column, int)
+        or not isinstance(span, int)
+        or not isinstance(rowspan, int)
+        or column < 0
+        or span < 1
+        or rowspan < 1
+    ):
+        raise _Invalid("table placement failed")
+    return column, span, rowspan
+
+
+def _table_column_count(rows: list[_Box]) -> int:
+    count = 0
+    for row in rows:
+        for cell in row.children:
+            column, span, _rowspan = _cell_slot(cell)
+            count = max(count, column + span)
+    if count < 1:
+        raise _Invalid("table is empty")
+    return count
+
+
+def _span_metrics(
+    positions: list[int],
+    starts: list[int],
+    ends: list[int],
+    sizes: list[int],
+    index: int,
+    span: int,
+) -> tuple[int, int, int, int]:
+    if span < 1 or index < 0 or index + span > len(sizes):
+        raise _Invalid("table placement failed")
+    last = index + span - 1
+    border = positions[last] + starts[last] + sizes[last] + ends[last] - positions[index]
+    content = border - starts[index] - ends[last]
+    if content < 0:
+        raise _Invalid("table placement failed")
+    return positions[index], content, starts[index], ends[last]
 _TABLE_CHROME = (
     "border-spacing",
     "border-collapse",
@@ -4836,9 +4948,7 @@ def _walk_table(
         rows.append(row)
     if not rows:
         raise _Invalid("table is empty")
-    count = len(rows[0].children)
-    if any(len(row.children) != count for row in rows):
-        raise _Invalid("table columns do not match")
+    _assign_table_slots(rows)
     return rows, [], rows, []
 
 
@@ -4967,7 +5077,12 @@ def _table_cell(tree, element, styles, declarations) -> dict[str, object]:
             width = _table_length(value)
         else:
             align = _choice(value, "baseline", _TABLE_ALIGNS, "vertical-align")
-    return {"width": width, "vertical_align": align}
+    return {
+        "width": width,
+        "vertical_align": align,
+        "span": _html_table_span(element, "colspan"),
+        "rowspan": _html_table_span(element, "rowspan"),
+    }
 
 
 def _table_length(value: str) -> object:
@@ -5029,17 +5144,19 @@ def _split_internal(width: int) -> tuple[int, int]:
 
 
 def _collapsed_lines(box: _Box, rows: list[_Box], columns: int) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
-    cells = [
-        {
-            "row": row_index,
-            "column": column,
-            "span": 1,
-            "rowspan": 1,
-            "borders": (cell.table or {}).get("borders") or {},
-        }
-        for row_index, row in enumerate(rows)
-        for column, cell in enumerate(row.children)
-    ]
+    cells = []
+    for row_index, row in enumerate(rows):
+        for cell in row.children:
+            column, span, rowspan = _cell_slot(cell)
+            cells.append(
+                {
+                    "row": row_index,
+                    "column": column,
+                    "span": span,
+                    "rowspan": rowspan,
+                    "borders": (cell.table or {}).get("borders") or {},
+                }
+            )
     resolved = resolve_collapsed_grid(
         columns,
         len(rows),
@@ -5129,35 +5246,38 @@ def _place_collapsed_table(
         row.margin_left = 0
         row.margin_right = 0
         row.solved = dict(_ZERO_FLEX_EDGES)
-        for column, cell in enumerate(row.children):
+        for cell in row.children:
             entry = by_id.get(cell.id)
             if entry is None:
                 raise _Invalid("table placement failed")
-            left = lefts[column]
-            right = rights[column]
+            column, span, rowspan = _cell_slot(cell)
+            _x_off, content_w, left, right = _span_metrics(xs, lefts, rights, column_sizes, column, span)
+            _y_off, content_h, cell_top, cell_bottom = _span_metrics(
+                ys, tops, bottoms, row_heights, row_index, rowspan
+            )
             shift = _px(entry.get("content_top"), "table cell")
             cell_solved = dict(_ZERO_FLEX_EDGES)
             cell_solved["border_left"] = left
             cell_solved["border_right"] = right
-            cell_solved["border_top"] = top
-            cell_solved["border_bottom"] = bottom
+            cell_solved["border_top"] = cell_top
+            cell_solved["border_bottom"] = cell_bottom
             cell.solved = cell_solved
             cell.x = content_x + xs[column]
             # The row already carries this grid position. Cells are offset from the row.
             cell.anchor_y = 0
-            cell.content_width = column_sizes[column]
-            cell.content_height = row_height
-            cell.border_width = left + column_sizes[column] + right
-            cell.border_height = top + row_height + bottom
+            cell.content_width = content_w
+            cell.content_height = content_h
+            cell.border_width = left + content_w + right
+            cell.border_height = cell_top + content_h + cell_bottom
             cell.margin_left = 0
             cell.margin_right = 0
             if cell.table is None:
                 cell.table = {}
             cell.table["used_edges"] = {
                 "left": _used_edge(vertical[column], left),
-                "right": _used_edge(vertical[column + 1], right),
-                "top": _used_edge(horizontal[row_index], top),
-                "bottom": _used_edge(horizontal[row_index + 1], bottom),
+                "right": _used_edge(vertical[column + span], right),
+                "top": _used_edge(horizontal[row_index], cell_top),
+                "bottom": _used_edge(horizontal[row_index + rowspan], cell_bottom),
             }
             for line in cell.lines:
                 line.y += shift
@@ -5170,9 +5290,7 @@ def _place_table(box: _Box, content_x: int) -> None:
     rows = box.children
     if not rows or any(not row.children for row in rows):
         raise _Invalid("table is empty")
-    count = len(rows[0].children)
-    if any(len(row.children) != count for row in rows):
-        raise _Invalid("table columns do not match")
+    count = _table_column_count(rows)
     available = box.content_width
     width_auto = box.solved.get("specified_width") in {None, "auto"}
     layout = str((box.table or {}).get("layout") or "auto")
@@ -5180,20 +5298,22 @@ def _place_table(box: _Box, content_x: int) -> None:
     if collapse and (layout == "fixed" or not width_auto):
         raise _Invalid("collapsed table width is unsupported")
     if layout == "fixed" and not width_auto:
+        first = sorted(rows[0].children, key=lambda item: _cell_slot(item)[0])
         sized = layout_fixed_columns(
             available,
             ["auto"] * count,
-            cells=[_fixed_cell(cell) for cell in rows[0].children],
+            cells=[_fixed_cell(cell) for cell in first],
             spacing=0,
         )
     else:
         payload: list[dict[str, object]] = []
         for row in rows:
-            for column, cell in enumerate(row.children):
+            for cell in row.children:
+                column, span, _rowspan = _cell_slot(cell)
                 minimum, maximum = _intrinsic_text_sizes(cell)
                 item: dict[str, object] = {
                     "column": column,
-                    "span": 1,
+                    "span": span,
                     "min_content": minimum,
                     "max_content": maximum,
                 }
@@ -5214,16 +5334,29 @@ def _place_table(box: _Box, content_x: int) -> None:
     column_sizes = [_px(size, "table column") for size in raw_sizes]
     used_width = _px(sized.get("used_table_width"), "table width")
     box.content_width = used_width
+    inline_axis: tuple[list[int], list[int], list[int]] | None = None
+    if collapse:
+        vertical, _horizontal = _collapsed_lines(box, rows, len(column_sizes))
+        xs, lefts, rights, _outer_left, _outer_right, _inner = _collapsed_axis(column_sizes, vertical)
+        inline_axis = (xs, lefts, rights)
     row_cells: list[dict[str, object]] = []
     for row_index, row in enumerate(rows):
-        for column, cell in enumerate(row.children):
-            cell.content_width = column_sizes[column]
+        for cell in row.children:
+            column, span, rowspan = _cell_slot(cell)
+            if inline_axis is None:
+                cell.content_width = _grid_span(column_sizes, column, span, 0)
+            else:
+                axis_x, axis_left, axis_right = inline_axis
+                cell.content_width = _span_metrics(
+                    axis_x, axis_left, axis_right, column_sizes, column, span
+                )[1]
             if (cell.inline_text or "").strip() or cell.white_space not in _COLLAPSED_EMPTY:
                 _fill_lines(cell)
             row_cells.append(
                 {
                     "id": cell.id,
                     "row": row_index,
+                    "rowspan": rowspan,
                     "content_height": cell.definite_height or 0,
                     "baseline": cell.lines[0].baseline if cell.lines else 0,
                     "vertical_align": str((cell.table or {}).get("vertical_align") or "baseline"),
@@ -5268,17 +5401,20 @@ def _place_table(box: _Box, content_x: int) -> None:
         row.margin_left = 0
         row.margin_right = 0
         row.solved = dict(_ZERO_FLEX_EDGES)
-        for column, cell in enumerate(row.children):
+        for cell in row.children:
             entry = by_id.get(cell.id)
             if entry is None:
                 raise _Invalid("table placement failed")
+            column, span, _rowspan = _cell_slot(cell)
             slot = _px(entry.get("border_height"), "table cell")
             shift = _px(entry.get("content_top"), "table cell")
+            cell_top = _px(entry.get("border_top"), "table cell")
+            content_width = _grid_span(column_sizes, column, span, 0)
             cell.x = content_x + offsets[column]
-            cell.anchor_y = origin + _px(entry.get("border_top"), "table cell")
-            cell.content_width = column_sizes[column]
+            cell.anchor_y = cell_top - row_top
+            cell.content_width = content_width
             cell.content_height = slot
-            cell.border_width = column_sizes[column]
+            cell.border_width = content_width
             cell.border_height = slot
             cell.margin_left = 0
             cell.margin_right = 0
@@ -5291,4 +5427,5 @@ def _place_table(box: _Box, content_x: int) -> None:
 
 def _fixed_cell(cell: _Box) -> dict[str, object]:
     width = (cell.table or {}).get("width", "auto")
-    return {"span": 1, "width": "auto" if width == "auto" else width}
+    _column, span, _rowspan = _cell_slot(cell)
+    return {"span": span, "width": "auto" if width == "auto" else width}
