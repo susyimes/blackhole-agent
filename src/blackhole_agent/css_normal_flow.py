@@ -199,6 +199,14 @@ container keyword. ``left`` and ``right`` apply only on the inline axis.
 A distribution keyword such as ``space-between`` stays invalid on an item
 axis. ``justify-content`` still only decides whether content-sized columns
 grow into leftover inline space.
+A grid item whose own ``grid-template-columns`` is ``subgrid`` does not size
+those columns. Its children use the parent tracks it spans, parent gutter
+included. An omitted column gap keeps each child on its parent track. A zero
+column gap pulls the children across that gutter. A line past the spanned
+columns clamps onto the last spanned track, and the subgrid grows no column.
+``grid-template-rows: subgrid`` and a subgrid that is not itself a grid item
+are rejected. A specified width on a subgrid child is rejected; its height is
+a definite length.
 A ``display: table`` sizes columns from the text inside its cells. An
 automatic width replaces the stretched block size with the max-content of
 that text, and never grows past the containing block. ``table-layout: fixed``
@@ -330,6 +338,7 @@ from blackhole_agent.css_float_lines import seek_shaped_gap, shaped_gap_at
 from blackhole_agent.css_float_placement import place_floats
 from blackhole_agent.css_shape_outside import ShapeError, prepare_shape
 from blackhole_agent.css_sticky import sticky_offset
+from blackhole_agent.css_subgrid import place_subgrid_items
 from blackhole_agent.css_grid_align import align_grid_item
 from blackhole_agent.css_grid_areas import place_named_grid
 from blackhole_agent.css_grid_content import size_content_grid_tracks
@@ -6458,8 +6467,14 @@ def _walk_grid(
             _adopt_grid_item_blocks(tree, child, item, styles, declarations, ids, counter)
         else:
             item.inline_text = child.text or ""
+        container = item.grid if item.display == "grid" and isinstance(item.grid, dict) else None
         _reject_grid_edges(item)
         item.grid = _grid_item(tree, child, styles, declarations, item)
+        if container and container.get("column_subgrid"):
+            item.grid["column_subgrid"] = True
+            item.grid["subgrid_gap"] = (
+                "normal" if container.get("column_gap_normal", True) else container.get("column_gap", 0)
+            )
         items.append(item)
     return items, [], items, []
 
@@ -6640,6 +6655,8 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
     auto_columns: int | None = None
     row_gap = 0
     column_gap = 0
+    column_gap_normal = True
+    column_subgrid = False
     flow = "row"
     justify = "normal"
     justify_items = "normal"
@@ -6666,8 +6683,16 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
             continue
         value = _grid_author(raw, custom)
         if prop == "grid-template-columns":
-            columns, column_lines = _grid_named_column_tracks(value)
+            if value == "subgrid":
+                columns = []
+                column_lines = None
+                column_subgrid = True
+            else:
+                columns, column_lines = _grid_named_column_tracks(value)
+                column_subgrid = False
         elif prop == "grid-template-rows":
+            if value == "subgrid":
+                raise _Invalid("row subgrid is unsupported")
             rows, row_lines = _grid_named_row_tracks(value)
         elif prop == "grid-template-areas":
             areas = _grid_area_rows(value)
@@ -6690,14 +6715,21 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
             _choice(value, "normal", _GRID_ALIGN, prop)
         elif prop == "gap":
             row_gap, column_gap = _grid_gap_pair(value)
+            column_gap_normal = _gap_column_is_normal(value)
         elif prop == "row-gap":
             row_gap = _grid_gap_length(value)
         elif prop == "column-gap":
-            column_gap = _grid_gap_length(value)
-    if not columns:
+            column_gap_normal = value in {"normal", "initial", "unset", "revert"}
+            column_gap = 0 if column_gap_normal else _grid_gap_length(value)
+    if column_subgrid:
+        if columns:
+            raise _Invalid("subgrid track list is unsupported")
+    elif not columns:
         raise _Invalid("grid template is unsupported")
     return {
         "columns": columns,
+        "column_subgrid": column_subgrid,
+        "column_gap_normal": column_gap_normal,
         "rows": rows,
         "auto_rows": auto_rows,
         "auto_columns": auto_columns,
@@ -6944,6 +6976,12 @@ def _grid_auto_track(value: str) -> int | None:
     if len(tracks) != 1 or "fixed" not in tracks[0] or "flex" in tracks[0]:
         raise _Invalid("grid auto track is unsupported")
     return _px(tracks[0]["fixed"], "grid auto track")
+
+
+def _gap_column_is_normal(value: str) -> bool:
+    parts = value.split(" ")
+    token = parts[-1] if parts else value
+    return token in {"normal", "initial", "unset", "revert"}
 
 
 def _grid_gap_pair(value: str) -> tuple[int, int]:
@@ -7274,6 +7312,8 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
         raise _Invalid("grid writing mode is unsupported")
     specified_height = box.definite_height
     spec = box.grid or {}
+    if spec.get("column_subgrid"):
+        raise _Invalid("subgrid is not a grid item")
     columns = spec.get("columns")
     explicit_rows = spec.get("rows")
     if not isinstance(columns, list) or not columns or not isinstance(explicit_rows, list):
@@ -7717,7 +7757,9 @@ def _measure_grid_items(
             aligned.get("start"), "grid item"
         )
         item.border_width = item.content_width + chrome_x
-        if item.children:
+        if (item.grid or {}).get("column_subgrid"):
+            heights[item.id] = _place_column_subgrid(item, entry, column_sizes, column_gap, content_x)
+        elif item.children:
             heights[item.id] = _lay_grid_item_blocks(item, viewport_height)
         elif item.inline_text:
             item.lines = _plain_lines(item, item.content_width, item.direction)
@@ -7725,6 +7767,112 @@ def _measure_grid_items(
         else:
             heights[item.id] = 0
     return heights
+
+
+def _subgrid_child_line(spec: dict[str, object], cursor: int, covered: int) -> tuple[int, int, int]:
+    """Map one subgrid child's column placement to a solver line and span."""
+
+    start = spec.get("column_start", "auto")
+    end = spec.get("column_end", "auto")
+    if start == "auto" and end == "auto":
+        if cursor > covered:
+            raise _Invalid("subgrid grows no implicit track")
+        return cursor, 1, cursor + 1
+    if start == "auto" and isinstance(end, str) and end.startswith("span "):
+        span = int(end[5:])
+        if span < 1 or cursor > covered:
+            raise _Invalid("subgrid grows no implicit track")
+        return cursor, span, cursor + span
+    if isinstance(start, int) and not isinstance(start, bool) and end == "auto":
+        return start, 1, cursor
+    if isinstance(start, int) and not isinstance(start, bool) and isinstance(end, str) and end.startswith("span "):
+        span = int(end[5:])
+        if span < 1:
+            raise _Invalid("subgrid line is unsupported")
+        return start, span, cursor
+    if (
+        isinstance(start, int)
+        and not isinstance(start, bool)
+        and isinstance(end, int)
+        and not isinstance(end, bool)
+        and start > 0
+        and end > start
+    ):
+        return start, end - start, cursor
+    raise _Invalid("subgrid line is unsupported")
+
+
+def _place_column_subgrid(
+    item: _Box,
+    entry: dict[str, object],
+    column_sizes: list[int],
+    column_gap: int,
+    content_x: int,
+) -> int:
+    """Place a column subgrid's children on the parent tracks that item spans."""
+
+    span_start = int(entry.get("column") or 0)
+    span = int(entry.get("column_span") or 0)
+    if span_start < 1 or span < 1 or span_start - 1 + span > len(column_sizes):
+        raise _Invalid("subgrid span is outside the parent grid")
+    if (item.grid or {}).get("width", "auto") != "auto":
+        raise _Invalid("subgrid item width is unsupported")
+    if not item.children:
+        raise _Invalid("subgrid item is missing")
+    payload: list[dict[str, object]] = []
+    heights: dict[str, int] = {}
+    cursor = 1
+    for child in item.children:
+        spec = child.grid if isinstance(child.grid, dict) else {}
+        if spec.get("width", "auto") != "auto":
+            raise _Invalid("subgrid item width is unsupported")
+        height = spec.get("height", "auto")
+        if type(height) is not int:
+            raise _Invalid("subgrid item height is unsupported")
+        if child.children or (child.inline_text or "").strip():
+            raise _Invalid("subgrid item content is unsupported")
+        if child.position != "static" or child.float_side != "none":
+            raise _Invalid("subgrid item is outside the grid")
+        line, item_span, cursor = _subgrid_child_line(spec, cursor, span)
+        payload.append({"id": child.id, "start": line, "span": item_span})
+        heights[child.id] = height
+    spec = item.grid if isinstance(item.grid, dict) else {}
+    placed = place_subgrid_items(
+        column_sizes,
+        payload,
+        gap=column_gap,
+        span_start=span_start,
+        span=span,
+        subgrid_gap=spec.get("subgrid_gap", "normal"),
+        edge_start=_edge_extent(item.solved, "left"),
+        edge_end=_edge_extent(item.solved, "right"),
+    )
+    boxes = placed.get("items")
+    if placed.get("outcome") != "placed" or not isinstance(boxes, list):
+        raise _Invalid(str(placed.get("reason") or "subgrid placement failed"))
+    by_id = {str(row.get("id")): row for row in boxes if isinstance(row, dict)}
+    top = _edge_extent(item.solved, "top")
+    used = 0
+    for child in item.children:
+        found = by_id.get(child.id)
+        if found is None:
+            raise _Invalid("subgrid placement failed")
+        _install_grid_chrome(child)
+        chrome_x = _edge_extent(child.solved, "left", "right")
+        chrome_y = _edge_extent(child.solved, "top", "bottom")
+        size = _px(found.get("size"), "subgrid item")
+        child.content_width = size - chrome_x
+        if child.content_width < 0:
+            raise _Invalid("subgrid item width is invalid")
+        child.border_width = child.content_width + chrome_x
+        child.content_height = heights[child.id]
+        child.border_height = child.content_height + chrome_y
+        child.x = content_x + _px(found.get("start"), "subgrid item")
+        child.anchor_y = top
+        child.margin_left = 0
+        child.margin_right = 0
+        used = max(used, child.border_height)
+    return used
 
 
 def _content_row_height(
