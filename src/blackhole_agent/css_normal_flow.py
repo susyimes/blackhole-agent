@@ -78,10 +78,14 @@ box with no margin, border, or padding, stretched to the parent's content
 width and using the parent's font, alignment, and white space. Collapsible
 whitespace between blocks does not generate one. A float is a split in
 that same stream: the text before it, and the text after it, each become an
-anonymous block, and those blocks shorten their lines beside the float. Clear
-on a later sibling starts that sibling below the float. An inline-block, a
-relative inline, or a mixed font in that same mix with a block sibling stays
-rejected. An
+anonymous block, and those blocks shorten their lines beside the float. An
+inline-block in that loose text is an unbreakable item of the anonymous
+block: its margin box shares the shortened line when it fits, and the item
+moves intact below the float when it does not. The following block sibling
+keeps its own lines, shortened where the float still overlaps them. Clear
+on a later sibling starts that sibling below the float. A relative inline,
+a mixed font, a shaped float, and an atomic box taller than the strut stay
+rejected in that mix. An
 absolute or fixed box still leaves the loose text out. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
 shrinking the parent's strut. text-align and white-space on an inline
@@ -1798,12 +1802,10 @@ def _set_inline(
 def _anonymous_split_allowed(box: _Box) -> bool:
     """In-flow blocks can wrap inline runs. A float splits those runs.
 
-    An inline-block has no line beside that float, and an absolute or fixed
-    box still drops the loose text.
+    An inline-block in the loose text rides the anonymous block. An absolute
+    or fixed box still drops the loose text.
     """
 
-    if box.floats and box.atoms:
-        return False
     return (
         box.position in {"static", "relative"}
         and box.float_side == "none"
@@ -3092,7 +3094,10 @@ def _reflow_beside(box: _Box, bands: list[tuple[int, int, int, int, str, str, fl
     saved = box.definite_height
     if auto:
         box.definite_height = None
-    _fill_lines_beside_floats(box, bands, contain=False)
+    if box.atoms:
+        _fill_atoms_beside_floats(box, bands, contain=False)
+    else:
+        _fill_lines_beside_floats(box, bands, contain=False)
     if not auto:
         box.definite_height = saved
     if box.definite_height is None:
@@ -3913,8 +3918,18 @@ def _paint_atom_line(
     )
 
 
-def _fill_atoms_beside_floats(box: _Box) -> None:
-    """Place inline-blocks in the gaps already shortened by this box's floats."""
+def _fill_atoms_beside_floats(
+    box: _Box,
+    bands: list[tuple[int, int, int, int, str, str, float]] | None = None,
+    *,
+    contain: bool = True,
+) -> None:
+    """Place inline-blocks in gaps shortened by floats.
+
+    This box's own floats supply the bands when ``bands`` is omitted. A
+    parent that already shifted its float bands passes those bands and sets
+    ``contain`` false so the height stays the line stack.
+    """
 
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("inline-block writing mode is unsupported")
@@ -3925,8 +3940,11 @@ def _fill_atoms_beside_floats(box: _Box) -> None:
             raise _Invalid("inline-block writing mode is unsupported")
     if _mixed_runs(box) or _relative_pieces(box):
         raise _Invalid("inline-block beside a float is unsupported")
-    bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
-    if len(bands) != len(box.floats) or any(band[5] for band in bands):
+    if bands is None:
+        bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
+        if len(bands) != len(box.floats) or any(band[5] for band in bands):
+            raise _Invalid("inline-block beside a float is unsupported")
+    elif any(band[5] for band in bands):
         raise _Invalid("inline-block beside a float is unsupported")
     measured = {atom.id: _measure_float(box, atom) for atom in box.atoms}
     strut = _strut_height(box.font_size, _used_line_height(box.line_height, box.font_size))
@@ -3994,7 +4012,8 @@ def _fill_atoms_beside_floats(box: _Box) -> None:
         raise _Invalid("inline-block line is invalid")
     box.lines = records
     if box.definite_height is None:
-        box.definite_height = max(cursor_y, _band_bottom(bands))
+        bottom = _band_bottom(bands)
+        box.definite_height = max(cursor_y, bottom) if contain else cursor_y
 
 
 def _fill_lines(box: _Box) -> None:

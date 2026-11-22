@@ -5,8 +5,8 @@ line: the line starts at x 40 and the atomic border box starts at x 60.
 A 180px inline-block does not fit that gap, so AA stays beside the float
 and the atomic box starts at x 0, y 20. A right float leaves the fitting
 atomic box at x 20. The following block starts under the taller float.
-An inline-block beside that float and a block sibling stays invalid, and
-so does a shaped float.
+An inline-block beside that float and a block sibling is placed on the
+anonymous line. A shaped float stays invalid.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the atomic box exits 0 with
@@ -167,8 +167,13 @@ def observe() -> tuple[bool, dict[str, object]]:
             and observed["right"]["f"]["x"] == 160
             and observed["right"]["next"]["y"] == 20
         ),
-        "inline_block_beside_a_float_and_a_block_stays_invalid": (
-            mixed.get("outcome") == "invalid" and mixed.get("boxes") is None
+        "inline_block_beside_a_float_and_a_block_is_placed": (
+            mixed.get("outcome") == "placed"
+            and observed["mixed"]["lines"] == []
+            and observed["mixed"]["atom"] == {"x": 60, "y": 0, "w": 20, "h": 10}
+            and observed["mixed"]["f"] == {"x": 0, "y": 0, "w": 40, "h": 20}
+            and observed["mixed"]["next"]["y"] == 20
+            and observed["mixed"]["p"]["h"] == 20
         ),
         "shaped_float_stays_invalid": (
             shaped.get("outcome") == "invalid" and shaped.get("boxes") is None

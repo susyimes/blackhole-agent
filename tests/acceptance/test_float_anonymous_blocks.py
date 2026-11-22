@@ -4,7 +4,8 @@ A left float, the text AA, a block BB, and the text CC stack in source
 order: AA and BB shorten beside the float, and CC starts under it. Text
 before the float keeps the full width. A cleared sibling starts at the
 float's bottom edge. Two left floats leave AA after both of them. An
-inline-block in that mix stays rejected.
+inline-block in that mix shares the shortened anonymous line, and the
+block sibling stays beside the rest of the float.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still drops the loose text exits 0 with
@@ -194,8 +195,13 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _at(_line(blank_boxes, "BB")) == {"text": "BB", "x": 30, "y": 0, "h": 10, "w": 20}
             and _box(blank_boxes, "p").get("content_height") == 20
         ),
-        "inline_block_beside_a_float_and_a_block_is_rejected": (
-            atom.get("outcome") == "invalid" and atom.get("boxes") is None
+        "inline_block_beside_a_float_and_a_block_shares_the_shortened_line": (
+            atom.get("outcome") == "placed"
+            and _at(_line(atom.get("boxes"), "AA")) == {"text": "AA", "x": 30, "y": 0, "h": 10, "w": 40}
+            and _box(atom.get("boxes"), "b").get("y") == 10
+            and _at(_line(atom.get("boxes"), "CC")) == {"text": "CC", "x": 30, "y": 10, "h": 10, "w": 20}
+            and _box(atom.get("boxes"), "p").get("content_height") == 20
+            and _box(atom.get("boxes"), "next").get("y") == 20
         ),
     }
     observed["checks"] = checks

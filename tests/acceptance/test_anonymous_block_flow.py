@@ -4,7 +4,8 @@ AA, a block BB, and CC stack as an anonymous line, the block, and another
 anonymous line. A vertical margin on BB stays between those lines. A 40px
 container wraps AA BB before the sibling. text-align center paints AA inside
 the anonymous box. An inline-block stays on that line. Whitespace between
-blocks adds no line. An inline-block beside a float and a block is rejected.
+blocks adds no line. An inline-block beside a shrink-to-fit float shares
+that anonymous line, and the block sibling starts under it.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still drops the inline runs exits 0 with
@@ -202,8 +203,13 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _box(blank.get("boxes"), "p").get("content_height") == 10
             and _box(blank.get("boxes"), "next").get("y") == 10
         ),
-        "inline_block_beside_a_float_and_a_block_is_rejected": (
-            floated.get("outcome") == "invalid" and floated.get("boxes") is None
+        "inline_block_beside_a_float_shares_the_anonymous_line": (
+            floated.get("outcome") == "placed"
+            and _at(_line_with(floated.get("boxes"), "AA")) == {"text": "AA", "x": 10, "y": 0, "h": 10, "w": 40}
+            and _box(floated.get("boxes"), "b").get("y") == 10
+            and _at(_line_with(floated.get("boxes"), "CC")) == {"text": "CC", "x": 0, "y": 10, "h": 10, "w": 20}
+            and _box(floated.get("boxes"), "p").get("content_height") == 20
+            and _box(floated.get("boxes"), "next").get("y") == 20
         ),
     }
     observed["checks"] = checks
