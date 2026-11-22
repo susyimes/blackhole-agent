@@ -16,6 +16,13 @@ move by the used left and top; later siblings stay where the static layout
 put them. An absolute box is placed on the padding edge of the nearest
 positioned ancestor, or on the viewport when no ancestor is positioned. A
 fixed box is placed on the viewport. Neither changes the height of the flow.
+A sticky block keeps the place it occupied in the flow. Its used border box
+then shifts against the nearest non-visible overflow scrollport, or against
+the viewport when every ancestor is visible. ``scroll_x`` and ``scroll_y``
+move only that viewport; a nearer scrollport stays at scroll zero. The parent
+padding edge stops the shift, and the following sibling stays at its static
+position. Nested sticky, a sticky float, a sticky inline, a sticky root, and
+a sticky box that is not horizontal and left-to-right are rejected.
 Horizontal text inside that box supplies shrink-to-fit width and the stacked
 line-box height. A static block child is laid out in that content box: its
 text wraps to the definite width, adjoining child margins collapse inside
@@ -202,6 +209,7 @@ from blackhole_agent.css_flex_wrap import wrap_flex_lines
 from blackhole_agent.css_float_lines import seek_shaped_gap, shaped_gap_at
 from blackhole_agent.css_float_placement import place_floats
 from blackhole_agent.css_shape_outside import ShapeError, prepare_shape
+from blackhole_agent.css_sticky import sticky_offset
 from blackhole_agent.css_grid_align import align_grid_item
 from blackhole_agent.css_grid_areas import place_named_grid
 from blackhole_agent.css_grid_content import size_content_grid_tracks
@@ -316,10 +324,11 @@ _SKIP_TAGS = frozenset({"base", "head", "link", "meta", "script", "style", "temp
 _DISPLAYS = frozenset(
     {"block", "inline", "inline-block", "flex", "grid", "table", "table-row", "table-cell", "none"}
 )
-_POSITIONS = frozenset({"static", "relative", "absolute", "fixed"})
+_POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
 _CLEARS = frozenset({"none", "left", "right", "both"})
 _OVERFLOWS = frozenset({"visible", "hidden", "auto", "scroll", "clip"})
+_SCROLLPORTS = frozenset({"hidden", "auto", "scroll", "clip"})
 _INHERITED = {
     "writing-mode": "horizontal-tb",
     "direction": "ltr",
@@ -441,15 +450,20 @@ def layout_normal_flow(
     *,
     viewport_width: int,
     viewport_height: int | None = None,
+    scroll_x: int = 0,
+    scroll_y: int = 0,
 ) -> dict[str, object]:
     """Return viewport border boxes for the document's normal-flow blocks.
 
     ``viewport_width`` is the initial containing block's width in CSS pixels.
     ``viewport_height`` is that block's height, or indefinite when omitted.
-    ``x`` and ``y`` are the border edges measured from the viewport origin.
-    Lengths are ``px`` or percentages. A unitless zero is rejected. Rules come
-    from the stylesheet; a style attribute is not read. Relative offsets are
-    applied after the static positions. Absolute and fixed boxes are included
+    ``scroll_x`` and ``scroll_y`` are that viewport's scroll offsets. They
+    move a sticky box whose scrollport is the viewport and leave every other
+    box at its static position. ``x`` and ``y`` are the border edges measured
+    from the unscrolled viewport origin. Lengths are ``px`` or percentages. A
+    unitless zero is rejected. Rules come from the stylesheet; a style
+    attribute is not read. Relative offsets are applied after the static
+    positions, then sticky offsets. Absolute and fixed boxes are included
     in the returned boxes.
     """
 
@@ -459,6 +473,10 @@ def layout_normal_flow(
         return _invalid("viewport width is invalid")
     if viewport_height is not None and (type(viewport_height) is not int or viewport_height < 0):
         return _invalid("viewport height is invalid")
+    if type(scroll_x) is not int:
+        return _invalid("scroll x is invalid")
+    if type(scroll_y) is not int:
+        return _invalid("scroll y is invalid")
     try:
         tree, order = _document(markup)
         if not order:
@@ -498,6 +516,8 @@ def layout_normal_flow(
             raise _Invalid("table box is outside the table")
         if root.position in {"absolute", "fixed"} or root.float_side != "none":
             raise _Invalid("root is outside normal flow")
+        if root.position == "sticky":
+            raise _Invalid("sticky root is unsupported")
         root.children, root.floats, root.flow, root.positioned = _walk(
             tree,
             order[0],
@@ -520,6 +540,7 @@ def layout_normal_flow(
         margin_top = _px(root.solved.get("margin_top"), "margin-top")
         _assign_y(root, by_id, margin_top)
         _shift_relatives(root, viewport_width, viewport_height)
+        _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
         _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height), [])
         boxes = [_record(box) for box in _each(root)]
     except (CssSelectorError, _Invalid) as exc:
@@ -600,6 +621,8 @@ def _walk(
             positioned.append(box)
             continue
         if box.float_side != "none":
+            if box.position == "sticky":
+                raise _Invalid("sticky float is unsupported")
             _reject_float_content(tree, child)
             box.inline_text = child.text or ""
             floats.append(box)
@@ -610,6 +633,8 @@ def _walk(
         inline = box.display == "inline"
         if inline and box.position == "relative":
             raise _Invalid("relative inline is unsupported")
+        if inline and box.position == "sticky":
+            raise _Invalid("sticky inline is unsupported")
         if box.display == "inline-block" and box.position != "static":
             raise _Invalid("positioned inline-block is unsupported")
         nested = _walk(
@@ -1626,6 +1651,156 @@ def _translate(box: _Box, dx: int, dy: int) -> None:
         _translate(child, dx, dy)
 
 
+def _shift_stickies(
+    box: _Box,
+    viewport_width: int,
+    viewport_height: int | None,
+    scroll_x: int,
+    scroll_y: int,
+) -> None:
+    if box.position == "sticky":
+        if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+            raise _Invalid("sticky writing mode is unsupported")
+        if box.float_side != "none":
+            raise _Invalid("sticky float is unsupported")
+        if _sticky_descendant(box):
+            raise _Invalid("nested sticky is unsupported")
+        _translate(box, *_sticky_delta(box, viewport_width, viewport_height, scroll_x, scroll_y))
+    for child in box.children:
+        _shift_stickies(child, viewport_width, viewport_height, scroll_x, scroll_y)
+    for fl in box.floats:
+        _shift_stickies(fl, viewport_width, viewport_height, scroll_x, scroll_y)
+    for atom in box.atoms:
+        _shift_stickies(atom, viewport_width, viewport_height, scroll_x, scroll_y)
+    for abs_box in box.positioned:
+        _shift_stickies(abs_box, viewport_width, viewport_height, scroll_x, scroll_y)
+
+
+def _sticky_descendant(box: _Box) -> bool:
+    pending = [*box.children, *box.floats, *box.atoms, *box.positioned]
+    while pending:
+        current = pending.pop()
+        if current.position == "sticky":
+            return True
+        pending.extend(current.children)
+        pending.extend(current.floats)
+        pending.extend(current.atoms)
+        pending.extend(current.positioned)
+    return False
+
+
+def _sticky_delta(
+    box: _Box,
+    viewport_width: int,
+    viewport_height: int | None,
+    scroll_x: int,
+    scroll_y: int,
+) -> tuple[int, int]:
+    parent = box.parent_box
+    if parent is None:
+        raise _Invalid("sticky root is unsupported")
+    port_x, port_y, port_w, port_h, port_scroll_x, port_scroll_y = _sticky_port(
+        box, viewport_width, viewport_height, scroll_x, scroll_y
+    )
+    cb_x, cb_y, cb_w, cb_h = _padding_rect(parent)
+    slots = _physical_slots(box)
+    return (
+        _sticky_axis(
+            box.x,
+            box.border_width,
+            port_x,
+            port_w,
+            port_scroll_x,
+            cb_x,
+            cb_x + cb_w,
+            _sticky_length(_inset(slots, "left"), port_w, "left"),
+            _sticky_length(_inset(slots, "right"), port_w, "right"),
+        ),
+        _sticky_axis(
+            box.y,
+            box.border_height,
+            port_y,
+            port_h,
+            port_scroll_y,
+            cb_y,
+            cb_y + cb_h,
+            _sticky_length(_inset(slots, "top"), port_h, "top"),
+            _sticky_length(_inset(slots, "bottom"), port_h, "bottom"),
+        ),
+    )
+
+
+def _sticky_port(
+    box: _Box,
+    viewport_width: int,
+    viewport_height: int | None,
+    scroll_x: int,
+    scroll_y: int,
+) -> tuple[int, int, int, int, int, int]:
+    current = box.parent_box
+    while current is not None:
+        if current.overflow in _SCROLLPORTS:
+            x, y, width, height = _padding_rect(current)
+            return x, y, width, height, 0, 0
+        current = current.parent_box
+    if viewport_height is None:
+        raise _Invalid("sticky scrollport is indefinite")
+    return 0, 0, viewport_width, viewport_height, scroll_x, scroll_y
+
+
+def _padding_rect(box: _Box) -> tuple[int, int, int, int]:
+    top = _px(box.solved.get("border_top"), "border-top")
+    right = _px(box.solved.get("border_right"), "border-right")
+    bottom = _px(box.solved.get("border_bottom"), "border-bottom")
+    left = _px(box.solved.get("border_left"), "border-left")
+    width = box.border_width - left - right
+    height = box.border_height - top - bottom
+    if width < 0 or height < 0:
+        raise _Invalid("sticky containing block is invalid")
+    return box.x + left, box.y + top, width, height
+
+
+def _sticky_length(raw: str, basis: int, name: str) -> object:
+    text = " ".join(raw.strip().lower().split())
+    if text in {"auto", "initial", "unset", "revert"}:
+        return "auto"
+    try:
+        if text.endswith("px"):
+            return _px(float(text[:-2]), name)
+        if text.endswith("%"):
+            return _px(basis * float(text[:-1]) / 100, name)
+    except (TypeError, ValueError) as exc:
+        raise _Invalid(f"{name} is invalid") from exc
+    raise _Invalid(f"{name} is invalid")
+
+
+def _sticky_axis(
+    origin: int,
+    size: int,
+    port_origin: int,
+    port_size: int,
+    scroll: int,
+    containing_start: int,
+    containing_end: int,
+    start: object,
+    end: object,
+) -> int:
+    found = sticky_offset(
+        origin,
+        size,
+        port_size,
+        containing_start,
+        containing_end,
+        scroll=scroll,
+        port_origin=port_origin,
+        start=start,
+        end=end,
+    )
+    if found.get("outcome") != "resolved":
+        raise _Invalid(str(found.get("reason") or "sticky position failed"))
+    return _px(found.get("offset"), "sticky offset")
+
+
 def _padding_edge(box: _Box) -> _Edge:
     border_left = _px(box.solved.get("border_left"), "border-left")
     border_top = _px(box.solved.get("border_top"), "border-top")
@@ -1639,7 +1814,7 @@ def _padding_edge(box: _Box) -> _Edge:
 
 def _place_positioned(box: _Box, viewport: _Edge, stack: list[_Edge]) -> None:
     frame = stack
-    if box.position in {"relative", "absolute", "fixed"}:
+    if box.position in {"relative", "absolute", "fixed", "sticky"}:
         frame = [*stack, _padding_edge(box)]
     for abs_box in box.positioned:
         cb = viewport if abs_box.position == "fixed" or not frame else frame[-1]
