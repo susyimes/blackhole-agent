@@ -170,8 +170,12 @@ rows. A static block child inside a cell is an independent formatting
 context: its margin stays inside the cell, adjoining child margins collapse,
 and the row grows to that content. A narrow column wraps the child's text,
 and an automatic column takes the child's max-content. Floats, positioned
-boxes, and loose text beside those children stay rejected. Captions and
-border spacing stay rejected.
+boxes, and loose text beside those children stay rejected. ``border-spacing``
+separates those cells. A horizontal length opens a gap between adjoining
+columns, and a vertical length opens a gap between rows. An automatic table
+width also keeps that horizontal gap outside both edges. A fixed table width
+keeps it only between columns. ``border-collapse: collapse`` ignores the
+spacing. A negative length is rejected. Captions stay rejected.
 A block with ``column-count`` or ``column-width`` is a multicol container.
 Each text-only child is an unbreakable border box: it wraps at the used
 column width, and ``column-span: all`` takes the whole content box and ends
@@ -5580,7 +5584,8 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
     custom = styles.get(element, ({}, ""))[0]
     layout = "auto"
     collapse = False
-    spacing = "0"
+    spacing_x = 0
+    spacing_y = 0
     for _order, prop, raw in _winners(tree, element, declarations):
         if prop == "table-layout":
             layout = _choice(_grid_author(raw, custom), "auto", _TABLE_LAYOUTS, "table-layout")
@@ -5589,7 +5594,7 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
             continue
         value = _grid_author(raw, custom)
         if prop == "border-spacing":
-            spacing = value
+            spacing_x, spacing_y = _border_spacing(value)
             continue
         if prop == "border-collapse":
             if value == "collapse":
@@ -5601,9 +5606,12 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
             raise _Invalid("table caption is unsupported")
         if prop == "empty-cells" and value not in {"show", "initial", "unset", "revert"}:
             raise _Invalid("table empty cells are unsupported")
-    if not collapse and spacing not in {"0", "0px", "initial", "unset", "revert"}:
-        raise _Invalid("table spacing is unsupported")
-    return {"layout": layout, "collapse": collapse}
+    return {
+        "layout": layout,
+        "collapse": collapse,
+        "spacing_x": spacing_x,
+        "spacing_y": spacing_y,
+    }
 
 
 def _table_cell(tree, element, styles, declarations) -> dict[str, object]:
@@ -5925,6 +5933,52 @@ def _shift_cell_children(cell: _Box, shift: int) -> None:
             child.anchor_y += shift
 
 
+def _border_spacing(value: str) -> tuple[int, int]:
+    if value in {"initial", "unset", "revert"}:
+        return 0, 0
+    if value == "inherit":
+        raise _Invalid("table spacing inherit is unsupported")
+    parts = value.split(" ")
+    if len(parts) == 1:
+        length = _spacing_px(parts[0])
+        return length, length
+    if len(parts) == 2:
+        return _spacing_px(parts[0]), _spacing_px(parts[1])
+    raise _Invalid("table spacing is unsupported")
+
+
+def _spacing_px(value: str) -> int:
+    if value == "0":
+        return 0
+    if not value.endswith("px"):
+        raise _Invalid("table spacing is unsupported")
+    try:
+        number = float(value[:-2])
+    except ValueError as exc:
+        raise _Invalid("table spacing is unsupported") from exc
+    length = _px(number, "table spacing")
+    if length < 0:
+        raise _Invalid("table spacing is unsupported")
+    return length
+
+
+def _used_table_spacing(box: _Box) -> tuple[int, int]:
+    table = box.table or {}
+    return (
+        _px(table.get("spacing_x", 0), "table spacing"),
+        _px(table.get("spacing_y", 0), "table spacing"),
+    )
+
+
+def _spaced_column_offsets(sizes: list[int], gap: int, lead: int) -> list[int]:
+    offsets: list[int] = []
+    cursor = lead
+    for size in sizes:
+        offsets.append(cursor)
+        cursor += size + gap
+    return offsets
+
+
 def _place_table(box: _Box, content_x: int) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("table writing mode is unsupported")
@@ -5938,13 +5992,15 @@ def _place_table(box: _Box, content_x: int) -> None:
     collapse = (box.table or {}).get("collapse") is True
     if collapse and (layout == "fixed" or not width_auto):
         raise _Invalid("collapsed table width is unsupported")
-    if layout == "fixed" and not width_auto:
+    spacing_x, spacing_y = (0, 0) if collapse else _used_table_spacing(box)
+    fixed_width = layout == "fixed" and not width_auto
+    if fixed_width:
         first = sorted(rows[0].children, key=lambda item: _cell_slot(item)[0])
         sized = layout_fixed_columns(
             available,
             ["auto"] * count,
             cells=[_fixed_cell(cell) for cell in first],
-            spacing=0,
+            spacing=spacing_x,
         )
     else:
         payload: list[dict[str, object]] = []
@@ -5967,7 +6023,7 @@ def _place_table(box: _Box, content_x: int) -> None:
             ["auto"] * count,
             payload,
             containing=available if width_auto else None,
-            spacing=0,
+            spacing=spacing_x,
         )
     raw_sizes = sized.get("column_widths")
     if sized.get("outcome") != "resolved" or not isinstance(raw_sizes, list) or len(raw_sizes) != count:
@@ -5977,11 +6033,7 @@ def _place_table(box: _Box, content_x: int) -> None:
     box.content_width = used_width
     inline_axis: tuple[list[int], list[int], list[int]] | None = None
     block_tops: list[int] | None = None
-    column_offsets: list[int] = []
-    column_cursor = 0
-    for size in column_sizes:
-        column_offsets.append(column_cursor)
-        column_cursor += size
+    column_offsets = _spaced_column_offsets(column_sizes, spacing_x, spacing_x if not fixed_width else 0)
     if collapse:
         vertical, horizontal = _collapsed_lines(box, rows, len(column_sizes))
         xs, lefts, rights, _outer_left, _outer_right, _inner = _collapsed_axis(column_sizes, vertical)
@@ -5995,7 +6047,7 @@ def _place_table(box: _Box, content_x: int) -> None:
         for cell in row.children:
             column, span, rowspan = _cell_slot(cell)
             if inline_axis is None:
-                cell.content_width = _grid_span(column_sizes, column, span, 0)
+                cell.content_width = _grid_span(column_sizes, column, span, spacing_x)
             else:
                 axis_x, axis_left, axis_right = inline_axis
                 cell.content_width = _span_metrics(
@@ -6036,7 +6088,7 @@ def _place_table(box: _Box, content_x: int) -> None:
         ["auto"] * len(rows),
         row_cells,
         table_height="auto" if box.definite_height is None else box.definite_height,
-        border_spacing=0,
+        border_spacing=spacing_y,
     )
     placed = laid.get("cells")
     heights = laid.get("row_heights")
@@ -6051,11 +6103,6 @@ def _place_table(box: _Box, content_x: int) -> None:
         _place_collapsed_table(box, rows, column_sizes, list(heights), by_id, content_x)
         return
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
-    offsets: list[int] = []
-    cursor = 0
-    for size in column_sizes:
-        offsets.append(cursor)
-        cursor += size
     for row_index, row in enumerate(rows):
         row_height = _px(heights[row_index], "table row")
         lead = by_id.get(row.children[0].id)
@@ -6079,8 +6126,8 @@ def _place_table(box: _Box, content_x: int) -> None:
             slot = _px(entry.get("border_height"), "table cell")
             shift = _px(entry.get("content_top"), "table cell")
             cell_top = _px(entry.get("border_top"), "table cell")
-            content_width = _grid_span(column_sizes, column, span, 0)
-            cell.x = content_x + offsets[column]
+            content_width = _grid_span(column_sizes, column, span, spacing_x)
+            cell.x = content_x + column_offsets[column]
             cell.anchor_y = cell_top - row_top
             cell.content_width = content_width
             cell.content_height = slot
