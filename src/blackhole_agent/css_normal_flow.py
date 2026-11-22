@@ -13,7 +13,12 @@ collapse, and the root box keeps its own margin instead of collapsing
 through to the viewport. ``display: none`` leaves the flow. A relative
 box keeps the space it occupied, then its border box and in-flow descendants
 move by the used left and top; later siblings stay where the static layout
-put them. An absolute box is placed on the padding edge of the nearest
+put them. A relative inline keeps that same static slot in the line: its
+glyphs paint at the static position plus the used left and top, a nested
+relative inline adds its own offset, and later glyphs, the line break, and
+the following block stay put. A vertical writing mode, a non-ltr paragraph,
+white-space other than normal, a different font, a float beside the inline,
+and an inline-block inside it stay rejected. An absolute box is placed on the padding edge of the nearest
 positioned ancestor, or on the viewport when no ancestor is positioned. A
 fixed box is placed on the viewport. Neither changes the height of the flow.
 A sticky block keeps the place it occupied in the flow. Its used border box
@@ -388,12 +393,22 @@ class _Edge:
     height: int | None
 
 
+@dataclass(frozen=True)
+class _Shift:
+    direction: str
+    left: str
+    right: str
+    top: str
+    bottom: str
+
+
 @dataclass
 class _Piece:
     text: str
     font_size: int
     line_height: str
     atom: _Box | None = None
+    shifts: tuple[_Shift, ...] = ()
 
 
 @dataclass
@@ -454,6 +469,7 @@ class _Box:
     lines: list[_Line] = field(default_factory=list)
     atoms: list[_Box] = field(default_factory=list)
     pieces: list[_Piece] = field(default_factory=list)
+    relative_layers: dict[int, _Shift] = field(default_factory=dict)
     local_x: int = 0
     flex: dict[str, object] | None = None
     grid: dict[str, object] | None = None
@@ -657,10 +673,29 @@ def _walk(
         if box.display in _TABLE_OUTSIDE:
             raise _Invalid("table box is outside the table")
         inline = box.display == "inline"
-        if inline and box.position == "relative":
-            raise _Invalid("relative inline is unsupported")
         if inline and box.position == "sticky":
             raise _Invalid("sticky inline is unsupported")
+        if inline and box.position == "relative":
+            if box.writing_mode != "horizontal-tb" or box.direction not in {"ltr", "rtl"}:
+                raise _Invalid("relative inline is unsupported")
+            atoms_before = len(host.atoms)
+            children, child_floats, _child_flow, child_positioned = _walk(
+                tree,
+                child,
+                _modes(box),
+                _fonts(box),
+                box.direction,
+                styles,
+                declarations,
+                ids,
+                counter,
+                host,
+                container_rules,
+            )
+            if children or child_floats or child_positioned or len(host.atoms) != atoms_before:
+                raise _Invalid("relative inline content is unsupported")
+            host.relative_layers[id(child)] = _inline_shift(box)
+            continue
         if box.display == "inline-block" and box.position != "static":
             raise _Invalid("positioned inline-block is unsupported")
         nested = _walk(
@@ -1346,15 +1381,18 @@ def _record_line(line: _Line) -> dict[str, object]:
         "content_width": line.content_width,
     }
     if line.runs:
-        item["runs"] = [
-            {
+        recorded_runs = []
+        for run in line.runs:
+            recorded = {
                 "text": run["text"],
                 "x": line.x + int(run["x"]),
                 "font_size": run["font_size"],
                 "width": run["width"],
             }
-            for run in line.runs
-        ]
+            if "y" in run:
+                recorded["y"] = line.y + int(run["y"])
+            recorded_runs.append(recorded)
+        item["runs"] = recorded_runs
     if line.atoms:
         item["atoms"] = [
             {
@@ -1390,53 +1428,77 @@ def _set_inline(box: _Box, tree, element, styles, declarations) -> None:
         if box.atoms:
             raise _Invalid("inline-block beside blocks is unsupported")
         return
-    pieces = _inline_pieces(tree, element, styles, declarations, _fonts(box), box.atoms)
+    pieces = _inline_pieces(
+        tree, element, styles, declarations, _fonts(box), box.atoms, box.relative_layers
+    )
     if pieces is None and box.atoms:
         raise _Invalid("inline-block beside blocks is unsupported")
     box.pieces = pieces or []
     box.inline_text = None if pieces is None else "".join(piece.text for piece in pieces)
 
 
-def _inline_pieces(tree, element, styles, declarations, fonts: dict[str, str], atoms: list[_Box]) -> list[_Piece] | None:
+def _inline_pieces(
+    tree,
+    element,
+    styles,
+    declarations,
+    fonts: dict[str, str],
+    atoms: list[_Box],
+    layers_of: dict[int, _Shift],
+) -> list[_Piece] | None:
     stream = iter(atoms)
     pieces: list[_Piece] = []
+    block_size = _positive_px(fonts["font-size"], "font-size")
+    block_leading = fonts["line-height"]
 
-    def add(text: str, size: int, leading: str) -> None:
+    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...]) -> None:
         if not text:
             return
-        if pieces and pieces[-1].atom is None and pieces[-1].font_size == size and pieces[-1].line_height == leading:
+        if layers and (size != block_size or leading != block_leading):
+            raise _Invalid("relative inline font is unsupported")
+        if (
+            pieces
+            and pieces[-1].atom is None
+            and pieces[-1].font_size == size
+            and pieces[-1].line_height == leading
+            and pieces[-1].shifts == layers
+        ):
             pieces[-1].text += text
             return
-        pieces.append(_Piece(text, size, leading))
+        pieces.append(_Piece(text, size, leading, shifts=layers))
 
-    def walk(node, parent_fonts: dict[str, str]) -> bool:
+    def walk(node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...]) -> bool:
+        own = layers_of.get(id(node))
+        layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
-        add(node.text or "", size, leading)
+        add(node.text or "", size, leading, layers)
         for child in list(node):
             if not _local_name(child):
                 continue
             kind = _flow_kind(tree, child, styles, declarations)
             if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading)
+                add(child.tail or "", size, leading, layers)
                 continue
             if kind == "inline-block":
+                if layers:
+                    raise _Invalid("relative inline content is unsupported")
                 try:
                     atom = next(stream)
                 except StopIteration as exc:
                     raise _Invalid("inline-block is unsupported") from exc
                 pieces.append(_Piece("", size, leading, atom))
-                add(child.tail or "", size, leading)
+                add(child.tail or "", size, leading, layers)
                 continue
             if kind == "block":
                 return False
             _reject_inline_type(tree, child, styles, declarations)
-            if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts)):
+            if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
                 return False
-            add(child.tail or "", size, leading)
+            add(child.tail or "", size, leading, layers)
         return True
 
-    if not walk(element, fonts):
+    if not walk(element, fonts, ()):
         return None
     if next(stream, None) is not None:
         raise _Invalid("inline-block is unsupported")
@@ -1629,6 +1691,44 @@ def _shift_relatives(box: _Box, cb_width: int, cb_height: int | None) -> None:
         if fl.position == "relative" and fl.float_placed:
             dx, dy = _relative_delta(fl, box.content_width, box.definite_height)
             _translate(fl, dx, dy)
+
+
+def _inline_shift(box: _Box) -> _Shift:
+    direction = box.direction if box.direction in {"ltr", "rtl"} else "ltr"
+    if any(_decl_percent_inset(prop, value) for prop, value in box.declarations):
+        values = _physical_percent_insets(box)
+    else:
+        slots = _physical_slots(box)
+        values = {side: _inset(slots, side) for side in ("left", "right", "top", "bottom")}
+    return _Shift(direction, values["left"], values["right"], values["top"], values["bottom"])
+
+
+def _decl_percent_inset(prop: str, value: str) -> bool:
+    name = prop.strip().lower()
+    if name not in {"top", "right", "bottom", "left"} and not name.startswith("inset"):
+        return False
+    return "%" in value
+
+
+def _physical_percent_insets(box: _Box) -> dict[str, str]:
+    """Physical inset longhands, including percentages the box solver rejects."""
+
+    values = {side: "auto" for side in ("top", "right", "bottom", "left")}
+    for prop, raw in box.declarations:
+        name = prop.strip().lower()
+        if name.startswith("inset"):
+            raise _Invalid("relative inline is unsupported")
+        if name not in values:
+            continue
+        text = " ".join(raw.split()).lower()
+        if text in {"auto", "initial", "unset", "revert"}:
+            values[name] = "auto"
+            continue
+        if text.endswith("px") or text.endswith("%"):
+            values[name] = text
+            continue
+        raise _Invalid("inset is invalid")
+    return values
 
 
 def _relative_delta(box: _Box, cb_width: int, cb_height: int | None) -> tuple[int, int]:
@@ -2878,6 +2978,15 @@ def _fill_inline_blocks(box: _Box) -> None:
 
 
 def _fill_lines(box: _Box) -> None:
+    if _relative_pieces(box):
+        if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space != "normal":
+            raise _Invalid("relative inline is unsupported")
+        if box.atoms:
+            raise _Invalid("relative inline content is unsupported")
+        if box.floats:
+            raise _Invalid("relative inline beside a float is unsupported")
+        if _mixed_runs(box):
+            raise _Invalid("relative inline font is unsupported")
     if box.atoms:
         if box.floats:
             raise _Invalid("inline-block beside a float is unsupported")
@@ -2919,10 +3028,145 @@ def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, ob
     return glyphs
 
 
+def _relative_pieces(box: _Box) -> bool:
+    return any(piece.shifts for piece in box.pieces)
+
+
+def _source_shifts(box: _Box) -> list[tuple[_Shift, ...]]:
+    shifts: list[tuple[_Shift, ...]] = []
+    for piece in box.pieces:
+        if piece.atom is not None:
+            raise _Invalid("relative inline content is unsupported")
+        shifts.extend((piece.shifts,) * len(piece.text))
+    text = box.inline_text or ""
+    if len(shifts) != len(text):
+        raise _Invalid("relative inline is unsupported")
+    return shifts
+
+
+def _collapse_shift_text(
+    text: str, shifts: list[tuple[_Shift, ...]]
+) -> tuple[str, list[tuple[_Shift, ...]]]:
+    """Collapse whitespace the same way a normal line keeps one space."""
+
+    if len(shifts) != len(text):
+        raise _Invalid("relative inline is unsupported")
+    chars: list[str] = []
+    chosen: list[tuple[_Shift, ...]] = []
+    index = 0
+    count = len(text)
+    gap: tuple[_Shift, ...] | None = None
+    while index < count:
+        if text[index].isspace():
+            if gap is None:
+                gap = shifts[index]
+            index += 1
+            continue
+        if chars:
+            if gap is None:
+                raise _Invalid("relative inline is unsupported")
+            chars.append(" ")
+            chosen.append(gap)
+        gap = None
+        while index < count and not text[index].isspace():
+            chars.append(text[index])
+            chosen.append(shifts[index])
+            index += 1
+    return "".join(chars), chosen
+
+
+def _layers_delta(shifts: tuple[_Shift, ...], cb_width: int, cb_height: int | None) -> tuple[int, int]:
+    dx = 0
+    dy = 0
+    height: object = "auto" if cb_height is None else cb_height
+    for index, shift in enumerate(shifts):
+        placed = place_relative(
+            [
+                {
+                    "id": f"s{index}",
+                    "position": "relative",
+                    "direction": shift.direction,
+                    "x": 0,
+                    "y": 0,
+                    "width": 0,
+                    "height": 0,
+                    "left": shift.left,
+                    "right": shift.right,
+                    "top": shift.top,
+                    "bottom": shift.bottom,
+                }
+            ],
+            containing_width=cb_width,
+            containing_height=height,
+        )
+        rows = placed.get("boxes")
+        if placed.get("outcome") != "placed" or not isinstance(rows, list) or not rows:
+            raise _Invalid(str(placed.get("reason") or "relative position failed"))
+        row = rows[0]
+        if not isinstance(row, dict):
+            raise _Invalid("relative position failed")
+        dx += _px(row.get("x"), "x")
+        dy += _px(row.get("y"), "y")
+    return dx, dy
+
+
+def _relative_runs(
+    rendered: str,
+    shifts: list[tuple[_Shift, ...]],
+    font_size: int,
+    cb_width: int,
+    cb_height: int | None,
+    content: int,
+) -> list[dict[str, object]]:
+    if len(rendered) != len(shifts):
+        raise _Invalid("relative inline is unsupported")
+    runs: list[dict[str, object]] = []
+    cursor = 0
+    buf = ""
+    buf_shift: tuple[_Shift, ...] = ()
+    buf_x = 0
+    buf_width = 0
+
+    def flush() -> None:
+        nonlocal buf, buf_width
+        if not buf:
+            return
+        dx, dy = _layers_delta(buf_shift, cb_width, cb_height)
+        runs.append(
+            {
+                "text": buf,
+                "x": buf_x + dx,
+                "y": dy,
+                "font_size": font_size,
+                "width": buf_width,
+            }
+        )
+        buf = ""
+        buf_width = 0
+
+    for ch, shift in zip(rendered, shifts, strict=True):
+        advance = _advance_of(ch, font_size)
+        if buf and shift != buf_shift:
+            flush()
+        if not buf:
+            buf_x = cursor
+            buf_shift = shift
+        buf += ch
+        buf_width += advance
+        cursor += advance
+    flush()
+    if cursor != content:
+        raise _Invalid("relative inline is unsupported")
+    return runs
+
+
 def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
     text = box.inline_text or ""
     if not text:
         return []
+    shifted = _relative_pieces(box)
+    if shifted and box.white_space != "normal":
+        raise _Invalid("relative inline is unsupported")
     used = _used_line_height(box.line_height, box.font_size)
     height, baseline = _strut_metrics(box.font_size, used)
     wrapped = wrap_lines(text, measure, white_space=box.white_space, advances=_shrink_advances(box))
@@ -2933,8 +3177,13 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         lines = [line for line in lines if isinstance(line, dict) and (line.get("text") or line.get("content_width"))]
     if not lines:
         return []
+    collapsed = ""
+    collapsed_shifts: list[tuple[_Shift, ...]] = []
+    if shifted:
+        collapsed, collapsed_shifts = _collapse_shift_text(text, _source_shifts(box))
     records: list[_Line] = []
     cursor = 0
+    shift_index = 0
     last = len(lines) - 1
     # A wrapped fragment is not its own paragraph. Glyphs stay off until the
     # whole paragraph fits on the line that is being painted.
@@ -2948,6 +3197,26 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         glyphs = _bidi_glyphs(rendered, direction, box.font_size) if whole_paragraph else []
         if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
             glyphs = []
+        runs: list[dict[str, object]] = []
+        if shifted:
+            if rendered and not collapsed.startswith(rendered):
+                raise _Invalid("relative inline is unsupported")
+            line_shifts = collapsed_shifts[shift_index : shift_index + len(rendered)]
+            shift_index += len(rendered)
+            collapsed = collapsed[len(rendered) :]
+            collapsed_shifts = collapsed_shifts[shift_index:]
+            shift_index = 0
+            if collapsed.startswith(" "):
+                collapsed = collapsed[1:]
+                collapsed_shifts = collapsed_shifts[1:]
+            runs = _relative_runs(
+                rendered,
+                line_shifts,
+                box.font_size,
+                box.content_width,
+                box.definite_height,
+                content,
+            )
         records.append(
             _Line(
                 text=rendered,
@@ -2957,9 +3226,12 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 content_width=content,
                 baseline=baseline,
                 glyphs=glyphs,
+                runs=runs,
             )
         )
         cursor += height
+    if shifted and collapsed.strip():
+        raise _Invalid("relative inline is unsupported")
     return records
 
 
