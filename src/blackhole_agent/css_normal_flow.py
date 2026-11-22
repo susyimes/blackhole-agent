@@ -222,6 +222,16 @@ answer the features, and a failed condition does not fall through to an outer
 container. Matching declarations join the cascade at their source order, so a
 later unconditional declaration of the same specificity still wins. A box
 without ``container-type`` does not answer a size query.
+A horizontal in-flow block measures its automatic height from the content
+stack, then ``max-height`` clamps that content and ``min-height`` raises it.
+The minimum wins when both are set. The following block starts at the used
+border edge. A percentage uses the parent's definite content height. An
+automatic parent turns a percentage ``min-height`` into zero and a percentage
+``max-height`` into none. ``box-sizing: border-box`` subtracts vertical
+padding and border, and the content box does not go below zero. A non-zero
+``min-height`` stops the bottom margin from collapsing through the block.
+Flex, grid, table, multicol, float, and vertical boxes keep the heights
+their own formatting contexts already chose.
 Writing mode, direction and text orientation inherit. Other CSS-wide keywords
 on box properties use their initial values.
 A text-only orthogonal block wraps down its used content height and stacks
@@ -494,6 +504,8 @@ class _Box:
     shape_margin: float = 0.0
     solved: dict[str, object] = field(default_factory=dict)
     definite_height: int | None = None
+    min_content_height: int = 0
+    max_content_height: int | None = None
     x: int = 0
     y: int = 0
     content_width: int = 0
@@ -1377,6 +1389,8 @@ def _solve(
     box.content_width = _px(content_width, "content width")
     content_height = solved.get("content_height")
     box.definite_height = None if content_height == "auto" else _px(content_height, "content height")
+    box.min_content_height = _stored_min(solved.get("content_min_height"))
+    box.max_content_height = _stored_max(solved.get("content_max_height"))
     box.margin_left = _px(solved.get("margin_left"), "margin-left")
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
@@ -1426,8 +1440,47 @@ def _needs_basis(value: str) -> bool:
     return "%" in text or is_length_math(text)
 
 
+def _stored_min(value: object) -> int:
+    if value is None:
+        return 0
+    return _px(value, "min-height")
+
+
+def _stored_max(value: object) -> int | None:
+    if value is None:
+        return None
+    return _px(value, "max-height")
+
+
+def _used_block_limits(box: _Box) -> tuple[int, int | None]:
+    """Content-box floor and cap for one horizontal in-flow block.
+
+    Flex, grid, table, multicol, float, absolute, and vertical boxes already
+    publish a used height. Clamping them again would move siblings those
+    formatting contexts have placed.
+    """
+
+    if (
+        box.display != "block"
+        or box.float_side != "none"
+        or box.position in {"absolute", "fixed"}
+        or box.writing_mode != "horizontal-tb"
+        or box.multicol is not None
+        or box.flex is not None
+        or box.grid is not None
+        or box.table is not None
+    ):
+        return 0, None
+    return box.min_content_height, box.max_content_height
+
+
+def _max_limit_token(value: int | None) -> int | str:
+    return "none" if value is None else value
+
+
 def _collapse_spec(box: _Box) -> dict[str, object]:
     solved = box.solved
+    minimum, maximum = _used_block_limits(box)
     return {
         "id": box.id,
         "margin_top": _px(solved.get("margin_top"), "margin-top"),
@@ -1437,7 +1490,8 @@ def _collapse_spec(box: _Box) -> dict[str, object]:
         "border_top": _px(solved.get("border_top"), "border-top"),
         "border_bottom": _px(solved.get("border_bottom"), "border-bottom"),
         "height": "auto" if box.definite_height is None else box.definite_height,
-        "min_height": 0,
+        "min_height": minimum,
+        "max_height": _max_limit_token(maximum),
         "overflow": "hidden" if box.root else box.overflow,
         "float": "none",
         "position": "relative" if box.position == "relative" else "static",
@@ -1460,10 +1514,7 @@ def _assign_y(
         box.y = origin + _px(placed.get("y"), "y")
         box.flow_y = box.y
         box.border_height = _px(placed.get("border_height"), "border height")
-        if box.definite_height is None:
-            box.content_height = box.border_height - _edge_extent(box.solved, "top", "bottom")
-        else:
-            box.content_height = box.definite_height
+        box.content_height = box.border_height - _edge_extent(box.solved, "top", "bottom")
     else:
         if border_at is None:
             raise _Invalid("placed box is missing")

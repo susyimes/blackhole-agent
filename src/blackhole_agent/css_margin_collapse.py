@@ -16,7 +16,10 @@ Float and absolute children are out of flow and are rejected. Clearance is
 supplied by the caller. It stops a top margin from collapsing with the
 parent or the previous sibling. A collapsed-through clearance box still
 collapses with following siblings, and that result stays inside the parent.
-Horizontal margins are untouched.
+Horizontal margins are untouched. After the content span is known,
+``max_height`` clamps it and ``min_height`` raises it, so the minimum wins
+when both apply. An absent maximum does not clamp. A maximum alone does not
+stop a zero minimum from collapsing through.
 """
 
 from __future__ import annotations
@@ -35,6 +38,7 @@ _FIELDS = frozenset(
         "border_bottom",
         "height",
         "min_height",
+        "max_height",
         "overflow",
         "float",
         "position",
@@ -66,6 +70,7 @@ class _Spec:
     border_bottom: int
     height: int | None
     min_height: int
+    max_height: int | None
     overflow: str
     float: str
     position: str
@@ -137,6 +142,7 @@ def _spec(box: object, *, nested: bool, seen: set[str]) -> _Spec:
         border_bottom=_gap(box.get("border_bottom", 0), "border"),
         height=_height(box.get("height", _AUTO)),
         min_height=_gap(box.get("min_height", 0), "min-height"),
+        max_height=_max_height(box.get("max_height", "none")),
         overflow=_choice(box.get("overflow", "visible"), _OVERFLOWS, "overflow"),
         float=_choice(box.get("float", "none"), _FLOATS, "float"),
         position=_choice(box.get("position", "static"), _POSITIONS, "position"),
@@ -247,6 +253,8 @@ def _box(
 ) -> _Node:
     content_y = spec.border_top + spec.padding_top
     span = spec.height if spec.height is not None else max(0, flow_end - content_y)
+    if spec.max_height is not None and span > spec.max_height:
+        span = spec.max_height
     if spec.min_height > span:
         span = spec.min_height
     return _Node(
@@ -452,6 +460,15 @@ def _gap(value: object, name: str) -> int:
     number = _number(value, name)
     if number < 0:
         raise _Invalid(name)
+    return number
+
+
+def _max_height(value: object) -> int | None:
+    if value is None or value == "none":
+        return None
+    number = _number(value, "max-height")
+    if number < 0:
+        raise _Invalid("max-height")
     return number
 
 

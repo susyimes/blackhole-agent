@@ -12,7 +12,11 @@ inline margin splits the top and bottom edges. An over-constrained line
 recomputes the inline-end margin. A definite ``max-inline-size`` restarts
 the same equation. Block-axis automatic margins used-value to zero, as an
 automatic vertical margin does for a normal block. An automatic block size
-stays automatic because it depends on content.
+stays automatic because it depends on content. ``content_min_height`` and
+``content_max_height`` are still resolved for a horizontal physical height,
+so a caller can clamp after that content is measured. A percentage with an
+indefinite containing height becomes zero for the minimum and stays absent
+for the maximum.
 
 Percentage margins and padding use ``percentage_basis`` (the containing
 block's physical width). Inline-size percentages use ``containing_inline``.
@@ -458,19 +462,31 @@ def _solve(
         block_start: block_margins[block_start],
         block_end: block_margins[block_end],
     }
-    block_content = _block_content(
-        slots,
-        block_axis,
-        box_sizing,
-        padding[block_start] + padding[block_end] + borders[block_start] + borders[block_end],
-        containing_block,
-    )
+    block_chrome = padding[block_start] + padding[block_end] + borders[block_start] + borders[block_end]
+    block_content = _block_content(slots, block_axis, box_sizing, block_chrome, containing_block)
     inline_content = equation["content"]
     content_width = inline_content if horizontal else block_content
     content_height = block_content if horizontal else inline_content
+    if horizontal:
+        height_chrome = padding["top"] + padding["bottom"] + borders["top"] + borders["bottom"]
+        content_min = _content_box_limit(
+            _optional_axis(slots.get("min-height", "auto"), containing_block, indefinite_percentage=0.0),
+            box_sizing,
+            height_chrome,
+        )
+        content_max = _content_box_limit(
+            _optional_axis(slots.get("max-height", "none"), containing_block, indefinite_percentage=None),
+            box_sizing,
+            height_chrome,
+        )
+    else:
+        content_min = None
+        content_max = None
     payload: dict[str, object] = {
         "content_width": content_width,
         "content_height": content_height,
+        "content_min_height": None if content_min is None else _number(content_min),
+        "content_max_height": None if content_max is None else _number(content_max),
         "inline_content": inline_content,
         "inline_margin_start": equation["margin_left"],
         "inline_margin_end": equation["margin_right"],
@@ -532,6 +548,29 @@ def _block_content(
     if box_sizing == "border-box":
         size = max(0.0, size - chrome)
     return _number(size)
+
+
+def _optional_axis(raw: str, containing: float | None, *, indefinite_percentage: float | None) -> float | None:
+    """Resolve one min or max length. An indefinite percentage uses the sentinel."""
+
+    if _needs_basis(raw) and containing is None:
+        token = raw.strip().lower()
+        if token in {"auto", "none"}:
+            return None
+        return indefinite_percentage
+    token = raw.strip().lower()
+    if token in {"auto", "none"}:
+        return None
+    basis = 0.0 if containing is None else float(containing)
+    return _length(raw, basis, negative=False, percent=containing is not None, name="size")
+
+
+def _content_box_limit(size: float | None, box_sizing: str, chrome: float) -> float | None:
+    if size is None:
+        return None
+    if box_sizing == "border-box":
+        return max(0.0, size - chrome)
+    return size
 
 
 def _axis_length(raw: str, containing_block: float | None, *, allow_auto: bool, allow_none: bool) -> float | None:
