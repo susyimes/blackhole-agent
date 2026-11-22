@@ -308,6 +308,7 @@ from blackhole_agent.css_grid_areas import place_named_grid
 from blackhole_agent.css_grid_content import size_content_grid_tracks
 from blackhole_agent.css_grid_placement import place_grid_items
 from blackhole_agent.css_grid_tracks import size_grid_tracks
+from blackhole_agent.css_hit_test import element_from_point
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
 from blackhole_agent.css_line_break import _default_advance, wrap_lines
@@ -591,6 +592,10 @@ class _Box:
     tree: object = None
     aspect_ratio: tuple[float, float, bool] | None = None
     vertical_align: str | float = "baseline"
+    stack_z: str | None = None
+    stack_opacity: str | None = None
+    stack_pointer: str | None = None
+    stack_visibility: str | None = None
 
 
 def layout_normal_flow(
@@ -616,89 +621,308 @@ def layout_normal_flow(
     in the returned boxes.
     """
 
-    if not isinstance(markup, str) or not isinstance(stylesheet, str):
-        return _invalid("markup is invalid")
-    if type(viewport_width) is not int or viewport_width < 0:
-        return _invalid("viewport width is invalid")
-    if viewport_height is not None and (type(viewport_height) is not int or viewport_height < 0):
-        return _invalid("viewport height is invalid")
-    if type(scroll_x) is not int:
-        return _invalid("scroll x is invalid")
-    if type(scroll_y) is not int:
-        return _invalid("scroll y is invalid")
     try:
-        tree, order = _document(markup)
-        if not order:
-            raise _Invalid("document is empty")
-        container_rules: list[tuple[str, object]] = []
-        declarations, registrations = _stylesheet(stylesheet, container_rules=container_rules)
-        styles: dict[object, tuple[dict, str]] = {}
-        for element in order:
-            parent = tree.parent.get(element)
-            parent_custom, parent_color = styles.get(parent, ({}, ""))
-            styles[element] = _computed_style(
-                tree,
-                element,
-                declarations,
-                parent_custom,
-                parent_color,
-                registrations,
-            )
-        ids: set[str] = set()
-        counter = [0]
-        root = _make_box(
-            tree,
-            order[0],
-            _INHERITED.copy(),
-            _FONT.copy(),
-            None,
-            styles,
-            declarations,
-            ids,
-            counter,
-            root=True,
-            container_rules=container_rules,
+        root = _placed_root(
+            markup,
+            stylesheet,
+            viewport_width=viewport_width,
+            viewport_height=viewport_height,
+            scroll_x=scroll_x,
+            scroll_y=scroll_y,
         )
-        if root.display == "none":
-            raise _Invalid("root is not displayed")
-        if root.display in _TABLE_OUTSIDE:
-            raise _Invalid("table box is outside the table")
-        if root.position in {"absolute", "fixed"} or root.float_side != "none":
-            raise _Invalid("root is outside normal flow")
-        if root.position == "sticky":
-            raise _Invalid("sticky root is unsupported")
-        root.children, root.floats, root.flow, root.positioned = _walk(
-            tree,
-            order[0],
-            _modes(root),
-            _fonts(root),
-            root.direction,
-            styles,
-            declarations,
-            ids,
-            counter,
-            root,
-            container_rules,
-        )
-        _set_inline(root, tree, order[0], styles, declarations, ids, counter)
-        _solve(root, viewport_width, viewport_height, viewport_height, 0)
-        placed = place_collapsed_margins(_collapse_spec(root))
-        if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
-            raise _Invalid(str(placed.get("reason") or "margin collapse failed"))
-        by_id = {str(item["id"]): item for item in placed["boxes"] if isinstance(item, dict)}
-        margin_top = _px(root.solved.get("margin_top"), "margin-top")
-        _assign_y(root, by_id, margin_top)
-        _shift_relatives(root, viewport_width, viewport_height)
-        _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
-        _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height), [])
-        boxes = [_record(box) for box in _each(root)]
     except (CssSelectorError, _Invalid) as exc:
         return _invalid(str(exc))
-    return {"outcome": "placed", "reason": None, "boxes": boxes}
+    return {"outcome": "placed", "reason": None, "boxes": [_record(box) for box in _each(root)]}
+
+
+def element_from_document(
+    markup: str,
+    stylesheet: str,
+    x: object,
+    y: object,
+    *,
+    viewport_width: int,
+    viewport_height: int | None = None,
+    scroll_x: int = 0,
+    scroll_y: int = 0,
+) -> dict[str, object]:
+    """Return the frontmost element whose border box contains ``(x, y)``.
+
+    The document is laid out by ``layout_normal_flow``. Paint order is CSS 2.2
+    Appendix E, so a float is in front of an overlapping in-flow block, a
+    positive z-index is in front of a later auto-positioned sibling, and a
+    negative z-index that escapes its parent is behind that parent.
+    ``pointer-events: none`` and ``visibility: hidden`` are not targets.
+    ``outcome`` is ``hit``, ``miss``, or ``invalid``.
+    """
+
+    try:
+        _finite_point(x, "x")
+        _finite_point(y, "y")
+        root = _placed_root(
+            markup,
+            stylesheet,
+            viewport_width=viewport_width,
+            viewport_height=viewport_height,
+            scroll_x=scroll_x,
+            scroll_y=scroll_y,
+        )
+        tree = _document_hit_tree(root)
+    except (CssSelectorError, _Invalid) as exc:
+        return {"outcome": "invalid", "id": None, "reason": str(exc)}
+    found = element_from_point(tree, x, y)
+    if not isinstance(found, dict):
+        return {"outcome": "invalid", "id": None, "reason": "hit failed"}
+    if "reason" not in found:
+        return {**found, "reason": None}
+    return found
+
+
+def _placed_root(
+    markup: str,
+    stylesheet: str,
+    *,
+    viewport_width: int,
+    viewport_height: int | None,
+    scroll_x: int,
+    scroll_y: int,
+) -> _Box:
+    if not isinstance(markup, str) or not isinstance(stylesheet, str):
+        raise _Invalid("markup is invalid")
+    if type(viewport_width) is not int or viewport_width < 0:
+        raise _Invalid("viewport width is invalid")
+    if viewport_height is not None and (type(viewport_height) is not int or viewport_height < 0):
+        raise _Invalid("viewport height is invalid")
+    if type(scroll_x) is not int:
+        raise _Invalid("scroll x is invalid")
+    if type(scroll_y) is not int:
+        raise _Invalid("scroll y is invalid")
+    tree, order = _document(markup)
+    if not order:
+        raise _Invalid("document is empty")
+    container_rules: list[tuple[str, object]] = []
+    declarations, registrations = _stylesheet(stylesheet, container_rules=container_rules)
+    styles: dict[object, tuple[dict, str]] = {}
+    for element in order:
+        parent = tree.parent.get(element)
+        parent_custom, parent_color = styles.get(parent, ({}, ""))
+        styles[element] = _computed_style(
+            tree,
+            element,
+            declarations,
+            parent_custom,
+            parent_color,
+            registrations,
+        )
+    ids: set[str] = set()
+    counter = [0]
+    root = _make_box(
+        tree,
+        order[0],
+        _INHERITED.copy(),
+        _FONT.copy(),
+        None,
+        styles,
+        declarations,
+        ids,
+        counter,
+        root=True,
+        container_rules=container_rules,
+    )
+    if root.display == "none":
+        raise _Invalid("root is not displayed")
+    if root.display in _TABLE_OUTSIDE:
+        raise _Invalid("table box is outside the table")
+    if root.position in {"absolute", "fixed"} or root.float_side != "none":
+        raise _Invalid("root is outside normal flow")
+    if root.position == "sticky":
+        raise _Invalid("sticky root is unsupported")
+    root.children, root.floats, root.flow, root.positioned = _walk(
+        tree,
+        order[0],
+        _modes(root),
+        _fonts(root),
+        root.direction,
+        styles,
+        declarations,
+        ids,
+        counter,
+        root,
+        container_rules,
+    )
+    _set_inline(root, tree, order[0], styles, declarations, ids, counter)
+    _solve(root, viewport_width, viewport_height, viewport_height, 0)
+    placed = place_collapsed_margins(_collapse_spec(root))
+    if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
+        raise _Invalid(str(placed.get("reason") or "margin collapse failed"))
+    by_id = {str(item["id"]): item for item in placed["boxes"] if isinstance(item, dict)}
+    margin_top = _px(root.solved.get("margin_top"), "margin-top")
+    _assign_y(root, by_id, margin_top)
+    _shift_relatives(root, viewport_width, viewport_height)
+    _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
+    _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height), [])
+    return root
 
 
 def _invalid(reason: str) -> dict[str, object]:
     return {"outcome": "invalid", "reason": reason, "boxes": None}
+
+
+_HIT_DISPLAYS = frozenset({"block", "inline", "inline-block"})
+
+
+def _finite_point(value: object, name: str) -> None:
+    if isinstance(value, bool) or type(value) not in (int, float):
+        raise _Invalid(f"{name} is invalid")
+    if value != value or value in (float("inf"), float("-inf")):
+        raise _Invalid(f"{name} is invalid")
+
+
+def _stack_text(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    token = " ".join(raw.split()).lower()
+    return token or None
+
+
+def _used_z(raw: str | None, inherited: int | None) -> int | None:
+    token = _stack_text(raw)
+    if token is None or token in {"initial", "unset", "revert", "auto"}:
+        return None
+    if token == "inherit":
+        return inherited
+    sign = 1
+    digits = token
+    if digits[0] in "+-":
+        sign = -1 if digits[0] == "-" else 1
+        digits = digits[1:]
+    if not digits or not digits.isdigit():
+        raise _Invalid("z-index is invalid")
+    return sign * int(digits)
+
+
+def _used_opacity(raw: str | None, inherited: float) -> float:
+    token = _stack_text(raw)
+    if token is None or token in {"initial", "unset", "revert"}:
+        return 1.0
+    if token == "inherit":
+        return inherited
+    percent = token.endswith("%")
+    body = token[:-1] if percent else token
+    try:
+        number = float(body)
+    except ValueError as exc:
+        raise _Invalid("opacity is invalid") from exc
+    if number != number or number in (float("inf"), float("-inf")):
+        raise _Invalid("opacity is invalid")
+    if percent:
+        number /= 100.0
+    if number < 0.0 or number > 1.0:
+        raise _Invalid("opacity is invalid")
+    return number
+
+
+def _used_keyword(
+    raw: str | None,
+    inherited: str,
+    allowed: frozenset[str],
+    initial: str,
+    name: str,
+) -> str:
+    token = _stack_text(raw)
+    if token is None or token in {"unset", "revert"}:
+        return inherited
+    if token == "initial":
+        return initial
+    if token == "inherit":
+        return inherited
+    if token not in allowed:
+        raise _Invalid(f"{name} is invalid")
+    return token
+
+
+def _document_hit_tree(root: _Box) -> dict[str, object]:
+    boxes: list[_Box] = []
+    seen: set[int] = set()
+    stack = [root]
+    while stack:
+        box = stack.pop()
+        marker = id(box)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        boxes.append(box)
+        stack.extend(box.positioned)
+        stack.extend(box.floats)
+        stack.extend(box.children)
+        stack.extend(box.atoms)
+    by_parent: dict[int, list[_Box]] = {}
+    for box in boxes:
+        if box is root or box.anonymous:
+            continue
+        parent = box.parent_box
+        while parent is not None and parent.anonymous:
+            parent = parent.parent_box
+        if parent is None:
+            continue
+        by_parent.setdefault(id(parent), []).append(box)
+    return _hit_node(root, by_parent, "auto", "visible", None, 1.0)
+
+
+def _hit_node(
+    box: _Box,
+    by_parent: dict[int, list[_Box]],
+    pointer: str,
+    visibility: str,
+    inherited_z: int | None,
+    inherited_opacity: float,
+) -> dict[str, object]:
+    if box.display not in _HIT_DISPLAYS:
+        raise _Invalid("display is unsupported")
+    if box.position not in _POSITIONS:
+        raise _Invalid("position is invalid")
+    if box.float_side not in _FLOATS:
+        raise _Invalid("float is invalid")
+    used_pointer = _used_keyword(
+        box.stack_pointer, pointer, frozenset({"auto", "none"}), "auto", "pointer-events"
+    )
+    used_visibility = _used_keyword(
+        box.stack_visibility, visibility, frozenset({"visible", "hidden"}), "visible", "visibility"
+    )
+    used_z = _used_z(box.stack_z, inherited_z)
+    used_opacity = _used_opacity(box.stack_opacity, inherited_opacity)
+    children = sorted(by_parent.get(id(box), ()), key=lambda child: _hit_sibling_key(box, child))
+    return {
+        "id": box.id,
+        "position": box.position,
+        "z_index": "auto" if used_z is None else used_z,
+        "opacity": used_opacity,
+        "float": box.float_side,
+        "display": box.display,
+        "x": box.x,
+        "y": box.y,
+        "width": box.border_width,
+        "height": box.border_height,
+        "pointer_events": used_pointer,
+        "visibility": used_visibility,
+        "children": [
+            _hit_node(child, by_parent, used_pointer, used_visibility, used_z, used_opacity)
+            for child in children
+        ],
+    }
+
+
+def _hit_sibling_key(parent: _Box, child: _Box) -> tuple[int, str]:
+    tree = parent.tree
+    element = parent.element
+    child_element = child.element
+    if tree is None or element is None or child_element is None:
+        return (10**9, child.id)
+    try:
+        index = list(tree.children.get(element, [])).index(child_element)
+    except ValueError:
+        index = 10**9
+    return (index, child.id)
 
 
 def _modes(box: _Box) -> dict[str, str]:
@@ -990,6 +1214,10 @@ def _make_box(
         element=element,
         tree=tree,
         aspect_ratio=_read_aspect_ratio(winners, custom),
+        stack_z=_declared(winners, "z-index", custom),
+        stack_opacity=_declared(winners, "opacity", custom),
+        stack_pointer=_declared(winners, "pointer-events", custom),
+        stack_visibility=_declared(winners, "visibility", custom),
     )
 
 
