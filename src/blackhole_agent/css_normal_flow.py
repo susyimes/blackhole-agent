@@ -17,10 +17,13 @@ put them. An absolute box is placed on the padding edge of the nearest
 positioned ancestor, or on the viewport when no ancestor is positioned. A
 fixed box is placed on the viewport. Neither changes the height of the flow.
 Horizontal text inside that box supplies shrink-to-fit width and the stacked
-line-box height. Automatic insets on an axis use the static position between
-block siblings. Element children are rejected, a static position inside a
-line is rejected, and a vertical writing mode still rejects those automatic
-sizes. A float inside
+line-box height. A static block child is laid out in that content box: its
+text wraps to the definite width, adjoining child margins collapse inside
+the absolute formatting context, and an automatic height grows to the last
+child's margin edge. Shrink-to-fit width, a float, and a nested positioned
+box stay rejected. Automatic insets on an axis use the static position between
+block siblings. A static position inside a line is rejected, and a vertical
+writing mode still rejects those automatic sizes. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. ``shape-outside`` replaces that rectangle with the shape clipped to
@@ -576,9 +579,23 @@ def _walk(
         if box.display == "none":
             continue
         if box.position in {"absolute", "fixed"}:
-            if tree.children.get(child):
-                raise _Invalid("positioned content is unsupported")
-            box.inline_text = child.text or ""
+            nested = _walk(
+                tree, child, _modes(box), _fonts(box), box.direction, styles, declarations,
+                ids, counter, box, container_rules,
+            )
+            box.children, box.floats, box.flow, box.positioned = nested
+            _set_inline(box, tree, child, styles, declarations)
+            if box.children or box.floats or box.positioned or box.atoms:
+                if (
+                    box.display != "block"
+                    or box.floats
+                    or box.positioned
+                    or box.atoms
+                    or box.inline_text
+                ):
+                    raise _Invalid("positioned content is unsupported")
+                for nested_box in box.children:
+                    _reject_abs_block(nested_box)
             box.static_index = len(found)
             positioned.append(box)
             continue
@@ -1651,6 +1668,56 @@ def _hypothetical_edges(parent: _Box, index: int) -> tuple[int, int, int]:
     return content_left, parent.y + _edge_extent(parent.solved, "top"), content_right
 
 
+def _reject_abs_block(box: _Box) -> None:
+    """Keep an absolute formatting context to static horizontal blocks."""
+
+    if box.display != "block" or box.position != "static" or box.float_side != "none":
+        raise _Invalid("positioned content is unsupported")
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("positioned content is unsupported")
+    if box.floats or box.positioned or box.atoms or box.multicol is not None:
+        raise _Invalid("positioned content is unsupported")
+    if box.flex is not None or box.grid is not None or box.table is not None:
+        raise _Invalid("positioned content is unsupported")
+    if box.children and box.inline_text:
+        raise _Invalid("positioned content is unsupported")
+    for child in box.children:
+        _reject_abs_block(child)
+
+
+def _shift_x(box: _Box, delta: int) -> None:
+    if delta == 0:
+        return
+    box.x += delta
+    for child in box.children:
+        _shift_x(child, delta)
+
+
+def _paint_anchored(box: _Box, border_at: int) -> None:
+    if box.anchor_y is None:
+        raise _Invalid("placed box is missing")
+    box.y = border_at + box.anchor_y
+    box.flow_y = box.y
+    box.border_width = box.content_width + _edge_extent(box.solved, "left", "right")
+    if box.content_height < 0:
+        raise _Invalid("content height is invalid")
+    _position_lines(box)
+    for child in box.children:
+        _paint_anchored(child, box.y)
+
+
+def _adopt_absolute(box: _Box, cb: _Edge, placed: dict[str, object]) -> None:
+    box.x = cb.x + _px(placed.get("x"), "x")
+    box.y = cb.y + _px(placed.get("y"), "y")
+    box.content_width = _px(placed.get("width"), "content width")
+    box.content_height = _px(placed.get("height"), "content height")
+    box.border_width = _px(placed.get("border_box_width"), "border width")
+    box.border_height = _px(placed.get("border_box_height"), "border height")
+    box.margin_left = _px(placed.get("margin_left"), "margin-left")
+    box.margin_right = _px(placed.get("margin_right"), "margin-right")
+    box.solved = placed
+
+
 def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
     slots = _physical_slots(box)
     left, right = _inset(slots, "left"), _inset(slots, "right")
@@ -1716,23 +1783,38 @@ def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
             content_height=content_height,
         )
 
+    if box.children and box.writing_mode != "horizontal-tb":
+        raise _Invalid("positioned content is unsupported")
+    if box.children and needs_shrink:
+        raise _Invalid("absolute shrink-to-fit is unsupported")
     placed = solve(0)
-    if placed.get("outcome") == "placed" and box.inline_text:
+    if placed.get("outcome") == "placed" and box.inline_text and not box.children:
         width = _px(placed.get("width"), "content width")
         measured = sum(line.height for line in _plain_lines(box, width, direction))
         if measured != 0:
             placed = solve(measured)
     if placed.get("outcome") != "placed":
         raise _Invalid(str(placed.get("reason") or "absolute position failed"))
-    box.x = cb.x + _px(placed.get("x"), "x")
-    box.y = cb.y + _px(placed.get("y"), "y")
-    box.content_width = _px(placed.get("width"), "content width")
-    box.content_height = _px(placed.get("height"), "content height")
-    box.border_width = _px(placed.get("border_box_width"), "border width")
-    box.border_height = _px(placed.get("border_box_height"), "border height")
-    box.margin_left = _px(placed.get("margin_left"), "margin-left")
-    box.margin_right = _px(placed.get("margin_right"), "margin-right")
-    box.solved = placed
+    _adopt_absolute(box, cb, placed)
+    if box.children:
+        measured = _lay_grid_item_blocks(box, None, reason="positioned content is unsupported")
+        revised = solve(measured)
+        if revised.get("outcome") != "placed":
+            raise _Invalid(str(revised.get("reason") or "absolute position failed"))
+        revised_x = cb.x + _px(revised.get("x"), "x")
+        revised_width = _px(revised.get("width"), "content width")
+        previous_x = box.x
+        previous_width = box.content_width
+        _adopt_absolute(box, cb, revised)
+        if revised_width != previous_width:
+            _lay_grid_item_blocks(box, None, reason="positioned content is unsupported")
+        elif revised_x != previous_x:
+            for child in box.children:
+                _shift_x(child, revised_x - previous_x)
+        box.lines = []
+        for child in box.children:
+            _paint_anchored(child, box.y)
+        return
     box.lines = _plain_lines(
         box,
         box.content_width,
@@ -4892,7 +4974,12 @@ def _reject_grid_item_block(box: _Box) -> None:
         _reject_grid_item_block(child)
 
 
-def _lay_grid_item_blocks(item: _Box, viewport_height: int | None) -> int:
+def _lay_grid_item_blocks(
+    item: _Box,
+    viewport_height: int | None,
+    *,
+    reason: str = "grid item content is unsupported",
+) -> int:
     """Place block children inside the item and return the content height they use.
 
     The item is an independent formatting context: child margins do not escape,
@@ -4924,20 +5011,25 @@ def _lay_grid_item_blocks(item: _Box, viewport_height: int | None) -> int:
     )
     boxes = placed.get("boxes")
     if placed.get("outcome") != "placed" or not isinstance(boxes, list):
-        raise _Invalid(str(placed.get("reason") or "grid item content is unsupported"))
+        raise _Invalid(str(placed.get("reason") or reason))
     by_id = {str(entry.get("id")): entry for entry in boxes if isinstance(entry, dict)}
     parent = by_id.get(item.id)
     if parent is None:
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     for child in item.children:
-        _stamp_grid_child(child, by_id, -inset_y)
+        _stamp_grid_child(child, by_id, -inset_y, reason)
     return _px(parent.get("border_height"), "grid item")
 
 
-def _stamp_grid_child(box: _Box, by_id: dict[str, dict[str, object]], parent_y: int) -> None:
+def _stamp_grid_child(
+    box: _Box,
+    by_id: dict[str, dict[str, object]],
+    parent_y: int,
+    reason: str = "grid item content is unsupported",
+) -> None:
     record = by_id.get(box.id)
     if record is None:
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     border_y = _px(record.get("y"), "y")
     box.anchor_y = border_y - parent_y
     box.border_height = _px(record.get("border_height"), "border height")
@@ -4945,7 +5037,7 @@ def _stamp_grid_child(box: _Box, by_id: dict[str, dict[str, object]], parent_y: 
     if box.content_height < 0:
         raise _Invalid("content height is invalid")
     for child in box.children:
-        _stamp_grid_child(child, by_id, border_y)
+        _stamp_grid_child(child, by_id, border_y, reason)
 
 
 def _measure_grid_items(
