@@ -273,6 +273,14 @@ margins then center that used width. An inline replaced element is an atomic
 line item whose bottom margin edge rests on the strut baseline. ``object-fit``
 places the concrete object inside the content box. A child, a non-horizontal
 writing mode, ``border-box``, and a CSS ``aspect-ratio`` stay rejected.
+An ``li`` and any other ``display: list-item`` principal box lays out as a
+block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
+reset that counter. The initial marker is a disc; an ``ol`` uses decimal
+unless the author sets another type. ``list-style-position: outside`` ends
+the marker on the content start and does not move the principal line.
+``inside`` places the marker on the first line and wraps the remaining text
+at the full content width. ``none`` paints nothing. A float, a non-horizontal
+writing mode, and an inside marker beside a block child stay rejected.
 Writing mode, direction and text orientation inherit. Other CSS-wide keywords
 on box properties use their initial values.
 A text-only orthogonal block wraps down its used content height and stacks
@@ -299,6 +307,7 @@ from dataclasses import dataclass, field
 from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
+from blackhole_agent.css_counters import format_counter, resolve_counters
 from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
@@ -444,6 +453,27 @@ _DISPLAYS = frozenset(
         "contents",
     }
 )
+_FLOW_DISPLAYS = _DISPLAYS | {"list-item"}
+_LIST_TYPES = frozenset(
+    {
+        "none",
+        "disc",
+        "circle",
+        "square",
+        "decimal",
+        "lower-alpha",
+        "upper-alpha",
+        "lower-latin",
+        "upper-latin",
+        "lower-roman",
+        "upper-roman",
+    }
+)
+_LIST_POSITIONS = frozenset({"inside", "outside"})
+_MARKER_SYMBOLS = {"disc": "\u2022", "circle": "\u25e6", "square": "\u25aa"}
+_MARKER_SENTINEL = "\ufffc"
+_MARKER_BREAK = "\u200b"
+_LIST_RESET_TAGS = frozenset({"ol", "ul"})
 _TABLE_OUTSIDE = frozenset({"table-row", "table-cell", "table-caption"})
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
@@ -462,6 +492,8 @@ _FONT = {
     "text-align-last": "auto",
     "text-justify": "auto",
     "white-space": "normal",
+    "list-style-type": "disc",
+    "list-style-position": "outside",
 }
 _ALIGNS = frozenset(
     {"start", "end", "left", "right", "center", "justify", "justify-all", "match-parent"}
@@ -615,6 +647,15 @@ class _Box:
     object_fit: str = "fill"
     object_position: str = "50% 50%"
     object_box: dict[str, int] | None = None
+    list_item: bool = False
+    list_style_type: str = "disc"
+    list_style_position: str = "outside"
+    counter_reset: str = ""
+    counter_increment: str = ""
+    counter_children: list[_Box] = field(default_factory=list)
+    marker_text: str | None = None
+    marker_width: int = 0
+    marker: dict[str, object] | None = None
 
 
 def layout_normal_flow(
@@ -770,6 +811,7 @@ def _placed_root(
         container_rules,
     )
     _set_inline(root, tree, order[0], styles, declarations, ids, counter)
+    _bind_list_markers(root)
     _solve(root, viewport_width, viewport_height, viewport_height, 0)
     placed = place_collapsed_margins(_collapse_spec(root))
     if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
@@ -1014,6 +1056,7 @@ def _walk(
             flow.extend(child_flow)
             positioned.extend(child_positioned)
             continue
+        host.counter_children.append(box)
         if box.position in {"absolute", "fixed"}:
             nested = _walk(
                 tree, child, _modes(box), _fonts(box), box.direction, styles, declarations,
@@ -1147,14 +1190,21 @@ def _make_box(
     mode = _inherited("writing-mode", winners, custom, inherited)
     direction = _inherited("direction", winners, custom, inherited)
     orientation = _inherited("text-orientation", winners, custom, inherited)
+    tag = _local_name(element)
+    if _declared(winners, "list-style", custom) is not None:
+        raise _Invalid("list-style shorthand is unsupported")
     display = _keyword(
         _declared(winners, "display", custom),
-        _DISPLAYS,
-        "block" if _local_name(element) in _BLOCK_TAGS else "inline",
+        _FLOW_DISPLAYS,
+        "list-item" if tag == "li" else ("block" if tag in _BLOCK_TAGS else "inline"),
         "display",
     )
+    list_item = display == "list-item"
+    if list_item:
+        display = "block"
     if root and display == "contents":
         display = "block"
+        list_item = False
     position = _keyword(_declared(winners, "position", custom), _POSITIONS, "static", "position")
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
     clear = _keyword(_declared(winners, "clear", custom), _CLEARS, "none", "clear")
@@ -1254,6 +1304,17 @@ def _make_box(
         intrinsic_height=intrinsic_height,
         object_fit=object_fit,
         object_position=object_position,
+        list_item=list_item,
+        list_style_type=_list_style_type(winners, custom, fonts, tag),
+        list_style_position=_inherited_keyword(
+            _declared(winners, "list-style-position", custom),
+            _LIST_POSITIONS,
+            fonts["list-style-position"],
+            "outside",
+            "list-style-position",
+        ),
+        counter_reset=_counter_declaration(winners, custom, "counter-reset", tag),
+        counter_increment=_counter_declaration(winners, custom, "counter-increment", ""),
     )
 
 
@@ -1851,6 +1912,16 @@ def _solve(
         _place_floats(box, content_x)
     if not box.children and (box.inline_text or box.floats or box.atoms):
         _fill_lines(box)
+    elif (
+        box.list_item
+        and box.marker_text
+        and not box.children
+        and not box.inline_text
+        and not box.floats
+        and not box.atoms
+        and box.definite_height is None
+    ):
+        box.definite_height = _used_line_height(box.line_height, box.font_size)
     # Only a definite containing block, scrollport or the viewport constrains
     # an orthogonal descendant. Ordinary fixed-height ancestors do not.
     if box.overflow in {"hidden", "scroll", "auto"}:
@@ -1859,6 +1930,7 @@ def _solve(
         _solve(child, box.content_width, box.definite_height, viewport_height, content_x, scrollport_height)
     if box.floats and box.children:
         _lay_sibling_floats(box, content_x)
+    _attach_list_marker(box)
 
 
 def _block_properties(horizontal: bool) -> set[str]:
@@ -2025,6 +2097,9 @@ def _position_lines(box: _Box) -> tuple[int, int]:
     for line in box.lines:
         line.x += x
         line.y += y
+    if box.marker is not None:
+        box.marker["x"] = int(box.marker["x"]) + x
+        box.marker["y"] = int(box.marker["y"]) + y
     return x, y
 
 
@@ -2056,6 +2131,13 @@ def _record(box: _Box) -> dict[str, object]:
     }
     if box.object_box is not None:
         item["object"] = box.object_box
+    if box.marker is not None:
+        item["marker"] = {
+            "text": box.marker["text"],
+            "x": box.marker["x"],
+            "y": box.marker["y"],
+            "width": box.marker["width"],
+        }
     used = (box.table or {}).get("used_edges")
     if isinstance(used, dict):
         item["collapsed_borders"] = used
@@ -2112,6 +2194,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "text-align-last": box.text_align_last,
         "text-justify": box.text_justify,
         "white-space": box.white_space,
+        "list-style-type": box.list_style_type,
+        "list-style-position": box.list_style_position,
     }
 
 
@@ -2455,10 +2539,12 @@ def _flow_kind(tree, element, styles, declarations) -> str:
     winners = _winners(tree, element, declarations)
     display = _keyword(
         _declared(winners, "display", custom),
-        _DISPLAYS,
+        _FLOW_DISPLAYS,
         "block" if _local_name(element) in _BLOCK_TAGS else "inline",
         "display",
     )
+    if display == "list-item":
+        display = "block"
     position = _keyword(_declared(winners, "position", custom), _POSITIONS, "static", "position")
     float_side = _keyword(_declared(winners, "float", custom), _FLOATS, "none", "float")
     if display == "none":
@@ -2859,6 +2945,9 @@ def _translate(box: _Box, dx: int, dy: int) -> None:
     for line in box.lines:
         line.x += dx
         line.y += dy
+    if box.marker is not None:
+        box.marker["x"] = int(box.marker["x"]) + dx
+        box.marker["y"] = int(box.marker["y"]) + dy
     for fl in box.floats:
         if fl.float_placed:
             _translate(fl, dx, dy)
@@ -4665,7 +4754,8 @@ def _fill_lines(box: _Box) -> None:
         return
     box.lines = _plain_lines(box, box.content_width, box.direction, place_glyphs=True)
     if box.lines and box.definite_height is None:
-        box.definite_height = sum(line.height for line in box.lines)
+        tail = box.lines[-1]
+        box.definite_height = tail.y + tail.height
 
 
 def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, object]]:
@@ -4823,6 +4913,202 @@ def _relative_runs(
     return runs
 
 
+def _list_style_type(winners, custom: dict, fonts: dict[str, str], tag: str) -> str:
+    raw = _declared(winners, "list-style-type", custom)
+    if raw is None and tag == "ol":
+        return "decimal"
+    return _inherited_keyword(raw, _LIST_TYPES, fonts["list-style-type"], "disc", "list-style-type")
+
+
+def _counter_declaration(winners, custom: dict, name: str, tag: str) -> str:
+    raw = _declared(winners, name, custom)
+    if raw == "inherit":
+        raise _Invalid(f"{name} inherit is unsupported")
+    if name == "counter-reset" and raw is None and tag in _LIST_RESET_TAGS:
+        return "list-item"
+    if raw is None or raw in {"initial", "unset", "revert", "none"}:
+        return ""
+    return " ".join(raw.split())
+
+
+def _marker_string(value: int, style: str) -> str:
+    if style == "none":
+        return ""
+    symbol = _MARKER_SYMBOLS.get(style)
+    if symbol is not None:
+        return symbol + " "
+    formatted = format_counter(value, style)
+    if formatted.get("outcome") != "ok":
+        raise _Invalid(str(formatted.get("reason") or "list marker is invalid"))
+    return str(formatted["text"]) + ". "
+
+
+def _text_advance(text: str, font_size: int) -> int:
+    return sum(_advance_of(character, font_size) for character in text)
+
+
+def _counter_payload(box: _Box) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "id": box.id,
+        "display": "list-item" if box.list_item else "block",
+        "children": [_counter_payload(child) for child in box.counter_children],
+    }
+    if box.counter_reset:
+        payload["counter_reset"] = box.counter_reset
+    if box.counter_increment:
+        payload["counter_increment"] = box.counter_increment
+    return payload
+
+
+def _reject_unsupported_marker(box: _Box) -> None:
+    parent = box.parent_box
+    if box.float_side != "none" or box.position not in {"static", "relative"}:
+        raise _Invalid("list marker is unsupported")
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("list marker writing mode is unsupported")
+    if parent is not None and (
+        parent.display in {"flex", "grid", "table", "table-row", "table-cell", "table-caption"}
+        or parent.multicol is not None
+    ):
+        raise _Invalid("list marker is unsupported")
+
+
+def _apply_list_markers(box: _Box, elements: dict[str, object], seen: set[int]) -> None:
+    if id(box) in seen:
+        return
+    seen.add(id(box))
+    if box.list_item:
+        _reject_unsupported_marker(box)
+        element = elements.get(box.id)
+        values = element.get("values") if isinstance(element, dict) else None
+        number = values.get("list-item") if isinstance(values, dict) else None
+        if isinstance(number, bool) or not isinstance(number, int):
+            raise _Invalid("list marker is unsupported")
+        text = _marker_string(number, box.list_style_type)
+        box.marker_text = text
+        box.marker_width = _text_advance(text, box.font_size)
+    for child in box.counter_children:
+        _apply_list_markers(child, elements, seen)
+
+
+def _require_list_markers(box: _Box) -> None:
+    stack = [box]
+    visited: set[int] = set()
+    while stack:
+        current = stack.pop()
+        marker = id(current)
+        if marker in visited:
+            continue
+        visited.add(marker)
+        if current.list_item and current.marker_text is None:
+            raise _Invalid("list marker is unsupported")
+        stack.extend(current.counter_children)
+        stack.extend(current.children)
+        stack.extend(current.floats)
+        stack.extend(current.positioned)
+        stack.extend(current.atoms)
+
+
+def _bind_list_markers(root: _Box) -> None:
+    resolved = resolve_counters(_counter_payload(root))
+    if resolved.get("outcome") != "ok" or not isinstance(resolved.get("elements"), dict):
+        raise _Invalid(str(resolved.get("reason") or "counter is invalid"))
+    elements = resolved["elements"]
+    _apply_list_markers(root, elements, set())
+    _require_list_markers(root)
+
+
+def _attach_list_marker(box: _Box) -> None:
+    if not box.list_item:
+        return
+    if box.marker_text is None:
+        raise _Invalid("list marker is unsupported")
+    if not box.marker_text:
+        return
+    if box.list_style_position == "inside" and (box.children or box.floats or box.atoms):
+        raise _Invalid("inside marker content is unsupported")
+    if box.list_style_position == "inside":
+        x, y = 0, 0
+    else:
+        x = -box.marker_width
+        y = box.lines[0].y if box.lines else 0
+    box.marker = {"text": box.marker_text, "x": x, "y": y, "width": box.marker_width}
+
+
+def _inside_marker_indent(box: _Box) -> int:
+    if not box.list_item or box.list_style_position != "inside" or not box.marker_text:
+        return 0
+    if box.white_space != "normal":
+        raise _Invalid("inside marker white-space is unsupported")
+    if box.text_align not in {"start", "left"}:
+        raise _Invalid("inside marker alignment is unsupported")
+    if box.atoms or box.floats or box.children or _relative_pieces(box) or _mixed_runs(box):
+        raise _Invalid("inside marker content is unsupported")
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("list marker writing mode is unsupported")
+    return box.marker_width
+
+
+def _marked_line_records(
+    box: _Box,
+    lines: list,
+    measure: int,
+    direction: str,
+    height: int,
+    baseline: int,
+    indent: int,
+    place_glyphs: bool,
+) -> list[_Line]:
+    prepared: list[tuple[str, int, bool]] = []
+    for index, line in enumerate(lines):
+        if not isinstance(line, dict):
+            raise _Invalid("line is invalid")
+        rendered = str(line.get("text") or "")
+        content = _px(line.get("content_width"), "line width")
+        if index == 0:
+            if not rendered.startswith(_MARKER_SENTINEL):
+                raise _Invalid("list marker is invalid")
+            rendered = rendered[1:]
+            content -= indent
+            if content < 0:
+                raise _Invalid("list marker is invalid")
+            on_marker = True
+        else:
+            if _MARKER_SENTINEL in rendered:
+                raise _Invalid("list marker is invalid")
+            on_marker = False
+        rendered = rendered.replace(_MARKER_BREAK, "")
+        prepared.append((rendered, content, on_marker))
+    cursor = 0
+    if prepared and prepared[0][2] and not prepared[0][0]:
+        cursor = height
+        prepared = prepared[1:]
+    visible = [item for item in prepared if item[0] or item[1]]
+    records: list[_Line] = []
+    last = len(visible) - 1
+    for index, (rendered, content, on_marker) in enumerate(visible):
+        offset, used, runs = _align_content(box, measure, rendered, content, index == last, direction)
+        if on_marker:
+            offset += indent
+        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if place_glyphs and not runs else []
+        if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
+            glyphs = []
+        records.append(
+            _Line(
+                text=rendered,
+                x=offset,
+                y=cursor,
+                height=height,
+                content_width=used,
+                baseline=baseline,
+                glyphs=glyphs,
+                runs=runs,
+            )
+        )
+        cursor += height
+    return records
+
+
 def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
     text = box.inline_text or ""
     if not text:
@@ -4832,7 +5118,18 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         raise _Invalid("relative inline is unsupported")
     used = _used_line_height(box.line_height, box.font_size)
     height, baseline = _strut_metrics(box.font_size, used)
-    wrapped = wrap_lines(text, measure, white_space=box.white_space, advances=_shrink_advances(box))
+    indent = _inside_marker_indent(box)
+    if indent and (_MARKER_SENTINEL in text or _MARKER_BREAK in text):
+        raise _Invalid("inside marker content is unsupported")
+    if indent:
+        wrapped = wrap_lines(
+            _MARKER_SENTINEL + _MARKER_BREAK + text,
+            measure,
+            white_space=box.white_space,
+            advances=[indent, 0, *[_advance_of(character, box.font_size) for character in text]],
+        )
+    else:
+        wrapped = wrap_lines(text, measure, white_space=box.white_space, advances=_shrink_advances(box))
     lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
     if not isinstance(lines, list):
         raise _Invalid(str(wrapped.get("reason") or "line break failed"))
@@ -4840,6 +5137,10 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         lines = [line for line in lines if isinstance(line, dict) and (line.get("text") or line.get("content_width"))]
     if not lines:
         return []
+    if indent:
+        return _marked_line_records(
+            box, lines, measure, direction, height, baseline, indent, place_glyphs
+        )
     collapsed = ""
     collapsed_shifts: list[tuple[_Shift, ...]] = []
     if shifted:
