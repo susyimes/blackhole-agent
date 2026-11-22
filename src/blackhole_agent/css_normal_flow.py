@@ -230,9 +230,12 @@ to that content height: a child that does not fit starts the next column,
 column empty, ``avoid-column`` keeps a fitting suffix with the next child,
 and content past the last column overflows it. ``page`` does not start a
 column. The following block stays under that specified border box.
-``column-span: all`` inside the fixed fill stays rejected. A nested
-formatting context, a non-zero margin, and a non-horizontal writing mode
-stay rejected. An omitted ``column-gap`` is ``1em``.
+``column-span: all`` inside that fixed fill balances and shortens the line
+above the spanner, lays the spanner across the content box, and fills the
+leftover block size in source order. The multicol keeps its specified
+height. A nested formatting context, a non-zero margin, and a
+non-horizontal writing mode stay rejected. An omitted ``column-gap`` is
+``1em``.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
 own query. A named query selects the nearest ancestor with that name which can
@@ -1326,7 +1329,8 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
     """Lay text-only children into columns and anchor them there.
 
     ``column-fill: auto`` with a definite height fills that content height in
-    source order. An automatic height still balances.
+    source order. A spanner balances the line above it and the next row fills
+    the block size that remains. An automatic height still balances.
     """
 
     spec = box.multicol or {}
@@ -1386,43 +1390,84 @@ def _anchor_fixed_columns(
     available: int,
     preview: dict[str, object],
 ) -> None:
-    """Fill a definite column block size sequentially and keep that height."""
+    """Fill a definite column block size and keep that multicol height.
 
-    if any(child.column_span == "all" for child in box.children):
-        raise _Invalid("column span in auto fill is unsupported")
+    A ``column-span: all`` child balances and shortens the line above it,
+    then the next row fills whatever block size remains. A row with no
+    spanner still fills the whole specified size in source order.
+    """
+
     count = _px(preview.get("column_count"), "column count")
     gap = _px((box.multicol or {}).get("gap", 0), "column gap")
     limit = box.definite_height
     if limit is None:
         raise _Invalid("column block size is indefinite")
-    fragmented = fragment_columns(
-        count,
-        limit,
-        [
-            {
-                "id": child.id,
-                "height": child.border_height,
-                "break_before": child.break_before,
-                "break_after": child.break_after,
-            }
-            for child in box.children
-        ],
-    )
-    placed = fragmented.get("boxes")
-    if fragmented.get("outcome") != "fragmented" or not isinstance(placed, list):
-        raise _Invalid(str(fragmented.get("reason") or "columns failed"))
+    spec = box.multicol or {}
+    cursor = 0
     rows: list[dict[str, object]] = []
-    for item in placed:
-        if not isinstance(item, dict):
-            raise _Invalid("column placement failed")
-        column = _px(item.get("column"), "column")
-        rows.append(
-            {
-                "id": item.get("id"),
-                "inline": _column_inline_offset(column, available, gap, count),
-                "block": item.get("block"),
-            }
-        )
+    run: list[_Box] = []
+
+    def take_row(item: dict[str, object], inline: object, block: object) -> None:
+        rows.append({"id": item.get("id"), "inline": inline, "block": block})
+
+    def flush(balance: bool) -> None:
+        nonlocal cursor
+        if not run:
+            return
+        if balance:
+            flowed = layout_multicol(
+                available,
+                [{"id": child.id, "height": child.border_height, "span": "none"} for child in run],
+                column_width=spec.get("width", "auto"),
+                column_count=spec.get("count", "auto"),
+                column_gap=spec.get("gap", 0),
+                column_fill="balance",
+            )
+            placed = flowed.get("boxes")
+            if flowed.get("outcome") != "flowed" or not isinstance(placed, list):
+                raise _Invalid(str(flowed.get("reason") or "columns failed"))
+            for item in placed:
+                if not isinstance(item, dict):
+                    raise _Invalid("column placement failed")
+                take_row(item, item.get("inline"), cursor + _px(item.get("block"), "column block"))
+            cursor += _px(flowed.get("block_size"), "column block size")
+        else:
+            remaining = limit - cursor if cursor < limit else 0
+            fragmented = fragment_columns(
+                count,
+                remaining,
+                [
+                    {
+                        "id": child.id,
+                        "height": child.border_height,
+                        "break_before": child.break_before,
+                        "break_after": child.break_after,
+                    }
+                    for child in run
+                ],
+            )
+            placed = fragmented.get("boxes")
+            if fragmented.get("outcome") != "fragmented" or not isinstance(placed, list):
+                raise _Invalid(str(fragmented.get("reason") or "columns failed"))
+            for item in placed:
+                if not isinstance(item, dict):
+                    raise _Invalid("column placement failed")
+                column = _px(item.get("column"), "column")
+                take_row(
+                    item,
+                    _column_inline_offset(column, available, gap, count),
+                    cursor + _px(item.get("block"), "column block"),
+                )
+        run.clear()
+
+    for child in box.children:
+        if child.column_span == "all":
+            flush(True)
+            rows.append({"id": child.id, "inline": 0, "block": cursor})
+            cursor += child.border_height
+            continue
+        run.append(child)
+    flush(False)
     _anchor_column_rows(box, content_x, rows, "inline", "block")
     box.anchor_laid = True
 

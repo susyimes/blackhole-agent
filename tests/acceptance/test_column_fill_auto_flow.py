@@ -4,7 +4,8 @@
 in the next column, honors a column break, keeps an avoid-column pair
 together, and overflows the last column. The following block stays under
 the specified border box. An automatic height still balances. ``column-span:
-all`` inside the fixed fill stays invalid.
+all`` inside the fixed fill shortens the line above the spanner and keeps
+that specified height.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects column-fill auto exits 0 with
@@ -168,9 +169,12 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(take("open", "c"), x=20, y=0, content_width=20, content_height=10)
             and _near(take("open", "next"), y=20)
         ),
-        "a_spanner_inside_the_fixed_fill_stays_invalid": (
-            cases["span"].get("outcome") == "invalid"
-            and "column span" in str(cases["span"].get("reason") or "")
+        "a_spanner_inside_the_fixed_fill_shortens_the_line_and_keeps_the_height": (
+            cases["span"].get("outcome") == "placed"
+            and _near(take("span", "a"), x=0, y=0, content_width=40, content_height=10)
+            and _near(take("span", "span"), x=0, y=10, content_width=80, content_height=10)
+            and _near(take("span", "cols"), content_height=40)
+            and _near(take("span", "next"), y=40)
         ),
     }
     observed["checks"] = checks
