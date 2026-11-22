@@ -53,10 +53,10 @@ instead of collapsing adjoining ones. An automatic height is the block children,
 the stacked line boxes when
 that block's own in-flow content is text, and it also grows to the bottom
 margin edge of a float that block itself placed. Each character, including
-the space, advances by the font size. When that whole paragraph fits on one
-horizontal plain line and its Unicode bidi visual order differs from the
-source, each character is also a glyph from the line's left edge. A wrapped
-fragment and a line that is already visual omit glyphs. ``line-height: normal`` uses the font
+the space, advances by the font size. On every horizontal plain line, including
+one that wrapped, a Unicode bidi visual order that differs from the source is
+a glyph from that line's left edge. A line that is already visual omits
+glyphs. Justification, a float, and a relative inline still omit them. ``line-height: normal`` uses the font
 size as the strut. ``text-align`` shifts each line inside its line box.
 ``justify`` and ``justify-all`` give the aligner one item per word, so leftover
 inline space is added to the interior gaps instead of sitting after the line.
@@ -3566,16 +3566,14 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     cursor = 0
     shift_index = 0
     last = len(lines) - 1
-    # A wrapped fragment is not its own paragraph. Glyphs stay off until the
-    # whole paragraph fits on the line that is being painted.
-    whole_paragraph = place_glyphs and len(lines) == 1
+    # A broken line is reordered on its own. Wrapping does not drop glyphs.
     for index, line in enumerate(lines):
         if not isinstance(line, dict):
             raise _Invalid("line is invalid")
         rendered = str(line.get("text") or "")
         content = _px(line.get("content_width"), "line width")
         offset, used, runs = _align_content(box, measure, rendered, content, index == last, direction)
-        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if whole_paragraph and not runs else []
+        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if place_glyphs and not runs else []
         if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
             glyphs = []
         if shifted:
