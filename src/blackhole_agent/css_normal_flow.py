@@ -154,6 +154,13 @@ across its columns. A span that lands on an occupied slot is rejected, and a
 span of zero is rejected. A span past the rows that exist covers only those
 rows. Captions, border spacing, and element children inside a cell stay
 rejected.
+A block with ``column-count`` or ``column-width`` is a multicol container.
+Each text-only child is an unbreakable border box: it wraps at the used
+column width, and ``column-span: all`` takes the whole content box and ends
+that column line. The shortest balanced line sets an automatic height, so
+the following block starts under the multicol box. ``column-fill: auto``,
+a nested formatting context, a non-zero margin, and a non-horizontal
+writing mode are rejected. An omitted ``column-gap`` is ``1em``.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
 own query. A named query selects the nearest ancestor with that name which can
@@ -208,6 +215,7 @@ from blackhole_agent.css_logical_box import (
     resolve_logical_box,
 )
 from blackhole_agent.css_margin_collapse import place_collapsed_margins
+from blackhole_agent.css_multicol import layout_multicol
 from blackhole_agent.css_selectors import (
     CssSelectorError,
     _INVALID,
@@ -404,6 +412,8 @@ class _Box:
     flex: dict[str, object] | None = None
     grid: dict[str, object] | None = None
     table: dict[str, object] | None = None
+    multicol: dict[str, object] | None = None
+    column_span: str = "none"
     parent_box: _Box | None = None
     container_type: str = "normal"
     container_name: str = "none"
@@ -645,6 +655,7 @@ def _make_box(
             box_id = f"anon-{counter[0]}"
     ids.add(box_id)
     font_size = _font_size(_declared(winners, "font-size", custom), fonts["font-size"])
+    columns = _read_columns(winners, custom, font_size)
     return _Box(
         id=box_id,
         writing_mode=mode,
@@ -674,6 +685,8 @@ def _make_box(
             "white-space",
         ),
         parent_direction=parent_direction,
+        multicol=columns,
+        column_span=_read_column_span(winners, custom),
         container_type=_container_kind(_declared(winners, "container-type", custom)),
         container_name=_container_label(_declared(winners, "container-name", custom)),
         query_rules=_matching_queries(tree, element, container_rules),
@@ -913,6 +926,157 @@ def _vertical_geometry(
     return solved
 
 
+def _column_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return " ".join(value.strip().lower().split())
+
+
+def _read_column_span(winners, custom: dict) -> str:
+    value = _column_text(_declared(winners, "column-span", custom))
+    if value is None or value in {"none", "initial", "unset", "revert"}:
+        return "none"
+    if value == "inherit":
+        raise _Invalid("column-span inherit is unsupported")
+    if value == "all":
+        return "all"
+    raise _Invalid("column-span is invalid")
+
+
+def _read_columns(winners, custom: dict, font_size: int) -> dict[str, object] | None:
+    count = _column_count(_column_text(_declared(winners, "column-count", custom)))
+    width = _column_width(_column_text(_declared(winners, "column-width", custom)))
+    if count is None and width is None:
+        return None
+    return {
+        "count": "auto" if count is None else count,
+        "width": "auto" if width is None else width,
+        "gap": _column_gap(_column_text(_declared(winners, "column-gap", custom)), font_size),
+        "fill": _column_fill(_column_text(_declared(winners, "column-fill", custom))),
+    }
+
+
+def _column_count(value: str | None) -> int | None:
+    if value is None or value in {"auto", "initial", "unset", "revert"}:
+        return None
+    if value == "inherit":
+        raise _Invalid("column-count inherit is unsupported")
+    if value.isdigit() and value[0] != "0":
+        return int(value)
+    raise _Invalid("column-count is invalid")
+
+
+def _column_width(value: str | None) -> int | None:
+    if value is None or value in {"auto", "initial", "unset", "revert"}:
+        return None
+    if value == "inherit":
+        raise _Invalid("column-width inherit is unsupported")
+    if not value.endswith("px"):
+        raise _Invalid("column-width is invalid")
+    number = _px(float(value[:-2]), "column-width")
+    if number < 1:
+        raise _Invalid("column-width is invalid")
+    return number
+
+
+def _column_gap(value: str | None, font_size: int) -> int:
+    if value is None or value in {"normal", "initial", "unset", "revert"}:
+        return font_size
+    if value == "inherit":
+        raise _Invalid("column-gap inherit is unsupported")
+    if value in {"0", "0px"}:
+        return 0
+    if not value.endswith("px"):
+        raise _Invalid("column-gap is invalid")
+    number = _px(float(value[:-2]), "column-gap")
+    if number < 0:
+        raise _Invalid("column-gap is invalid")
+    return number
+
+
+def _column_fill(value: str | None) -> str:
+    if value is None or value in {"balance", "initial", "unset", "revert"}:
+        return "balance"
+    if value == "balance-all":
+        return "balance-all"
+    if value == "inherit":
+        raise _Invalid("column-fill inherit is unsupported")
+    if value == "auto":
+        raise _Invalid("column-fill auto is unsupported")
+    raise _Invalid("column-fill is invalid")
+
+
+def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> None:
+    """Lay text-only children into balanced columns and anchor them there."""
+
+    spec = box.multicol or {}
+    if box.floats or box.positioned or box.atoms or box.inline_text:
+        raise _Invalid("column content is unsupported")
+    available = box.content_width
+    preview = layout_multicol(
+        available,
+        [],
+        column_width=spec.get("width", "auto"),
+        column_count=spec.get("count", "auto"),
+        column_gap=spec.get("gap", 0),
+        column_fill=spec.get("fill", "balance"),
+    )
+    if preview.get("outcome") != "flowed":
+        raise _Invalid(str(preview.get("reason") or "columns failed"))
+    column_width = _px(preview.get("column_width"), "column width")
+    if column_width < 1:
+        raise _Invalid("column width is invalid")
+    fragments: list[dict[str, object]] = []
+    for child in box.children:
+        _reject_column_child(child)
+        measure = available if child.column_span == "all" else column_width
+        _solve(child, measure, None, viewport_height, content_x)
+        _reject_column_margin(child)
+        chrome = _edge_extent(child.solved, "top", "bottom")
+        content_height = 0 if child.definite_height is None else child.definite_height
+        child.content_height = content_height
+        child.border_height = content_height + chrome
+        fragments.append({"id": child.id, "height": child.border_height, "span": child.column_span})
+    flowed = layout_multicol(
+        available,
+        fragments,
+        column_width=spec.get("width", "auto"),
+        column_count=spec.get("count", "auto"),
+        column_gap=spec.get("gap", 0),
+        column_fill=spec.get("fill", "balance"),
+    )
+    placed = flowed.get("boxes")
+    if flowed.get("outcome") != "flowed" or not isinstance(placed, list):
+        raise _Invalid(str(flowed.get("reason") or "columns failed"))
+    by_id = {str(item.get("id")): item for item in placed if isinstance(item, dict)}
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    for child in box.children:
+        row = by_id.get(child.id)
+        if row is None:
+            raise _Invalid("column placement failed")
+        child.x = content_x + _px(row.get("inline"), "column inline") + child.margin_left
+        child.anchor_y = origin + _px(row.get("block"), "column block")
+        child.border_width = child.content_width + _edge_extent(child.solved, "left", "right")
+    if box.definite_height is None:
+        box.definite_height = _px(flowed.get("block_size"), "column block size")
+    box.anchor_laid = True
+
+
+def _reject_column_child(child: _Box) -> None:
+    if child.display != "block" or child.position != "static" or child.float_side != "none":
+        raise _Invalid("column content is unsupported")
+    if child.children or child.floats or child.positioned or child.atoms or child.multicol is not None:
+        raise _Invalid("column content is unsupported")
+    if child.writing_mode != "horizontal-tb" or child.direction != "ltr" or _mixed_runs(child):
+        raise _Invalid("column content is unsupported")
+
+
+def _reject_column_margin(child: _Box) -> None:
+    for name in ("margin_top", "margin_right", "margin_bottom", "margin_left"):
+        if _px(child.solved.get(name), name.replace("_", "-")) != 0:
+            raise _Invalid("column margin is unsupported")
+
+
 def _solve(
     box: _Box, parent_width: int, parent_height: int | None, viewport_height: int | None,
     parent_content_x: int, scrollport_height: int | None = None,
@@ -949,6 +1113,8 @@ def _solve(
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
     if vertical_text:
+        if box.multicol is not None:
+            raise _Invalid("column writing mode is unsupported")
         return
     _retarget_query_descendants(box)
     content_x = box.x + _edge_extent(solved, "left")
@@ -960,6 +1126,11 @@ def _solve(
         return
     if box.display == "table":
         _place_table(box, content_x)
+        return
+    if box.multicol is not None and box.display == "block":
+        if box.direction != "ltr":
+            raise _Invalid("column writing mode is unsupported")
+        _place_multicol(box, content_x, viewport_height)
         return
     if box.floats and not box.children:
         _place_floats(box, content_x)
