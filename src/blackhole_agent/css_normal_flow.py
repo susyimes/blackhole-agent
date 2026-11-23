@@ -95,7 +95,12 @@ line outside the content edge. A percentage is resolved against the containing
 block's inline size and is inherited as that percentage, so a child can clear
 it with zero. ``hanging`` and ``each-line`` are rejected. A float intrusion,
 an inline-block, a mixed font, an inside marker, and a vertical writing mode
-stay rejected. A
+stay rejected. ``letter-spacing`` is a length inserted between characters of a
+horizontal line and omitted after the last character, so a positive value
+wraps sooner and a negative value shortens the line. ``word-spacing`` is added
+only to word separators. Both inherit, ``normal`` is zero, and a percentage is
+invalid. Justification of a spaced line, a vertical writing mode, an inside
+marker, and a declaration on an inline stay rejected. A
 
 block that also has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
@@ -550,6 +555,8 @@ _FONT = {
     "text-align-last": "auto",
     "text-justify": "auto",
     "text-indent": "0px",
+    "letter-spacing": "0px",
+    "word-spacing": "0px",
     "white-space": "normal",
     "list-style-type": "disc",
     "list-style-position": "outside",
@@ -579,7 +586,7 @@ _FRAGMENT_BREAKS = frozenset(
     }
 )
 _COLLAPSED_EMPTY = frozenset({"normal", "nowrap"})
-_INLINE_REJECTED = ("text-align", "white-space")
+_INLINE_REJECTED = ("text-align", "white-space", "letter-spacing", "word-spacing")
 
 
 class _Invalid(Exception):
@@ -669,6 +676,8 @@ class _Box:
     text_align_last: str = "auto"
     text_justify: str = "auto"
     text_indent: str = "0px"
+    letter_spacing: int = 0
+    word_spacing: int = 0
     containing_inline: int | None = None
     white_space: str = "normal"
     parent_direction: str | None = None
@@ -1374,6 +1383,12 @@ def _make_box(
             "text-justify",
         ),
         text_indent=_read_text_indent(_declared(winners, "text-indent", custom), fonts["text-indent"]),
+        letter_spacing=_used_spacing_px(
+            _read_spacing(_declared(winners, "letter-spacing", custom), fonts["letter-spacing"], "letter-spacing")
+        ),
+        word_spacing=_used_spacing_px(
+            _read_spacing(_declared(winners, "word-spacing", custom), fonts["word-spacing"], "word-spacing")
+        ),
         white_space=_inherited_keyword(
             _declared(winners, "white-space", custom),
             _WHITES,
@@ -2369,6 +2384,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "text-align-last": box.text_align_last,
         "text-justify": box.text_justify,
         "text-indent": box.text_indent,
+        "letter-spacing": f"{box.letter_spacing}px",
+        "word-spacing": f"{box.word_spacing}px",
         "white-space": box.white_space,
         "list-style-type": box.list_style_type,
         "list-style-position": box.list_style_position,
@@ -2510,6 +2527,8 @@ def _make_anonymous_block(
         text_align_last=parent.text_align_last,
         text_justify=parent.text_justify,
         text_indent=parent.text_indent,
+        letter_spacing=parent.letter_spacing,
+        word_spacing=parent.word_spacing,
         white_space=parent.white_space,
         parent_direction=parent.direction,
         anonymous=True,
@@ -2783,6 +2802,53 @@ def _read_text_indent(value: str | None, parent: str) -> str:
             return "0px"
         return f"{_px(number, 'text-indent')}%"
     raise _Invalid("text-indent is invalid")
+
+
+def _read_spacing(value: str | None, parent: str, name: str) -> str:
+    """Specified extra spacing. ``normal`` is zero and the used value inherits."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = value.strip().lower()
+    if any(character.isspace() for character in text):
+        raise _Invalid(f"{name} is invalid")
+    if text in {"normal", "initial", "0"}:
+        return "0px"
+    if text.endswith("%") or text.endswith("em") or text.endswith("rem"):
+        raise _Invalid(f"{name} is invalid")
+    if text.endswith("px"):
+        try:
+            number = float(text[:-2])
+        except ValueError as exc:
+            raise _Invalid(f"{name} is invalid") from exc
+        return f"{_px(number, name)}px"
+    raise _Invalid(f"{name} is invalid")
+
+
+def _used_spacing_px(raw: str) -> int:
+    if raw == "0px":
+        return 0
+    if not raw.endswith("px"):
+        raise _Invalid("spacing is invalid")
+    return _px(float(raw[:-2]), "spacing")
+
+
+def _spacing_args(box: _Box) -> dict[str, int]:
+    args: dict[str, int] = {}
+    if box.letter_spacing:
+        args["letter_spacing"] = box.letter_spacing
+    if box.word_spacing:
+        args["word_spacing"] = box.word_spacing
+    return args
+
+
+def _reject_spacing(box: _Box) -> None:
+    if not box.letter_spacing and not box.word_spacing:
+        return
+    if box.writing_mode != "horizontal-tb":
+        raise _Invalid("spaced writing mode is unsupported")
+    if _gap_alignment(box):
+        raise _Invalid("spaced justification is unsupported")
 
 
 def _text_indent_used(box: _Box) -> int:
@@ -4021,7 +4087,9 @@ def _line_static_edges(parent: _Box, marked: tuple[str, tuple[int, ...]]) -> tup
 
     text, advances = marked
     measure = parent.content_width
-    wrapped = wrap_lines(text, measure, white_space=parent.white_space, advances=list(advances))
+    wrapped = wrap_lines(
+        text, measure, white_space=parent.white_space, advances=list(advances), **_spacing_args(parent)
+    )
     lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
     if not isinstance(lines, list):
         raise _Invalid(str(wrapped.get("reason") or "static position inside a line is unsupported"))
@@ -4309,7 +4377,9 @@ def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
 
 def _intrinsic_text_sizes(box: _Box) -> tuple[int, int]:
     text = box.inline_text or ""
-    measured = wrap_lines(text, 0, white_space=box.white_space, advances=_shrink_advances(box))
+    measured = wrap_lines(
+        text, 0, white_space=box.white_space, advances=_shrink_advances(box), **_spacing_args(box)
+    )
     if measured["outcome"] != "wrapped":
         raise _Invalid(str(measured.get("reason") or "text measurement failed"))
     minimum = _px(measured["min_content"], "min-content")
@@ -4932,7 +5002,13 @@ def _fill_lines_beside_floats(
             right = _px(gap.get("right"), "line x")
             bottoms = []
         available = right - left
-        wrapped = wrap_lines(remaining, max(available, 0), white_space=box.white_space, advances=advances)
+        wrapped = wrap_lines(
+            remaining,
+            max(available, 0),
+            white_space=box.white_space,
+            advances=advances,
+            **_spacing_args(box),
+        )
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
         if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
             raise _Invalid(str(wrapped.get("reason") or "line break failed"))
@@ -5219,7 +5295,13 @@ def _fill_mixed(box: _Box) -> None:
         if not remaining or (box.white_space in _COLLAPSED_EMPTY and not remaining.strip()):
             break
         advances = [_advance_of(ch, remaining_styles[index][0]) for index, ch in enumerate(remaining)]
-        wrapped = wrap_lines(remaining, box.content_width, white_space=box.white_space, advances=advances)
+        wrapped = wrap_lines(
+            remaining,
+            box.content_width,
+            white_space=box.white_space,
+            advances=advances,
+            **_spacing_args(box),
+        )
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
         if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
             raise _Invalid(str(wrapped.get("reason") or "line break failed"))
@@ -5419,6 +5501,7 @@ def _fill_inline_blocks(box: _Box) -> None:
         max(box.content_width, 0),
         white_space=box.white_space,
         advances=_atom_advances(entries, measured),
+        **_spacing_args(box),
     )
     raw_lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
     if not isinstance(raw_lines, list):
@@ -5641,6 +5724,7 @@ def _fill_atoms_beside_floats(
             max(available, 0),
             white_space=box.white_space,
             advances=_atom_advances(entries[index:], measured),
+            **_spacing_args(box),
         )
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
         if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
@@ -5683,6 +5767,7 @@ def _fill_atoms_beside_floats(
 
 
 def _fill_lines(box: _Box) -> None:
+    _reject_spacing(box)
     if box.text_indent != "0px" and (box.floats or box.atoms or _mixed_runs(box)):
         raise _Invalid("text-indent is unsupported")
     if _gap_alignment(box):
@@ -6102,7 +6187,10 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
         first_measure = 0
     advances = _shrink_advances(box)
     lines = _kept_lines(
-        box, wrap_lines(text, first_measure, white_space=box.white_space, advances=advances)
+        box,
+        wrap_lines(
+            text, first_measure, white_space=box.white_space, advances=advances, **_spacing_args(box)
+        ),
     )
     if not lines:
         return []
@@ -6113,12 +6201,16 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
     if not rest or (box.white_space in _COLLAPSED_EMPTY and not rest.strip()):
         return [first]
     tail = _kept_lines(
-        box, wrap_lines(rest, max(measure, 0), white_space=box.white_space, advances=advances)
+        box,
+        wrap_lines(
+            rest, max(measure, 0), white_space=box.white_space, advances=advances, **_spacing_args(box)
+        ),
     )
     return [first, *tail]
 
 
 def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
+    _reject_spacing(box)
     text = box.inline_text or ""
     if not text:
         return []
@@ -6137,6 +6229,8 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         raise _Invalid("text-indent is unsupported")
     if indent and (_MARKER_SENTINEL in text or _MARKER_BREAK in text):
         raise _Invalid("inside marker content is unsupported")
+    if indent and (box.letter_spacing or box.word_spacing):
+        raise _Invalid("spaced marker is unsupported")
     if indent:
         lines = _kept_lines(
             box,
@@ -6151,7 +6245,14 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         lines = _indented_wrap(box, text, measure, text_indent)
     else:
         lines = _kept_lines(
-            box, wrap_lines(text, measure, white_space=box.white_space, advances=_shrink_advances(box))
+            box,
+            wrap_lines(
+                text,
+                measure,
+                white_space=box.white_space,
+                advances=_shrink_advances(box),
+                **_spacing_args(box),
+            ),
         )
     if not lines:
         return []
@@ -6516,6 +6617,8 @@ def _flush_flex_text(
             text_align_last=host.text_align_last,
             text_justify=host.text_justify,
             text_indent=host.text_indent,
+            letter_spacing=host.letter_spacing,
+            word_spacing=host.word_spacing,
             white_space=host.white_space,
             parent_direction=host.direction,
             inline_text=rendered,
@@ -6840,8 +6943,19 @@ def _line_limit(value: object) -> object:
     raise _Invalid("flex length is unsupported")
 
 
-def _text_main(text: str, font_size: int) -> int:
-    return sum(_advance_of(ch, font_size) for ch in text)
+def _text_main(text: str, font_size: int, letter: int = 0, word: int = 0) -> int:
+    if not letter and not word:
+        return sum(_advance_of(ch, font_size) for ch in text)
+    width = 0
+    seen = False
+    for character in text:
+        if seen:
+            width += letter
+        width += _advance_of(character, font_size)
+        if character == " ":
+            width += word
+        seen = True
+    return width
 
 
 def _used_cross(raw: str | None, content: int, name: str) -> tuple[object, int]:
@@ -7237,7 +7351,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     for item in box.children:
         flex = item.flex or {"grow": 0.0, "shrink": 1.0, "basis": "auto", "align": "auto"}
         text = item.inline_text or ""
-        text_width = _text_main(text, item.font_size)
+        text_width = _text_main(text, item.font_size, item.letter_spacing, item.word_spacing)
         text_height = (
             _strut_height(item.font_size, _used_line_height(item.line_height, item.font_size)) if text else 0
         )

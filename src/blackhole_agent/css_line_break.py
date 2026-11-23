@@ -11,7 +11,9 @@ that reproduces the spec's English, Korean, and Chinese examples. U+000D is a
 space, not a segment break. hyphens:auto has no dictionary, so only U+00AD
 introduces a hyphenation opportunity. line-break:auto uses the normal
 strictness list. Tab stops are multiples of the space advance measured from
-the line's content start.
+the line's content start. ``letter_spacing`` is inserted between grapheme
+clusters and is not applied after the last cluster on a line. ``word_spacing``
+is added to each space and to each other Unicode Zs separator.
 
 ``balance_lines`` is CSS Text Level 4 ``text-wrap-style: balance``. Forced
 line breaks split the block into independent groups. A group keeps the
@@ -71,6 +73,8 @@ class _Tok:
     advance: float
     collapsible: bool = False
     grapheme_start: bool = True
+    letter_spacing: float = 0.0
+    word_spacing: float = 0.0
 
 
 class _Adv:
@@ -131,6 +135,8 @@ def wrap_lines(
     tab_size: object = 8,
     lang: object = "",
     advances: object = None,
+    letter_spacing: object = 0,
+    word_spacing: object = 0,
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -139,7 +145,9 @@ def wrap_lines(
     ``content_width`` that was tested against the measure, and ``width``
     including hanging advances. ``min_content`` ignores overflow-wrap
     break-word opportunities. ``max_content`` is the widest line when the
-    measure is infinite.
+    measure is infinite. ``letter_spacing`` sits between grapheme clusters and
+    does not follow the last cluster. ``word_spacing`` widens space and other
+    Zs separators only.
     """
 
     try:
@@ -152,11 +160,14 @@ def wrap_lines(
         hyphenation = _keyword(hyphens, _HYPHENS, "hyphens")
         tabs = _nonneg(tab_size, "tab_size")
         language = _lang(lang)
+        letter = _finite(letter_spacing, "letter_spacing")
+        spacing = _finite(word_spacing, "word_spacing")
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
         adv = _Adv(source, advances)
         tokens = _mark_graphemes(_phase1(source, white, adv))
+        _stamp_spacing(tokens, letter, spacing)
     except _Invalid as exc:
         return _invalid(exc.reason)
 
@@ -223,6 +234,8 @@ def balance_lines(
     tab_size: object = 8,
     lang: object = "",
     advances: object = None,
+    letter_spacing: object = 0,
+    word_spacing: object = 0,
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -242,11 +255,14 @@ def balance_lines(
         hyphenation = _keyword(hyphens, _HYPHENS, "hyphens")
         tabs = _nonneg(tab_size, "tab_size")
         language = _lang(lang)
+        letter = _finite(letter_spacing, "letter_spacing")
+        spacing = _finite(word_spacing, "word_spacing")
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
         adv = _Adv(source, advances)
         tokens = _mark_graphemes(_phase1(source, white, adv))
+        _stamp_spacing(tokens, letter, spacing)
     except _Invalid as exc:
         return _invalid(exc.reason)
 
@@ -849,7 +865,10 @@ def _measure(
     )
     if mode == "hang":
         return base_text + trail_text, base_width, base_width + trail_width
-    return base_text + trail_text, base_width + trail_width, base_width + trail_width
+    content = base_width + trail_width
+    if base_text and trail_text and low < len(tokens) and tokens[low].letter_spacing:
+        content += tokens[low].letter_spacing
+    return base_text + trail_text, content, content
 
 
 def _render(
@@ -882,18 +901,34 @@ def _render_tokens(
     x = x0
     parts: list[str] = []
     last = len(tokens) - 1
+    letter = tokens[0].letter_spacing if tokens else 0.0
+    word = tokens[0].word_spacing if tokens else 0.0
+    seen = False
     for index, tok in enumerate(tokens):
         if tok.kind == "shy":
             if show_shy and index == last:
+                if letter and seen and tok.grapheme_start:
+                    x += letter
                 parts.append("\u2010")
                 x += tok.advance
+                seen = True
             continue
         if tok.kind == "tab":
+            if letter and seen and tok.grapheme_start:
+                x += letter
             parts.append("\t")
-            x += _tab_advance(x, tab_size, space_advance)
+            advance = _tab_advance(x, tab_size, space_advance)
+            x += advance
+            seen = True
             continue
+        if letter and seen and tok.grapheme_start:
+            x += letter
         parts.append(tok.ch)
-        x += tok.advance
+        advance = tok.advance
+        if word and tok.kind in {"space", "sep"}:
+            advance += word
+        x += advance
+        seen = True
     return "".join(parts), x - x0
 
 
@@ -1246,6 +1281,23 @@ def _keyword(value: object, allowed: frozenset[str], name: str) -> str:
     if not isinstance(value, str) or value not in allowed:
         raise _Invalid(f"{name} is not a supported keyword")
     return value
+
+
+def _stamp_spacing(tokens: list[_Tok], letter: float, word: float) -> None:
+    if not letter and not word:
+        return
+    for tok in tokens:
+        tok.letter_spacing = letter
+        tok.word_spacing = word
+
+
+def _finite(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise _Invalid(f"{name} must be a number")
+    number = float(value)
+    if not math.isfinite(number):
+        raise _Invalid(f"{name} must be a finite number")
+    return number
 
 
 def _nonneg(value: object, name: str) -> float:
