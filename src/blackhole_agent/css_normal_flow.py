@@ -374,8 +374,14 @@ A text-only orthogonal block wraps down its used content height and stacks
 its lines from block-start. Once the columns determine its width, the
 horizontal parent resolves auto margins and stacks the physical border box.
 Widths and heights in line records are physical. Text uses the engine's
-uniform glyph advances. Nested formatting contexts, mixed fonts and
-justification inside this orthogonal block are unsupported.
+uniform glyph advances. Static block children in that same writing mode and
+direction stack on the block axis, from the right for ``vertical-rl`` and
+from the left for ``vertical-lr``. Each child lays out its own text. A
+definite parent height stretches an automatic child to that content box and
+wraps the child inside it. An automatic parent is as wide as the children
+and as tall as the tallest one. A child margin, a different writing mode, a
+percentage size, a float, and loose text beside those children stay rejected.
+Mixed fonts and justification of the orthogonal text stay unsupported.
 ``display: contents`` generates no box. The element is replaced by its
 children and text in the parent's formatting context, so its own width,
 padding, border, and margin do not move them. A percentage on a child uses
@@ -1824,16 +1830,11 @@ def _edge_extent(solved: dict[str, object], *sides: str) -> int:
     return sum(_px(solved.get(f"{kind}_{side}"), f"{kind}-{side}") for side in sides for kind in ("border", "padding"))
 
 
-def _vertical_geometry(
+def _vertical_frame(
     box: _Box, flow: dict[str, object], width: int, height: int | None, height_limit: int | None,
-) -> dict[str, object]:
-    if box.children or box.floats or box.atoms or box.positioned or _mixed_runs(box):
-        raise _Invalid("vertical block requires uniform inline text")
-    if box.text_align in {"justify", "justify-all"} or box.text_align_last == "justify":
-        raise _Invalid("vertical justification is unsupported")
+):
+    """Physical slot solver for one vertical box in a horizontal containing block."""
 
-    # Resolve logical declarations in the child's axes once. Physical margins
-    # and percentage bases belong to its horizontal containing block.
     slots = _physical_slots(box, flow)
     height_basis = height if height is not None else height_limit
     if height_basis is None:
@@ -1851,6 +1852,159 @@ def _vertical_geometry(
         except _LogicalInvalid as exc:
             raise _Invalid(str(exc)) from exc
 
+    return slots, sizing, geometry
+
+
+def _vertical_loose_text(box: _Box) -> bool:
+    element = box.element
+    if element is None or box.tree is None:
+        return bool((box.inline_text or "").strip())
+    before, after = _generated(box.tree, element)
+    if before.strip() or after.strip():
+        return True
+    if str(element.text or "").strip():
+        return True
+    return any(str(getattr(node, "tail", "") or "").strip() for node in list(element))
+
+
+def _physical_height_auto(box: _Box) -> bool:
+    token = _physical_slots(box).get("height", "auto").strip().lower()
+    return token in {"auto", "initial", "unset", "revert"}
+
+
+def _auto_slot(slots: dict[str, str], name: str) -> bool:
+    return slots.get(name, "auto").strip().lower() in {"auto", "initial", "unset", "revert"}
+
+
+def _reject_vertical_child(child: _Box) -> None:
+    if (
+        child.display != "block"
+        or child.position != "static"
+        or child.float_side != "none"
+        or child.multicol is not None
+        or child.flex is not None
+        or child.grid is not None
+        or child.table is not None
+        or child.replaced
+    ):
+        raise _Invalid("vertical nested block is unsupported")
+
+
+def _reject_vertical_margins(child: _Box) -> None:
+    """Reject an author margin. The horizontal equation's end slack is not one.
+
+    A vertical child is sized with the horizontal containing block's equation,
+    so a used inline-end margin absorbs leftover space. That slack is not a
+    margin on the vertical block axis.
+    """
+
+    slots = _physical_slots(child)
+    for side in ("top", "right", "bottom", "left"):
+        raw = slots.get(f"margin-{side}", "0px").strip().lower()
+        if raw in {"0", "0px", "auto", "initial", "unset", "revert"}:
+            continue
+        if raw.endswith("px") and _px(float(raw[:-2]), "margin") == 0:
+            continue
+        raise _Invalid("vertical nested margin is unsupported")
+
+
+def _stack_vertical_x(box: _Box) -> None:
+    content_x = box.x + _edge_extent(box.solved, "left")
+    for child in box.children:
+        child.x = content_x + child.local_x
+        if child.anchor_laid:
+            _stack_vertical_x(child)
+
+
+def _vertical_child_stack(
+    box: _Box, flow: dict[str, object], width: int, height: int | None, height_limit: int | None,
+) -> dict[str, object]:
+    """Stack parallel vertical blocks on the parent's block axis."""
+
+    if box.floats or box.atoms or box.positioned or box.inline_text or _mixed_runs(box) or _vertical_loose_text(box):
+        raise _Invalid("vertical block requires uniform inline text")
+    slots, sizing, geometry = _vertical_frame(box, flow, width, height, height_limit)
+    preview = geometry()
+    specified = preview.get("content_height")
+    parent_content_height = None if specified == "auto" else _px(specified, "content height")
+    available = parent_content_height if parent_content_height is not None else height_limit
+    for child in box.children:
+        _reject_vertical_child(child)
+        if (
+            child.writing_mode != box.writing_mode
+            or child.direction != box.direction
+            or child.text_orientation != box.text_orientation
+        ):
+            raise _Invalid("vertical nested writing mode is unsupported")
+        child_slots = _physical_slots(child)
+        if "%" in child_slots.get("width", "") or "%" in child_slots.get("height", ""):
+            raise _Invalid("vertical nested percentage is unsupported")
+        height_auto = _physical_height_auto(child)
+        _solve(child, width, available, None, 0, None)
+        _reject_vertical_margins(child)
+        if parent_content_height is not None and height_auto:
+            chrome = _edge_extent(child.solved, "top", "bottom")
+            content_target = parent_content_height - chrome
+            if content_target < 0:
+                raise _Invalid("vertical nested block is unsupported")
+            if child.definite_height != content_target:
+                fitted = parent_content_height if _box_sizing(child) == "border-box" else content_target
+                child.declarations.append(("height", f"{fitted}px"))
+                _solve(child, width, available, None, 0, None)
+                _reject_vertical_margins(child)
+    widths: list[int] = []
+    inlines: list[int] = []
+    for child in box.children:
+        block = child.content_width + _edge_extent(child.solved, "left", "right")
+        inline = (0 if child.definite_height is None else child.definite_height) + _edge_extent(
+            child.solved, "top", "bottom"
+        )
+        child.border_width = block
+        child.border_height = inline
+        child.content_height = 0 if child.definite_height is None else child.definite_height
+        widths.append(block)
+        inlines.append(inline)
+    if _auto_slot(slots, "width"):
+        extent = sum(widths)
+        if sizing == "border-box":
+            extent += _edge_extent(preview, "left", "right")
+        slots["width"] = f"{extent}px"
+    if parent_content_height is None:
+        extent = max(inlines) if inlines else 0
+        if sizing == "border-box":
+            extent += _edge_extent(preview, "top", "bottom")
+        slots["height"] = f"{extent}px"
+    solved = geometry()
+    content_w = _px(solved.get("content_width"), "content width")
+    anchor = _edge_extent(solved, "top")
+    if flow["block_start"] == "right":
+        cursor = content_w
+        for child, block in zip(box.children, widths):
+            cursor -= block
+            child.local_x = cursor
+    else:
+        cursor = 0
+        for child, block in zip(box.children, widths):
+            child.local_x = cursor
+            cursor += block
+    for child in box.children:
+        child.anchor_y = anchor
+    box.anchor_laid = True
+    box.lines = []
+    return solved
+
+
+def _vertical_geometry(
+    box: _Box, flow: dict[str, object], width: int, height: int | None, height_limit: int | None,
+) -> dict[str, object]:
+    if box.children or box.floats or box.atoms or box.positioned or _mixed_runs(box):
+        raise _Invalid("vertical block requires uniform inline text")
+    if box.text_align in {"justify", "justify-all"} or box.text_align_last == "justify":
+        raise _Invalid("vertical justification is unsupported")
+
+    # Resolve logical declarations in the child's axes once. Physical margins
+    # and percentage bases belong to its horizontal containing block.
+    slots, sizing, geometry = _vertical_frame(box, flow, width, height, height_limit)
     solved = geometry()
     if solved["content_height"] == "auto":
         minimum, maximum = _intrinsic_text_sizes(box)
@@ -2186,7 +2340,11 @@ def _solve(
     vertical_text = not horizontal and box.display == "block"
     if vertical_text:
         limits = [limit for limit in (parent_height, viewport_height, scrollport_height) if limit is not None]
-        solved = _vertical_geometry(box, flow, parent_width, parent_height, min(limits, default=None))
+        limit = min(limits, default=None)
+        if box.children:
+            solved = _vertical_child_stack(box, flow, parent_width, parent_height, limit)
+        else:
+            solved = _vertical_geometry(box, flow, parent_width, parent_height, limit)
     else:
         available_inline, available_block = (parent_width, parent_height) if horizontal else (parent_height, parent_width)
         if available_inline is None:
@@ -2215,6 +2373,8 @@ def _solve(
     box.margin_left = _px(solved.get("margin_left"), "margin-left")
     box.margin_right = _px(solved.get("margin_right"), "margin-right")
     box.x = parent_content_x + box.margin_left
+    if vertical_text and box.anchor_laid:
+        _stack_vertical_x(box)
     if (
         box.replaced
         and box.display == "block"

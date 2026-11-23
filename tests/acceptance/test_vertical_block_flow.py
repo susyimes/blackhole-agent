@@ -99,8 +99,27 @@ def observe():
         observed[name] = {"border_xywh": border, "content_wh": content, "lines": lines, "next_y": next_y}
         passed &= (border, content, lines, next_y) == (case.box, case.content or case.box[2:], case.lines, case.next_y)
     nested = layout_normal_flow(PAGE.format("<div>AB</div>"), BASE, viewport_width=120)
-    observed["nested"] = nested["outcome"]
-    return passed and nested["outcome"] == "invalid", observed
+    if nested["outcome"] != "placed":
+        observed["nested"] = nested["reason"]
+        return False, observed
+    boxes = {item["id"]: item for item in nested["boxes"]}
+    child = boxes["div"]
+    border = tuple(boxes["v"][key] for key in ("x", "y", "border_width", "border_height"))
+    line = tuple(child["lines"][0][key] for key in ("text", "x", "y", "content_width", "height"))
+    observed["nested"] = {
+        "border_xywh": border,
+        "child_xywh": tuple(child[key] for key in ("x", "y", "border_width", "border_height")),
+        "line": line,
+        "next_y": boxes["next"]["y"],
+    }
+    nested_ok = (
+        border == (0, 0, 10, 20)
+        and observed["nested"]["child_xywh"] == (0, 0, 10, 20)
+        and line == ("AB", 0, 0, 10, 20)
+        and boxes["next"]["y"] == 20
+        and boxes["v"]["lines"] == []
+    )
+    return passed and nested_ok, observed
 
 
 if __name__ == "__main__":
