@@ -8,7 +8,8 @@ increments the same class and the required pattern mission can name it.
 
 A proved closer hides that whole class from genesis fuel. The latest forced
 occurrence still becomes a symptom card when its command text is outside the
-closer and outside a later completed repair. Directory segments of a
+closer and outside a later completed repair. That repair still counts after
+newer mission files displace it from the recent scan. Directory segments of a
 filesystem path are not that command; the leaf name still is. A covered
 command, a repaired command, a selection-gate rejection, and an open class
 stay off that card.
@@ -332,21 +333,21 @@ def command_symptom_tokens(text: str) -> set[str]:
 
 
 def _later_repair_text(repo_path: Path, occurrence_at: str) -> str:
-    """Goal and summary text from completed missions at or after ``occurrence_at``."""
+    """Goal and summary text from every completed mission at or after ``occurrence_at``.
+
+    Completion time qualifies a repair. A newer file must not hide it. The
+    recent-file cap remains on unclassified failure collection only.
+    """
 
     missions = Path(repo_path) / ".blackhole-agent" / "unbound" / "missions"
     if not missions.is_dir() or not occurrence_at:
         return ""
     try:
-        paths = sorted(
-            (path for path in missions.glob("*/state.json") if path.is_file()),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )
+        paths = [path for path in missions.glob("*/state.json") if path.is_file()]
     except OSError:
         return ""
     chunks: list[str] = []
-    for path in paths[:SCAN_LIMIT]:
+    for path in paths:
         state = _read_json(path)
         if str(state.get("status") or "") != "complete":
             continue
