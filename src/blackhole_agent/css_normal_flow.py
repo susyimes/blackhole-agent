@@ -387,8 +387,13 @@ parent block size shrinks the child to fit that width, so a longer line wraps
 and a shorter child keeps its max-content width. Each such child stacks from
 the block-start edge, including beside a vertical sibling, and a later child
 crosses the block-end edge when the sum exceeds that width. A definite parent
-inline size does not stretch the child. A specified child size and a nested
-child inside it stay rejected. Mixed fonts and justification of the
+inline size does not stretch the child. A length width is that child's
+content width: a short word does not shrink the border box, a breakable line
+wraps inside the length, and an unbreakable word overflows it. A length
+height is the content height, so the border box and the parent's automatic
+height keep that length when it differs from the line boxes. A percentage, a
+minimum or maximum size, border-box, an aspect ratio, a margin, a float, and
+a nested child stay rejected. Mixed fonts and justification of the
 orthogonal text stay unsupported.
 ``display: contents`` generates no box. The element is replaced by its
 children and text in the parent's formatting context, so its own width,
@@ -1896,28 +1901,55 @@ def _orthogonal_horizontal(child: _Box, parent: _Box) -> bool:
     )
 
 
+def _orthogonal_axis_px(slots: dict[str, str], name: str) -> int | None:
+    """Content-box length, or None when that axis is automatic."""
+
+    token = slots.get(name, "auto").strip().lower()
+    if token in {"auto", "initial", "unset", "revert"}:
+        return None
+    if not token.endswith("px"):
+        raise _Invalid("orthogonal nested size is unsupported")
+    try:
+        number = float(token[:-2])
+    except ValueError as exc:
+        raise _Invalid("orthogonal nested size is unsupported") from exc
+    if number < 0:
+        raise _Invalid("orthogonal nested size is unsupported")
+    return _px(number, name)
+
+
 def _layout_orthogonal_child(child: _Box, block_size: int | None) -> None:
     """Size one horizontal block against a vertical parent's block size.
 
     An indefinite block size uses the child's max-content width, which breaks
     the cyclic stretch. A definite block size uses the float shrink-to-fit
-    equation: available space clamps the max-content, and the min-content
-    still wins when the text cannot break. The child's block size stays the
-    stacked line boxes.
+    equation when width is automatic: available space clamps the max-content,
+    and the min-content still wins when the text cannot break. A specified
+    width is the content width even when the text is shorter or cannot break.
+    A specified height is the content height, so the border box does not
+    follow the line boxes. An automatic height stays the stacked lines.
     """
 
     if child.children or child.floats or child.atoms or child.positioned or _mixed_runs(child):
         raise _Invalid("orthogonal nested block is unsupported")
     if not (child.inline_text or "").strip():
         raise _Invalid("orthogonal nested block is unsupported")
-    if not _physical_width_auto(child) or not _physical_height_auto(child):
-        raise _Invalid("orthogonal nested size is unsupported")
     _reject_vertical_margins(child)
-    if block_size is None:
-        _minimum, maximum = _intrinsic_text_sizes(child)
-        measure = maximum
+    if _box_sizing(child) != "content-box" or child.aspect_ratio is not None:
+        raise _Invalid("orthogonal nested size is unsupported")
+    if _has_explicit_limit(child, _WIDTH_LIMITS + _HEIGHT_LIMITS):
+        raise _Invalid("orthogonal nested size is unsupported")
+    slots = _physical_slots(child)
+    specified = _orthogonal_axis_px(slots, "width")
+    _orthogonal_axis_px(slots, "height")
+    if specified is None:
+        if block_size is None:
+            _minimum, maximum = _intrinsic_text_sizes(child)
+            measure = maximum
+        else:
+            measure = _shrink_float_width(child, block_size)
     else:
-        measure = _shrink_float_width(child, block_size)
+        measure = specified
     _solve(child, measure, None, None, 0, None)
 
 
