@@ -87,8 +87,10 @@ The last line of ``justify`` stays packed unless ``text-align-last: justify``
 or ``justify-all`` stretches it. ``text-justify: none`` leaves the gaps alone,
 and ``inter-character`` also opens the gaps inside a word. A line with no
 interior gap does not move, and leftover space is never compressed. Preserved
-white space, a vertical writing mode, a non-ltr direction, a mixed font, an
-inline-block, and a relative inline stay rejected. ``text-indent`` moves only
+white space, a non-ltr direction, a mixed font, an inline-block, and a
+relative inline stay rejected. ``vertical-rl`` and ``vertical-lr`` open those
+gaps down the inline axis: a word's physical height is its advance and its
+physical width is the column. ``sideways-lr`` stays rejected. ``text-indent`` moves only
 the first line of a horizontal left-to-right block and shortens that line's
 wrap measure by the same amount. A length may be negative and can start the
 line outside the content edge. A percentage is resolved against the containing
@@ -2089,7 +2091,12 @@ def _vertical_geometry(
 ) -> dict[str, object]:
     if box.children or box.floats or box.atoms or box.positioned or _mixed_runs(box):
         raise _Invalid("vertical block requires uniform inline text")
-    if box.text_align in {"justify", "justify-all"} or box.text_align_last == "justify":
+    if _gap_alignment(box) and (
+        flow["line_left"] != "top"
+        or str(flow["direction"]) != "ltr"
+        or box.writing_mode not in {"vertical-rl", "vertical-lr"}
+        or _relative_pieces(box)
+    ):
         raise _Invalid("vertical justification is unsupported")
 
     # Resolve logical declarations in the child's axes once. Physical margins
@@ -2118,10 +2125,28 @@ def _vertical_geometry(
     block_size = _px(solved["content_width"], "content width")
     for line in lines:
         # The line builder measures x from line-left and y from block-start.
-        x = block_size - line.y - line.height if flow["block_start"] == "right" else line.y
-        y = measure - line.x - line.content_width if flow["line_left"] == "bottom" else line.x
-        line.x, line.y = x, y
-        line.content_width, line.height = line.height, line.content_width
+        column = line.height
+        inline_offset = line.x
+        inline_extent = line.content_width
+        block_cursor = line.y
+        line.x = block_size - block_cursor - column if flow["block_start"] == "right" else block_cursor
+        line.y = measure - inline_offset - inline_extent if flow["line_left"] == "bottom" else inline_offset
+        line.content_width = column
+        line.height = inline_extent
+        if line.runs:
+            if flow["line_left"] != "top":
+                raise _Invalid("vertical justification is unsupported")
+            line.runs = [
+                {
+                    "text": run["text"],
+                    "x": 0,
+                    "y": int(run["x"]),
+                    "font_size": run["font_size"],
+                    "width": column,
+                    "height": int(run["width"]),
+                }
+                for run in line.runs
+            ]
     box.lines = lines
     return solved
 
@@ -2753,6 +2778,8 @@ def _record_line(line: _Line) -> dict[str, object]:
                 recorded["font_face"] = run["font_face"]
             if "y" in run:
                 recorded["y"] = line.y + int(run["y"])
+            if "height" in run:
+                recorded["height"] = int(run["height"])
             recorded_runs.append(recorded)
         item["runs"] = recorded_runs
     if line.atoms:
@@ -5645,7 +5672,7 @@ def _align_content(
     flow = direction or box.direction
     if not rendered or not _uses_gap_items(box, last):
         return _text_offset(box, measure, packed, last, direction=flow), packed, []
-    if flow != "ltr" or box.writing_mode != "horizontal-tb":
+    if flow != "ltr" or box.writing_mode not in {"horizontal-tb", "vertical-rl", "vertical-lr"}:
         raise _Invalid("justified writing mode is unsupported")
     if box.white_space not in {"normal", "nowrap", "pre-line"}:
         raise _Invalid("justified white-space is unsupported")

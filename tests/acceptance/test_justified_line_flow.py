@@ -11,7 +11,8 @@ paints BB at x 50. A 40px nowrap line does not compress BB away from x 30.
 A 30px paragraph keeps the single words AA and BB at x 0. A left float
 shortens the first line: AA, BB and CC paint at x 10, 45 and 80. Inherited
 justify matches the 100px paragraph. Relative, rtl, pre, inline-block,
-mixed font, vertical, and an unknown text-justify value are rejected.
+mixed font, and an unknown text-justify value are rejected. A vertical-rl
+measure of 40px packs AA and BB into separate columns.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit.
@@ -237,7 +238,16 @@ def observe() -> tuple[bool, dict[str, object]]:
         "preserved_white_space_is_rejected": _rejected(cases["pre"]),
         "inline_block_is_rejected": _rejected(cases["atom"]),
         "mixed_font_is_rejected": _rejected(cases["mixed"]),
-        "vertical_justification_is_rejected": _rejected(cases["vertical"]),
+        "vertical_measure_packs_each_word_in_its_own_column": (
+            _facts(cases["vertical"], "v").get("text") == "AA"
+            and _facts(cases["vertical"], "v").get("x") == 10
+            and _facts(cases["vertical"], "v").get("content_width") == 10
+            and _facts(cases["vertical"], "v", 1).get("text") == "BB"
+            and _facts(cases["vertical"], "v", 1).get("x") == 0
+            and _runs(cases["vertical"], "v").get("AA") == {"x": 10, "y": 0, "width": 10}
+            and _runs(cases["vertical"], "v", 1).get("BB") == {"x": 0, "y": 0, "width": 10}
+            and _facts(cases["vertical"], "v").get("next_y") == 40
+        ),
         "unknown_text_justify_is_rejected": _rejected(cases["invalid"]),
     }
     observed = {name: _facts(result) for name, result in cases.items()}
