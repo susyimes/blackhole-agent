@@ -8,8 +8,10 @@ A collapsible segment break (U+000A under normal or nowrap) becomes one space,
 except it disappears when both neighbors have East Asian width F, W, or H and
 neither is Hangul. That is the Level 3 rule left to the UA; it is the rule
 that reproduces the spec's English, Korean, and Chinese examples. U+000D is a
-space, not a segment break. hyphens:auto has no dictionary, so only U+00AD
-introduces a hyphenation opportunity. line-break:auto uses the normal
+space, not a segment break. hyphens:auto adds English Liang breaks, and
+the line that takes one draws U+2010. Those breaks are omitted from
+min-content. hyphens:manual still breaks only at U+00AD, and hyphens:none
+does not. line-break:auto uses the normal
 strictness list. Tab stops are multiples of the space advance measured from
 the line's content start. ``letter_spacing`` is inserted between grapheme
 clusters and is not applied after the last cluster on a line. ``word_spacing``
@@ -30,6 +32,8 @@ import contextvars
 import math
 import unicodedata
 from dataclasses import dataclass
+
+from blackhole_agent.css_hyphenate import hyphenation_offsets
 
 _EPS = 1e-9
 _BALANCE_LINE_CAP = 10
@@ -365,6 +369,8 @@ def _lay_out(
     space_advance: float,
     intrinsic: bool,
 ) -> list[dict[str, object]]:
+    if hyphens == "auto" and not intrinsic:
+        tokens = _with_auto_hyphens(tokens, lang)
     segments = _segments(tokens)
     last = len(segments) - 1
     lines: list[dict[str, object]] = []
@@ -405,6 +411,8 @@ def _balance_lay_out(
     tab_size: float,
     space_advance: float,
 ) -> list[dict[str, object]]:
+    if hyphens == "auto":
+        tokens = _with_auto_hyphens(tokens, lang)
     segments = _segments(tokens)
     last = len(segments) - 1
     lines: list[dict[str, object]] = []
@@ -1274,6 +1282,39 @@ def _mark_graphemes(tokens: list[_Tok]) -> list[_Tok]:
         tok.grapheme_start = start
         previous = tok
     return tokens
+
+
+def _hyphen_letter(token: _Tok) -> bool:
+    return token.kind == "glyph" and len(token.ch) == 1 and token.ch.isascii() and token.ch.isalpha()
+
+
+def _with_auto_hyphens(tokens: list[_Tok], lang: str) -> list[_Tok]:
+    """Insert soft-hyphen tokens at English pattern boundaries.
+
+    The existing shy renderer draws U+2010 only when that boundary is the
+    break actually taken. Min-content skips this pass. The hyphen uses the
+    preceding letter's advance, which is one em in this measurer.
+    """
+
+    result: list[_Tok] = []
+    index = 0
+    count = len(tokens)
+    while index < count:
+        if not _hyphen_letter(tokens[index]):
+            result.append(tokens[index])
+            index += 1
+            continue
+        end = index + 1
+        while end < count and _hyphen_letter(tokens[end]):
+            end += 1
+        word = "".join(tokens[cursor].ch for cursor in range(index, end))
+        cuts = set(hyphenation_offsets(word, lang))
+        for cursor in range(index, end):
+            if cursor > index and (cursor - index) in cuts:
+                result.append(_Tok("shy", "\u00ad", tokens[cursor - 1].advance))
+            result.append(tokens[cursor])
+        index = end
+    return result
 
 
 def _segments(tokens: list[_Tok]) -> list[list[_Tok]]:

@@ -113,7 +113,16 @@ to one character. ``break-word`` splits the same definite line and leaves that
 minimum at the whole word. ``keep-all`` keeps a Han run together for the
 minimum and still wraps it inside a definite measure. ``word-wrap`` is the
 same property as ``overflow-wrap``. Any other keyword is invalid, and a
-declaration of either property on an inline is rejected. ``text-wrap: balance``
+declaration of either property on an inline is rejected. ``hyphens`` is
+inherited. ``manual`` breaks only at a soft hyphen, and ``none`` does not
+break there. ``auto`` also breaks an English word, when the element's
+language is ``en``, at a Liang pattern boundary and draws U+2010 on the
+line that takes the break. A word shorter than five letters, or a break
+that would leave fewer than two letters on either side, stays whole.
+Another language has no patterns. Those automatic breaks do not lower a
+float's min-content, so shrink-to-fit keeps the whole word. An inline
+``hyphens`` declaration, and an inline whose language differs from that
+block, are rejected. ``text-wrap: balance``
 and ``text-wrap-style: balance`` keep that first-fit line count and choose the
 partition whose leftover inline space has the lower variance. ``wrap`` and
 ``auto`` stay on the first-fit breaks. A group of more than ten lines stays
@@ -605,6 +614,8 @@ _FONT = {
     "white-space": "normal",
     "overflow-wrap": "normal",
     "word-break": "normal",
+    "hyphens": "manual",
+    "lang": "",
     "hanging-punctuation": "none",
     "text-wrap-style": "auto",
     "list-style-type": "disc",
@@ -621,6 +632,7 @@ _JUSTIFY_MODES = frozenset({"auto", "none", "inter-word", "inter-character"})
 _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre-line"})
 _OVERFLOW_WRAPS = frozenset({"normal", "break-word", "anywhere"})
 _WORD_BREAKS = frozenset({"normal", "keep-all", "break-all", "break-word"})
+_HYPHENS = frozenset({"none", "manual", "auto"})
 _FRAGMENT_BREAKS = frozenset(
     {
         "auto",
@@ -649,6 +661,7 @@ _INLINE_REJECTED = (
     "overflow-wrap",
     "word-wrap",
     "word-break",
+    "hyphens",
     "hanging-punctuation",
     "text-wrap",
     "text-wrap-style",
@@ -750,6 +763,8 @@ class _Box:
     white_space: str = "normal"
     overflow_wrap: str = "normal"
     word_break: str = "normal"
+    hyphens: str = "manual"
+    lang: str = ""
     hanging_punctuation: str = "none"
     text_wrap_style: str = "auto"
     font_family: str = ""
@@ -1501,6 +1516,14 @@ def _make_box(
             _FONT["word-break"],
             "word-break",
         ),
+        hyphens=_inherited_keyword(
+            _declared(winners, "hyphens", custom),
+            _HYPHENS,
+            fonts["hyphens"],
+            _FONT["hyphens"],
+            "hyphens",
+        ),
+        lang=_read_lang(element, fonts["lang"]),
         hanging_punctuation=_read_hanging(
             _declared(winners, "hanging-punctuation", custom), fonts["hanging-punctuation"]
         ),
@@ -2664,6 +2687,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "white-space": box.white_space,
         "overflow-wrap": box.overflow_wrap,
         "word-break": box.word_break,
+        "hyphens": box.hyphens,
+        "lang": box.lang,
         "hanging-punctuation": box.hanging_punctuation,
         "text-wrap-style": box.text_wrap_style,
         "list-style-type": box.list_style_type,
@@ -2815,6 +2840,8 @@ def _make_anonymous_block(
         white_space=parent.white_space,
         overflow_wrap=parent.overflow_wrap,
         word_break=parent.word_break,
+        hyphens=parent.hyphens,
+        lang=parent.lang,
         hanging_punctuation=parent.hanging_punctuation,
         text_wrap_style=parent.text_wrap_style,
         font_family=parent.font_family,
@@ -2926,7 +2953,7 @@ def _inline_segments(
                 segments.append(("block", [], []))
                 add(child.tail or "", size, leading, layers)
                 continue
-            _reject_inline_type(tree, child, styles, declarations)
+            _reject_inline_type(tree, child, styles, declarations, parent_fonts)
             walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
             add(child.tail or "", size, leading, layers)
         add(after, size, leading, layers)
@@ -2999,7 +3026,7 @@ def _inline_pieces(
                 continue
             if kind == "block":
                 return False
-            _reject_inline_type(tree, child, styles, declarations)
+            _reject_inline_type(tree, child, styles, declarations, parent_fonts)
             if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
                 return False
             add(child.tail or "", size, leading, layers)
@@ -3024,6 +3051,8 @@ def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -
         "text-align-last": parent["text-align-last"],
         "text-justify": parent["text-justify"],
         "white-space": parent["white-space"],
+        "hyphens": parent.get("hyphens", "manual"),
+        "lang": parent.get("lang", ""),
     }
 
 
@@ -3057,12 +3086,21 @@ def _flow_kind(tree, element, styles, declarations) -> str:
     return "block"
 
 
-def _reject_inline_type(tree, element, styles, declarations) -> None:
+def _reject_inline_type(tree, element, styles, declarations, parent_fonts: dict[str, str] | None = None) -> None:
     custom = styles.get(element, ({}, ""))[0]
     winners = _winners(tree, element, declarations)
     for name in _INLINE_REJECTED:
         if _declared(winners, name, custom) is not None:
             raise _Invalid(f"inline {name} is unsupported")
+    if parent_fonts is None or parent_fonts.get("hyphens") != "auto":
+        return
+    raw = _attr(element, "lang")
+    if raw is None:
+        raw = _attr(element, "xml:lang")
+    if raw is None:
+        return
+    if raw.strip().casefold() != parent_fonts.get("lang", ""):
+        raise _Invalid("hyphenation language is unsupported")
 
 
 def _read_text_indent(value: str | None, parent: str) -> str:
@@ -3175,6 +3213,17 @@ def _tab_size_number(box: _Box) -> float:
     return float(raw)
 
 
+def _read_lang(element, parent: str) -> str:
+    """Content language. A missing attribute inherits; a blank one is unknown."""
+
+    raw = _attr(element, "lang")
+    if raw is None:
+        raw = _attr(element, "xml:lang")
+    if raw is None:
+        return parent
+    return raw.strip().casefold()
+
+
 def _break_args(box: _Box) -> dict[str, object]:
     if box.hanging_punctuation != "none" and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
         raise _Invalid("hanging punctuation writing mode is unsupported")
@@ -3182,6 +3231,8 @@ def _break_args(box: _Box) -> dict[str, object]:
         "overflow_wrap": box.overflow_wrap,
         "word_break": box.word_break,
         "tab_size": _tab_size_number(box),
+        "hyphens": box.hyphens,
+        "lang": box.lang,
         "hanging_punctuation": box.hanging_punctuation,
     }
 
@@ -7134,6 +7185,8 @@ def _flush_flex_text(
             white_space=host.white_space,
             overflow_wrap=host.overflow_wrap,
             word_break=host.word_break,
+            hyphens=host.hyphens,
+            lang=host.lang,
             hanging_punctuation=host.hanging_punctuation,
             text_wrap_style=host.text_wrap_style,
             font_family=host.font_family,
