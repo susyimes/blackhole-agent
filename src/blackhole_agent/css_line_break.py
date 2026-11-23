@@ -26,6 +26,7 @@ A tie keeps the first-fit breaks. Emergency breaks are not rearranged.
 
 from __future__ import annotations
 
+import contextvars
 import math
 import unicodedata
 from dataclasses import dataclass
@@ -38,6 +39,12 @@ _OVERFLOWS = frozenset({"normal", "break-word", "anywhere"})
 _WORDS = frozenset({"normal", "keep-all", "break-all", "break-word"})
 _LINES = frozenset({"auto", "loose", "normal", "strict", "anywhere"})
 _HYPHENS = frozenset({"none", "manual", "auto"})
+_HANGS = frozenset({"first", "force-end", "allow-end", "last"})
+_STOPS = frozenset(",.\u060c\u06d4\u3001\u3002\uff0c\uff0e\ufe50\ufe51\ufe52\uff61\uff64")
+_HANGING: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
+    "css_hanging_punctuation", default=frozenset()
+)
+_OPENING: contextvars.ContextVar[bool] = contextvars.ContextVar("css_hanging_opening", default=False)
 _COLLAPSE = frozenset({"normal", "nowrap", "pre-line"})
 _WRAPS = frozenset({"normal", "pre-wrap", "break-spaces", "pre-line"})
 _AFTER_HYPHEN = frozenset("-\u2010\u2013")
@@ -137,6 +144,7 @@ def wrap_lines(
     advances: object = None,
     letter_spacing: object = 0,
     word_spacing: object = 0,
+    hanging_punctuation: object = "none",
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -147,7 +155,10 @@ def wrap_lines(
     break-word opportunities. ``max_content`` is the widest line when the
     measure is infinite. ``letter_spacing`` sits between grapheme clusters and
     does not follow the last cluster. ``word_spacing`` widens space and other
-    Zs separators only.
+    Zs separators only. ``hanging_punctuation`` keeps an opening mark out of
+    the first line's measure, a closing mark out of the final line's measure,
+    and a stop or comma out of the line that ends with it. The mark stays in
+    the rendered text. Its advance stays in ``width`` and leaves ``content_width``.
     """
 
     try:
@@ -162,6 +173,7 @@ def wrap_lines(
         language = _lang(lang)
         letter = _finite(letter_spacing, "letter_spacing")
         spacing = _finite(word_spacing, "word_spacing")
+        hanging = _hanging_modes(hanging_punctuation)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -171,38 +183,11 @@ def wrap_lines(
     except _Invalid as exc:
         return _invalid(exc.reason)
 
-    lines = _lay_out(
-        tokens,
-        measure,
-        white=white,
-        overflow=overflow,
-        word=word,
-        strictness=strictness,
-        hyphens=hyphenation,
-        lang=language,
-        tab_size=tabs,
-        space_advance=adv.space(),
-        intrinsic=False,
-    )
-    minimum = _widest(
-        _lay_out(
+    token = _HANGING.set(hanging)
+    try:
+        lines = _lay_out(
             tokens,
-            0.0,
-            white=white,
-            overflow=overflow,
-            word=word,
-            strictness=strictness,
-            hyphens=hyphenation,
-            lang=language,
-            tab_size=tabs,
-            space_advance=adv.space(),
-            intrinsic=True,
-        )
-    )
-    maximum = _widest(
-        _lay_out(
-            tokens,
-            math.inf,
+            measure,
             white=white,
             overflow=overflow,
             word=word,
@@ -213,7 +198,38 @@ def wrap_lines(
             space_advance=adv.space(),
             intrinsic=False,
         )
-    )
+        minimum = _widest(
+            _lay_out(
+                tokens,
+                0.0,
+                white=white,
+                overflow=overflow,
+                word=word,
+                strictness=strictness,
+                hyphens=hyphenation,
+                lang=language,
+                tab_size=tabs,
+                space_advance=adv.space(),
+                intrinsic=True,
+            )
+        )
+        maximum = _widest(
+            _lay_out(
+                tokens,
+                math.inf,
+                white=white,
+                overflow=overflow,
+                word=word,
+                strictness=strictness,
+                hyphens=hyphenation,
+                lang=language,
+                tab_size=tabs,
+                space_advance=adv.space(),
+                intrinsic=False,
+            )
+        )
+    finally:
+        _HANGING.reset(token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -236,6 +252,7 @@ def balance_lines(
     advances: object = None,
     letter_spacing: object = 0,
     word_spacing: object = 0,
+    hanging_punctuation: object = "none",
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -257,6 +274,7 @@ def balance_lines(
         language = _lang(lang)
         letter = _finite(letter_spacing, "letter_spacing")
         spacing = _finite(word_spacing, "word_spacing")
+        hanging = _hanging_modes(hanging_punctuation)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -266,51 +284,55 @@ def balance_lines(
     except _Invalid as exc:
         return _invalid(exc.reason)
 
+    token = _HANGING.set(hanging)
     try:
-        lines = _balance_lay_out(
-            tokens,
-            measure,
-            white=white,
-            overflow=overflow,
-            word=word,
-            strictness=strictness,
-            hyphens=hyphenation,
-            lang=language,
-            tab_size=tabs,
-            space_advance=adv.space(),
+        try:
+            lines = _balance_lay_out(
+                tokens,
+                measure,
+                white=white,
+                overflow=overflow,
+                word=word,
+                strictness=strictness,
+                hyphens=hyphenation,
+                lang=language,
+                tab_size=tabs,
+                space_advance=adv.space(),
+            )
+        except _Invalid as exc:
+            return _invalid(exc.reason)
+        minimum = _widest(
+            _lay_out(
+                tokens,
+                0.0,
+                white=white,
+                overflow=overflow,
+                word=word,
+                strictness=strictness,
+                hyphens=hyphenation,
+                lang=language,
+                tab_size=tabs,
+                space_advance=adv.space(),
+                intrinsic=True,
+            )
         )
-    except _Invalid as exc:
-        return _invalid(exc.reason)
-    minimum = _widest(
-        _lay_out(
-            tokens,
-            0.0,
-            white=white,
-            overflow=overflow,
-            word=word,
-            strictness=strictness,
-            hyphens=hyphenation,
-            lang=language,
-            tab_size=tabs,
-            space_advance=adv.space(),
-            intrinsic=True,
+        maximum = _widest(
+            _lay_out(
+                tokens,
+                math.inf,
+                white=white,
+                overflow=overflow,
+                word=word,
+                strictness=strictness,
+                hyphens=hyphenation,
+                lang=language,
+                tab_size=tabs,
+                space_advance=adv.space(),
+                intrinsic=False,
+            )
         )
-    )
-    maximum = _widest(
-        _lay_out(
-            tokens,
-            math.inf,
-            white=white,
-            overflow=overflow,
-            word=word,
-            strictness=strictness,
-            hyphens=hyphenation,
-            lang=language,
-            tab_size=tabs,
-            space_advance=adv.space(),
-            intrinsic=False,
-        )
-    )
+    finally:
+        _HANGING.reset(token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -347,22 +369,26 @@ def _lay_out(
     last = len(segments) - 1
     lines: list[dict[str, object]] = []
     for index, segment in enumerate(segments):
-        lines.extend(
-            _segment(
-                segment,
-                width,
-                white=white,
-                overflow=overflow,
-                word=word,
-                strictness=strictness,
-                hyphens=hyphens,
-                lang=lang,
-                tab_size=tab_size,
-                space_advance=space_advance,
-                before_forced=index < last,
-                intrinsic=intrinsic,
+        marker = _OPENING.set(index == 0)
+        try:
+            lines.extend(
+                _segment(
+                    segment,
+                    width,
+                    white=white,
+                    overflow=overflow,
+                    word=word,
+                    strictness=strictness,
+                    hyphens=hyphens,
+                    lang=lang,
+                    tab_size=tab_size,
+                    space_advance=space_advance,
+                    before_forced=index < last,
+                    intrinsic=intrinsic,
+                )
             )
-        )
+        finally:
+            _OPENING.reset(marker)
     return lines
 
 
@@ -383,21 +409,25 @@ def _balance_lay_out(
     last = len(segments) - 1
     lines: list[dict[str, object]] = []
     for index, segment in enumerate(segments):
-        lines.extend(
-            _balance_segment(
-                segment,
-                width,
-                white=white,
-                overflow=overflow,
-                word=word,
-                strictness=strictness,
-                hyphens=hyphens,
-                lang=lang,
-                tab_size=tab_size,
-                space_advance=space_advance,
-                before_forced=index < last,
+        marker = _OPENING.set(index == 0)
+        try:
+            lines.extend(
+                _balance_segment(
+                    segment,
+                    width,
+                    white=white,
+                    overflow=overflow,
+                    word=word,
+                    strictness=strictness,
+                    hyphens=hyphens,
+                    lang=lang,
+                    tab_size=tab_size,
+                    space_advance=space_advance,
+                    before_forced=index < last,
+                )
             )
-        )
+        finally:
+            _OPENING.reset(marker)
     return lines
 
 
@@ -820,6 +850,71 @@ def _next_opportunity(start: int, breaks: list[bool], count: int) -> int:
     return end
 
 
+def _hanging_modes(value: object) -> frozenset[str]:
+    if not isinstance(value, str):
+        raise _Invalid("hanging_punctuation is not a supported keyword")
+    text = " ".join(value.strip().lower().split())
+    if text in {"", "none"}:
+        return frozenset()
+    parts = text.split(" ")
+    if len(parts) != len(set(parts)) or any(part not in _HANGS for part in parts):
+        raise _Invalid("hanging_punctuation is not a supported keyword")
+    if "force-end" in parts and "allow-end" in parts:
+        raise _Invalid("hanging_punctuation is not a supported keyword")
+    return frozenset(parts)
+
+
+def _content_ink(tok: _Tok) -> float:
+    extra = tok.word_spacing if tok.kind in {"space", "sep"} else 0.0
+    return tok.advance + extra
+
+
+def _opens(ch: str) -> bool:
+    return _category(ch) in {"Ps", "Pi"}
+
+
+def _closes(ch: str) -> bool:
+    return _category(ch) in {"Pe", "Pf"}
+
+
+def _hanging_deduction(
+    tokens: list[_Tok],
+    low: int,
+    high: int,
+    *,
+    start: int,
+    content: float,
+    width: float,
+    at_segment_end: bool,
+    before_forced: bool,
+) -> float:
+    """Advance excluded from the fit measure. The rendered text keeps the mark."""
+
+    modes = _HANGING.get()
+    if not modes or low >= high:
+        return 0.0
+    deduct = 0.0
+    taken: set[int] = set()
+    if "first" in modes and _OPENING.get() and start == 0 and _opens(tokens[low].ch):
+        deduct += _content_ink(tokens[low])
+        taken.add(low)
+    end = high - 1
+    if end in taken:
+        return deduct
+    tok = tokens[end]
+    hang = False
+    if "last" in modes and at_segment_end and not before_forced and _closes(tok.ch):
+        hang = True
+    if tok.ch in _STOPS:
+        if "force-end" in modes:
+            hang = True
+        elif "allow-end" in modes and content - deduct > width + _EPS:
+            hang = True
+    if hang:
+        deduct += _content_ink(tok)
+    return deduct
+
+
 def _measure(
     tokens: list[_Tok],
     start: int,
@@ -851,24 +946,39 @@ def _measure(
         tokens, low, high, show_shy=show_shy, tab_size=tab_size, space_advance=space_advance, x0=0.0
     )
     if not visible:
-        return base_text, base_width, base_width
-    trail_text, trail_width = _render_tokens(
-        visible, show_shy=False, tab_size=tab_size, space_advance=space_advance, x0=base_width
-    )
-    mode = _trail_mode(
-        white=white,
+        text, content, full = base_text, base_width, base_width
+    else:
+        trail_text, trail_width = _render_tokens(
+            visible, show_shy=False, tab_size=tab_size, space_advance=space_advance, x0=base_width
+        )
+        mode = _trail_mode(
+            white=white,
+            at_segment_end=at_segment_end,
+            before_forced=before_forced,
+            base_width=base_width,
+            trail_width=trail_width,
+            width=width,
+        )
+        if mode == "hang":
+            text, content, full = base_text + trail_text, base_width, base_width + trail_width
+        else:
+            content = base_width + trail_width
+            if base_text and trail_text and low < len(tokens) and tokens[low].letter_spacing:
+                content += tokens[low].letter_spacing
+            text, content, full = base_text + trail_text, content, content
+    content -= _hanging_deduction(
+        tokens,
+        low,
+        high,
+        start=start,
+        content=content,
+        width=width,
         at_segment_end=at_segment_end,
         before_forced=before_forced,
-        base_width=base_width,
-        trail_width=trail_width,
-        width=width,
     )
-    if mode == "hang":
-        return base_text + trail_text, base_width, base_width + trail_width
-    content = base_width + trail_width
-    if base_text and trail_text and low < len(tokens) and tokens[low].letter_spacing:
-        content += tokens[low].letter_spacing
-    return base_text + trail_text, content, content
+    if content < 0:
+        content = 0.0
+    return text, content, full
 
 
 def _render(

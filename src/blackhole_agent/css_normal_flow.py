@@ -128,7 +128,16 @@ wider than the box, is not ellipsized, and the following block starts under
 the clamped lines. Zero, ``inherit``, preserved white space, spacing,
 justification, indent, balance, a float beside the text, an inline-block, a
 marker, a vertical writing mode, and an inline declaration are rejected. A
-block child does not take the clamp. A block that also
+block child does not take the clamp. ``hanging-punctuation`` is inherited.
+``first`` keeps one opening mark, Unicode Ps or Pi, out of the first line's
+measure, so the following word can stay on that line. ``last`` keeps one
+closing mark, Pe or Pf, out of the final line's measure. ``force-end`` always
+keeps a stop or comma out of the line that ends with it, and ``allow-end``
+does that only when the mark would otherwise overflow. The mark stays in the
+line text. ``none`` is the initial value. ``force-end`` together with
+``allow-end`` is invalid, and a declaration on an inline is rejected. A
+vertical writing mode or a non-ltr direction is rejected when the used value
+is not ``none``. A block that also
 has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
 box with no margin, border, or padding, stretched to the parent's content
@@ -588,6 +597,7 @@ _FONT = {
     "white-space": "normal",
     "overflow-wrap": "normal",
     "word-break": "normal",
+    "hanging-punctuation": "none",
     "text-wrap-style": "auto",
     "list-style-type": "disc",
     "list-style-position": "outside",
@@ -628,6 +638,7 @@ _INLINE_REJECTED = (
     "overflow-wrap",
     "word-wrap",
     "word-break",
+    "hanging-punctuation",
     "text-wrap",
     "text-wrap-style",
     "line-clamp",
@@ -728,6 +739,7 @@ class _Box:
     white_space: str = "normal"
     overflow_wrap: str = "normal"
     word_break: str = "normal"
+    hanging_punctuation: str = "none"
     text_wrap_style: str = "auto"
     line_clamp: int | None = None
     parent_direction: str | None = None
@@ -1460,6 +1472,9 @@ def _make_box(
             fonts["word-break"],
             _FONT["word-break"],
             "word-break",
+        ),
+        hanging_punctuation=_read_hanging(
+            _declared(winners, "hanging-punctuation", custom), fonts["hanging-punctuation"]
         ),
         text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
         line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
@@ -2472,6 +2487,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "white-space": box.white_space,
         "overflow-wrap": box.overflow_wrap,
         "word-break": box.word_break,
+        "hanging-punctuation": box.hanging_punctuation,
         "text-wrap-style": box.text_wrap_style,
         "list-style-type": box.list_style_type,
         "list-style-position": box.list_style_position,
@@ -2619,6 +2635,7 @@ def _make_anonymous_block(
         white_space=parent.white_space,
         overflow_wrap=parent.overflow_wrap,
         word_break=parent.word_break,
+        hanging_punctuation=parent.hanging_punctuation,
         text_wrap_style=parent.text_wrap_style,
         parent_direction=parent.direction,
         anonymous=True,
@@ -2976,11 +2993,32 @@ def _tab_size_number(box: _Box) -> float:
 
 
 def _break_args(box: _Box) -> dict[str, object]:
+    if box.hanging_punctuation != "none" and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
+        raise _Invalid("hanging punctuation writing mode is unsupported")
     return {
         "overflow_wrap": box.overflow_wrap,
         "word_break": box.word_break,
         "tab_size": _tab_size_number(box),
+        "hanging_punctuation": box.hanging_punctuation,
     }
+
+
+def _read_hanging(value: str | None, parent: str) -> str:
+    """Computed ``hanging-punctuation``. Keywords combine; the two end modes do not."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = " ".join(value.strip().lower().split())
+    if text in {"initial", "none"}:
+        return "none"
+    parts = text.split(" ")
+    allowed = {"first", "force-end", "allow-end", "last"}
+    if len(parts) != len(set(parts)) or any(part not in allowed for part in parts):
+        raise _Invalid("hanging-punctuation is invalid")
+    if "force-end" in parts and "allow-end" in parts:
+        raise _Invalid("hanging-punctuation is invalid")
+    ordered = [part for part in ("first", "force-end", "allow-end", "last") if part in parts]
+    return " ".join(ordered)
 
 
 def _read_line_clamp(value: str | None) -> int | None:
@@ -6913,6 +6951,7 @@ def _flush_flex_text(
             white_space=host.white_space,
             overflow_wrap=host.overflow_wrap,
             word_break=host.word_break,
+            hanging_punctuation=host.hanging_punctuation,
             text_wrap_style=host.text_wrap_style,
             parent_direction=host.direction,
             inline_text=rendered,
