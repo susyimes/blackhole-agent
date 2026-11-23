@@ -65,7 +65,13 @@ clipping. A shape that cannot be parsed is rejected. A float beside a
 following block sibling is placed in that same
 content box: the sibling keeps its width, its line boxes shorten where the
 float area overlaps them, and clear moves the sibling's border edge
-down to those floats. Text in the float is wrapped in its content box.
+down to those floats. ``display: flow-root`` is a block formatting context
+on that same horizontal line: child margins stay inside it, and an empty
+flow-root keeps its top and bottom margins apart. Beside a float, an
+automatic width fills the leftover inline space and a specified width that
+does not fit starts under the float. A plain block still keeps its full
+width and only shortens its lines. A vertical writing mode, a replaced
+flow-root, and columns on a flow-root stay rejected. Text in the float is wrapped in its content box.
 Automatic width is the shrink-to-fit size, and automatic height is the
 stacked line boxes; a specified size stays specified. In-flow block
 children lay out in the float: their margins stay inside, automatic
@@ -587,6 +593,7 @@ _DISPLAYS = frozenset(
         "table-caption",
         "none",
         "contents",
+        "flow-root",
     }
 )
 _FLOW_DISPLAYS = _DISPLAYS | {"list-item"}
@@ -1047,7 +1054,7 @@ def _invalid(reason: str) -> dict[str, object]:
     return {"outcome": "invalid", "reason": reason, "boxes": None}
 
 
-_HIT_DISPLAYS = frozenset({"block", "inline", "inline-block"})
+_HIT_DISPLAYS = frozenset({"block", "flow-root", "inline", "inline-block"})
 
 
 def _finite_point(value: object, name: str) -> None:
@@ -1286,7 +1293,7 @@ def _walk(
             _set_inline(box, tree, child, styles, declarations, ids, counter)
             if box.children or box.floats or box.positioned or box.atoms:
                 if (
-                    box.display != "block"
+                    not _block_container(box)
                     or box.floats
                     or box.positioned
                     or box.atoms
@@ -2452,6 +2459,13 @@ def _solve(
     box.containing_inline = parent_width
     flow = _writing_flow(box)
     horizontal = flow["horizontal"] is True
+    if box.display == "flow-root":
+        if not horizontal or box.direction != "ltr":
+            raise _Invalid("flow-root writing mode is unsupported")
+        if box.replaced:
+            raise _Invalid("replaced display is unsupported")
+        if box.multicol is not None:
+            raise _Invalid("flow-root columns are unsupported")
     vertical_text = not horizontal and box.display == "block"
     if vertical_text:
         limits = [limit for limit in (parent_height, viewport_height, scrollport_height) if limit is not None]
@@ -2581,9 +2595,13 @@ def _box_sizing(box: _Box) -> str:
     return sizing
 
 
+def _block_container(box: _Box) -> bool:
+    return box.display in {"block", "flow-root"}
+
+
 def _aspect_block(box: _Box) -> bool:
     return (
-        box.display == "block"
+        _block_container(box)
         and box.float_side == "none"
         and box.position not in {"absolute", "fixed"}
         and box.writing_mode == "horizontal-tb"
@@ -2627,7 +2645,7 @@ def _used_block_limits(box: _Box) -> tuple[int, int | None]:
     """
 
     if (
-        box.display != "block"
+        not _block_container(box)
         or box.float_side != "none"
         or box.position in {"absolute", "fixed"}
         or box.writing_mode != "horizontal-tb"
@@ -2661,7 +2679,7 @@ def _collapse_spec(box: _Box) -> dict[str, object]:
         "overflow": "hidden" if box.root else box.overflow,
         "float": "none",
         "position": "relative" if box.position == "relative" else "static",
-        "display": "inline-block" if box.display == "inline-block" else "block",
+        "display": box.display if box.display in {"inline-block", "flow-root"} else "block",
         "clearance": False,
         "children": [] if box.anchor_laid else [_collapse_spec(child) for child in box.children],
     }
@@ -3011,7 +3029,7 @@ def _anonymous_split_allowed(box: _Box) -> bool:
         box.position in {"static", "relative"}
         and box.float_side == "none"
         and not box.positioned
-        and box.display == "block"
+        and _block_container(box)
         and box.multicol is None
         and box.flex is None
         and box.grid is None
@@ -3837,7 +3855,7 @@ def _float_loose_text(tree, element, white_space: str) -> bool:
 
 def _float_block_child(box: _Box) -> bool:
     if (
-        box.display != "block"
+        not _block_container(box)
         or box.float_side != "none"
         or box.position != "static"
         or box.writing_mode != "horizontal-tb"
@@ -4622,7 +4640,7 @@ def _hypothetical_edges(parent: _Box, index: int) -> tuple[int, int, int]:
 def _reject_abs_block(box: _Box) -> None:
     """Keep an absolute formatting context to static horizontal blocks."""
 
-    if box.display != "block" or box.position != "static" or box.float_side != "none":
+    if not _block_container(box) or box.position != "static" or box.float_side != "none":
         raise _Invalid("positioned content is unsupported")
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("positioned content is unsupported")
@@ -5457,6 +5475,133 @@ def _commit_float(fl: _Box, content_x: int, row: dict[str, object], edges: dict[
     fl.float_placed = True
 
 
+def _declared_px(box: _Box, name: str) -> int:
+    """Author length. Auto and the initial value contribute nothing.
+
+    The solved inline-end margin of a specified width absorbs leftover space
+    in the full containing block. That slack is not part of the border box
+    that has to fit beside a float.
+    """
+
+    raw = None
+    for prop, value in box.declarations:
+        if prop == name:
+            raw = value
+    if raw is None:
+        return 0
+    token = " ".join(str(raw).strip().lower().split())
+    if token in {"auto", "initial", "unset", "revert", "revert-layer"}:
+        return 0
+    if token.endswith("px"):
+        return _px(float(token[:-2]), name)
+    raise _Invalid("flow-root beside a float is unsupported")
+
+
+def _outer_inline_chrome(box: _Box) -> int:
+    solved = box.solved
+    return (
+        _px(solved.get("margin_left"), "margin-left")
+        + _px(solved.get("margin_right"), "margin-right")
+        + _edge_extent(solved, "left", "right")
+    )
+
+
+def _commit_content_height(box: _Box) -> None:
+    if box.definite_height is None:
+        box.definite_height = 0
+    chrome = (
+        _px(box.solved.get("padding_top"), "padding-top")
+        + _px(box.solved.get("padding_bottom"), "padding-bottom")
+        + _px(box.solved.get("border_top"), "border-top")
+        + _px(box.solved.get("border_bottom"), "border-bottom")
+    )
+    box.content_height = box.definite_height
+    box.border_height = box.definite_height + chrome
+
+
+def _refill_flow_root(box: _Box, content_width: int) -> None:
+    auto = box.solved.get("content_height") == "auto"
+    saved = box.definite_height
+    box.content_width = content_width
+    if auto:
+        box.definite_height = None
+    box.lines = []
+    _fill_lines(box)
+    if not auto:
+        box.definite_height = saved
+    _commit_content_height(box)
+
+
+def _flow_root_slot(
+    box: _Box,
+    bands: list[tuple[int, int, int, int, str, str, float]],
+    containing: int,
+    start: int,
+) -> tuple[int, int, int | None]:
+    """Border y, left inset, and the automatic content width beside floats.
+
+    ``None`` keeps the content width already solved. A specified width that
+    does not fit the gap is tried again below the floats.
+    """
+
+    if any(band[5] for band in bands):
+        raise _Invalid("flow-root beside a shaped float is unsupported")
+    events = {start}
+    for band in bands:
+        bottom = band[1] + band[3]
+        if bottom > start:
+            events.add(bottom)
+    specified = not _specified_auto(box.solved.get("specified_width"))
+    chrome = _outer_inline_chrome(box)
+    for y in sorted(events):
+        left, right, _bottoms = _exclusion(y, 1, bands, containing)
+        room = right - left
+        if specified:
+            outer = (
+                box.content_width
+                + _edge_extent(box.solved, "left", "right")
+                + _declared_px(box, "margin-left")
+                + _declared_px(box, "margin-right")
+            )
+            if outer <= room:
+                return y, left, None
+            continue
+        content = room - chrome
+        if content < 0:
+            continue
+        narrowed = None if left == 0 and right == containing else content
+        return y, left, narrowed
+    raise _Invalid("flow-root beside a float is unsupported")
+
+
+def _place_flow_root_beside(
+    box: _Box,
+    bands: list[tuple[int, int, int, int, str, str, float]],
+    containing: int,
+    cursor: int,
+    origin: int,
+) -> int:
+    if box.children or box.floats or box.atoms or _mixed_runs(box) or _relative_pieces(box):
+        raise _Invalid("flow-root beside a float is unsupported")
+    margin_top = _px(box.solved.get("margin_top"), "margin-top")
+    margin_bottom = _px(box.solved.get("margin_bottom"), "margin-bottom")
+    start = max(cursor + margin_top, _clear_floor(box.clear, bands))
+    border_y, inset, narrowed = _flow_root_slot(box, bands, containing, start)
+    if narrowed is None:
+        _commit_content_height(box)
+        if not _specified_auto(box.solved.get("specified_width")):
+            left, right, _bottoms = _exclusion(border_y, 1, bands, containing)
+            box.margin_right = (right - left) - box.content_width - _edge_extent(
+                box.solved, "left", "right"
+            ) - _declared_px(box, "margin-left")
+            box.solved["margin_right"] = box.margin_right
+    else:
+        _refill_flow_root(box, narrowed)
+    box.x += inset
+    box.anchor_y = origin + border_y
+    return border_y + box.border_height + margin_bottom
+
+
 def _lay_sibling_floats(box: _Box, content_x: int) -> None:
     """Place floats in source order and shorten each following block's lines."""
 
@@ -5464,7 +5609,7 @@ def _lay_sibling_floats(box: _Box, content_x: int) -> None:
         raise _Invalid("float writing mode is unsupported")
     measured = {fl.id: _measure_float(box, fl) for fl in box.floats}
     for child in box.children:
-        if child.display != "block" or child.children or child.floats:
+        if child.display not in {"block", "flow-root"} or child.children or child.floats:
             raise _Invalid("float beside nested blocks is unsupported")
         if child.writing_mode != "horizontal-tb" or child.direction != "ltr":
             raise _Invalid("float writing mode is unsupported")
@@ -5484,6 +5629,9 @@ def _lay_sibling_floats(box: _Box, content_x: int) -> None:
             )
             if item.float_band is not None:
                 bands.append(item.float_band)
+            continue
+        if item.display == "flow-root":
+            cursor = _place_flow_root_beside(item, bands, box.content_width, cursor, origin)
             continue
         margin_top = _px(item.solved.get("margin_top"), "margin-top")
         margin_bottom = _px(item.solved.get("margin_bottom"), "margin-bottom")

@@ -9,8 +9,8 @@ a later neighbor still needs.
 A parent with no top padding and no top border takes its first child's top
 margin outside the border edge. An empty block with no padding, border, or
 line box lets its own margins collapse through it. A float, an absolute or
-fixed box, an inline-block, and a block whose overflow is not visible keep
-child margins inside.
+fixed box, an inline-block, a flow-root, and a block whose overflow is not
+visible keep child margins inside.
 
 Float and absolute children are out of flow and are rejected. Clearance is
 supplied by the caller. It stops a top margin from collapsing with the
@@ -50,7 +50,7 @@ _FIELDS = frozenset(
 _OVERFLOWS = frozenset({"visible", "hidden", "auto", "scroll", "clip"})
 _FLOATS = frozenset({"none", "left", "right"})
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed"})
-_DISPLAYS = frozenset({"block", "inline-block"})
+_DISPLAYS = frozenset({"block", "flow-root", "inline-block"})
 
 
 class _Invalid(Exception):
@@ -175,7 +175,7 @@ def _bfc(spec: _Spec) -> bool:
         spec.float != "none"
         or spec.overflow != "visible"
         or spec.position in {"absolute", "fixed"}
-        or spec.display == "inline-block"
+        or spec.display in {"inline-block", "flow-root"}
     )
 
 
