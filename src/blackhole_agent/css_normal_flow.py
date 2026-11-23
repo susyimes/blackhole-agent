@@ -379,9 +379,15 @@ direction stack on the block axis, from the right for ``vertical-rl`` and
 from the left for ``vertical-lr``. Each child lays out its own text. A
 definite parent height stretches an automatic child to that content box and
 wraps the child inside it. An automatic parent is as wide as the children
-and as tall as the tallest one. A child margin, a different writing mode, a
-percentage size, a float, and loose text beside those children stay rejected.
-Mixed fonts and justification of the orthogonal text stay unsupported.
+and as tall as the tallest one. A child margin, a percentage size, a float,
+and loose text beside those children stay rejected. A horizontal-tb child
+with direction ltr and text-orientation mixed keeps horizontal lines: an
+automatic parent block size uses that child's max-content width, a definite
+parent block size stretches that one child and wraps its lines, and a
+definite parent inline size does not stretch the child. A definite block
+size with another child beside that horizontal box stays rejected, as do a
+specified child size and a nested child inside it. Mixed fonts and
+justification of the orthogonal text stay unsupported.
 ``display: contents`` generates no box. The element is replaced by its
 children and text in the parent's formatting context, so its own width,
 padding, border, and margin do not move them. A percentage on a child uses
@@ -1872,6 +1878,45 @@ def _physical_height_auto(box: _Box) -> bool:
     return token in {"auto", "initial", "unset", "revert"}
 
 
+def _physical_width_auto(box: _Box) -> bool:
+    token = _physical_slots(box).get("width", "auto").strip().lower()
+    return token in {"auto", "initial", "unset", "revert"}
+
+
+def _orthogonal_horizontal(child: _Box, parent: _Box) -> bool:
+    """A horizontal block whose inline axis is the vertical parent's block axis."""
+
+    return (
+        parent.writing_mode in {"vertical-rl", "vertical-lr"}
+        and child.writing_mode == "horizontal-tb"
+        and child.direction == "ltr"
+        and child.text_orientation == "mixed"
+    )
+
+
+def _layout_orthogonal_child(child: _Box, block_size: int | None) -> None:
+    """Size one horizontal block against a vertical parent's block size.
+
+    An indefinite block size uses the child's max-content width, which breaks
+    the cyclic stretch. A definite block size is that content width, so the
+    lines wrap. The child's block size stays the stacked line boxes.
+    """
+
+    if child.children or child.floats or child.atoms or child.positioned or _mixed_runs(child):
+        raise _Invalid("orthogonal nested block is unsupported")
+    if not (child.inline_text or "").strip():
+        raise _Invalid("orthogonal nested block is unsupported")
+    if not _physical_width_auto(child) or not _physical_height_auto(child):
+        raise _Invalid("orthogonal nested size is unsupported")
+    _reject_vertical_margins(child)
+    if block_size is None:
+        _minimum, maximum = _intrinsic_text_sizes(child)
+        measure = maximum
+    else:
+        measure = block_size
+    _solve(child, measure, None, None, 0, None)
+
+
 def _auto_slot(slots: dict[str, str], name: str) -> bool:
     return slots.get(name, "auto").strip().lower() in {"auto", "initial", "unset", "revert"}
 
@@ -1927,10 +1972,18 @@ def _vertical_child_stack(
     preview = geometry()
     specified = preview.get("content_height")
     parent_content_height = None if specified == "auto" else _px(specified, "content height")
+    # Auto physical width is stretched by the horizontal equation. The slot,
+    # not the preview, tells whether the vertical block size is indefinite.
+    block_auto = _auto_slot(slots, "width")
+    parent_content_width = None if block_auto else _px(preview.get("content_width"), "content width")
     available = parent_content_height if parent_content_height is not None else height_limit
+    orthogonal = [child for child in box.children if _orthogonal_horizontal(child, box)]
+    if parent_content_width is not None and orthogonal and len(box.children) != 1:
+        raise _Invalid("orthogonal nested block is unsupported")
     for child in box.children:
         _reject_vertical_child(child)
-        if (
+        is_orthogonal = child in orthogonal
+        if not is_orthogonal and (
             child.writing_mode != box.writing_mode
             or child.direction != box.direction
             or child.text_orientation != box.text_orientation
@@ -1939,6 +1992,9 @@ def _vertical_child_stack(
         child_slots = _physical_slots(child)
         if "%" in child_slots.get("width", "") or "%" in child_slots.get("height", ""):
             raise _Invalid("vertical nested percentage is unsupported")
+        if is_orthogonal:
+            _layout_orthogonal_child(child, parent_content_width)
+            continue
         height_auto = _physical_height_auto(child)
         _solve(child, width, available, None, 0, None)
         _reject_vertical_margins(child)

@@ -182,11 +182,26 @@ def observe():
         PAGE.format('<div id="a">AB</div>'),
         BASE + " #a {float:left}",
     )
-    expect_invalid(
-        "horizontal",
+    horizontal, reason = _placed(
         PAGE.format('<div id="a">AB</div>'),
         BASE + " #a {writing-mode:horizontal-tb}",
     )
+    if horizontal is None:
+        observed["horizontal"] = reason
+        passed = False
+    else:
+        observed["horizontal"] = {
+            "v": _box(horizontal, "v"),
+            "a": _box(horizontal, "a"),
+            "line": _line(horizontal, "a"),
+            "next_y": horizontal["next"]["y"],
+        }
+        passed = passed and observed["horizontal"] == {
+            "v": (0, 0, 20, 10),
+            "a": (0, 0, 20, 10),
+            "line": (("AB", 0, 0, 20, 10),),
+            "next_y": 10,
+        }
     expect_invalid(
         "margin",
         PAGE.format('<div id="a">AB</div>'),
