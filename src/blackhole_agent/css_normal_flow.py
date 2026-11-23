@@ -343,8 +343,13 @@ containing block. A call with an argument is invalid. A comment that only
 mentions the function does not call it.
 ``::before`` and ``::after`` insert their string content into that element's
 inline stream and inherit its font. A flex container keeps each generated
-string as its own anonymous item. A content function, or any other property
-on a pseudo that generates a box, is rejected.
+string as its own anonymous item. ``counter()`` and ``counters()`` in that
+content become the same text: ``::before`` reads the counter after the
+element's own reset and increment, and ``::after`` reads it after the
+element's children. A counter style formats the integer. ``counters()``
+joins every scope of that name, outer scope first, with its separator.
+A flex, grid, or table box, a flex or grid item, an unknown function, and
+any other property on a pseudo that generates a box stay rejected.
 """
 
 from __future__ import annotations
@@ -355,7 +360,7 @@ from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_anchor_position import place_anchored
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
-from blackhole_agent.css_counters import format_counter, resolve_counters
+from blackhole_agent.css_counters import format_counter, format_counters, resolve_counters
 from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
@@ -409,7 +414,7 @@ from blackhole_agent.css_selectors import (
     _stylesheet,
     _substitute,
     _wide_keyword,
-    resolve_generated_strings,
+    resolve_generated_plans,
 )
 from blackhole_agent.css_writing_mode import resolve_writing_mode
 
@@ -713,6 +718,7 @@ class _Box:
     counter_reset: str = ""
     counter_increment: str = ""
     counter_children: list[_Box] = field(default_factory=list)
+    counters_closed: bool = False
     marker_text: str | None = None
     marker_width: int = 0
     marker: dict[str, object] | None = None
@@ -838,17 +844,25 @@ def _placed_root(
             registrations,
         )
     generated: dict[int, tuple[str, str]] = {}
+    plans: dict[int, tuple[list, list]] = {}
     for element in order:
         try:
-            pair = resolve_generated_strings(tree, element, declarations, styles[element][0])
+            before, after = resolve_generated_plans(tree, element, declarations, styles[element][0])
         except CssSelectorError as exc:
             raise _Invalid(str(exc)) from exc
+        if _plan_has_counter(before) or _plan_has_counter(after):
+            if _flow_kind(tree, element, styles, declarations) == "contents":
+                raise _Invalid("generated counter is unsupported")
+            plans[id(element)] = (before, after)
+            continue
+        pair = (_plan_text(before), _plan_text(after))
         if pair == ("", ""):
             continue
         if _flow_kind(tree, element, styles, declarations) == "contents":
             continue
         generated[id(element)] = pair
     tree.generated = generated
+    tree.generated_plans = plans
     ids: set[str] = set()
     counter = [0]
     root = _make_box(
@@ -1178,6 +1192,7 @@ def _walk(
                     container_rules,
                 )
                 box.children, box.floats, box.flow, box.positioned = nested
+                box.counters_closed = True
                 if (
                     not box.children
                     or box.floats
@@ -1188,6 +1203,9 @@ def _walk(
                 ):
                     raise _Invalid("float content is unsupported")
             else:
+                box.counters_closed = True
+                if _element_has_counter_plan(tree, child):
+                    raise _Invalid("generated counter is unsupported")
                 box.inline_text = child.text or ""
             floats.append(box)
             flow.append(box)
@@ -1222,6 +1240,7 @@ def _walk(
             if children or child_floats or child_positioned or len(host.atoms) != atoms_before:
                 raise _Invalid("relative inline content is unsupported")
             host.relative_layers[id(child)] = _inline_shift(box)
+            box.counters_closed = True
             continue
         if box.display == "inline-block" and box.position != "static":
             raise _Invalid("positioned inline-block is unsupported")
@@ -1237,6 +1256,7 @@ def _walk(
             floats.extend(child_floats)
             flow.extend(child_flow)
             positioned.extend(child_positioned)
+            box.counters_closed = True
             continue
         box.children, box.floats, box.flow, box.positioned = nested
         _set_inline(box, tree, child, styles, declarations, ids, counter)
@@ -1313,7 +1333,7 @@ def _make_box(
     columns = _read_columns(winners, custom, font_size)
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     position_anchor, position_area = _read_position_anchor(winners, custom, position, mode, direction)
-    return _Box(
+    box = _Box(
         id=box_id,
         writing_mode=mode,
         direction=direction,
@@ -1401,6 +1421,12 @@ def _make_box(
         position_area=position_area,
         capture=_read_capture(winners, custom),
     )
+    boxes = getattr(tree, "box_of", None)
+    if not isinstance(boxes, dict):
+        boxes = {}
+        tree.box_of = boxes
+    boxes[id(element)] = box
+    return box
 
 
 def _container_kind(value: str | None) -> str:
@@ -2352,6 +2378,7 @@ def _fonts(box: _Box) -> dict[str, str]:
 def _set_inline(
     box: _Box, tree, element, styles, declarations, ids: set[str], counter: list[int]
 ) -> None:
+    box.counters_closed = True
     if box.flex is not None and box.display == "flex":
         return
     if box.children and not _anonymous_split_allowed(box):
@@ -2861,7 +2888,34 @@ def _float_margin(box: _Box, name: str, containing: int) -> int:
     raise _Invalid(f"{name} is invalid")
 
 
+def _plan_has_counter(parts: list) -> bool:
+    return any(isinstance(part, tuple) and part and part[0] in {"counter", "counters"} for part in parts)
+
+
+def _plan_text(parts: list) -> str:
+    return "".join(part[1] for part in parts if isinstance(part, tuple) and part and part[0] == "text")
+
+
+def _element_has_counter_plan(tree, element) -> bool:
+    plans = getattr(tree, "generated_plans", None)
+    if not isinstance(plans, dict):
+        return False
+    pair = plans.get(id(element))
+    return isinstance(pair, tuple) and any(_plan_has_counter(side) for side in pair)
+
+
 def _generated(tree, element) -> tuple[str, str]:
+    plans = getattr(tree, "generated_plans", None)
+    if isinstance(plans, dict) and id(element) in plans:
+        planned = plans[id(element)]
+        pair = _realize_counter_content(tree, element, planned)
+        plans.pop(id(element), None)
+        found = getattr(tree, "generated", None)
+        if not isinstance(found, dict):
+            found = {}
+            tree.generated = found
+        found[id(element)] = pair
+        return pair
     found = getattr(tree, "generated", None)
     if not isinstance(found, dict):
         return "", ""
@@ -2869,6 +2923,88 @@ def _generated(tree, element) -> tuple[str, str]:
     if not isinstance(pair, tuple) or len(pair) != 2:
         return "", ""
     return str(pair[0]), str(pair[1])
+
+
+_COUNTER_CONTENT_DISPLAYS = frozenset({"flex", "grid", "table", "table-row", "table-cell", "table-caption"})
+
+
+def _in_counter_tree(box: _Box) -> bool:
+    if box.root:
+        return True
+    parent = box.parent_box
+    if parent is None:
+        return False
+    return any(child is box for child in parent.counter_children)
+
+
+def _realize_counter_content(tree, element, planned: tuple) -> tuple[str, str]:
+    boxes = getattr(tree, "box_of", None)
+    box = boxes.get(id(element)) if isinstance(boxes, dict) else None
+    if (
+        not isinstance(box, _Box)
+        or not box.counters_closed
+        or not _in_counter_tree(box)
+        or box.display in _COUNTER_CONTENT_DISPLAYS
+    ):
+        raise _Invalid("generated counter is unsupported")
+    if box.display == "inline" and box.element is not None:
+        if any(_local_name(child) and _local_name(child) not in _SKIP_TAGS for child in list(box.element)):
+            raise _Invalid("generated counter is unsupported")
+    root = box
+    while root.parent_box is not None:
+        root = root.parent_box
+    resolved = resolve_counters(_counter_payload(root))
+    if resolved.get("outcome") != "ok" or not isinstance(resolved.get("elements"), dict):
+        raise _Invalid(str(resolved.get("reason") or "generated counter is unsupported"))
+    elements = resolved["elements"]
+    before, after = planned
+    return (
+        _render_counter_parts(before, elements, box, "before"),
+        _render_counter_parts(after, elements, box, "after"),
+    )
+
+
+def _render_counter_parts(parts, elements: dict, box: _Box, side: str) -> str:
+    if not isinstance(parts, list) or not parts:
+        return ""
+    state = None
+    if _plan_has_counter(parts):
+        state = elements.get(f"\x1f{side}\x1f{box.id}")
+        if not isinstance(state, dict):
+            raise _Invalid("generated counter is unsupported")
+    values = state.get("values") if isinstance(state, dict) else {}
+    stacks = state.get("stacks") if isinstance(state, dict) else {}
+    if not isinstance(values, dict):
+        values = {}
+    if not isinstance(stacks, dict):
+        stacks = {}
+    chunks: list[str] = []
+    for part in parts:
+        if not isinstance(part, tuple) or not part:
+            raise _Invalid("generated counter is unsupported")
+        if part[0] == "text":
+            chunks.append(str(part[1]))
+            continue
+        if part[0] == "counter":
+            rendered = format_counter(values.get(part[1]), part[2])
+        elif part[0] == "counters":
+            stack = stacks.get(part[1])
+            rendered = format_counters(stack if isinstance(stack, list) else None, part[2], part[3])
+        else:
+            raise _Invalid("generated counter is unsupported")
+        if rendered.get("outcome") != "ok":
+            raise _Invalid(str(rendered.get("reason") or "generated counter is unsupported"))
+        chunks.append(str(rendered.get("text") or ""))
+    return "".join(chunks)
+
+
+def _counter_pseudo(box: _Box, side: str, parts) -> dict[str, object] | None:
+    if not isinstance(parts, list):
+        return None
+    reads = [part[1] for part in parts if isinstance(part, tuple) and part and part[0] in {"counter", "counters"}]
+    if not reads:
+        return None
+    return {"id": f"\x1f{side}\x1f{box.id}", "display": "inline", "read": reads}
 
 
 def _leaf_generated(tree, element) -> str:
@@ -5788,6 +5924,15 @@ def _counter_payload(box: _Box) -> dict[str, object]:
         payload["counter_reset"] = box.counter_reset
     if box.counter_increment:
         payload["counter_increment"] = box.counter_increment
+    plans = getattr(box.tree, "generated_plans", None) if box.tree is not None else None
+    pair = plans.get(id(box.element)) if isinstance(plans, dict) and box.element is not None else None
+    if isinstance(pair, tuple) and len(pair) == 2:
+        before = _counter_pseudo(box, "before", pair[0])
+        after = _counter_pseudo(box, "after", pair[1])
+        if before is not None:
+            payload["before"] = before
+        if after is not None:
+            payload["after"] = after
     return payload
 
 
@@ -6192,6 +6337,7 @@ def _walk_flex(
     host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     host.flex = _flex_container(tree, element, styles, declarations)
+    host.counters_closed = True
     if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
         raise _Invalid("flex writing mode is unsupported")
     items: list[_Box] = []
@@ -7304,6 +7450,7 @@ def _walk_grid(
     host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     host.grid = _grid_container(tree, element, styles, declarations)
+    host.counters_closed = True
     if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
         raise _Invalid("grid writing mode is unsupported")
     before, after = _generated(tree, element)
@@ -8902,6 +9049,7 @@ def _walk_table(
     host: _Box,
 ) -> tuple[list[_Box], list[_Box], list[_Box], list[_Box]]:
     host.table = _table_container(tree, element, styles, declarations)
+    host.counters_closed = True
     if host.table.get("collapse") is True:
         host.table["borders"] = _specified_borders(host)
         host.declarations = [

@@ -2277,16 +2277,41 @@ def resolve_generated_strings(
     unsupported``. Element rules are not read as the pseudo's own declarations.
     """
 
-    return (
-        _one_generated(tree, element, declarations, custom, "before"),
-        _one_generated(tree, element, declarations, custom, "after"),
-    )
+    before = _one_generated(tree, element, declarations, custom, "before", plans=False)
+    after = _one_generated(tree, element, declarations, custom, "after", plans=False)
+    return (before if isinstance(before, str) else "", after if isinstance(after, str) else "")
 
 
-def _one_generated(tree: _Tree, element, declarations: list[_Decl], custom: dict, pseudo: str) -> str:
+def resolve_generated_plans(
+    tree: _Tree,
+    element,
+    declarations: list[_Decl],
+    custom: dict,
+) -> tuple[list, list]:
+    """``::before`` and ``::after`` content as text and counter parts.
+
+    ``counter()`` and ``counters()`` stay in the plan. Any other function
+    raises ``generated content is unsupported``. A property besides ``content``
+    on a pseudo that generates a box raises ``generated box is unsupported``.
+    """
+
+    before = _one_generated(tree, element, declarations, custom, "before", plans=True)
+    after = _one_generated(tree, element, declarations, custom, "after", plans=True)
+    return (before if isinstance(before, list) else [], after if isinstance(after, list) else [])
+
+
+def _one_generated(
+    tree: _Tree,
+    element,
+    declarations: list[_Decl],
+    custom: dict,
+    pseudo: str,
+    *,
+    plans: bool,
+) -> str | list:
     chosen = [decl for decl in declarations if any(_trailing_pseudo(selector) == pseudo for selector in decl.selectors)]
     if not chosen:
-        return ""
+        return [] if plans else ""
     previous = _PseudoMatch.name
     _PseudoMatch.name = pseudo
     try:
@@ -2295,10 +2320,17 @@ def _one_generated(tree: _Tree, element, declarations: list[_Decl], custom: dict
         _PseudoMatch.name = previous
     raw = winners.get("content")
     if raw is None:
-        return ""
+        return [] if plans else ""
     substituted = _substitute(raw, lambda name: custom.get(name, _INVALID))
     if substituted is _INVALID or not isinstance(substituted, str):
         raise CssSelectorError("generated content is unsupported")
+    if plans:
+        parsed = _generated_content_parts(substituted)
+        if parsed is None:
+            return []
+        if any(name != "content" for name in winners):
+            raise CssSelectorError("generated box is unsupported")
+        return parsed
     text = _generated_content_text(substituted)
     if text is None:
         return ""
@@ -2307,33 +2339,139 @@ def _one_generated(tree: _Tree, element, declarations: list[_Decl], custom: dict
     return text
 
 
-def _generated_content_text(value: str) -> str | None:
+def _generated_content_parts(value: str) -> list[tuple] | None:
     text = value.strip()
     if text.lower() in {"normal", "none", "initial", "unset", "revert"}:
         return None
     if text.lower() == "inherit":
         raise CssSelectorError("generated content is unsupported")
-    parts: list[str] = []
+    parts: list[tuple] = []
     index = 0
     length = len(text)
     while index < length:
-        while index < length and text[index].isspace():
-            index += 1
+        index = _skip_css_space(text, index)
         if index >= length:
             break
-        if text[index] not in "\"'":
+        if text[index] in "\"'":
+            end = _end_of_string(text, index)
+            if end is None:
+                raise CssSelectorError("generated content is unsupported")
+            unquoted = _unquote(text[index:end])
+            if unquoted is None:
+                raise CssSelectorError("generated content is unsupported")
+            parts.append(("text", unquoted))
+            index = end
+            continue
+        name, next_index = _read_css_ident(text, index)
+        if name is None or next_index >= length or text[next_index] != "(":
+            raise CssSelectorError("generated content is unsupported")
+        call, index = _generated_call(text, next_index, name)
+        parts.append(call)
+    if not parts:
+        raise CssSelectorError("generated content is unsupported")
+    return parts
+
+
+def _generated_call(text: str, index: int, name: str) -> tuple[tuple, int]:
+    if index >= len(text) or text[index] != "(":
+        raise CssSelectorError("generated content is unsupported")
+    index += 1
+    kind = name.lower()
+    if kind == "counter":
+        index = _skip_css_space(text, index)
+        counter_name, index = _read_css_ident(text, index)
+        if counter_name is None:
+            raise CssSelectorError("generated content is unsupported")
+        style = "decimal"
+        index = _skip_css_space(text, index)
+        if index < len(text) and text[index] == ",":
+            index = _skip_css_space(text, index + 1)
+            style_name, index = _read_css_ident(text, index)
+            if style_name is None:
+                raise CssSelectorError("generated content is unsupported")
+            style = style_name.lower()
+        index = _skip_css_space(text, index)
+        if index >= len(text) or text[index] != ")":
+            raise CssSelectorError("generated content is unsupported")
+        return ("counter", counter_name, style), index + 1
+    if kind == "counters":
+        index = _skip_css_space(text, index)
+        counter_name, index = _read_css_ident(text, index)
+        if counter_name is None:
+            raise CssSelectorError("generated content is unsupported")
+        index = _skip_css_space(text, index)
+        if index >= len(text) or text[index] != ",":
+            raise CssSelectorError("generated content is unsupported")
+        index = _skip_css_space(text, index + 1)
+        if index >= len(text) or text[index] not in "\"'":
             raise CssSelectorError("generated content is unsupported")
         end = _end_of_string(text, index)
         if end is None:
             raise CssSelectorError("generated content is unsupported")
-        unquoted = _unquote(text[index:end])
-        if unquoted is None:
+        separator = _unquote(text[index:end])
+        if separator is None:
             raise CssSelectorError("generated content is unsupported")
-        parts.append(unquoted)
-        index = end
-    if not parts:
+        index = _skip_css_space(text, end)
+        style = "decimal"
+        if index < len(text) and text[index] == ",":
+            index = _skip_css_space(text, index + 1)
+            style_name, index = _read_css_ident(text, index)
+            if style_name is None:
+                raise CssSelectorError("generated content is unsupported")
+            style = style_name.lower()
+            index = _skip_css_space(text, index)
+        if index >= len(text) or text[index] != ")":
+            raise CssSelectorError("generated content is unsupported")
+        return ("counters", counter_name, separator, style), index + 1
+    raise CssSelectorError("generated content is unsupported")
+
+
+def _skip_css_space(text: str, index: int) -> int:
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
+
+
+def _read_css_ident(text: str, index: int) -> tuple[str | None, int]:
+    length = len(text)
+    if index >= length:
+        return None, index
+    start = index
+    char = text[index]
+    if char == "-":
+        if index + 1 < length and text[index + 1] == "-":
+            index += 2
+        elif index + 1 < length and _css_ident_start(text[index + 1]):
+            index += 2
+        else:
+            return None, start
+    elif _css_ident_start(char):
+        index += 1
+    else:
+        return None, start
+    while index < length and _css_ident_continue(text[index]):
+        index += 1
+    token = text[start:index]
+    if token in {"", "-"}:
+        return None, start
+    return token, index
+
+
+def _css_ident_start(char: str) -> bool:
+    return char == "_" or char.isalpha() or ord(char) > 127
+
+
+def _css_ident_continue(char: str) -> bool:
+    return char == "_" or char.isalpha() or char.isdigit() or char == "-" or ord(char) > 127
+
+
+def _generated_content_text(value: str) -> str | None:
+    parts = _generated_content_parts(value)
+    if parts is None:
+        return None
+    if any(part[0] != "text" for part in parts):
         raise CssSelectorError("generated content is unsupported")
-    return "".join(parts)
+    return "".join(part[1] for part in parts if part[0] == "text")
 
 
 def _end_of_string(text: str, start: int) -> int | None:

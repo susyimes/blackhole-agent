@@ -3,7 +3,7 @@
 A text-only block paints the strings on its line. An id beats a type. A later
 none removes the string. A parent of block children turns the leading string
 into an anonymous block. A flex container keeps each pseudo as its own item.
-A content function and a generated box property stay rejected.
+A non-counter content function and a generated box property stay rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """
@@ -110,7 +110,7 @@ def observe() -> tuple[bool, dict[str, object]]:
         "items": flex_items,
         "next_y": None if flex_next is None else flex_next.get("y"),
     }
-    function = _place(_PAGE, '#t::before { content: counter(list-item) }')
+    function = _place(_PAGE, '#t::before { content: attr(title) }')
     observed["function"] = {"outcome": function.get("outcome"), "reason": function.get("reason")}
     boxed = _place(_PAGE, '#t::before { content: "A"; display: block }')
     observed["box"] = {"outcome": boxed.get("outcome"), "reason": boxed.get("reason")}
