@@ -100,7 +100,13 @@ horizontal line and omitted after the last character, so a positive value
 wraps sooner and a negative value shortens the line. ``word-spacing`` is added
 only to word separators. Both inherit, ``normal`` is zero, and a percentage is
 invalid. Justification of a spaced line, a vertical writing mode, an inside
-marker, and a declaration on an inline stay rejected. ``overflow-wrap`` and
+marker, and a declaration on an inline stay rejected. ``tab-size`` is
+inherited as a number of space advances or as a ``px`` length. Preserved
+white space advances a tab from the line content start to the next multiple
+of that interval, so the glyphs after the tab and the following block use
+the stop. ``normal`` and ``nowrap`` still collapse the tab into one space.
+Zero is an empty advance. A negative value, a percentage, and a declaration
+on an inline are rejected. ``overflow-wrap`` and
 ``word-break`` are inherited and change those breaks. ``anywhere`` and
 ``break-all`` split a word that does not fit and lower a shrink-to-fit minimum
 to one character. ``break-word`` splits the same definite line and leaves that
@@ -578,6 +584,7 @@ _FONT = {
     "text-indent": "0px",
     "letter-spacing": "0px",
     "word-spacing": "0px",
+    "tab-size": "8",
     "white-space": "normal",
     "overflow-wrap": "normal",
     "word-break": "normal",
@@ -617,6 +624,7 @@ _INLINE_REJECTED = (
     "white-space",
     "letter-spacing",
     "word-spacing",
+    "tab-size",
     "overflow-wrap",
     "word-wrap",
     "word-break",
@@ -715,6 +723,7 @@ class _Box:
     text_indent: str = "0px"
     letter_spacing: int = 0
     word_spacing: int = 0
+    tab_size: str = "8"
     containing_inline: int | None = None
     white_space: str = "normal"
     overflow_wrap: str = "normal"
@@ -1430,6 +1439,7 @@ def _make_box(
         word_spacing=_used_spacing_px(
             _read_spacing(_declared(winners, "word-spacing", custom), fonts["word-spacing"], "word-spacing")
         ),
+        tab_size=_read_tab_size(_declared(winners, "tab-size", custom), fonts["tab-size"]),
         white_space=_inherited_keyword(
             _declared(winners, "white-space", custom),
             _WHITES,
@@ -2458,6 +2468,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "text-indent": box.text_indent,
         "letter-spacing": f"{box.letter_spacing}px",
         "word-spacing": f"{box.word_spacing}px",
+        "tab-size": box.tab_size,
         "white-space": box.white_space,
         "overflow-wrap": box.overflow_wrap,
         "word-break": box.word_break,
@@ -2604,6 +2615,7 @@ def _make_anonymous_block(
         text_indent=parent.text_indent,
         letter_spacing=parent.letter_spacing,
         word_spacing=parent.word_spacing,
+        tab_size=parent.tab_size,
         white_space=parent.white_space,
         overflow_wrap=parent.overflow_wrap,
         word_break=parent.word_break,
@@ -2920,8 +2932,55 @@ def _spacing_args(box: _Box) -> dict[str, int]:
     return args
 
 
-def _break_args(box: _Box) -> dict[str, str]:
-    return {"overflow_wrap": box.overflow_wrap, "word_break": box.word_break}
+def _read_tab_size(value: str | None, parent: str) -> str:
+    """Specified tab size. A number stays a number so a child uses its own space."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = value.strip().lower()
+    if text == "initial":
+        return "8"
+    if any(character.isspace() for character in text):
+        raise _Invalid("tab-size is invalid")
+    if text.endswith("px"):
+        try:
+            number = float(text[:-2])
+        except ValueError as exc:
+            raise _Invalid("tab-size is invalid") from exc
+        if number < 0 or number != number or number in {float("inf"), float("-inf")}:
+            raise _Invalid("tab-size is invalid")
+        return f"{_px(number, 'tab-size')}px"
+    if not text or text[0].isalpha() or text.endswith("%"):
+        raise _Invalid("tab-size is invalid")
+    try:
+        number = float(text)
+    except ValueError as exc:
+        raise _Invalid("tab-size is invalid") from exc
+    if number < 0 or number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid("tab-size is invalid")
+    if abs(number - round(number)) <= 1e-9:
+        return str(int(round(number)))
+    return format(number, ".12g")
+
+
+def _tab_size_number(box: _Box) -> float:
+    """Tab interval as a multiple of this box's space advance."""
+
+    raw = box.tab_size
+    if raw.endswith("px"):
+        space = _advance_of(" ", box.font_size)
+        if space <= 0:
+            return 0.0
+        return float(raw[:-2]) / space
+    return float(raw)
+
+
+def _break_args(box: _Box) -> dict[str, object]:
+    return {
+        "overflow_wrap": box.overflow_wrap,
+        "word_break": box.word_break,
+        "tab_size": _tab_size_number(box),
+    }
 
 
 def _read_line_clamp(value: str | None) -> int | None:
@@ -6850,6 +6909,7 @@ def _flush_flex_text(
             text_indent=host.text_indent,
             letter_spacing=host.letter_spacing,
             word_spacing=host.word_spacing,
+            tab_size=host.tab_size,
             white_space=host.white_space,
             overflow_wrap=host.overflow_wrap,
             word_break=host.word_break,
