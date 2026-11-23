@@ -18,9 +18,7 @@ glyphs paint at the static position plus the used left and top, a nested
 relative inline adds its own offset, and later glyphs, the line break, and
 the following block stay put. A vertical writing mode, a non-ltr paragraph,
 white-space other than normal, a different font, a float beside the inline,
-and an inline-block inside it stay rejected. An absolute box is placed on the padding edge of the nearest
-positioned ancestor, or on the viewport when no ancestor is positioned. A
-fixed box is placed on the viewport. Neither changes the height of the flow.
+and an inline-block inside it stay rejected. An absolute or fixed box uses the padding edge of the nearest ancestor that captures it. A position other than static captures an absolute box only. A transform, filter, perspective, backdrop-filter, paint or layout containment, hidden content-visibility, or capturing will-change captures both, including translate(0) on a static box. Otherwise an absolute box uses the viewport when no ancestor is positioned, and a fixed box uses the viewport. An inline capturer is rejected. Neither out-of-flow box changes the height of the flow.
 A sticky block keeps the place it occupied in the flow. Its used border box
 then shifts against the nearest non-visible overflow scrollport, or against
 the viewport when every ancestor is visible. ``scroll_x`` and ``scroll_y``
@@ -372,6 +370,7 @@ from blackhole_agent.css_logical_box import (
 )
 from blackhole_agent.css_margin_collapse import place_collapsed_margins
 from blackhole_agent.css_column_break import fragment_columns
+from blackhole_agent.css_containing_block import resolve_containing_block
 from blackhole_agent.css_multicol import layout_multicol
 from blackhole_agent.css_selectors import (
     CssSelectorError,
@@ -685,6 +684,7 @@ class _Box:
     marker_text: str | None = None
     marker_width: int = 0
     marker: dict[str, object] | None = None
+    capture: dict[str, str] = field(default_factory=dict)
 
 
 def layout_normal_flow(
@@ -852,7 +852,7 @@ def _placed_root(
     _assign_y(root, by_id, margin_top)
     _shift_relatives(root, viewport_width, viewport_height)
     _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
-    _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height), [])
+    _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height))
     return root
 
 
@@ -1086,6 +1086,8 @@ def _walk(
             floats.extend(child_floats)
             flow.extend(child_flow)
             positioned.extend(child_positioned)
+            if child_positioned and _capture_effect(box):
+                raise _Invalid("contents capture is unsupported")
             continue
         host.counter_children.append(box)
         if box.position in {"absolute", "fixed"}:
@@ -1185,6 +1187,8 @@ def _walk(
         )
         if inline:
             children, child_floats, child_flow, child_positioned = nested
+            if child_positioned and _capture_effect(box):
+                raise _Invalid("inline fragment")
             found.extend(children)
             floats.extend(child_floats)
             flow.extend(child_flow)
@@ -1350,6 +1354,7 @@ def _make_box(
         anchor_name=_read_anchor_name(winners, custom),
         position_anchor=position_anchor,
         position_area=position_area,
+        capture=_read_capture(winners, custom),
     )
 
 
@@ -3351,23 +3356,180 @@ def _align_to_anchor(box: _Box, cb: _Edge, anchors: dict[str, _Box]) -> None:
     _translate(box, _px(placed.get("x"), "x") - box.x, _px(placed.get("y"), "y") - box.y)
 
 
+_CAPTURE_DISPLAYS = frozenset(
+    {
+        "block",
+        "inline",
+        "inline-block",
+        "flex",
+        "inline-flex",
+        "grid",
+        "inline-grid",
+        "list-item",
+        "flow-root",
+    }
+)
+_CAPTURE_DEFAULTS = {
+    "transform": "none",
+    "filter": "none",
+    "perspective": "none",
+    "backdrop_filter": "none",
+    "contain": "none",
+    "content_visibility": "visible",
+    "will_change": "auto",
+}
+_CAPTURE_NAMES = {
+    "transform": "transform",
+    "filter": "filter",
+    "perspective": "perspective",
+    "backdrop_filter": "backdrop-filter",
+    "contain": "contain",
+    "content_visibility": "content-visibility",
+    "will_change": "will-change",
+}
+
+
+def _capture_token(value: str | None, *, default: str, name: str) -> str:
+    if value is None or value in {"initial", "unset", "revert", "revert-layer"}:
+        return default
+    if value == "inherit":
+        raise _Invalid(f"{name} inherit is unsupported")
+    token = " ".join(value.strip().lower().split())
+    if not token:
+        raise _Invalid(f"{name} is invalid")
+    return token
+
+
+def _read_capture(winners, custom: dict) -> dict[str, str]:
+    values = {
+        key: _capture_token(_declared(winners, css_name, custom), default=default, name=css_name)
+        for key, css_name, default in (
+            (key, _CAPTURE_NAMES[key], _CAPTURE_DEFAULTS[key]) for key in _CAPTURE_DEFAULTS
+        )
+    }
+    found = resolve_containing_block(
+        {
+            "id": "host",
+            "display": "block",
+            "position": "static",
+            "width": 10,
+            "height": 10,
+            **values,
+            "children": [
+                {"id": "child", "position": "absolute", "display": "block", "width": 1, "height": 1}
+            ],
+        },
+        "child",
+        viewport={"x": 0, "y": 0, "width": 10, "height": 10},
+    )
+    if found.get("outcome") != "resolved":
+        reason = str(found.get("reason") or "containing block failed")
+        css_name = _CAPTURE_NAMES.get(reason, reason.replace("_", "-"))
+        raise _Invalid(f"{css_name} is invalid")
+    return values
+
+
+def _capture_effect(box: _Box) -> bool:
+    values = {**_CAPTURE_DEFAULTS, **box.capture}
+    found = resolve_containing_block(
+        {
+            "id": "host",
+            "display": "block",
+            "position": "static",
+            "width": 10,
+            "height": 10,
+            **values,
+            "children": [
+                {"id": "child", "position": "absolute", "display": "block", "width": 1, "height": 1}
+            ],
+        },
+        "child",
+        viewport={"x": 0, "y": 0, "width": 10, "height": 10},
+    )
+    return found.get("source") == "ancestor"
+
+
+def _capture_display(display: str) -> str:
+    if display in _CAPTURE_DISPLAYS:
+        return display
+    return "block"
+
+
+def _capture_border(box: _Box, key: str) -> int:
+    value = box.solved.get(key)
+    if value is None:
+        return 0
+    return _px(value, key)
+
+
+def _capture_tree(box: _Box) -> dict[str, object]:
+    payload: dict[str, object] | None = None
+    current: _Box | None = box
+    seen: set[int] = set()
+    while current is not None:
+        marker = id(current)
+        if marker in seen:
+            raise _Invalid("containing block failed")
+        seen.add(marker)
+        values = {**_CAPTURE_DEFAULTS, **current.capture}
+        node: dict[str, object] = {
+            "id": current.id,
+            "position": current.position,
+            "display": _capture_display(current.display),
+            "x": current.x,
+            "y": current.y,
+            "width": max(current.border_width, 0),
+            "height": max(current.border_height, 0),
+            **values,
+        }
+        for side in ("top", "right", "bottom", "left"):
+            node[f"border_{side}"] = _capture_border(current, f"border_{side}")
+        if payload is not None:
+            node["children"] = [payload]
+        payload = node
+        current = current.parent_box
+    if payload is None:
+        raise _Invalid("containing block failed")
+    return payload
+
+
+def _captured_edge(box: _Box, viewport: _Edge) -> _Edge:
+    found = resolve_containing_block(
+        _capture_tree(box),
+        box.id,
+        viewport={
+            "x": viewport.x,
+            "y": viewport.y,
+            "width": viewport.width,
+            "height": 0 if viewport.height is None else viewport.height,
+        },
+    )
+    if found.get("outcome") != "resolved":
+        raise _Invalid(str(found.get("reason") or "containing block failed"))
+    if found.get("source") != "ancestor":
+        return viewport
+    ancestor_id = found.get("ancestor")
+    current = box.parent_box
+    while current is not None and current.id != ancestor_id:
+        current = current.parent_box
+    if current is None:
+        raise _Invalid("containing block failed")
+    return _padding_edge(current)
+
+
 def _place_positioned(
     box: _Box,
     viewport: _Edge,
-    stack: list[_Edge],
     anchors: dict[str, _Box] | None = None,
 ) -> None:
     if anchors is None:
         anchors = _anchor_index(box)
-    frame = stack
-    if box.position in {"relative", "absolute", "fixed", "sticky"}:
-        frame = [*stack, _padding_edge(box)]
     for abs_box in box.positioned:
-        cb = viewport if abs_box.position == "fixed" or not frame else frame[-1]
+        cb = _captured_edge(abs_box, viewport)
         _place_one_absolute(abs_box, cb, box)
         _align_to_anchor(abs_box, cb, anchors)
     for child in box.children:
-        _place_positioned(child, viewport, frame, anchors)
+        _place_positioned(child, viewport, anchors)
 
 
 def _hypothetical_edges(parent: _Box, index: int) -> tuple[int, int, int]:
