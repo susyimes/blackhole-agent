@@ -296,8 +296,12 @@ attributes are the intrinsic size. Automatic axes use that size, or 300 by
 automatic axis keeps the intrinsic ratio. A block's automatic horizontal
 margins then center that used width. An inline replaced element is an atomic
 line item whose bottom margin edge rests on the strut baseline. ``object-fit``
-places the concrete object inside the content box. A child, a non-horizontal
-writing mode, ``border-box``, and a CSS ``aspect-ratio`` stay rejected.
+places the concrete object inside the content box. An absolute or fixed image
+uses that intrinsic size and then the absolute inset equation, so definite
+insets do not stretch it. Automatic insets use its static position, including
+the line slot of an inline image. A maximum width shrinks that size and keeps
+the ratio. An inline relative or sticky image, a vertical writing mode,
+``border-box``, a CSS ``aspect-ratio``, and a child stay rejected.
 An ``li`` and any other ``display: list-item`` principal box lays out as a
 block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
 reset that counter. The initial marker is a disc; an ``ol`` uses decimal
@@ -3813,7 +3817,104 @@ def _line_static_edges(parent: _Box, marked: tuple[str, tuple[int, ...]]) -> tup
     return found[0], found[1], content_right
 
 
+def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box) -> None:
+    """Give an out-of-flow replaced box its used size, then solve the insets."""
+
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("replaced writing mode is unsupported")
+    if _box_sizing(box) != "content-box":
+        raise _Invalid("replaced box-sizing is unsupported")
+    if box.aspect_ratio is not None:
+        raise _Invalid("replaced aspect-ratio is unsupported")
+    if box.children or box.floats or box.positioned or box.atoms:
+        raise _Invalid("positioned replaced element is unsupported")
+    slots = _physical_slots(box)
+    left, right = _inset(slots, "left"), _inset(slots, "right")
+    top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
+    needs_static = (_is_auto(left) and _is_auto(right)) or (_is_auto(top) and _is_auto(bottom))
+    if needs_static and (parent.inline_text or parent.pieces):
+        if not _line_static_parent(parent) or box.display != "inline" or box.line_static is None:
+            raise _Invalid("static position inside a line is unsupported")
+        hyp_x, hyp_y, hyp_right = _line_static_edges(parent, box.line_static)
+    elif needs_static:
+        hyp_x, hyp_y, hyp_right = _hypothetical_edges(parent, box.static_index)
+    else:
+        hyp_x = hyp_y = hyp_right = None
+    if hyp_x is None:
+        static_left = static_right = static_top = 0
+    else:
+        static_left = hyp_x - cb.x
+        static_right = (cb.x + cb.width) - hyp_right
+        static_top = hyp_y - cb.y
+    sized = used_replaced_size(
+        cb.width,
+        containing_height="auto" if cb.height is None else cb.height,
+        width=slots.get("width", "auto"),
+        height=slots.get("height", "auto"),
+        min_width=slots.get("min-width", "auto"),
+        max_width=slots.get("max-width", "none"),
+        min_height=slots.get("min-height", "auto"),
+        max_height=slots.get("max-height", "none"),
+        margin_left=0,
+        margin_right=0,
+        margin_top=0,
+        margin_bottom=0,
+        padding_left=slots.get("padding-left", 0),
+        padding_right=slots.get("padding-right", 0),
+        border_left=_border_arg(slots, "left"),
+        border_right=_border_arg(slots, "right"),
+        intrinsic_width=box.intrinsic_width,
+        intrinsic_height=box.intrinsic_height,
+        layout="inline",
+        direction=box.direction,
+    )
+    if sized.get("outcome") != "sized":
+        raise _Invalid(str(sized.get("reason") or "replaced size is invalid"))
+    placed = place_absolute(
+        cb.width,
+        containing_height="auto" if cb.height is None else cb.height,
+        left=left,
+        right=right,
+        width=sized.get("width"),
+        top=top,
+        bottom=bottom,
+        height=sized.get("height"),
+        margin_left=slots.get("margin-left", 0),
+        margin_right=slots.get("margin-right", 0),
+        margin_top=slots.get("margin-top", 0),
+        margin_bottom=slots.get("margin-bottom", 0),
+        padding_left=slots.get("padding-left", 0),
+        padding_right=slots.get("padding-right", 0),
+        padding_top=slots.get("padding-top", 0),
+        padding_bottom=slots.get("padding-bottom", 0),
+        border_left=_border_arg(slots, "left"),
+        border_right=_border_arg(slots, "right"),
+        border_top=_border_arg(slots, "top"),
+        border_bottom=_border_arg(slots, "bottom"),
+        min_width="auto",
+        max_width="none",
+        min_height="auto",
+        max_height="none",
+        box_sizing="content-box",
+        direction=box.direction,
+        static_left=static_left,
+        static_right=static_right,
+        static_top=static_top,
+        min_content=sized.get("width"),
+        max_content=sized.get("width"),
+        content_height=sized.get("height"),
+    )
+    if placed.get("outcome") != "placed":
+        raise _Invalid(str(placed.get("reason") or "absolute position failed"))
+    _adopt_absolute(box, cb, placed)
+    _fit_replaced_object(box)
+    box.lines = []
+
+
 def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
+    if box.replaced:
+        _place_absolute_replaced(box, cb, parent)
+        return
     slots = _physical_slots(box)
     left, right = _inset(slots, "left"), _inset(slots, "right")
     top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
