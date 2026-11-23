@@ -37,7 +37,7 @@ EXPECTED = {
     "selector_wrapped": "red",
     "selector_hover": "blue",
     "selector_leading": "blue",
-    "selector_pseudo": "blue",
+    "selector_pseudo": "red",
     "selector_list": "blue",
     "not_length": "red",
     "not_color": "blue",

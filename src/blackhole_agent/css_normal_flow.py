@@ -333,6 +333,10 @@ The number is that element's place among its DOM element siblings, so a
 does not reparent the child. A percentage stays a percentage of the
 containing block. A call with an argument is invalid. A comment that only
 mentions the function does not call it.
+``::before`` and ``::after`` insert their string content into that element's
+inline stream and inherit its font. A flex container keeps each generated
+string as its own anonymous item. A content function, or any other property
+on a pseudo that generates a box, is rejected.
 """
 
 from __future__ import annotations
@@ -397,6 +401,7 @@ from blackhole_agent.css_selectors import (
     _stylesheet,
     _substitute,
     _wide_keyword,
+    resolve_generated_strings,
 )
 from blackhole_agent.css_writing_mode import resolve_writing_mode
 
@@ -821,6 +826,18 @@ def _placed_root(
             parent_color,
             registrations,
         )
+    generated: dict[int, tuple[str, str]] = {}
+    for element in order:
+        try:
+            pair = resolve_generated_strings(tree, element, declarations, styles[element][0])
+        except CssSelectorError as exc:
+            raise _Invalid(str(exc)) from exc
+        if pair == ("", ""):
+            continue
+        if _flow_kind(tree, element, styles, declarations) == "contents":
+            continue
+        generated[id(element)] = pair
+    tree.generated = generated
     ids: set[str] = set()
     counter = [0]
     root = _make_box(
@@ -1083,7 +1100,7 @@ def _walk(
         if box.replaced and _replaced_has_content(tree, child):
             raise _Invalid("replaced content is unsupported")
         if box.display == "contents":
-            if host.float_side != "none" and _float_loose_text(child, host.white_space):
+            if host.float_side != "none" and _float_loose_text(tree, child, host.white_space):
                 raise _Invalid("float content is unsupported")
             children, child_floats, child_flow, child_positioned = _walk(
                 tree,
@@ -1155,7 +1172,7 @@ def _walk(
                     or box.floats
                     or box.positioned
                     or box.atoms
-                    or _float_loose_text(child, box.white_space)
+                    or _float_loose_text(tree, child, box.white_space)
                     or any(not _float_block_child(item) for item in box.children)
                 ):
                     raise _Invalid("float content is unsupported")
@@ -2524,7 +2541,8 @@ def _inline_segments(
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
-        add(node.text or "", size, leading, layers)
+        before, after = _generated(tree, node)
+        add(before + (node.text or ""), size, leading, layers)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -2560,6 +2578,7 @@ def _inline_segments(
             _reject_inline_type(tree, child, styles, declarations)
             walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
             add(child.tail or "", size, leading, layers)
+        add(after, size, leading, layers)
 
     walk(element, fonts, ())
     flush()
@@ -2603,7 +2622,8 @@ def _inline_pieces(
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
-        add(node.text or "", size, leading, layers)
+        before, after = _generated(tree, node)
+        add(before + (node.text or ""), size, leading, layers)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -2632,6 +2652,7 @@ def _inline_pieces(
             if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
                 return False
             add(child.tail or "", size, leading, layers)
+        add(after, size, leading, layers)
         return True
 
     if not walk(element, fonts, ()):
@@ -2778,8 +2799,24 @@ def _float_margin(box: _Box, name: str, containing: int) -> int:
     raise _Invalid(f"{name} is invalid")
 
 
-def _float_loose_text(element, white_space: str) -> bool:
-    chunks = [element.text or ""]
+def _generated(tree, element) -> tuple[str, str]:
+    found = getattr(tree, "generated", None)
+    if not isinstance(found, dict):
+        return "", ""
+    pair = found.get(id(element))
+    if not isinstance(pair, tuple) or len(pair) != 2:
+        return "", ""
+    return str(pair[0]), str(pair[1])
+
+
+def _leaf_generated(tree, element) -> str:
+    before, after = _generated(tree, element)
+    return before + (getattr(element, "text", None) or "") + after
+
+
+def _float_loose_text(tree, element, white_space: str) -> bool:
+    before, after = _generated(tree, element)
+    chunks = [before, element.text or "", after]
     for node in list(element):
         chunks.append(node.tail or "")
     raw = "".join(chunks)
@@ -3686,7 +3723,8 @@ def _mark_inline_node(
     advances: list[int],
 ) -> bool:
     found = False
-    _push_inline_text(node.text or "", size, parts, advances)
+    before, after = _generated(tree, node)
+    _push_inline_text(before + (node.text or ""), size, parts, advances)
     for child in list(node):
         if not _local_name(child):
             continue
@@ -3711,6 +3749,7 @@ def _mark_inline_node(
         ):
             found = True
         _push_inline_text(child.tail or "", size, parts, advances)
+    _push_inline_text(after, size, parts, advances)
     return found
 
 
@@ -3742,7 +3781,8 @@ def _push_static_contents(
     fonts = _inline_fonts(tree, node, styles, declarations, anchor)
     _require_static_font(fonts, anchor)
     size = _positive_px(fonts["font-size"], "font-size")
-    _push_inline_text(node.text or "", size, parts, advances)
+    before, after = _generated(tree, node)
+    _push_inline_text(before + (node.text or ""), size, parts, advances)
     for child in list(node):
         if not _local_name(child):
             continue
@@ -3756,6 +3796,7 @@ def _push_static_contents(
             raise _Invalid("static position inside a line is unsupported")
         _push_static_contents(tree, child, styles, declarations, anchor, parts, advances)
         _push_inline_text(child.tail or "", size, parts, advances)
+    _push_inline_text(after, size, parts, advances)
 
 
 def _declared_position(tree, element, styles, declarations) -> str:
@@ -6072,9 +6113,15 @@ def _collect_flex_items(
     font: int,
     leading: str,
     white: str,
+    *,
+    generate: bool = True,
 ) -> None:
     """Flex items in source order, with text runs held until a real box."""
 
+    before, after = _generated(tree, element) if generate else ("", "")
+    if before:
+        _append_flex_text(pending, before, font, leading, white, host)
+        _flush_flex_text(host, pending, items, ids, counter)
     _append_flex_text(pending, getattr(element, "text", None), font, leading, white, host)
     column = str((host.flex or {}).get("direction") or "row") in {"column", "column-reverse"}
     for child in tree.children.get(element, []):
@@ -6113,6 +6160,7 @@ def _collect_flex_items(
                 box.font_size,
                 box.line_height,
                 box.white_space,
+                generate=False,
             )
             _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
             continue
@@ -6126,10 +6174,14 @@ def _collect_flex_items(
         if _flex_item_elements(tree, child):
             raise _Invalid("flex item content is unsupported")
         _reject_item_edges(box, column=column)
-        box.inline_text = child.text or ""
+        box.inline_text = _leaf_generated(tree, child)
         box.flex = _flex_item(tree, child, styles, declarations)
         items.append(box)
         _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+    if after:
+        _flush_flex_text(host, pending, items, ids, counter)
+        _append_flex_text(pending, after, font, leading, white, host)
+        _flush_flex_text(host, pending, items, ids, counter)
 
 
 def _append_flex_text(
@@ -7133,6 +7185,9 @@ def _walk_grid(
     host.grid = _grid_container(tree, element, styles, declarations)
     if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
         raise _Invalid("grid writing mode is unsupported")
+    before, after = _generated(tree, element)
+    _reject_grid_text(before)
+    _reject_grid_text(after)
     _reject_grid_text(getattr(element, "text", None))
     items: list[_Box] = []
     for item, child in _generating_children(
@@ -7156,7 +7211,7 @@ def _walk_grid(
         if _flex_item_elements(tree, child):
             _adopt_grid_item_blocks(tree, child, item, styles, declarations, ids, counter)
         else:
-            item.inline_text = child.text or ""
+            item.inline_text = _leaf_generated(tree, child)
         container = item.grid if item.display == "grid" and isinstance(item.grid, dict) else None
         _reject_grid_edges(item)
         item.grid = _grid_item(tree, child, styles, declarations, item)
@@ -8733,6 +8788,9 @@ def _walk_table(
         ]
     if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
         raise _Invalid("table writing mode is unsupported")
+    before, after = _generated(tree, element)
+    _reject_table_text(before)
+    _reject_table_text(after)
     _reject_table_text(getattr(element, "text", None))
     rows: list[_Box] = []
     captions: list[_Box] = []
@@ -8760,6 +8818,9 @@ def _walk_table(
             raise _Invalid("table writing mode is unsupported")
         if host.table.get("collapse") is True:
             row.table = {"borders": _specified_borders(row)}
+        row_before, row_after = _generated(tree, child)
+        _reject_table_text(row_before)
+        _reject_table_text(row_after)
         _reject_table_text(getattr(child, "text", None))
         cells = _table_cells(
             tree,
@@ -8824,7 +8885,7 @@ def _table_cells(
         else:
             for grand in tree.children.get(child, []):
                 _reject_table_text(getattr(grand, "tail", None))
-            cell.inline_text = child.text or ""
+            cell.inline_text = _leaf_generated(tree, child)
         cell.table = _table_cell(tree, child, styles, declarations)
         if collapse:
             cell.table["borders"] = _specified_borders(cell)

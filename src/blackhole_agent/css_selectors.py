@@ -63,6 +63,10 @@ or a malformed query does not match, and later rules stay. ``@supports``
 keeps its block when the condition is supported: ``color`` accepts a color
 or a CSS-wide keyword, a custom property accepts any non-empty value, and
 ``selector()`` accepts one complex selector this reader can parse.
+A trailing ``::before`` or ``::after`` is one of those selectors. It does not
+match the element; the layout engine reads it as generated content. Any
+other pseudo-element, and a pseudo-element in an ``@scope`` boundary, is
+rejected.
 ``font-tech()``, ``font-format()``, and any other function are unsupported.
 ``not``, ``and``, and ``or`` combine those answers. An empty prelude or a
 mix of ``and`` and ``or`` drops that block and leaves later rules. The block
@@ -140,6 +144,16 @@ _HTML_CASELESS_ATTRIBUTES = frozenset(
 
 class CssSelectorError(ValueError):
     """A selector or stylesheet is outside the supported grammar."""
+
+
+class _PseudoMatch:
+    """When set, a trailing ``::before`` or ``::after`` matches its element.
+
+    Element cascade leaves this empty, so a pseudo-element selector does not
+    style the element. Generated content sets the name for one lookup.
+    """
+
+    name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -597,8 +611,14 @@ class _Parser:
     def pseudo(self) -> _Simple:
         self.index += 1
         if self.peek() == ":":
-            raise CssSelectorError("pseudo-elements are outside this reader")
+            self.index += 1
+            name = self.ident().lower()
+            if name not in {"before", "after"} or self.peek() == "(":
+                raise CssSelectorError("pseudo-elements are outside this reader")
+            return _Simple("pseudo-element", name)
         name = self.ident().lower()
+        if name in {"before", "after"} and self.peek() != "(":
+            return _Simple("pseudo-element", name)
         if name == "scope":
             if self.peek() == "(":
                 raise CssSelectorError(":scope does not take arguments")
@@ -844,6 +864,8 @@ def _specificity(selector: Complex) -> tuple[int, int, int]:
                 ids += gained[0]
                 classes += gained[1]
                 types += gained[2]
+            elif simple.kind == "pseudo-element":
+                types += 1
     return ids, classes, types
 
 
@@ -1012,6 +1034,8 @@ def _simple_matches(tree: _Tree, element, simple: _Simple, scope_el=None) -> boo
         return _nth_matches(tree, element, simple, scope_el)
     if simple.name in {"scope", "scope-amp"}:
         return scope_el is not None and element is scope_el
+    if simple.kind == "pseudo-element":
+        return _PseudoMatch.name == simple.name
     return False
 
 
@@ -1834,6 +1858,46 @@ def _read_scope_frame(parser: _Parser, *, nested: bool) -> _ScopeFrame:
     return _ScopeFrame(start, end, nested)
 
 
+def _selector_mentions_pseudo(selector: Complex) -> bool:
+    def walk(item: _Simple) -> bool:
+        if item.kind == "pseudo-element":
+            return True
+        return any(walk(child) for selector in item.selectors for child in _selector_simples(selector))
+
+    return any(walk(item) for compound in selector.compounds for item in compound)
+
+
+def _selector_simples(selector: Complex):
+    for compound in selector.compounds:
+        yield from compound
+
+
+def _reject_boundary_pseudos(selectors: tuple[Complex, ...]) -> None:
+    if any(_selector_mentions_pseudo(selector) for selector in selectors):
+        raise CssSelectorError("pseudo-elements are outside this reader")
+
+
+def _require_trailing_pseudos(selectors: tuple[Complex, ...]) -> None:
+    """A pseudo-element is only the last simple of the last compound."""
+
+    for selector in selectors:
+        sites: list[tuple[int, int]] = []
+        for compound_index, compound in enumerate(selector.compounds):
+            for simple_index, simple in enumerate(compound):
+                if simple.selectors and any(_selector_mentions_pseudo(child) for child in simple.selectors):
+                    raise CssSelectorError("pseudo-elements are outside this reader")
+                if simple.kind == "pseudo-element":
+                    sites.append((compound_index, simple_index))
+        if not sites:
+            continue
+        last_compound = len(selector.compounds) - 1
+        last_simple = len(selector.compounds[-1]) - 1
+        if sites != [(last_compound, last_simple)]:
+            raise CssSelectorError("pseudo-elements are outside this reader")
+        if selector.compounds[-1][-1].name not in {"before", "after"}:
+            raise CssSelectorError("pseudo-elements are outside this reader")
+
+
 def _at_keyword(parser: _Parser, word: str) -> bool:
     parser.skip_space()
     saved = parser.index
@@ -1852,6 +1916,7 @@ def _boundary_selectors(text: str, *, relative: bool) -> tuple[Complex, ...]:
     parser.skip_space()
     if parser.peek():
         raise CssSelectorError("trailing text after selector")
+    _reject_boundary_pseudos(parsed)
     return parsed
 
 
@@ -1861,6 +1926,7 @@ def _parse_rule_selectors(text: str, *, scoped: bool) -> tuple[Complex, ...]:
     parser.skip_space()
     if parser.peek():
         raise CssSelectorError("trailing text after selector")
+    _require_trailing_pseudos(parsed)
     return parsed
 
 
@@ -1911,6 +1977,7 @@ def _fill_style_body(
             parser.balanced("{", "}")
             continue
         expanded = tuple(_desugar_nested(selectors, item) for item in nested)
+        _require_trailing_pseudos(expanded)
         _fill_style_body(parser.balanced("{", "}"), expanded, node, scopes, found, counter, media, held, query)
 
 
@@ -2186,6 +2253,103 @@ def _cascaded_map(tree: _Tree, element, declarations: list[_Decl]) -> dict[str, 
             winners[prop] = decl.value
             break
     return winners
+
+
+def _trailing_pseudo(selector: Complex) -> str | None:
+    if not selector.compounds:
+        return None
+    last = selector.compounds[-1]
+    if not last or last[-1].kind != "pseudo-element":
+        return None
+    return last[-1].name
+
+
+def resolve_generated_strings(
+    tree: _Tree,
+    element,
+    declarations: list[_Decl],
+    custom: dict,
+) -> tuple[str, str]:
+    """String content of ``::before`` and ``::after``, or empty when no box is generated.
+
+    A content function raises ``generated content is unsupported``. Any other
+    property on a pseudo that does generate a box raises ``generated box is
+    unsupported``. Element rules are not read as the pseudo's own declarations.
+    """
+
+    return (
+        _one_generated(tree, element, declarations, custom, "before"),
+        _one_generated(tree, element, declarations, custom, "after"),
+    )
+
+
+def _one_generated(tree: _Tree, element, declarations: list[_Decl], custom: dict, pseudo: str) -> str:
+    chosen = [decl for decl in declarations if any(_trailing_pseudo(selector) == pseudo for selector in decl.selectors)]
+    if not chosen:
+        return ""
+    previous = _PseudoMatch.name
+    _PseudoMatch.name = pseudo
+    try:
+        winners = _cascaded_map(tree, element, chosen)
+    finally:
+        _PseudoMatch.name = previous
+    raw = winners.get("content")
+    if raw is None:
+        return ""
+    substituted = _substitute(raw, lambda name: custom.get(name, _INVALID))
+    if substituted is _INVALID or not isinstance(substituted, str):
+        raise CssSelectorError("generated content is unsupported")
+    text = _generated_content_text(substituted)
+    if text is None:
+        return ""
+    if any(name != "content" for name in winners):
+        raise CssSelectorError("generated box is unsupported")
+    return text
+
+
+def _generated_content_text(value: str) -> str | None:
+    text = value.strip()
+    if text.lower() in {"normal", "none", "initial", "unset", "revert"}:
+        return None
+    if text.lower() == "inherit":
+        raise CssSelectorError("generated content is unsupported")
+    parts: list[str] = []
+    index = 0
+    length = len(text)
+    while index < length:
+        while index < length and text[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        if text[index] not in "\"'":
+            raise CssSelectorError("generated content is unsupported")
+        end = _end_of_string(text, index)
+        if end is None:
+            raise CssSelectorError("generated content is unsupported")
+        unquoted = _unquote(text[index:end])
+        if unquoted is None:
+            raise CssSelectorError("generated content is unsupported")
+        parts.append(unquoted)
+        index = end
+    if not parts:
+        raise CssSelectorError("generated content is unsupported")
+    return "".join(parts)
+
+
+def _end_of_string(text: str, start: int) -> int | None:
+    quote = text[start]
+    index = start + 1
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char == quote:
+            return index + 1
+        if char in "\n\r\f":
+            return None
+        index += 1
+    return None
 
 
 class _GuaranteedInvalid:
