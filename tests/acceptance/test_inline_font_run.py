@@ -99,6 +99,9 @@ def observe() -> tuple[bool, dict[str, object]]:
     wide_line = _line(wide_box, 0)
     narrow_lines = [_line(narrow_box, index) for index in range(3)]
     strut_line = _line(strut_box, 0)
+    float_box = _box(floated.get("boxes"), "mix")
+    float_line = _line(float_box, 0)
+    pin = _box(floated.get("boxes"), "pin")
     observed: dict[str, object] = {
         "wide_outcome": wide.get("outcome"),
         "wide_reason": wide.get("reason"),
@@ -189,9 +192,21 @@ def observe() -> tuple[bool, dict[str, object]]:
             and aligned.get("reason") == "inline text-align is unsupported"
         ),
         "float_beside_mixed": (
-            floated.get("outcome") == "invalid"
-            and floated.get("boxes") is None
-            and floated.get("reason") == "inline font beside a float is unsupported"
+            floated.get("outcome") == "placed"
+            and _near(pin, x=0, y=0, content_width=10, content_height=20)
+            and _near(float_box, content_height=25)
+            and _near(
+                float_line,
+                text="BIG tail",
+                x=10,
+                y=0,
+                height=25,
+                content_width=110,
+                runs=[
+                    {"text": "BIG", "x": 10, "font_size": 20, "width": 60},
+                    {"text": " tail", "x": 70, "font_size": 10, "width": 50},
+                ],
+            )
         ),
     }
     observed["checks"] = checks
