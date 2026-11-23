@@ -36,7 +36,13 @@ max-content and the maximum of their min-content and the available space.
 A child margin stays inside that box. A percentage width, an intrinsic
 limit, a float, and a nested positioned box stay rejected. Automatic insets
 on an axis use the static position between
-block siblings. A static position inside a line is rejected, and a vertical
+block siblings. An inline absolute in a horizontal left-to-right line uses the
+static position of the first inline box it would have generated: preceding text
+keeps it on that line when the hypothetical word fits, and the next line
+receives it when the word does not. The parent's in-flow lines omit that
+absolute. A block-level absolute in that line, a float, an inline-block, a
+relative inline, justification, white-space other than normal, and a vertical
+writing mode stay rejected. A vertical
 writing mode still rejects those automatic sizes. An absolute or fixed box
 with ``position-anchor`` and ``position-area`` then moves onto that named
 in-flow anchor. The margin box meets the anchor's block-start border edge
@@ -498,6 +504,7 @@ _LIST_POSITIONS = frozenset({"inside", "outside"})
 _MARKER_SYMBOLS = {"disc": "\u2022", "circle": "\u25e6", "square": "\u25aa"}
 _MARKER_SENTINEL = "\ufffc"
 _MARKER_BREAK = "\u200b"
+_STATIC_MARK = "\ufffc"
 _LIST_RESET_TAGS = frozenset({"ol", "ul"})
 _TABLE_OUTSIDE = frozenset({"table-row", "table-cell", "table-caption"})
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
@@ -638,6 +645,7 @@ class _Box:
     parent_direction: str | None = None
     inline_text: str | None = None
     static_index: int = 0
+    line_static: tuple[str, tuple[int, ...]] | None = None
     flow_y: int = 0
     lines: list[_Line] = field(default_factory=list)
     atoms: list[_Box] = field(default_factory=list)
@@ -2319,6 +2327,8 @@ def _set_inline(
         raise _Invalid("inline-block beside blocks is unsupported")
     box.pieces = pieces or []
     box.inline_text = None if pieces is None else "".join(piece.text for piece in pieces)
+    if box.inline_text and box.positioned:
+        _remember_line_static(box, tree, element, styles, declarations)
 
 
 def _anonymous_split_allowed(box: _Box) -> bool:
@@ -3602,6 +3612,201 @@ def _adopt_absolute(box: _Box, cb: _Edge, placed: dict[str, object]) -> None:
     box.solved = placed
 
 
+def _remember_line_static(box: _Box, tree, element, styles, declarations) -> None:
+    """Record where each inline absolute would have started in this line."""
+
+    if not _line_static_parent(box):
+        return
+    anchor = {
+        "font-size": f"{box.font_size}px",
+        "line-height": box.line_height,
+        "text-align": box.text_align,
+        "text-align-last": box.text_align_last,
+        "text-justify": box.text_justify,
+        "white-space": box.white_space,
+    }
+    for abs_box in box.positioned:
+        abs_box.line_static = None
+        if abs_box.display != "inline" or abs_box.element is None:
+            continue
+        try:
+            abs_box.line_static = _marked_inline(
+                tree, element, abs_box.element, styles, declarations, anchor, box.font_size
+            )
+        except _Invalid:
+            abs_box.line_static = None
+
+
+def _line_static_parent(box: _Box) -> bool:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space != "normal":
+        return False
+    if box.atoms or box.floats or box.relative_layers or box.list_item:
+        return False
+    return box.text_align not in {"justify", "justify-all"} and box.text_align_last != "justify"
+
+
+def _marked_inline(
+    tree,
+    element,
+    target,
+    styles,
+    declarations,
+    anchor: dict[str, str],
+    size: int,
+) -> tuple[str, tuple[int, ...]]:
+    parts: list[str] = []
+    advances: list[int] = []
+    found = _mark_inline_node(
+        tree, element, target, styles, declarations, anchor, size, parts, advances
+    )
+    if not found or parts.count(_STATIC_MARK) != 1:
+        raise _Invalid("static position inside a line is unsupported")
+    return "".join(parts), tuple(advances)
+
+
+def _mark_inline_node(
+    tree,
+    node,
+    target,
+    styles,
+    declarations,
+    anchor: dict[str, str],
+    size: int,
+    parts: list[str],
+    advances: list[int],
+) -> bool:
+    found = False
+    _push_inline_text(node.text or "", size, parts, advances)
+    for child in list(node):
+        if not _local_name(child):
+            continue
+        if child is target:
+            _push_static_target(tree, child, styles, declarations, anchor, parts, advances)
+            _push_inline_text(child.tail or "", size, parts, advances)
+            found = True
+            continue
+        kind = _flow_kind(tree, child, styles, declarations)
+        if kind in {"skip", "out"}:
+            _push_inline_text(child.tail or "", size, parts, advances)
+            continue
+        if kind != "inline" and kind != "contents":
+            raise _Invalid("static position inside a line is unsupported")
+        if kind == "inline" and _declared_position(tree, child, styles, declarations) == "relative":
+            raise _Invalid("static position inside a line is unsupported")
+        child_anchor = _inline_fonts(tree, child, styles, declarations, anchor)
+        _require_static_font(child_anchor, anchor)
+        child_size = _positive_px(child_anchor["font-size"], "font-size")
+        if _mark_inline_node(
+            tree, child, target, styles, declarations, anchor, child_size, parts, advances
+        ):
+            found = True
+        _push_inline_text(child.tail or "", size, parts, advances)
+    return found
+
+
+def _push_static_target(
+    tree,
+    node,
+    styles,
+    declarations,
+    anchor: dict[str, str],
+    parts: list[str],
+    advances: list[int],
+) -> None:
+    fonts = _inline_fonts(tree, node, styles, declarations, anchor)
+    _require_static_font(fonts, anchor)
+    parts.append(_STATIC_MARK)
+    advances.append(0)
+    _push_static_contents(tree, node, styles, declarations, anchor, parts, advances)
+
+
+def _push_static_contents(
+    tree,
+    node,
+    styles,
+    declarations,
+    anchor: dict[str, str],
+    parts: list[str],
+    advances: list[int],
+) -> None:
+    fonts = _inline_fonts(tree, node, styles, declarations, anchor)
+    _require_static_font(fonts, anchor)
+    size = _positive_px(fonts["font-size"], "font-size")
+    _push_inline_text(node.text or "", size, parts, advances)
+    for child in list(node):
+        if not _local_name(child):
+            continue
+        kind = _flow_kind(tree, child, styles, declarations)
+        if kind in {"skip", "out"}:
+            _push_inline_text(child.tail or "", size, parts, advances)
+            continue
+        if kind != "inline" and kind != "contents":
+            raise _Invalid("static position inside a line is unsupported")
+        if kind == "inline" and _declared_position(tree, child, styles, declarations) == "relative":
+            raise _Invalid("static position inside a line is unsupported")
+        _push_static_contents(tree, child, styles, declarations, anchor, parts, advances)
+        _push_inline_text(child.tail or "", size, parts, advances)
+
+
+def _declared_position(tree, element, styles, declarations) -> str:
+    custom = styles.get(element, ({}, ""))[0]
+    winners = _winners(tree, element, declarations)
+    return _keyword(_declared(winners, "position", custom), _POSITIONS, "static", "position")
+
+
+def _require_static_font(fonts: dict[str, str], anchor: dict[str, str]) -> None:
+    if fonts["font-size"] != anchor["font-size"] or fonts["line-height"] != anchor["line-height"]:
+        raise _Invalid("static position inside a line is unsupported")
+
+
+def _push_inline_text(text: str, size: int, parts: list[str], advances: list[int]) -> None:
+    if _STATIC_MARK in text:
+        raise _Invalid("static position inside a line is unsupported")
+    for character in text:
+        parts.append(character)
+        advances.append(_advance_of(character, size))
+
+
+def _line_static_edges(parent: _Box, marked: tuple[str, tuple[int, ...]]) -> tuple[int, int, int]:
+    """Viewport margin-edge of the marked inline, plus the parent's content right."""
+
+    text, advances = marked
+    measure = parent.content_width
+    wrapped = wrap_lines(text, measure, white_space=parent.white_space, advances=list(advances))
+    lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
+    if not isinstance(lines, list):
+        raise _Invalid(str(wrapped.get("reason") or "static position inside a line is unsupported"))
+    if parent.white_space in _COLLAPSED_EMPTY:
+        lines = [
+            line
+            for line in lines
+            if isinstance(line, dict) and (line.get("text") or line.get("content_width"))
+        ]
+    used = _used_line_height(parent.line_height, parent.font_size)
+    height, _baseline = _strut_metrics(parent.font_size, used)
+    origin_x = parent.x + _edge_extent(parent.solved, "left")
+    origin_y = parent.y + _edge_extent(parent.solved, "top")
+    cursor = 0
+    found: tuple[int, int] | None = None
+    last = len(lines) - 1
+    for index, line in enumerate(lines):
+        if not isinstance(line, dict):
+            raise _Invalid("line is invalid")
+        rendered = str(line.get("text") or "")
+        if _STATIC_MARK in rendered:
+            content = _px(line.get("content_width"), "line width")
+            offset = _text_offset(parent, measure, content, index == last)
+            before = rendered.split(_STATIC_MARK, 1)[0]
+            partial = sum(_advance_of(character, parent.font_size) for character in before)
+            found = (origin_x + offset + partial, origin_y + cursor)
+            break
+        cursor += height
+    if found is None:
+        raise _Invalid("static position inside a line is unsupported")
+    content_right = parent.x + parent.border_width - _edge_extent(parent.solved, "right")
+    return found[0], found[1], content_right
+
+
 def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
     slots = _physical_slots(box)
     left, right = _inset(slots, "left"), _inset(slots, "right")
@@ -3620,14 +3825,19 @@ def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
             raise _Invalid("absolute shrink-to-fit is unsupported")
         raise _Invalid("absolute height is indefinite")
     if needs_static and (parent.inline_text or parent.pieces):
-        raise _Invalid("static position inside a line is unsupported")
-    if needs_static:
+        if not _line_static_parent(parent) or box.display != "inline" or box.line_static is None:
+            raise _Invalid("static position inside a line is unsupported")
+        hyp_x, hyp_y, hyp_right = _line_static_edges(parent, box.line_static)
+    elif needs_static:
         hyp_x, hyp_y, hyp_right = _hypothetical_edges(parent, box.static_index)
+    else:
+        hyp_x = hyp_y = hyp_right = None
+    if hyp_x is None:
+        static_left = static_right = static_top = 0
+    else:
         static_left = hyp_x - cb.x
         static_right = (cb.x + cb.width) - hyp_right
         static_top = hyp_y - cb.y
-    else:
-        static_left = static_right = static_top = 0
     if box.children and needs_shrink:
         minimum, maximum = _absolute_content_span(box)
     elif box.inline_text:
