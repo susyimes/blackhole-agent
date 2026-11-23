@@ -22,7 +22,8 @@ and an inline-block inside it stay rejected. An absolute or fixed box uses the p
 A sticky block keeps the place it occupied in the flow. Its used border box
 then shifts against the nearest non-visible overflow scrollport, or against
 the viewport when every ancestor is visible. ``scroll_x`` and ``scroll_y``
-move only that viewport; a nearer scrollport stays at scroll zero. The parent
+move only that viewport. A nearer scrollport uses ``port_scroll`` when that
+port scrolls on its own, and otherwise stays at scroll zero. The parent
 padding edge stops the shift, and the following sibling stays at its static
 position. Nested sticky, a sticky float, a sticky inline, a sticky root, and
 a sticky box that is not horizontal and left-to-right are rejected.
@@ -758,6 +759,8 @@ class _Box:
     float_side: str
     overflow: str
     declarations: list[tuple[str, str]]
+    scroll_port_x: int = 0
+    scroll_port_y: int = 0
     root: bool = False
     clear: str = "none"
     children: list[_Box] = field(default_factory=list)
@@ -866,6 +869,7 @@ def layout_normal_flow(
     viewport_height: int | None = None,
     scroll_x: int = 0,
     scroll_y: int = 0,
+    port_scroll: dict[str, tuple[int, int]] | None = None,
 ) -> dict[str, object]:
     """Return viewport border boxes for the document's normal-flow blocks.
 
@@ -873,7 +877,11 @@ def layout_normal_flow(
     ``viewport_height`` is that block's height, or indefinite when omitted.
     ``scroll_x`` and ``scroll_y`` are that viewport's scroll offsets. They
     move a sticky box whose scrollport is the viewport and leave every other
-    box at its static position. ``x`` and ``y`` are the border edges measured
+    box at its static position. ``port_scroll`` maps a scrollport id to
+    ``(x, y)`` offsets. A horizontal left-to-right ``hidden``, ``auto``, or
+    ``scroll`` port then shifts only the sticky boxes it contains; in-flow
+    siblings stay at their static positions. Omitted ports stay at scroll
+    zero. ``x`` and ``y`` are the border edges measured
     from the unscrolled viewport origin. Lengths are ``px`` or percentages. A
     unitless zero is rejected. ``sibling-index()`` and ``sibling-count()``
     inside a box length use the element's DOM siblings before that length is
@@ -891,6 +899,7 @@ def layout_normal_flow(
             viewport_height=viewport_height,
             scroll_x=scroll_x,
             scroll_y=scroll_y,
+            port_scroll=port_scroll,
         )
     except (CssSelectorError, _Invalid) as exc:
         return _invalid(str(exc))
@@ -907,6 +916,7 @@ def element_from_document(
     viewport_height: int | None = None,
     scroll_x: int = 0,
     scroll_y: int = 0,
+    port_scroll: dict[str, tuple[int, int]] | None = None,
 ) -> dict[str, object]:
     """Return the frontmost element whose border box contains ``(x, y)``.
 
@@ -928,6 +938,7 @@ def element_from_document(
             viewport_height=viewport_height,
             scroll_x=scroll_x,
             scroll_y=scroll_y,
+            port_scroll=port_scroll,
         )
         tree = _document_hit_tree(root)
     except (CssSelectorError, _Invalid) as exc:
@@ -948,6 +959,7 @@ def _placed_root(
     viewport_height: int | None,
     scroll_x: int,
     scroll_y: int,
+    port_scroll: object = None,
 ) -> _Box:
     if not isinstance(markup, str) or not isinstance(stylesheet, str):
         raise _Invalid("markup is invalid")
@@ -1049,6 +1061,7 @@ def _placed_root(
     margin_top = _px(root.solved.get("margin_top"), "margin-top")
     _assign_y(root, by_id, margin_top)
     _shift_relatives(root, viewport_width, viewport_height)
+    _apply_port_scroll(root, port_scroll)
     _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
     _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height))
     _stamp_font_faces(root, tuple(font_faces))
@@ -4228,6 +4241,51 @@ def _sticky_delta(
     )
 
 
+_SCROLLABLE_PORTS = frozenset({"hidden", "auto", "scroll"})
+
+
+def _apply_port_scroll(root: _Box, port_scroll: object) -> None:
+    """Store each named scrollport's own offset before sticky placement.
+
+    Viewport ``scroll_x`` and ``scroll_y`` do not feed these ports. A missing
+    name, a negative offset, ``visible``, ``clip``, and a non-horizontal port
+    are rejected. In-flow boxes are not translated.
+    """
+
+    if port_scroll is None:
+        return
+    if isinstance(port_scroll, (str, bytes)) or not isinstance(port_scroll, dict):
+        raise _Invalid("port scroll is invalid")
+    located = {box.id: box for box in _each(root)}
+    for key, value in port_scroll.items():
+        if not isinstance(key, str) or not key or key.strip() != key:
+            raise _Invalid("port scroll is invalid")
+        target = located.get(key)
+        if target is None:
+            raise _Invalid("scrollport is missing")
+        offset_x, offset_y = _port_pair(value)
+        if (
+            target.overflow not in _SCROLLABLE_PORTS
+            or target.writing_mode != "horizontal-tb"
+            or target.direction != "ltr"
+        ):
+            raise _Invalid("scrollport is not scrollable")
+        target.scroll_port_x = offset_x
+        target.scroll_port_y = offset_y
+
+
+def _port_pair(value: object) -> tuple[int, int]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, (tuple, list)) or len(value) != 2:
+        raise _Invalid("port scroll is invalid")
+    return _port_offset(value[0]), _port_offset(value[1])
+
+
+def _port_offset(value: object) -> int:
+    if type(value) is not int or value < 0:
+        raise _Invalid("port scroll is invalid")
+    return value
+
+
 def _sticky_port(
     box: _Box,
     viewport_width: int,
@@ -4239,7 +4297,7 @@ def _sticky_port(
     while current is not None:
         if current.overflow in _SCROLLPORTS:
             x, y, width, height = _padding_rect(current)
-            return x, y, width, height, 0, 0
+            return x, y, width, height, current.scroll_port_x, current.scroll_port_y
         current = current.parent_box
     if viewport_height is None:
         raise _Invalid("sticky scrollport is indefinite")
