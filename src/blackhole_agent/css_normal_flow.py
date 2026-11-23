@@ -100,9 +100,15 @@ horizontal line and omitted after the last character, so a positive value
 wraps sooner and a negative value shortens the line. ``word-spacing`` is added
 only to word separators. Both inherit, ``normal`` is zero, and a percentage is
 invalid. Justification of a spaced line, a vertical writing mode, an inside
-marker, and a declaration on an inline stay rejected. A
-
-block that also has block children keeps those children and does not build
+marker, and a declaration on an inline stay rejected. ``overflow-wrap`` and
+``word-break`` are inherited and change those breaks. ``anywhere`` and
+``break-all`` split a word that does not fit and lower a shrink-to-fit minimum
+to one character. ``break-word`` splits the same definite line and leaves that
+minimum at the whole word. ``keep-all`` keeps a Han run together for the
+minimum and still wraps it inside a definite measure. ``word-wrap`` is the
+same property as ``overflow-wrap``. Any other keyword is invalid, and a
+declaration of either property on an inline is rejected. A block that also
+has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
 box with no margin, border, or padding, stretched to the parent's content
 width and using the parent's font, alignment, and white space. Collapsible
@@ -558,6 +564,8 @@ _FONT = {
     "letter-spacing": "0px",
     "word-spacing": "0px",
     "white-space": "normal",
+    "overflow-wrap": "normal",
+    "word-break": "normal",
     "list-style-type": "disc",
     "list-style-position": "outside",
 }
@@ -567,6 +575,8 @@ _ALIGNS = frozenset(
 _LAST_ALIGNS = frozenset({"auto", "start", "end", "left", "right", "center", "justify"})
 _JUSTIFY_MODES = frozenset({"auto", "none", "inter-word", "inter-character"})
 _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre-line"})
+_OVERFLOW_WRAPS = frozenset({"normal", "break-word", "anywhere"})
+_WORD_BREAKS = frozenset({"normal", "keep-all", "break-all", "break-word"})
 _FRAGMENT_BREAKS = frozenset(
     {
         "auto",
@@ -586,7 +596,15 @@ _FRAGMENT_BREAKS = frozenset(
     }
 )
 _COLLAPSED_EMPTY = frozenset({"normal", "nowrap"})
-_INLINE_REJECTED = ("text-align", "white-space", "letter-spacing", "word-spacing")
+_INLINE_REJECTED = (
+    "text-align",
+    "white-space",
+    "letter-spacing",
+    "word-spacing",
+    "overflow-wrap",
+    "word-wrap",
+    "word-break",
+)
 
 
 class _Invalid(Exception):
@@ -680,6 +698,8 @@ class _Box:
     word_spacing: int = 0
     containing_inline: int | None = None
     white_space: str = "normal"
+    overflow_wrap: str = "normal"
+    word_break: str = "normal"
     parent_direction: str | None = None
     inline_text: str | None = None
     static_index: int = 0
@@ -1396,6 +1416,20 @@ def _make_box(
             _FONT["white-space"],
             "white-space",
         ),
+        overflow_wrap=_inherited_keyword(
+            _declared_latest(winners, ("overflow-wrap", "word-wrap"), custom),
+            _OVERFLOW_WRAPS,
+            fonts["overflow-wrap"],
+            _FONT["overflow-wrap"],
+            "overflow-wrap",
+        ),
+        word_break=_inherited_keyword(
+            _declared(winners, "word-break", custom),
+            _WORD_BREAKS,
+            fonts["word-break"],
+            _FONT["word-break"],
+            "word-break",
+        ),
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
@@ -1652,6 +1686,19 @@ def _declared(winners: list[tuple[int, str, str]], name: str, custom: dict) -> s
     if substituted is _INVALID or not isinstance(substituted, str) or not substituted.strip():
         return None
     return substituted
+
+
+def _declared_latest(winners: list[tuple[int, str, str]], names: tuple[str, ...], custom: dict) -> str | None:
+    """The latest declared alias. ``word-wrap`` and ``overflow-wrap`` are one property."""
+
+    chosen: tuple[int, str, str] | None = None
+    allowed = set(names)
+    for order, prop, value in winners:
+        if prop in allowed and (chosen is None or order >= chosen[0]):
+            chosen = (order, prop, value)
+    if chosen is None:
+        return None
+    return _declared([chosen], chosen[1], custom)
 
 
 def _inherited(name: str, winners, custom: dict, inherited: dict[str, str]) -> str:
@@ -2387,6 +2434,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "letter-spacing": f"{box.letter_spacing}px",
         "word-spacing": f"{box.word_spacing}px",
         "white-space": box.white_space,
+        "overflow-wrap": box.overflow_wrap,
+        "word-break": box.word_break,
         "list-style-type": box.list_style_type,
         "list-style-position": box.list_style_position,
     }
@@ -2530,6 +2579,8 @@ def _make_anonymous_block(
         letter_spacing=parent.letter_spacing,
         word_spacing=parent.word_spacing,
         white_space=parent.white_space,
+        overflow_wrap=parent.overflow_wrap,
+        word_break=parent.word_break,
         parent_direction=parent.direction,
         anonymous=True,
         parent_box=parent,
@@ -2840,6 +2891,10 @@ def _spacing_args(box: _Box) -> dict[str, int]:
     if box.word_spacing:
         args["word_spacing"] = box.word_spacing
     return args
+
+
+def _break_args(box: _Box) -> dict[str, str]:
+    return {"overflow_wrap": box.overflow_wrap, "word_break": box.word_break}
 
 
 def _reject_spacing(box: _Box) -> None:
@@ -4088,7 +4143,8 @@ def _line_static_edges(parent: _Box, marked: tuple[str, tuple[int, ...]]) -> tup
     text, advances = marked
     measure = parent.content_width
     wrapped = wrap_lines(
-        text, measure, white_space=parent.white_space, advances=list(advances), **_spacing_args(parent)
+        text, measure, white_space=parent.white_space, advances=list(advances), **_spacing_args(parent),
+        **_break_args(parent),
     )
     lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
     if not isinstance(lines, list):
@@ -4378,7 +4434,8 @@ def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
 def _intrinsic_text_sizes(box: _Box) -> tuple[int, int]:
     text = box.inline_text or ""
     measured = wrap_lines(
-        text, 0, white_space=box.white_space, advances=_shrink_advances(box), **_spacing_args(box)
+        text, 0, white_space=box.white_space, advances=_shrink_advances(box), **_spacing_args(box),
+            **_break_args(box),
     )
     if measured["outcome"] != "wrapped":
         raise _Invalid(str(measured.get("reason") or "text measurement failed"))
@@ -5008,6 +5065,7 @@ def _fill_lines_beside_floats(
             white_space=box.white_space,
             advances=advances,
             **_spacing_args(box),
+            **_break_args(box),
         )
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
         if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
@@ -5301,6 +5359,7 @@ def _fill_mixed(box: _Box) -> None:
             white_space=box.white_space,
             advances=advances,
             **_spacing_args(box),
+            **_break_args(box),
         )
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
         if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
@@ -5502,6 +5561,7 @@ def _fill_inline_blocks(box: _Box) -> None:
         white_space=box.white_space,
         advances=_atom_advances(entries, measured),
         **_spacing_args(box),
+            **_break_args(box),
     )
     raw_lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
     if not isinstance(raw_lines, list):
@@ -5725,6 +5785,7 @@ def _fill_atoms_beside_floats(
             white_space=box.white_space,
             advances=_atom_advances(entries[index:], measured),
             **_spacing_args(box),
+            **_break_args(box),
         )
         lines = wrapped.get("lines") if wrapped.get("outcome") == "wrapped" else None
         if not isinstance(lines, list) or not lines or not isinstance(lines[0], dict):
@@ -6189,7 +6250,8 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
     lines = _kept_lines(
         box,
         wrap_lines(
-            text, first_measure, white_space=box.white_space, advances=advances, **_spacing_args(box)
+            text, first_measure, white_space=box.white_space, advances=advances, **_spacing_args(box),
+            **_break_args(box),
         ),
     )
     if not lines:
@@ -6203,7 +6265,8 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
     tail = _kept_lines(
         box,
         wrap_lines(
-            rest, max(measure, 0), white_space=box.white_space, advances=advances, **_spacing_args(box)
+            rest, max(measure, 0), white_space=box.white_space, advances=advances, **_spacing_args(box),
+            **_break_args(box),
         ),
     )
     return [first, *tail]
@@ -6239,6 +6302,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 measure,
                 white_space=box.white_space,
                 advances=[indent, 0, *[_advance_of(character, box.font_size) for character in text]],
+                **_break_args(box),
             ),
         )
     elif text_indent:
@@ -6252,6 +6316,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 white_space=box.white_space,
                 advances=_shrink_advances(box),
                 **_spacing_args(box),
+            **_break_args(box),
             ),
         )
     if not lines:
@@ -6620,6 +6685,8 @@ def _flush_flex_text(
             letter_spacing=host.letter_spacing,
             word_spacing=host.word_spacing,
             white_space=host.white_space,
+            overflow_wrap=host.overflow_wrap,
+            word_break=host.word_break,
             parent_direction=host.direction,
             inline_text=rendered,
             anonymous=True,
