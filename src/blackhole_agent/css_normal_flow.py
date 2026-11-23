@@ -153,8 +153,12 @@ that packing. A wrapped row-reverse line uses the same end edge. ``order``
 sorts items before that packing and before a wrap break; equal values keep
 source order. Text in a
 row item wraps at its hypothetical main size; an automatic cross size is
-those line boxes, painted in the used content width. Loose container text
-stays rejected.
+those line boxes, painted in the used content width. A contiguous text run
+in the container is an anonymous item with the initial flex factors: its
+max-content slot is the collapsed or preserved text, a whitespace-only run
+is omitted, and ``display: contents`` does not split the run. ``order: 0``
+places that run before a later item. A different font on the run, or a
+preserved break inside it, is rejected.
 A ``display: grid`` container places its element children on explicit column
 tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
 content box after column gaps are removed. Auto-placement fills rows in
@@ -2313,6 +2317,8 @@ def _fonts(box: _Box) -> dict[str, str]:
 def _set_inline(
     box: _Box, tree, element, styles, declarations, ids: set[str], counter: list[int]
 ) -> None:
+    if box.flex is not None and box.display == "flex":
+        return
     if box.children and not _anonymous_split_allowed(box):
         if box.atoms:
             raise _Invalid("inline-block beside blocks is unsupported")
@@ -5926,9 +5932,9 @@ def _walk_flex(
     host.flex = _flex_container(tree, element, styles, declarations)
     if host.writing_mode != "horizontal-tb" or host.direction != "ltr":
         raise _Invalid("flex writing mode is unsupported")
-    _reject_loose_text(getattr(element, "text", None))
     items: list[_Box] = []
-    for item, child in _generating_children(
+    pending: list[str] = []
+    _collect_flex_items(
         tree,
         element,
         inherited,
@@ -5938,31 +5944,170 @@ def _walk_flex(
         declarations,
         ids,
         counter,
-        reject_text=_reject_loose_text,
-    ):
-        if item.display in {"table", *_TABLE_OUTSIDE}:
+        host,
+        items,
+        pending,
+        host.font_size,
+        host.line_height,
+        host.white_space,
+    )
+    _flush_flex_text(host, pending, items, ids, counter)
+    return items, [], items, []
+
+
+def _collect_flex_items(
+    tree,
+    element,
+    inherited: dict[str, str],
+    fonts: dict[str, str],
+    parent_direction: str | None,
+    styles,
+    declarations,
+    ids: set[str],
+    counter: list[int],
+    host: _Box,
+    items: list[_Box],
+    pending: list[str],
+    font: int,
+    leading: str,
+    white: str,
+) -> None:
+    """Flex items in source order, with text runs held until a real box."""
+
+    _append_flex_text(pending, getattr(element, "text", None), font, leading, white, host)
+    column = str((host.flex or {}).get("direction") or "row") in {"column", "column-reverse"}
+    for child in tree.children.get(element, []):
+        if not _local_name(child) or _local_name(child) in _SKIP_TAGS:
+            _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+            continue
+        box = _make_box(
+            tree,
+            child,
+            inherited,
+            fonts,
+            parent_direction,
+            styles,
+            declarations,
+            ids,
+            counter,
+            root=False,
+        )
+        if box.display == "none":
+            _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+            continue
+        if box.display == "contents":
+            _collect_flex_items(
+                tree,
+                child,
+                _modes(box),
+                _fonts(box),
+                box.direction,
+                styles,
+                declarations,
+                ids,
+                counter,
+                host,
+                items,
+                pending,
+                box.font_size,
+                box.line_height,
+                box.white_space,
+            )
+            _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+            continue
+        _flush_flex_text(host, pending, items, ids, counter)
+        if box.display in {"table", *_TABLE_OUTSIDE}:
             raise _Invalid("table formatting in flex is unsupported")
-        if item.position != "static" or item.float_side != "none":
+        if box.position != "static" or box.float_side != "none":
             raise _Invalid("flex item is outside the line")
-        if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
+        if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
             raise _Invalid("flex writing mode is unsupported")
         if _flex_item_elements(tree, child):
             raise _Invalid("flex item content is unsupported")
-        column = str((host.flex or {}).get("direction") or "row") in {"column", "column-reverse"}
-        _reject_item_edges(item, column=column)
-        item.inline_text = child.text or ""
-        item.flex = _flex_item(tree, child, styles, declarations)
-        items.append(item)
-    return items, [], items, []
+        _reject_item_edges(box, column=column)
+        box.inline_text = child.text or ""
+        box.flex = _flex_item(tree, child, styles, declarations)
+        items.append(box)
+        _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+
+
+def _append_flex_text(
+    pending: list[str],
+    text: object,
+    font: int,
+    leading: str,
+    white: str,
+    host: _Box,
+) -> None:
+    if not isinstance(text, str) or text == "":
+        return
+    if text.strip() and (font != host.font_size or leading != host.line_height):
+        raise _Invalid("flex text font is unsupported")
+    if text.strip() and white != host.white_space:
+        raise _Invalid("flex text white-space is unsupported")
+    pending.append(text)
+
+
+def _flex_anonymous_text(raw: str, white_space: str) -> str | None:
+    if white_space in {"normal", "nowrap"}:
+        collapsed = " ".join(raw.split())
+        return collapsed or None
+    if white_space == "pre-line":
+        stripped = raw.strip()
+        if not stripped:
+            return None
+        if "\n" in stripped or "\r" in stripped:
+            raise _Invalid("flex preserved break is unsupported")
+        return " ".join(raw.split())
+    if white_space in {"pre", "pre-wrap", "break-spaces"}:
+        if not raw.strip():
+            return None
+        if any(character in raw for character in "\n\r\t"):
+            raise _Invalid("flex preserved break is unsupported")
+        return raw
+    raise _Invalid("flex white-space is unsupported")
+
+
+def _flush_flex_text(
+    host: _Box,
+    pending: list[str],
+    items: list[_Box],
+    ids: set[str],
+    counter: list[int],
+) -> None:
+    raw = "".join(pending)
+    pending.clear()
+    rendered = _flex_anonymous_text(raw, host.white_space)
+    if not rendered:
+        return
+    items.append(
+        _Box(
+            id=_anonymous_id(ids, counter),
+            writing_mode=host.writing_mode,
+            direction=host.direction,
+            text_orientation=host.text_orientation,
+            display="block",
+            position="static",
+            float_side="none",
+            overflow="visible",
+            declarations=[],
+            font_size=host.font_size,
+            line_height=host.line_height,
+            text_align=host.text_align,
+            text_align_last=host.text_align_last,
+            text_justify=host.text_justify,
+            white_space=host.white_space,
+            parent_direction=host.direction,
+            inline_text=rendered,
+            anonymous=True,
+            parent_box=host,
+            flex={"grow": 0.0, "shrink": 1.0, "basis": "auto", "align": "auto", "order": 0},
+        )
+    )
 
 
 def _flex_item_elements(tree, element) -> bool:
     return any(_local_name(child) not in _SKIP_TAGS for child in tree.children.get(element, []))
-
-
-def _reject_loose_text(text: object) -> None:
-    if isinstance(text, str) and text.strip():
-        raise _Invalid("flex text is unsupported")
 
 
 def _reject_item_edges(box: _Box, *, column: bool) -> None:
