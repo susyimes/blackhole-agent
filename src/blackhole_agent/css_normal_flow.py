@@ -113,7 +113,16 @@ partition whose leftover inline space has the lower variance. ``wrap`` and
 ``auto`` stay on the first-fit breaks. A group of more than ten lines stays
 on those breaks. A float, a text indent, an inside marker, a mixed font, an
 inline-block, a relative inline, a vertical writing mode, and a declaration
-on an inline are rejected for that balance. A block that also
+on an inline are rejected for that balance. ``line-clamp`` is not
+inherited. ``none`` keeps every line. A positive integer keeps that many
+lines of a horizontal left-to-right block; when a later line was discarded,
+the last kept line ends with U+2026 and drops end characters until that mark
+fits the content box. A block that already fits, including a nowrap line
+wider than the box, is not ellipsized, and the following block starts under
+the clamped lines. Zero, ``inherit``, preserved white space, spacing,
+justification, indent, balance, a float beside the text, an inline-block, a
+marker, a vertical writing mode, and an inline declaration are rejected. A
+block child does not take the clamp. A block that also
 has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
 box with no margin, border, or padding, stretched to the parent's content
@@ -613,6 +622,7 @@ _INLINE_REJECTED = (
     "word-break",
     "text-wrap",
     "text-wrap-style",
+    "line-clamp",
 )
 
 
@@ -710,6 +720,7 @@ class _Box:
     overflow_wrap: str = "normal"
     word_break: str = "normal"
     text_wrap_style: str = "auto"
+    line_clamp: int | None = None
     parent_direction: str | None = None
     inline_text: str | None = None
     static_index: int = 0
@@ -1441,6 +1452,7 @@ def _make_box(
             "word-break",
         ),
         text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
+        line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
@@ -2142,6 +2154,8 @@ def _solve(
         return
     _retarget_query_descendants(box)
     content_x = box.x + _edge_extent(solved, "left")
+    if box.line_clamp is not None and (box.display in {"flex", "grid", "table"} or box.multicol is not None):
+        raise _Invalid("clamped formatting context is unsupported")
     if box.display == "grid":
         _place_grid(box, content_x, viewport_height)
         return
@@ -2908,6 +2922,21 @@ def _spacing_args(box: _Box) -> dict[str, int]:
 
 def _break_args(box: _Box) -> dict[str, str]:
     return {"overflow_wrap": box.overflow_wrap, "word_break": box.word_break}
+
+
+def _read_line_clamp(value: str | None) -> int | None:
+    """Computed ``line-clamp``. It is not inherited; ``none`` keeps every line."""
+
+    if value is None:
+        return None
+    token = value.strip().lower()
+    if token in {"none", "initial", "unset", "revert"}:
+        return None
+    if token == "inherit":
+        raise _Invalid("line-clamp inherit is unsupported")
+    if not token.isascii() or not token.isdigit() or token.startswith("0"):
+        raise _Invalid("line-clamp is invalid")
+    return int(token)
 
 
 def _text_wrap_style(winners: list[tuple[int, str, str]], custom: dict, parent: str) -> str:
@@ -5885,7 +5914,88 @@ def _fill_atoms_beside_floats(
         box.definite_height = max(cursor_y, bottom) if contain else cursor_y
 
 
+_ELLIPSIS = "\u2026"
+
+
+def _reject_line_clamp(box: _Box, direction: str) -> None:
+    if box.line_clamp is None:
+        return
+    if box.writing_mode != "horizontal-tb" or direction != "ltr":
+        raise _Invalid("clamped writing mode is unsupported")
+    if box.white_space not in {"normal", "nowrap", "pre-line"}:
+        raise _Invalid("clamped white-space is unsupported")
+    if box.letter_spacing or box.word_spacing:
+        raise _Invalid("clamped spacing is unsupported")
+    if box.text_indent != "0px":
+        raise _Invalid("clamped text-indent is unsupported")
+    if box.text_wrap_style == "balance":
+        raise _Invalid("clamped text wrap is unsupported")
+    if _gap_alignment(box):
+        raise _Invalid("clamped justification is unsupported")
+    if box.floats or box.atoms or _mixed_runs(box) or _relative_pieces(box) or box.list_item:
+        raise _Invalid("clamped block content is unsupported")
+
+
+def _clamp_advances(box: _Box) -> dict[str, int]:
+    raw = _shrink_advances(box)
+    if not isinstance(raw, dict):
+        raise _Invalid("clamped block content is unsupported")
+    table = {key: _px(value, "advance") for key, value in raw.items()}
+    table.setdefault(_ELLIPSIS, _advance_of(_ELLIPSIS, box.font_size))
+    return table
+
+
+def _clamp_width(box: _Box, table: dict[str, int], text: str) -> int:
+    total = 0
+    for ch in text:
+        total += table[ch] if ch in table else _advance_of(ch, box.font_size)
+    return total
+
+
+def _clamp_plain_lines(
+    box: _Box,
+    records: list[_Line],
+    measure: int,
+    direction: str,
+    place_glyphs: bool,
+) -> list[_Line]:
+    """Drop lines past ``line-clamp`` and end the last kept line with an ellipsis."""
+
+    limit = box.line_clamp
+    if limit is None or len(records) <= limit:
+        return records
+    kept = list(records[:limit])
+    last = kept[-1]
+    table = _clamp_advances(box)
+    mark = _clamp_width(box, table, _ELLIPSIS)
+    if mark > measure:
+        raise _Invalid("line clamp does not fit")
+    prefix = last.text
+    while prefix and _clamp_width(box, table, prefix) + mark > measure:
+        prefix = prefix[:-1]
+    rendered = prefix + _ELLIPSIS
+    content = _clamp_width(box, table, rendered)
+    if content > measure:
+        raise _Invalid("line clamp does not fit")
+    offset, used, runs = _align_content(box, measure, rendered, content, True, direction)
+    glyphs = _bidi_glyphs(rendered, direction, box.font_size) if place_glyphs and not runs else []
+    if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != used:
+        glyphs = []
+    kept[-1] = _Line(
+        text=rendered,
+        x=offset,
+        y=last.y,
+        height=last.height,
+        content_width=used,
+        baseline=last.baseline,
+        glyphs=glyphs,
+        runs=runs,
+    )
+    return kept
+
+
 def _fill_lines(box: _Box) -> None:
+    _reject_line_clamp(box, box.direction)
     _reject_spacing(box)
     if box.text_indent != "0px" and (box.floats or box.atoms or _mixed_runs(box)):
         raise _Invalid("text-indent is unsupported")
@@ -6335,6 +6445,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     text = box.inline_text or ""
     if not text:
         return []
+    _reject_line_clamp(box, direction)
     text_indent = _text_indent_used(box)
     if text_indent and direction != "ltr":
         raise _Invalid("text-indent writing mode is unsupported")
@@ -6441,7 +6552,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         cursor += height
     if shifted and collapsed.strip():
         raise _Invalid("relative inline is unsupported")
-    return records
+    return _clamp_plain_lines(box, records, measure, direction, place_glyphs)
 
 
 def _used_line_height(computed: str, font_size: int) -> int:
