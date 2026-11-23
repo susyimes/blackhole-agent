@@ -7,8 +7,9 @@ left 50% of a 40px paragraph adds 20px. top 50% of an automatic height adds
 nothing, and top 50% of a 20px height paints BB at y 10. A nested left 3px
 inside left 5px adds to 8px. text-align center keeps the extra 5px on the
 centered static position. A 50px wrap still breaks before CC, and only that
-fragment moves. Sticky inlines, relative inline-blocks, an inline-block
-inside the span, and a float beside it are rejected.
+fragment moves. A left float shortens the line and the relative glyph keeps
+its left offset. Sticky inlines, relative inline-blocks, and an inline-block
+inside the span are rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects relative inlines exits 0 with
@@ -231,7 +232,17 @@ def observe() -> tuple[bool, dict[str, object]]:
         "sticky_inline_is_rejected": _rejected(cases["sticky"]),
         "relative_inline_block_is_rejected": _rejected(cases["atom"]),
         "inline_block_inside_relative_inline_is_rejected": _rejected(cases["inside"]),
-        "float_beside_relative_inline_is_rejected": _rejected(cases["float"]),
+        "float_beside_relative_inline_shifts_the_glyph": (
+            cases["float"].get("outcome") == "placed"
+            and _placed(cases["float"], "p").get("text") == "AABB"
+            and _placed(cases["float"], "p").get("line_x") == 10
+            and _placed(cases["float"], "p").get("line_y") == 0
+            and runs("float").get("AA") == {"x": 10, "y": 0, "width": 20}
+            and runs("float").get("BB") == {"x": 35, "y": 0, "width": 20}
+            and _placed(cases["float"], "next").get("y") == 10
+            and _placed(cases["float"], "f").get("x") == 0
+            and _placed(cases["float"], "f").get("y") == 0
+        ),
     }
     observed["checks"] = checks
     return all(checks.values()), observed

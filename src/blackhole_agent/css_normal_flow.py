@@ -16,9 +16,11 @@ move by the used left and top; later siblings stay where the static layout
 put them. A relative inline keeps that same static slot in the line: its
 glyphs paint at the static position plus the used left and top, a nested
 relative inline adds its own offset, and later glyphs, the line break, and
-the following block stay put. A vertical writing mode, a non-ltr paragraph,
-white-space other than normal, a different font, a float beside the inline,
-and an inline-block inside it stay rejected. An absolute or fixed box uses the padding edge of the nearest ancestor that captures it. A position other than static captures an absolute box only. A transform, filter, perspective, backdrop-filter, paint or layout containment, hidden content-visibility, or capturing will-change captures both, including translate(0) on a static box. Otherwise an absolute box uses the viewport when no ancestor is positioned, and a fixed box uses the viewport. An inline capturer is rejected. Neither out-of-flow box changes the height of the flow.
+the following block stay put. Beside a float, that same offset paints on the
+shortened line: a percentage left uses the paragraph content width, and the
+float and the following block stay at their static positions. A vertical
+writing mode, a non-ltr paragraph, white-space other than normal, a different
+font, and an inline-block inside it stay rejected. An absolute or fixed box uses the padding edge of the nearest ancestor that captures it. A position other than static captures an absolute box only. A transform, filter, perspective, backdrop-filter, paint or layout containment, hidden content-visibility, or capturing will-change captures both, including translate(0) on a static box. Otherwise an absolute box uses the viewport when no ancestor is positioned, and a fixed box uses the viewport. An inline capturer is rejected. Neither out-of-flow box changes the height of the flow.
 A sticky block keeps the place it occupied in the flow. Its used border box
 then shifts against the nearest non-visible overflow scrollport, or against
 the viewport when every ancestor is visible. ``scroll_x`` and ``scroll_y``
@@ -169,7 +171,9 @@ moves intact below the float when it does not. The following block sibling
 keeps its own lines, shortened where the float still overlaps them. Clear
 on a later sibling starts that sibling below the float. Mixed-size runs
 in that text keep their own advances in the shortened line. A relative
-inline and an atomic box taller than the strut stay rejected in that mix. A
+inline in that uniform text paints on the shortened line and does not move
+the following block. A relative inline in a mixed-size run, and an atomic
+box taller than the strut, stay rejected. A
 shaped float uses the chord of each line's used height. An
 absolute or fixed box still leaves the loose text out. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
@@ -3100,8 +3104,6 @@ def _wrap_anonymous_blocks(
             flow.append(child)
             continue
         anon = _make_anonymous_block(box, pieces, atoms, ids, counter)
-        if box.floats and _relative_pieces(anon):
-            raise _Invalid("relative inline beside a float is unsupported")
         rebuilt.append(anon)
         flow.append(anon)
     if index != len(box.children) or next(floats, None) is not None:
@@ -5932,11 +5934,28 @@ def _fill_lines_beside_floats(
     *,
     contain: bool = True,
 ) -> None:
+    if _relative_pieces(box) and (
+        _mixed_runs(box)
+        or box.atoms
+        or box.list_item
+        or box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or box.white_space != "normal"
+        or _gap_alignment(box)
+        or box.text_indent != "0px"
+        or box.letter_spacing
+        or box.word_spacing
+        or box.hanging_punctuation != "none"
+    ):
+        raise _Invalid("relative inline beside a float is unsupported")
     if _mixed_runs(box):
         _fill_mixed_beside_floats(box, bands, contain=contain)
         return
     _reject_balanced_context(box)
     text = box.inline_text or ""
+    shift_rows: list[tuple[_Shift, ...]] | None = None
+    if _relative_pieces(box):
+        text, shift_rows = _collapse_shift_text(text, _source_shifts(box))
     if bands is None:
         bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
     used = _used_line_height(box.line_height, box.font_size)
@@ -5999,6 +6018,26 @@ def _fill_lines_beside_floats(
         rest = _drop_prefix(remaining, rendered, box.white_space)
         last = rest == "" or (box.white_space in _COLLAPSED_EMPTY and not rest.strip())
         offset, used, runs = _align_content(box, available, rendered, content, last, box.direction)
+        if shift_rows is not None:
+            if runs or not remaining.startswith(rendered):
+                raise _Invalid("relative inline beside a float is unsupported")
+            line_shifts = shift_rows[: len(rendered)]
+            if len(line_shifts) != len(rendered):
+                raise _Invalid("relative inline beside a float is unsupported")
+            shift_rows = shift_rows[len(rendered) :]
+            dropped = len(remaining) - len(rendered) - len(rest)
+            if dropped < 0 or dropped > len(shift_rows):
+                raise _Invalid("relative inline beside a float is unsupported")
+            if dropped:
+                shift_rows = shift_rows[dropped:]
+            runs = _relative_runs(
+                rendered,
+                line_shifts,
+                box.font_size,
+                box.content_width,
+                box.definite_height,
+                content,
+            )
         records.append(
             _Line(
                 text=rendered,
@@ -6013,6 +6052,8 @@ def _fill_lines_beside_floats(
         cursor += height
     else:
         raise _Invalid("line break failed")
+    if shift_rows:
+        raise _Invalid("relative inline beside a float is unsupported")
     box.lines = records
     if box.definite_height is None:
         box.definite_height = max(cursor, _band_bottom(bands)) if contain else cursor
@@ -6966,8 +7007,6 @@ def _fill_lines(box: _Box) -> None:
             raise _Invalid("relative inline is unsupported")
         if box.atoms:
             raise _Invalid("relative inline content is unsupported")
-        if box.floats:
-            raise _Invalid("relative inline beside a float is unsupported")
         if _mixed_runs(box):
             raise _Invalid("relative inline font is unsupported")
     if box.atoms:
