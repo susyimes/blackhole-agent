@@ -107,7 +107,13 @@ to one character. ``break-word`` splits the same definite line and leaves that
 minimum at the whole word. ``keep-all`` keeps a Han run together for the
 minimum and still wraps it inside a definite measure. ``word-wrap`` is the
 same property as ``overflow-wrap``. Any other keyword is invalid, and a
-declaration of either property on an inline is rejected. A block that also
+declaration of either property on an inline is rejected. ``text-wrap: balance``
+and ``text-wrap-style: balance`` keep that first-fit line count and choose the
+partition whose leftover inline space has the lower variance. ``wrap`` and
+``auto`` stay on the first-fit breaks. A group of more than ten lines stays
+on those breaks. A float, a text indent, an inside marker, a mixed font, an
+inline-block, a relative inline, a vertical writing mode, and a declaration
+on an inline are rejected for that balance. A block that also
 has block children keeps those children and does not build
 line boxes. Inline content beside those children becomes an anonymous block
 box with no margin, border, or padding, stretched to the parent's content
@@ -395,7 +401,7 @@ from blackhole_agent.css_object_fit import fit_object
 from blackhole_agent.css_replaced import used_replaced_size
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
-from blackhole_agent.css_line_break import _default_advance, wrap_lines
+from blackhole_agent.css_line_break import _default_advance, balance_lines, wrap_lines
 from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
@@ -566,6 +572,7 @@ _FONT = {
     "white-space": "normal",
     "overflow-wrap": "normal",
     "word-break": "normal",
+    "text-wrap-style": "auto",
     "list-style-type": "disc",
     "list-style-position": "outside",
 }
@@ -604,6 +611,8 @@ _INLINE_REJECTED = (
     "overflow-wrap",
     "word-wrap",
     "word-break",
+    "text-wrap",
+    "text-wrap-style",
 )
 
 
@@ -700,6 +709,7 @@ class _Box:
     white_space: str = "normal"
     overflow_wrap: str = "normal"
     word_break: str = "normal"
+    text_wrap_style: str = "auto"
     parent_direction: str | None = None
     inline_text: str | None = None
     static_index: int = 0
@@ -1430,6 +1440,7 @@ def _make_box(
             _FONT["word-break"],
             "word-break",
         ),
+        text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
@@ -2436,6 +2447,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "white-space": box.white_space,
         "overflow-wrap": box.overflow_wrap,
         "word-break": box.word_break,
+        "text-wrap-style": box.text_wrap_style,
         "list-style-type": box.list_style_type,
         "list-style-position": box.list_style_position,
     }
@@ -2581,6 +2593,7 @@ def _make_anonymous_block(
         white_space=parent.white_space,
         overflow_wrap=parent.overflow_wrap,
         word_break=parent.word_break,
+        text_wrap_style=parent.text_wrap_style,
         parent_direction=parent.direction,
         anonymous=True,
         parent_box=parent,
@@ -2895,6 +2908,47 @@ def _spacing_args(box: _Box) -> dict[str, int]:
 
 def _break_args(box: _Box) -> dict[str, str]:
     return {"overflow_wrap": box.overflow_wrap, "word_break": box.word_break}
+
+
+def _text_wrap_style(winners: list[tuple[int, str, str]], custom: dict, parent: str) -> str:
+    """Computed ``text-wrap-style``. The shorthand ``text-wrap`` sets it too."""
+
+    chosen: tuple[int, str, str] | None = None
+    for order, prop, value in winners:
+        if prop in {"text-wrap", "text-wrap-style"} and (chosen is None or order >= chosen[0]):
+            chosen = (order, prop, value)
+    if chosen is None:
+        return parent
+    prop = chosen[1]
+    raw = _declared([chosen], prop, custom)
+    if raw is None or raw in {"inherit", "unset", "revert"}:
+        return parent
+    token = raw.strip().lower()
+    if token == "initial":
+        return "auto"
+    mapped = {"balance": "balance", "auto": "auto"}
+    if prop == "text-wrap":
+        mapped["wrap"] = "auto"
+    if token not in mapped:
+        raise _Invalid("text-wrap is invalid")
+    return mapped[token]
+
+
+def _reject_balanced_context(box: _Box) -> None:
+    if box.text_wrap_style == "balance":
+        raise _Invalid("balanced text wrap is unsupported")
+
+
+def _measure_lines(box: _Box, text: str, measure: int, *, advances: object) -> dict[str, object]:
+    function = balance_lines if box.text_wrap_style == "balance" else wrap_lines
+    return function(
+        text,
+        measure,
+        white_space=box.white_space,
+        advances=advances,
+        **_spacing_args(box),
+        **_break_args(box),
+    )
 
 
 def _reject_spacing(box: _Box) -> None:
@@ -5032,6 +5086,7 @@ def _fill_lines_beside_floats(
     *,
     contain: bool = True,
 ) -> None:
+    _reject_balanced_context(box)
     text = box.inline_text or ""
     if bands is None:
         bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
@@ -5337,6 +5392,7 @@ def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> tup
 
 
 def _fill_mixed(box: _Box) -> None:
+    _reject_balanced_context(box)
     text = box.inline_text or ""
     if not text:
         return
@@ -5545,6 +5601,7 @@ def _line_extent(
 def _fill_inline_blocks(box: _Box) -> None:
     """Place inline-blocks as atomic line items around the parent's text."""
 
+    _reject_balanced_context(box)
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("inline-block writing mode is unsupported")
     if len(box.atoms) > 32:
@@ -5740,6 +5797,7 @@ def _fill_atoms_beside_floats(
     ``contain`` false so the height stays the line stack.
     """
 
+    _reject_balanced_context(box)
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("inline-block writing mode is unsupported")
     if len(box.atoms) > 32:
@@ -6294,6 +6352,10 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         raise _Invalid("inside marker content is unsupported")
     if indent and (box.letter_spacing or box.word_spacing):
         raise _Invalid("spaced marker is unsupported")
+    if box.text_wrap_style == "balance" and (
+        text_indent or indent or shifted or box.writing_mode != "horizontal-tb" or box.direction != "ltr"
+    ):
+        raise _Invalid("balanced text wrap is unsupported")
     if indent:
         lines = _kept_lines(
             box,
@@ -6310,14 +6372,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     else:
         lines = _kept_lines(
             box,
-            wrap_lines(
-                text,
-                measure,
-                white_space=box.white_space,
-                advances=_shrink_advances(box),
-                **_spacing_args(box),
-            **_break_args(box),
-            ),
+            _measure_lines(box, text, measure, advances=_shrink_advances(box)),
         )
     if not lines:
         return []
@@ -6687,6 +6742,7 @@ def _flush_flex_text(
             white_space=host.white_space,
             overflow_wrap=host.overflow_wrap,
             word_break=host.word_break,
+            text_wrap_style=host.text_wrap_style,
             parent_direction=host.direction,
             inline_text=rendered,
             anonymous=True,
