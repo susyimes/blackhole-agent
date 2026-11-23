@@ -74,6 +74,10 @@ stays in its layer, scope, and nesting parent. Animation tainting stays
 outside. ``@container`` stays out of the unconditional cascade when the
 caller collects container rules; those declarations keep their source order
 for a later query match. Without that collection the at-rule is rejected.
+``@font-face`` is collected only when the caller asks for faces. The rule
+needs ``font-family``. ``font-weight``, ``font-style``, ``font-stretch``,
+``unicode-range``, ``src``, and ``font-display`` may follow. Without that
+collection the at-rule is rejected.
 """
 
 from __future__ import annotations
@@ -1666,6 +1670,7 @@ def _stylesheet(
     *,
     media: dict | None = None,
     container_rules: list | None = None,
+    font_faces: list | None = None,
 ) -> tuple[list[_Decl], dict[str, _Registration]]:
     if not isinstance(stylesheet, str):
         raise CssSelectorError("stylesheet must be a string")
@@ -1686,6 +1691,7 @@ def _stylesheet(
         context,
         held,
         "",
+        font_faces,
     )
     layers.freeze()
     declarations = [
@@ -1714,13 +1720,16 @@ def _fill_sheet(
     media: dict[str, object],
     held: list[tuple[str, _Found]] | None = None,
     query: str = "",
+    font_faces: list | None = None,
 ) -> None:
     while True:
         parser.skip_space()
         if not parser.peek():
             return
         if parser.peek() == "@":
-            _at_rule(parser, layers, current, scopes, found, counter, registered, media, held, query)
+            _at_rule(
+                parser, layers, current, scopes, found, counter, registered, media, held, query, font_faces
+            )
             continue
         if parser.next_kind() == "decl":
             text = parser.take_declaration()
@@ -1746,9 +1755,15 @@ def _at_rule(
     media: dict[str, object],
     held: list[tuple[str, _Found]] | None = None,
     query: str = "",
+    font_faces: list | None = None,
 ) -> None:
     parser.index += 1
     keyword = parser.ident().lower()
+    if keyword == "font-face":
+        if font_faces is None:
+            raise CssSelectorError("at-rules are outside this reader")
+        _read_font_face(parser, font_faces)
+        return
     if keyword == "property":
         _read_property_rule(parser, registered)
         return
@@ -1760,7 +1775,7 @@ def _at_rule(
         if not text:
             raise CssSelectorError("container query is empty")
         _fill_sheet(
-            _Parser(body), layers, current, scopes, found, counter, registered, media, held, text
+            _Parser(body), layers, current, scopes, found, counter, registered, media, held, text, font_faces
         )
         return
     if keyword == "scope":
@@ -1768,18 +1783,22 @@ def _at_rule(
         parser.index += 1
         body = parser.balanced("{", "}")
         _fill_sheet(
-            _Parser(body), layers, current, scopes + (frame,), found, counter, registered, media, held, query
+            _Parser(body), layers, current, scopes + (frame,), found, counter, registered, media, held, query, font_faces
         )
         return
     if keyword == "media":
         prelude, body = _take_at_block(parser)
         if _media_matches(prelude, media):
-            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media, held, query)
+            _fill_sheet(
+                _Parser(body), layers, current, scopes, found, counter, registered, media, held, query, font_faces
+            )
         return
     if keyword == "supports":
         prelude, body = _take_at_block(parser)
         if _supports_matches(prelude):
-            _fill_sheet(_Parser(body), layers, current, scopes, found, counter, registered, media, held, query)
+            _fill_sheet(
+                _Parser(body), layers, current, scopes, found, counter, registered, media, held, query, font_faces
+            )
         return
     if keyword != "layer":
         raise CssSelectorError("at-rules are outside this reader")
@@ -1788,7 +1807,7 @@ def _at_rule(
         parser.index += 1
         body = parser.balanced("{", "}")
         _fill_sheet(
-            _Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered, media, held, query
+            _Parser(body), layers, layers.anonymous(current), scopes, found, counter, registered, media, held, query, font_faces
         )
         return
     names = [_layer_name(parser)]
@@ -1816,6 +1835,7 @@ def _at_rule(
             media,
             held,
             query,
+            font_faces,
         )
         return
     if parser.peek() == ";":
@@ -1824,6 +1844,110 @@ def _at_rule(
             layers.descend(current, name)
         return
     raise CssSelectorError("expected an @layer block or statement")
+
+
+_FONT_FACE_DESCRIPTORS = frozenset(
+    {
+        "font-family",
+        "font-weight",
+        "font-style",
+        "font-stretch",
+        "unicode-range",
+        "src",
+        "font-display",
+    }
+)
+
+
+def _read_font_face(parser: _Parser, faces: list) -> None:
+    """Read one ``@font-face`` into the caller's face list.
+
+    The face id is ``family/weight/style`` in source order. A repeated id
+    gains a numeric suffix. ``src`` and ``font-display`` are accepted and do
+    not change the face the layout matcher sees.
+    """
+
+    parser.skip_space()
+    if parser.peek() != "{":
+        raise CssSelectorError("@font-face is missing a block")
+    parser.index += 1
+    inner = _Parser(parser.balanced("{", "}"))
+    props: dict[str, str] = {}
+    while True:
+        inner.skip_space()
+        if not inner.peek():
+            break
+        if inner.peek() == "@" or inner.next_kind() != "decl":
+            raise CssSelectorError("@font-face block is invalid")
+        chunk = inner.take_declaration()
+        if not chunk.strip():
+            continue
+        if ":" not in chunk:
+            raise CssSelectorError("@font-face declaration is missing a colon")
+        name, raw_value = chunk.split(":", 1)
+        prop = _property_key(name)
+        value, important = _important(raw_value.strip())
+        if important or prop not in _FONT_FACE_DESCRIPTORS or not value:
+            raise CssSelectorError("@font-face descriptor is invalid")
+        props[prop] = value
+    family_raw = props.get("font-family")
+    if family_raw is None:
+        raise CssSelectorError("@font-face is missing font-family")
+    family = _font_face_family(family_raw)
+    weight = _font_face_weight(props.get("font-weight", "400"))
+    style = " ".join(props.get("font-style", "normal").lower().split())
+    face: dict[str, object] = {
+        "family": family,
+        "weight": weight,
+        "style": style,
+        "source": "font-face",
+    }
+    if "font-stretch" in props:
+        face["width"] = " ".join(props["font-stretch"].lower().split())
+    if "unicode-range" in props:
+        face["unicode-range"] = props["unicode-range"]
+    ident = f"{family}/{weight}/{style}"
+    used = {str(item.get("id")) for item in faces}
+    suffix = 2
+    while ident in used:
+        ident = f"{family}/{weight}/{style}#{suffix}"
+        suffix += 1
+    face["id"] = ident
+    faces.append(face)
+
+
+def _font_face_family(value: str) -> str:
+    text = " ".join(value.split())
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        text = " ".join(text[1:-1].split())
+    if not text or any(mark in text for mark in ",{};"):
+        raise CssSelectorError("@font-face font-family is invalid")
+    return text
+
+
+def _font_face_weight(value: str) -> str:
+    parts = " ".join(value.lower().split()).replace(",", " ").split()
+    if not parts or len(parts) > 2:
+        raise CssSelectorError("@font-face font-weight is invalid")
+    numbers: list[str] = []
+    for part in parts:
+        if part == "normal":
+            numbers.append("400")
+            continue
+        if part == "bold":
+            numbers.append("700")
+            continue
+        try:
+            number = float(part)
+        except ValueError as exc:
+            raise CssSelectorError("@font-face font-weight is invalid") from exc
+        if number < 1 or number > 1000 or number != number:
+            raise CssSelectorError("@font-face font-weight is invalid")
+        if abs(number - round(number)) <= 1e-9:
+            numbers.append(str(int(round(number))))
+        else:
+            numbers.append(format(number, ".12g"))
+    return " ".join(numbers)
 
 
 def _layer_name(parser: _Parser) -> tuple[str, ...]:

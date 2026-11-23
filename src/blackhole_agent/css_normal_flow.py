@@ -391,6 +391,12 @@ element's children. A counter style formats the integer. ``counters()``
 joins every scope of that name, outer scope first, with its separator.
 A flex, grid, or table box, a flex or grid item, an unknown function, and
 any other property on a pseudo that generates a box stay rejected.
+``font-family`` names faces collected from ``@font-face``. Each finished
+line records the face that covers its characters. A later family is used
+when an earlier unicode-range misses, ``font-weight`` and ``font-style``
+choose among the faces of the inherited family, and a character no face
+covers stays in the line with no face. A stylesheet with no ``@font-face``
+does not add those face runs.
 """
 
 from __future__ import annotations
@@ -406,6 +412,8 @@ from blackhole_agent.css_bidi import reorder_css_bidi
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
 from blackhole_agent.css_fixed_table import layout_fixed_columns
+from blackhole_agent.css_font_match import _Invalid as _FontInvalid
+from blackhole_agent.css_font_match import _requested_style, _requested_weight, select_font_face
 from blackhole_agent.css_flex_align import flex_line_cross_size, place_flex_alignment
 from blackhole_agent.css_flex_base import resolve_flex_base
 from blackhole_agent.css_flex_line import resolve_flex_line
@@ -601,6 +609,9 @@ _FONT = {
     "text-wrap-style": "auto",
     "list-style-type": "disc",
     "list-style-position": "outside",
+    "font-family": "",
+    "font-weight": "400",
+    "font-style": "normal",
 }
 _ALIGNS = frozenset(
     {"start", "end", "left", "right", "center", "justify", "justify-all", "match-parent"}
@@ -741,6 +752,9 @@ class _Box:
     word_break: str = "normal"
     hanging_punctuation: str = "none"
     text_wrap_style: str = "auto"
+    font_family: str = ""
+    font_weight: str = "400"
+    font_style: str = "normal"
     line_clamp: int | None = None
     parent_direction: str | None = None
     inline_text: str | None = None
@@ -901,7 +915,14 @@ def _placed_root(
     if not order:
         raise _Invalid("document is empty")
     container_rules: list[tuple[str, object]] = []
-    declarations, registrations = _stylesheet(stylesheet, container_rules=container_rules)
+    font_faces: list[dict[str, object]] = []
+    declarations, registrations = _stylesheet(
+        stylesheet, container_rules=container_rules, font_faces=font_faces
+    )
+    if font_faces:
+        checked = select_font_face(str(font_faces[0].get("family") or "x"), font_faces, " ")
+        if checked.get("outcome") == "invalid":
+            raise _Invalid(str(checked.get("reason") or "font face is invalid"))
     styles: dict[object, tuple[dict, str]] = {}
     for element in order:
         parent = tree.parent.get(element)
@@ -982,6 +1003,7 @@ def _placed_root(
     _shift_relatives(root, viewport_width, viewport_height)
     _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
     _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height))
+    _stamp_font_faces(root, tuple(font_faces))
     return root
 
 
@@ -1401,6 +1423,9 @@ def _make_box(
     object_position = _read_object_position(winners, custom) if replaced else "50% 50%"
     font_size = _font_size(_declared(winners, "font-size", custom), fonts["font-size"])
     line_height = _line_height(_declared(winners, "line-height", custom), fonts["line-height"])
+    font_family = _read_font_family(_declared(winners, "font-family", custom), fonts["font-family"])
+    font_weight = _read_font_weight(_declared(winners, "font-weight", custom), fonts["font-weight"])
+    font_style = _read_font_style(_declared(winners, "font-style", custom), fonts["font-style"])
     columns = _read_columns(winners, custom, font_size)
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     position_anchor, position_area = _read_position_anchor(winners, custom, position, mode, direction)
@@ -1418,6 +1443,9 @@ def _make_box(
         root=root,
         font_size=font_size,
         line_height=line_height,
+        font_family=font_family,
+        font_weight=font_weight,
+        font_style=font_style,
         vertical_align=(
             _read_inline_align(_declared(winners, "vertical-align", custom), font_size, line_height)
             if display == "inline-block"
@@ -2448,6 +2476,8 @@ def _record_line(line: _Line) -> dict[str, object]:
                 "font_size": run["font_size"],
                 "width": run["width"],
             }
+            if "font_face" in run:
+                recorded["font_face"] = run["font_face"]
             if "y" in run:
                 recorded["y"] = line.y + int(run["y"])
             recorded_runs.append(recorded)
@@ -2473,6 +2503,153 @@ def _record_line(line: _Line) -> dict[str, object]:
     return item
 
 
+def _read_font_family(value: str | None, parent: str) -> str:
+    """Computed family list. An omitted family does not name a face."""
+
+    if value is None:
+        return parent
+    token = " ".join(value.split())
+    lowered = token.lower()
+    if lowered in {"inherit", "unset", "revert"}:
+        return parent
+    if lowered == "initial":
+        return ""
+    names: list[str] = []
+    for part in token.split(","):
+        name = part.strip()
+        if len(name) >= 2 and name[0] == name[-1] and name[0] in {'"', "'"}:
+            name = name[1:-1].strip()
+        if not name:
+            raise _Invalid("font-family is invalid")
+        names.append(name)
+    return ", ".join(names)
+
+
+def _read_font_weight(value: str | None, parent: str) -> str:
+    if value is None:
+        return parent
+    token = " ".join(value.strip().lower().split())
+    if token in {"inherit", "unset", "revert"}:
+        return parent
+    if token == "initial":
+        return "400"
+    try:
+        number = _requested_weight(token, parent)
+    except _FontInvalid as exc:
+        raise _Invalid("font-weight is invalid") from exc
+    if abs(number - round(number)) <= 1e-9:
+        return str(int(round(number)))
+    return format(number, ".12g")
+
+
+def _read_font_style(value: str | None, parent: str) -> str:
+    if value is None:
+        return parent
+    token = " ".join(value.strip().lower().split())
+    if token in {"inherit", "unset", "revert"}:
+        return parent
+    if token == "initial":
+        return "normal"
+    try:
+        kind, angle = _requested_style(token)
+    except _FontInvalid as exc:
+        raise _Invalid("font-style is invalid") from exc
+    if kind != "oblique" or angle is None:
+        return kind
+    shown = int(angle) if abs(angle - round(angle)) <= 1e-9 else angle
+    return f"oblique {shown}deg"
+
+
+def _stamp_font_faces(root: _Box, faces: tuple[dict[str, object], ...]) -> None:
+    if not faces:
+        return
+    for box in _each(root):
+        if not box.font_family:
+            continue
+        for line in box.lines:
+            _stamp_line_faces(box, line, faces)
+
+
+def _stamp_line_faces(box: _Box, line: _Line, faces: tuple[dict[str, object], ...]) -> None:
+    if line.runs:
+        stamped: list[dict[str, object]] = []
+        for run in line.runs:
+            stamped.extend(_split_run_faces(box, run, faces))
+        line.runs = stamped
+        return
+    if not line.text:
+        return
+    segments = _font_segments(box, line.text, faces)
+    cursor = 0
+    runs: list[dict[str, object]] = []
+    for segment in segments:
+        part = str(segment.get("text") or "")
+        width = sum(_advance_of(character, box.font_size) for character in part)
+        runs.append(
+            {
+                "text": part,
+                "x": cursor,
+                "font_size": box.font_size,
+                "width": width,
+                "font_face": segment.get("id"),
+            }
+        )
+        cursor += width
+    line.runs = runs
+
+
+def _split_run_faces(
+    box: _Box, run: dict[str, object], faces: tuple[dict[str, object], ...]
+) -> list[dict[str, object]]:
+    text = str(run.get("text") or "")
+    segments = _font_segments(box, text, faces)
+    if len(segments) <= 1:
+        if segments:
+            run["font_face"] = segments[0].get("id")
+        return [run]
+    font_size = int(run.get("font_size") or box.font_size)
+    cursor = int(run.get("x") or 0)
+    pieces: list[dict[str, object]] = []
+    for segment in segments:
+        part = str(segment.get("text") or "")
+        width = sum(_advance_of(character, font_size) for character in part)
+        item: dict[str, object] = {
+            "text": part,
+            "x": cursor,
+            "font_size": font_size,
+            "width": width,
+            "font_face": segment.get("id"),
+        }
+        if "y" in run:
+            item["y"] = run["y"]
+        pieces.append(item)
+        cursor += width
+    return pieces
+
+
+def _font_segments(
+    box: _Box, text: str, faces: tuple[dict[str, object], ...]
+) -> list[dict[str, object]]:
+    if text == "":
+        return []
+    result = select_font_face(
+        box.font_family,
+        list(faces),
+        text,
+        weight=box.font_weight,
+        style=box.font_style,
+    )
+    if result.get("outcome") == "invalid":
+        raise _Invalid(str(result.get("reason") or "font face is invalid"))
+    segments = result.get("segments")
+    if not isinstance(segments, list) or not segments:
+        raise _Invalid("font face is invalid")
+    chosen = [item for item in segments if isinstance(item, dict)]
+    if "".join(str(item.get("text") or "") for item in chosen) != text:
+        raise _Invalid("font face is invalid")
+    return chosen
+
+
 def _fonts(box: _Box) -> dict[str, str]:
     return {
         "font-size": f"{box.font_size}px",
@@ -2491,6 +2668,9 @@ def _fonts(box: _Box) -> dict[str, str]:
         "text-wrap-style": box.text_wrap_style,
         "list-style-type": box.list_style_type,
         "list-style-position": box.list_style_position,
+        "font-family": box.font_family,
+        "font-weight": box.font_weight,
+        "font-style": box.font_style,
     }
 
 
@@ -2637,6 +2817,9 @@ def _make_anonymous_block(
         word_break=parent.word_break,
         hanging_punctuation=parent.hanging_punctuation,
         text_wrap_style=parent.text_wrap_style,
+        font_family=parent.font_family,
+        font_weight=parent.font_weight,
+        font_style=parent.font_style,
         parent_direction=parent.direction,
         anonymous=True,
         parent_box=parent,
@@ -6953,6 +7136,9 @@ def _flush_flex_text(
             word_break=host.word_break,
             hanging_punctuation=host.hanging_punctuation,
             text_wrap_style=host.text_wrap_style,
+            font_family=host.font_family,
+            font_weight=host.font_weight,
+            font_style=host.font_style,
             parent_direction=host.direction,
             inline_text=rendered,
             anonymous=True,
