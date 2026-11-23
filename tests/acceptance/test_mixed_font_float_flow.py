@@ -5,7 +5,8 @@ Z at 10px on one line at x 40. AA is 40 wide, Z starts at x 80, the line
 is 20 tall, the block content height is 30, and the next block starts at
 y 30. In a 70px block that word does not fit beside the float, so the same
 line starts at x 0, y 30 and the next block starts at y 50. A vertical-rl
-block and a shaped float stay unplaced.
+block stays unplaced. A circle whose used-height chord is not an integer
+pixel stays unplaced.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit.
@@ -182,7 +183,7 @@ def observe() -> tuple[bool, dict[str, object]]:
         "shaped_rejected": (
             shaped.get("outcome") == "invalid"
             and shaped.get("boxes") is None
-            and shaped.get("reason") == "inline font beside a shaped float is unsupported"
+            and shaped.get("reason") == "line x is not integral"
         ),
     }
     observed["checks"] = checks

@@ -168,14 +168,16 @@ moves intact below the float when it does not. The following block sibling
 keeps its own lines, shortened where the float still overlaps them. Clear
 on a later sibling starts that sibling below the float. Mixed-size runs
 in that text keep their own advances in the shortened line. A relative
-inline, a shaped float beside those runs, and an atomic box taller than
-the strut stay rejected in that mix. An
+inline and an atomic box taller than the strut stay rejected in that mix. A
+shaped float uses the chord of each line's used height. An
 absolute or fixed box still leaves the loose text out. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
 shrinking the parent's strut. text-align and white-space on an inline
 stay rejected. A float beside those runs shortens each line to the
-float's margin edge and keeps each run's own advance. A shaped float
-stays rejected. An
+float's margin edge, or to the shape-outside chord of that used height,
+and keeps each run's own advance. A word that fits the strut chord but
+not the taller chord moves to the first later gap that holds it. A
+vertical writing mode stays rejected. An
 inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
@@ -6180,13 +6182,31 @@ def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> tup
     return _px(laid.get("line_height"), "line height"), _px(laid.get("baseline"), "baseline")
 
 
+def _line_gap(
+    y: int,
+    line_height: int,
+    bands: list[tuple[int, int, int, int, str, str, float] | None],
+    containing: int,
+) -> tuple[int, int, list[int], list[dict[str, object]] | None]:
+    """Inline gap at one line. A shape uses that line's used height."""
+
+    shaped = _shaped_float_payload(bands)
+    if shaped is None:
+        left, right, bottoms = _exclusion(y, line_height, bands, containing)
+        return left, right, bottoms, None
+    gap = shaped_gap_at(containing, shaped, line_height, y)
+    if gap.get("outcome") != "placed":
+        raise _Invalid(str(gap.get("reason") or "shape-outside is invalid"))
+    return _px(gap.get("left"), "line x"), _px(gap.get("right"), "line x"), [], shaped
+
+
 def _fill_mixed_beside_floats(
     box: _Box,
     bands: list[tuple[int, int, int, int, str, str, float]] | None = None,
     *,
     contain: bool = True,
 ) -> None:
-    """Shorten mixed-font lines to a rectangular float and keep each run's advance."""
+    """Shorten mixed-font lines to a float margin box or its shape-outside."""
 
     _reject_balanced_context(box)
     text = box.inline_text or ""
@@ -6194,8 +6214,6 @@ def _fill_mixed_beside_floats(
         raise _Invalid("inline font tab is unsupported")
     if bands is None:
         bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
-    if _shaped_float_payload(bands) is not None:
-        raise _Invalid("inline font beside a shaped float is unsupported")
     styles = _style_stream(box.pieces)
     if text and len(styles) != len(text):
         raise _Invalid("inline run is invalid")
@@ -6216,7 +6234,7 @@ def _fill_mixed_beside_floats(
         placed = False
         advanced = False
         for _attempt in range(4):
-            left, right, bottoms = _exclusion(cursor, assumed, bands, box.content_width)
+            left, right, bottoms, shaped = _line_gap(cursor, assumed, bands, box.content_width)
             available = right - left
             advances = [_advance_of(ch, remaining_styles[index][0]) for index, ch in enumerate(remaining)]
             wrapped = wrap_lines(
@@ -6234,9 +6252,15 @@ def _fill_mixed_beside_floats(
             content = _px(lines[0].get("content_width"), "line width")
             obstructed = not (left == 0 and right == box.content_width)
             if available <= 0 or (content > available and obstructed):
-                if not bottoms:
+                if shaped is not None:
+                    found = seek_shaped_gap(box.content_width, shaped, assumed, cursor, content)
+                    if found.get("outcome") != "placed":
+                        raise _Invalid(str(found.get("reason") or "shape-outside is invalid"))
+                    nxt = _px(found.get("y"), "float clearance")
+                elif not bottoms:
                     raise _Invalid("line break failed")
-                nxt = min(bottoms)
+                else:
+                    nxt = min(bottoms)
                 if nxt <= cursor:
                     raise _Invalid("line break failed")
                 cursor = _px(nxt, "float clearance")
@@ -6252,7 +6276,7 @@ def _fill_mixed_beside_floats(
             groups = _group_runs(rendered, line_styles)
             height, baseline = _runs_line_height(box, groups)
             if height != assumed:
-                left2, right2, _bottoms2 = _exclusion(cursor, height, bands, box.content_width)
+                left2, right2, _bottoms2, _shaped2 = _line_gap(cursor, height, bands, box.content_width)
                 if (left2, right2) != (left, right):
                     assumed = height
                     continue
