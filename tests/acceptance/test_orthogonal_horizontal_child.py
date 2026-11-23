@@ -156,10 +156,18 @@ def observe():
         PAGE.format('<div id="a">AB</div>'),
         BASE + "#v {writing-mode:vertical-rl} #a {writing-mode:horizontal-tb;margin-top:10px}",
     )
-    expect_invalid(
+    expect(
         "definite_pair",
         PAGE.format('<div id="a">AB</div><div id="b">CD</div>'),
         BASE + "#v {writing-mode:vertical-rl;width:20px}" + horizontal,
+        {
+            "v": (0, 0, 20, 10),
+            "a": (0, 0, 20, 10),
+            "b": (-20, 0, 20, 10),
+            "a_line": (("AB", 0, 0, 20, 10),),
+            "b_line": (("CD", -20, 0, 20, 10),),
+            "next_y": 10,
+        },
     )
     return passed, observed
 

@@ -382,12 +382,14 @@ wraps the child inside it. An automatic parent is as wide as the children
 and as tall as the tallest one. A child margin, a percentage size, a float,
 and loose text beside those children stay rejected. A horizontal-tb child
 with direction ltr and text-orientation mixed keeps horizontal lines: an
-automatic parent block size uses that child's max-content width, a definite
-parent block size stretches that one child and wraps its lines, and a
-definite parent inline size does not stretch the child. A definite block
-size with another child beside that horizontal box stays rejected, as do a
-specified child size and a nested child inside it. Mixed fonts and
-justification of the orthogonal text stay unsupported.
+automatic parent block size uses that child's max-content width. A definite
+parent block size shrinks the child to fit that width, so a longer line wraps
+and a shorter child keeps its max-content width. Each such child stacks from
+the block-start edge, including beside a vertical sibling, and a later child
+crosses the block-end edge when the sum exceeds that width. A definite parent
+inline size does not stretch the child. A specified child size and a nested
+child inside it stay rejected. Mixed fonts and justification of the
+orthogonal text stay unsupported.
 ``display: contents`` generates no box. The element is replaced by its
 children and text in the parent's formatting context, so its own width,
 padding, border, and margin do not move them. A percentage on a child uses
@@ -1898,8 +1900,10 @@ def _layout_orthogonal_child(child: _Box, block_size: int | None) -> None:
     """Size one horizontal block against a vertical parent's block size.
 
     An indefinite block size uses the child's max-content width, which breaks
-    the cyclic stretch. A definite block size is that content width, so the
-    lines wrap. The child's block size stays the stacked line boxes.
+    the cyclic stretch. A definite block size uses the float shrink-to-fit
+    equation: available space clamps the max-content, and the min-content
+    still wins when the text cannot break. The child's block size stays the
+    stacked line boxes.
     """
 
     if child.children or child.floats or child.atoms or child.positioned or _mixed_runs(child):
@@ -1913,7 +1917,7 @@ def _layout_orthogonal_child(child: _Box, block_size: int | None) -> None:
         _minimum, maximum = _intrinsic_text_sizes(child)
         measure = maximum
     else:
-        measure = block_size
+        measure = _shrink_float_width(child, block_size)
     _solve(child, measure, None, None, 0, None)
 
 
@@ -1978,8 +1982,6 @@ def _vertical_child_stack(
     parent_content_width = None if block_auto else _px(preview.get("content_width"), "content width")
     available = parent_content_height if parent_content_height is not None else height_limit
     orthogonal = [child for child in box.children if _orthogonal_horizontal(child, box)]
-    if parent_content_width is not None and orthogonal and len(box.children) != 1:
-        raise _Invalid("orthogonal nested block is unsupported")
     for child in box.children:
         _reject_vertical_child(child)
         is_orthogonal = child in orthogonal
