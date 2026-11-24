@@ -3,8 +3,9 @@
 CSS Sizing 4 maps a definite inline size through ``aspect-ratio`` when the
 block size is automatic. A plain ratio uses the box selected by
 ``box-sizing``. ``auto`` together with a ratio always uses the content box.
-A zero component is degenerate and behaves as ``auto``. This does not size
-flex, grid, table, or replaced boxes.
+A zero component is degenerate and behaves as ``auto``. Flex, grid, and
+table boxes stay outside this transferred-height floor. An in-flow replaced
+box uses the parsed ratio as its preferred intrinsic ratio instead.
 """
 
 from __future__ import annotations

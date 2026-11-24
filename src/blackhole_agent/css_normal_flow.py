@@ -439,7 +439,17 @@ behaves as ``auto``.
 An ``img``, ``video``, or ``canvas`` is replaced. Its width and height
 attributes are the intrinsic size. Automatic axes use that size, or 300 by
 150 when neither attribute is present. One specified axis wins, and the
-automatic axis keeps the intrinsic ratio. A block's automatic horizontal
+automatic axis keeps the intrinsic ratio. A CSS ``aspect-ratio`` on an in-flow
+replaced box is that preferred ratio. A plain ratio replaces the intrinsic
+one, so a 400 by 200 image with width 100px and ``1 / 1`` paints 100 by 100
+and the following block starts under that square. ``auto`` with a ratio keeps
+the intrinsic ratio when both attributes exist, and otherwise uses the
+specified ratio, so that image stays 100 by 50 and an image with no attributes
+and width 80px paints 80 by 80. Both automatic axes still use both intrinsic
+dimensions. A specified height stays specified. A maximum on the automatic
+axis clamps that axis and leaves the definite axis alone. The block
+transferred-height floor does not also apply. An absolute or fixed image
+still rejects the property. A block's automatic horizontal
 margins then center that used width. An inline replaced element is an atomic
 line item whose bottom margin edge rests on the strut baseline. ``object-fit``
 places the concrete object inside the content box. An absolute or fixed image
@@ -447,7 +457,7 @@ uses that intrinsic size and then the absolute inset equation, so definite
 insets do not stretch it. Automatic insets use its static position, including
 the line slot of an inline image. A maximum width shrinks that size and keeps
 the ratio. An inline relative or sticky image, a vertical writing mode,
-``border-box``, a CSS ``aspect-ratio``, and a child stay rejected.
+``border-box``, and a child stay rejected.
 An ``li`` and any other ``display: list-item`` principal box lays out as a
 block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
 reset that counter. The initial marker is a disc; an ``ol`` uses decimal
@@ -2910,6 +2920,7 @@ def _block_container(box: _Box) -> bool:
 def _aspect_block(box: _Box) -> bool:
     return (
         _block_container(box)
+        and not box.replaced
         and box.float_side == "none"
         and box.position not in {"absolute", "fixed"}
         and box.writing_mode == "horizontal-tb"
@@ -6533,6 +6544,29 @@ def _replaced_layout(box: _Box) -> str:
     raise _Invalid("replaced display is unsupported")
 
 
+def _preferred_replaced_ratio(box: _Box) -> float | None:
+    """Width over height for an in-flow replaced box.
+
+    A plain ``aspect-ratio`` replaces the intrinsic ratio. ``auto`` together
+    with a ratio keeps that intrinsic ratio when both attributes supply it.
+    """
+
+    parsed = box.aspect_ratio
+    if parsed is None:
+        return None
+    width_part, height_part, defer_to_natural = parsed
+    if width_part <= 0.0 or height_part <= 0.0:
+        return None
+    if (
+        defer_to_natural
+        and box.intrinsic_width is not None
+        and box.intrinsic_height is not None
+        and box.intrinsic_height > 0
+    ):
+        return None
+    return width_part / height_part
+
+
 def _used_replaced(
     box: _Box,
     containing_width: int,
@@ -6543,8 +6577,6 @@ def _used_replaced(
         raise _Invalid("replaced writing mode is unsupported")
     if _box_sizing(box) != "content-box":
         raise _Invalid("replaced box-sizing is unsupported")
-    if box.aspect_ratio is not None:
-        raise _Invalid("replaced aspect-ratio is unsupported")
     sized = used_replaced_size(
         containing_width,
         containing_height="auto" if containing_height is None else containing_height,
@@ -6564,6 +6596,7 @@ def _used_replaced(
         border_right=_px(solved.get("border_right"), "border-right"),
         intrinsic_width=box.intrinsic_width,
         intrinsic_height=box.intrinsic_height,
+        intrinsic_ratio=_preferred_replaced_ratio(box),
         layout=_replaced_layout(box),
         direction=box.direction,
     )
