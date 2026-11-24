@@ -7,7 +7,7 @@ next block starts at y 10. A 20px atomic width puts the float at x 10 y 0
 and wraps WW WW under it at y 10 and y 20, with A and C at y 20 and the
 next block at y 30. A 40px width and a 20px-tall float keep both WW words
 at x 30, on y 0 and y 10, with A and C at y 10 and the next block at y 20.
-A nested inline-block, a mixed font, and a right float stay unplaced.
+A mixed font and a right float stay unplaced.
 Words before the float keep the full-width line above it.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
@@ -210,7 +210,6 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(_line(tall_text, 1), text="WW", x=30, y=10, height=10, content_width=20)
             and _near(tall_next, y=20)
         ),
-        "nested_inline_block_is_rejected": _rejected(nested),
         "mixed_font_is_rejected": _rejected(mixed),
         "right_float_is_rejected": _rejected(right),
         "words_before_the_float_keep_the_full_line": (

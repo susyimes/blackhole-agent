@@ -5,8 +5,8 @@ sized 20 by 10 and BB at x 10 y 10. The atomic box is 20 by 20, A and C sit
 at y 10, and the next block starts at y 20. WWWW widens the atomic box and
 BB to 40, with C at x 50. A 20px atomic width wraps WW WW after BB onto y 10
 and y 20, and A and C align to that last line. A 10px top and bottom margin
-on BB keeps X at y 0, BB at y 20, and the next block at y 40. A nested
-inline-block and a mixed font stay unplaced. A lone left float is contained.
+on BB keeps X at y 0, BB at y 20, and the next block at y 40. A mixed
+font stays unplaced. A lone left float is contained.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the loose text exits 0 with
@@ -227,7 +227,6 @@ def observe() -> tuple[bool, dict[str, object]]:
             )
             and _near(margin_next, y=40)
         ),
-        "nested_inline_block_is_rejected": _rejected(nested),
         "lone_float_is_contained": (
             floated.get("outcome") == "placed"
             and _near(_box(floated.get("boxes"), "atom"), x=0, y=0, content_width=20, content_height=10)

@@ -203,8 +203,11 @@ unwrapped words beside it, and a specified width wraps those words beside
 the float and then under it. Words that precede the float keep that full
 width and the float starts under them; only the words after it shorten
 beside the float. The surrounding words align to the last in-flow line.
-A right float, a nested inline-block, a mixed font, and positioned content
-stay rejected.
+A nested inline-block is an atomic item of that same line. Automatic width
+fits its margin box and the unwrapped words beside it. A specified width
+wraps the nested box under those words when it does not fit, and the
+surrounding line aligns to the last of those lines. A right float, a mixed
+font, and positioned content stay rejected.
 A ``display: flex`` row lays its element children out on one nowrap line.
 ``flex`` and the flex longhands set each item's used content width from the
 row's content box; an automatic row height is the tallest item, and a
@@ -1484,9 +1487,9 @@ def _walk(
         if box.display == "inline-block":
             if (
                 box.positioned
-                or box.atoms
                 or not _inline_block_float_ready(box)
                 or not _inline_block_blocks(box, tree, child)
+                or not _inline_block_nested_ready(box)
             ):
                 raise _Invalid("inline-block content is unsupported")
             host.atoms.append(box)
@@ -2799,12 +2802,7 @@ def _assign_y(
         raise _Invalid("content height is invalid")
     content_x, content_y = _position_lines(box)
     for atom in box.atoms:
-        atom.x, atom.y = content_x + atom.local_x, content_y + atom.local_y
-        _position_lines(atom)
-        if atom.children:
-            _position_float_children(atom)
-        if atom.floats:
-            _position_atom_floats(atom)
+        _place_inline_atom(atom, content_x, content_y)
     for fl in box.floats:
         if not fl.float_placed:
             continue
@@ -2814,6 +2812,20 @@ def _assign_y(
             _position_float_children(fl)
     for child in box.children:
         _assign_y(child, by_id, origin, box.y)
+
+
+def _place_inline_atom(atom: _Box, content_x: int, content_y: int) -> None:
+    """Paint an atomic inline and the inline-blocks nested inside it."""
+
+    atom.x = content_x + atom.local_x
+    atom.y = content_y + atom.local_y
+    nested_x, nested_y = _position_lines(atom)
+    for child in atom.atoms:
+        _place_inline_atom(child, nested_x, nested_y)
+    if atom.children:
+        _position_float_children(atom)
+    if atom.floats:
+        _position_atom_floats(atom)
 
 
 def _position_lines(box: _Box) -> tuple[int, int]:
@@ -4045,11 +4057,44 @@ def _inline_block_float_ready(box: _Box) -> bool:
     return True
 
 
+def _has_percent(box: _Box) -> bool:
+    """A percentage needs the definite containing block this shrink pass does not have."""
+
+    return any("%" in value for _prop, value in box.declarations)
+
+
+def _inline_block_nested_ready(box: _Box) -> bool:
+    """A static inline-block may contain nested inline-blocks on its line.
+
+    Block children, floats, a mixed font, a percentage, and positioned
+    content stay on the paths that already reject them.
+    """
+
+    if not box.atoms:
+        return True
+    if box.children or box.floats or box.positioned or not _inline_block_anonymous_ready(box):
+        return False
+    if _mixed_runs(box) or any(piece.shifts for piece in box.pieces) or _has_percent(box):
+        return False
+    for atom in box.atoms:
+        if atom.display != "inline-block" or atom.position != "static" or atom.float_side != "none":
+            return False
+        if atom.positioned or atom.children or atom.floats or atom.white_space != "normal":
+            return False
+        if atom.writing_mode != "horizontal-tb" or atom.direction != "ltr" or _has_percent(atom):
+            return False
+        if _mixed_runs(atom) or any(piece.shifts for piece in atom.pieces):
+            return False
+        if not _inline_block_nested_ready(atom):
+            return False
+    return True
+
+
 def _inline_block_blocks(box: _Box, tree, element) -> bool:
     """Text-only atomic boxes stay as they are. A block child is allowed.
 
-    Loose text beside that child must already be an anonymous block. A nested
-    inline-block, a mixed font, and positioned content stay rejected.
+    Loose text beside that child must already be an anonymous block. A mixed
+    font and positioned content stay rejected.
     """
 
     if not box.children:
@@ -5452,6 +5497,33 @@ def _shrink_inline_block_floats(box: _Box, available: int) -> int:
     return min(max(minimum, room), maximum)
 
 
+def _shrink_inline_block_atoms(box: _Box, available: int) -> int:
+    """Shrink-to-fit width of text and nested inline-blocks on one line."""
+
+    saved = box.content_width
+    box.content_width = 100000
+    try:
+        measured = {atom.id: _measure_float(box, atom) for atom in box.atoms}
+        entries = _atom_sources(box)
+        source = "".join(item[0] for item in entries)
+        wrapped = wrap_lines(
+            source,
+            0,
+            white_space=box.white_space,
+            advances=_atom_advances(entries, measured),
+            **_spacing_args(box),
+            **_break_args(box),
+        )
+    finally:
+        box.content_width = saved
+    if wrapped.get("outcome") != "wrapped":
+        raise _Invalid(str(wrapped.get("reason") or "inline-block measurement failed"))
+    minimum = _px(wrapped.get("min_content"), "min-content")
+    maximum = _px(wrapped.get("max_content"), "max-content")
+    room = available if available > 0 else 0
+    return min(max(minimum, room), maximum)
+
+
 def _shrink_float_width(box: _Box, available: int) -> int:
     if box.children:
         pairs = [_float_child_span(child) for child in box.children]
@@ -5776,10 +5848,12 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
         )
         if fl.display == "inline-flex":
             content_width = _shrink_inline_flex(fl, available)
+        elif fl.floats:
+            content_width = _shrink_inline_block_floats(fl, available)
+        elif fl.atoms:
+            content_width = _shrink_inline_block_atoms(fl, available)
         else:
-            content_width = (
-                _shrink_inline_block_floats(fl, available) if fl.floats else _shrink_float_width(fl, available)
-            )
+            content_width = _shrink_float_width(fl, available)
     else:
         if solved.get("content_width") in {None, "auto"}:
             raise _Invalid("float width is indefinite")
@@ -5806,7 +5880,7 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     elif fl.children:
         _lay_float_blocks(fl)
     else:
-        if fl.inline_text:
+        if fl.inline_text or fl.atoms:
             _fill_lines(fl)
         if fl.definite_height is None:
             fl.definite_height = 0

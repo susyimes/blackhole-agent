@@ -6,9 +6,9 @@ at y 10. A 10px margin-bottom keeps BB at y 0, grows the atomic content to
 20, and starts the next block at y 20. A 20px width wraps BB CC onto y 0
 and y 10, and paints A and C at y 10. Two blocks with 10px vertical margins
 collapse the gap between them to 10px: AA at y 10, BB at y 30, the
-surrounding words at y 30, and the next block at y 50. A nested
-inline-block stays unplaced. A lone left float is contained by the atomic
-box. Loose text beside the block is a separate layout.
+surrounding words at y 30, and the next block at y 50. A lone left float
+is contained by the atomic box. Loose text beside the block is a separate
+layout.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the block child exits 0 with
@@ -227,7 +227,6 @@ def observe() -> tuple[bool, dict[str, object]]:
             )
             and _near(stack_next, y=50)
         ),
-        "nested_inline_block_is_rejected": _rejected(nested),
         "lone_float_is_contained": (
             floated.get("outcome") == "placed"
             and _near(_box(floated.get("boxes"), "atom"), x=0, y=0, content_width=20, content_height=10)
