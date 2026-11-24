@@ -63,10 +63,11 @@ or a malformed query does not match, and later rules stay. ``@supports``
 keeps its block when the condition is supported: ``color`` accepts a color
 or a CSS-wide keyword, a custom property accepts any non-empty value, and
 ``selector()`` accepts one complex selector this reader can parse.
-A trailing ``::before`` or ``::after`` is one of those selectors. It does not
-match the element; the layout engine reads it as generated content. Any
-other pseudo-element, and a pseudo-element in an ``@scope`` boundary, is
-rejected.
+A trailing ``::before``, ``::after``, or ``::first-letter`` is one of those
+selectors. ``::before`` and ``::after`` do not match the element; the layout
+engine reads them as generated content. ``::first-letter`` is read only for
+``initial-letter``. Any other pseudo-element, and a pseudo-element in an
+``@scope`` boundary, is rejected.
 ``font-tech()``, ``font-format()``, and any other function are unsupported.
 ``not``, ``and``, and ``or`` combine those answers. An empty prelude or a
 mix of ``and`` and ``or`` drops that block and leaves later rules. The block
@@ -151,13 +152,17 @@ class CssSelectorError(ValueError):
 
 
 class _PseudoMatch:
-    """When set, a trailing ``::before`` or ``::after`` matches its element.
+    """When set, a trailing pseudo-element matches its element.
 
     Element cascade leaves this empty, so a pseudo-element selector does not
-    style the element. Generated content sets the name for one lookup.
+    style the element. Generated content and ``::first-letter`` set the name
+    for one lookup.
     """
 
     name: str | None = None
+
+
+_TRAILING_PSEUDOS = frozenset({"before", "after", "first-letter"})
 
 
 @dataclass(frozen=True)
@@ -617,11 +622,11 @@ class _Parser:
         if self.peek() == ":":
             self.index += 1
             name = self.ident().lower()
-            if name not in {"before", "after"} or self.peek() == "(":
+            if name not in _TRAILING_PSEUDOS or self.peek() == "(":
                 raise CssSelectorError("pseudo-elements are outside this reader")
             return _Simple("pseudo-element", name)
         name = self.ident().lower()
-        if name in {"before", "after"} and self.peek() != "(":
+        if name in _TRAILING_PSEUDOS and self.peek() != "(":
             return _Simple("pseudo-element", name)
         if name == "scope":
             if self.peek() == "(":
@@ -2018,7 +2023,7 @@ def _require_trailing_pseudos(selectors: tuple[Complex, ...]) -> None:
         last_simple = len(selector.compounds[-1]) - 1
         if sites != [(last_compound, last_simple)]:
             raise CssSelectorError("pseudo-elements are outside this reader")
-        if selector.compounds[-1][-1].name not in {"before", "after"}:
+        if selector.compounds[-1][-1].name not in _TRAILING_PSEUDOS:
             raise CssSelectorError("pseudo-elements are outside this reader")
 
 
@@ -2433,6 +2438,49 @@ def resolve_generated_plans(
         before_font if isinstance(before_font, dict) else {},
         after_font if isinstance(after_font, dict) else {},
     )
+
+
+def resolve_initial_letter(tree: _Tree, element, declarations: list[_Decl], custom: dict) -> int:
+    """Drop-cap line count from ``::first-letter``, or 0 when that pseudo is absent.
+
+    One integer of 2 or more is both the size and the sink. ``normal`` and the
+    CSS-wide keywords that mean the initial value leave the letter in the line.
+    A second integer, a length, a value below 2, or any other property on that
+    pseudo raises ``initial letter is unsupported``.
+    """
+
+    chosen = [
+        decl
+        for decl in declarations
+        if any(_trailing_pseudo(selector) == "first-letter" for selector in decl.selectors)
+    ]
+    if not chosen:
+        return 0
+    previous = _PseudoMatch.name
+    _PseudoMatch.name = "first-letter"
+    try:
+        winners = _cascaded_map(tree, element, chosen)
+    finally:
+        _PseudoMatch.name = previous
+    if not winners:
+        return 0
+    if any(name != "initial-letter" for name in winners):
+        raise CssSelectorError("initial letter is unsupported")
+    raw = winners.get("initial-letter")
+    if raw is None:
+        return 0
+    substituted = _substitute(raw, lambda item: custom.get(item, _INVALID))
+    if substituted is _INVALID or not isinstance(substituted, str):
+        raise CssSelectorError("initial letter is unsupported")
+    text = " ".join(substituted.split()).lower()
+    if text in {"normal", "initial", "unset", "revert"}:
+        return 0
+    if not text.isdigit() or text.startswith("0"):
+        raise CssSelectorError("initial letter is unsupported")
+    value = int(text)
+    if value < 2:
+        raise CssSelectorError("initial letter is unsupported")
+    return value
 
 
 _PSEUDO_FONT_PROPERTIES = frozenset({"font-size", "line-height"})

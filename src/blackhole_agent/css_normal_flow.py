@@ -485,6 +485,15 @@ grid, or table box, and an absolute box that paints its own text, stay
 rejected when the pseudo carries those properties. Any other property on a
 pseudo that generates a box stays rejected. A flex, grid, or table box and
 a flex or grid item stay rejected when the content still has a counter.
+``::first-letter`` with ``initial-letter`` set to one integer of 2 or more
+drops that many line boxes. The first ASCII letter leaves the line and
+becomes a square whose side is that count times the strut, at the content
+origin. The next lines of the remaining text start after the square, and
+the first line past the drop returns to the content start. A shorter
+remainder still grows the block to the square. A second integer, a value
+below 2, a non-letter, an inline, a float, a list item, a vertical writing
+mode, a word wider than the gap beside the square, and any other property
+on that pseudo stay rejected.
 ``font-family`` names faces collected from ``@font-face``. Each finished
 line records the face that covers its characters. A later family is used
 when an earlier unicode-range misses, ``font-weight`` and ``font-style``
@@ -558,6 +567,7 @@ from blackhole_agent.css_selectors import (
     _substitute,
     _wide_keyword,
     resolve_generated_plans,
+    resolve_initial_letter,
 )
 from blackhole_agent.css_writing_mode import resolve_writing_mode
 
@@ -863,6 +873,8 @@ class _Box:
     font_weight: str = "400"
     font_style: str = "normal"
     line_clamp: int | None = None
+    initial_letter: int = 0
+    drop_cap: dict[str, object] | None = None
     parent_direction: str | None = None
     inline_text: str | None = None
     static_index: int = 0
@@ -1598,6 +1610,18 @@ def _make_box(
     columns = _read_columns(winners, custom, font_size)
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     position_anchor, position_area = _read_position_anchor(winners, custom, position, mode, direction)
+    try:
+        initial_letter = resolve_initial_letter(tree, element, declarations, custom)
+    except CssSelectorError as exc:
+        raise _Invalid(str(exc)) from exc
+    if initial_letter and (
+        display not in {"block", "flow-root"}
+        or list_item
+        or replaced
+        or float_side != "none"
+        or position != "static"
+    ):
+        raise _Invalid("initial letter is unsupported")
     box = _Box(
         id=box_id,
         writing_mode=mode,
@@ -1683,6 +1707,7 @@ def _make_box(
         ),
         text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
         line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
+        initial_letter=initial_letter,
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
@@ -2585,6 +2610,8 @@ def _solve(
     box.containing_inline = parent_width
     flow = _writing_flow(box)
     horizontal = flow["horizontal"] is True
+    if box.initial_letter:
+        _reject_initial_letter_context(box, horizontal)
     if box.display == "flow-root":
         if not horizontal or box.direction != "ltr":
             raise _Invalid("flow-root writing mode is unsupported")
@@ -2867,6 +2894,9 @@ def _position_lines(box: _Box) -> tuple[int, int]:
     for line in box.lines:
         line.x += x
         line.y += y
+    if box.drop_cap is not None:
+        box.drop_cap["x"] = int(box.drop_cap["x"]) + x
+        box.drop_cap["y"] = int(box.drop_cap["y"]) + y
     if box.marker is not None:
         box.marker["x"] = int(box.marker["x"]) + x
         box.marker["y"] = int(box.marker["y"]) + y
@@ -2907,6 +2937,14 @@ def _record(box: _Box) -> dict[str, object]:
             "x": box.marker["x"],
             "y": box.marker["y"],
             "width": box.marker["width"],
+        }
+    if box.drop_cap is not None:
+        item["initial_letter"] = {
+            "text": box.drop_cap["text"],
+            "x": box.drop_cap["x"],
+            "y": box.drop_cap["y"],
+            "width": box.drop_cap["width"],
+            "height": box.drop_cap["height"],
         }
     used = (box.table or {}).get("used_edges")
     if isinstance(used, dict):
@@ -8096,9 +8134,14 @@ def _fill_lines(box: _Box) -> None:
         _fill_mixed(box)
         return
     box.lines = _plain_lines(box, box.content_width, box.direction, place_glyphs=True)
-    if box.lines and box.definite_height is None:
-        tail = box.lines[-1]
-        box.definite_height = tail.y + tail.height
+    if box.definite_height is None:
+        end = 0
+        if box.lines:
+            tail = box.lines[-1]
+            end = tail.y + tail.height
+        cap_height = 0 if box.drop_cap is None else int(box.drop_cap["height"])
+        if end or cap_height:
+            box.definite_height = max(end, cap_height)
 
 
 def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, object]]:
@@ -8502,6 +8545,113 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
     return [first, *tail]
 
 
+def _reject_initial_letter_context(box: _Box, horizontal: bool) -> None:
+    """Keep the drop cap on one horizontal left-to-right block of plain text."""
+
+    if (
+        not horizontal
+        or box.direction != "ltr"
+        or box.display not in {"block", "flow-root"}
+        or box.position != "static"
+        or box.float_side != "none"
+        or box.white_space != "normal"
+        or box.children
+        or box.floats
+        or box.atoms
+        or box.positioned
+        or box.list_item
+        or box.replaced
+        or not box.inline_text
+        or box.letter_spacing
+        or box.word_spacing
+        or box.text_indent != "0px"
+        or box.hanging_punctuation != "none"
+        or box.text_wrap_style not in {"auto", "wrap"}
+        or box.line_clamp is not None
+        or box.font_family
+        or box.text_align not in {"start", "left"}
+        or box.multicol is not None
+        or _mixed_runs(box)
+        or _relative_pieces(box)
+        or _glyph_chrome(box)
+        or box.nowrap_ranges
+        or _gap_alignment(box)
+    ):
+        raise _Invalid("initial letter is unsupported")
+
+
+def _cap_exclusion_lines(
+    box: _Box, text: str, measure: int, cap_width: int, sink: int
+) -> tuple[list, list]:
+    """Wrap the first ``sink`` lines in the gap beside the square, then the rest."""
+
+    short = measure - cap_width
+    if short < 0:
+        raise _Invalid("initial letter is unsupported")
+    advances = _shrink_advances(box)
+    beside: list = []
+    rest = text
+    for _ in range(sink):
+        if not rest or (box.white_space in _COLLAPSED_EMPTY and not rest.strip()):
+            break
+        wrapped = _kept_lines(
+            box,
+            wrap_lines(
+                rest,
+                short,
+                white_space=box.white_space,
+                advances=advances,
+                **_spacing_args(box),
+                **_break_args(box),
+            ),
+        )
+        if not wrapped:
+            break
+        first = wrapped[0]
+        if not isinstance(first, dict):
+            raise _Invalid("line is invalid")
+        content = _px(first.get("content_width"), "line width")
+        if content > short:
+            raise _Invalid("initial letter is unsupported")
+        beside.append(first)
+        rest = _drop_prefix(rest, str(first.get("text") or ""), box.white_space)
+    tail: list = []
+    if rest and not (box.white_space in _COLLAPSED_EMPTY and not rest.strip()):
+        tail = _kept_lines(
+            box,
+            wrap_lines(
+                rest,
+                max(measure, 0),
+                white_space=box.white_space,
+                advances=advances,
+                **_spacing_args(box),
+                **_break_args(box),
+            ),
+        )
+    return beside, tail
+
+
+def _prepare_drop_cap(
+    box: _Box, text: str, measure: int, strut: int
+) -> tuple[list, int, int]:
+    """Pull the first ASCII letter into a square and wrap what remains."""
+
+    collapsed = " ".join(text.split())
+    if not collapsed or not collapsed[0].isascii() or not collapsed[0].isalpha():
+        raise _Invalid("initial letter is unsupported")
+    if strut < 1:
+        raise _Invalid("initial letter is unsupported")
+    side = box.initial_letter * strut
+    if side > measure:
+        raise _Invalid("initial letter is unsupported")
+    rest = collapsed[1:]
+    if rest.startswith(" "):
+        rest = rest[1:]
+    box.drop_cap = {"text": collapsed[0], "x": 0, "y": 0, "width": side, "height": side}
+    beside, tail = _cap_exclusion_lines(box, rest, measure, side, box.initial_letter)
+    return [*beside, *tail], side, len(beside)
+
+
 def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
     _reject_spacing(box)
     text = box.inline_text or ""
@@ -8532,7 +8682,11 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         text_indent or indent or shifted or box.writing_mode != "horizontal-tb" or box.direction != "ltr"
     ):
         raise _Invalid("balanced text wrap is unsupported")
-    if indent:
+    cap_width = 0
+    beside_count = 0
+    if box.initial_letter:
+        lines, cap_width, beside_count = _prepare_drop_cap(box, text, measure, height)
+    elif indent:
         lines = _kept_lines(
             box,
             wrap_lines(
@@ -8572,7 +8726,10 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         content = _px(line.get("content_width"), "line width")
         line_measure = measure
         origin = 0
-        if text_indent and index == 0:
+        if beside_count and index < beside_count:
+            line_measure = max(measure - cap_width, 0)
+            origin = cap_width
+        elif text_indent and index == 0:
             line_measure = measure - text_indent
             if line_measure < 0:
                 line_measure = 0
