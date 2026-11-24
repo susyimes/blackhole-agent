@@ -121,7 +121,13 @@ horizontal line and omitted after the last character, so a positive value
 wraps sooner and a negative value shortens the line. ``word-spacing`` is added
 only to word separators. Both inherit, ``normal`` is zero, and a percentage is
 invalid. Justification of a spaced line, a vertical writing mode, an inside
-marker, and a declaration on an inline stay rejected. ``tab-size`` is
+marker, and a declaration on an inline stay rejected. ``text-transform`` is
+inherited and applied before wrapping. ``uppercase`` and ``lowercase`` use
+Unicode case mapping, so a German eszett becomes two letters and can push
+the next word onto the following line. ``capitalize`` titlecases the first
+letter of each word and leaves the rest of the word unchanged. ``none`` is
+the initial value. A flex, grid, or table box, a vertical writing mode, a
+non-ltr direction, and a declaration on an inline are rejected. ``tab-size`` is
 inherited as a number of space advances or as a ``px`` length. Preserved
 white space advances a tab from the line content start to the next multiple
 of that interval, so the glyphs after the tab and the following block use
@@ -720,6 +726,7 @@ _FONT = {
     "text-indent": "0px",
     "letter-spacing": "0px",
     "word-spacing": "0px",
+    "text-transform": "none",
     "tab-size": "8",
     "white-space": "normal",
     "overflow-wrap": "normal",
@@ -743,6 +750,10 @@ _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre
 _OVERFLOW_WRAPS = frozenset({"normal", "break-word", "anywhere"})
 _WORD_BREAKS = frozenset({"normal", "keep-all", "break-all", "break-word"})
 _HYPHENS = frozenset({"none", "manual", "auto"})
+_TRANSFORMS = frozenset({"none", "uppercase", "lowercase", "capitalize"})
+_TRANSFORM_REJECTED_DISPLAYS = frozenset(
+    {"flex", "inline-flex", "grid", "table", "table-row", "table-cell", "table-caption"}
+)
 _FRAGMENT_BREAKS = frozenset(
     {
         "auto",
@@ -776,6 +787,7 @@ _INLINE_REJECTED = (
     "text-wrap",
     "text-wrap-style",
     "line-clamp",
+    "text-transform",
 )
 
 
@@ -875,6 +887,7 @@ class _Box:
     text_indent: str = "0px"
     letter_spacing: int = 0
     word_spacing: int = 0
+    text_transform: str = "none"
     tab_size: str = "8"
     containing_inline: int | None = None
     white_space: str = "normal"
@@ -1048,7 +1061,7 @@ def _hit_text(box: _Box, x: float, y: float) -> dict[str, int] | None:
     if (
         not source or box.element is None or box.writing_mode != "horizontal-tb"
         or box.letter_spacing or box.word_spacing or box.atoms or box.drop_cap
-        or box.hanging_punctuation != "none"
+        or box.hanging_punctuation != "none" or box.text_transform != "none"
     ):
         return None
     for index, line in enumerate(box.lines):
@@ -1728,6 +1741,13 @@ def _make_box(
         ),
         word_spacing=_used_spacing_px(
             _read_spacing(_declared(winners, "word-spacing", custom), fonts["word-spacing"], "word-spacing")
+        ),
+        text_transform=_used_text_transform(
+            _declared(winners, "text-transform", custom),
+            fonts["text-transform"],
+            mode,
+            direction,
+            display,
         ),
         tab_size=_read_tab_size(_declared(winners, "tab-size", custom), fonts["tab-size"]),
         white_space=_inherited_keyword(
@@ -3212,6 +3232,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "text-indent": box.text_indent,
         "letter-spacing": f"{box.letter_spacing}px",
         "word-spacing": f"{box.word_spacing}px",
+        "text-transform": box.text_transform,
         "tab-size": box.tab_size,
         "white-space": box.white_space,
         "overflow-wrap": box.overflow_wrap,
@@ -3373,6 +3394,7 @@ def _make_anonymous_block(
         text_indent=parent.text_indent,
         letter_spacing=parent.letter_spacing,
         word_spacing=parent.word_spacing,
+        text_transform=parent.text_transform,
         tab_size=parent.tab_size,
         white_space=parent.white_space,
         overflow_wrap=parent.overflow_wrap,
@@ -3427,6 +3449,7 @@ def _inline_segments(
     piece_length = 0
     block_size = _positive_px(fonts["font-size"], "font-size")
     block_leading = fonts["line-height"]
+    transform_mode = {"value": fonts.get("text-transform", "none")}
 
     def flush() -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
         nonlocal pieces, used, piece_length
@@ -3446,6 +3469,7 @@ def _inline_segments(
         origin: tuple[Element, bool] | None = None,
     ) -> None:
         nonlocal piece_length
+        text = _transform_text(text, transform_mode["value"])
         if not text:
             return
         if layers and (size != block_size or leading != block_leading or align != "baseline"):
@@ -3471,6 +3495,8 @@ def _inline_segments(
         align: str | int = "baseline",
         nowrap: bool = False,
     ) -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
+        previous_transform = transform_mode["value"]
+        transform_mode["value"] = parent_fonts.get("text-transform", "none")
         own = layers_of.get(id(node))
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
@@ -3520,6 +3546,7 @@ def _inline_segments(
                 _remember_inline_chrome(pieces, start, piece_length, lead, trail)
             add(child.tail or "", size, leading, layers, align, nowrap, (child, True))
         _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap)
+        transform_mode["value"] = previous_transform
 
     yield from walk(element, fonts, ())
     if next(stream, None) is not None:
@@ -3540,6 +3567,7 @@ def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -
         "white-space": parent["white-space"],
         "hyphens": parent.get("hyphens", "manual"),
         "lang": parent.get("lang", ""),
+        "text-transform": parent.get("text-transform", "none"),
     }
 
 
@@ -4199,6 +4227,37 @@ def _inherited_keyword(
     if token not in allowed:
         raise _Invalid(f"{name} is invalid")
     return token
+
+
+def _used_text_transform(value: str | None, parent: str, mode: str, direction: str, display: str) -> str:
+    chosen = _inherited_keyword(value, _TRANSFORMS, parent, _FONT["text-transform"], "text-transform")
+    if chosen != "none" and (
+        mode != "horizontal-tb" or direction != "ltr" or display in _TRANSFORM_REJECTED_DISPLAYS
+    ):
+        raise _Invalid("text-transform is unsupported")
+    return chosen
+
+
+def _transform_text(text: str, mode: str) -> str:
+    """Case the characters that line breaking will measure."""
+
+    if mode == "none" or text == "":
+        return text
+    if mode == "uppercase":
+        return text.upper()
+    if mode == "lowercase":
+        return text.lower()
+    if mode != "capitalize":
+        raise _Invalid("text-transform is invalid")
+    pieces: list[str] = []
+    start = True
+    for character in text:
+        if start and character.islower():
+            pieces.append(character.title())
+        else:
+            pieces.append(character)
+        start = character.isspace()
+    return "".join(pieces)
 
 
 def _positive_px(value: str, name: str) -> int:
@@ -8989,6 +9048,7 @@ def _flush_flex_text(
             text_indent=host.text_indent,
             letter_spacing=host.letter_spacing,
             word_spacing=host.word_spacing,
+            text_transform=host.text_transform,
             tab_size=host.tab_size,
             white_space=host.white_space,
             overflow_wrap=host.overflow_wrap,
