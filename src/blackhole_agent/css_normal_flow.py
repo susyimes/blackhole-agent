@@ -448,6 +448,16 @@ the marker on the content start and does not move the principal line.
 ``inside`` places the marker on the first line and wraps the remaining text
 at the full content width. ``none`` paints nothing. A float, a non-horizontal
 writing mode, and an inside marker beside a block child stay rejected.
+``text-combine-upright`` is not inherited. On an inline with no element
+children and no generated text, ``all`` compresses that text into one em and
+``digits`` compresses each ASCII run, two digits unless a count from 2 to 4
+is set, into one em. ``vertical-rl`` and ``vertical-lr`` then scale the run
+into that em and center it on the column, so two 10px digits paint 5 by 5,
+side by side, two pixels below the em. The column's inline size loses the
+saved ems and the next block starts under that shorter column. A horizontal
+box keeps the property and does not change advances. A count outside 2 to 4,
+a scale that is not an integer pixel, white space, a nested element, a
+sideways mode, and a line that would split the run are rejected.
 Writing mode, direction and text orientation inherit. Other CSS-wide keywords
 on box properties use their initial values.
 A text-only orthogonal block wraps down its used content height and stacks
@@ -849,6 +859,7 @@ class _Piece:
     nowrap: bool = False
     origin: tuple[Element, bool] | None = None  # element.text or child.tail
     marks: tuple[tuple[str, int, str], ...] = ()
+    combine: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass
@@ -864,6 +875,7 @@ class _Line:
     glyphs: list[dict[str, object]] = field(default_factory=list)
     truncated: bool = False
     decorations: list[dict[str, object]] = field(default_factory=list)
+    combines: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -2361,6 +2373,15 @@ def _vertical_geometry(
 ) -> dict[str, object]:
     if box.children or box.floats or box.atoms or box.positioned or _mixed_runs(box):
         raise _Invalid("vertical block requires uniform inline text")
+    if _has_text_combine(box):
+        if box.writing_mode not in {"vertical-rl", "vertical-lr"}:
+            raise _Invalid("text-combine writing mode is unsupported")
+        if str(flow["direction"]) != "ltr" or flow["line_left"] != "top":
+            raise _Invalid("text-combine direction is unsupported")
+        if box.text_align not in {"start", "left"} or box.text_align_last not in {"auto", "start", "left"}:
+            raise _Invalid("text-combine alignment is unsupported")
+        if _gap_alignment(box):
+            raise _Invalid("text-combine alignment is unsupported")
     if _gap_alignment(box) and (
         flow["line_left"] != "top"
         or str(flow["direction"]) != "ltr"
@@ -2417,6 +2438,17 @@ def _vertical_geometry(
                 }
                 for run in line.runs
             ]
+        if _text_combine_active(box):
+            if inline_offset != 0 or block_cursor != 0:
+                raise _Invalid("text-combine alignment is unsupported")
+            if column != box.font_size:
+                raise _Invalid("text-combine line-height is unsupported")
+            _attach_upright_combine(line, box, column)
+    if _text_combine_active(box):
+        if len(lines) != 1 or lines[0].text != (box.inline_text or ""):
+            raise _Invalid("text-combine break is unsupported")
+        if not lines[0].combines:
+            raise _Invalid("text-combine is invalid")
     box.lines = lines
     return solved
 
@@ -3090,6 +3122,27 @@ def _record_line(line: _Line) -> dict[str, object]:
                 recorded["height"] = int(run["height"])
             recorded_runs.append(recorded)
         item["runs"] = recorded_runs
+    if line.combines:
+        item["combines"] = [
+            {
+                "text": str(cluster["text"]),
+                "x": line.x + int(cluster["x"]),
+                "y": line.y + int(cluster["y"]),
+                "width": int(cluster["width"]),
+                "height": int(cluster["height"]),
+                "glyphs": [
+                    {
+                        "text": str(glyph["text"]),
+                        "x": line.x + int(glyph["x"]),
+                        "y": line.y + int(glyph["y"]),
+                        "width": int(glyph["width"]),
+                        "height": int(glyph["height"]),
+                    }
+                    for glyph in cluster["glyphs"]
+                ],
+            }
+            for cluster in line.combines
+        ]
     if line.decorations:
         item["decorations"] = [
             {
@@ -3481,6 +3534,67 @@ def _anonymous_id(ids: set[str], counter: list[int]) -> str:
             return box_id
 
 
+def _read_text_combine(tree, element, styles, declarations) -> tuple[str, int] | None:
+    """Specified ``text-combine-upright``. ``None`` means the property does nothing."""
+
+    custom = styles.get(element, ({}, ""))[0]
+    raw = _declared(_winners(tree, element, declarations), "text-combine-upright", custom)
+    if raw is None:
+        return None
+    token = " ".join(raw.strip().lower().split())
+    if token in {"none", "initial", "unset", "revert"}:
+        return None
+    if token == "inherit":
+        raise _Invalid("text-combine-upright inherit is unsupported")
+    if token == "all":
+        return ("all", 0)
+    if token == "digits":
+        return ("digits", 2)
+    parts = token.split(" ")
+    if len(parts) == 2 and parts[0] == "digits" and parts[1].isdigit() and parts[1][0] != "0":
+        count = int(parts[1])
+        if 2 <= count <= 4:
+            return ("digits", count)
+    raise _Invalid("text-combine-upright is invalid")
+
+
+def _combine_spans(text: str, mode: tuple[str, int]) -> tuple[tuple[int, int], ...]:
+    """Half-open ranges that share one em. A single character already does."""
+
+    if any(character.isspace() for character in text):
+        raise _Invalid("text-combine white space is unsupported")
+    kind, limit = mode
+    if kind == "all":
+        return ((0, len(text)),) if len(text) >= 2 else ()
+    spans: list[tuple[int, int]] = []
+    index = 0
+    count = len(text)
+    while index < count:
+        if "0" <= text[index] <= "9":
+            start = index
+            index += 1
+            while index < count and "0" <= text[index] <= "9":
+                index += 1
+            length = index - start
+            while length >= 2:
+                take = min(limit, length)
+                spans.append((start, start + take))
+                start += take
+                length -= take
+            continue
+        index += 1
+    return tuple(spans)
+
+
+def _stamp_text_combine(pieces: list[_Piece], added: int, mode: tuple[str, int]) -> None:
+    if len(pieces) == added:
+        return
+    if len(pieces) != added + 1:
+        raise _Invalid("text-combine content is unsupported")
+    piece = pieces[-1]
+    piece.combine = _combine_spans(piece.text, mode)
+
+
 def _inline_segments(
     tree,
     element,
@@ -3561,8 +3675,17 @@ def _inline_segments(
         leading = parent_fonts["line-height"]
         here = inherited_marks + _element_marks(tree, node, styles, declarations, size)
         before, after = _generated(tree, node)
+        combine = _read_text_combine(tree, node, styles, declarations)
+        if combine is not None:
+            if any(_local_name(child) for child in list(node)):
+                raise _Invalid("text-combine content is unsupported")
+            if before or after:
+                raise _Invalid("text-combine content is unsupported")
         _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap, here)
+        added = len(pieces)
         add(node.text or "", size, leading, layers, align, nowrap, (node, False), here)
+        if combine is not None:
+            _stamp_text_combine(pieces, added, combine)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -6055,8 +6178,99 @@ def _has_explicit_limit(box: _Box, names: tuple[str, ...]) -> bool:
     return False
 
 
+def _has_text_combine(box: _Box) -> bool:
+    return any(piece.combine for piece in box.pieces)
+
+
+def _text_combine_active(box: _Box) -> bool:
+    return box.writing_mode in {"vertical-rl", "vertical-lr"} and _has_text_combine(box)
+
+
+def _combine_layout(box: _Box) -> tuple[list[int], list[tuple[int, str]]]:
+    """Per-character advances and each upright cluster's inline start."""
+
+    text = box.inline_text or ""
+    if any(character.isspace() for character in text):
+        raise _Invalid("text-combine white space is unsupported")
+    advances: list[int] = []
+    clusters: list[tuple[int, str]] = []
+    inline = 0
+    for piece in box.pieces:
+        if not piece.text:
+            continue
+        size = piece.font_size
+        if size != box.font_size or piece.line_height != box.line_height:
+            raise _Invalid("text-combine font is unsupported")
+        if any(piece.extra) or piece.shifts or not _baseline_align(piece.vertical_align):
+            raise _Invalid("text-combine glyph is unsupported")
+        owners: dict[int, tuple[int, int]] = {}
+        for start, end in piece.combine:
+            if end - start < 2 or start < 0 or end > len(piece.text):
+                raise _Invalid("text-combine is invalid")
+            if size % (end - start) != 0:
+                raise _Invalid("text-combine scale is not integral")
+            for index in range(start, end):
+                if _advance_of(piece.text[index], size) != size or index in owners:
+                    raise _Invalid("text-combine glyph is unsupported")
+                owners[index] = (start, end)
+        index = 0
+        while index < len(piece.text):
+            span = owners.get(index)
+            if span is None:
+                step = _advance_of(piece.text[index], size)
+                advances.append(step)
+                inline += step
+                index += 1
+                continue
+            start, end = span
+            if index != start:
+                raise _Invalid("text-combine is invalid")
+            clusters.append((inline, piece.text[start:end]))
+            advances.append(size)
+            advances.extend(0 for _ in range(start + 1, end))
+            inline += size
+            index = end
+    if len(advances) != len(text):
+        raise _Invalid("text-combine is invalid")
+    return advances, clusters
+
+
+def _attach_upright_combine(line: _Line, box: _Box, column: int) -> None:
+    """Paint each compressed run horizontally inside its one-em square."""
+
+    records: list[dict[str, object]] = []
+    for origin, text in _combine_layout(box)[1]:
+        count = len(text)
+        glyph = column // count
+        if glyph < 1 or glyph * count != column:
+            raise _Invalid("text-combine scale is not integral")
+        pad = (column - glyph) // 2
+        records.append(
+            {
+                "text": text,
+                "x": 0,
+                "y": origin,
+                "width": column,
+                "height": column,
+                "glyphs": [
+                    {
+                        "text": character,
+                        "x": index * glyph,
+                        "y": origin + pad,
+                        "width": glyph,
+                        "height": glyph,
+                    }
+                    for index, character in enumerate(text)
+                ],
+            }
+        )
+    line.combines = records
+
+
 def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
     text = box.inline_text or ""
+    if _text_combine_active(box):
+        return _combine_layout(box)[0]
     if _mixed_runs(box):
         styles = _style_stream(box.pieces)
         if len(styles) != len(text):
