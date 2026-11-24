@@ -193,9 +193,11 @@ rejected. A non-replaced inline's ``vertical-align`` shifts its own glyphs
 on that line. A length or a percentage of its line-height raises them, and
 a negative length lowers them. ``top`` meets the line top. The line grows
 to cover the shifted glyphs, and baseline neighbors stay on the strut.
-Nested lengths add. ``sub``, ``super``, a keyword nested inside a shifted
-inline, an inline-block on that line, preserved white space, and a vertical
-writing mode stay rejected. An
+Nested lengths add. An inline-block on that line keeps its own alignment:
+a baseline atomic box stays on the strut while those glyphs move, and
+``top`` still meets the grown line. ``sub``, ``super``, a keyword nested
+inside a shifted inline, preserved white space, and a vertical writing
+mode stay rejected. An
 inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
@@ -7024,8 +7026,6 @@ def _reject_shifted_text(box: _Box) -> None:
         "pre-line",
     }:
         raise _Invalid("vertical-align is unsupported")
-    if box.atoms:
-        raise _Invalid("vertical-align beside an inline-block is unsupported")
 
 
 def _mixed_runs(box: _Box) -> bool:
@@ -7466,17 +7466,17 @@ def _atom_align(atom: _Box, below: int) -> str | float:
 
 def _line_extent(
     box: _Box,
-    groups: list[tuple[str, int, str, int]],
+    groups: list[tuple[str, int, str, int, str | int]],
     atoms_here: list[tuple[_Box, int]],
     measured: dict[str, dict[str, int]],
 ) -> tuple[int, int, list[int]]:
     payload: list[dict[str, object]] = []
-    for index, (_text, size, leading, _width) in enumerate(groups):
+    for index, (_text, size, leading, _width, align) in enumerate(groups):
         payload.append(
             {
                 "id": f"t{index}",
                 "kind": "text",
-                "vertical_align": "baseline",
+                "vertical_align": align,
                 "ascent": size,
                 "descent": 0,
                 "line_height": _used_line_height(leading, size),
@@ -7599,31 +7599,32 @@ def _fill_inline_blocks(box: _Box) -> None:
         box.definite_height = cursor_y
 
 
-def _atom_sources(box: _Box) -> list[tuple[str, int, str, _Box | None]]:
-    entries: list[tuple[str, int, str, _Box | None]] = []
+def _atom_sources(box: _Box) -> list[tuple[str, int, str, str | int, _Box | None]]:
+    entries: list[tuple[str, int, str, str | int, _Box | None]] = []
     serial = 0
     for piece in box.pieces:
+        align: str | int = "baseline" if _baseline_align(piece.vertical_align) else piece.vertical_align
         if piece.atom is None:
             for ch in piece.text:
                 if ch in "\t\r\n" or ch == _ZWSP or _MARK <= ord(ch) <= _MARK + 31:
                     raise _Invalid("inline-block break is unsupported")
-                entries.append((ch, piece.font_size, piece.line_height, None))
+                entries.append((ch, piece.font_size, piece.line_height, align, None))
             continue
         mark = chr(_MARK + serial)
         serial += 1
-        entries.append((_ZWSP, piece.font_size, piece.line_height, None))
-        entries.append((mark, piece.font_size, piece.line_height, piece.atom))
-        entries.append((_ZWSP, piece.font_size, piece.line_height, None))
+        entries.append((_ZWSP, piece.font_size, piece.line_height, "baseline", None))
+        entries.append((mark, piece.font_size, piece.line_height, "baseline", piece.atom))
+        entries.append((_ZWSP, piece.font_size, piece.line_height, "baseline", None))
     if serial != len(box.atoms):
         raise _Invalid("inline-block is unsupported")
     return entries
 
 
 def _atom_advances(
-    entries: list[tuple[str, int, str, _Box | None]], measured: dict[str, dict[str, int]]
+    entries: list[tuple[str, int, str, str | int, _Box | None]], measured: dict[str, dict[str, int]]
 ) -> list[int]:
     advances: list[int] = []
-    for ch, size, _leading, atom in entries:
+    for ch, size, _leading, _align, atom in entries:
         if ch == _ZWSP:
             advances.append(0)
         elif atom is not None:
@@ -7634,9 +7635,9 @@ def _atom_advances(
 
 
 def _match_atom_line(
-    entries: list[tuple[str, int, str, _Box | None]], index: int, rendered: str
-) -> tuple[list[tuple[str, int, str, _Box | None]], int]:
-    chosen: list[tuple[str, int, str, _Box | None]] = []
+    entries: list[tuple[str, int, str, str | int, _Box | None]], index: int, rendered: str
+) -> tuple[list[tuple[str, int, str, str | int, _Box | None]], int]:
+    chosen: list[tuple[str, int, str, str | int, _Box | None]] = []
     for ch in rendered:
         while index < len(entries) and entries[index][0] != ch:
             if not entries[index][0].isspace():
@@ -7660,7 +7661,7 @@ def _paint_atom_line(
     measured: dict[str, dict[str, int]],
     placed: set[str],
 ) -> tuple[_Line, int]:
-    groups: list[tuple[str, int, str, int]] = []
+    groups: list[tuple[str, int, str, int, str | int]] = []
     runs: list[dict[str, object]] = []
     atom_records: list[dict[str, object]] = []
     atoms_here: list[tuple[_Box, int]] = []
@@ -7668,6 +7669,7 @@ def _paint_atom_line(
     buf = ""
     buf_size = 0
     buf_leading = ""
+    buf_align: str | int = "baseline"
     buf_width = 0
     buf_x = 0
 
@@ -7675,12 +7677,12 @@ def _paint_atom_line(
         nonlocal buf, buf_width
         if not buf:
             return
-        groups.append((buf, buf_size, buf_leading, buf_width))
+        groups.append((buf, buf_size, buf_leading, buf_width, buf_align))
         runs.append({"text": buf, "x": buf_x, "font_size": buf_size, "width": buf_width})
         buf = ""
         buf_width = 0
 
-    for ch, size, leading, atom in chosen:
+    for ch, size, leading, align, atom in chosen:
         if ch == _ZWSP:
             continue
         if atom is not None:
@@ -7693,12 +7695,13 @@ def _paint_atom_line(
             placed.add(atom.id)
             continue
         advance = _advance_of(ch, size)
-        if buf and (size != buf_size or leading != buf_leading):
+        if buf and (size != buf_size or leading != buf_leading or align != buf_align):
             flush()
         if not buf:
             buf_x = cursor
             buf_size = size
             buf_leading = leading
+            buf_align = align
         buf += ch
         buf_width += advance
         cursor += advance
@@ -7708,14 +7711,17 @@ def _paint_atom_line(
     height, above, tops, text_tops = _line_extent(box, groups, atoms_here, measured)
     if len(text_tops) != len(runs):
         raise _Invalid("inline-block line is invalid")
+    shifted = any(group[4] != "baseline" for group in groups)
     for run, text_top in zip(runs, text_tops, strict=True):
-        if text_top:
+        if shifted or text_top:
             run["y"] = text_top
     offset = _text_offset(box, measure, content, last)
     for (atom, border_x), top in zip(atoms_here, tops, strict=True):
         atom.local_x = left + offset + border_x
         atom.local_y = cursor_y + top + measured[atom.id]["margin_top"]
-    visible = "".join(ch for ch, _size, _leading, atom in chosen if atom is None and ch != _ZWSP)
+    visible = "".join(
+        ch for ch, _size, _leading, _align, atom in chosen if atom is None and ch != _ZWSP
+    )
     return (
         _Line(
             text=visible,
@@ -7811,7 +7817,7 @@ def _fill_atoms_beside_floats(
         if new_index <= index:
             raise _Invalid("line break failed")
         rest = entries[new_index:]
-        last = not any(ch.strip() and ch != _ZWSP for ch, _size, _leading, _atom in rest)
+        last = not any(ch.strip() and ch != _ZWSP for ch, _size, _leading, _align, _atom in rest)
         record, height = _paint_atom_line(
             box, chosen, content, available, left, cursor_y, last, measured, placed
         )
