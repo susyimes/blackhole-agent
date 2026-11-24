@@ -3,7 +3,7 @@
 ::before reads the element after its own reset and increment. ::after reads
 the value after its children. counters() joins every scope, outer scope
 first. A counter style formats the integer. The text wraps with the element's
-words. attr() and an unknown style stay rejected.
+words. ``attr()`` copies that heading's attribute. An unknown style stays rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """
@@ -105,10 +105,14 @@ def observe() -> tuple[bool, dict[str, object]]:
         "next_y": None if _box(wrapped, "next") is None else _box(wrapped, "next").get("y"),
     }
     attr = _place(
-        '<div id="page"><h1 id="a">AA</h1></div>',
-        "h1::before { content: attr(title) }",
+        '<div id="page"><h1 id="a" title="Hi">AA</h1></div>',
+        'h1::before { content: attr(title) " " }',
     )
-    observed["attr"] = {"outcome": attr.get("outcome"), "reason": attr.get("reason")}
+    observed["attr"] = {
+        "outcome": attr.get("outcome"),
+        "reason": attr.get("reason"),
+        "lines": _lines(attr),
+    }
     style = _place(
         '<div id="page"><h1 id="a">AA</h1></div>',
         "h1 { counter-increment: section } h1::before { content: counter(section, disc) }",
@@ -146,7 +150,11 @@ def observe() -> tuple[bool, dict[str, object]]:
         "height": 20,
         "next_y": 20,
     }
-    attr_ok = observed["attr"] == {"outcome": "invalid", "reason": "generated content is unsupported"}
+    attr_ok = observed["attr"] == {
+        "outcome": "placed",
+        "reason": None,
+        "lines": [("Hi AA", 0, 0, 50)],
+    }
     style_ok = observed["style"] == {"outcome": "invalid", "reason": "counter style disc is invalid"}
     passed = all((headings_ok, nested_ok, scope_ok, alpha_ok, wrap_ok, attr_ok, style_ok))
     return passed, observed

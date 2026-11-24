@@ -2396,8 +2396,10 @@ def resolve_generated_strings(
 ) -> tuple[str, str]:
     """String content of ``::before`` and ``::after``, or empty when no box is generated.
 
-    A content function raises ``generated content is unsupported``. Any other
-    property on a pseudo that does generate a box raises ``generated box is
+    ``attr()`` is replaced by that element's attribute before the string is
+    returned. A missing attribute is empty. A fallback, a type, or any other
+    function raises ``generated content is unsupported``. Any other property
+    on a pseudo that does generate a box raises ``generated box is
     unsupported``. Element rules are not read as the pseudo's own declarations.
     """
 
@@ -2414,7 +2416,8 @@ def resolve_generated_plans(
 ) -> tuple[list, list]:
     """``::before`` and ``::after`` content as text and counter parts.
 
-    ``counter()`` and ``counters()`` stay in the plan. Any other function
+    ``counter()`` and ``counters()`` stay in the plan. ``attr()`` is already
+    the element's attribute text. A fallback, a type, or any other function
     raises ``generated content is unsupported``. A property besides ``content``
     on a pseudo that generates a box raises ``generated box is unsupported``.
     """
@@ -2452,10 +2455,11 @@ def _one_generated(
         parsed = _generated_content_parts(substituted)
         if parsed is None:
             return []
+        parsed = _expand_attr_parts(element, parsed)
         if any(name != "content" for name in winners):
             raise CssSelectorError("generated box is unsupported")
         return parsed
-    text = _generated_content_text(substituted)
+    text = _generated_content_text(substituted, element)
     if text is None:
         return ""
     if any(name != "content" for name in winners):
@@ -2547,7 +2551,36 @@ def _generated_call(text: str, index: int, name: str) -> tuple[tuple, int]:
         if index >= len(text) or text[index] != ")":
             raise CssSelectorError("generated content is unsupported")
         return ("counters", counter_name, separator, style), index + 1
+    if kind == "attr":
+        index = _skip_css_space(text, index)
+        attr_name, index = _read_css_ident(text, index)
+        if attr_name is None:
+            raise CssSelectorError("generated content is unsupported")
+        index = _skip_css_space(text, index)
+        if index >= len(text) or text[index] != ")":
+            raise CssSelectorError("generated content is unsupported")
+        return ("attr", attr_name), index + 1
     raise CssSelectorError("generated content is unsupported")
+
+
+def _expand_attr_parts(element, parts: list[tuple]) -> list[tuple]:
+    """Replace ``attr()`` with that element's attribute. A missing one is empty."""
+
+    expanded: list[tuple] = []
+    for part in parts:
+        if part[0] == "attr":
+            raw = _attr(element, part[1])
+            piece = "" if raw is None else raw
+            if expanded and expanded[-1][0] == "text":
+                expanded[-1] = ("text", expanded[-1][1] + piece)
+            else:
+                expanded.append(("text", piece))
+            continue
+        if expanded and part[0] == "text" and expanded[-1][0] == "text":
+            expanded[-1] = ("text", expanded[-1][1] + part[1])
+        else:
+            expanded.append(part)
+    return expanded
 
 
 def _skip_css_space(text: str, index: int) -> int:
@@ -2589,10 +2622,12 @@ def _css_ident_continue(char: str) -> bool:
     return char == "_" or char.isalpha() or char.isdigit() or char == "-" or ord(char) > 127
 
 
-def _generated_content_text(value: str) -> str | None:
+def _generated_content_text(value: str, element=None) -> str | None:
     parts = _generated_content_parts(value)
     if parts is None:
         return None
+    if element is not None:
+        parts = _expand_attr_parts(element, parts)
     if any(part[0] != "text" for part in parts):
         raise CssSelectorError("generated content is unsupported")
     return "".join(part[1] for part in parts if part[0] == "text")

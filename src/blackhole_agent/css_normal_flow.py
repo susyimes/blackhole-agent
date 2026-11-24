@@ -453,8 +453,12 @@ content become the same text: ``::before`` reads the counter after the
 element's own reset and increment, and ``::after`` reads it after the
 element's children. A counter style formats the integer. ``counters()``
 joins every scope of that name, outer scope first, with its separator.
-A flex, grid, or table box, a flex or grid item, an unknown function, and
-any other property on a pseudo that generates a box stay rejected.
+``attr()`` copies that element's attribute into the same text. A missing
+attribute is empty, so it adds no glyphs, and a parent's attribute is not
+read. A fallback, a type, or any other function stays rejected. A flex,
+grid, or table box and a flex or grid item stay rejected when the content
+still has a counter. Any other property on a pseudo that generates a box
+stays rejected.
 ``font-family`` names faces collected from ``@font-face``. Each finished
 line records the face that covers its characters. A later family is used
 when an earlier unicode-range misses, ``font-weight`` and ``font-style``

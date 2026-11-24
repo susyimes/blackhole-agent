@@ -3,7 +3,8 @@
 A text-only block paints the strings on its line. An id beats a type. A later
 none removes the string. A parent of block children turns the leading string
 into an anonymous block. A flex container keeps each pseudo as its own item.
-A non-counter content function and a generated box property stay rejected.
+``attr()`` copies the element's attribute onto the line. A fallback or any
+other content function, and a generated box property, stay rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """
@@ -110,8 +111,19 @@ def observe() -> tuple[bool, dict[str, object]]:
         "items": flex_items,
         "next_y": None if flex_next is None else flex_next.get("y"),
     }
-    function = _place(_PAGE, '#t::before { content: attr(title) }')
-    observed["function"] = {"outcome": function.get("outcome"), "reason": function.get("reason")}
+    function = _place(
+        '<div id="page"><p id="t" title="Go">Hello</p><p id="next">Z</p></div>',
+        '#t::before { content: attr(title) " " }',
+    )
+    function_next = _box(function, "next")
+    observed["function"] = {
+        "outcome": function.get("outcome"),
+        "reason": function.get("reason"),
+        "line": _line(_box(function, "t")),
+        "next_y": None if function_next is None else function_next.get("y"),
+    }
+    unknown = _place(_PAGE, "#t::before { content: env(missing) }")
+    observed["unknown"] = {"outcome": unknown.get("outcome"), "reason": unknown.get("reason")}
     boxed = _place(_PAGE, '#t::before { content: "A"; display: block }')
     observed["box"] = {"outcome": boxed.get("outcome"), "reason": boxed.get("reason")}
 
@@ -139,11 +151,17 @@ def observe() -> tuple[bool, dict[str, object]]:
         (40, 20, ("EF",)),
     ] and observed["flex"]["next_y"] == 10
     function_ok = observed["function"] == {
+        "outcome": "placed",
+        "reason": None,
+        "line": ("Go Hello", 0, 0, 80, 1),
+        "next_y": 10,
+    }
+    unknown_ok = observed["unknown"] == {
         "outcome": "invalid",
         "reason": "generated content is unsupported",
     }
     box_ok = observed["box"] == {"outcome": "invalid", "reason": "generated box is unsupported"}
-    passed = all((joined_ok, wrap_ok, parent_ok, none_ok, specific_ok, flex_ok, function_ok, box_ok))
+    passed = all((joined_ok, wrap_ok, parent_ok, none_ok, specific_ok, flex_ok, function_ok, unknown_ok, box_ok))
     return passed, observed
 
 
