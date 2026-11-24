@@ -109,12 +109,15 @@ interior gap does not move, and leftover space is never compressed. Preserved
 white space, a non-ltr direction, a mixed font, an inline-block, and a
 relative inline stay rejected. ``vertical-rl`` and ``vertical-lr`` open those
 gaps down the inline axis: a word's physical height is its advance and its
-physical width is the column. ``sideways-lr`` stays rejected. ``text-indent`` moves only
-the first line of a horizontal left-to-right block and shortens that line's
-wrap measure by the same amount. A length may be negative and can start the
-line outside the content edge. A percentage is resolved against the containing
-block's inline size and is inherited as that percentage, so a child can clear
-it with zero. ``hanging`` and ``each-line`` are rejected. A float intrusion,
+physical width is the column. ``sideways-lr`` stays rejected. ``text-indent`` moves the first line of a
+horizontal left-to-right block and shortens that line's wrap measure by the
+same amount. ``hanging`` inverts that: the first line stays at the content
+edge and uses the full measure, and every later line starts at the indent
+and wraps in the shortened measure. The keyword may precede or follow the
+length. A length may be negative and can start the affected line outside
+the content edge. A percentage is resolved against the containing block's
+inline size and is inherited as that percentage, so a child can clear it
+with zero. ``each-line`` is rejected. A float intrusion,
 an inline-block, a mixed font, an inside marker, and a vertical writing mode
 stay rejected. ``letter-spacing`` is a length inserted between characters of a
 horizontal line and omitted after the last character, so a positive value
@@ -4147,15 +4150,37 @@ def _reject_inline_type(tree, element, styles, declarations, parent_fonts: dict[
 
 
 def _read_text_indent(value: str | None, parent: str) -> str:
-    """Specified indent. A percentage is kept so a child resolves its own block."""
+    """Specified indent. A percentage is kept so a child resolves its own block.
+
+    ``hanging`` is stored after the length and inverts which lines move.
+    ``each-line`` stays rejected.
+    """
 
     if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
         return parent
     if value.strip().lower() == "initial":
         return "0px"
     text = " ".join(value.strip().lower().split())
-    if "hanging" in text or "each-line" in text or " " in text:
+    if "each-line" in text.split(" "):
         raise _Invalid("text-indent is unsupported")
+    hanging = False
+    lengths: list[str] = []
+    for part in text.split(" "):
+        if part == "hanging":
+            if hanging:
+                raise _Invalid("text-indent is invalid")
+            hanging = True
+            continue
+        lengths.append(part)
+    if len(lengths) != 1:
+        raise _Invalid("text-indent is unsupported" if " " in text else "text-indent is invalid")
+    length = _indent_length(lengths[0])
+    if length == "0px" or not hanging:
+        return length
+    return f"{length} hanging"
+
+
+def _indent_length(text: str) -> str:
     if text.endswith("px"):
         try:
             number = float(text[:-2])
@@ -4173,6 +4198,17 @@ def _read_text_indent(value: str | None, parent: str) -> str:
             return "0px"
         return f"{_px(number, 'text-indent')}%"
     raise _Invalid("text-indent is invalid")
+
+
+def _text_indent_length(raw: str) -> str:
+    suffix = " hanging"
+    if raw.endswith(suffix):
+        return raw[: -len(suffix)]
+    return raw
+
+
+def _text_indent_hanging(box: _Box) -> bool:
+    return box.text_indent.endswith(" hanging")
 
 
 def _read_spacing(value: str | None, parent: str, name: str) -> str:
@@ -4365,7 +4401,7 @@ def _reject_spacing(box: _Box) -> None:
 
 
 def _text_indent_used(box: _Box) -> int:
-    raw = box.text_indent
+    raw = _text_indent_length(box.text_indent)
     if raw == "0px":
         return 0
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
@@ -6294,6 +6330,11 @@ def _intrinsic_text_sizes(box: _Box) -> tuple[int, int]:
     minimum = _px(measured["min_content"], "min-content")
     maximum = _px(measured["max_content"], "max-content")
     indent = _text_indent_used(box)
+    if _text_indent_hanging(box):
+        # The unwrapped line is not indented. A real wrap indents the remainder.
+        if indent > 0 and maximum > minimum:
+            return minimum + indent, maximum
+        return minimum, maximum
     if indent > 0:
         return minimum + indent, maximum + indent
     if indent < 0:
@@ -8956,17 +8997,24 @@ def _kept_lines(box: _Box, wrapped: dict[str, object]) -> list:
     return lines
 
 
-def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
-    """Wrap the first line in the shortened measure, then the rest at full width."""
+def _indented_wrap(box: _Box, text: str, measure: int, indent: int, *, hanging: bool = False) -> list:
+    """Wrap one run in the shortened measure and the other at the remaining width.
 
-    first_measure = measure - indent
-    if first_measure < 0:
-        first_measure = 0
+    A plain indent shortens the first line. ``hanging`` shortens every line
+    after the first and leaves the first line on the full measure.
+    """
+
+    head = measure if hanging else measure - indent
+    tail_measure = measure - indent if hanging else measure
+    if head < 0:
+        head = 0
+    if tail_measure < 0:
+        tail_measure = 0
     advances = _shrink_advances(box)
     lines = _kept_lines(
         box,
         wrap_lines(
-            text, first_measure, white_space=box.white_space, advances=advances, **_spacing_args(box),
+            text, head, white_space=box.white_space, advances=advances, **_spacing_args(box),
             **_break_args(box),
         ),
     )
@@ -8981,7 +9029,7 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int) -> list:
     tail = _kept_lines(
         box,
         wrap_lines(
-            rest, max(measure, 0), white_space=box.white_space, advances=advances, **_spacing_args(box),
+            rest, tail_measure, white_space=box.white_space, advances=advances, **_spacing_args(box),
             **_break_args(box),
         ),
     )
@@ -9193,6 +9241,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     _reject_nowrap_context(box)
     _reject_line_clamp(box, direction)
     text_indent = _text_indent_used(box)
+    hanging_indent = _text_indent_hanging(box)
     if text_indent and direction != "ltr":
         raise _Invalid("text-indent writing mode is unsupported")
     shifted = _relative_pieces(box)
@@ -9231,7 +9280,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
             ),
         )
     elif text_indent:
-        lines = _indented_wrap(box, text, measure, text_indent)
+        lines = _indented_wrap(box, text, measure, text_indent, hanging=hanging_indent)
     else:
         lines = _kept_lines(
             box,
@@ -9266,7 +9315,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         if beside_count and index < beside_count:
             line_measure = max(measure - cap_width, 0)
             origin = cap_width
-        elif text_indent and index == 0:
+        elif text_indent and ((hanging_indent and index > 0) or (not hanging_indent and index == 0)):
             line_measure = measure - text_indent
             if line_measure < 0:
                 line_measure = 0

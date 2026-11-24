@@ -119,8 +119,8 @@ def observe() -> tuple[bool, dict[str, object]]:
         "reset": [_pack(line) for line in reset],
         "percent": [_pack(line) for line in narrow],
         "negative": [_pack(line) for line in pulled],
-        "hanging": hanging.get("outcome"),
-        "hanging_reason": hanging.get("reason"),
+        "hanging": [_pack(line) for line in _lines(_box(hanging, "page"))],
+        "hanging_outcome": hanging.get("outcome"),
     }
     passed = (
         wrapped.get("outcome") == "placed"
@@ -161,8 +161,11 @@ def observe() -> tuple[bool, dict[str, object]]:
         and pulled[0].get("text") == "AAAA BBBB"
         and pulled[0].get("x") == -20
         and pulled[0].get("y") == 0
-        and hanging.get("outcome") == "invalid"
-        and hanging.get("reason") == "text-indent is unsupported"
+        and hanging.get("outcome") == "placed"
+        and len(_lines(_box(hanging, "page"))) == 1
+        and _lines(_box(hanging, "page"))[0].get("text") == "AAAA"
+        and _lines(_box(hanging, "page"))[0].get("x") == 0
+        and _lines(_box(hanging, "page"))[0].get("content_width") == 40
     )
     return bool(passed), observed
 
