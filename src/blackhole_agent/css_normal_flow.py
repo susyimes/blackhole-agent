@@ -182,7 +182,14 @@ stay rejected. A float beside those runs shortens each line to the
 float's margin edge, or to the shape-outside chord of that used height,
 and keeps each run's own advance. A word that fits the strut chord but
 not the taller chord moves to the first later gap that holds it. A
-vertical writing mode stays rejected. An
+vertical writing mode stays rejected. A non-replaced inline keeps its
+horizontal margin, border, and padding on the first and last glyph of that
+element. The following word starts after that used chrome, and a space can
+break before the inline when the chrome does not fit. A split inline keeps
+the start chrome on the first fragment and the end chrome on the last.
+Vertical padding does not change the strut. A percentage, a negative
+margin, an empty inline, a mixed font, and a vertical writing mode stay
+rejected. An
 inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
@@ -763,6 +770,7 @@ class _Piece:
     line_height: str
     atom: _Box | None = None
     shifts: tuple[_Shift, ...] = ()
+    extra: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -3123,6 +3131,8 @@ def _set_inline(
         raise _Invalid("inline-block beside blocks is unsupported")
     box.pieces = pieces or []
     box.inline_text = None if pieces is None else "".join(piece.text for piece in pieces)
+    if _glyph_chrome(box) and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
+        raise _Invalid("inline chrome is unsupported")
     if box.inline_text and box.positioned:
         _remember_line_static(box, tree, element, styles, declarations)
 
@@ -3311,8 +3321,9 @@ def _inline_segments(
             and pieces[-1].shifts == layers
         ):
             pieces[-1].text += text
+            pieces[-1].extra.extend([0] * len(text))
             return
-        pieces.append(_Piece(text, size, leading, shifts=layers))
+        pieces.append(_Piece(text, size, leading, shifts=layers, extra=[0] * len(text)))
 
     def walk(node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...]) -> None:
         own = layers_of.get(id(node))
@@ -3354,7 +3365,10 @@ def _inline_segments(
                 add(child.tail or "", size, leading, layers)
                 continue
             _reject_inline_type(tree, child, styles, declarations, parent_fonts)
+            lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
+            start = _piece_length(pieces)
             walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
+            _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
             add(child.tail or "", size, leading, layers)
         add(after, size, leading, layers)
 
@@ -3392,8 +3406,9 @@ def _inline_pieces(
             and pieces[-1].shifts == layers
         ):
             pieces[-1].text += text
+            pieces[-1].extra.extend([0] * len(text))
             return
-        pieces.append(_Piece(text, size, leading, shifts=layers))
+        pieces.append(_Piece(text, size, leading, shifts=layers, extra=[0] * len(text)))
 
     def walk(node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...]) -> bool:
         own = layers_of.get(id(node))
@@ -3427,8 +3442,11 @@ def _inline_pieces(
             if kind == "block":
                 return False
             _reject_inline_type(tree, child, styles, declarations, parent_fonts)
+            lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
+            start = _piece_length(pieces)
             if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
                 return False
+            _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
             add(child.tail or "", size, leading, layers)
         add(after, size, leading, layers)
         return True
@@ -3454,6 +3472,283 @@ def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -
         "hyphens": parent.get("hyphens", "manual"),
         "lang": parent.get("lang", ""),
     }
+
+
+_CHROME_PROPS = frozenset(
+    {
+        "margin",
+        "margin-left",
+        "margin-right",
+        "padding",
+        "padding-left",
+        "padding-right",
+        "border",
+        "border-left",
+        "border-right",
+        "border-width",
+        "border-left-width",
+        "border-right-width",
+        "border-style",
+        "border-left-style",
+        "border-right-style",
+    }
+)
+_BORDER_STYLES = frozenset(
+    {"none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"}
+)
+_BORDER_WIDTHS = {"thin": 1, "medium": 3, "thick": 5}
+
+
+def _piece_length(pieces: list[_Piece]) -> int:
+    return sum(len(piece.text) for piece in pieces)
+
+
+def _glyph_chrome(box: _Box) -> bool:
+    return any(any(piece.extra) for piece in box.pieces if piece.text)
+
+
+def _extra_stream(pieces: list[_Piece], count: int) -> list[int]:
+    extras: list[int] = []
+    for piece in pieces:
+        if not piece.text:
+            continue
+        if len(piece.extra) != len(piece.text):
+            extras.extend([0] * len(piece.text))
+        else:
+            extras.extend(piece.extra)
+    if len(extras) != count:
+        raise _Invalid("inline chrome is invalid")
+    return extras
+
+
+def _remember_inline_chrome(pieces: list[_Piece], start: int, end: int, lead: int, trail: int) -> None:
+    if lead == 0 and trail == 0:
+        return
+    if end <= start:
+        raise _Invalid("empty inline chrome is unsupported")
+    seen = 0
+    first: tuple[_Piece, int] | None = None
+    last: tuple[_Piece, int] | None = None
+    for piece in pieces:
+        for index in range(len(piece.text)):
+            if start <= seen < end:
+                if first is None:
+                    first = (piece, index)
+                last = (piece, index)
+            seen += 1
+    if first is None or last is None:
+        raise _Invalid("empty inline chrome is unsupported")
+    for piece, index, amount in ((first[0], first[1], lead), (last[0], last[1], trail)):
+        if len(piece.extra) != len(piece.text):
+            piece.extra = [0] * len(piece.text)
+        piece.extra[index] += amount
+
+
+def _reject_glyph_chrome(box: _Box) -> None:
+    if not _glyph_chrome(box):
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space != "normal":
+        raise _Invalid("inline chrome is unsupported")
+    if box.letter_spacing or box.word_spacing or _gap_alignment(box):
+        raise _Invalid("inline chrome is unsupported")
+    if box.floats or box.atoms or _mixed_runs(box) or _relative_pieces(box) or box.list_item:
+        raise _Invalid("inline chrome is unsupported")
+    if box.text_indent != "0px" or box.text_wrap_style == "balance" or box.line_clamp is not None:
+        raise _Invalid("inline chrome is unsupported")
+    if box.hanging_punctuation != "none":
+        raise _Invalid("inline chrome is unsupported")
+
+
+def _inline_horizontal_chrome(tree, element, styles, declarations) -> tuple[int, int]:
+    custom = styles.get(element, ({}, ""))[0]
+    winners = _winners(tree, element, declarations)
+    if not any(prop in _CHROME_PROPS for _order, prop, _value in winners):
+        return 0, 0
+    pad = {"left": 0, "right": 0}
+    margin = {"left": 0, "right": 0}
+    width: dict[str, str | None] = {"left": None, "right": None}
+    style = {"left": "none", "right": "none"}
+    for _order, prop, raw in winners:
+        if prop not in _CHROME_PROPS:
+            continue
+        value = _declared([(_order, prop, raw)], prop, custom)
+        if value is None:
+            continue
+        text = " ".join(value.split()).lower()
+        if prop in {"margin", "margin-left", "margin-right"}:
+            _apply_margin(prop, text, margin)
+        elif prop in {"padding", "padding-left", "padding-right"}:
+            _apply_padding(prop, text, pad)
+        elif prop in {"border-left-style", "border-right-style", "border-style"}:
+            _apply_border_style(prop, text, style)
+        elif prop in {"border-left-width", "border-right-width", "border-width"}:
+            _apply_border_width(prop, text, width)
+        elif prop in {"border", "border-left", "border-right"}:
+            _apply_border_shorthand(prop, text, width, style)
+    lead = margin["left"] + pad["left"] + _used_inline_border(width["left"], style["left"])
+    trail = margin["right"] + pad["right"] + _used_inline_border(width["right"], style["right"])
+    return lead, trail
+
+
+def _chrome_keyword(text: str, name: str) -> bool:
+    if text in {"inherit", "revert", "revert-layer"}:
+        raise _Invalid(f"inline {name} is unsupported")
+    return text in {"initial", "unset"}
+
+
+def _quad_parts(parts: list[str], name: str) -> tuple[str, str, str, str]:
+    if len(parts) == 1:
+        return (parts[0], parts[0], parts[0], parts[0])
+    if len(parts) == 2:
+        return (parts[0], parts[1], parts[0], parts[1])
+    if len(parts) == 3:
+        return (parts[0], parts[1], parts[2], parts[1])
+    if len(parts) == 4:
+        return (parts[0], parts[1], parts[2], parts[3])
+    raise _Invalid(f"inline {name} is invalid")
+
+
+def _edge_px(token: str, *, negative: bool, name: str) -> int:
+    text = token.strip().lower()
+    if text in {"0", "0px"}:
+        return 0
+    if text == "auto" and name == "margin":
+        return 0
+    if text.endswith("%") or text.endswith("em") or text.endswith("rem") or "calc(" in text:
+        raise _Invalid(f"inline {name} is unsupported")
+    if not text.endswith("px"):
+        raise _Invalid(f"inline {name} is invalid")
+    try:
+        number = float(text[:-2])
+    except ValueError as exc:
+        raise _Invalid(f"inline {name} is invalid") from exc
+    px = _px(number, name)
+    if px < 0:
+        if negative:
+            raise _Invalid(f"inline {name} is unsupported")
+        raise _Invalid(f"inline {name} is invalid")
+    return px
+
+
+def _apply_margin(prop: str, text: str, margin: dict[str, int]) -> None:
+    if _chrome_keyword(text, "margin"):
+        if prop == "margin":
+            margin["left"] = margin["right"] = 0
+        else:
+            margin["left" if prop == "margin-left" else "right"] = 0
+        return
+    if prop == "margin":
+        left, right = _horizontal_lengths(text, negative=True, name="margin")
+        margin["left"], margin["right"] = left, right
+        return
+    side = "left" if prop == "margin-left" else "right"
+    margin[side] = _edge_px(text, negative=True, name="margin")
+
+
+def _apply_padding(prop: str, text: str, pad: dict[str, int]) -> None:
+    if _chrome_keyword(text, "padding"):
+        if prop == "padding":
+            pad["left"] = pad["right"] = 0
+        else:
+            pad["left" if prop == "padding-left" else "right"] = 0
+        return
+    if prop == "padding":
+        left, right = _horizontal_lengths(text, negative=False, name="padding")
+        pad["left"], pad["right"] = left, right
+        return
+    side = "left" if prop == "padding-left" else "right"
+    pad[side] = _edge_px(text, negative=False, name="padding")
+
+
+def _horizontal_lengths(text: str, *, negative: bool, name: str) -> tuple[int, int]:
+    quad = _quad_parts(text.split(" "), name)
+    _edge_px(quad[0], negative=negative, name=name)
+    _edge_px(quad[2], negative=negative, name=name)
+    return _edge_px(quad[3], negative=negative, name=name), _edge_px(quad[1], negative=negative, name=name)
+
+
+def _apply_border_style(prop: str, text: str, style: dict[str, str]) -> None:
+    if _chrome_keyword(text, "border"):
+        style["left"] = style["right"] = "none"
+        return
+    if prop == "border-style":
+        quad = _quad_parts(text.split(" "), "border")
+        for token in quad:
+            if token not in _BORDER_STYLES:
+                raise _Invalid("inline border is invalid")
+        style["right"] = quad[1]
+        style["left"] = quad[3]
+        return
+    side = "left" if prop == "border-left-style" else "right"
+    if text not in _BORDER_STYLES:
+        raise _Invalid("inline border is invalid")
+    style[side] = text
+
+
+def _width_token(token: str) -> str:
+    text = token.strip().lower()
+    if text in _BORDER_WIDTHS or text in {"0", "0px"}:
+        return text
+    if text.endswith("%") or text.endswith("em") or "calc(" in text:
+        raise _Invalid("inline border is unsupported")
+    if not text.endswith("px"):
+        raise _Invalid("inline border is invalid")
+    _edge_px(text, negative=False, name="border")
+    return text
+
+
+def _apply_border_width(prop: str, text: str, width: dict[str, str | None]) -> None:
+    if _chrome_keyword(text, "border"):
+        width["left"] = width["right"] = None
+        return
+    if prop == "border-width":
+        quad = _quad_parts(text.split(" "), "border")
+        width["right"] = _width_token(quad[1])
+        width["left"] = _width_token(quad[3])
+        _width_token(quad[0])
+        _width_token(quad[2])
+        return
+    side = "left" if prop == "border-left-width" else "right"
+    width[side] = _width_token(text)
+
+
+def _consume_border(text: str) -> tuple[str | None, str | None]:
+    width = None
+    style = None
+    for part in text.split(" "):
+        if style is None and part in _BORDER_STYLES:
+            style = part
+            continue
+        if width is None and (part in _BORDER_WIDTHS or part.endswith("px") or part in {"0", "0px"} or part.endswith("%")):
+            width = _width_token(part)
+            continue
+    return width, style
+
+
+def _apply_border_shorthand(prop: str, text: str, width: dict[str, str | None], style: dict[str, str]) -> None:
+    if _chrome_keyword(text, "border"):
+        width["left"] = width["right"] = None
+        style["left"] = style["right"] = "none"
+        return
+    chosen, border_style = _consume_border(text)
+    sides = ("left", "right") if prop == "border" else (("left",) if prop == "border-left" else ("right",))
+    for side in sides:
+        width[side] = chosen
+        style[side] = border_style or "none"
+
+
+def _used_inline_border(width: str | None, style: str) -> int:
+    if style in {"none", "hidden"}:
+        return 0
+    if width is None or width == "medium":
+        return 3
+    if width == "thin":
+        return 1
+    if width == "thick":
+        return 5
+    if width in {"0", "0px"}:
+        return 0
+    return _edge_px(width, negative=False, name="border")
 
 
 def _flow_kind(tree, element, styles, declarations) -> str:
@@ -5432,7 +5727,11 @@ def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
         styles = _style_stream(box.pieces)
         if len(styles) != len(text):
             raise _Invalid("inline run is invalid")
-        return [_advance_of(ch, styles[index][0]) for index, ch in enumerate(text)]
+        extras = _extra_stream(box.pieces, len(text))
+        return [_advance_of(ch, styles[index][0]) + extras[index] for index, ch in enumerate(text)]
+    if _glyph_chrome(box):
+        extras = _extra_stream(box.pieces, len(text))
+        return [_advance_of(ch, box.font_size) + extras[index] for index, ch in enumerate(text)]
     return {ch: box.font_size * _default_advance(ch) for ch in set(text) | {" "}}
 
 
@@ -7433,6 +7732,7 @@ def _clamp_plain_lines(
 
 
 def _fill_lines(box: _Box) -> None:
+    _reject_glyph_chrome(box)
     _reject_line_clamp(box, box.direction)
     _reject_spacing(box)
     if box.text_indent != "0px" and (box.floats or box.atoms or _mixed_runs(box)):
