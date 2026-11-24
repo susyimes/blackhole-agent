@@ -247,6 +247,12 @@ max-content slot is the collapsed or preserved text, a whitespace-only run
 is omitted, and ``display: contents`` does not split the run. ``order: 0``
 places that run before a later item. A different font on the run, or a
 preserved break inside it, is rejected.
+``display: inline-flex`` is that same row as an atomic inline. A definite
+width flexes the items inside the line, and the words before and after stay
+on that line. An automatic width with ``flex: none`` shrinks to the items'
+text. The whole margin box moves to the next line when it does not fit.
+A column, wrapping, a growing automatic width, a float, and positioned
+content stay rejected.
 A ``display: grid`` container places its element children on explicit column
 tracks. Fixed ``px`` tracks keep that size, and ``fr`` tracks share the
 content box after column gaps are removed. Auto-placement fills rows in
@@ -608,6 +614,7 @@ _DISPLAYS = frozenset(
         "inline",
         "inline-block",
         "flex",
+        "inline-flex",
         "grid",
         "table",
         "table-row",
@@ -1316,6 +1323,28 @@ def _walk(
             positioned.extend(child_positioned)
             if child_positioned and _capture_effect(box):
                 raise _Invalid("contents capture is unsupported")
+            continue
+        if box.display == "inline-flex":
+            if box.position != "static" or box.float_side != "none":
+                raise _Invalid("inline-flex is outside the line")
+            if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+                raise _Invalid("inline-flex writing mode is unsupported")
+            items, _item_floats, _item_flow, _item_positioned = _walk_flex(
+                tree,
+                child,
+                _modes(box),
+                _fonts(box),
+                styles,
+                declarations,
+                ids,
+                counter,
+                box,
+            )
+            box.children = items
+            for item in items:
+                item.parent_box = box
+            host.counter_children.append(box)
+            host.atoms.append(box)
             continue
         host.counter_children.append(box)
         if box.position in {"absolute", "fixed"}:
@@ -3418,7 +3447,7 @@ def _flow_kind(tree, element, styles, declarations) -> str:
         return "inline-block"
     if display == "inline":
         return "inline"
-    if display == "inline-block":
+    if display in {"inline-block", "inline-flex"}:
         return "inline-block"
     return "block"
 
@@ -5625,6 +5654,49 @@ def _lay_atom_floats(box: _Box) -> None:
     _finish_contained_height(box)
 
 
+def _shrink_inline_flex(box: _Box, available: int) -> int:
+    """Max-content width of a nowrap row whose items neither grow nor shrink."""
+
+    spec = box.flex or {}
+    if str(spec.get("direction") or "row") != "row" or str(spec.get("wrap") or "nowrap") != "nowrap":
+        raise _Invalid("inline-flex shrink-to-fit is unsupported")
+    sizes: list[int] = []
+    for item in box.children:
+        flex = item.flex if isinstance(item.flex, dict) else {}
+        grow = flex.get("grow", 0.0)
+        shrink = flex.get("shrink", 1.0)
+        if isinstance(grow, bool) or isinstance(shrink, bool):
+            raise _Invalid("inline-flex shrink-to-fit is unsupported")
+        if not isinstance(grow, (int, float)) or not isinstance(shrink, (int, float)) or grow != 0 or shrink != 0:
+            raise _Invalid("inline-flex shrink-to-fit is unsupported")
+        specified = _main_size(_box_decl(item, "width"), "auto")
+        if isinstance(specified, bool) or not isinstance(specified, (int, float, str)):
+            raise _Invalid("inline-flex shrink-to-fit is unsupported")
+        if isinstance(specified, str):
+            if specified != "auto":
+                raise _Invalid("inline-flex shrink-to-fit is unsupported")
+            sizes.append(
+                _text_main(item.inline_text or "", item.font_size, item.letter_spacing, item.word_spacing)
+            )
+        else:
+            sizes.append(_px(specified, "width"))
+    preferred = _gapped_span(sizes, _px(spec.get("column_gap", 0), "flex gap"))
+    room = available if available > 0 else 0
+    return min(max(preferred, room), preferred)
+
+
+def _finish_inline_flex(
+    box: _Box, padding_top: int, padding_bottom: int, border_top: int, border_bottom: int
+) -> None:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("inline-flex writing mode is unsupported")
+    _place_flex_row(box, 0)
+    if box.definite_height is None:
+        box.definite_height = 0
+    box.content_height = box.definite_height
+    box.border_height = box.content_height + padding_top + padding_bottom + border_top + border_bottom
+
+
 def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     solved = resolve_logical_box(
         fl.declarations,
@@ -5680,9 +5752,12 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
             - padding_left
             - padding_right
         )
-        content_width = (
-            _shrink_inline_block_floats(fl, available) if fl.floats else _shrink_float_width(fl, available)
-        )
+        if fl.display == "inline-flex":
+            content_width = _shrink_inline_flex(fl, available)
+        else:
+            content_width = (
+                _shrink_inline_block_floats(fl, available) if fl.floats else _shrink_float_width(fl, available)
+            )
     else:
         if solved.get("content_width") in {None, "auto"}:
             raise _Invalid("float width is indefinite")
@@ -5696,6 +5771,14 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
     fl.margin_right = margin_right
     fl.border_width = content_width + padding_left + padding_right + border_left + border_right
     fl.local_y = margin_top
+    if fl.display == "inline-flex":
+        _finish_inline_flex(fl, padding_top, padding_bottom, border_top, border_bottom)
+        return {
+            "outer_width": margin_left + fl.border_width + margin_right,
+            "outer_height": margin_top + fl.border_height + margin_bottom,
+            "margin_left": margin_left,
+            "margin_top": margin_top,
+        }
     if fl.floats:
         _lay_atom_floats(fl)
     elif fl.children:
