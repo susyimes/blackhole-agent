@@ -191,8 +191,11 @@ box; otherwise the baseline is its last line. ``vertical-align`` moves that
 margin box: ``top`` and ``bottom`` meet the line edges, ``middle`` centers it
 on the baseline, ``text-top`` and ``text-bottom`` meet the parent content
 edges, and a length or percentage raises the baseline alignment. ``sub`` and
-``super`` are rejected. A block sibling, a float, a nested inline-block, and
-positioned content inside it are rejected.
+``super`` are rejected. A block child is laid out in that atomic box:
+automatic width shrinks to the block, a specified width wraps it, and the
+block's vertical margin stays inside the border. The surrounding words
+align to that block's last line. A float, a nested inline-block, loose text
+beside the block, and positioned content inside it are rejected.
 A ``display: flex`` row lays its element children out on one nowrap line.
 ``flex`` and the flex longhands set each item's used content width from the
 row's content box; an automatic row height is the tallest item, and a
@@ -1419,7 +1422,7 @@ def _walk(
         box.children, box.floats, box.flow, box.positioned = nested
         _set_inline(box, tree, child, styles, declarations, ids, counter)
         if box.display == "inline-block":
-            if box.children or box.floats or box.positioned or box.atoms:
+            if box.floats or box.positioned or box.atoms or not _inline_block_blocks(box, tree, child):
                 raise _Invalid("inline-block content is unsupported")
             host.atoms.append(box)
             continue
@@ -2733,6 +2736,8 @@ def _assign_y(
     for atom in box.atoms:
         atom.x, atom.y = content_x + atom.local_x, content_y + atom.local_y
         _position_lines(atom)
+        if atom.children:
+            _position_float_children(atom)
     for fl in box.floats:
         if not fl.float_placed:
             continue
@@ -3889,6 +3894,22 @@ def _float_block_child(box: _Box) -> bool:
     ):
         return False
     return all(_float_block_child(child) for child in box.children)
+
+
+def _inline_block_blocks(box: _Box, tree, element) -> bool:
+    """Text-only atomic boxes stay as they are. A block child is allowed.
+
+    The child has to be a static horizontal block. Loose text, a float, a
+    nested inline-block, and positioned content stay rejected.
+    """
+
+    if not box.children:
+        return True
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space != "normal":
+        return False
+    if _float_loose_text(tree, element, box.white_space):
+        return False
+    return all(item.display == "block" and _float_block_child(item) for item in box.children)
 
 
 def _iter_float_descendants(box: _Box):
@@ -6482,6 +6503,32 @@ _ZWSP = "\u200b"
 _MARK = 0xE000
 
 
+def _atomic_content_baseline(atom: _Box) -> int | None:
+    """Last in-flow line baseline, measured from the atomic content top."""
+
+    atom_top = _edge_extent(atom.solved, "top")
+    found: int | None = None
+
+    def visit(box: _Box) -> None:
+        nonlocal found
+        if box is not atom and (box.float_side != "none" or box.position in {"absolute", "fixed"}):
+            return
+        if box.lines:
+            if box is atom:
+                origin = 0
+            else:
+                if box.anchor_y is None:
+                    raise _Invalid("inline-block baseline is invalid")
+                origin = box.anchor_y + _edge_extent(box.solved, "top") - atom_top
+            last = box.lines[-1]
+            found = origin + last.y + last.baseline
+        for child in box.children:
+            visit(child)
+
+    visit(atom)
+    return found
+
+
 def _atom_edges(parent: _Box, atom: _Box, row: dict[str, int]) -> tuple[int, int]:
     solved = atom.solved
     margin_top = row["margin_top"]
@@ -6490,10 +6537,11 @@ def _atom_edges(parent: _Box, atom: _Box, row: dict[str, int]) -> tuple[int, int
     border_bottom = _px(solved.get("border_bottom"), "border-bottom")
     padding_top = _px(solved.get("padding_top"), "padding-top")
     padding_bottom = _px(solved.get("padding_bottom"), "padding-bottom")
-    if atom.overflow != "visible" or not atom.lines:
+    if atom.overflow != "visible":
         return row["outer_height"], 0
-    last = atom.lines[-1]
-    content_base = last.y + last.baseline
+    content_base = _atomic_content_baseline(atom)
+    if content_base is None:
+        return row["outer_height"], 0
     above = margin_top + border_top + padding_top + content_base
     below = atom.content_height - content_base + padding_bottom + border_bottom + margin_bottom
     if below < 0:
@@ -6610,13 +6658,19 @@ def _line_extent(
     }
     height = _px(laid.get("line_height"), "line height")
     baseline = _px(laid.get("baseline"), "baseline")
+    text_tops: list[int] = []
+    for index in range(len(groups)):
+        item = placed.get(f"t{index}")
+        if not isinstance(item, dict):
+            raise _Invalid("line box failed")
+        text_tops.append(_px(item.get("top"), "text top"))
     tops: list[int] = []
     for index, _atom in enumerate(atoms_here):
         item = placed.get(f"a{index}")
         if not isinstance(item, dict):
             raise _Invalid("line box failed")
         tops.append(_px(item.get("top"), "atom top"))
-    return height, baseline, tops
+    return height, baseline, tops, text_tops
 
 
 def _fill_inline_blocks(box: _Box) -> None:
@@ -6784,7 +6838,12 @@ def _paint_atom_line(
     flush()
     if cursor != content:
         raise _Invalid("inline-block line is invalid")
-    height, above, tops = _line_extent(box, groups, atoms_here, measured)
+    height, above, tops, text_tops = _line_extent(box, groups, atoms_here, measured)
+    if len(text_tops) != len(runs):
+        raise _Invalid("inline-block line is invalid")
+    for run, text_top in zip(runs, text_tops, strict=True):
+        if text_top:
+            run["y"] = text_top
     offset = _text_offset(box, measure, content, last)
     for (atom, border_x), top in zip(atoms_here, tops, strict=True):
         atom.local_x = left + offset + border_x
