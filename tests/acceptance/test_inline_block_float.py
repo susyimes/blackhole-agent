@@ -7,8 +7,8 @@ next block starts at y 10. A 20px atomic width puts the float at x 10 y 0
 and wraps WW WW under it at y 10 and y 20, with A and C at y 20 and the
 next block at y 30. A 40px width and a 20px-tall float keep both WW words
 at x 30, on y 0 and y 10, with A and C at y 10 and the next block at y 20.
-A nested inline-block, a mixed font, a right float, and text before the
-float stay unplaced.
+A nested inline-block, a mixed font, and a right float stay unplaced.
+Words before the float keep the full-width line above it.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the float exits 0 with passed
@@ -213,7 +213,13 @@ def observe() -> tuple[bool, dict[str, object]]:
         "nested_inline_block_is_rejected": _rejected(nested),
         "mixed_font_is_rejected": _rejected(mixed),
         "right_float_is_rejected": _rejected(right),
-        "text_before_the_float_is_rejected": _rejected(before),
+        "words_before_the_float_keep_the_full_line": (
+            before.get("outcome") == "placed"
+            and _near(_box(before.get("boxes"), "atom"), x=10, y=0, content_width=20, content_height=20)
+            and _near(_box(before.get("boxes"), "fl"), x=10, y=10, content_width=20, content_height=10)
+            and _near(_line(_anon(before.get("boxes")), 0), text="WW", x=10, y=0, height=10, content_width=20)
+            and _near(_box(before.get("boxes"), "next"), y=20)
+        ),
     }
     observed = {
         "fit": {

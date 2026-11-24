@@ -200,9 +200,11 @@ the text and the block, a specified atomic width wraps that text at spaces, and 
 surrounding words align to the last line of the stack. A left float inside
 that atomic box is contained by it: automatic width fits the float and the
 unwrapped words beside it, and a specified width wraps those words beside
-the float and then under it. The surrounding words align to the last of
-those lines. A float after in-flow text, a right float, a nested
-inline-block, a mixed font, and positioned content stay rejected.
+the float and then under it. Words that precede the float keep that full
+width and the float starts under them; only the words after it shorten
+beside the float. The surrounding words align to the last in-flow line.
+A right float, a nested inline-block, a mixed font, and positioned content
+stay rejected.
 A ``display: flex`` row lays its element children out on one nowrap line.
 ``flex`` and the flex longhands set each item's used content width from the
 row's content box; an automatic row height is the tallest item, and a
@@ -3950,7 +3952,12 @@ def _inline_block_child(item: _Box) -> bool:
 
 
 def _inline_block_float_ready(box: _Box) -> bool:
-    """A left float may lead the inline-block. Later floats and real blocks may not."""
+    """Left floats stay one contiguous run, before the text or after one earlier line group.
+
+    Text before that run keeps the full width. Text after it shortens beside
+    the floats. A float that follows the later text, a right float, and a real
+    block stay rejected.
+    """
 
     if not box.floats:
         return True
@@ -3958,12 +3965,14 @@ def _inline_block_float_ready(box: _Box) -> bool:
         return False
     if any(not child.anonymous for child in box.children):
         return False
-    seen_text = False
+    seen_float = False
+    text_after_float = False
     for item in box.flow or box.floats:
         if item.float_side == "none":
-            seen_text = True
+            if seen_float:
+                text_after_float = True
             continue
-        if seen_text or item.float_side != "left":
+        if text_after_float or item.float_side != "left":
             return False
         if (
             item.clear != "none"
@@ -3981,6 +3990,7 @@ def _inline_block_float_ready(box: _Box) -> bool:
             _fixed_float_outer(item)
         except _Invalid:
             return False
+        seen_float = True
     return True
 
 
@@ -5358,26 +5368,35 @@ def _fixed_float_outer(box: _Box) -> int:
 
 
 def _shrink_inline_block_floats(box: _Box, available: int) -> int:
-    """Shrink-to-fit width of an inline-block whose left floats lead its text."""
+    """Shrink-to-fit width when left floats lead the text or follow an earlier line.
 
-    text_min = 0
-    text_max = 0
+    Earlier words take the full width. Later words sit beside the whole float
+    run, so the preferred width is the wider of those two contributions.
+    """
+
+    pre_min = 0
+    pre_max = 0
+    post_min = 0
+    post_max = 0
     float_max = 0
-    leading = 0
-    seen_text = False
+    beside = 0
+    seen_float = False
     for item in box.flow or box.floats:
         if item.float_side != "none":
             outer = _fixed_float_outer(item)
             float_max = max(float_max, outer)
-            if not seen_text:
-                leading += outer
+            beside += outer
+            seen_float = True
             continue
         minimum, maximum = _float_child_span(item, reason="inline-block content is unsupported")
-        text_min = max(text_min, minimum)
-        text_max = max(text_max, maximum)
-        seen_text = True
-    minimum = max(text_min, float_max)
-    maximum = max(text_max + leading, float_max, minimum)
+        if seen_float:
+            post_min = max(post_min, minimum)
+            post_max = max(post_max, maximum)
+        else:
+            pre_min = max(pre_min, minimum)
+            pre_max = max(pre_max, maximum)
+    minimum = max(pre_min, post_min, float_max)
+    maximum = max(pre_max, post_max + beside, float_max, minimum)
     room = available if available > 0 else 0
     return min(max(minimum, room), maximum)
 
