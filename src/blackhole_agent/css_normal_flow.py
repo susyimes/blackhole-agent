@@ -90,8 +90,15 @@ one that wrapped, a Unicode bidi visual order that differs from the source is
 a glyph from that line's left edge. A line that is already visual omits
 glyphs. A uniform line shortened by a float records those glyphs from that
 line's left edge: a Hebrew word beside the float starts after it, and a
-Hebrew word under the float returns to the content start. Justification and
-a relative inline still omit them. ``line-height: normal`` uses the font
+Hebrew word under the float returns to the content start. A direction-rtl
+paragraph keeps that float on the physical left of its own content box, and
+the shortened line packs toward the content's right edge. A short Hebrew
+word therefore stays on that edge instead of starting after the float, and
+the following block still starts under the float. A right float occupies
+the physical right of the same content box, and the line packs against it.
+Justification and a relative inline still omit glyphs. A vertical writing
+mode, and a following sibling whose own direction is rtl, stay rejected.
+``line-height: normal`` uses the font
 size as the strut. ``text-align`` shifts each line inside its line box.
 ``justify`` and ``justify-all`` give the aligner one item per word, so leftover
 inline space is added to the interior gaps instead of sitting after the line.
@@ -507,14 +514,16 @@ does not add those face runs.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
+from xml.etree.ElementTree import Element
 
 from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_anchor_position import place_anchored
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_counters import format_counter, format_counters, resolve_counters
-from blackhole_agent.css_bidi import reorder_css_bidi
+from blackhole_agent.css_bidi import bidi_line_order
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
 from blackhole_agent.css_fixed_table import layout_fixed_columns
@@ -543,6 +552,7 @@ from blackhole_agent.css_line_break import _default_advance, balance_lines, wrap
 from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
+from blackhole_agent.css_text_caret import element_text_offset, uniform_caret_edge
 from blackhole_agent.css_tree_counting import resolve_tree_counting
 from blackhole_agent.css_logical_box import (
     _LOGICAL,
@@ -802,6 +812,7 @@ class _Piece:
     extra: list[int] = field(default_factory=list)
     vertical_align: str | int = "baseline"
     nowrap: bool = False
+    origin: tuple[Element, bool] | None = None  # element.text or child.tail
 
 
 @dataclass
@@ -815,6 +826,7 @@ class _Line:
     baseline: int = 0
     atoms: list[dict[str, object]] = field(default_factory=list)
     glyphs: list[dict[str, object]] = field(default_factory=list)
+    truncated: bool = False
 
 
 @dataclass
@@ -1000,7 +1012,10 @@ def element_from_document(
     A flex, inline-flex, grid, table, table-row, or table-cell box is a
     target. A point in a flex container's unoccupied gap hits that container,
     and a positive z-index still paints above the flex item it covers.
-    ``outcome`` is ``hit``, ``miss``, or ``invalid``.
+    A hit inside uniform horizontal text also has a ``caret``. Its ``line`` is
+    zero-based and its ``offset`` counts UTF-16 code units in the element's
+    original text, before wrapping and whitespace collapse. A box hit in
+    empty space or on text without a source mapping has no caret field.
     """
 
     try:
@@ -1015,15 +1030,54 @@ def element_from_document(
             scroll_y=scroll_y,
             port_scroll=port_scroll,
         )
-        tree = _document_hit_tree(root)
+        tree, boxes = _document_hit_tree(root)
     except (CssSelectorError, _Invalid) as exc:
         return {"outcome": "invalid", "id": None, "reason": str(exc)}
     found = element_from_point(tree, x, y)
-    if not isinstance(found, dict):
-        return {"outcome": "invalid", "id": None, "reason": "hit failed"}
-    if "reason" not in found:
-        return {**found, "reason": None}
+    found.setdefault("reason", None)
+    if found["outcome"] == "hit":
+        box = next(box for box in boxes if box.id == found["id"])
+        caret = _hit_text(box, x, y)
+        if caret is not None:
+            found["caret"] = caret
     return found
+
+
+def _hit_text(box: _Box, x: float, y: float) -> dict[str, int] | None:
+    source = box.inline_text
+    if (
+        not source or box.element is None or box.writing_mode != "horizontal-tb"
+        or box.letter_spacing or box.word_spacing or box.atoms or box.drop_cap
+        or box.hanging_punctuation != "none"
+    ):
+        return None
+    for index, line in enumerate(box.lines):
+        if not (line.y <= y < line.y + line.height and line.x <= x < line.x + line.content_width):
+            continue
+        if line.runs or line.truncated:
+            return None
+        edge = uniform_caret_edge(
+            source, [row.text for row in box.lines[:index + 1]], box.white_space,
+            box.direction, box.font_size, line.content_width, x - line.x,
+        )
+        if edge is not None:
+            offset = _source_offset(box, *edge)
+            if offset is not None:
+                return {"line": index, "offset": offset}
+    return None
+
+
+def _source_offset(box: _Box, character: int, after: bool) -> int | None:
+    for piece in box.pieces:
+        if character < len(piece.text):
+            if piece.origin is None:
+                return None
+            return element_text_offset(box.element, piece.origin, character + int(after))
+        character -= len(piece.text)
+    # Some formatting contexts lay out a leaf directly, without inline pieces.
+    if not box.pieces and box.inline_text == box.element.text:
+        return element_text_offset(box.element, (box.element, False), character + int(after))
+    return None
 
 
 def _placed_root(
@@ -1239,7 +1293,7 @@ def _used_keyword(
     return token
 
 
-def _document_hit_tree(root: _Box) -> dict[str, object]:
+def _document_hit_tree(root: _Box) -> tuple[dict[str, object], list[_Box]]:
     boxes: list[_Box] = []
     seen: set[int] = set()
     listed_by: dict[int, _Box] = {}
@@ -1266,7 +1320,7 @@ def _document_hit_tree(root: _Box) -> dict[str, object]:
         if parent is None:
             continue
         by_parent.setdefault(id(parent), []).append(box)
-    return _hit_node(root, by_parent, "auto", "visible", None, 1.0)
+    return _hit_node(root, by_parent, "auto", "visible", None, 1.0), boxes
 
 
 def _hit_node(
@@ -3190,9 +3244,15 @@ def _set_inline(
     if box.children:
         _wrap_anonymous_blocks(box, tree, element, styles, declarations, ids, counter)
         return
-    pieces = _inline_pieces(
+    segments = _inline_segments(
         tree, element, styles, declarations, _fonts(box), box.atoms, box.relative_layers
     )
+    pieces: list[_Piece] | None = []
+    for kind, run, _ in segments:
+        if kind == "block":
+            pieces = None
+            break
+        pieces = run
     if pieces is None and box.atoms:
         raise _Invalid("inline-block beside blocks is unsupported")
     box.pieces = pieces or []
@@ -3353,7 +3413,7 @@ def _inline_segments(
     atoms: list[_Box],
     layers_of: dict[int, _Shift],
     float_ids: set[int] | None = None,
-) -> list[tuple[str, list[_Piece], list[_Box]]]:
+) -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
     """Split one element's inline stream on its in-flow block children.
 
     A float in ``float_ids`` is its own marker, so the text before that float
@@ -3362,18 +3422,19 @@ def _inline_segments(
 
     floats = float_ids or set()
     stream = iter(atoms)
-    segments: list[tuple[str, list[_Piece], list[_Box]]] = []
     pieces: list[_Piece] = []
     used: list[_Box] = []
+    piece_length = 0
     block_size = _positive_px(fonts["font-size"], "font-size")
     block_leading = fonts["line-height"]
 
-    def flush() -> None:
-        nonlocal pieces, used
+    def flush() -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
+        nonlocal pieces, used, piece_length
         if pieces or used:
-            segments.append(("inline", pieces, used))
+            yield "inline", pieces, used
             pieces = []
             used = []
+            piece_length = 0
 
     def add(
         text: str,
@@ -3382,24 +3443,14 @@ def _inline_segments(
         layers: tuple[_Shift, ...],
         align: str | int,
         nowrap: bool = False,
+        origin: tuple[Element, bool] | None = None,
     ) -> None:
-        nonlocal pieces
+        nonlocal piece_length
         if not text:
             return
         if layers and (size != block_size or leading != block_leading or align != "baseline"):
             raise _Invalid("relative inline font is unsupported")
-        if (
-            pieces
-            and pieces[-1].atom is None
-            and pieces[-1].font_size == size
-            and pieces[-1].line_height == leading
-            and pieces[-1].shifts == layers
-            and pieces[-1].vertical_align == align
-            and pieces[-1].nowrap == nowrap
-        ):
-            pieces[-1].text += text
-            pieces[-1].extra.extend([0] * len(text))
-            return
+        piece_length += len(text)
         pieces.append(
             _Piece(
                 text,
@@ -3409,6 +3460,7 @@ def _inline_segments(
                 extra=[0] * len(text),
                 vertical_align=align,
                 nowrap=nowrap,
+                origin=origin,
             )
         )
 
@@ -3418,40 +3470,33 @@ def _inline_segments(
         inherited: tuple[_Shift, ...],
         align: str | int = "baseline",
         nowrap: bool = False,
-    ) -> None:
+    ) -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
         own = layers_of.get(id(node))
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
         _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap)
-        add(node.text or "", size, leading, layers, align, nowrap)
+        add(node.text or "", size, leading, layers, align, nowrap, (node, False))
         for child in list(node):
             if not _local_name(child):
                 continue
             kind = _flow_kind(tree, child, styles, declarations)
-            if id(child) in floats:
-                flush()
-                segments.append(("float", [], []))
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind == "contents":
+            if id(child) in floats or kind == "block":
+                yield from flush()
+                yield ("float" if id(child) in floats else "block"), [], []
+            elif kind == "contents":
                 held = nowrap or _inline_declares_nowrap(
                     tree, child, styles, declarations, parent_fonts
                 )
-                walk(
+                yield from walk(
                     child,
                     _inline_fonts(tree, child, styles, declarations, parent_fonts),
                     layers,
                     align,
                     held,
                 )
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind == "inline-block":
+            elif kind == "inline-block":
                 if layers:
                     raise _Invalid("relative inline content is unsupported")
                 if align != "baseline":
@@ -3462,152 +3507,24 @@ def _inline_segments(
                     raise _Invalid("inline-block is unsupported") from exc
                 pieces.append(_Piece("", size, leading, atom))
                 used.append(atom)
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind == "block":
-                flush()
-                segments.append(("block", [], []))
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            _reject_inline_type(tree, child, styles, declarations, parent_fonts)
-            held = nowrap or _inline_declares_nowrap(tree, child, styles, declarations, parent_fonts)
-            lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
-            start = _piece_length(pieces)
-            child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
-            child_align = _nest_align(
-                align, _used_text_align(tree, child, styles, declarations, child_fonts)
-            )
-            walk(child, child_fonts, layers, child_align, held)
-            _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
-            add(child.tail or "", size, leading, layers, align, nowrap)
-        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap)
-
-    walk(element, fonts, ())
-    flush()
-    if next(stream, None) is not None:
-        raise _Invalid("inline-block is unsupported")
-    return segments
-
-
-def _inline_pieces(
-    tree,
-    element,
-    styles,
-    declarations,
-    fonts: dict[str, str],
-    atoms: list[_Box],
-    layers_of: dict[int, _Shift],
-) -> list[_Piece] | None:
-    stream = iter(atoms)
-    pieces: list[_Piece] = []
-    block_size = _positive_px(fonts["font-size"], "font-size")
-    block_leading = fonts["line-height"]
-
-    def add(
-        text: str,
-        size: int,
-        leading: str,
-        layers: tuple[_Shift, ...],
-        align: str | int,
-        nowrap: bool = False,
-    ) -> None:
-        if not text:
-            return
-        if layers and (size != block_size or leading != block_leading or align != "baseline"):
-            raise _Invalid("relative inline font is unsupported")
-        if (
-            pieces
-            and pieces[-1].atom is None
-            and pieces[-1].font_size == size
-            and pieces[-1].line_height == leading
-            and pieces[-1].shifts == layers
-            and pieces[-1].vertical_align == align
-            and pieces[-1].nowrap == nowrap
-        ):
-            pieces[-1].text += text
-            pieces[-1].extra.extend([0] * len(text))
-            return
-        pieces.append(
-            _Piece(
-                text,
-                size,
-                leading,
-                shifts=layers,
-                extra=[0] * len(text),
-                vertical_align=align,
-                nowrap=nowrap,
-            )
-        )
-
-    def walk(
-        node,
-        parent_fonts: dict[str, str],
-        inherited: tuple[_Shift, ...],
-        align: str | int = "baseline",
-        nowrap: bool = False,
-    ) -> bool:
-        own = layers_of.get(id(node))
-        layers = inherited + ((own,) if own is not None else ())
-        size = _positive_px(parent_fonts["font-size"], "font-size")
-        leading = parent_fonts["line-height"]
-        before, after = _generated(tree, node)
-        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap)
-        add(node.text or "", size, leading, layers, align, nowrap)
-        for child in list(node):
-            if not _local_name(child):
-                continue
-            kind = _flow_kind(tree, child, styles, declarations)
-            if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind == "contents":
-                held = nowrap or _inline_declares_nowrap(
-                    tree, child, styles, declarations, parent_fonts
+            elif kind not in {"skip", "out"}:
+                _reject_inline_type(tree, child, styles, declarations, parent_fonts)
+                held = nowrap or _inline_declares_nowrap(tree, child, styles, declarations, parent_fonts)
+                lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
+                start = piece_length
+                child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
+                child_align = _nest_align(
+                    align, _used_text_align(tree, child, styles, declarations, child_fonts)
                 )
-                if not walk(
-                    child,
-                    _inline_fonts(tree, child, styles, declarations, parent_fonts),
-                    layers,
-                    align,
-                    held,
-                ):
-                    return False
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind == "inline-block":
-                if layers:
-                    raise _Invalid("relative inline content is unsupported")
-                if align != "baseline":
-                    raise _Invalid("vertical-align beside an inline-block is unsupported")
-                try:
-                    atom = next(stream)
-                except StopIteration as exc:
-                    raise _Invalid("inline-block is unsupported") from exc
-                pieces.append(_Piece("", size, leading, atom))
-                add(child.tail or "", size, leading, layers, align, nowrap)
-                continue
-            if kind == "block":
-                return False
-            _reject_inline_type(tree, child, styles, declarations, parent_fonts)
-            held = nowrap or _inline_declares_nowrap(tree, child, styles, declarations, parent_fonts)
-            lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
-            start = _piece_length(pieces)
-            child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
-            child_align = _nest_align(
-                align, _used_text_align(tree, child, styles, declarations, child_fonts)
-            )
-            if not walk(child, child_fonts, layers, child_align, held):
-                return False
-            _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
-            add(child.tail or "", size, leading, layers, align, nowrap)
+                yield from walk(child, child_fonts, layers, child_align, held)
+                _remember_inline_chrome(pieces, start, piece_length, lead, trail)
+            add(child.tail or "", size, leading, layers, align, nowrap, (child, True))
         _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap)
-        return True
 
-    if not walk(element, fonts, ()):
-        return None
+    yield from walk(element, fonts, ())
     if next(stream, None) is not None:
         raise _Invalid("inline-block is unsupported")
-    return pieces
+    yield from flush()
 
 
 def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -> dict[str, str]:
@@ -3649,10 +3566,6 @@ _BORDER_STYLES = frozenset(
     {"none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"}
 )
 _BORDER_WIDTHS = {"thin": 1, "medium": 3, "thick": 5}
-
-
-def _piece_length(pieces: list[_Piece]) -> int:
-    return sum(len(piece.text) for piece in pieces)
 
 
 def _glyph_chrome(box: _Box) -> bool:
@@ -6473,7 +6386,7 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
 
 
 def _place_floats(box: _Box, content_x: int) -> None:
-    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+    if box.writing_mode != "horizontal-tb" or box.direction not in {"ltr", "rtl"}:
         raise _Invalid("float writing mode is unsupported")
     items: list[dict[str, object]] = []
     solved_rows: list[tuple[_Box, dict[str, int]]] = []
@@ -7028,9 +6941,7 @@ def _fill_lines_beside_floats(
             )
         glyphs: list[dict[str, object]] = []
         if shift_rows is None and not runs:
-            glyphs = _bidi_glyphs(rendered, box.direction, box.font_size)
-            if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
-                glyphs = []
+            glyphs = _bidi_glyphs(rendered, box.direction, box.font_size, content)
         records.append(
             _Line(
                 text=rendered,
@@ -8088,11 +7999,10 @@ def _clamp_plain_lines(
     if content > measure:
         raise _Invalid("line clamp does not fit")
     offset, used, runs = _align_content(box, measure, rendered, content, True, direction)
-    glyphs = _bidi_glyphs(rendered, direction, box.font_size) if place_glyphs and not runs else []
-    if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != used:
-        glyphs = []
+    glyphs = _bidi_glyphs(rendered, direction, box.font_size, used) if place_glyphs and not runs else []
     kept[-1] = _Line(
         text=rendered,
+        truncated=True,
         x=offset,
         y=last.y,
         height=last.height,
@@ -8153,7 +8063,7 @@ def _fill_lines(box: _Box) -> None:
             box.definite_height = max(end, cap_height)
 
 
-def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, object]]:
+def _bidi_glyphs(text: str, direction: str, font_size: int, content: int) -> list[dict[str, object]]:
     """Visual x of one line when UAX #9 order differs from the source text.
 
     ``x`` is the distance from the line's left edge. Characters removed by
@@ -8163,9 +8073,9 @@ def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, ob
 
     if direction not in {"ltr", "rtl"} or not text:
         return []
-    ordered = reorder_css_bidi(text, direction=direction)
-    visual = ordered.get("visual")
-    if ordered.get("outcome") != "reordered" or not isinstance(visual, str) or visual == text:
+    order, _ = bidi_line_order(text, direction)
+    visual = "".join(text[i] for i in order)
+    if visual == text:
         return []
     glyphs: list[dict[str, object]] = []
     cursor = 0
@@ -8173,7 +8083,7 @@ def _bidi_glyphs(text: str, direction: str, font_size: int) -> list[dict[str, ob
         width = _advance_of(ch, font_size)
         glyphs.append({"ch": ch, "x": cursor, "width": width})
         cursor += width
-    return glyphs
+    return glyphs if cursor == content else []
 
 
 def _relative_pieces(box: _Box) -> bool:
@@ -8494,9 +8404,7 @@ def _marked_line_records(
         offset, used, runs = _align_content(box, measure, rendered, content, index == last, direction)
         if on_marker:
             offset += indent
-        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if place_glyphs and not runs else []
-        if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
-            glyphs = []
+        glyphs = _bidi_glyphs(rendered, direction, box.font_size, content) if place_glyphs and not runs else []
         records.append(
             _Line(
                 text=rendered,
@@ -8744,9 +8652,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 line_measure = 0
             origin = text_indent
         offset, used, runs = _align_content(box, line_measure, rendered, content, index == last, direction)
-        glyphs = _bidi_glyphs(rendered, direction, box.font_size) if place_glyphs and not runs else []
-        if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
-            glyphs = []
+        glyphs = _bidi_glyphs(rendered, direction, box.font_size, content) if place_glyphs and not runs else []
         if shifted:
             if runs:
                 raise _Invalid("justified relative inline is unsupported")

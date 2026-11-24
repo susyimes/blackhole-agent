@@ -104,7 +104,7 @@ def reorder_css_bidi(
     except _Invalid as exc:
         return _invalid(exc.reason)
     prepared, mapping, forced = _prepare(text, flow, mode)
-    visual, levels, paragraph_levels = _reorder(prepared, forced)
+    order, levels, paragraph_levels = _reorder(prepared, forced)
     projected = [0] * len(text)
     for index, source in enumerate(mapping):
         if source is not None:
@@ -112,7 +112,7 @@ def reorder_css_bidi(
     fallback = 0 if forced is None else forced
     return {
         "outcome": "reordered",
-        "visual": visual,
+        "visual": "".join(prepared[index] for index in order),
         "levels": projected,
         "paragraph_level": paragraph_levels[0] if paragraph_levels else fallback,
         "paragraph_levels": paragraph_levels,
@@ -150,16 +150,23 @@ def _prepare(text: str, direction: str, unicode_bidi: str) -> tuple[str, list[in
     return "".join(chars), mapping, forced
 
 
-def _reorder(text: str, forced: int | None) -> tuple[str, list[int], list[int]]:
+def bidi_line_order(text: str, direction: str) -> tuple[list[int], list[int]]:
+    """Return visual source indices and logical embedding levels for a laid-out line."""
+    flow = _keyword(direction, _DIRECTIONS, "direction")
+    order, levels, _ = _reorder(text, 1 if flow == "rtl" else 0)
+    return order, levels
+
+
+def _reorder(text: str, forced: int | None) -> tuple[list[int], list[int], list[int]]:
     original = [_class(char) for char in text]
     levels = [0] * len(text)
-    pieces: list[str] = []
+    order: list[int] = []
     paragraph_levels: list[int] = []
     for start, end in _paragraph_spans(original):
         base = forced if forced is not None else _auto_level(original, start, end)
         paragraph_levels.append(base)
-        pieces.append(_paragraph(text, original, levels, start, end, base))
-    return "".join(pieces), levels, paragraph_levels
+        order.extend(_paragraph(text, original, levels, start, end, base))
+    return order, levels, paragraph_levels
 
 
 def _paragraph(
@@ -169,7 +176,7 @@ def _paragraph(
     start: int,
     end: int,
     base: int,
-) -> str:
+) -> list[int]:
     types = original[start:end]
     explicit = [base] * (end - start)
     removed = [False] * (end - start)
@@ -182,8 +189,7 @@ def _paragraph(
     retained = [start + offset for offset, gone in enumerate(removed) if not gone]
     _reset_line_edges(original, levels, retained, base)
     order = _reverse_levels(levels, retained)
-    order = _restore_marks(original, order)
-    return "".join(text[index] for index in order)
+    return _restore_marks(original, order)
 
 
 def _explicit(

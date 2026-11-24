@@ -31,6 +31,7 @@ from __future__ import annotations
 import contextvars
 import math
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from blackhole_agent.css_hyphenate import hyphenation_offsets
@@ -87,6 +88,8 @@ class _Tok:
     letter_spacing: float = 0.0
     word_spacing: float = 0.0
     nowrap: bool = False
+    start: int = 0
+    end: int = 0
 
 
 class _Adv:
@@ -1192,9 +1195,50 @@ def _phase1(
     adv: _Adv,
     ranges: tuple[tuple[int, int], ...] = (),
 ) -> list[_Tok]:
-    if white in _COLLAPSE:
-        return _collapse(text, white, adv, ranges)
-    return _preserve(text, adv, ranges)
+    """Tokenize once with the source span of each visible or collapsed unit."""
+    pieces: list[_Tok] = []
+    collapse = white in _COLLAPSE
+    start = 0
+    while start < len(text):
+        ch = text[start]
+        end = start + 1
+        collapsible = collapse and ch in " \t\n\r"
+        if collapsible:
+            while end < len(text) and text[end] in " \t\n\r":
+                end += 1
+        held = _covers(ranges, start, end)
+        if collapsible:
+            if "\n" in text[start:end]:
+                if white == "pre-line":
+                    pieces.extend(
+                        _Tok("break", "", 0.0, nowrap=held, start=i, end=i + 1)
+                        for i in range(start, end) if text[i] == "\n"
+                    )
+                    start = end
+                    continue
+                if start > 0 and end < len(text) and _unspaced(text[start - 1]) and _unspaced(text[end]):
+                    start = end
+                    continue
+            kind, ch, advance = "space", " ", adv.at(start)
+        elif ch == "\n":
+            kind, ch, advance = "break", "", 0.0
+        elif ch == "\t":
+            kind, advance = "tab", 0.0
+        else:
+            if ch in " \r":
+                kind, ch = "space", " "
+            elif ch == "\u00a0":
+                kind = "nbsp"
+            elif ch == "\u00ad":
+                kind = "shy"
+            elif _other_sep(ch):
+                kind = "sep"
+            else:
+                kind = "glyph"
+            advance = adv.of(ch, start)
+        pieces.append(_Tok(kind, ch, advance, collapsible=collapsible, nowrap=held, start=start, end=end))
+        start = end
+    return pieces
 
 
 def _nowrap_ranges(value: object) -> tuple[tuple[int, int], ...]:
@@ -1231,100 +1275,6 @@ def _covers(ranges: tuple[tuple[int, int], ...], start: int, end: int) -> bool:
     return False
 
 
-def _collapse(
-    text: str,
-    white: str,
-    adv: _Adv,
-    ranges: tuple[tuple[int, int], ...] = (),
-) -> list[_Tok]:
-    pieces: list[_Tok] = []
-    index = 0
-    count = len(text)
-    while index < count:
-        if text[index] in " \t\n\r":
-            end = index
-            newlines = 0
-            while end < count and text[end] in " \t\n\r":
-                if text[end] == "\n":
-                    newlines += 1
-                end += 1
-            advance = adv.at(index)
-            held = _covers(ranges, index, end)
-            if newlines:
-                if white == "pre-line":
-                    pieces.extend(_Tok("break", "", 0.0, nowrap=held) for _ in range(newlines))
-                else:
-                    pieces.append(_Tok("segment", "", advance, collapsible=True, nowrap=held))
-            else:
-                pieces.append(_Tok("space", " ", advance, collapsible=True, nowrap=held))
-            index = end
-            continue
-        pieces.append(_atom(text, index, adv, nowrap=_covers(ranges, index, index + 1)))
-        index += 1
-    return _join_segments(pieces)
-
-
-def _join_segments(pieces: list[_Tok]) -> list[_Tok]:
-    joined: list[_Tok] = []
-    for index, tok in enumerate(pieces):
-        if tok.kind != "segment":
-            joined.append(tok)
-            continue
-        prev = _neighbor(pieces, index, -1)
-        nxt = _neighbor(pieces, index, 1)
-        if prev is not None and nxt is not None and _unspaced(prev.ch) and _unspaced(nxt.ch):
-            continue
-        joined.append(_Tok("space", " ", tok.advance, collapsible=True, nowrap=tok.nowrap))
-    return joined
-
-
-def _neighbor(pieces: list[_Tok], index: int, step: int) -> _Tok | None:
-    cursor = index + step
-    while 0 <= cursor < len(pieces):
-        if pieces[cursor].kind != "segment":
-            return pieces[cursor]
-        cursor += step
-    return None
-
-
-def _preserve(
-    text: str,
-    adv: _Adv,
-    ranges: tuple[tuple[int, int], ...] = (),
-) -> list[_Tok]:
-    pieces: list[_Tok] = []
-    for index, ch in enumerate(text):
-        held = _covers(ranges, index, index + 1)
-        if ch == "\n":
-            pieces.append(_Tok("break", "", 0.0, nowrap=held))
-        elif ch == "\t":
-            pieces.append(_Tok("tab", "\t", 0.0, nowrap=held))
-        elif ch in " \r":
-            pieces.append(
-                _Tok(
-                    "space",
-                    " ",
-                    adv.of(" ", index) if ch == "\r" else adv.of(ch, index),
-                    nowrap=held,
-                )
-            )
-        else:
-            pieces.append(_atom(text, index, adv, nowrap=held))
-    return pieces
-
-
-def _atom(text: str, index: int, adv: _Adv, *, nowrap: bool = False) -> _Tok:
-    ch = text[index]
-    advance = adv.of(ch, index)
-    if ch == "\u00a0":
-        return _Tok("nbsp", ch, advance, nowrap=nowrap)
-    if ch == "\u00ad":
-        return _Tok("shy", ch, advance, nowrap=nowrap)
-    if _other_sep(ch):
-        return _Tok("sep", ch, advance, nowrap=nowrap)
-    return _Tok("glyph", ch, advance, nowrap=nowrap)
-
-
 def _mark_graphemes(tokens: list[_Tok]) -> list[_Tok]:
     previous: _Tok | None = None
     regional = 0
@@ -1350,6 +1300,32 @@ def _mark_graphemes(tokens: list[_Tok]) -> list[_Tok]:
         tok.grapheme_start = start
         previous = tok
     return tokens
+
+
+def source_line_tokens(source: str, white_space: str, rendered_lines: Iterable[str]) -> list[_Tok]:
+    """Recover the last supplied line's source spans, consuming earlier lines in order.
+
+    Only a trimmed separator, forced break, or invisible soft hyphen may be
+    skipped. A synthetic glyph without a source span leaves the line unmapped.
+    """
+    stream = iter(_phase1(source, white_space, _Adv(source, None)))
+    token = next(stream, None)
+    line: list[_Tok] = []
+    for rendered in rendered_lines:
+        line = []
+        for ch in rendered:
+            while token is not None and token.ch != ch:
+                if token.kind == "shy" and ch == "\u2010":
+                    break
+                at_break = not line and (token.kind == "break" or _trimmed_token(token, white_space))
+                if token.kind != "shy" and not at_break:
+                    return []
+                token = next(stream, None)
+            if token is None:
+                return []
+            line.append(token)
+            token = next(stream, None)
+    return _mark_graphemes(line)
 
 
 def _hyphen_letter(token: _Tok) -> bool:

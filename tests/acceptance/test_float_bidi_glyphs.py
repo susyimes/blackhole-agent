@@ -1,197 +1,95 @@
-"""Paint Unicode bidi glyphs on lines a left float shortens.
+"""Paint a Hebrew or mixed line beside and below a physical float."""
 
-In a 200px viewport, a 60px paragraph at 10px places אבגד beside a 20 by 20
-left float: the line is at x 20 y 0 and the glyphs are ד ג ב א at x 20, 30,
-40, and 50. The following block starts at y 20. A 50px paragraph places aa
-at x 20 y 0 with no glyphs and אבגד at x 0 y 20 with those glyphs at x 0, 10,
-20, and 30. The following block starts at y 30. A 70px paragraph places
-``a אב`` beside a 20 by 10 float at x 20 y 0 with a, space, ב, and א at x 20,
-30, 40, and 50. The following block starts at y 10. A justified Hebrew line,
-a relative inline beside the float, and direction rtl stay without those
-glyphs or rejected.
-
-Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
-miss and a hit. A tree that omits the float glyphs exits 0 with passed false.
-"""
-
-from __future__ import annotations
-
+import io
 import json
+import subprocess
+import sys
+import tempfile
+import zipfile
+from pathlib import Path
 
-_BESIDE = '<div id="page"><div id="line"><div id="flo"></div>אבגד</div><div id="next">Z</div></div>'
-_BESIDE_CSS = (
-    "#line, #next { font-size: 10px; line-height: 10px; } "
-    "#line { width: 60px; } #flo { float: left; width: 20px; height: 20px; }"
-)
-_UNDER = '<div id="page"><div id="line"><div id="flo"></div>aa אבגד</div><div id="next">Z</div></div>'
-_UNDER_CSS = (
-    "#line, #next { font-size: 10px; line-height: 10px; } "
-    "#line { width: 50px; } #flo { float: left; width: 20px; height: 20px; }"
-)
-_MIXED = '<div id="page"><div id="line"><div id="flo"></div>a אב</div><div id="next">Z</div></div>'
-_MIXED_CSS = (
-    "#line, #next { font-size: 10px; line-height: 10px; } "
-    "#line { width: 70px; } #flo { float: left; width: 20px; height: 10px; }"
-)
-_JUSTIFY = '<div id="page"><div id="line">aa אבגד bb</div><div id="next">Z</div></div>'
-_JUSTIFY_CSS = (
-    "#line, #next { font-size: 10px; line-height: 10px; } "
-    "#line { width: 110px; text-align: justify; }"
-)
-_RELATIVE = (
-    '<div id="page"><div id="line"><div id="flo"></div>'
-    '<span id="rel">אבגד</span></div><div id="next">Z</div></div>'
-)
-_RELATIVE_CSS = (
-    "#line, #next { font-size: 10px; line-height: 10px; } "
-    "#line { width: 60px; } #flo { float: left; width: 20px; height: 20px; } "
-    "#rel { position: relative; left: 4px; }"
-)
-_RTL = '<div id="page"><div id="line"><div id="flo"></div>אבגד</div><div id="next">Z</div></div>'
-_RTL_CSS = (
-    "#line, #next { font-size: 10px; line-height: 10px; } "
-    "#line { direction: rtl; width: 60px; } #flo { float: left; width: 20px; height: 20px; }"
-)
+from blackhole_agent import html5_document
+from blackhole_agent.css_normal_flow import layout_normal_flow
+
+_PAGE = '<div id="page"><div id="line">{floated}{text}</div><div id="next">Z</div></div>'
+_SIBLING = '<div id="page">{floated}<div id="line">{text}</div><div id="next">Z</div></div>'
 
 
-def _box(boxes: object, ident: str) -> dict[str, object] | None:
-    if not isinstance(boxes, list):
-        return None
-    for item in boxes:
-        if isinstance(item, dict) and item.get("id") == ident:
-            return item
-    return None
+def supply_html_parser():
+    """The controller archives src alone. Restore only the frozen parser dependency."""
+    package = html5_document._package_dir() / "html5lib"
+    if (package / "__init__.py").is_file():
+        return
+    root = Path(html5_document.__file__).resolve().parents[2]
+    if (root / ".git").exists() or not root.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+        raise RuntimeError("missing vendored HTML parser in checkout")
+    checkout = next(p.parent for p in map(Path, sys.path) if (p.parent / ".git").exists())
+    tree = "397395a7d05f3f55ebd5bcb029a66b55bac0306b"
+    archive = subprocess.check_output(["git", "-C", str(checkout), "archive", "--format=zip", tree], timeout=30)
+    with zipfile.ZipFile(io.BytesIO(archive)) as files:
+        files.extractall(package)
 
 
-def _lines(box: dict[str, object] | None) -> list[dict[str, object]] | None:
-    if box is None or not isinstance(box.get("lines"), list):
-        return None
-    lines = box["lines"]
-    if not lines or not all(isinstance(item, dict) for item in lines):
-        return None
-    return lines
-
-
-def _placed(markup: str, stylesheet: str) -> dict[str, object]:
-    from blackhole_agent.css_normal_flow import layout_normal_flow
-
-    placed = layout_normal_flow(markup, stylesheet, viewport_width=200)
-    return placed if isinstance(placed, dict) else {"outcome": "error", "boxes": None}
-
-
-def _observe_case(markup: str, stylesheet: str) -> dict[str, object]:
-    placed = _placed(markup, stylesheet)
-    line = _box(placed.get("boxes"), "line")
-    nxt = _box(placed.get("boxes"), "next")
-    flo = _box(placed.get("boxes"), "flo")
+def _case(text, width, *, float_height=20, side="left", extra="", page=_PAGE):
+    floated = '<div id="flo"></div>' if float_height else ""
+    width_rule = f"width: {width}px;" if width is not None else ""
+    rules = (
+        "#line, #next { font-size: 10px; line-height: 10px; } "
+        f"#line {{ {width_rule} }} #flo {{ float: {side}; width: 20px; height: {float_height}px; }}"
+    )
+    result = layout_normal_flow(page.format(floated=floated, text=text), rules + extra, viewport_width=200)
+    if result["outcome"] != "placed":
+        return result["outcome"]
+    boxes = {box["id"]: box for box in result["boxes"]}
+    rows = boxes.get("line", {}).get("lines", [])
+    fields = {"text", "x", "y", "height", "glyphs"}
+    flo = boxes.get("flo")
     return {
-        "outcome": placed.get("outcome"),
-        "reason": placed.get("reason"),
-        "lines": _lines(line),
-        "next_y": None if nxt is None else nxt.get("y"),
-        "flo": None
-        if flo is None
-        else {"x": flo.get("x"), "y": flo.get("y")},
+        "lines": [{k: v for k, v in row.items() if k in fields} for row in rows],
+        "flo": None if flo is None else [flo.get("x"), flo.get("y")],
+        "next_y": boxes.get("next", {}).get("y"),
     }
 
 
-def _glyphs(row: dict[str, object]) -> object:
-    return row.get("glyphs")
+def _line(text, x, y, visual=None):
+    row = {"text": text, "x": x, "y": y, "height": 10}
+    if visual is not None:
+        row["glyphs"] = [{"ch": ch, "x": x + i * 10, "width": 10} for i, ch in enumerate(visual)]
+    return row
 
 
-def observe() -> tuple[bool, dict[str, object]]:
-    try:
-        beside = _observe_case(_BESIDE, _BESIDE_CSS)
-        under = _observe_case(_UNDER, _UNDER_CSS)
-        mixed = _observe_case(_MIXED, _MIXED_CSS)
-        justified = _observe_case(_JUSTIFY, _JUSTIFY_CSS)
-        relative = _observe_case(_RELATIVE, _RELATIVE_CSS)
-        rtl = _observe_case(_RTL, _RTL_CSS)
-    except Exception as exc:  # noqa: BLE001 - a raised layout is an unmet outcome
-        return False, {"error": f"{type(exc).__name__}: {exc}"}
-
-    beside_lines = beside["lines"] if isinstance(beside["lines"], list) else []
-    under_lines = under["lines"] if isinstance(under["lines"], list) else []
-    mixed_lines = mixed["lines"] if isinstance(mixed["lines"], list) else []
-    justified_lines = justified["lines"] if isinstance(justified["lines"], list) else []
-    relative_lines = relative["lines"] if isinstance(relative["lines"], list) else []
-    under_first = under_lines[0] if under_lines else {}
-    under_second = under_lines[1] if len(under_lines) > 1 else {}
-    beside_line = beside_lines[0] if beside_lines else {}
-    mixed_line = mixed_lines[0] if mixed_lines else {}
-    justified_line = justified_lines[0] if justified_lines else {}
-    relative_line = relative_lines[0] if relative_lines else {}
-    hebrew = [
-        {"ch": "ד", "x": 20, "width": 10},
-        {"ch": "ג", "x": 30, "width": 10},
-        {"ch": "ב", "x": 40, "width": 10},
-        {"ch": "א", "x": 50, "width": 10},
-    ]
-    restored = [
-        {"ch": "ד", "x": 0, "width": 10},
-        {"ch": "ג", "x": 10, "width": 10},
-        {"ch": "ב", "x": 20, "width": 10},
-        {"ch": "א", "x": 30, "width": 10},
-    ]
-    embedded = [
-        {"ch": "a", "x": 20, "width": 10},
-        {"ch": " ", "x": 30, "width": 10},
-        {"ch": "ב", "x": 40, "width": 10},
-        {"ch": "א", "x": 50, "width": 10},
-    ]
-    observed: dict[str, object] = {
-        "beside": beside,
-        "under": under,
-        "mixed": mixed,
-        "justified": justified,
-        "relative": relative,
-        "rtl": rtl,
+def observe():
+    supply_html_parser()
+    rtl = "#line { direction: rtl; }"
+    observed = {
+        "beside": _case("אבגד", 60),
+        "under": _case("aa אבגד", 50),
+        "mixed": _case("a אב", 70, float_height=10),
+        "justified": _case("aa אבגד bb", 110, float_height=0, extra="#line { text-align: justify; }"),
+        "relative": _case('<span id="rel">אבגד</span>', 60, extra="#rel { position: relative; left: 4px; }"),
+        "rtl": _case("אבגד", 60, extra=rtl),
+        "rtl_short": _case("אב", 80, extra=rtl),
+        "rtl_wrap": _case("אב אבגד", 80, float_height=10, extra=rtl),
+        "rtl_right": _case("אבגד", 80, side="right", extra=rtl),
+        "vertical": _case("אב", None, extra=rtl + "#line { writing-mode: vertical-rl; height: 80px; }"),
+        "rtl_sibling": _case("אבגד", 80, extra=rtl, page=_SIBLING),
     }
-    checks = {
-        "beside_line": len(beside_lines) == 1
-        and beside["outcome"] == "placed"
-        and beside_line.get("text") == "אבגד"
-        and beside_line.get("x") == 20
-        and beside_line.get("y") == 0
-        and beside_line.get("height") == 10
-        and _glyphs(beside_line) == hebrew,
-        "beside_float": beside["flo"] == {"x": 0, "y": 0} and beside["next_y"] == 20,
-        "under_latin": len(under_lines) == 2
-        and under["outcome"] == "placed"
-        and under_first.get("text") == "aa"
-        and under_first.get("x") == 20
-        and under_first.get("y") == 0
-        and "glyphs" not in under_first,
-        "under_hebrew": under_second.get("text") == "אבגד"
-        and under_second.get("x") == 0
-        and under_second.get("y") == 20
-        and _glyphs(under_second) == restored
-        and under["next_y"] == 30,
-        "mixed_line": len(mixed_lines) == 1
-        and mixed["outcome"] == "placed"
-        and mixed_line.get("text") == "a אב"
-        and mixed_line.get("x") == 20
-        and mixed_line.get("y") == 0
-        and _glyphs(mixed_line) == embedded
-        and mixed["next_y"] == 10,
-        "justify_omits": justified["outcome"] == "placed"
-        and len(justified_lines) == 1
-        and justified_line.get("text") == "aa אבגד bb"
-        and "glyphs" not in justified_line,
-        "relative_omits": relative["outcome"] == "placed"
-        and len(relative_lines) == 1
-        and relative_line.get("text") == "אבגד"
-        and "glyphs" not in relative_line,
-        "rtl_rejected": rtl["outcome"] == "invalid",
+    expected = {
+        "beside": {"flo": [0, 0], "next_y": 20, "lines": [_line("אבגד", 20, 0, "דגבא")]},
+        "under": {"flo": [0, 0], "next_y": 30, "lines": [_line("aa", 20, 0), _line("אבגד", 0, 20, "דגבא")]},
+        "mixed": {"flo": [0, 0], "next_y": 10, "lines": [_line("a אב", 20, 0, "a בא")]},
+        "justified": {"flo": None, "next_y": 10, "lines": [_line("aa אבגד bb", 0, 0)]},
+        "relative": {"flo": [0, 0], "next_y": 20, "lines": [_line("אבגד", 20, 0)]},
+        "rtl": {"flo": [140, 0], "next_y": 20, "lines": [_line("אבגד", 160, 0, "דגבא")]},
+        "rtl_short": {"flo": [120, 0], "next_y": 20, "lines": [_line("אב", 180, 0, "בא")]},
+        "rtl_wrap": {"flo": [120, 0], "next_y": 20, "lines": [_line("אב", 180, 0, "בא"), _line("אבגד", 160, 10, "דגבא")]},
+        "rtl_right": {"flo": [180, 0], "next_y": 20, "lines": [_line("אבגד", 140, 0, "דגבא")]},
+        "vertical": "invalid",
+        "rtl_sibling": "invalid",
     }
-    observed["checks"] = checks
-    return all(checks.values()), observed
-
-
-def main() -> None:
-    passed, observed = observe()
-    print(json.dumps({"passed": bool(passed), "observed": observed}, ensure_ascii=False))
+    return observed == expected, observed
 
 
 if __name__ == "__main__":
-    main()
+    passed, observed = observe()
+    print(json.dumps({"passed": passed, "observed": observed}))
