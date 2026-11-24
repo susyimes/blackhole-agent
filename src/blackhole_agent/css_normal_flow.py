@@ -217,7 +217,13 @@ Nested lengths add. An inline-block on that line keeps its own alignment:
 a baseline atomic box stays on the strut while those glyphs move, and
 ``top`` still meets the grown line. ``sub``, ``super``, a keyword nested
 inside a shifted inline, preserved white space, and a vertical writing
-mode stay rejected. An
+mode stay rejected. A ``ruby`` element with omitted ``display`` or
+``display: ruby`` is an atomic inline. Its base text stays on the parent
+baseline and one ``rt`` annotation is centered above that base. The ruby
+width is the wider of the two runs, the line grows to cover the annotation,
+and the following block starts under that grown line. A second annotation,
+a float beside the ruby, a vertical writing mode, and a specified ruby size
+are rejected. An
 inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
@@ -965,6 +971,8 @@ class _Box:
     object_position: str = "50% 50%"
     object_box: dict[str, int] | None = None
     list_item: bool = False
+    ruby: bool = False
+    ruby_pair: dict[str, object] | None = None
     list_style_type: str = "disc"
     list_style_position: str = "outside"
     counter_reset: str = ""
@@ -1655,15 +1663,21 @@ def _make_box(
     tag = _local_name(element)
     if _declared(winners, "list-style", custom) is not None:
         raise _Invalid("list-style shorthand is unsupported")
-    display = _keyword(
-        _declared(winners, "display", custom),
-        _FLOW_DISPLAYS,
-        "list-item" if tag == "li" else ("block" if tag in _BLOCK_TAGS else "inline"),
-        "display",
-    )
-    list_item = display == "list-item"
-    if list_item:
-        display = "block"
+    raw_display = _declared(winners, "display", custom)
+    ruby = tag == "ruby" and _ruby_element_display(raw_display)
+    if ruby:
+        display = "inline-block"
+        list_item = False
+    else:
+        display = _keyword(
+            raw_display,
+            _FLOW_DISPLAYS,
+            "list-item" if tag == "li" else ("block" if tag in _BLOCK_TAGS else "inline"),
+            "display",
+        )
+        list_item = display == "list-item"
+        if list_item:
+            display = "block"
     if root and display == "contents":
         display = "block"
         list_item = False
@@ -1849,6 +1863,7 @@ def _make_box(
         boxes = {}
         tree.box_of = boxes
     boxes[id(element)] = box
+    box.ruby = ruby
     return box
 
 
@@ -3286,6 +3301,13 @@ def _set_inline(
     box: _Box, tree, element, styles, declarations, ids: set[str], counter: list[int]
 ) -> None:
     box.counters_closed = True
+    if box.ruby:
+        _bind_ruby(box, tree, element, styles, declarations)
+        pair = box.ruby_pair if isinstance(box.ruby_pair, dict) else {}
+        box.pieces = []
+        box.inline_text = str(pair.get("base") or "")
+        box.nowrap_ranges = ()
+        return
     if box.flex is not None and box.display == "flex":
         return
     if box.display == "inline-block" and _inline_block_anonymous_ready(box) and (box.children or box.floats):
@@ -3906,8 +3928,11 @@ def _flow_kind(tree, element, styles, declarations) -> str:
         return "skip"
     custom = styles.get(element, ({}, ""))[0]
     winners = _winners(tree, element, declarations)
+    raw_display = _declared(winners, "display", custom)
+    if _local_name(element) == "ruby" and _ruby_element_display(raw_display):
+        return "inline-block"
     display = _keyword(
-        _declared(winners, "display", custom),
+        raw_display,
         _FLOW_DISPLAYS,
         "block" if _local_name(element) in _BLOCK_TAGS else "inline",
         "display",
@@ -6440,7 +6465,32 @@ def _measure_float(box: _Box, fl: _Box) -> dict[str, int]:
         )
     width_auto = _specified_auto(solved.get("specified_width"))
     height_auto = _specified_auto(solved.get("specified_height")) or solved.get("content_height") in {None, "auto"}
-    if width_auto:
+    if fl.ruby:
+        if not width_auto or not height_auto:
+            raise _Invalid("ruby size is unsupported")
+        if any(
+            item != 0
+            for item in (
+                margin_left,
+                margin_right,
+                margin_top,
+                margin_bottom,
+                border_left,
+                border_right,
+                border_top,
+                border_bottom,
+                padding_left,
+                padding_right,
+                padding_top,
+                padding_bottom,
+            )
+        ):
+            raise _Invalid("ruby box is unsupported")
+        pair = fl.ruby_pair
+        if not isinstance(pair, dict):
+            raise _Invalid("ruby is unsupported")
+        content_width = int(pair["width"])
+    elif width_auto:
         if _has_explicit_limit(fl, _WIDTH_LIMITS):
             raise _Invalid("float intrinsic limit is unsupported")
         if any(prop == "box-sizing" and value.strip().lower() == "border-box" for prop, value in fl.declarations):
@@ -8174,7 +8224,109 @@ def _clamp_plain_lines(
     return kept
 
 
+def _ruby_element_display(value: str | None) -> bool:
+    """True for a ruby box's own display, not for ``display: inline``."""
+
+    if value is None:
+        return True
+    return value.strip().lower() == "ruby"
+
+
+def _ruby_advance(text: str, size: int) -> int:
+    total = 0
+    for ch in text:
+        total += _advance_of(ch, size)
+    return total
+
+
+def _bind_ruby(box: _Box, tree, element, styles, declarations) -> None:
+    """Record one base run and the single annotation centered above it."""
+
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("ruby writing mode is unsupported")
+    if box.white_space != "normal":
+        raise _Invalid("ruby white-space is unsupported")
+    if box.position != "static" or box.float_side != "none":
+        raise _Invalid("ruby position is unsupported")
+    if box.text_transform != "none" or box.letter_spacing or box.word_spacing:
+        raise _Invalid("ruby spacing is unsupported")
+    base = element.text or ""
+    if not base or any(ch.isspace() for ch in base):
+        raise _Invalid("ruby base is unsupported")
+    nodes = [node for node in tree.children.get(element, []) if _local_name(node)]
+    if len(nodes) != 1 or _local_name(nodes[0]) != "rt":
+        raise _Invalid("ruby annotation is unsupported")
+    annotation = nodes[0]
+    if (annotation.tail or "").strip():
+        raise _Invalid("ruby base is unsupported")
+    if any(_local_name(node) for node in tree.children.get(annotation, [])):
+        raise _Invalid("ruby annotation is unsupported")
+    text = annotation.text or ""
+    if not text or any(ch.isspace() for ch in text):
+        raise _Invalid("ruby annotation is unsupported")
+    fonts = _inline_fonts(tree, annotation, styles, declarations, _fonts(box))
+    if fonts.get("text-transform", "none") != "none":
+        raise _Invalid("ruby spacing is unsupported")
+    anno_size = _positive_px(fonts["font-size"], "font-size")
+    base_size = box.font_size
+    anno_height, anno_baseline = _strut_metrics(anno_size, _used_line_height(fonts["line-height"], anno_size))
+    base_height, base_baseline = _strut_metrics(base_size, _used_line_height(box.line_height, base_size))
+    anno_width = _ruby_advance(text, anno_size)
+    base_width = _ruby_advance(base, base_size)
+    box.ruby_pair = {
+        "base": base,
+        "annotation": text,
+        "width": max(base_width, anno_width),
+        "base_width": base_width,
+        "anno_width": anno_width,
+        "base_height": base_height,
+        "anno_height": anno_height,
+        "base_baseline": base_baseline,
+        "anno_baseline": anno_baseline,
+    }
+
+
+def _paint_ruby_lines(box: _Box) -> None:
+    pair = box.ruby_pair
+    if not isinstance(pair, dict):
+        raise _Invalid("ruby is unsupported")
+    width = int(pair["width"])
+    if box.content_width != width:
+        raise _Invalid("ruby width is unsupported")
+    anno_height = int(pair["anno_height"])
+    base_height = int(pair["base_height"])
+    anno_width = int(pair["anno_width"])
+    base_width = int(pair["base_width"])
+    if anno_width > width or base_width > width:
+        raise _Invalid("ruby width is unsupported")
+    box.lines = [
+        _Line(
+            text=str(pair["annotation"]),
+            x=(width - anno_width) // 2,
+            y=0,
+            height=anno_height,
+            content_width=anno_width,
+            baseline=int(pair["anno_baseline"]),
+        ),
+        _Line(
+            text=str(pair["base"]),
+            x=(width - base_width) // 2,
+            y=anno_height,
+            height=base_height,
+            content_width=base_width,
+            baseline=int(pair["base_baseline"]),
+        ),
+    ]
+    box.definite_height = anno_height + base_height
+    box.content_height = box.definite_height
+
+
 def _fill_lines(box: _Box) -> None:
+    if box.ruby:
+        _paint_ruby_lines(box)
+        return
+    if box.floats and any(atom.ruby for atom in box.atoms):
+        raise _Invalid("ruby beside a float is unsupported")
     _reject_nowrap_context(box)
     _reject_shifted_text(box)
     _reject_glyph_chrome(box)
