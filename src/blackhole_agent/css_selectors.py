@@ -2398,13 +2398,14 @@ def resolve_generated_strings(
 
     ``attr()`` is replaced by that element's attribute before the string is
     returned. A missing attribute is empty. A fallback, a type, or any other
-    function raises ``generated content is unsupported``. Any other property
-    on a pseudo that does generate a box raises ``generated box is
-    unsupported``. Element rules are not read as the pseudo's own declarations.
+    function raises ``generated content is unsupported``. ``font-size`` and
+    ``line-height`` are the only other properties that may sit on a generated
+    box. Any further property raises ``generated box is unsupported``.
+    Element rules are not read as the pseudo's own declarations.
     """
 
-    before = _one_generated(tree, element, declarations, custom, "before", plans=False)
-    after = _one_generated(tree, element, declarations, custom, "after", plans=False)
+    before, _before_font = _one_generated(tree, element, declarations, custom, "before", plans=False)
+    after, _after_font = _one_generated(tree, element, declarations, custom, "after", plans=False)
     return (before if isinstance(before, str) else "", after if isinstance(after, str) else "")
 
 
@@ -2413,18 +2414,46 @@ def resolve_generated_plans(
     element,
     declarations: list[_Decl],
     custom: dict,
-) -> tuple[list, list]:
+) -> tuple[list, list, dict, dict]:
     """``::before`` and ``::after`` content as text and counter parts.
 
     ``counter()`` and ``counters()`` stay in the plan. ``attr()`` is already
     the element's attribute text. A fallback, a type, or any other function
-    raises ``generated content is unsupported``. A property besides ``content``
-    on a pseudo that generates a box raises ``generated box is unsupported``.
+    raises ``generated content is unsupported``. The two font maps hold a
+    declared ``font-size`` or ``line-height`` for that pseudo. Any other
+    property on a pseudo that generates a box raises ``generated box is
+    unsupported``.
     """
 
-    before = _one_generated(tree, element, declarations, custom, "before", plans=True)
-    after = _one_generated(tree, element, declarations, custom, "after", plans=True)
-    return (before if isinstance(before, list) else [], after if isinstance(after, list) else [])
+    before, before_font = _one_generated(tree, element, declarations, custom, "before", plans=True)
+    after, after_font = _one_generated(tree, element, declarations, custom, "after", plans=True)
+    return (
+        before if isinstance(before, list) else [],
+        after if isinstance(after, list) else [],
+        before_font if isinstance(before_font, dict) else {},
+        after_font if isinstance(after_font, dict) else {},
+    )
+
+
+_PSEUDO_FONT_PROPERTIES = frozenset({"font-size", "line-height"})
+
+
+def _pseudo_font(winners: dict[str, str], custom: dict) -> dict[str, str]:
+    """Declared font metrics on a generated box. Any other property is rejected."""
+
+    extra = [name for name in winners if name != "content"]
+    if any(name not in _PSEUDO_FONT_PROPERTIES for name in extra):
+        raise CssSelectorError("generated box is unsupported")
+    fonts: dict[str, str] = {}
+    for name in ("font-size", "line-height"):
+        raw = winners.get(name)
+        if raw is None:
+            continue
+        substituted = _substitute(raw, lambda item: custom.get(item, _INVALID))
+        if substituted is _INVALID or not isinstance(substituted, str):
+            raise CssSelectorError("generated content is unsupported")
+        fonts[name] = " ".join(substituted.split())
+    return fonts
 
 
 def _one_generated(
@@ -2435,10 +2464,10 @@ def _one_generated(
     pseudo: str,
     *,
     plans: bool,
-) -> str | list:
+) -> tuple[str | list, dict]:
     chosen = [decl for decl in declarations if any(_trailing_pseudo(selector) == pseudo for selector in decl.selectors)]
     if not chosen:
-        return [] if plans else ""
+        return ([], {}) if plans else ("", {})
     previous = _PseudoMatch.name
     _PseudoMatch.name = pseudo
     try:
@@ -2447,24 +2476,20 @@ def _one_generated(
         _PseudoMatch.name = previous
     raw = winners.get("content")
     if raw is None:
-        return [] if plans else ""
+        return ([], {}) if plans else ("", {})
     substituted = _substitute(raw, lambda name: custom.get(name, _INVALID))
     if substituted is _INVALID or not isinstance(substituted, str):
         raise CssSelectorError("generated content is unsupported")
     if plans:
         parsed = _generated_content_parts(substituted)
         if parsed is None:
-            return []
+            return [], {}
         parsed = _expand_attr_parts(element, parsed)
-        if any(name != "content" for name in winners):
-            raise CssSelectorError("generated box is unsupported")
-        return parsed
+        return parsed, _pseudo_font(winners, custom)
     text = _generated_content_text(substituted, element)
     if text is None:
-        return ""
-    if any(name != "content" for name in winners):
-        raise CssSelectorError("generated box is unsupported")
-    return text
+        return "", {}
+    return text, _pseudo_font(winners, custom)
 
 
 def _generated_content_parts(value: str) -> list[tuple] | None:

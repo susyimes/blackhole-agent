@@ -465,10 +465,14 @@ element's children. A counter style formats the integer. ``counters()``
 joins every scope of that name, outer scope first, with its separator.
 ``attr()`` copies that element's attribute into the same text. A missing
 attribute is empty, so it adds no glyphs, and a parent's attribute is not
-read. A fallback, a type, or any other function stays rejected. A flex,
-grid, or table box and a flex or grid item stay rejected when the content
-still has a counter. Any other property on a pseudo that generates a box
-stays rejected.
+read. A fallback, a type, or any other function stays rejected. ``font-size``
+and ``line-height`` on ``::before`` and ``::after`` size only those glyphs.
+The element's own text keeps its metrics, and the line grows to the taller
+run without shrinking the strut. A percentage font-size is invalid. A flex,
+grid, or table box, and an absolute box that paints its own text, stay
+rejected when the pseudo carries those properties. Any other property on a
+pseudo that generates a box stays rejected. A flex, grid, or table box and
+a flex or grid item stay rejected when the content still has a counter.
 ``font-family`` names faces collected from ``@font-face``. Each finished
 line records the face that covers its characters. A later family is used
 when an earlier unicode-range misses, ``font-weight`` and ``font-style``
@@ -1038,11 +1042,16 @@ def _placed_root(
         )
     generated: dict[int, tuple[str, str]] = {}
     plans: dict[int, tuple[list, list]] = {}
+    generated_fonts: dict[int, tuple[dict, dict]] = {}
     for element in order:
         try:
-            before, after = resolve_generated_plans(tree, element, declarations, styles[element][0])
+            before, after, before_font, after_font = resolve_generated_plans(
+                tree, element, declarations, styles[element][0]
+            )
         except CssSelectorError as exc:
             raise _Invalid(str(exc)) from exc
+        if before_font or after_font:
+            generated_fonts[id(element)] = (before_font, after_font)
         if _plan_has_counter(before) or _plan_has_counter(after):
             if _flow_kind(tree, element, styles, declarations) == "contents":
                 raise _Invalid("generated counter is unsupported")
@@ -1056,6 +1065,7 @@ def _placed_root(
         generated[id(element)] = pair
     tree.generated = generated
     tree.generated_plans = plans
+    tree.generated_fonts = generated_fonts
     ids: set[str] = set()
     counter = [0]
     root = _make_box(
@@ -3331,7 +3341,8 @@ def _inline_segments(
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
-        add(before + (node.text or ""), size, leading, layers)
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers)
+        add(node.text or "", size, leading, layers)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -3370,7 +3381,7 @@ def _inline_segments(
             walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
             _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
             add(child.tail or "", size, leading, layers)
-        add(after, size, leading, layers)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers)
 
     walk(element, fonts, ())
     flush()
@@ -3416,7 +3427,8 @@ def _inline_pieces(
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
-        add(before + (node.text or ""), size, leading, layers)
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers)
+        add(node.text or "", size, leading, layers)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -3448,7 +3460,7 @@ def _inline_pieces(
                 return False
             _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
             add(child.tail or "", size, leading, layers)
-        add(after, size, leading, layers)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers)
         return True
 
     if not walk(element, fonts, ()):
@@ -4134,6 +4146,66 @@ def _element_has_counter_plan(tree, element) -> bool:
     return isinstance(pair, tuple) and any(_plan_has_counter(side) for side in pair)
 
 
+def _generated_fonts(tree, element) -> tuple[dict, dict]:
+    found = getattr(tree, "generated_fonts", None)
+    if not isinstance(found, dict):
+        return {}, {}
+    pair = found.get(id(element))
+    if not isinstance(pair, tuple) or len(pair) != 2:
+        return {}, {}
+    before, after = pair
+    return (before if isinstance(before, dict) else {}, after if isinstance(after, dict) else {})
+
+
+def _generated_font_declared(tree, element) -> bool:
+    before, after = _generated_fonts(tree, element)
+    return bool(before or after)
+
+
+def _reject_generated_font(tree, element) -> None:
+    if _generated_font_declared(tree, element):
+        raise _Invalid("generated font is unsupported")
+
+
+def _subtree_generated_font(box: _Box) -> bool:
+    element = box.element
+    tree = box.tree
+    fonts = getattr(tree, "generated_fonts", None) if tree is not None else None
+    if element is None or not isinstance(fonts, dict) or not fonts:
+        return False
+    stack = [element]
+    while stack:
+        node = stack.pop()
+        if id(node) in fonts:
+            return True
+        stack.extend(list(node))
+    return False
+
+
+def _sized_generated(text: str, raw: dict, size: int, leading: str) -> tuple[str, int, str]:
+    if not text or not raw:
+        return text, size, leading
+    return (
+        text,
+        _font_size(raw.get("font-size"), f"{size}px"),
+        _line_height(raw.get("line-height"), leading),
+    )
+
+
+def _add_own_generated(add, tree, node, side: str, text: str, size: int, leading: str, layers) -> None:
+    before_font, after_font = _generated_fonts(tree, node)
+    raw = before_font if side == "before" else after_font
+    shown, font, height = _sized_generated(text, raw, size, leading)
+    add(shown, font, height, layers)
+
+
+def _push_generated_text(tree, node, side: str, text: str, size: int, parts: list[str], advances: list[int]) -> None:
+    before_font, after_font = _generated_fonts(tree, node)
+    raw = before_font if side == "before" else after_font
+    shown, font, _height = _sized_generated(text, raw, size, "normal")
+    _push_inline_text(shown, font, parts, advances)
+
+
 def _generated(tree, element) -> tuple[str, str]:
     plans = getattr(tree, "generated_plans", None)
     if isinstance(plans, dict) and id(element) in plans:
@@ -4238,6 +4310,7 @@ def _counter_pseudo(box: _Box, side: str, parts) -> dict[str, object] | None:
 
 
 def _leaf_generated(tree, element) -> str:
+    _reject_generated_font(tree, element)
     before, after = _generated(tree, element)
     return before + (getattr(element, "text", None) or "") + after
 
@@ -5343,7 +5416,8 @@ def _mark_inline_node(
 ) -> bool:
     found = False
     before, after = _generated(tree, node)
-    _push_inline_text(before + (node.text or ""), size, parts, advances)
+    _push_generated_text(tree, node, "before", before, size, parts, advances)
+    _push_inline_text(node.text or "", size, parts, advances)
     for child in list(node):
         if not _local_name(child):
             continue
@@ -5368,7 +5442,7 @@ def _mark_inline_node(
         ):
             found = True
         _push_inline_text(child.tail or "", size, parts, advances)
-    _push_inline_text(after, size, parts, advances)
+    _push_generated_text(tree, node, "after", after, size, parts, advances)
     return found
 
 
@@ -5401,7 +5475,8 @@ def _push_static_contents(
     _require_static_font(fonts, anchor)
     size = _positive_px(fonts["font-size"], "font-size")
     before, after = _generated(tree, node)
-    _push_inline_text(before + (node.text or ""), size, parts, advances)
+    _push_generated_text(tree, node, "before", before, size, parts, advances)
+    _push_inline_text(node.text or "", size, parts, advances)
     for child in list(node):
         if not _local_name(child):
             continue
@@ -5415,7 +5490,7 @@ def _push_static_contents(
             raise _Invalid("static position inside a line is unsupported")
         _push_static_contents(tree, child, styles, declarations, anchor, parts, advances)
         _push_inline_text(child.tail or "", size, parts, advances)
-    _push_inline_text(after, size, parts, advances)
+    _push_generated_text(tree, node, "after", after, size, parts, advances)
 
 
 def _declared_position(tree, element, styles, declarations) -> str:
@@ -5611,6 +5686,8 @@ def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
     if box.children and needs_shrink:
         minimum, maximum = _absolute_content_span(box)
     elif box.inline_text:
+        if _subtree_generated_font(box):
+            raise _Invalid("generated font is unsupported")
         minimum, maximum = _intrinsic_text_sizes(box)
     else:
         minimum, maximum = (0, 0)
@@ -8450,6 +8527,8 @@ def _collect_flex_items(
 ) -> None:
     """Flex items in source order, with text runs held until a real box."""
 
+    if generate:
+        _reject_generated_font(tree, element)
     before, after = _generated(tree, element) if generate else ("", "")
     if before:
         _append_flex_text(pending, before, font, leading, white, host)
