@@ -467,8 +467,10 @@ wraps inside the length, and an unbreakable word overflows it. A length
 height is the content height, so the border box and the parent's automatic
 height keep that length when it differs from the line boxes. A percentage, a
 minimum or maximum size, border-box, an aspect ratio, a margin, a float, and
-a nested child stay rejected. Mixed fonts and justification of the
-orthogonal text stay unsupported.
+a nested child stay rejected. A horizontal child may mix font sizes. Each
+run keeps its own advance, a larger letter grows that line, and a word that
+no longer fits wraps, so the vertical parent's border box follows that used
+size. Justification of a mixed-font orthogonal line stays rejected.
 ``display: contents`` generates no box. The element is replaced by its
 children and text in the parent's formatting context, so its own width,
 padding, border, and margin do not move them. A percentage on a child uses
@@ -2165,9 +2167,10 @@ def _layout_orthogonal_child(child: _Box, block_size: int | None) -> None:
     width is the content width even when the text is shorter or cannot break.
     A specified height is the content height, so the border box does not
     follow the line boxes. An automatic height stays the stacked lines.
+    Mixed font sizes use each run's advance, so a larger letter can grow a line.
     """
 
-    if child.children or child.floats or child.atoms or child.positioned or _mixed_runs(child):
+    if child.children or child.floats or child.atoms or child.positioned:
         raise _Invalid("orthogonal nested block is unsupported")
     if not (child.inline_text or "").strip():
         raise _Invalid("orthogonal nested block is unsupported")
