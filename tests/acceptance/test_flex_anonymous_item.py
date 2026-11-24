@@ -3,7 +3,8 @@
 A word between items takes its own max-content slot. Whitespace-only text
 does not. display:contents joins the surrounding text. order 0 paints a
 following run before a later item. Preserved spaces keep their width. A
-vertical flex container, a preserved break, and a different font stay invalid.
+preserved newline stacks that item. A vertical flex container and a
+different font stay invalid.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit.
@@ -216,6 +217,14 @@ def observe() -> tuple[bool, dict[str, object]]:
         "vertical_reason": vertical.get("reason"),
         "break_outcome": broken.get("outcome"),
         "break_reason": broken.get("reason"),
+        "break_box": _placed(_anons(broken)[0]) if len(_anons(broken)) == 1 else None,
+        "break_lines": [
+            {"text": line.get("text"), "y": line.get("y"), "height": line.get("height")}
+            for line in (_anons(broken)[0].get("lines") or [])
+            if isinstance(line, dict)
+        ]
+        if len(_anons(broken)) == 1
+        else None,
         "font_outcome": font.get("outcome"),
         "font_reason": font.get("reason"),
     }
@@ -270,7 +279,15 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(_box(blank.get("boxes"), "next"), y=0)
         ),
         "vertical_rejected": vertical.get("outcome") == "invalid",
-        "break_rejected": broken.get("outcome") == "invalid",
+        "break_stacks": (
+            broken.get("outcome") == "placed"
+            and observed["break_lines"]
+            == [
+                {"text": "A", "y": 0, "height": 10},
+                {"text": "B", "y": 10, "height": 10},
+            ]
+            and _near(_anons(broken)[0], x=0, y=0, content_width=10, content_height=20)
+        ),
         "font_rejected": font.get("outcome") == "invalid",
     }
     observed["checks"] = checks

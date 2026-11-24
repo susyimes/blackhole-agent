@@ -297,8 +297,13 @@ those line boxes, painted in the used content width. A contiguous text run
 in the container is an anonymous item with the initial flex factors: its
 max-content slot is the collapsed or preserved text, a whitespace-only run
 is omitted, and ``display: contents`` does not split the run. ``order: 0``
-places that run before a later item. A different font on the run, or a
-preserved break inside it, is rejected.
+places that run before a later item. A preserved newline in ``pre``,
+``pre-wrap``, ``break-spaces``, or ``pre-line`` is a forced line break on
+that anonymous item or on a flex item that sets the same white space. The
+max-content width is the longest line, so spaces on a ``pre`` line stay and
+a short second line does not widen the item. The automatic cross size is
+those line boxes, and the following block starts under the stack. A tab and
+a different font on the run stay rejected.
 ``display: inline-flex`` is that same row as an atomic inline. A definite
 width flexes the items inside the line, and the words before and after stay
 on that line. An automatic width with ``flex: none`` shrinks to the items'
@@ -6736,9 +6741,7 @@ def _shrink_inline_flex(box: _Box, available: int) -> int:
         if isinstance(specified, str):
             if specified != "auto":
                 raise _Invalid("inline-flex shrink-to-fit is unsupported")
-            sizes.append(
-                _text_main(item.inline_text or "", item.font_size, item.letter_spacing, item.word_spacing)
-            )
+            sizes.append(_flex_content_inline(item))
         else:
             sizes.append(_px(specified, "width"))
     preferred = _gapped_span(sizes, _px(spec.get("column_gap", 0), "flex gap"))
@@ -9706,21 +9709,63 @@ def _append_flex_text(
     pending.append(text)
 
 
+def _flex_has_preserved_break(item: _Box) -> bool:
+    """True when this flex item's white space keeps a newline as a line break.
+
+    A tab is still refused: the flex max-content path does not own tab stops.
+    """
+
+    text = item.inline_text or ""
+    if item.white_space not in {"pre", "pre-wrap", "break-spaces", "pre-line"}:
+        return False
+    if "\t" in text:
+        raise _Invalid("flex preserved break is unsupported")
+    return "\n" in text or "\r" in text
+
+
+def _flex_content_inline(item: _Box) -> int:
+    """Max-content inline size. A preserved newline uses the longest line."""
+
+    if _flex_has_preserved_break(item):
+        return _intrinsic_text_sizes(item)[1]
+    return _text_main(item.inline_text or "", item.font_size, item.letter_spacing, item.word_spacing)
+
+
+def _flex_preserved_block_size(item: _Box, measure: int) -> int:
+    """Stacked strut height of the forced lines at ``measure``."""
+
+    measured = wrap_lines(
+        item.inline_text or "",
+        measure,
+        white_space=item.white_space,
+        advances=_shrink_advances(item),
+        **_spacing_args(item),
+        **_break_args(item),
+    )
+    lines = measured.get("lines")
+    if measured.get("outcome") != "wrapped" or not isinstance(lines, list):
+        raise _Invalid(str(measured.get("reason") or "flex preserved break is unsupported"))
+    if not lines:
+        return 0
+    return _strut_height(item.font_size, _used_line_height(item.line_height, item.font_size)) * len(lines)
+
+
 def _flex_anonymous_text(raw: str, white_space: str) -> str | None:
     if white_space in {"normal", "nowrap"}:
         collapsed = " ".join(raw.split())
         return collapsed or None
     if white_space == "pre-line":
-        stripped = raw.strip()
-        if not stripped:
+        if not raw.strip():
             return None
-        if "\n" in stripped or "\r" in stripped:
+        if "\t" in raw:
             raise _Invalid("flex preserved break is unsupported")
+        if "\n" in raw or "\r" in raw:
+            return raw
         return " ".join(raw.split())
     if white_space in {"pre", "pre-wrap", "break-spaces"}:
         if not raw.strip():
             return None
-        if any(character in raw for character in "\n\r\t"):
+        if "\t" in raw:
             raise _Invalid("flex preserved break is unsupported")
         return raw
     raise _Invalid("flex white-space is unsupported")
@@ -10361,7 +10406,7 @@ def _commit_flex_item(
     item.solved = dict(_ZERO_FLEX_EDGES)
     if isinstance(item.solved, dict):
         item.solved.update(solved_margins)
-    if not column and item.inline_text:
+    if item.inline_text and (not column or _flex_has_preserved_break(item)):
         item.lines = _plain_lines(item, item.content_width, item.direction)
 
 
@@ -10500,10 +10545,26 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     for item in box.children:
         flex = item.flex or {"grow": 0.0, "shrink": 1.0, "basis": "auto", "align": "auto"}
         text = item.inline_text or ""
-        text_width = _text_main(text, item.font_size, item.letter_spacing, item.word_spacing)
-        text_height = (
-            _strut_height(item.font_size, _used_line_height(item.line_height, item.font_size)) if text else 0
+        preserved = _flex_has_preserved_break(item)
+        text_width = (
+            _intrinsic_text_sizes(item)[1]
+            if preserved
+            else _text_main(text, item.font_size, item.letter_spacing, item.word_spacing)
         )
+        if preserved:
+            specified_width = _main_size(_box_decl(item, "width"), "auto")
+            block_measure = (
+                _px(specified_width, "width")
+                if column
+                and isinstance(specified_width, (int, float))
+                and not isinstance(specified_width, bool)
+                else text_width
+            )
+            text_height = _flex_preserved_block_size(item, block_measure)
+        else:
+            text_height = (
+                _strut_height(item.font_size, _used_line_height(item.line_height, item.font_size)) if text else 0
+            )
         if column:
             content_main = text_height
             specified = _main_size(_box_decl(item, "height"), "auto")
