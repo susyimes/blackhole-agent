@@ -7,8 +7,8 @@ at y 10. A 10px margin-bottom keeps BB at y 0, grows the atomic content to
 and y 10, and paints A and C at y 10. Two blocks with 10px vertical margins
 collapse the gap between them to 10px: AA at y 10, BB at y 30, the
 surrounding words at y 30, and the next block at y 50. A nested
-inline-block, loose text beside the block, and a float inside the atomic
-box stay unplaced.
+inline-block and a float inside the atomic box stay unplaced. Loose text
+beside the block is a separate layout.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the block child exits 0 with
@@ -67,7 +67,6 @@ _NESTED_CSS = """
 #atom { display: inline-block; }
 #inner { display: inline-block; font-size: 10px; line-height: 10px; }
 """
-_LOOSE = '<div id="page"><div id="row"><span id="atom">X<span id="inner">BB</span></span></div></div>'
 _FLOAT = '<div id="page"><div id="row"><span id="atom"><span id="inner">BB</span></span></div></div>'
 _FLOAT_CSS = """
 #page { font-size: 10px; line-height: 10px; }
@@ -134,7 +133,6 @@ def observe() -> tuple[bool, dict[str, object]]:
     wrap = _lay(layout_normal_flow, _WRAP, _WRAP_CSS)
     stack = _lay(layout_normal_flow, _STACK, _STACK_CSS)
     nested = _lay(layout_normal_flow, _NESTED, _NESTED_CSS)
-    loose = _lay(layout_normal_flow, _LOOSE, _FIT_CSS)
     floated = _lay(layout_normal_flow, _FLOAT, _FLOAT_CSS)
 
     fit_row = _box(fit.get("boxes"), "row")
@@ -230,7 +228,6 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(stack_next, y=50)
         ),
         "nested_inline_block_is_rejected": _rejected(nested),
-        "loose_text_is_rejected": _rejected(loose),
         "float_inside_is_rejected": _rejected(floated),
     }
     observed = {
@@ -271,7 +268,6 @@ def observe() -> tuple[bool, dict[str, object]]:
             "next_y": None if stack_next is None else stack_next.get("y"),
         },
         "nested": {"outcome": nested.get("outcome"), "reason": nested.get("reason")},
-        "loose": {"outcome": loose.get("outcome"), "reason": loose.get("reason")},
         "floated": {"outcome": floated.get("outcome"), "reason": floated.get("reason")},
         "checks": checks,
     }

@@ -194,8 +194,12 @@ edges, and a length or percentage raises the baseline alignment. ``sub`` and
 ``super`` are rejected. A block child is laid out in that atomic box:
 automatic width shrinks to the block, a specified width wraps it, and the
 block's vertical margin stays inside the border. The surrounding words
-align to that block's last line. A float, a nested inline-block, loose text
-beside the block, and positioned content inside it are rejected.
+align to that block's last line. Loose text beside that block becomes an
+anonymous block in the same stack: the atomic box shrinks to the wider of
+the text and the block, a specified atomic width wraps that text at spaces, and the
+surrounding words align to the last line of the stack. A float, a nested
+inline-block, a mixed font in that text, and positioned content inside it
+are rejected.
 A ``display: flex`` row lays its element children out on one nowrap line.
 ``flex`` and the flex longhands set each item's used content width from the
 row's content box; an automatic row height is the tallest item, and a
@@ -3027,6 +3031,9 @@ def _set_inline(
     box.counters_closed = True
     if box.flex is not None and box.display == "flex":
         return
+    if box.display == "inline-block" and box.children and _inline_block_anonymous_ready(box):
+        _wrap_anonymous_blocks(box, tree, element, styles, declarations, ids, counter)
+        return
     if box.children and not _anonymous_split_allowed(box):
         if box.atoms:
             raise _Invalid("inline-block beside blocks is unsupported")
@@ -3896,20 +3903,59 @@ def _float_block_child(box: _Box) -> bool:
     return all(_float_block_child(child) for child in box.children)
 
 
+def _inline_block_anonymous_ready(box: _Box) -> bool:
+    """A static horizontal inline-block can wrap loose text into anonymous blocks."""
+
+    return (
+        box.position == "static"
+        and box.float_side == "none"
+        and not box.positioned
+        and box.writing_mode == "horizontal-tb"
+        and box.direction == "ltr"
+        and box.white_space == "normal"
+        and box.multicol is None
+        and box.flex is None
+        and box.grid is None
+        and box.table is None
+    )
+
+
+def _inline_block_child(item: _Box) -> bool:
+    """A real block, or the anonymous block that holds the loose text beside it."""
+
+    if item.anonymous:
+        if item.display != "block" or item.position != "static" or item.float_side != "none":
+            return False
+        if item.children or item.floats or item.positioned or item.atoms:
+            return False
+        if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
+            return False
+        if not item.inline_text or not item.inline_text.strip():
+            return False
+        return all(
+            piece.atom is None and not piece.shifts and piece.font_size == item.font_size
+            for piece in item.pieces
+        )
+    return item.display == "block" and _float_block_child(item)
+
+
 def _inline_block_blocks(box: _Box, tree, element) -> bool:
     """Text-only atomic boxes stay as they are. A block child is allowed.
 
-    The child has to be a static horizontal block. Loose text, a float, a
-    nested inline-block, and positioned content stay rejected.
+    Loose text beside that child must already be an anonymous block. A float,
+    a nested inline-block, a mixed font, and positioned content stay rejected.
     """
 
     if not box.children:
         return True
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space != "normal":
         return False
-    if _float_loose_text(tree, element, box.white_space):
+    if any(not _inline_block_child(item) for item in box.children):
         return False
-    return all(item.display == "block" and _float_block_child(item) for item in box.children)
+    loose = _float_loose_text(tree, element, box.white_space)
+    if loose and not any(item.anonymous for item in box.children):
+        return False
+    return True
 
 
 def _iter_float_descendants(box: _Box):
