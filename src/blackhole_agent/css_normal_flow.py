@@ -575,6 +575,18 @@ line-through one third of an em above it, and overline at the top of the
 em. The line box does not grow to cover the ink. A vertical writing mode,
 a non-ltr direction, a float, justification, spacing, a list marker, and a
 shifted vertical-align stay rejected.
+``scrollbar-gutter`` is not inherited. A horizontal left-to-right scroll
+container reserves this engine's 15px classic scrollbar on the inline-end
+edge, between the border and the padding. The border box keeps its allotted
+size and the content box narrows, so a percentage child and the line measure
+use the remainder. ``stable`` reserves that gutter for ``hidden``, ``scroll``,
+and ``auto`` even when the content fits. ``stable both-edges`` also reserves
+the inline-start edge and shifts the content by 15px. ``auto`` reserves it
+for ``scroll``, and for ``auto`` only after the first layout shows block
+overflow. Overlay scrollbars reserve nothing. ``visible`` and ``clip`` reserve
+nothing. A vertical writing mode or a non-ltr direction keeps the full content
+box. A gutter wider than the content box is rejected. ``both-edges`` without
+``stable`` is invalid.
 """
 
 from __future__ import annotations
@@ -600,6 +612,11 @@ from blackhole_agent.css_flex_line import resolve_flex_line
 from blackhole_agent.css_flex_wrap import wrap_flex_lines
 from blackhole_agent.css_float_lines import seek_shaped_gap, shaped_gap_at
 from blackhole_agent.css_float_placement import place_floats
+from blackhole_agent.css_scrollbar_gutter import (
+    ScrollbarGutterError,
+    parse_scrollbar_gutter,
+    reserve_scrollbar_gutter,
+)
 from blackhole_agent.css_shape_outside import ShapeError, prepare_shape
 from blackhole_agent.css_sticky import sticky_offset
 from blackhole_agent.css_subgrid import place_subgrid_items
@@ -1029,6 +1046,12 @@ class _Box:
     marker_width: int = 0
     marker: dict[str, object] | None = None
     capture: dict[str, str] = field(default_factory=dict)
+    scrollbar_gutter: str = "auto"
+    scrollbars: str = "classic"
+    gutter_start: int = 0
+    gutter_end: int = 0
+    gutter_pending: bool = False
+    allotted_content_width: int | None = None
 
 
 def layout_normal_flow(
@@ -1040,6 +1063,7 @@ def layout_normal_flow(
     scroll_x: int = 0,
     scroll_y: int = 0,
     port_scroll: dict[str, tuple[int, int]] | None = None,
+    scrollbars: str = "classic",
 ) -> dict[str, object]:
     """Return viewport border boxes for the document's normal-flow blocks.
 
@@ -1051,7 +1075,9 @@ def layout_normal_flow(
     ``(x, y)`` offsets. A horizontal left-to-right ``hidden``, ``auto``, or
     ``scroll`` port then shifts only the sticky boxes it contains; in-flow
     siblings stay at their static positions. Omitted ports stay at scroll
-    zero. ``x`` and ``y`` are the border edges measured
+    zero. ``scrollbars`` is ``classic`` or ``overlay``. Classic scrollbars
+    reserve a 15px gutter under ``scrollbar-gutter``; overlay scrollbars do
+    not. ``x`` and ``y`` are the border edges measured
     from the unscrolled viewport origin. Lengths are ``px`` or percentages. A
     unitless zero is rejected. ``sibling-index()`` and ``sibling-count()``
     inside a box length use the element's DOM siblings before that length is
@@ -1070,6 +1096,7 @@ def layout_normal_flow(
             scroll_x=scroll_x,
             scroll_y=scroll_y,
             port_scroll=port_scroll,
+            scrollbars=scrollbars,
         )
     except (CssSelectorError, _Invalid) as exc:
         return _invalid(str(exc))
@@ -1087,6 +1114,7 @@ def element_from_document(
     scroll_x: int = 0,
     scroll_y: int = 0,
     port_scroll: dict[str, tuple[int, int]] | None = None,
+    scrollbars: str = "classic",
 ) -> dict[str, object]:
     """Return the frontmost element whose border box contains ``(x, y)``.
 
@@ -1115,6 +1143,7 @@ def element_from_document(
             scroll_x=scroll_x,
             scroll_y=scroll_y,
             port_scroll=port_scroll,
+            scrollbars=scrollbars,
         )
         tree, boxes = _document_hit_tree(root)
     except (CssSelectorError, _Invalid) as exc:
@@ -1175,6 +1204,7 @@ def _placed_root(
     scroll_x: int,
     scroll_y: int,
     port_scroll: object = None,
+    scrollbars: str = "classic",
 ) -> _Box:
     if not isinstance(markup, str) or not isinstance(stylesheet, str):
         raise _Invalid("markup is invalid")
@@ -1187,6 +1217,9 @@ def _placed_root(
     if type(scroll_y) is not int:
         raise _Invalid("scroll y is invalid")
     tree, order = _document(markup)
+    if scrollbars not in {"classic", "overlay"}:
+        raise _Invalid("scrollbar style is invalid")
+    tree.scrollbars = scrollbars
     if not order:
         raise _Invalid("document is empty")
     container_rules: list[tuple[str, object]] = []
@@ -1910,6 +1943,12 @@ def _make_box(
         tree.box_of = boxes
     boxes[id(element)] = box
     box.ruby = ruby
+    try:
+        box.scrollbar_gutter = parse_scrollbar_gutter(_declared(winners, "scrollbar-gutter", custom))
+    except ScrollbarGutterError as exc:
+        raise _Invalid(exc.reason) from exc
+    style = getattr(tree, "scrollbars", "classic")
+    box.scrollbars = style if style in {"classic", "overlay"} else "classic"
     return box
 
 
@@ -2781,11 +2820,115 @@ def _reject_column_margin(child: _Box) -> None:
             raise _Invalid("column margin is unsupported")
 
 
+def _apply_scrollbar_gutter(box: _Box, *, overflowing: bool | None) -> None:
+    if box.allotted_content_width is None:
+        box.allotted_content_width = box.content_width
+    allotted = box.allotted_content_width
+    try:
+        reserved = reserve_scrollbar_gutter(
+            overflow=box.overflow,
+            gutter=box.scrollbar_gutter,
+            display=box.display,
+            overflowing=overflowing,
+            scrollbars=box.scrollbars,
+            writing_mode=box.writing_mode,
+            direction=box.direction,
+        )
+    except ScrollbarGutterError as exc:
+        raise _Invalid(exc.reason) from exc
+    start = int(reserved["start"])
+    end = int(reserved["end"])
+    if start + end > allotted:
+        raise _Invalid("scrollbar gutter exceeds the content box")
+    box.gutter_start = start
+    box.gutter_end = end
+    box.gutter_pending = bool(reserved["pending"])
+    box.content_width = allotted - start - end
+
+
+def _child_border_block(child: _Box) -> int:
+    content = child.definite_height
+    if content is None:
+        content = sum(line.height for line in child.lines)
+    chrome = _edge_extent(child.solved, "top", "bottom") if child.solved else 0
+    return content + chrome
+
+
+def _block_overflows(box: _Box) -> bool:
+    limit = box.definite_height
+    if box.max_content_height is not None:
+        limit = box.max_content_height if limit is None else min(limit, box.max_content_height)
+    if limit is None:
+        return False
+    if not box.children:
+        return sum(line.height for line in box.lines) > limit
+    used = 0
+    pending = 0
+    for child in box.children:
+        top = _px(child.solved.get("margin_top"), "margin-top") if child.solved else 0
+        bottom = _px(child.solved.get("margin_bottom"), "margin-bottom") if child.solved else 0
+        pending = max(pending, top)
+        used += pending + _child_border_block(child)
+        pending = bottom
+    return used + pending > limit
+
+
+def _lay_block_contents(
+    box: _Box,
+    content_x: int,
+    viewport_height: int | None,
+    scrollport_height: int | None,
+) -> None:
+    if box.line_clamp is not None and (box.display in {"flex", "grid", "table"} or box.multicol is not None):
+        raise _Invalid("clamped formatting context is unsupported")
+    if box.display == "grid":
+        _place_grid(box, content_x, viewport_height)
+        return
+    if box.display == "flex":
+        _place_flex_row(box, content_x)
+        return
+    if box.display == "table":
+        _place_table(box, content_x)
+        return
+    if box.multicol is not None and box.display == "block":
+        if box.direction != "ltr":
+            raise _Invalid("column writing mode is unsupported")
+        _place_multicol(box, content_x, viewport_height)
+        return
+    if box.floats and not box.children:
+        _place_floats(box, content_x)
+    if not box.children and (box.inline_text or box.floats or box.atoms):
+        _fill_lines(box)
+    elif (
+        box.list_item
+        and box.marker_text
+        and not box.children
+        and not box.inline_text
+        and not box.floats
+        and not box.atoms
+        and box.definite_height is None
+    ):
+        box.definite_height = _used_line_height(box.line_height, box.font_size)
+    # Only a definite containing block, scrollport or the viewport constrains
+    # an orthogonal descendant. Ordinary fixed-height ancestors do not.
+    if box.overflow in {"hidden", "scroll", "auto"}:
+        scrollport_height = box.definite_height
+    for child in box.children:
+        _solve(child, box.content_width, box.definite_height, viewport_height, content_x, scrollport_height)
+    if box.floats and box.children:
+        _lay_sibling_floats(box, content_x)
+    _attach_list_marker(box)
+
+
 def _solve(
     box: _Box, parent_width: int, parent_height: int | None, viewport_height: int | None,
     parent_content_x: int, scrollport_height: int | None = None,
 ) -> None:
     box.containing_inline = parent_width
+    box.allotted_content_width = None
+    box.gutter_start = 0
+    box.gutter_end = 0
+    box.gutter_pending = False
     flow = _writing_flow(box)
     horizontal = flow["horizontal"] is True
     if box.initial_letter:
@@ -2850,46 +2993,13 @@ def _solve(
             raise _Invalid("column writing mode is unsupported")
         return
     _retarget_query_descendants(box)
-    content_x = box.x + _edge_extent(solved, "left")
-    if box.line_clamp is not None and (box.display in {"flex", "grid", "table"} or box.multicol is not None):
-        raise _Invalid("clamped formatting context is unsupported")
-    if box.display == "grid":
-        _place_grid(box, content_x, viewport_height)
-        return
-    if box.display == "flex":
-        _place_flex_row(box, content_x)
-        return
-    if box.display == "table":
-        _place_table(box, content_x)
-        return
-    if box.multicol is not None and box.display == "block":
-        if box.direction != "ltr":
-            raise _Invalid("column writing mode is unsupported")
-        _place_multicol(box, content_x, viewport_height)
-        return
-    if box.floats and not box.children:
-        _place_floats(box, content_x)
-    if not box.children and (box.inline_text or box.floats or box.atoms):
-        _fill_lines(box)
-    elif (
-        box.list_item
-        and box.marker_text
-        and not box.children
-        and not box.inline_text
-        and not box.floats
-        and not box.atoms
-        and box.definite_height is None
-    ):
-        box.definite_height = _used_line_height(box.line_height, box.font_size)
-    # Only a definite containing block, scrollport or the viewport constrains
-    # an orthogonal descendant. Ordinary fixed-height ancestors do not.
-    if box.overflow in {"hidden", "scroll", "auto"}:
-        scrollport_height = box.definite_height
-    for child in box.children:
-        _solve(child, box.content_width, box.definite_height, viewport_height, content_x, scrollport_height)
-    if box.floats and box.children:
-        _lay_sibling_floats(box, content_x)
-    _attach_list_marker(box)
+    _apply_scrollbar_gutter(box, overflowing=None)
+    for _ in range(2):
+        content_x = box.x + _edge_extent(solved, "left") + box.gutter_start
+        _lay_block_contents(box, content_x, viewport_height, scrollport_height)
+        if not box.gutter_pending or not _block_overflows(box):
+            break
+        _apply_scrollbar_gutter(box, overflowing=True)
 
 
 def _block_properties(horizontal: bool) -> set[str]:
@@ -3037,7 +3147,9 @@ def _assign_y(
             raise _Invalid("placed box is missing")
         box.y = border_at + box.anchor_y
         box.flow_y = box.y
-    box.border_width = box.content_width + _edge_extent(box.solved, "left", "right")
+    box.border_width = (
+        box.content_width + box.gutter_start + box.gutter_end + _edge_extent(box.solved, "left", "right")
+    )
     if box.content_height < 0:
         raise _Invalid("content height is invalid")
     content_x, content_y = _position_lines(box)
@@ -3069,7 +3181,7 @@ def _place_inline_atom(atom: _Box, content_x: int, content_y: int) -> None:
 
 
 def _position_lines(box: _Box) -> tuple[int, int]:
-    x = box.x + _edge_extent(box.solved, "left")
+    x = box.x + _edge_extent(box.solved, "left") + box.gutter_start
     y = box.y + _edge_extent(box.solved, "top")
     for line in box.lines:
         line.x += x
@@ -5813,7 +5925,9 @@ def _paint_anchored(box: _Box, border_at: int) -> None:
         raise _Invalid("placed box is missing")
     box.y = border_at + box.anchor_y
     box.flow_y = box.y
-    box.border_width = box.content_width + _edge_extent(box.solved, "left", "right")
+    box.border_width = (
+        box.content_width + box.gutter_start + box.gutter_end + _edge_extent(box.solved, "left", "right")
+    )
     if box.content_height < 0:
         raise _Invalid("content height is invalid")
     _position_lines(box)
