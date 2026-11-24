@@ -86,6 +86,7 @@ class _Tok:
     grapheme_start: bool = True
     letter_spacing: float = 0.0
     word_spacing: float = 0.0
+    nowrap: bool = False
 
 
 class _Adv:
@@ -149,6 +150,7 @@ def wrap_lines(
     letter_spacing: object = 0,
     word_spacing: object = 0,
     hanging_punctuation: object = "none",
+    nowrap_ranges: object = (),
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -178,11 +180,12 @@ def wrap_lines(
         letter = _finite(letter_spacing, "letter_spacing")
         spacing = _finite(word_spacing, "word_spacing")
         hanging = _hanging_modes(hanging_punctuation)
+        held = _nowrap_ranges(nowrap_ranges)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
         adv = _Adv(source, advances)
-        tokens = _mark_graphemes(_phase1(source, white, adv))
+        tokens = _mark_graphemes(_phase1(source, white, adv, held))
         _stamp_spacing(tokens, letter, spacing)
     except _Invalid as exc:
         return _invalid(exc.reason)
@@ -257,6 +260,7 @@ def balance_lines(
     letter_spacing: object = 0,
     word_spacing: object = 0,
     hanging_punctuation: object = "none",
+    nowrap_ranges: object = (),
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -279,11 +283,12 @@ def balance_lines(
         letter = _finite(letter_spacing, "letter_spacing")
         spacing = _finite(word_spacing, "word_spacing")
         hanging = _hanging_modes(hanging_punctuation)
+        held = _nowrap_ranges(nowrap_ranges)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
         adv = _Adv(source, advances)
-        tokens = _mark_graphemes(_phase1(source, white, adv))
+        tokens = _mark_graphemes(_phase1(source, white, adv, held))
         _stamp_spacing(tokens, letter, spacing)
     except _Invalid as exc:
         return _invalid(exc.reason)
@@ -825,6 +830,8 @@ def _emergency_end(
         end += 1
         while end < count and not tokens[end].grapheme_start:
             end += 1
+        if end < count and tokens[end - 1].nowrap and tokens[end].nowrap:
+            continue
         if end < count and tokens[end].kind in {"space", "tab", "sep"} and white != "break-spaces":
             continue
         _text_value, content, _full = _measure(
@@ -846,7 +853,9 @@ def _emergency_end(
     if best is not None:
         return best
     end = start + 1
-    while end < count and not tokens[end].grapheme_start:
+    while end < count and (
+        not tokens[end].grapheme_start or (tokens[end - 1].nowrap and tokens[end].nowrap)
+    ):
         end += 1
     return end
 
@@ -1110,6 +1119,8 @@ def _opportunities(
             continue
         prev = tokens[index - 1]
         cur = tokens[index]
+        if prev.nowrap and cur.nowrap:
+            continue
         if strictness == "anywhere" and _anywhere_boundary(cur, white):
             before[index] = True
         if _after_white_space(prev, cur, white):
@@ -1175,13 +1186,57 @@ def _cj_blocked(cur: _Tok, strictness: str) -> bool:
     return cur.ch in _CJ and strictness != "loose"
 
 
-def _phase1(text: str, white: str, adv: _Adv) -> list[_Tok]:
+def _phase1(
+    text: str,
+    white: str,
+    adv: _Adv,
+    ranges: tuple[tuple[int, int], ...] = (),
+) -> list[_Tok]:
     if white in _COLLAPSE:
-        return _collapse(text, white, adv)
-    return _preserve(text, adv)
+        return _collapse(text, white, adv, ranges)
+    return _preserve(text, adv, ranges)
 
 
-def _collapse(text: str, white: str, adv: _Adv) -> list[_Tok]:
+def _nowrap_ranges(value: object) -> tuple[tuple[int, int], ...]:
+    """Half-open source spans whose internal soft wraps are suppressed."""
+
+    if value in (None, (), []):
+        return ()
+    if not isinstance(value, (list, tuple)):
+        raise _Invalid("nowrap ranges are unsupported")
+    ranges: list[tuple[int, int]] = []
+    last = 0
+    for item in value:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise _Invalid("nowrap ranges are unsupported")
+        start, end = item
+        if isinstance(start, bool) or isinstance(end, bool):
+            raise _Invalid("nowrap ranges are unsupported")
+        if not isinstance(start, int) or not isinstance(end, int) or start < last or end < start:
+            raise _Invalid("nowrap ranges are unsupported")
+        if end > start:
+            ranges.append((start, end))
+            last = end
+    return tuple(ranges)
+
+
+def _covers(ranges: tuple[tuple[int, int], ...], start: int, end: int) -> bool:
+    if not ranges or end <= start:
+        return False
+    for low, high in ranges:
+        if low <= start and end <= high:
+            return True
+        if low >= end:
+            break
+    return False
+
+
+def _collapse(
+    text: str,
+    white: str,
+    adv: _Adv,
+    ranges: tuple[tuple[int, int], ...] = (),
+) -> list[_Tok]:
     pieces: list[_Tok] = []
     index = 0
     count = len(text)
@@ -1194,16 +1249,17 @@ def _collapse(text: str, white: str, adv: _Adv) -> list[_Tok]:
                     newlines += 1
                 end += 1
             advance = adv.at(index)
+            held = _covers(ranges, index, end)
             if newlines:
                 if white == "pre-line":
-                    pieces.extend(_Tok("break", "", 0.0) for _ in range(newlines))
+                    pieces.extend(_Tok("break", "", 0.0, nowrap=held) for _ in range(newlines))
                 else:
-                    pieces.append(_Tok("segment", "", advance, collapsible=True))
+                    pieces.append(_Tok("segment", "", advance, collapsible=True, nowrap=held))
             else:
-                pieces.append(_Tok("space", " ", advance, collapsible=True))
+                pieces.append(_Tok("space", " ", advance, collapsible=True, nowrap=held))
             index = end
             continue
-        pieces.append(_atom(text, index, adv))
+        pieces.append(_atom(text, index, adv, nowrap=_covers(ranges, index, index + 1)))
         index += 1
     return _join_segments(pieces)
 
@@ -1218,7 +1274,7 @@ def _join_segments(pieces: list[_Tok]) -> list[_Tok]:
         nxt = _neighbor(pieces, index, 1)
         if prev is not None and nxt is not None and _unspaced(prev.ch) and _unspaced(nxt.ch):
             continue
-        joined.append(_Tok("space", " ", tok.advance, collapsible=True))
+        joined.append(_Tok("space", " ", tok.advance, collapsible=True, nowrap=tok.nowrap))
     return joined
 
 
@@ -1231,30 +1287,42 @@ def _neighbor(pieces: list[_Tok], index: int, step: int) -> _Tok | None:
     return None
 
 
-def _preserve(text: str, adv: _Adv) -> list[_Tok]:
+def _preserve(
+    text: str,
+    adv: _Adv,
+    ranges: tuple[tuple[int, int], ...] = (),
+) -> list[_Tok]:
     pieces: list[_Tok] = []
     for index, ch in enumerate(text):
+        held = _covers(ranges, index, index + 1)
         if ch == "\n":
-            pieces.append(_Tok("break", "", 0.0))
+            pieces.append(_Tok("break", "", 0.0, nowrap=held))
         elif ch == "\t":
-            pieces.append(_Tok("tab", "\t", 0.0))
+            pieces.append(_Tok("tab", "\t", 0.0, nowrap=held))
         elif ch in " \r":
-            pieces.append(_Tok("space", " ", adv.of(" ", index) if ch == "\r" else adv.of(ch, index)))
+            pieces.append(
+                _Tok(
+                    "space",
+                    " ",
+                    adv.of(" ", index) if ch == "\r" else adv.of(ch, index),
+                    nowrap=held,
+                )
+            )
         else:
-            pieces.append(_atom(text, index, adv))
+            pieces.append(_atom(text, index, adv, nowrap=held))
     return pieces
 
 
-def _atom(text: str, index: int, adv: _Adv) -> _Tok:
+def _atom(text: str, index: int, adv: _Adv, *, nowrap: bool = False) -> _Tok:
     ch = text[index]
     advance = adv.of(ch, index)
     if ch == "\u00a0":
-        return _Tok("nbsp", ch, advance)
+        return _Tok("nbsp", ch, advance, nowrap=nowrap)
     if ch == "\u00ad":
-        return _Tok("shy", ch, advance)
+        return _Tok("shy", ch, advance, nowrap=nowrap)
     if _other_sep(ch):
-        return _Tok("sep", ch, advance)
-    return _Tok("glyph", ch, advance)
+        return _Tok("sep", ch, advance, nowrap=nowrap)
+    return _Tok("glyph", ch, advance, nowrap=nowrap)
 
 
 def _mark_graphemes(tokens: list[_Tok]) -> list[_Tok]:

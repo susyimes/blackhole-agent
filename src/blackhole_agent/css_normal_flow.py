@@ -177,8 +177,12 @@ box taller than the strut, stay rejected. A
 shaped float uses the chord of each line's used height. An
 absolute or fixed box still leaves the loose text out. An inline child may set font-size and line-height. Each run advances
 by its own font size, and the line grows to the tallest run without
-shrinking the parent's strut. text-align and white-space on an inline
-stay rejected. A float beside those runs shortens each line to the
+shrinking the parent's strut. ``white-space: nowrap`` on one of those
+inlines removes wrap opportunities inside that inline. A short measure
+keeps the span's words together on the next line, and words outside it
+still wrap. ``pre``, nowrap inside other white space, a float, an atomic
+box, and a mixed run stay rejected. text-align on an inline stays rejected.
+A float beside those runs shortens each line to the
 float's margin edge, or to the shape-outside chord of that used height,
 and keeps each run's own advance. A word that fits the strut chord but
 not the taller chord moves to the first later gap that holds it. A
@@ -784,6 +788,7 @@ class _Piece:
     shifts: tuple[_Shift, ...] = ()
     extra: list[int] = field(default_factory=list)
     vertical_align: str | int = "baseline"
+    nowrap: bool = False
 
 
 @dataclass
@@ -866,6 +871,7 @@ class _Box:
     lines: list[_Line] = field(default_factory=list)
     atoms: list[_Box] = field(default_factory=list)
     pieces: list[_Piece] = field(default_factory=list)
+    nowrap_ranges: tuple[tuple[int, int], ...] = ()
     relative_layers: dict[int, _Shift] = field(default_factory=dict)
     local_x: int = 0
     flex: dict[str, object] | None = None
@@ -3150,6 +3156,7 @@ def _set_inline(
         raise _Invalid("inline-block beside blocks is unsupported")
     box.pieces = pieces or []
     box.inline_text = None if pieces is None else "".join(piece.text for piece in pieces)
+    box.nowrap_ranges = _nowrap_ranges(box.pieces)
     if _glyph_chrome(box) and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
         raise _Invalid("inline chrome is unsupported")
     if box.inline_text and box.positioned:
@@ -3282,6 +3289,7 @@ def _make_anonymous_block(
         pieces=pieces,
         atoms=atoms,
         inline_text="".join(piece.text for piece in pieces),
+        nowrap_ranges=_nowrap_ranges(pieces),
     )
     return anon
 
@@ -3326,7 +3334,14 @@ def _inline_segments(
             pieces = []
             used = []
 
-    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...], align: str | int) -> None:
+    def add(
+        text: str,
+        size: int,
+        leading: str,
+        layers: tuple[_Shift, ...],
+        align: str | int,
+        nowrap: bool = False,
+    ) -> None:
         nonlocal pieces
         if not text:
             return
@@ -3339,24 +3354,37 @@ def _inline_segments(
             and pieces[-1].line_height == leading
             and pieces[-1].shifts == layers
             and pieces[-1].vertical_align == align
+            and pieces[-1].nowrap == nowrap
         ):
             pieces[-1].text += text
             pieces[-1].extra.extend([0] * len(text))
             return
         pieces.append(
-            _Piece(text, size, leading, shifts=layers, extra=[0] * len(text), vertical_align=align)
+            _Piece(
+                text,
+                size,
+                leading,
+                shifts=layers,
+                extra=[0] * len(text),
+                vertical_align=align,
+                nowrap=nowrap,
+            )
         )
 
     def walk(
-        node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...], align: str | int = "baseline"
+        node,
+        parent_fonts: dict[str, str],
+        inherited: tuple[_Shift, ...],
+        align: str | int = "baseline",
+        nowrap: bool = False,
     ) -> None:
         own = layers_of.get(id(node))
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
-        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align)
-        add(node.text or "", size, leading, layers, align)
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap)
+        add(node.text or "", size, leading, layers, align, nowrap)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -3364,14 +3392,23 @@ def _inline_segments(
             if id(child) in floats:
                 flush()
                 segments.append(("float", [], []))
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind == "contents":
-                walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers, align)
-                add(child.tail or "", size, leading, layers, align)
+                held = nowrap or _inline_declares_nowrap(
+                    tree, child, styles, declarations, parent_fonts
+                )
+                walk(
+                    child,
+                    _inline_fonts(tree, child, styles, declarations, parent_fonts),
+                    layers,
+                    align,
+                    held,
+                )
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind == "inline-block":
                 if layers:
@@ -3384,24 +3421,25 @@ def _inline_segments(
                     raise _Invalid("inline-block is unsupported") from exc
                 pieces.append(_Piece("", size, leading, atom))
                 used.append(atom)
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind == "block":
                 flush()
                 segments.append(("block", [], []))
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             _reject_inline_type(tree, child, styles, declarations, parent_fonts)
+            held = nowrap or _inline_declares_nowrap(tree, child, styles, declarations, parent_fonts)
             lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
             start = _piece_length(pieces)
             child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
             child_align = _nest_align(
                 align, _used_text_align(tree, child, styles, declarations, child_fonts)
             )
-            walk(child, child_fonts, layers, child_align)
+            walk(child, child_fonts, layers, child_align, held)
             _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
-            add(child.tail or "", size, leading, layers, align)
-        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align)
+            add(child.tail or "", size, leading, layers, align, nowrap)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap)
 
     walk(element, fonts, ())
     flush()
@@ -3424,7 +3462,14 @@ def _inline_pieces(
     block_size = _positive_px(fonts["font-size"], "font-size")
     block_leading = fonts["line-height"]
 
-    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...], align: str | int) -> None:
+    def add(
+        text: str,
+        size: int,
+        leading: str,
+        layers: tuple[_Shift, ...],
+        align: str | int,
+        nowrap: bool = False,
+    ) -> None:
         if not text:
             return
         if layers and (size != block_size or leading != block_leading or align != "baseline"):
@@ -3436,35 +3481,57 @@ def _inline_pieces(
             and pieces[-1].line_height == leading
             and pieces[-1].shifts == layers
             and pieces[-1].vertical_align == align
+            and pieces[-1].nowrap == nowrap
         ):
             pieces[-1].text += text
             pieces[-1].extra.extend([0] * len(text))
             return
         pieces.append(
-            _Piece(text, size, leading, shifts=layers, extra=[0] * len(text), vertical_align=align)
+            _Piece(
+                text,
+                size,
+                leading,
+                shifts=layers,
+                extra=[0] * len(text),
+                vertical_align=align,
+                nowrap=nowrap,
+            )
         )
 
     def walk(
-        node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...], align: str | int = "baseline"
+        node,
+        parent_fonts: dict[str, str],
+        inherited: tuple[_Shift, ...],
+        align: str | int = "baseline",
+        nowrap: bool = False,
     ) -> bool:
         own = layers_of.get(id(node))
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
-        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align)
-        add(node.text or "", size, leading, layers, align)
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap)
+        add(node.text or "", size, leading, layers, align, nowrap)
         for child in list(node):
             if not _local_name(child):
                 continue
             kind = _flow_kind(tree, child, styles, declarations)
             if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind == "contents":
-                if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers, align):
+                held = nowrap or _inline_declares_nowrap(
+                    tree, child, styles, declarations, parent_fonts
+                )
+                if not walk(
+                    child,
+                    _inline_fonts(tree, child, styles, declarations, parent_fonts),
+                    layers,
+                    align,
+                    held,
+                ):
                     return False
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind == "inline-block":
                 if layers:
@@ -3476,22 +3543,23 @@ def _inline_pieces(
                 except StopIteration as exc:
                     raise _Invalid("inline-block is unsupported") from exc
                 pieces.append(_Piece("", size, leading, atom))
-                add(child.tail or "", size, leading, layers, align)
+                add(child.tail or "", size, leading, layers, align, nowrap)
                 continue
             if kind == "block":
                 return False
             _reject_inline_type(tree, child, styles, declarations, parent_fonts)
+            held = nowrap or _inline_declares_nowrap(tree, child, styles, declarations, parent_fonts)
             lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
             start = _piece_length(pieces)
             child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
             child_align = _nest_align(
                 align, _used_text_align(tree, child, styles, declarations, child_fonts)
             )
-            if not walk(child, child_fonts, layers, child_align):
+            if not walk(child, child_fonts, layers, child_align, held):
                 return False
             _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
-            add(child.tail or "", size, leading, layers, align)
-        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align)
+            add(child.tail or "", size, leading, layers, align, nowrap)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap)
         return True
 
     if not walk(element, fonts, ()):
@@ -3824,12 +3892,62 @@ def _flow_kind(tree, element, styles, declarations) -> str:
     return "block"
 
 
+def _inline_declares_nowrap(tree, element, styles, declarations, parent_fonts: dict[str, str] | None) -> bool:
+    """True when this inline itself says nowrap and its parent still collapses normally."""
+
+    if parent_fonts is None or parent_fonts.get("white-space") != "normal":
+        return False
+    custom = styles.get(element, ({}, ""))[0]
+    raw = _declared(_winners(tree, element, declarations), "white-space", custom)
+    return raw is not None and raw.strip().lower() == "nowrap"
+
+
+def _nowrap_ranges(pieces: list[_Piece]) -> tuple[tuple[int, int], ...]:
+    ranges: list[tuple[int, int]] = []
+    cursor = 0
+    for piece in pieces:
+        end = cursor + len(piece.text)
+        if piece.nowrap and end > cursor:
+            if ranges and ranges[-1][1] == cursor:
+                ranges[-1] = (ranges[-1][0], end)
+            else:
+                ranges.append((cursor, end))
+        cursor = end
+    return tuple(ranges)
+
+
+def _reject_nowrap_context(box: _Box) -> None:
+    """Keep nowrap on the plain horizontal line. Other contexts still refuse it."""
+
+    if not box.nowrap_ranges:
+        return
+    if (
+        box.white_space != "normal"
+        or box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or bool(box.atoms)
+        or bool(box.floats)
+        or box.text_indent != "0px"
+        or box.line_clamp is not None
+        or _mixed_runs(box)
+        or _relative_pieces(box)
+        or _gap_alignment(box)
+        or any(piece.vertical_align != "baseline" or piece.shifts for piece in box.pieces)
+    ):
+        raise _Invalid("nowrap inline is unsupported")
+
+
 def _reject_inline_type(tree, element, styles, declarations, parent_fonts: dict[str, str] | None = None) -> None:
     custom = styles.get(element, ({}, ""))[0]
     winners = _winners(tree, element, declarations)
     for name in _INLINE_REJECTED:
-        if _declared(winners, name, custom) is not None:
-            raise _Invalid(f"inline {name} is unsupported")
+        if _declared(winners, name, custom) is None:
+            continue
+        if name == "white-space" and _inline_declares_nowrap(
+            tree, element, styles, declarations, parent_fonts
+        ):
+            continue
+        raise _Invalid(f"inline {name} is unsupported")
     if parent_fonts is None or parent_fonts.get("hyphens") != "auto":
         return
     raw = _attr(element, "lang")
@@ -4044,6 +4162,7 @@ def _measure_lines(box: _Box, text: str, measure: int, *, advances: object) -> d
         measure,
         white_space=box.white_space,
         advances=advances,
+        nowrap_ranges=box.nowrap_ranges,
         **_spacing_args(box),
         **_break_args(box),
     )
@@ -4224,12 +4343,21 @@ def _sized_generated(text: str, raw: dict, size: int, leading: str) -> tuple[str
 
 
 def _add_own_generated(
-    add, tree, node, side: str, text: str, size: int, leading: str, layers, align: str | int
+    add,
+    tree,
+    node,
+    side: str,
+    text: str,
+    size: int,
+    leading: str,
+    layers,
+    align: str | int,
+    nowrap: bool = False,
 ) -> None:
     before_font, after_font = _generated_fonts(tree, node)
     raw = before_font if side == "before" else after_font
     shown, font, height = _sized_generated(text, raw, size, leading)
-    add(shown, font, height, layers, align)
+    add(shown, font, height, layers, align, nowrap)
 
 
 def _push_generated_text(tree, node, side: str, text: str, size: int, parts: list[str], advances: list[int]) -> None:
@@ -6751,6 +6879,8 @@ def _fill_lines_beside_floats(
     *,
     contain: bool = True,
 ) -> None:
+    if box.nowrap_ranges:
+        raise _Invalid("nowrap inline is unsupported")
     if _relative_pieces(box) and (
         _mixed_runs(box)
         or box.atoms
@@ -7203,6 +7333,8 @@ def _fill_mixed_beside_floats(
 ) -> None:
     """Shorten mixed-font lines to a float margin box or its shape-outside."""
 
+    if box.nowrap_ranges:
+        raise _Invalid("nowrap inline is unsupported")
     _reject_balanced_context(box)
     text = box.inline_text or ""
     if "\t" in text:
@@ -7305,6 +7437,8 @@ def _fill_mixed_beside_floats(
 
 
 def _fill_mixed(box: _Box) -> None:
+    if box.nowrap_ranges:
+        raise _Invalid("nowrap inline is unsupported")
     _reject_balanced_context(box)
     text = box.inline_text or ""
     if not text:
@@ -7543,6 +7677,8 @@ def _line_extent(
 def _fill_inline_blocks(box: _Box) -> None:
     """Place inline-blocks as atomic line items around the parent's text."""
 
+    if box.nowrap_ranges:
+        raise _Invalid("nowrap inline is unsupported")
     _reject_balanced_context(box)
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("inline-block writing mode is unsupported")
@@ -7750,6 +7886,9 @@ def _fill_atoms_beside_floats(
     ``contain`` false so the height stays the line stack.
     """
 
+    if box.nowrap_ranges:
+        raise _Invalid("nowrap inline is unsupported")
+
     _reject_balanced_context(box)
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("inline-block writing mode is unsupported")
@@ -7919,6 +8058,7 @@ def _clamp_plain_lines(
 
 
 def _fill_lines(box: _Box) -> None:
+    _reject_nowrap_context(box)
     _reject_shifted_text(box)
     _reject_glyph_chrome(box)
     _reject_line_clamp(box, box.direction)
@@ -8367,6 +8507,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     text = box.inline_text or ""
     if not text:
         return []
+    _reject_nowrap_context(box)
     _reject_line_clamp(box, direction)
     text_indent = _text_indent_used(box)
     if text_indent and direction != "ltr":
@@ -8377,6 +8518,8 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     used = _used_line_height(box.line_height, box.font_size)
     height, baseline = _strut_metrics(box.font_size, used)
     indent = _inside_marker_indent(box)
+    if indent and box.nowrap_ranges:
+        raise _Invalid("nowrap inline is unsupported")
     if text_indent and indent:
         raise _Invalid("text-indent beside a marker is unsupported")
     if text_indent and _mixed_runs(box):
