@@ -88,7 +88,10 @@ margin edge of a float that block itself placed. Each character, including
 the space, advances by the font size. On every horizontal plain line, including
 one that wrapped, a Unicode bidi visual order that differs from the source is
 a glyph from that line's left edge. A line that is already visual omits
-glyphs. Justification, a float, and a relative inline still omit them. ``line-height: normal`` uses the font
+glyphs. A uniform line shortened by a float records those glyphs from that
+line's left edge: a Hebrew word beside the float starts after it, and a
+Hebrew word under the float returns to the content start. Justification and
+a relative inline still omit them. ``line-height: normal`` uses the font
 size as the strut. ``text-align`` shifts each line inside its line box.
 ``justify`` and ``justify-all`` give the aligner one item per word, so leftover
 inline space is added to the interior gaps instead of sitting after the line.
@@ -7023,6 +7026,11 @@ def _fill_lines_beside_floats(
                 box.definite_height,
                 content,
             )
+        glyphs: list[dict[str, object]] = []
+        if shift_rows is None and not runs:
+            glyphs = _bidi_glyphs(rendered, box.direction, box.font_size)
+            if glyphs and sum(int(glyph["width"]) for glyph in glyphs) != content:
+                glyphs = []
         records.append(
             _Line(
                 text=rendered,
@@ -7030,6 +7038,7 @@ def _fill_lines_beside_floats(
                 y=cursor,
                 height=height,
                 content_width=used,
+                glyphs=glyphs,
                 runs=runs,
             )
         )
