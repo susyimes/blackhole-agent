@@ -356,8 +356,16 @@ the size is automatic, and sit on that edge. ``justify-self`` and
 ``align-self`` override the container for one item; ``auto`` uses the
 container keyword. ``left`` and ``right`` apply only on the inline axis.
 A distribution keyword such as ``space-between`` stays invalid on an item
-axis. ``justify-content`` still only decides whether content-sized columns
-grow into leftover inline space.
+axis. ``justify-content`` and ``align-content`` then pack the tracks in the
+definite content box. ``end``, ``flex-end``, and ``center`` shift them, and a
+negative leftover still shifts those two. ``space-between``,
+``space-around``, and ``space-evenly`` add to every gutter, so a spanned
+item's area grows by the extra gutter, and they fall back when the leftover
+is negative or the axis has one track. ``normal`` and ``stretch`` keep
+growing automatic columns and flexible rows, then leave any remainder at the
+start. ``start`` and ``flex-start`` do not grow those columns. A share that
+is not an integer pixel is rejected. An automatic block size has no free
+block space.
 A grid item whose own ``grid-template-columns`` is ``subgrid`` does not size
 those columns. Its children use the parent tracks it spans, parent gutter
 included. An omitted column gap keeps each child on its parent track. A zero
@@ -598,6 +606,7 @@ from blackhole_agent.css_subgrid import place_subgrid_items
 from blackhole_agent.css_grid_align import align_grid_item
 from blackhole_agent.css_grid_areas import place_named_grid
 from blackhole_agent.css_grid_content import size_content_grid_tracks
+from blackhole_agent.css_grid_pack import grid_content_stretches, pack_grid_content
 from blackhole_agent.css_grid_placement import place_grid_items
 from blackhole_agent.css_grid_tracks import size_grid_tracks
 from blackhole_agent.css_hit_test import element_from_point
@@ -10720,7 +10729,20 @@ def _px(value: object, name: str) -> int:
 
 
 _GRID_FLOWS = frozenset({"row", "column", "dense", "row dense", "column dense"})
-_GRID_ALIGN = frozenset({"normal", "stretch", "start"})
+_GRID_ALIGN = frozenset(
+    {
+        "normal",
+        "stretch",
+        "start",
+        "end",
+        "center",
+        "space-between",
+        "space-around",
+        "space-evenly",
+        "flex-start",
+        "flex-end",
+    }
+)
 _GRID_ITEM_ALIGN = frozenset(
     {
         "normal",
@@ -10996,6 +11018,7 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
     column_subgrid = False
     flow = "row"
     justify = "normal"
+    align = "normal"
     justify_items = "normal"
     align_items = "normal"
     tracked = {
@@ -11049,7 +11072,7 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
         elif prop == "justify-content":
             justify = _choice(value, "normal", _GRID_ALIGN, prop)
         elif prop == "align-content":
-            _choice(value, "normal", _GRID_ALIGN, prop)
+            align = _choice(value, "normal", _GRID_ALIGN, prop)
         elif prop == "gap":
             row_gap, column_gap = _grid_gap_pair(value)
             column_gap_normal = _gap_column_is_normal(value)
@@ -11074,6 +11097,7 @@ def _grid_container(tree, element, styles, declarations) -> dict[str, object]:
         "column_gap": column_gap,
         "flow": flow,
         "justify": justify,
+        "align": align,
         "justify_items": justify_items,
         "align_items": align_items,
         "areas": areas,
@@ -11367,6 +11391,18 @@ def _grid_offset(sizes: list[int], index: int, gap: int) -> int:
     if index < 0 or index > len(sizes):
         raise _Invalid("grid item is outside the tracks")
     return sum(sizes[:index]) + gap * index
+
+
+def _grid_content_shift(container: int, sizes: list[int], gap: int, keyword: str) -> tuple[int, int]:
+    """Leading offset and extra gutter after the tracks have their used sizes."""
+
+    packed = pack_grid_content(container, sizes, gap, keyword)
+    if packed.get("outcome") != "packed":
+        raise _Invalid(str(packed.get("reason") or "grid content alignment is invalid"))
+    return (
+        _px(packed.get("leading"), "grid content alignment"),
+        _px(packed.get("extra"), "grid content alignment"),
+    )
 
 
 def _grid_span(sizes: list[int], index: int, span: int, gap: int) -> int:
@@ -11681,8 +11717,21 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
     for item in box.children:
         _install_grid_chrome(item)
     column_sizes = _size_grid_columns(box, track_defs, located, column_gap, spec)
+    column_leading, column_extra = _grid_content_shift(
+        box.content_width,
+        column_sizes,
+        column_gap,
+        str(spec.get("justify") or "normal"),
+    )
     text_heights = _measure_grid_items(
-        box, located, column_sizes, column_gap, content_x, viewport_height
+        box,
+        located,
+        column_sizes,
+        column_gap,
+        content_x,
+        viewport_height,
+        column_leading,
+        column_extra,
     )
     row_count = int(placed.get("row_count") or 0)
     auto_rows = spec.get("auto_rows")
@@ -11702,6 +11751,13 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
             specified_height,
         )
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    block_size = specified_height if specified_height is not None else _gapped_span(row_sizes, row_gap)
+    row_leading, row_extra = _grid_content_shift(
+        block_size,
+        row_sizes,
+        row_gap,
+        str(spec.get("align") or "normal"),
+    )
     for item in box.children:
         entry = located.get(item.id)
         if entry is None:
@@ -11709,7 +11765,7 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
         row = int(entry.get("row") or 0) - 1
         row_span = int(entry.get("row_span") or 0)
         specified = (item.grid or {}).get("height", "auto")
-        area = _grid_span(row_sizes, row, row_span, row_gap)
+        area = _grid_span(row_sizes, row, row_span, row_gap + row_extra)
         chrome_y = _edge_extent(item.solved, "top", "bottom")
         align, items_keyword = _grid_axis_keywords(box, item, "block")
         if type(specified) is int:
@@ -11738,7 +11794,8 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
             item.content_height = _grid_border_content(item.border_height, chrome_y)
         item.anchor_y = (
             origin
-            + _grid_offset(row_sizes, row, row_gap)
+            + row_leading
+            + _grid_offset(row_sizes, row, row_gap + row_extra)
             + _px(aligned.get("start"), "grid item")
         )
         item.border_width = item.content_width + _edge_extent(item.solved, "left", "right")
@@ -11782,7 +11839,7 @@ def _size_grid_columns(
             track_defs,
             payload,
             gap=column_gap,
-            stretch=str(spec.get("justify") or "normal") != "start",
+            stretch=grid_content_stretches(str(spec.get("justify") or "normal")),
         )
     else:
         sized = size_grid_tracks(box.content_width, track_defs, [], gap=column_gap)
@@ -12053,6 +12110,8 @@ def _measure_grid_items(
     column_gap: int,
     content_x: int,
     viewport_height: int | None,
+    leading: int = 0,
+    extra: int = 0,
 ) -> dict[str, int]:
     heights: dict[str, int] = {}
     for item in box.children:
@@ -12061,7 +12120,7 @@ def _measure_grid_items(
             raise _Invalid("grid placement failed")
         column = int(entry.get("column") or 0) - 1
         column_span = int(entry.get("column_span") or 0)
-        area = _grid_span(column_sizes, column, column_span, column_gap)
+        area = _grid_span(column_sizes, column, column_span, column_gap + extra)
         width = (item.grid or {}).get("width", "auto")
         chrome_x = _edge_extent(item.solved, "left", "right")
         align, items_keyword = _grid_axis_keywords(box, item, "inline")
@@ -12090,11 +12149,16 @@ def _measure_grid_items(
             item.content_width = _grid_border_content(_px(aligned.get("size"), "grid item"), chrome_x)
         item.margin_left = _px(aligned.get("margin_start"), "grid margin")
         item.margin_right = _px(aligned.get("margin_end"), "grid margin")
-        item.x = content_x + _grid_offset(column_sizes, column, column_gap) + _px(
-            aligned.get("start"), "grid item"
+        item.x = (
+            content_x
+            + leading
+            + _grid_offset(column_sizes, column, column_gap + extra)
+            + _px(aligned.get("start"), "grid item")
         )
         item.border_width = item.content_width + chrome_x
         if (item.grid or {}).get("column_subgrid"):
+            if leading or extra:
+                raise _Invalid("subgrid content alignment is unsupported")
             heights[item.id] = _place_column_subgrid(item, entry, column_sizes, column_gap, content_x)
         elif item.children:
             heights[item.id] = _lay_grid_item_blocks(item, viewport_height)
