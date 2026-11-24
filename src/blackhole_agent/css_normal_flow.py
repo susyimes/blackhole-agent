@@ -518,6 +518,16 @@ when an earlier unicode-range misses, ``font-weight`` and ``font-style``
 choose among the faces of the inherited family, and a character no face
 covers stays in the line with no face. A stylesheet with no ``@font-face``
 does not add those face runs.
+``text-decoration`` and ``text-decoration-line`` are not inherited.
+``underline``, ``overline``, and ``line-through`` paint across that
+element's inline text and the inline text of its descendants. A descendant
+``none`` does not remove an ancestor line. An inline-block is a gap in the
+ancestor line. The line position uses the decorating element's font size
+and that line's baseline: underline is one tenth of an em below it,
+line-through one third of an em above it, and overline at the top of the
+em. The line box does not grow to cover the ink. A vertical writing mode,
+a non-ltr direction, a float, justification, spacing, a list marker, and a
+shifted vertical-align stay rejected.
 """
 
 from __future__ import annotations
@@ -561,6 +571,11 @@ from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
 from blackhole_agent.css_text_caret import element_text_offset, uniform_caret_edge
+from blackhole_agent.css_text_decoration import (
+    DecorationError,
+    paint_decoration_events,
+    parse_text_decoration,
+)
 from blackhole_agent.css_tree_counting import resolve_tree_counting
 from blackhole_agent.css_logical_box import (
     _LOGICAL,
@@ -827,6 +842,7 @@ class _Piece:
     vertical_align: str | int = "baseline"
     nowrap: bool = False
     origin: tuple[Element, bool] | None = None  # element.text or child.tail
+    marks: tuple[tuple[str, int, str], ...] = ()
 
 
 @dataclass
@@ -841,6 +857,7 @@ class _Line:
     atoms: list[dict[str, object]] = field(default_factory=list)
     glyphs: list[dict[str, object]] = field(default_factory=list)
     truncated: bool = False
+    decorations: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -2701,6 +2718,7 @@ def _solve(
             raise _Invalid("flow-root columns are unsupported")
     vertical_text = not horizontal and box.display == "block"
     if vertical_text:
+        _reject_decoration_context(box)
         limits = [limit for limit in (parent_height, viewport_height, scrollport_height) if limit is not None]
         limit = min(limits, default=None)
         if box.children:
@@ -3057,6 +3075,18 @@ def _record_line(line: _Line) -> dict[str, object]:
                 recorded["height"] = int(run["height"])
             recorded_runs.append(recorded)
         item["runs"] = recorded_runs
+    if line.decorations:
+        item["decorations"] = [
+            {
+                "kind": str(mark["kind"]),
+                "x": line.x + int(mark["x"]),
+                "y": line.y + int(mark["y"]),
+                "width": int(mark["width"]),
+                "owner": str(mark["owner"]),
+                "font_size": int(mark["font_size"]),
+            }
+            for mark in line.decorations
+        ]
     if line.atoms:
         item["atoms"] = [
             {
@@ -3470,6 +3500,7 @@ def _inline_segments(
         align: str | int,
         nowrap: bool = False,
         origin: tuple[Element, bool] | None = None,
+        marks: tuple[tuple[str, int, str], ...] = (),
     ) -> None:
         nonlocal piece_length
         text = _transform_text(text, transform_mode["value"])
@@ -3488,6 +3519,7 @@ def _inline_segments(
                 vertical_align=align,
                 nowrap=nowrap,
                 origin=origin,
+                marks=marks,
             )
         )
 
@@ -3497,6 +3529,7 @@ def _inline_segments(
         inherited: tuple[_Shift, ...],
         align: str | int = "baseline",
         nowrap: bool = False,
+        inherited_marks: tuple[tuple[str, int, str], ...] = (),
     ) -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
         previous_transform = transform_mode["value"]
         transform_mode["value"] = parent_fonts.get("text-transform", "none")
@@ -3504,9 +3537,10 @@ def _inline_segments(
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
+        here = inherited_marks + _element_marks(tree, node, styles, declarations, size)
         before, after = _generated(tree, node)
-        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap)
-        add(node.text or "", size, leading, layers, align, nowrap, (node, False))
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align, nowrap, here)
+        add(node.text or "", size, leading, layers, align, nowrap, (node, False), here)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -3524,6 +3558,7 @@ def _inline_segments(
                     layers,
                     align,
                     held,
+                    here,
                 )
             elif kind == "inline-block":
                 if layers:
@@ -3545,16 +3580,35 @@ def _inline_segments(
                 child_align = _nest_align(
                     align, _used_text_align(tree, child, styles, declarations, child_fonts)
                 )
-                yield from walk(child, child_fonts, layers, child_align, held)
+                yield from walk(child, child_fonts, layers, child_align, held, here)
                 _remember_inline_chrome(pieces, start, piece_length, lead, trail)
-            add(child.tail or "", size, leading, layers, align, nowrap, (child, True))
-        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap)
+            add(child.tail or "", size, leading, layers, align, nowrap, (child, True), here)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap, here)
         transform_mode["value"] = previous_transform
 
     yield from walk(element, fonts, ())
     if next(stream, None) is not None:
         raise _Invalid("inline-block is unsupported")
     yield from flush()
+
+
+def _element_marks(tree, element, styles, declarations, font_size: int) -> tuple[tuple[str, int, str], ...]:
+    """Lines this element paints. Ancestors are kept by the caller."""
+
+    custom = styles.get(element, ({}, ""))[0]
+    winners = _winners(tree, element, declarations)
+    shorthand = _declared(winners, "text-decoration", custom)
+    longhand = _declared(winners, "text-decoration-line", custom)
+    if shorthand is not None and longhand is not None:
+        raise _Invalid("text-decoration is invalid")
+    try:
+        kinds = parse_text_decoration(shorthand if shorthand is not None else longhand)
+    except DecorationError as exc:
+        raise _Invalid(exc.reason) from exc
+    if not kinds:
+        return ()
+    owner = (_attr(element, "id") or "").strip() or (_local_name(element) or "")
+    return tuple((kind, font_size, owner) for kind in kinds)
 
 
 def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -> dict[str, str]:
@@ -4369,11 +4423,12 @@ def _add_own_generated(
     layers,
     align: str | int,
     nowrap: bool = False,
+    marks: tuple[tuple[str, int, str], ...] = (),
 ) -> None:
     before_font, after_font = _generated_fonts(tree, node)
     raw = before_font if side == "before" else after_font
     shown, font, height = _sized_generated(text, raw, size, leading)
-    add(shown, font, height, layers, align, nowrap)
+    add(shown, font, height, layers, align, nowrap, None, marks)
 
 
 def _push_generated_text(tree, node, side: str, text: str, size: int, parts: list[str], advances: list[int]) -> None:
@@ -6895,6 +6950,7 @@ def _fill_lines_beside_floats(
     *,
     contain: bool = True,
 ) -> None:
+    _reject_decoration_context(box)
     if box.nowrap_ranges:
         raise _Invalid("nowrap inline is unsupported")
     if _relative_pieces(box) and (
@@ -7188,11 +7244,11 @@ def _mixed_runs(box: _Box) -> bool:
     )
 
 
-def _style_stream(runs: list[_Piece]) -> list[tuple[int, str, str | int]]:
-    styles: list[tuple[int, str, str | int]] = []
+def _style_stream(runs: list[_Piece]) -> list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]]:
+    styles: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]] = []
     for run in runs:
         align: str | int = "baseline" if _baseline_align(run.vertical_align) else run.vertical_align
-        styles.extend((run.font_size, run.line_height, align) for _ in run.text)
+        styles.extend((run.font_size, run.line_height, align, run.marks) for _ in run.text)
     return styles
 
 
@@ -7201,13 +7257,13 @@ def _advance_of(ch: str, size: int) -> int:
 
 
 def _collapse_styled(
-    text: str, styles: list[tuple[int, str, str | int]]
-) -> tuple[str, list[tuple[int, str, str | int]]]:
+    text: str, styles: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]]
+) -> tuple[str, list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]]]:
     pieces: list[str] = []
-    chosen: list[tuple[int, str, str | int]] = []
+    chosen: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]] = []
     index = 0
     count = len(text)
-    gap: tuple[int, str, str | int] | None = None
+    gap: tuple[int, str, str | int, tuple[tuple[str, int, str], ...]] | None = None
     while index < count:
         if text[index].isspace():
             if gap is None:
@@ -7232,10 +7288,14 @@ def _collapse_styled(
 
 def _split_styled(
     source: str,
-    styles: list[tuple[int, str, str | int]],
+    styles: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]],
     rendered: str,
     white_space: str,
-) -> tuple[list[tuple[int, str, str | int]], str, list[tuple[int, str, str | int]]]:
+) -> tuple[
+    list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]],
+    str,
+    list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]],
+]:
     if len(styles) != len(source):
         raise _Invalid("inline run is invalid")
     if white_space in {"pre", "pre-wrap", "break-spaces"}:
@@ -7260,12 +7320,12 @@ def _split_styled(
 
 
 def _group_runs(
-    rendered: str, styles: list[tuple[int, str, str | int]]
+    rendered: str, styles: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]]
 ) -> list[tuple[str, int, str, int, str | int]]:
     if len(rendered) != len(styles):
         raise _Invalid("inline font break is unsupported")
     groups: list[tuple[str, int, str, int, str | int]] = []
-    for ch, (size, leading, align) in zip(rendered, styles, strict=True):
+    for ch, (size, leading, align, _marks) in zip(rendered, styles, strict=True):
         width = _advance_of(ch, size)
         if groups and groups[-1][1] == size and groups[-1][2] == leading and groups[-1][4] == align:
             text, _, _, previous, _ = groups[-1]
@@ -7353,6 +7413,7 @@ def _fill_mixed_beside_floats(
 ) -> None:
     """Shorten mixed-font lines to a float margin box or its shape-outside."""
 
+    _reject_decoration_context(box)
     if box.nowrap_ranges:
         raise _Invalid("nowrap inline is unsupported")
     _reject_balanced_context(box)
@@ -7439,6 +7500,7 @@ def _fill_mixed_beside_floats(
                     content_width=content,
                     runs=runs,
                     baseline=baseline,
+                    decorations=_styled_decorations(line_styles, rendered, baseline, content),
                 )
             )
             remaining = rest
@@ -7456,7 +7518,25 @@ def _fill_mixed_beside_floats(
         box.definite_height = max(cursor, _band_bottom(bands)) if contain else cursor
 
 
+def _styled_decorations(
+    styles: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]],
+    rendered: str,
+    baseline: int,
+    content: int,
+) -> list[dict[str, object]]:
+    if not any(item[3] for item in styles):
+        return []
+    return _text_decorations(
+        rendered,
+        [item[3] for item in styles],
+        [_advance_of(ch, item[0]) for ch, item in zip(rendered, styles, strict=True)],
+        baseline,
+        content,
+    )
+
+
 def _fill_mixed(box: _Box) -> None:
+    _reject_decoration_context(box)
     if box.nowrap_ranges:
         raise _Invalid("nowrap inline is unsupported")
     _reject_balanced_context(box)
@@ -7508,6 +7588,7 @@ def _fill_mixed(box: _Box) -> None:
                 content_width=content,
                 runs=runs,
                 baseline=baseline,
+                decorations=_styled_decorations(line_styles, rendered, baseline, content),
             )
         )
         remaining = rest
@@ -7697,6 +7778,7 @@ def _line_extent(
 def _fill_inline_blocks(box: _Box) -> None:
     """Place inline-blocks as atomic line items around the parent's text."""
 
+    _reject_decoration_context(box)
     if box.nowrap_ranges:
         raise _Invalid("nowrap inline is unsupported")
     _reject_balanced_context(box)
@@ -7755,8 +7837,10 @@ def _fill_inline_blocks(box: _Box) -> None:
         box.definite_height = cursor_y
 
 
-def _atom_sources(box: _Box) -> list[tuple[str, int, str, str | int, _Box | None]]:
-    entries: list[tuple[str, int, str, str | int, _Box | None]] = []
+def _atom_sources(
+    box: _Box,
+) -> list[tuple[str, int, str, str | int, _Box | None, tuple[tuple[str, int, str], ...]]]:
+    entries: list[tuple[str, int, str, str | int, _Box | None, tuple[tuple[str, int, str], ...]]] = []
     serial = 0
     for piece in box.pieces:
         align: str | int = "baseline" if _baseline_align(piece.vertical_align) else piece.vertical_align
@@ -7764,23 +7848,24 @@ def _atom_sources(box: _Box) -> list[tuple[str, int, str, str | int, _Box | None
             for ch in piece.text:
                 if ch in "\t\r\n" or ch == _ZWSP or _MARK <= ord(ch) <= _MARK + 31:
                     raise _Invalid("inline-block break is unsupported")
-                entries.append((ch, piece.font_size, piece.line_height, align, None))
+                entries.append((ch, piece.font_size, piece.line_height, align, None, piece.marks))
             continue
         mark = chr(_MARK + serial)
         serial += 1
-        entries.append((_ZWSP, piece.font_size, piece.line_height, "baseline", None))
-        entries.append((mark, piece.font_size, piece.line_height, "baseline", piece.atom))
-        entries.append((_ZWSP, piece.font_size, piece.line_height, "baseline", None))
+        entries.append((_ZWSP, piece.font_size, piece.line_height, "baseline", None, ()))
+        entries.append((mark, piece.font_size, piece.line_height, "baseline", piece.atom, ()))
+        entries.append((_ZWSP, piece.font_size, piece.line_height, "baseline", None, ()))
     if serial != len(box.atoms):
         raise _Invalid("inline-block is unsupported")
     return entries
 
 
 def _atom_advances(
-    entries: list[tuple[str, int, str, str | int, _Box | None]], measured: dict[str, dict[str, int]]
+    entries: list[tuple[str, int, str, str | int, _Box | None, tuple[tuple[str, int, str], ...]]],
+    measured: dict[str, dict[str, int]],
 ) -> list[int]:
     advances: list[int] = []
-    for ch, size, _leading, _align, atom in entries:
+    for ch, size, _leading, _align, atom, _marks in entries:
         if ch == _ZWSP:
             advances.append(0)
         elif atom is not None:
@@ -7791,9 +7876,11 @@ def _atom_advances(
 
 
 def _match_atom_line(
-    entries: list[tuple[str, int, str, str | int, _Box | None]], index: int, rendered: str
-) -> tuple[list[tuple[str, int, str, str | int, _Box | None]], int]:
-    chosen: list[tuple[str, int, str, str | int, _Box | None]] = []
+    entries: list[tuple[str, int, str, str | int, _Box | None, tuple[tuple[str, int, str], ...]]],
+    index: int,
+    rendered: str,
+) -> tuple[list[tuple[str, int, str, str | int, _Box | None, tuple[tuple[str, int, str], ...]]], int]:
+    chosen: list[tuple[str, int, str, str | int, _Box | None, tuple[tuple[str, int, str], ...]]] = []
     for ch in rendered:
         while index < len(entries) and entries[index][0] != ch:
             if not entries[index][0].isspace():
@@ -7828,6 +7915,7 @@ def _paint_atom_line(
     buf_align: str | int = "baseline"
     buf_width = 0
     buf_x = 0
+    events: list[tuple] = []
 
     def flush() -> None:
         nonlocal buf, buf_width
@@ -7838,7 +7926,7 @@ def _paint_atom_line(
         buf = ""
         buf_width = 0
 
-    for ch, size, leading, align, atom in chosen:
+    for ch, size, leading, align, atom, marks in chosen:
         if ch == _ZWSP:
             continue
         if atom is not None:
@@ -7847,10 +7935,12 @@ def _paint_atom_line(
             border_x = cursor + row["margin_left"]
             atoms_here.append((atom, border_x))
             atom_records.append({"id": atom.id, "x": border_x, "width": row["outer_width"]})
+            events.append(("gap", row["outer_width"]))
             cursor += row["outer_width"]
             placed.add(atom.id)
             continue
         advance = _advance_of(ch, size)
+        events.append(("text", advance, marks))
         if buf and (size != buf_size or leading != buf_leading or align != buf_align):
             flush()
         if not buf:
@@ -7876,8 +7966,14 @@ def _paint_atom_line(
         atom.local_x = left + offset + border_x
         atom.local_y = cursor_y + top + measured[atom.id]["margin_top"]
     visible = "".join(
-        ch for ch, _size, _leading, _align, atom in chosen if atom is None and ch != _ZWSP
+        ch for ch, _size, _leading, _align, atom, _marks in chosen if atom is None and ch != _ZWSP
     )
+    decorations: list[dict[str, object]] = []
+    if any(event[0] == "text" and event[2] for event in events):
+        try:
+            decorations = paint_decoration_events(events, above)
+        except DecorationError as exc:
+            raise _Invalid(exc.reason) from exc
     return (
         _Line(
             text=visible,
@@ -7888,6 +7984,7 @@ def _paint_atom_line(
             runs=runs,
             baseline=above,
             atoms=atom_records,
+            decorations=decorations,
         ),
         height,
     )
@@ -7906,6 +8003,7 @@ def _fill_atoms_beside_floats(
     ``contain`` false so the height stays the line stack.
     """
 
+    _reject_decoration_context(box)
     if box.nowrap_ranges:
         raise _Invalid("nowrap inline is unsupported")
 
@@ -7976,7 +8074,7 @@ def _fill_atoms_beside_floats(
         if new_index <= index:
             raise _Invalid("line break failed")
         rest = entries[new_index:]
-        last = not any(ch.strip() and ch != _ZWSP for ch, _size, _leading, _align, _atom in rest)
+        last = not any(ch.strip() and ch != _ZWSP for ch, _size, _leading, _align, _atom, _marks in rest)
         record, height = _paint_atom_line(
             box, chosen, content, available, left, cursor_y, last, measured, placed
         )
@@ -8631,7 +8729,97 @@ def _prepare_drop_cap(
     return [*beside, *tail], side, len(beside)
 
 
+def _has_decoration(box: _Box) -> bool:
+    return any(piece.marks for piece in box.pieces)
+
+
+def _reject_decoration_context(box: _Box) -> None:
+    """Keep decoration on horizontal left-to-right lines whose advances match the text."""
+
+    if not _has_decoration(box):
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("text decoration is unsupported")
+    if box.white_space != "normal" or box.text_align not in {"start", "left"}:
+        raise _Invalid("text decoration is unsupported")
+    if (
+        box.letter_spacing
+        or box.word_spacing
+        or box.text_indent != "0px"
+        or box.floats
+        or box.list_item
+        or box.initial_letter
+        or box.line_clamp is not None
+        or box.text_wrap_style not in {"auto", "wrap"}
+        or _relative_pieces(box)
+        or _gap_alignment(box)
+    ):
+        raise _Invalid("text decoration is unsupported")
+    if any(piece.text and not _baseline_align(piece.vertical_align) for piece in box.pieces):
+        raise _Invalid("text decoration is unsupported")
+
+
+def _source_marks(box: _Box) -> list[tuple[tuple[str, int, str], ...]]:
+    marks: list[tuple[tuple[str, int, str], ...]] = []
+    for piece in box.pieces:
+        if piece.atom is not None:
+            raise _Invalid("text decoration is unsupported")
+        marks.extend((piece.marks,) * len(piece.text))
+    text = box.inline_text or ""
+    if len(marks) != len(text):
+        raise _Invalid("text decoration is unsupported")
+    return marks
+
+
+def _collapse_mark_text(
+    text: str, marks: list[tuple[tuple[str, int, str], ...]]
+) -> tuple[str, list[tuple[tuple[str, int, str], ...]]]:
+    if len(marks) != len(text):
+        raise _Invalid("text decoration is unsupported")
+    chars: list[str] = []
+    chosen: list[tuple[tuple[str, int, str], ...]] = []
+    index = 0
+    count = len(text)
+    gap: tuple[tuple[str, int, str], ...] | None = None
+    while index < count:
+        if text[index].isspace():
+            if gap is None:
+                gap = marks[index]
+            index += 1
+            continue
+        if chars:
+            if gap is None:
+                raise _Invalid("text decoration is unsupported")
+            chars.append(" ")
+            chosen.append(gap)
+        gap = None
+        while index < count and not text[index].isspace():
+            chars.append(text[index])
+            chosen.append(marks[index])
+            index += 1
+    return "".join(chars), chosen
+
+
+def _text_decorations(
+    text: str,
+    marks: list[tuple[tuple[str, int, str], ...]],
+    advances: list[int],
+    baseline: int,
+    content: int,
+) -> list[dict[str, object]]:
+    if not any(marks):
+        return []
+    if len(text) != len(marks) or len(text) != len(advances) or sum(advances) != content:
+        raise _Invalid("text decoration is unsupported")
+    events = [("text", width, mark) for width, mark in zip(advances, marks, strict=True)]
+    try:
+        return paint_decoration_events(events, baseline)
+    except DecorationError as exc:
+        raise _Invalid(exc.reason) from exc
+
+
 def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
+    _reject_decoration_context(box)
     _reject_spacing(box)
     text = box.inline_text or ""
     if not text:
@@ -8693,6 +8881,10 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     collapsed_shifts: list[tuple[_Shift, ...]] = []
     if shifted:
         collapsed, collapsed_shifts = _collapse_shift_text(text, _source_shifts(box))
+    mark_text = ""
+    collapsed_marks: list[tuple[tuple[str, int, str], ...]] | None = None
+    if _has_decoration(box):
+        mark_text, collapsed_marks = _collapse_mark_text(text, _source_marks(box))
     records: list[_Line] = []
     cursor = 0
     shift_index = 0
@@ -8736,6 +8928,23 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 box.definite_height,
                 content,
             )
+        line_marks: list[tuple[tuple[str, int, str], ...]] = []
+        if collapsed_marks is not None:
+            if rendered and not mark_text.startswith(rendered):
+                raise _Invalid("text decoration is unsupported")
+            line_marks = collapsed_marks[: len(rendered)]
+            mark_text = mark_text[len(rendered) :]
+            collapsed_marks = collapsed_marks[len(rendered) :]
+            if mark_text.startswith(" "):
+                mark_text = mark_text[1:]
+                collapsed_marks = collapsed_marks[1:]
+        decorations = _text_decorations(
+            rendered,
+            line_marks,
+            [_advance_of(ch, box.font_size) for ch in rendered],
+            baseline,
+            content,
+        )
         records.append(
             _Line(
                 text=rendered,
@@ -8746,11 +8955,14 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 baseline=baseline,
                 glyphs=glyphs,
                 runs=runs,
+                decorations=decorations,
             )
         )
         cursor += height
     if shifted and collapsed.strip():
         raise _Invalid("relative inline is unsupported")
+    if collapsed_marks is not None and mark_text.strip():
+        raise _Invalid("text decoration is unsupported")
     return _clamp_plain_lines(box, records, measure, direction, place_glyphs)
 
 
