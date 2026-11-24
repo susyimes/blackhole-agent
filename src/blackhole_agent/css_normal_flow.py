@@ -189,7 +189,13 @@ break before the inline when the chrome does not fit. A split inline keeps
 the start chrome on the first fragment and the end chrome on the last.
 Vertical padding does not change the strut. A percentage, a negative
 margin, an empty inline, a mixed font, and a vertical writing mode stay
-rejected. An
+rejected. A non-replaced inline's ``vertical-align`` shifts its own glyphs
+on that line. A length or a percentage of its line-height raises them, and
+a negative length lowers them. ``top`` meets the line top. The line grows
+to cover the shifted glyphs, and baseline neighbors stay on the strut.
+Nested lengths add. ``sub``, ``super``, a keyword nested inside a shifted
+inline, an inline-block on that line, preserved white space, and a vertical
+writing mode stay rejected. An
 inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
@@ -775,6 +781,7 @@ class _Piece:
     atom: _Box | None = None
     shifts: tuple[_Shift, ...] = ()
     extra: list[int] = field(default_factory=list)
+    vertical_align: str | int = "baseline"
 
 
 @dataclass
@@ -3317,11 +3324,11 @@ def _inline_segments(
             pieces = []
             used = []
 
-    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...]) -> None:
+    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...], align: str | int) -> None:
         nonlocal pieces
         if not text:
             return
-        if layers and (size != block_size or leading != block_leading):
+        if layers and (size != block_size or leading != block_leading or align != "baseline"):
             raise _Invalid("relative inline font is unsupported")
         if (
             pieces
@@ -3329,20 +3336,25 @@ def _inline_segments(
             and pieces[-1].font_size == size
             and pieces[-1].line_height == leading
             and pieces[-1].shifts == layers
+            and pieces[-1].vertical_align == align
         ):
             pieces[-1].text += text
             pieces[-1].extra.extend([0] * len(text))
             return
-        pieces.append(_Piece(text, size, leading, shifts=layers, extra=[0] * len(text)))
+        pieces.append(
+            _Piece(text, size, leading, shifts=layers, extra=[0] * len(text), vertical_align=align)
+        )
 
-    def walk(node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...]) -> None:
+    def walk(
+        node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...], align: str | int = "baseline"
+    ) -> None:
         own = layers_of.get(id(node))
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
-        _add_own_generated(add, tree, node, "before", before, size, leading, layers)
-        add(node.text or "", size, leading, layers)
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align)
+        add(node.text or "", size, leading, layers, align)
         for child in list(node):
             if not _local_name(child):
                 continue
@@ -3350,38 +3362,44 @@ def _inline_segments(
             if id(child) in floats:
                 flush()
                 segments.append(("float", [], []))
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind == "contents":
-                walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
-                add(child.tail or "", size, leading, layers)
+                walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers, align)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind == "inline-block":
                 if layers:
                     raise _Invalid("relative inline content is unsupported")
+                if align != "baseline":
+                    raise _Invalid("vertical-align beside an inline-block is unsupported")
                 try:
                     atom = next(stream)
                 except StopIteration as exc:
                     raise _Invalid("inline-block is unsupported") from exc
                 pieces.append(_Piece("", size, leading, atom))
                 used.append(atom)
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind == "block":
                 flush()
                 segments.append(("block", [], []))
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             _reject_inline_type(tree, child, styles, declarations, parent_fonts)
             lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
             start = _piece_length(pieces)
-            walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers)
+            child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
+            child_align = _nest_align(
+                align, _used_text_align(tree, child, styles, declarations, child_fonts)
+            )
+            walk(child, child_fonts, layers, child_align)
             _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
-            add(child.tail or "", size, leading, layers)
-        _add_own_generated(add, tree, node, "after", after, size, leading, layers)
+            add(child.tail or "", size, leading, layers, align)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align)
 
     walk(element, fonts, ())
     flush()
@@ -3404,10 +3422,10 @@ def _inline_pieces(
     block_size = _positive_px(fonts["font-size"], "font-size")
     block_leading = fonts["line-height"]
 
-    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...]) -> None:
+    def add(text: str, size: int, leading: str, layers: tuple[_Shift, ...], align: str | int) -> None:
         if not text:
             return
-        if layers and (size != block_size or leading != block_leading):
+        if layers and (size != block_size or leading != block_leading or align != "baseline"):
             raise _Invalid("relative inline font is unsupported")
         if (
             pieces
@@ -3415,52 +3433,63 @@ def _inline_pieces(
             and pieces[-1].font_size == size
             and pieces[-1].line_height == leading
             and pieces[-1].shifts == layers
+            and pieces[-1].vertical_align == align
         ):
             pieces[-1].text += text
             pieces[-1].extra.extend([0] * len(text))
             return
-        pieces.append(_Piece(text, size, leading, shifts=layers, extra=[0] * len(text)))
+        pieces.append(
+            _Piece(text, size, leading, shifts=layers, extra=[0] * len(text), vertical_align=align)
+        )
 
-    def walk(node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...]) -> bool:
+    def walk(
+        node, parent_fonts: dict[str, str], inherited: tuple[_Shift, ...], align: str | int = "baseline"
+    ) -> bool:
         own = layers_of.get(id(node))
         layers = inherited + ((own,) if own is not None else ())
         size = _positive_px(parent_fonts["font-size"], "font-size")
         leading = parent_fonts["line-height"]
         before, after = _generated(tree, node)
-        _add_own_generated(add, tree, node, "before", before, size, leading, layers)
-        add(node.text or "", size, leading, layers)
+        _add_own_generated(add, tree, node, "before", before, size, leading, layers, align)
+        add(node.text or "", size, leading, layers, align)
         for child in list(node):
             if not _local_name(child):
                 continue
             kind = _flow_kind(tree, child, styles, declarations)
             if kind in {"skip", "out"}:
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind == "contents":
-                if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
+                if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers, align):
                     return False
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind == "inline-block":
                 if layers:
                     raise _Invalid("relative inline content is unsupported")
+                if align != "baseline":
+                    raise _Invalid("vertical-align beside an inline-block is unsupported")
                 try:
                     atom = next(stream)
                 except StopIteration as exc:
                     raise _Invalid("inline-block is unsupported") from exc
                 pieces.append(_Piece("", size, leading, atom))
-                add(child.tail or "", size, leading, layers)
+                add(child.tail or "", size, leading, layers, align)
                 continue
             if kind == "block":
                 return False
             _reject_inline_type(tree, child, styles, declarations, parent_fonts)
             lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
             start = _piece_length(pieces)
-            if not walk(child, _inline_fonts(tree, child, styles, declarations, parent_fonts), layers):
+            child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
+            child_align = _nest_align(
+                align, _used_text_align(tree, child, styles, declarations, child_fonts)
+            )
+            if not walk(child, child_fonts, layers, child_align):
                 return False
             _remember_inline_chrome(pieces, start, _piece_length(pieces), lead, trail)
-            add(child.tail or "", size, leading, layers)
-        _add_own_generated(add, tree, node, "after", after, size, leading, layers)
+            add(child.tail or "", size, leading, layers, align)
+        _add_own_generated(add, tree, node, "after", after, size, leading, layers, align)
         return True
 
     if not walk(element, fonts, ()):
@@ -4192,11 +4221,13 @@ def _sized_generated(text: str, raw: dict, size: int, leading: str) -> tuple[str
     )
 
 
-def _add_own_generated(add, tree, node, side: str, text: str, size: int, leading: str, layers) -> None:
+def _add_own_generated(
+    add, tree, node, side: str, text: str, size: int, leading: str, layers, align: str | int
+) -> None:
     before_font, after_font = _generated_fonts(tree, node)
     raw = before_font if side == "before" else after_font
     shown, font, height = _sized_generated(text, raw, size, leading)
-    add(shown, font, height, layers)
+    add(shown, font, height, layers, align)
 
 
 def _push_generated_text(tree, node, side: str, text: str, size: int, parts: list[str], advances: list[int]) -> None:
@@ -6950,16 +6981,68 @@ def _drop_prefix(source: str, rendered: str, white_space: str) -> str:
     return collapsed
 
 
+def _baseline_align(value: str | int) -> bool:
+    return value in {"baseline", 0}
+
+
+def _nest_align(parent: str | int, own: str | int) -> str | int:
+    """Child lengths add to a shifted parent. A keyword inside a shift is rejected."""
+
+    if _baseline_align(parent):
+        return "baseline" if _baseline_align(own) else own
+    if _baseline_align(own):
+        return parent
+    if isinstance(parent, int) and isinstance(own, int):
+        total = parent + own
+        return "baseline" if total == 0 else total
+    raise _Invalid("nested vertical-align is unsupported")
+
+
+def _used_text_align(tree, element, styles, declarations, fonts: dict[str, str]) -> str | int:
+    """Used vertical-align of one non-replaced inline. The initial value is baseline."""
+
+    custom = styles.get(element, ({}, ""))[0]
+    raw = _declared(_winners(tree, element, declarations), "vertical-align", custom)
+    if raw is None:
+        return "baseline"
+    chosen = _read_inline_align(raw, _positive_px(fonts["font-size"], "font-size"), fonts["line-height"])
+    if chosen == 0:
+        return "baseline"
+    return chosen if isinstance(chosen, str) else int(chosen)
+
+
+def _shifted_text(box: _Box) -> bool:
+    return any(piece.text and not _baseline_align(piece.vertical_align) for piece in box.pieces)
+
+
+def _reject_shifted_text(box: _Box) -> None:
+    if not _shifted_text(box):
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr" or box.white_space not in {
+        "normal",
+        "nowrap",
+        "pre-line",
+    }:
+        raise _Invalid("vertical-align is unsupported")
+    if box.atoms:
+        raise _Invalid("vertical-align beside an inline-block is unsupported")
+
+
 def _mixed_runs(box: _Box) -> bool:
     return any(
-        run.font_size != box.font_size or run.line_height != box.line_height for run in box.pieces if run.text
+        run.font_size != box.font_size
+        or run.line_height != box.line_height
+        or not _baseline_align(run.vertical_align)
+        for run in box.pieces
+        if run.text
     )
 
 
-def _style_stream(runs: list[_Piece]) -> list[tuple[int, str]]:
-    styles: list[tuple[int, str]] = []
+def _style_stream(runs: list[_Piece]) -> list[tuple[int, str, str | int]]:
+    styles: list[tuple[int, str, str | int]] = []
     for run in runs:
-        styles.extend((run.font_size, run.line_height) for _ in run.text)
+        align: str | int = "baseline" if _baseline_align(run.vertical_align) else run.vertical_align
+        styles.extend((run.font_size, run.line_height, align) for _ in run.text)
     return styles
 
 
@@ -6967,12 +7050,14 @@ def _advance_of(ch: str, size: int) -> int:
     return _px(size * _default_advance(ch), "advance")
 
 
-def _collapse_styled(text: str, styles: list[tuple[int, str]]) -> tuple[str, list[tuple[int, str]]]:
+def _collapse_styled(
+    text: str, styles: list[tuple[int, str, str | int]]
+) -> tuple[str, list[tuple[int, str, str | int]]]:
     pieces: list[str] = []
-    chosen: list[tuple[int, str]] = []
+    chosen: list[tuple[int, str, str | int]] = []
     index = 0
     count = len(text)
-    gap: tuple[int, str] | None = None
+    gap: tuple[int, str, str | int] | None = None
     while index < count:
         if text[index].isspace():
             if gap is None:
@@ -6997,10 +7082,10 @@ def _collapse_styled(text: str, styles: list[tuple[int, str]]) -> tuple[str, lis
 
 def _split_styled(
     source: str,
-    styles: list[tuple[int, str]],
+    styles: list[tuple[int, str, str | int]],
     rendered: str,
     white_space: str,
-) -> tuple[list[tuple[int, str]], str, list[tuple[int, str]]]:
+) -> tuple[list[tuple[int, str, str | int]], str, list[tuple[int, str, str | int]]]:
     if len(styles) != len(source):
         raise _Invalid("inline run is invalid")
     if white_space in {"pre", "pre-wrap", "break-spaces"}:
@@ -7024,28 +7109,32 @@ def _split_styled(
     return collapsed_styles[:used], rest, rest_styles
 
 
-def _group_runs(rendered: str, styles: list[tuple[int, str]]) -> list[tuple[str, int, str, int]]:
+def _group_runs(
+    rendered: str, styles: list[tuple[int, str, str | int]]
+) -> list[tuple[str, int, str, int, str | int]]:
     if len(rendered) != len(styles):
         raise _Invalid("inline font break is unsupported")
-    groups: list[tuple[str, int, str, int]] = []
-    for ch, (size, leading) in zip(rendered, styles, strict=True):
+    groups: list[tuple[str, int, str, int, str | int]] = []
+    for ch, (size, leading, align) in zip(rendered, styles, strict=True):
         width = _advance_of(ch, size)
-        if groups and groups[-1][1] == size and groups[-1][2] == leading:
-            text, _, _, previous = groups[-1]
-            groups[-1] = (text + ch, size, leading, previous + width)
+        if groups and groups[-1][1] == size and groups[-1][2] == leading and groups[-1][4] == align:
+            text, _, _, previous, _ = groups[-1]
+            groups[-1] = (text + ch, size, leading, previous + width, align)
             continue
-        groups.append((ch, size, leading, width))
+        groups.append((ch, size, leading, width, align))
     return groups
 
 
-def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> tuple[int, int]:
+def _runs_line_height(
+    box: _Box, groups: list[tuple[str, int, str, int, str | int]]
+) -> tuple[int, int, list[int]]:
     boxes = []
-    for index, (_text, size, leading, _width) in enumerate(groups):
+    for index, (_text, size, leading, _width, align) in enumerate(groups):
         boxes.append(
             {
                 "id": f"r{index}",
                 "kind": "text",
-                "vertical_align": "baseline",
+                "vertical_align": align,
                 "ascent": size,
                 "descent": 0,
                 "line_height": _used_line_height(leading, size),
@@ -7060,9 +7149,32 @@ def _runs_line_height(box: _Box, groups: list[tuple[str, int, str, int]]) -> tup
         },
         boxes,
     )
-    if laid.get("outcome") != "resolved":
+    placed = laid.get("boxes") if laid.get("outcome") == "resolved" else None
+    if not isinstance(placed, list):
         raise _Invalid(str(laid.get("reason") or "line box failed"))
-    return _px(laid.get("line_height"), "line height"), _px(laid.get("baseline"), "baseline")
+    by_id = {str(item.get("id")): item for item in placed if isinstance(item, dict)}
+    tops: list[int] = []
+    for index in range(len(groups)):
+        item = by_id.get(f"r{index}")
+        if not isinstance(item, dict):
+            raise _Invalid("line box failed")
+        tops.append(_px(item.get("top"), "text top"))
+    return _px(laid.get("line_height"), "line height"), _px(laid.get("baseline"), "baseline"), tops
+
+
+def _record_text_runs(
+    groups: list[tuple[str, int, str, int, str | int]], tops: list[int]
+) -> list[dict[str, object]]:
+    aligned = any(group[4] != "baseline" for group in groups)
+    runs: list[dict[str, object]] = []
+    local = 0
+    for (piece, size, _leading, width, _align), top in zip(groups, tops, strict=True):
+        run: dict[str, object] = {"text": piece, "x": local, "font_size": size, "width": width}
+        if aligned:
+            run["y"] = top
+        runs.append(run)
+        local += width
+    return runs
 
 
 def _line_gap(
@@ -7157,7 +7269,7 @@ def _fill_mixed_beside_floats(
             if rest == remaining:
                 raise _Invalid("line break failed")
             groups = _group_runs(rendered, line_styles)
-            height, baseline = _runs_line_height(box, groups)
+            height, baseline, tops = _runs_line_height(box, groups)
             if height != assumed:
                 left2, right2, _bottoms2, _shaped2 = _line_gap(cursor, height, bands, box.content_width)
                 if (left2, right2) != (left, right):
@@ -7165,11 +7277,7 @@ def _fill_mixed_beside_floats(
                     continue
             last = rest == "" or (box.white_space in _COLLAPSED_EMPTY and not rest.strip())
             offset = _text_offset(box, available, content, last)
-            local = 0
-            runs: list[dict[str, object]] = []
-            for piece, size, _leading, width in groups:
-                runs.append({"text": piece, "x": local, "font_size": size, "width": width})
-                local += width
+            runs = _record_text_runs(groups, tops)
             records.append(
                 _Line(
                     text=rendered,
@@ -7233,14 +7341,10 @@ def _fill_mixed(box: _Box) -> None:
         if rest == remaining:
             raise _Invalid("line break failed")
         groups = _group_runs(rendered, line_styles)
-        height, baseline = _runs_line_height(box, groups)
+        height, baseline, tops = _runs_line_height(box, groups)
         last = rest == "" or (box.white_space in _COLLAPSED_EMPTY and not rest.strip())
         offset = _text_offset(box, box.content_width, content, last)
-        local = 0
-        runs: list[dict[str, object]] = []
-        for piece, size, _leading, width in groups:
-            runs.append({"text": piece, "x": local, "font_size": size, "width": width})
-            local += width
+        runs = _record_text_runs(groups, tops)
         records.append(
             _Line(
                 text=rendered,
@@ -7809,6 +7913,7 @@ def _clamp_plain_lines(
 
 
 def _fill_lines(box: _Box) -> None:
+    _reject_shifted_text(box)
     _reject_glyph_chrome(box)
     _reject_line_clamp(box, box.direction)
     _reject_spacing(box)
