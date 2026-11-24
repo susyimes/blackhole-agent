@@ -210,6 +210,11 @@ horizontal margin, border, and padding on the first and last glyph of that
 element. The following word starts after that used chrome, and a space can
 break before the inline when the chrome does not fit. A split inline keeps
 the start chrome on the first fragment and the end chrome on the last.
+``box-decoration-break: clone`` repeats both edges on every fragment, so
+``AA BB CC`` with 10px of padding on each side is three 40px lines in a 50px
+measure and also three lines in a 65px measure. ``slice`` keeps widths 30, 20,
+and 30 in the 50px measure, and keeps ``AA BB`` together at width 60 in the
+65px measure. The omitted property is ``slice``. ``inherit`` is rejected.
 Vertical padding does not change the strut. A percentage, a negative
 margin, an empty inline, a mixed font, and a vertical writing mode stay
 rejected. A non-replaced inline's ``vertical-align`` shifts its own glyphs
@@ -863,6 +868,7 @@ class _Piece:
     origin: tuple[Element, bool] | None = None  # element.text or child.tail
     marks: tuple[tuple[str, int, str], ...] = ()
     combine: tuple[tuple[int, int], ...] = ()
+    clone_ranges: tuple[tuple[int, int, int, int], ...] = ()
 
 
 @dataclass
@@ -952,6 +958,7 @@ class _Box:
     atoms: list[_Box] = field(default_factory=list)
     pieces: list[_Piece] = field(default_factory=list)
     nowrap_ranges: tuple[tuple[int, int], ...] = ()
+    clone_ranges: tuple[tuple[int, int, int, int], ...] = ()
     relative_layers: dict[int, _Shift] = field(default_factory=dict)
     local_x: int = 0
     flex: dict[str, object] | None = None
@@ -3390,6 +3397,7 @@ def _set_inline(
     box.pieces = pieces or []
     box.inline_text = None if pieces is None else "".join(piece.text for piece in pieces)
     box.nowrap_ranges = _nowrap_ranges(box.pieces)
+    box.clone_ranges = box.pieces[0].clone_ranges if box.pieces else ()
     if _glyph_chrome(box) and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
         raise _Invalid("inline chrome is unsupported")
     if box.inline_text and box.positioned:
@@ -3524,6 +3532,7 @@ def _make_anonymous_block(
         atoms=atoms,
         inline_text="".join(piece.text for piece in pieces),
         nowrap_ranges=_nowrap_ranges(pieces),
+        clone_ranges=pieces[0].clone_ranges if pieces else (),
     )
     return anon
 
@@ -3622,14 +3631,22 @@ def _inline_segments(
     block_size = _positive_px(fonts["font-size"], "font-size")
     block_leading = fonts["line-height"]
     transform_mode = {"value": fonts.get("text-transform", "none")}
+    pending_clones: list[tuple[int, int, int, int]] = []
+    segment_epoch = 0
 
     def flush() -> Iterator[tuple[str, list[_Piece], list[_Box]]]:
-        nonlocal pieces, used, piece_length
+        nonlocal pieces, used, piece_length, segment_epoch
         if pieces or used:
+            if pending_clones:
+                if not pieces:
+                    raise _Invalid("box-decoration-break is unsupported")
+                pieces[0].clone_ranges = tuple(pending_clones)
+                pending_clones.clear()
             yield "inline", pieces, used
             pieces = []
             used = []
             piece_length = 0
+            segment_epoch += 1
 
     def add(
         text: str,
@@ -3722,7 +3739,9 @@ def _inline_segments(
             elif kind not in {"skip", "out"}:
                 _reject_inline_type(tree, child, styles, declarations, parent_fonts)
                 held = nowrap or _inline_declares_nowrap(tree, child, styles, declarations, parent_fonts)
+                decoration = _read_box_decoration_break(tree, child, styles, declarations)
                 lead, trail = _inline_horizontal_chrome(tree, child, styles, declarations)
+                epoch = segment_epoch
                 start = piece_length
                 child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
                 child_align = _nest_align(
@@ -3730,6 +3749,10 @@ def _inline_segments(
                 )
                 yield from walk(child, child_fonts, layers, child_align, held, here)
                 _remember_inline_chrome(pieces, start, piece_length, lead, trail)
+                if decoration == "clone" and (lead or trail):
+                    if epoch != segment_epoch or piece_length <= start:
+                        raise _Invalid("box-decoration-break is unsupported")
+                    pending_clones.append((start, piece_length, lead, trail))
             add(child.tail or "", size, leading, layers, align, nowrap, (child, True), here)
         _add_own_generated(add, tree, node, "after", after, size, leading, layers, align, nowrap, here)
         transform_mode["value"] = previous_transform
@@ -3855,6 +3878,23 @@ def _reject_glyph_chrome(box: _Box) -> None:
         raise _Invalid("inline chrome is unsupported")
     if box.hanging_punctuation != "none":
         raise _Invalid("inline chrome is unsupported")
+
+
+def _read_box_decoration_break(tree, element, styles, declarations) -> str:
+    """``slice`` keeps one pair of edges. ``clone`` repeats them on every fragment."""
+
+    custom = styles.get(element, ({}, ""))[0]
+    raw = _declared(_winners(tree, element, declarations), "box-decoration-break", custom)
+    if raw is None:
+        return "slice"
+    text = " ".join(raw.split()).lower()
+    if text in {"slice", "initial", "unset", "revert"}:
+        return "slice"
+    if text == "clone":
+        return "clone"
+    if text in {"inherit", "revert-layer"}:
+        raise _Invalid("box-decoration-break is unsupported")
+    raise _Invalid("box-decoration-break is invalid")
 
 
 def _inline_horizontal_chrome(tree, element, styles, declarations) -> tuple[int, int]:
@@ -4386,6 +4426,7 @@ def _measure_lines(box: _Box, text: str, measure: int, *, advances: object) -> d
         white_space=box.white_space,
         advances=advances,
         nowrap_ranges=box.nowrap_ranges,
+        clone_ranges=box.clone_ranges,
         **_spacing_args(box),
         **_break_args(box),
     )
@@ -6322,8 +6363,13 @@ def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
 def _intrinsic_text_sizes(box: _Box) -> tuple[int, int]:
     text = box.inline_text or ""
     measured = wrap_lines(
-        text, 0, white_space=box.white_space, advances=_shrink_advances(box), **_spacing_args(box),
-            **_break_args(box),
+        text,
+        0,
+        white_space=box.white_space,
+        advances=_shrink_advances(box),
+        clone_ranges=box.clone_ranges,
+        **_spacing_args(box),
+        **_break_args(box),
     )
     if measured["outcome"] != "wrapped":
         raise _Invalid(str(measured.get("reason") or "text measurement failed"))

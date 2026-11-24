@@ -50,6 +50,9 @@ _HANGING: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
     "css_hanging_punctuation", default=frozenset()
 )
 _OPENING: contextvars.ContextVar[bool] = contextvars.ContextVar("css_hanging_opening", default=False)
+_CLONE: contextvars.ContextVar[tuple[tuple[int, int, float, float], ...]] = contextvars.ContextVar(
+    "css_clone_decoration", default=()
+)
 _COLLAPSE = frozenset({"normal", "nowrap", "pre-line"})
 _WRAPS = frozenset({"normal", "pre-wrap", "break-spaces", "pre-line"})
 _AFTER_HYPHEN = frozenset("-\u2010\u2013")
@@ -154,6 +157,7 @@ def wrap_lines(
     word_spacing: object = 0,
     hanging_punctuation: object = "none",
     nowrap_ranges: object = (),
+    clone_ranges: object = (),
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -168,6 +172,9 @@ def wrap_lines(
     the first line's measure, a closing mark out of the final line's measure,
     and a stop or comma out of the line that ends with it. The mark stays in
     the rendered text. Its advance stays in ``width`` and leaves ``content_width``.
+    ``clone_ranges`` are source spans whose start and end chrome already sit on
+    the first and last characters. Each other fragment of that span adds the
+    missing edge to the measured width.
     """
 
     try:
@@ -184,6 +191,7 @@ def wrap_lines(
         spacing = _finite(word_spacing, "word_spacing")
         hanging = _hanging_modes(hanging_punctuation)
         held = _nowrap_ranges(nowrap_ranges)
+        clones = _clone_ranges(clone_ranges, len(source))
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -194,6 +202,7 @@ def wrap_lines(
         return _invalid(exc.reason)
 
     token = _HANGING.set(hanging)
+    clone_token = _CLONE.set(clones)
     try:
         lines = _lay_out(
             tokens,
@@ -240,6 +249,7 @@ def wrap_lines(
         )
     finally:
         _HANGING.reset(token)
+        _CLONE.reset(clone_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -264,6 +274,7 @@ def balance_lines(
     word_spacing: object = 0,
     hanging_punctuation: object = "none",
     nowrap_ranges: object = (),
+    clone_ranges: object = (),
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -287,6 +298,7 @@ def balance_lines(
         spacing = _finite(word_spacing, "word_spacing")
         hanging = _hanging_modes(hanging_punctuation)
         held = _nowrap_ranges(nowrap_ranges)
+        clones = _clone_ranges(clone_ranges, len(source))
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -297,6 +309,7 @@ def balance_lines(
         return _invalid(exc.reason)
 
     token = _HANGING.set(hanging)
+    clone_token = _CLONE.set(clones)
     try:
         try:
             lines = _balance_lay_out(
@@ -345,6 +358,7 @@ def balance_lines(
         )
     finally:
         _HANGING.reset(token)
+        _CLONE.reset(clone_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -998,7 +1012,62 @@ def _measure(
     )
     if content < 0:
         content = 0.0
+    clone = _clone_fragment_chrome(tokens, low, high)
+    if clone:
+        content += clone
+        full += clone
     return text, content, full
+
+
+def _clone_ranges(value: object, length: int) -> tuple[tuple[int, int, float, float], ...]:
+    """Source spans that repeat their end edges on every fragment."""
+
+    if value in (None, (), []):
+        return ()
+    if not isinstance(value, (list, tuple)):
+        raise _Invalid("clone ranges are unsupported")
+    parsed: list[tuple[int, int, float, float]] = []
+    for item in value:
+        if not isinstance(item, (list, tuple)) or len(item) != 4:
+            raise _Invalid("clone ranges are unsupported")
+        start, end, lead, trail = item
+        if isinstance(start, bool) or isinstance(end, bool):
+            raise _Invalid("clone ranges are unsupported")
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise _Invalid("clone ranges are unsupported")
+        if start < 0 or end > length or start >= end:
+            raise _Invalid("clone ranges are unsupported")
+        parsed.append((start, end, _nonneg(lead, "clone lead"), _nonneg(trail, "clone trail")))
+    return tuple(parsed)
+
+
+def _clone_fragment_chrome(tokens: list[_Tok], low: int, high: int) -> float:
+    """Chrome a fragment still owes after the first and last characters paid theirs."""
+
+    ranges = _CLONE.get()
+    if not ranges or low >= high:
+        return 0.0
+    extra = 0.0
+    for start, end, lead, trail in ranges:
+        last = end - 1
+        present = False
+        covers_first = False
+        covers_last = False
+        for tok in tokens[low:high]:
+            if tok.end <= start or tok.start >= end:
+                continue
+            present = True
+            if tok.start <= start < tok.end:
+                covers_first = True
+            if tok.start <= last < tok.end:
+                covers_last = True
+        if not present:
+            continue
+        if not covers_first:
+            extra += lead
+        if not covers_last:
+            extra += trail
+    return extra
 
 
 def _render(
