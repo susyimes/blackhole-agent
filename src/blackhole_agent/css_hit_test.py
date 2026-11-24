@@ -34,7 +34,19 @@ _SNAP = 1e-6
 
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
-_DISPLAYS = frozenset({"block", "inline", "inline-block"})
+_DISPLAYS = frozenset(
+    {
+        "block",
+        "inline",
+        "inline-block",
+        "inline-flex",
+        "flex",
+        "grid",
+        "table",
+        "table-row",
+        "table-cell",
+    }
+)
 _POINTER = frozenset({"auto", "none"})
 _VISIBILITY = frozenset({"visible", "hidden"})
 _FIELDS = frozenset(

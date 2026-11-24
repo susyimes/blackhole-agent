@@ -948,6 +948,9 @@ def element_from_document(
     positive z-index is in front of a later auto-positioned sibling, and a
     negative z-index that escapes its parent is behind that parent.
     ``pointer-events: none`` and ``visibility: hidden`` are not targets.
+    A flex, inline-flex, grid, table, table-row, or table-cell box is a
+    target. A point in a flex container's unoccupied gap hits that container,
+    and a positive z-index still paints above the flex item it covers.
     ``outcome`` is ``hit``, ``miss``, or ``invalid``.
     """
 
@@ -1095,7 +1098,20 @@ def _invalid(reason: str) -> dict[str, object]:
     return {"outcome": "invalid", "reason": reason, "boxes": None}
 
 
-_HIT_DISPLAYS = frozenset({"block", "flow-root", "inline", "inline-block"})
+_HIT_DISPLAYS = frozenset(
+    {
+        "block",
+        "flow-root",
+        "inline",
+        "inline-block",
+        "inline-flex",
+        "flex",
+        "grid",
+        "table",
+        "table-row",
+        "table-cell",
+    }
+)
 
 
 def _finite_point(value: object, name: str) -> None:
@@ -1171,6 +1187,7 @@ def _used_keyword(
 def _document_hit_tree(root: _Box) -> dict[str, object]:
     boxes: list[_Box] = []
     seen: set[int] = set()
+    listed_by: dict[int, _Box] = {}
     stack = [root]
     while stack:
         box = stack.pop()
@@ -1179,17 +1196,18 @@ def _document_hit_tree(root: _Box) -> dict[str, object]:
             continue
         seen.add(marker)
         boxes.append(box)
-        stack.extend(box.positioned)
-        stack.extend(box.floats)
-        stack.extend(box.children)
-        stack.extend(box.atoms)
+        for child in (*box.positioned, *box.floats, *box.children, *box.atoms):
+            listed_by.setdefault(id(child), box)
+            stack.append(child)
     by_parent: dict[int, list[_Box]] = {}
     for box in boxes:
         if box is root or box.anonymous:
             continue
         parent = box.parent_box
+        if parent is None:
+            parent = listed_by.get(id(box))
         while parent is not None and parent.anonymous:
-            parent = parent.parent_box
+            parent = parent.parent_box or listed_by.get(id(parent))
         if parent is None:
             continue
         by_parent.setdefault(id(parent), []).append(box)

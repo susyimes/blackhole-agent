@@ -25,7 +25,19 @@ from dataclasses import dataclass, field
 
 _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
-_DISPLAYS = frozenset({"block", "inline", "inline-block"})
+_DISPLAYS = frozenset(
+    {
+        "block",
+        "inline",
+        "inline-block",
+        "inline-flex",
+        "flex",
+        "grid",
+        "table",
+        "table-row",
+        "table-cell",
+    }
+)
 _FIELDS = frozenset(
     {"id", "position", "z_index", "opacity", "float", "display", "transform", "children"}
 )
@@ -66,7 +78,8 @@ def paint_order(tree: object) -> dict[str, object]:
     is ``static``, ``relative``, ``absolute``, ``fixed``, or ``sticky``.
     ``z_index`` is ``auto`` or an integer.     ``opacity`` is a number from 0 to
     1. ``float`` is ``none``, ``left``, or ``right``. ``display`` is
-    ``block``, ``inline``, or ``inline-block``. ``transform`` other than
+    ``block``, ``inline``, ``inline-block``, ``inline-flex``, ``flex``,
+    ``grid``, ``table``, ``table-row``, or ``table-cell``. ``transform`` other than
     ``none`` forms a stacking context. ``children`` is a list of the same
     shape. A repeated id is invalid.
     """
@@ -179,7 +192,7 @@ def _walk(parent: _Box, real: _Bands, group: _Bands | None, seq: int) -> int:
         if child.float != "none":
             seq = _place_group(child, real, target.floats, seq)
             continue
-        if child.display == "inline-block":
+        if child.display in {"inline-block", "inline-flex"}:
             seq = _place_group(child, real, target.inlines, seq)
             continue
         if child.display == "inline":
