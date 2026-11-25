@@ -55,7 +55,16 @@ not keep the box away from that edge. The following in-flow block stays
 where it was without the anchored box. A missing name, a duplicated
 ``anchor-name``, a float or other out-of-flow anchor, an anchor inside the
 positioned box, a non-horizontal box, an indefinite containing block
-height, and ``position-area`` on a static box are rejected. A float inside
+height, and ``position-area`` on a static box are rejected. ``anchor-size()``
+on that absolute or fixed box copies one border-box edge of its anchor into
+``width``, ``height``, or their minimum and maximum. An omitted keyword uses
+the property's axis, ``width`` and ``height`` are physical, and ``block``
+follows a horizontal containing block. The function may name the anchor, or
+it uses ``position-anchor`` when the name is omitted. A length or percentage
+fallback is used when that anchor is missing; the percentage uses the
+containing block's size on that axis. A missing fallback, a static box, a
+float or other out-of-flow anchor, an anchor inside the positioned box, and
+a vertical or non-ltr box are rejected. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. An inline-block in that text is an unbreakable item: its margin box
@@ -610,6 +619,7 @@ from dataclasses import dataclass, field
 from xml.etree.ElementTree import Element
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_anchor_query import parse_anchor_size_call, resolve_anchor_size
 from blackhole_agent.css_anchor_position import place_anchored
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
@@ -5804,7 +5814,7 @@ def _read_position_anchor(
         return "", ""
     if position not in {"absolute", "fixed"} or writing_mode != "horizontal-tb" or direction != "ltr":
         raise _Invalid("position-area is unsupported")
-    if not anchor or not area:
+    if area and not anchor:
         raise _Invalid("position-area is unsupported")
     return anchor, area
 
@@ -6056,7 +6066,7 @@ def _place_positioned(
         anchors = _anchor_index(box)
     for abs_box in box.positioned:
         cb = _captured_edge(abs_box, viewport)
-        _place_one_absolute(abs_box, cb, box)
+        _place_one_absolute(abs_box, cb, box, anchors)
         _align_to_anchor(abs_box, cb, anchors)
     for child in box.children:
         _place_positioned(child, viewport, anchors)
@@ -6338,7 +6348,70 @@ def _line_static_edges(parent: _Box, marked: tuple[str, tuple[int, ...]]) -> tup
     return found[0], found[1], content_right
 
 
-def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box) -> None:
+_ANCHOR_SIZE_AXIS = {
+    "width": "width",
+    "min-width": "width",
+    "max-width": "width",
+    "height": "height",
+    "min-height": "height",
+    "max-height": "height",
+}
+
+
+def _anchor_size_text(value: object) -> bool:
+    return isinstance(value, str) and value.strip().lower().startswith("anchor-size(")
+
+
+def _apply_anchor_sizes(
+    box: _Box,
+    slots: dict[str, str],
+    anchors: dict[str, _Box],
+    cb: _Edge,
+) -> None:
+    """Replace anchor-size() sizing values with the anchor's border-box length."""
+
+    queried = [prop for prop in _ANCHOR_SIZE_AXIS if _anchor_size_text(slots.get(prop))]
+    if not queried:
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("anchor-size is unsupported")
+    for prop in queried:
+        parsed = parse_anchor_size_call(slots[prop])
+        if parsed.get("outcome") != "parsed":
+            raise _Invalid(str(parsed.get("reason") or "anchor-size is invalid"))
+        name = parsed.get("anchor") or box.position_anchor
+        anchor = anchors.get(str(name)) if name else None
+        if anchor is not None:
+            if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
+                raise _Invalid("anchor is out of flow")
+            if _box_contains(box, anchor):
+                raise _Invalid("anchor is inside the positioned box")
+            measured = {"width": anchor.border_width, "height": anchor.border_height}
+        else:
+            measured = None
+        axis = _ANCHOR_SIZE_AXIS[prop]
+        basis = cb.width if axis == "width" else cb.height
+        resolved = resolve_anchor_size(
+            measured,
+            parsed.get("keyword"),
+            used_in=prop,
+            fallback=parsed.get("fallback"),
+            containing_writing_mode="horizontal-tb",
+            containing_direction="ltr",
+            box_writing_mode=box.writing_mode,
+            box_direction=box.direction,
+            percentage_basis=basis,
+            absolutely_positioned=True,
+        )
+        if resolved.get("outcome") not in {"resolved", "fallback"}:
+            raise _Invalid(str(resolved.get("reason") or "anchor-size is invalid"))
+        length = resolved.get("length")
+        if isinstance(length, bool) or not isinstance(length, (int, float)) or float(length) < 0:
+            raise _Invalid("anchor-size is invalid")
+        slots[prop] = f"{length}px"
+
+
+def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[str, _Box]) -> None:
     """Give an out-of-flow replaced box its used size, then solve the insets."""
 
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
@@ -6350,6 +6423,7 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box) -> None:
     if box.children or box.floats or box.positioned or box.atoms:
         raise _Invalid("positioned replaced element is unsupported")
     slots = _physical_slots(box)
+    _apply_anchor_sizes(box, slots, anchors, cb)
     left, right = _inset(slots, "left"), _inset(slots, "right")
     top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
     needs_static = (_is_auto(left) and _is_auto(right)) or (_is_auto(top) and _is_auto(bottom))
@@ -6432,11 +6506,17 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box) -> None:
     box.lines = []
 
 
-def _place_one_absolute(box: _Box, cb: _Edge, parent: _Box) -> None:
+def _place_one_absolute(
+    box: _Box,
+    cb: _Edge,
+    parent: _Box,
+    anchors: dict[str, _Box],
+) -> None:
     if box.replaced:
-        _place_absolute_replaced(box, cb, parent)
+        _place_absolute_replaced(box, cb, parent, anchors)
         return
     slots = _physical_slots(box)
+    _apply_anchor_sizes(box, slots, anchors, cb)
     left, right = _inset(slots, "left"), _inset(slots, "right")
     top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
     needs_static = (_is_auto(left) and _is_auto(right)) or (_is_auto(top) and _is_auto(bottom))

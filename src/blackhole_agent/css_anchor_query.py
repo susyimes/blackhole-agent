@@ -9,7 +9,8 @@ the function is used in, so ``top`` stays ``height`` even when the block
 axis is horizontal. The function resolves only for an absolutely positioned
 box with a definite anchor size. Otherwise a length fallback is used, a
 percentage fallback resolves against a definite basis, and a missing
-fallback makes the declaration invalid.
+fallback makes the declaration invalid. ``parse_anchor_size_call`` splits one
+written function into that anchor name, size keyword, and fallback text.
 
 ``position-visibility`` computes ``force-hidden`` when one of its conditions
 fails. ``anchor-valid`` hides a referenced default anchor that does not
@@ -63,6 +64,98 @@ class _Invalid(Exception):
     def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(reason)
+
+
+def _anchor_size_payload(
+    outcome: str,
+    reason: str | None,
+    anchor: str | None,
+    keyword: str | None,
+    fallback: str | None,
+) -> dict[str, object]:
+    return {
+        "outcome": outcome,
+        "reason": reason,
+        "anchor": anchor,
+        "keyword": keyword,
+        "fallback": fallback,
+    }
+
+
+def _dashed_anchor(token: str) -> bool:
+    if len(token) < 3 or not token.startswith("--"):
+        return False
+    body = token[2:]
+    first = body[0]
+    if not first.isascii() or not (first.isalpha() or first == "_"):
+        return False
+    return all(char.isascii() and (char.isalnum() or char in "_-") for char in body)
+
+
+def _split_anchor_args(text: str) -> list[str]:
+    parts: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for char in text:
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            if depth == 0:
+                raise _Invalid("anchor-size is invalid")
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append("".join(buf).strip())
+            buf = []
+            continue
+        buf.append(char)
+    if depth != 0:
+        raise _Invalid("anchor-size is invalid")
+    parts.append("".join(buf).strip())
+    return parts
+
+
+def parse_anchor_size_call(value: object) -> dict[str, object]:
+    """Parse one ``anchor-size()`` value into an anchor, a keyword, and a fallback.
+
+    The function name and size keyword are case-insensitive. A dashed anchor
+    name keeps the case written in the value. The fallback is the text after
+    the top-level comma, still unresolved. A value that is not this function
+    is ``absent``.
+    """
+
+    if not isinstance(value, str):
+        return _anchor_size_payload("absent", None, None, None, None)
+    text = " ".join(value.strip().split())
+    lowered = text.lower()
+    prefix = "anchor-size("
+    if not lowered.startswith(prefix) or not text.endswith(")"):
+        return _anchor_size_payload("absent", None, None, None, None)
+    try:
+        inner = text[len(prefix) : -1].strip()
+        if not inner:
+            return _anchor_size_payload("parsed", None, None, None, None)
+        parts = _split_anchor_args(inner)
+        if len(parts) > 2 or not parts[0] or (len(parts) == 2 and not parts[1]):
+            raise _Invalid("anchor-size is invalid")
+        anchor = None
+        keyword = None
+        for token in parts[0].split(" "):
+            folded = token.lower()
+            if folded in _SIZE_KEYWORDS:
+                if keyword is not None:
+                    raise _Invalid("anchor-size is invalid")
+                keyword = folded
+                continue
+            if _dashed_anchor(token):
+                if anchor is not None:
+                    raise _Invalid("anchor-size is invalid")
+                anchor = token
+                continue
+            raise _Invalid("anchor-size is invalid")
+        fallback = parts[1] if len(parts) == 2 else None
+        return _anchor_size_payload("parsed", None, anchor, keyword, fallback)
+    except _Invalid as exc:
+        return _anchor_size_payload("invalid", exc.reason, None, None, None)
 
 
 def resolve_anchor_size(

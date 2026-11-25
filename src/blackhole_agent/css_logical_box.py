@@ -28,6 +28,7 @@ rejected. A used border width is zero when its style is ``none`` or
 
 from __future__ import annotations
 
+from blackhole_agent.css_anchor_query import parse_anchor_size_call
 from blackhole_agent.css_block_width import used_block_width
 from blackhole_agent.css_length_math import is_length_math, resolve_length_math
 from blackhole_agent.css_writing_mode import resolve_writing_mode
@@ -311,14 +312,27 @@ def _check_component(longhand: str, value: str) -> None:
     if family in {"size", "min"}:
         if value.lower() == "auto":
             return
+        if _anchor_size_component(value):
+            return
         _parse_length(value, negative=False, percent=True, name="size")
         return
     if family == "max":
         if value.lower() == "none":
             return
+        if _anchor_size_component(value):
+            return
         _parse_length(value, negative=False, percent=True, name="size")
         return
     raise _Invalid("property is invalid")
+
+
+def _anchor_size_component(value: str) -> bool:
+    parsed = parse_anchor_size_call(value)
+    if parsed.get("outcome") == "absent":
+        return False
+    if parsed.get("outcome") != "parsed":
+        raise _Invalid(str(parsed.get("reason") or "anchor-size is invalid"))
+    return True
 
 
 def _family(longhand: str) -> str:
