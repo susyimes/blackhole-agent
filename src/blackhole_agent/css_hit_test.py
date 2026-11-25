@@ -18,6 +18,10 @@ hits nothing. An invalid transform rejects the tree.
 ``pointer-events`` and ``visibility`` inherit.
 ``none`` and ``hidden`` are not targets. A descendant that specifies ``auto``
 or ``visible`` still is. Opacity zero does not remove a target.
+
+An optional ``clip`` rectangle is in that element's own border-box
+coordinates. It hides descendants that fall outside it and does not hide
+the element itself. A missing clip does not change the hit.
 """
 
 from __future__ import annotations
@@ -66,6 +70,7 @@ _FIELDS = frozenset(
         "visibility",
         "transform",
         "origin",
+        "clip",
     }
 )
 
@@ -93,6 +98,7 @@ class _Box:
     matrix: tuple[float, float, float, float, float, float]
     stacking: bool
     transform: str | None = None
+    clip: tuple[float, float, float, float] | None = None
     parent: _Box | None = None
     children: list[_Box] = field(default_factory=list)
 
@@ -103,7 +109,9 @@ def element_from_point(tree: object, x: object, y: object) -> dict[str, object]:
     ``outcome`` is ``hit``, ``miss``, or ``invalid``. ``id`` is the element
     on a hit and ``None`` otherwise. An invalid tree or point also carries
     ``reason``. Layout coordinates stay untransformed; the test uses the
-    inverse CSS 2D matrix, including ancestor transforms.
+    inverse CSS 2D matrix, including ancestor transforms. A descendant
+    outside an ancestor's ``clip`` is skipped. The clipped element itself
+    remains a target on its border box.
     """
 
     try:
@@ -124,6 +132,8 @@ def element_from_point(tree: object, x: object, y: object) -> dict[str, object]:
         if box is None:
             return {"outcome": "invalid", "id": None, "reason": "paint"}
         if box.pointer_events != "auto" or box.visibility != "visible":
+            continue
+        if not _inside_ancestor_clips(box, point_x, point_y):
             continue
         local = _local_point(box, point_x, point_y)
         if local is not None and _covers(local[0], local[1], box.width, box.height):
@@ -185,6 +195,7 @@ def _parse(
     if width < 0 or height < 0:
         raise _Invalid("size")
     matrix, stacking, transform = _matrix(value, width, height)
+    clip = _clip(value)
     if "pointer_events" in value:
         chosen = value["pointer_events"]
         if chosen not in _POINTER:
@@ -214,6 +225,7 @@ def _parse(
         matrix=matrix,
         stacking=stacking,
         transform=transform,
+        clip=clip,
     )
     boxes[raw_id] = box
     box.children = []
@@ -267,6 +279,34 @@ def _transform_none(value: str) -> bool:
         pieces.append(value[index])
         index += 1
     return "".join(pieces).strip().lower() == "none"
+
+
+def _clip(value: dict[str, object]) -> tuple[float, float, float, float] | None:
+    if "clip" not in value:
+        return None
+    raw = value["clip"]
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)) or len(raw) != 4:
+        raise _Invalid("clip")
+    return (_finite(raw[0]), _finite(raw[1]), _finite(raw[2]), _finite(raw[3]))
+
+
+def _inside_ancestor_clips(box: _Box, x: float, y: float) -> bool:
+    """True when the point is inside every ancestor clip, in that ancestor's local box."""
+
+    current = box.parent
+    while current is not None:
+        clip = current.clip
+        if clip is not None:
+            local = _local_point(current, x, y)
+            if local is None or not _window(local[0], local[1], clip):
+                return False
+        current = current.parent
+    return True
+
+
+def _window(x: float, y: float, clip: tuple[float, float, float, float]) -> bool:
+    left, top, right, bottom = clip
+    return left <= _snap(x) < right and top <= _snap(y) < bottom
 
 
 def _local_point(box: _Box, x: float, y: float) -> tuple[float, float] | None:

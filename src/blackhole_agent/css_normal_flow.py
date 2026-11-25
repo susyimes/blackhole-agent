@@ -628,6 +628,13 @@ block. The effect needs one ``@keyframes`` opacity rule plus
 ``animation-name``, ``animation-duration``, and the underlying opacity on a
 horizontal block. A broken keyframe block, the ``animation`` shorthand, a
 float, an absolute or sticky box, and a vertical or non-ltr box are rejected.
+``element_from_document`` then clips each descendant to the padding edge of
+an ancestor whose overflow is ``hidden``, ``clip``, ``scroll``, or ``auto``.
+The rectangle is that ancestor's border box inset by its used border. A
+point on the border, outside the padding edge, hits the ancestor even when
+a descendant's border box covers it. A point past that border box does not
+hit the descendant. ``visible`` does not clip, so those same points hit the
+descendant. The scrollport's border box and the following block stay put.
 """
 
 from __future__ import annotations
@@ -1189,6 +1196,9 @@ def element_from_document(
     zero-based and its ``offset`` counts UTF-16 code units in the element's
     original text, before wrapping and whitespace collapse. A box hit in
     empty space or on text without a source mapping has no caret field.
+    ``overflow: hidden``, ``clip``, ``scroll``, and ``auto`` clip descendants
+    to the padding edge. The element's own border box stays a target, and
+    ``visible`` does not clip.
     """
 
     try:
@@ -1528,7 +1538,7 @@ def _hit_node(
     used_z = _used_z(box.stack_z, inherited_z)
     used_opacity = _used_opacity(box.stack_opacity, inherited_opacity)
     children = sorted(by_parent.get(id(box), ()), key=lambda child: _hit_sibling_key(box, child))
-    return {
+    node: dict[str, object] = {
         "id": box.id,
         "position": box.position,
         "z_index": "auto" if used_z is None else used_z,
@@ -1546,6 +1556,29 @@ def _hit_node(
             for child in children
         ],
     }
+    clip = _overflow_hit_clip(box)
+    if clip is not None:
+        node["clip"] = clip
+    return node
+
+
+def _overflow_hit_clip(box: _Box) -> list[float] | None:
+    """Padding edge of a scrollport, in that box's border-box coordinates."""
+
+    if box.overflow not in _SCROLLPORTS:
+        return None
+    left = _solved_edge(box, "border_left")
+    top = _solved_edge(box, "border_top")
+    right = box.border_width - _solved_edge(box, "border_right")
+    bottom = box.border_height - _solved_edge(box, "border_bottom")
+    return [float(left), float(top), float(right), float(bottom)]
+
+
+def _solved_edge(box: _Box, key: str) -> int:
+    value = box.solved.get(key, 0)
+    if value is None:
+        return 0
+    return _px(value, key)
 
 
 def _hit_sibling_key(parent: _Box, child: _Box) -> tuple[int, str]:
