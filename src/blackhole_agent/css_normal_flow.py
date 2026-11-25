@@ -587,6 +587,20 @@ overflow. Overlay scrollbars reserve nothing. ``visible`` and ``clip`` reserve
 nothing. A vertical writing mode or a non-ltr direction keeps the full content
 box. A gutter wider than the content box is rejected. ``both-edges`` without
 ``stable`` is invalid.
+``align-content`` on a horizontal left-to-right ``block`` or ``flow-root``
+packs that box's in-flow content as one unit inside the content box.
+``end`` and ``flex-end`` place the unit on the block end, ``center`` splits
+the free space in half toward the start, and ``start`` and ``flex-start``
+keep the unit on the block start. ``space-between`` and ``stretch`` use the
+start fallback, and ``space-around`` and ``space-evenly`` use the center
+fallback, because the contents are a single alignment subject. Every value
+other than ``normal`` also makes the box a block formatting context, so a
+child margin stays inside it. The default overflow position is safe: a unit
+taller than the content box stays at the start, while ``unsafe`` honors a
+negative shift. The following sibling stays at the container's border edge.
+A vertical writing mode, a non-ltr direction, a float, a sticky or
+out-of-flow box, a non-visible overflow, a list item, a line box beside a
+block child, and ``baseline`` stay rejected.
 """
 
 from __future__ import annotations
@@ -1052,6 +1066,8 @@ class _Box:
     gutter_end: int = 0
     gutter_pending: bool = False
     allotted_content_width: int | None = None
+    align_mode: str = "normal"
+    align_safe: bool = True
 
 
 def layout_normal_flow(
@@ -1084,7 +1100,8 @@ def layout_normal_flow(
     solved. Rules come from the stylesheet; a style
     attribute is not read. Relative offsets are applied after the static
     positions, then sticky offsets. Absolute and fixed boxes are included
-    in the returned boxes.
+    in the returned boxes. ``align-content`` then packs a horizontal block's
+    in-flow content inside its content box, before relative and sticky offsets.
     """
 
     try:
@@ -1314,6 +1331,7 @@ def _placed_root(
     by_id = {str(item["id"]): item for item in placed["boxes"] if isinstance(item, dict)}
     margin_top = _px(root.solved.get("margin_top"), "margin-top")
     _assign_y(root, by_id, margin_top)
+    _pack_block_align(root)
     _shift_relatives(root, viewport_width, viewport_height)
     _apply_port_scroll(root, port_scroll)
     _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
@@ -1804,6 +1822,7 @@ def _make_box(
         or position != "static"
     ):
         raise _Invalid("initial letter is unsupported")
+    align_mode, align_safe = _block_align_mode(display, _declared(winners, "align-content", custom))
     box = _Box(
         id=box_id,
         writing_mode=mode,
@@ -1896,6 +1915,8 @@ def _make_box(
         ),
         text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
         line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
+        align_mode=align_mode,
+        align_safe=align_safe,
         initial_letter=initial_letter,
         parent_direction=parent_direction,
         multicol=columns,
@@ -3108,6 +3129,9 @@ def _max_limit_token(value: int | None) -> int | str:
 def _collapse_spec(box: _Box) -> dict[str, object]:
     solved = box.solved
     minimum, maximum = _used_block_limits(box)
+    display = box.display if box.display in {"inline-block", "flow-root"} else "block"
+    if display == "block" and box.align_mode != "normal":
+        display = "flow-root"
     return {
         "id": box.id,
         "margin_top": _px(solved.get("margin_top"), "margin-top"),
@@ -3122,7 +3146,7 @@ def _collapse_spec(box: _Box) -> dict[str, object]:
         "overflow": "hidden" if box.root else box.overflow,
         "float": "none",
         "position": "relative" if box.position == "relative" else "static",
-        "display": box.display if box.display in {"inline-block", "flow-root"} else "block",
+        "display": display,
         "clearance": False,
         "children": [] if box.anchor_laid else [_collapse_spec(child) for child in box.children],
     }
@@ -3164,6 +3188,169 @@ def _assign_y(
             _position_float_children(fl)
     for child in box.children:
         _assign_y(child, by_id, origin, box.y)
+
+
+_ALIGN_INITIAL = frozenset({"normal", "initial", "unset", "revert"})
+_ALIGN_POSITION = {"start": "start", "flex-start": "start", "end": "end", "flex-end": "end", "center": "center"}
+_ALIGN_FALLBACK = {
+    "space-between": "start",
+    "stretch": "start",
+    "space-around": "center",
+    "space-evenly": "center",
+}
+
+
+def _block_align_mode(display: str, value: str | None) -> tuple[str, bool]:
+    """Computed ``align-content`` for a block container.
+
+    CSS Align 3 packs the whole contents as one subject. Distribution values
+    therefore use their safe fallback, and a block that is not a scroll
+    container defaults to safe overflow. Other displays keep the initial value
+    because flex, grid, and multicol already pack their own subjects.
+    """
+
+    if display not in {"block", "flow-root"}:
+        return "normal", True
+    if value is None:
+        return "normal", True
+    tokens = [token.lower() for token in value.split()]
+    if len(tokens) == 1 and tokens[0] in _ALIGN_INITIAL:
+        return "normal", True
+    if tokens == ["inherit"]:
+        raise _Invalid("align-content inherit is unsupported")
+    explicit_safety = False
+    safe = True
+    if tokens and tokens[0] in {"safe", "unsafe"}:
+        if len(tokens) != 2:
+            raise _Invalid("align-content is invalid")
+        explicit_safety = True
+        safe = tokens[0] == "safe"
+        tokens = tokens[1:]
+    if len(tokens) != 1:
+        raise _Invalid("align-content is invalid")
+    token = tokens[0]
+    if token in _ALIGN_FALLBACK:
+        if explicit_safety:
+            raise _Invalid("align-content is invalid")
+        return _ALIGN_FALLBACK[token], True
+    if token in _ALIGN_POSITION:
+        return _ALIGN_POSITION[token], safe
+    if "baseline" in token:
+        raise _Invalid("align-content baseline is unsupported")
+    raise _Invalid("align-content is invalid")
+
+
+def _pack_block_align(box: _Box) -> None:
+    """Slide each block's content unit after static positions are known."""
+
+    for child in box.children:
+        _pack_block_align(child)
+    for fl in box.floats:
+        if fl.float_placed:
+            _pack_block_align(fl)
+    for atom in box.atoms:
+        _pack_block_align(atom)
+    for abs_box in box.positioned:
+        _reject_unpacked_align(abs_box)
+    shift = _block_align_shift(box)
+    if shift == 0:
+        return
+    for child in box.children:
+        _translate_flow(child, shift)
+    for line in box.lines:
+        line.y += shift
+    if box.marker is not None:
+        box.marker["y"] = int(box.marker["y"]) + shift
+    if box.drop_cap is not None:
+        box.drop_cap["y"] = int(box.drop_cap["y"]) + shift
+    for atom in box.atoms:
+        _translate_flow(atom, shift)
+
+
+def _reject_unpacked_align(box: _Box) -> None:
+    """Out-of-flow boxes are not packed; a non-normal value stays rejected."""
+
+    if box.align_mode != "normal":
+        raise _Invalid("block content alignment is unsupported")
+    for child in (*box.children, *box.floats, *box.atoms, *box.positioned):
+        _reject_unpacked_align(child)
+
+
+def _block_align_shift(box: _Box) -> int:
+    if box.align_mode == "normal":
+        return 0
+    if (
+        box.display not in {"block", "flow-root"}
+        or box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or box.float_side != "none"
+        or box.position in {"absolute", "fixed", "sticky"}
+        or box.overflow != "visible"
+        or box.floats
+        or box.positioned
+        or box.atoms
+        or box.list_item
+        or box.initial_letter
+        or box.replaced
+        or box.multicol is not None
+        or box.flex is not None
+        or box.grid is not None
+        or box.table is not None
+        or (box.children and box.lines)
+    ):
+        raise _Invalid("block content alignment is unsupported")
+    content_top = box.y + _edge_extent(box.solved, "top")
+    if box.children:
+        subject = _block_child_span(box, content_top)
+    elif box.lines:
+        last = box.lines[-1]
+        subject = last.y + last.height - content_top
+    else:
+        subject = 0
+    if subject < 0:
+        raise _Invalid("block content alignment is unsupported")
+    return _align_offset(box.align_mode, box.align_safe, box.content_height - subject)
+
+
+def _block_child_span(box: _Box, content_top: int) -> int:
+    for child in box.children:
+        if child.border_height <= 0 or child.position in {"absolute", "fixed", "sticky"} or child.float_side != "none":
+            raise _Invalid("block content alignment is unsupported")
+    last = box.children[-1]
+    trailing = _px(last.solved.get("margin_bottom"), "margin-bottom")
+    return last.y + last.border_height + trailing - content_top
+
+
+def _align_offset(mode: str, safe: bool, free: int) -> int:
+    if free < 0 and safe:
+        return 0
+    if mode == "start":
+        return 0
+    if mode == "end":
+        return free
+    if mode == "center":
+        return free // 2
+    raise _Invalid("align-content is invalid")
+
+
+def _translate_flow(box: _Box, dy: int) -> None:
+    if dy == 0:
+        return
+    box.y += dy
+    box.flow_y += dy
+    for line in box.lines:
+        line.y += dy
+    if box.marker is not None:
+        box.marker["y"] = int(box.marker["y"]) + dy
+    if box.drop_cap is not None:
+        box.drop_cap["y"] = int(box.drop_cap["y"]) + dy
+    for child in box.children:
+        _translate_flow(child, dy)
+    for fl in box.floats:
+        if fl.float_placed:
+            _translate_flow(fl, dy)
+    for atom in box.atoms:
+        _translate_flow(atom, dy)
 
 
 def _place_inline_atom(atom: _Box, content_x: int, content_y: int) -> None:
