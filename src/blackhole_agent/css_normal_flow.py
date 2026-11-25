@@ -646,6 +646,14 @@ outer edge of the stroke: ``outline-offset`` plus the used thickness. The
 omitted color is the used ``color``, including a color inherited from an
 ancestor. ``none`` and a zero thickness record nothing. A non-replaced inline
 with a visible outline is rejected. An unparsable outline is invalid.
+``scroll-snap-type`` other than ``none`` rests a horizontal scrollport on
+the alignment of its descendant snap areas. The recorded ``snap`` is that
+resting offset. ``y mandatory`` chooses the nearest start and breaks a tie
+toward the end. ``proximity`` keeps an intended offset farther than the
+snapport. ``scroll-padding`` insets the snapport and ``scroll-margin``
+outsets an area. The areas and the following block stay where flow put
+them. An unparsable snap is invalid. A vertical writing mode or a visible
+overflow port is rejected.
 """
 
 from __future__ import annotations
@@ -657,6 +665,7 @@ from xml.etree.ElementTree import Element
 from blackhole_agent.css_absolute import place_absolute
 from blackhole_agent.css_animation import _Invalid as _AnimInvalid
 from blackhole_agent.css_animation import _extract_keyframes, _strip_comments as _strip_animation_comments
+from blackhole_agent.css_scroll_snap import resolve_scroll_snap
 from blackhole_agent.css_scroll_timeline import sample_scroll_driven_animation, scroll_timeline_progress
 from blackhole_agent.css_anchor_query import parse_anchor_size_call, resolve_anchor_size
 from blackhole_agent.css_anchor_position import place_anchored
@@ -1137,6 +1146,11 @@ class _Box:
     color: str = "#000000"
     color_valid: bool = True
     outline: tuple[str, int, str, int] | None = None
+    snap_type: str = ""
+    snap_align: tuple[str, str] = ("none", "none")
+    scroll_padding: tuple[int, int, int, int] = (0, 0, 0, 0)
+    scroll_margin: tuple[int, int, int, int] = (0, 0, 0, 0)
+    snap: dict[str, object] | None = None
 
 
 def layout_normal_flow(
@@ -1178,6 +1192,8 @@ def layout_normal_flow(
     ``border-radius`` does not move those rectangles. An unparsable radius
     rejects the document. ``outline`` records the outer edge of a stroke
     around that same border box. The stroke does not move the box.
+    ``scroll-snap-type`` records the resting scroll of a horizontal
+    scrollport. The snap areas stay at their flow positions.
     """
 
     try:
@@ -1428,6 +1444,7 @@ def _placed_root(
     _apply_scroll_opacities(root, scroll_source, viewport_height, scroll_y)
     _stamp_font_faces(root, tuple(font_faces))
     _bind_border_curves(root)
+    _apply_scroll_snap(root)
     return root
 
 
@@ -2102,6 +2119,9 @@ def _make_box(
     box.outline = _read_outline(winners, custom, box.color, box.color_valid)
     if box.display == "inline" and not box.replaced and box.outline is not None:
         raise _Invalid("inline outline is unsupported")
+    box.snap_type, box.snap_align, box.scroll_padding, box.scroll_margin = _read_scroll_snap(
+        winners, custom
+    )
     return box
 
 
@@ -3546,6 +3566,8 @@ def _record(box: _Box) -> dict[str, object]:
         item["opacity"] = box.scroll_opacity
     if box.outline is not None:
         item["outline"] = _outline_ink(box)
+    if box.snap is not None:
+        item["snap"] = box.snap
     if box.object_box is not None:
         item["object"] = box.object_box
     if box.marker is not None:
@@ -6037,6 +6059,270 @@ def _sticky_delta(
 
 
 _SCROLLABLE_PORTS = frozenset({"hidden", "auto", "scroll"})
+_SNAP_AXES = frozenset({"x", "y", "block", "inline", "both", "pair"})
+_SNAP_STRICT = frozenset({"mandatory", "proximity"})
+_SNAP_ALIGNS = frozenset({"none", "start", "end", "center"})
+_SNAP_RESET = frozenset({"initial", "unset", "revert"})
+
+
+def _read_scroll_snap(
+    winners, custom: dict
+) -> tuple[str, tuple[str, str], tuple[int, int, int, int], tuple[int, int, int, int]]:
+    """Used snap type, alignment, scroll-padding, and scroll-margin."""
+
+    return (
+        _read_snap_type(_declared(winners, "scroll-snap-type", custom)),
+        _read_snap_align(_declared(winners, "scroll-snap-align", custom)),
+        _read_snap_edges(winners, custom, "scroll-padding", negative=False),
+        _read_snap_edges(winners, custom, "scroll-margin", negative=True),
+    )
+
+
+def _read_snap_type(value: str | None) -> str:
+    if value is None:
+        return ""
+    keyword = " ".join(value.split()).lower()
+    if keyword in _SNAP_RESET or keyword == "none":
+        return ""
+    if keyword == "inherit":
+        raise _Invalid("scroll snap inherit is unsupported")
+    parts = keyword.split()
+    if len(parts) == 1 and parts[0] in _SNAP_AXES:
+        return f"{parts[0]} proximity"
+    if len(parts) == 2 and parts[0] in _SNAP_AXES and parts[1] in _SNAP_STRICT:
+        return keyword
+    raise _Invalid("scroll snap is invalid")
+
+
+def _read_snap_align(value: str | None) -> tuple[str, str]:
+    if value is None:
+        return ("none", "none")
+    keyword = " ".join(value.split()).lower()
+    if keyword in _SNAP_RESET or keyword == "none":
+        return ("none", "none")
+    if keyword == "inherit":
+        raise _Invalid("scroll snap inherit is unsupported")
+    parts = keyword.split()
+    if len(parts) == 1 and parts[0] in _SNAP_ALIGNS:
+        return (parts[0], parts[0])
+    if len(parts) == 2 and parts[0] in _SNAP_ALIGNS and parts[1] in _SNAP_ALIGNS:
+        return (parts[0], parts[1])
+    raise _Invalid("scroll snap is invalid")
+
+
+def _read_snap_edges(winners, custom: dict, name: str, *, negative: bool) -> tuple[int, int, int, int]:
+    """Top, right, bottom, left. A later longhand replaces one shorthand side."""
+
+    edges = (0, 0, 0, 0)
+    seen = False
+    longhands = {
+        f"{name}-top": 0,
+        f"{name}-right": 1,
+        f"{name}-bottom": 2,
+        f"{name}-left": 3,
+    }
+    for _order, prop, raw in winners:
+        if prop != name and prop not in longhands:
+            continue
+        seen = True
+        value = _declared([(_order, prop, raw)], prop, custom)
+        if prop == name:
+            edges = _snap_edge_shorthand(value, negative=negative, label=name)
+            continue
+        side = _snap_one_edge(value, negative=negative, label=name)
+        mutable = list(edges)
+        mutable[longhands[prop]] = side
+        edges = (mutable[0], mutable[1], mutable[2], mutable[3])
+    if not seen:
+        return (0, 0, 0, 0)
+    return edges
+
+
+def _snap_edge_shorthand(value: str | None, *, negative: bool, label: str) -> tuple[int, int, int, int]:
+    if value is None:
+        return (0, 0, 0, 0)
+    keyword = " ".join(value.split()).lower()
+    if keyword in _SNAP_RESET or (keyword == "auto" and not negative):
+        return (0, 0, 0, 0)
+    if keyword == "inherit":
+        raise _Invalid(f"{label} inherit is unsupported")
+    tokens = keyword.split()
+    if not 1 <= len(tokens) <= 4:
+        raise _Invalid(f"{label} is invalid")
+    lengths = tuple(_snap_px(token, negative=negative, label=label) for token in tokens)
+    if len(lengths) == 1:
+        return (lengths[0], lengths[0], lengths[0], lengths[0])
+    if len(lengths) == 2:
+        return (lengths[0], lengths[1], lengths[0], lengths[1])
+    if len(lengths) == 3:
+        return (lengths[0], lengths[1], lengths[2], lengths[1])
+    return lengths
+
+
+def _snap_one_edge(value: str | None, *, negative: bool, label: str) -> int:
+    if value is None:
+        return 0
+    keyword = " ".join(value.split()).lower()
+    if keyword in _SNAP_RESET or (keyword == "auto" and not negative):
+        return 0
+    if keyword == "inherit":
+        raise _Invalid(f"{label} inherit is unsupported")
+    if len(keyword.split()) != 1:
+        raise _Invalid(f"{label} is invalid")
+    return _snap_px(keyword, negative=negative, label=label)
+
+
+def _snap_px(token: str, *, negative: bool, label: str) -> int:
+    text = token.lower()
+    sign = 1
+    if text.startswith("+"):
+        text = text[1:]
+    elif text.startswith("-"):
+        if not negative:
+            raise _Invalid(f"{label} is invalid")
+        sign = -1
+        text = text[1:]
+    if text in {"0", "0px"}:
+        return 0
+    if not text.endswith("px") or text == "px":
+        raise _Invalid(f"{label} is invalid")
+    try:
+        number = float(text[:-2])
+    except ValueError as exc:
+        raise _Invalid(f"{label} is invalid") from exc
+    if number < 0 or number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid(f"{label} is invalid")
+    try:
+        return sign * _px(number, label)
+    except _Invalid as exc:
+        raise _Invalid(f"{label} is invalid") from exc
+
+
+def _apply_scroll_snap(root: _Box) -> None:
+    """Record the resting scroll of each horizontal snapport. Areas stay put."""
+
+    for box in _each(root):
+        if not box.snap_type:
+            continue
+        if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+            raise _Invalid("scroll snap is unsupported")
+        if box.overflow not in _SCROLLPORTS:
+            raise _Invalid("scroll snap is unsupported")
+        box.snap = _rest_scroll_snap(box)
+
+
+def _rest_scroll_snap(port: _Box) -> dict[str, object]:
+    origin_x, origin_y, port_w, port_h = _snap_port_rect(port)
+    descendants = _snap_descendants(port)
+    bottom = 0
+    right = 0
+    for item in descendants:
+        right = max(right, item.x + item.border_width - origin_x)
+        bottom = max(bottom, item.y + item.border_height - origin_y)
+    areas = _snap_areas(port, descendants, origin_x, origin_y)
+    top, right_pad, bottom_pad, left = port.scroll_padding
+    result = resolve_scroll_snap(
+        {
+            "port_x": port_w,
+            "port_y": port_h,
+            "padding_top": top,
+            "padding_right": right_pad,
+            "padding_bottom": bottom_pad,
+            "padding_left": left,
+            "max_x": max(0, right - port_w),
+            "max_y": max(0, bottom - port_h),
+            "intended_x": port.scroll_port_x,
+            "intended_y": port.scroll_port_y,
+            "intent": "absolute",
+            "snap_type": port.snap_type,
+            "writing_mode": "horizontal-tb",
+            "direction": "ltr",
+        },
+        areas,
+    )
+    if result.get("outcome") not in {"snapped", "unsnapped"}:
+        raise _Invalid("scroll snap is invalid")
+    return {
+        "x": result.get("x"),
+        "y": result.get("y"),
+        "inline": result.get("snapped_inline"),
+        "block": result.get("snapped_block"),
+    }
+
+
+def _snap_port_rect(box: _Box) -> tuple[int, int, int, int]:
+    left = _snap_edge(box, "border_left")
+    right = _snap_edge(box, "border_right")
+    top = _snap_edge(box, "border_top")
+    bottom = _snap_edge(box, "border_bottom")
+    width = box.border_width - left - right
+    height = box.border_height - top - bottom
+    if width <= 0 or height <= 0:
+        raise _Invalid("scroll snap is invalid")
+    return box.x + left, box.y + top, width, height
+
+
+def _snap_edge(box: _Box, name: str) -> int:
+    raw = box.solved.get(name)
+    if raw is None:
+        return 0
+    try:
+        return _px(raw, "scroll snap")
+    except _Invalid as exc:
+        raise _Invalid("scroll snap is invalid") from exc
+
+
+def _snap_descendants(port: _Box) -> list[_Box]:
+    found: list[_Box] = []
+
+    def walk(box: _Box) -> None:
+        for child in (*box.children, *box.floats, *box.atoms, *box.positioned):
+            if not child.anonymous:
+                found.append(child)
+            walk(child)
+
+    walk(port)
+    return found
+
+
+def _snap_areas(
+    port: _Box, descendants: list[_Box], origin_x: int, origin_y: int
+) -> list[dict[str, object]]:
+    aligned = {
+        item.id
+        for item in descendants
+        if item.snap_align != ("none", "none")
+    }
+    areas: list[dict[str, object]] = []
+    for item in descendants:
+        block, inline = item.snap_align
+        if block == "none" and inline == "none":
+            continue
+        parent_id = None
+        cursor = item.parent_box
+        while cursor is not None and cursor is not port:
+            if cursor.id in aligned:
+                parent_id = cursor.id
+                break
+            cursor = cursor.parent_box
+        top, right, bottom, left = item.scroll_margin
+        area: dict[str, object] = {
+            "id": item.id,
+            "x": item.x - origin_x,
+            "y": item.y - origin_y,
+            "width": item.border_width,
+            "height": item.border_height,
+            "margin_top": top,
+            "margin_right": right,
+            "margin_bottom": bottom,
+            "margin_left": left,
+            "align_block": block,
+            "align_inline": inline,
+        }
+        if parent_id is not None:
+            area["parent"] = parent_id
+        areas.append(area)
+    return areas
 
 
 def _apply_port_scroll(root: _Box, port_scroll: object) -> None:
