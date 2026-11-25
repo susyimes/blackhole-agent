@@ -620,6 +620,14 @@ and does not rotate the border rectangle. Descendants move with the box.
 The following sibling stays at the static flow position. A float, an
 absolute or fixed box, a sticky box, a vertical or non-ltr box, the
 ``offset`` shorthand, and a path the motion reader cannot parse are rejected.
+``animation-timeline: scroll()`` then samples that same box's opacity from
+the viewport scroll. Progress is ``scroll_y`` divided by the root border
+box's bottom edge minus the viewport height. A root that does not overflow
+keeps the declared opacity, and neither value moves the box or the following
+block. The effect needs one ``@keyframes`` opacity rule plus
+``animation-name``, ``animation-duration``, and the underlying opacity on a
+horizontal block. A broken keyframe block, the ``animation`` shorthand, a
+float, an absolute or sticky box, and a vertical or non-ltr box are rejected.
 """
 
 from __future__ import annotations
@@ -629,6 +637,9 @@ from dataclasses import dataclass, field
 from xml.etree.ElementTree import Element
 
 from blackhole_agent.css_absolute import place_absolute
+from blackhole_agent.css_animation import _Invalid as _AnimInvalid
+from blackhole_agent.css_animation import _extract_keyframes, _strip_comments as _strip_animation_comments
+from blackhole_agent.css_scroll_timeline import sample_scroll_driven_animation, scroll_timeline_progress
 from blackhole_agent.css_anchor_query import parse_anchor_size_call, resolve_anchor_size
 from blackhole_agent.css_anchor_position import place_anchored
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
@@ -1094,6 +1105,8 @@ class _Box:
     offset_rotate: str = "auto"
     offset_anchor: str = "auto"
     offset_angle: int | float | None = None
+    scroll_rule: str = ""
+    scroll_opacity: int | float | None = None
 
 
 def layout_normal_flow(
@@ -1112,8 +1125,9 @@ def layout_normal_flow(
     ``viewport_width`` is the initial containing block's width in CSS pixels.
     ``viewport_height`` is that block's height, or indefinite when omitted.
     ``scroll_x`` and ``scroll_y`` are that viewport's scroll offsets. They
-    move a sticky box whose scrollport is the viewport and leave every other
-    box at its static position. ``port_scroll`` maps a scrollport id to
+    move a sticky box whose scrollport is the viewport and sample
+    ``animation-timeline: scroll()`` opacity. Every other box stays at its
+    static position. ``port_scroll`` maps a scrollport id to
     ``(x, y)`` offsets. A horizontal left-to-right ``hidden``, ``auto``, or
     ``scroll`` port then shifts only the sticky boxes it contains; in-flow
     siblings stay at their static positions. Omitted ports stay at scroll
@@ -1267,10 +1281,11 @@ def _placed_root(
     tree.scrollbars = scrollbars
     if not order:
         raise _Invalid("document is empty")
+    layout_stylesheet, scroll_source = _split_scroll_keyframes(stylesheet)
     container_rules: list[tuple[str, object]] = []
     font_faces: list[dict[str, object]] = []
     declarations, registrations = _stylesheet(
-        stylesheet, container_rules=container_rules, font_faces=font_faces
+        layout_stylesheet, container_rules=container_rules, font_faces=font_faces
     )
     if font_faces:
         checked = select_font_face(str(font_faces[0].get("family") or "x"), font_faces, " ")
@@ -1365,6 +1380,7 @@ def _placed_root(
     _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
     _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height))
     _shift_offsets(root, viewport_width, viewport_height)
+    _apply_scroll_opacities(root, scroll_source, viewport_height, scroll_y)
     _stamp_font_faces(root, tuple(font_faces))
     return root
 
@@ -2004,6 +2020,7 @@ def _make_box(
     box.offset_distance = distance
     box.offset_rotate = rotate
     box.offset_anchor = anchor
+    box.scroll_rule = _read_scroll_rule(winners, custom)
     return box
 
 
@@ -3444,6 +3461,8 @@ def _record(box: _Box) -> dict[str, object]:
     }
     if box.offset_angle is not None:
         item["offset_angle"] = box.offset_angle
+    if box.scroll_opacity is not None:
+        item["opacity"] = box.scroll_opacity
     if box.object_box is not None:
         item["object"] = box.object_box
     if box.marker is not None:
@@ -5580,6 +5599,129 @@ def _translate(box: _Box, dx: int, dy: int) -> None:
     if box.anonymous:
         for atom in box.atoms:
             _translate(atom, dx, dy)
+
+
+_SCROLL_LONGHANDS = (
+    "animation-name",
+    "animation-duration",
+    "animation-timing-function",
+    "animation-delay",
+    "animation-iteration-count",
+    "animation-direction",
+    "animation-fill-mode",
+    "opacity",
+)
+_SCROLL_REQUIRED = ("animation-name", "animation-duration", "opacity")
+
+
+def _split_scroll_keyframes(stylesheet: str) -> tuple[str, str]:
+    """Drop valid ``@keyframes`` from the layout sheet and keep them for sampling.
+
+    A stylesheet with no keyframes is returned unchanged. A broken keyframes
+    block is rejected here so the selector reader never sees it as an unknown
+    at-rule.
+    """
+
+    stripped = _strip_animation_comments(stylesheet)
+    if "@keyframes" not in stripped.lower():
+        return stylesheet, ""
+    try:
+        _found, rest = _extract_keyframes(stripped)
+    except _AnimInvalid as exc:
+        raise _Invalid("scroll animation is invalid") from exc
+    return rest, stripped
+
+
+def _read_scroll_rule(winners, custom: dict) -> str:
+    """Style body for one ``scroll()`` opacity animation, or empty when unused."""
+
+    raw = _latest_declared(winners, "animation-timeline")
+    if raw is None:
+        return ""
+    timeline = _declared(winners, "animation-timeline", custom)
+    if timeline is None:
+        raise _Invalid("scroll timeline is invalid")
+    text = "".join(timeline.split()).lower()
+    if text == "inherit":
+        raise _Invalid("scroll timeline inherit is unsupported")
+    if text in {"auto", "none", "initial", "unset", "revert"}:
+        return ""
+    if text != "scroll()":
+        raise _Invalid("scroll timeline is invalid")
+    shorthand = _latest_declared(winners, "animation")
+    if shorthand is not None and " ".join(shorthand.split()).lower() not in {
+        "none",
+        "initial",
+        "unset",
+        "revert",
+    }:
+        raise _Invalid("animation shorthand is unsupported")
+    parts: list[str] = []
+    present: set[str] = set()
+    for name in _SCROLL_LONGHANDS:
+        if _latest_declared(winners, name) is None:
+            continue
+        value = _declared(winners, name, custom)
+        if value is None:
+            raise _Invalid("scroll animation is invalid")
+        parts.append(f"{name}: {' '.join(value.split())};")
+        present.add(name)
+    if any(name not in present for name in _SCROLL_REQUIRED):
+        raise _Invalid("scroll animation is invalid")
+    return " ".join(parts)
+
+
+def _apply_scroll_opacities(
+    root: _Box,
+    scroll_source: str,
+    viewport_height: int | None,
+    scroll_y: int,
+) -> None:
+    boxes = [box for box in _each(root) if box.scroll_rule]
+    if not boxes:
+        return
+    progress = _scroll_opacity_progress(root, viewport_height, scroll_y)
+    if not scroll_source:
+        raise _Invalid("scroll animation is invalid")
+    for box in boxes:
+        _apply_one_scroll_opacity(box, scroll_source, progress)
+
+
+def _scroll_opacity_progress(
+    root: _Box,
+    viewport_height: int | None,
+    scroll_y: int,
+) -> object:
+    if viewport_height is None:
+        raise _Invalid("scroll timeline is unsupported")
+    overflow = root.y + root.border_height
+    if overflow <= viewport_height:
+        return None
+    progressed = scroll_timeline_progress(scroll_y, overflow, viewport_height)
+    if progressed.get("outcome") != "active":
+        raise _Invalid(str(progressed.get("reason") or "scroll timeline is invalid"))
+    return progressed.get("progress")
+
+
+def _apply_one_scroll_opacity(box: _Box, scroll_source: str, progress: object) -> None:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("scroll timeline writing mode is unsupported")
+    if box.float_side != "none" or box.position not in {"static", "relative"}:
+        raise _Invalid("scroll timeline position is unsupported")
+    if box.display not in {"block", "flow-root"} or box.list_item:
+        raise _Invalid("scroll timeline display is unsupported")
+    sampled = sample_scroll_driven_animation(
+        scroll_source + "\n#scroll-sample {\n" + box.scroll_rule + "\n}\n",
+        progress,
+        property="opacity",
+    )
+    outcome = sampled.get("outcome")
+    if outcome not in {"sampled", "inactive"}:
+        raise _Invalid("scroll animation is invalid")
+    value = sampled.get("value")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise _Invalid("scroll animation is invalid")
+    box.scroll_opacity = value
 
 
 def _read_offset(winners, custom: dict) -> tuple[str, str, str, str]:
