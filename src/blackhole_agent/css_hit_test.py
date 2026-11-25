@@ -22,6 +22,11 @@ or ``visible`` still is. Opacity zero does not remove a target.
 An optional ``clip`` rectangle is in that element's own border-box
 coordinates. It hides descendants that fall outside it and does not hide
 the element itself. A missing clip does not change the hit.
+
+An optional ``radius`` is eight used outer radii, CSS corner order, each
+horizontal then vertical. A zero component leaves that corner square. A
+local point in a corner square and outside its quarter ellipse is not a
+hit, so a later target can receive it. Descendants are not clipped by it.
 """
 
 from __future__ import annotations
@@ -71,6 +76,7 @@ _FIELDS = frozenset(
         "transform",
         "origin",
         "clip",
+        "radius",
     }
 )
 
@@ -99,6 +105,7 @@ class _Box:
     stacking: bool
     transform: str | None = None
     clip: tuple[float, float, float, float] | None = None
+    radius: tuple[float, float, float, float, float, float, float, float] | None = None
     parent: _Box | None = None
     children: list[_Box] = field(default_factory=list)
 
@@ -136,7 +143,11 @@ def element_from_point(tree: object, x: object, y: object) -> dict[str, object]:
         if not _inside_ancestor_clips(box, point_x, point_y):
             continue
         local = _local_point(box, point_x, point_y)
-        if local is not None and _covers(local[0], local[1], box.width, box.height):
+        if (
+            local is not None
+            and _covers(local[0], local[1], box.width, box.height)
+            and _inside_border_curve(local[0], local[1], box)
+        ):
             return {"outcome": "hit", "id": ident}
     return {"outcome": "miss", "id": None}
 
@@ -196,6 +207,7 @@ def _parse(
         raise _Invalid("size")
     matrix, stacking, transform = _matrix(value, width, height)
     clip = _clip(value)
+    radius = _radius(value)
     if "pointer_events" in value:
         chosen = value["pointer_events"]
         if chosen not in _POINTER:
@@ -226,6 +238,7 @@ def _parse(
         stacking=stacking,
         transform=transform,
         clip=clip,
+        radius=radius,
     )
     boxes[raw_id] = box
     box.children = []
@@ -279,6 +292,60 @@ def _transform_none(value: str) -> bool:
         pieces.append(value[index])
         index += 1
     return "".join(pieces).strip().lower() == "none"
+
+
+def _radius(
+    value: dict[str, object],
+) -> tuple[float, float, float, float, float, float, float, float] | None:
+    if "radius" not in value:
+        return None
+    raw = value["radius"]
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)) or len(raw) != 8:
+        raise _Invalid("radius")
+    numbers = tuple(_finite(item) for item in raw)
+    if any(item < 0 for item in numbers):
+        raise _Invalid("radius")
+    if all(item <= _SNAP for item in numbers):
+        return None
+    return numbers
+
+
+def _inside_border_curve(x: float, y: float, box: _Box) -> bool:
+    """True when a local border-box point is inside the used outer curve."""
+
+    radii = box.radius
+    if radii is None:
+        return True
+    px = _snap(x)
+    py = _snap(y)
+    tlx, tly, trx, try_, brx, bry, blx, bly = radii
+    return not (
+        _outside_corner(px, py, tlx, tly, tlx, tly, "left", "top")
+        or _outside_corner(px, py, box.width - trx, try_, trx, try_, "right", "top")
+        or _outside_corner(px, py, box.width - brx, box.height - bry, brx, bry, "right", "bottom")
+        or _outside_corner(px, py, blx, box.height - bly, blx, bly, "left", "bottom")
+    )
+
+
+def _outside_corner(
+    x: float,
+    y: float,
+    cx: float,
+    cy: float,
+    rx: float,
+    ry: float,
+    side_x: str,
+    side_y: str,
+) -> bool:
+    if rx <= _SNAP or ry <= _SNAP:
+        return False
+    in_x = x < cx if side_x == "left" else x > cx
+    in_y = y < cy if side_y == "top" else y > cy
+    if not (in_x and in_y):
+        return False
+    dx = (x - cx) / rx
+    dy = (y - cy) / ry
+    return dx * dx + dy * dy > 1.0
 
 
 def _clip(value: dict[str, object]) -> tuple[float, float, float, float] | None:

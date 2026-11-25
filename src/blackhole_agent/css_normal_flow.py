@@ -658,6 +658,7 @@ from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ra
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_counters import format_counter, format_counters, resolve_counters
 from blackhole_agent.css_bidi import bidi_line_order
+from blackhole_agent.css_border_radius import used_border_radii
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
 from blackhole_agent.css_fixed_table import layout_fixed_columns
@@ -1121,6 +1122,8 @@ class _Box:
     offset_angle: int | float | None = None
     scroll_rule: str = ""
     scroll_opacity: int | float | None = None
+    border_radius: str = ""
+    border_curve: tuple[float, float, float, float, float, float, float, float] | None = None
 
 
 def layout_normal_flow(
@@ -1159,6 +1162,8 @@ def layout_normal_flow(
     in-flow content inside its content box, before relative and sticky offsets.
     ``offset-path`` then translates the box so its anchor meets the path point
     in the containing block border box. Following siblings stay put.
+    ``border-radius`` does not move those rectangles. An unparsable radius
+    rejects the document.
     """
 
     try:
@@ -1206,10 +1211,14 @@ def element_from_document(
     empty space or on text without a source mapping has no caret field.
     ``overflow: hidden``, ``clip``, ``scroll``, and ``auto`` clip descendants
     to the padding edge. The element's own border box stays a target, and
-    ``visible`` does not clip. ``transform`` other than ``none`` moves the
+    ``visible`` does not clip.     ``transform`` other than ``none`` moves the
     hit through the inverse matrix of that element and its ancestors. Layout
     coordinates stay untransformed. The initial ``transform-origin`` is
     ``50% 50%``. An unparsable transform or origin rejects the document.
+    ``border-radius`` drops a point outside the used outer curve from that
+    element's own target. A descendant in the corner remains a target, and
+    the border boxes stay where flow put them. An unparsable radius rejects
+    the document.
     """
 
     try:
@@ -1404,6 +1413,7 @@ def _placed_root(
     _shift_offsets(root, viewport_width, viewport_height)
     _apply_scroll_opacities(root, scroll_source, viewport_height, scroll_y)
     _stamp_font_faces(root, tuple(font_faces))
+    _bind_border_curves(root)
     return root
 
 
@@ -1575,6 +1585,8 @@ def _hit_node(
     clip = _overflow_hit_clip(box)
     if clip is not None:
         node["clip"] = clip
+    if box.border_curve is not None:
+        node["radius"] = list(box.border_curve)
     return node
 
 
@@ -2071,6 +2083,7 @@ def _make_box(
     box.offset_rotate = rotate
     box.offset_anchor = anchor
     box.scroll_rule = _read_scroll_rule(winners, custom)
+    box.border_radius = _read_border_radius(winners, custom)
     return box
 
 
@@ -6309,6 +6322,62 @@ def _chain_has_transform(box: _Box) -> bool:
             return True
         current = current.parent_box
     return False
+
+
+def _read_border_radius(winners, custom: dict) -> str:
+    raw = _declared(winners, "border-radius", custom)
+    if raw is None or raw in {"initial", "unset", "revert"}:
+        return ""
+    if raw == "inherit":
+        raise _Invalid("border-radius inherit is unsupported")
+    token = " ".join(raw.split())
+    if not token:
+        raise _Invalid("border-radius is invalid")
+    return token
+
+
+def _bind_border_curves(root: _Box) -> None:
+    """Store used outer radii. An unparsable declaration rejects the document."""
+
+    seen: set[int] = set()
+    pending = [root]
+    while pending:
+        box = pending.pop()
+        marker = id(box)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        pending.extend((*box.positioned, *box.floats, *box.children, *box.atoms))
+        if not box.border_radius:
+            continue
+        resolved = used_border_radii(box.border_width, box.border_height, box.border_radius)
+        corners = resolved.get("corners")
+        if resolved.get("outcome") != "resolved" or not isinstance(corners, dict):
+            raise _Invalid("border-radius is invalid")
+        radii: list[float] = []
+        for name in ("top-left", "top-right", "bottom-right", "bottom-left"):
+            corner = corners.get(name)
+            if not isinstance(corner, dict):
+                raise _Invalid("border-radius is invalid")
+            horizontal = corner.get("outer_x")
+            vertical = corner.get("outer_y")
+            if isinstance(horizontal, bool) or isinstance(vertical, bool):
+                raise _Invalid("border-radius is invalid")
+            if not isinstance(horizontal, (int, float)) or not isinstance(vertical, (int, float)):
+                raise _Invalid("border-radius is invalid")
+            radii.append(float(horizontal))
+            radii.append(float(vertical))
+        if any(value > 0 for value in radii):
+            box.border_curve = (
+                radii[0],
+                radii[1],
+                radii[2],
+                radii[3],
+                radii[4],
+                radii[5],
+                radii[6],
+                radii[7],
+            )
 
 
 def _bind_plane_transform(box: _Box, winners, custom: dict) -> None:
