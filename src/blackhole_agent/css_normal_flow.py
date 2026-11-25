@@ -635,6 +635,11 @@ point on the border, outside the padding edge, hits the ancestor even when
 a descendant's border box covers it. A point past that border box does not
 hit the descendant. ``visible`` does not clip, so those same points hit the
 descendant. The scrollport's border box and the following block stay put.
+``transform`` other than ``none`` then moves only the hit. The recorded border
+box stays where flow put it, and the following block stays there too. A
+clockwise ``rotate(90deg)`` around the top-left corner selects a point in the
+negative x half and misses the old rectangle. ``transform-origin`` defaults to
+``50% 50%``. An unparsable transform or origin is invalid.
 """
 
 from __future__ import annotations
@@ -689,6 +694,7 @@ from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
 from blackhole_agent.css_text_caret import element_text_offset, uniform_caret_edge
+from blackhole_agent.css_transform import map_transformed_point
 from blackhole_agent.css_text_decoration import (
     DecorationError,
     paint_decoration_events,
@@ -1099,6 +1105,7 @@ class _Box:
     marker_width: int = 0
     marker: dict[str, object] | None = None
     capture: dict[str, str] = field(default_factory=dict)
+    transform_origin: str = "50% 50%"
     scrollbar_gutter: str = "auto"
     scrollbars: str = "classic"
     gutter_start: int = 0
@@ -1140,8 +1147,9 @@ def layout_normal_flow(
     siblings stay at their static positions. Omitted ports stay at scroll
     zero. ``scrollbars`` is ``classic`` or ``overlay``. Classic scrollbars
     reserve a 15px gutter under ``scrollbar-gutter``; overlay scrollbars do
-    not. ``x`` and ``y`` are the border edges measured
-    from the unscrolled viewport origin. Lengths are ``px`` or percentages. A
+    not.     ``x`` and ``y`` are the border edges measured
+    from the unscrolled viewport origin, before ``transform``. A transform
+    moves hits and leaves these edges in place. Lengths are ``px`` or percentages. A
     unitless zero is rejected. ``sibling-index()`` and ``sibling-count()``
     inside a box length use the element's DOM siblings before that length is
     solved. Rules come from the stylesheet; a style
@@ -1198,7 +1206,10 @@ def element_from_document(
     empty space or on text without a source mapping has no caret field.
     ``overflow: hidden``, ``clip``, ``scroll``, and ``auto`` clip descendants
     to the padding edge. The element's own border box stays a target, and
-    ``visible`` does not clip.
+    ``visible`` does not clip. ``transform`` other than ``none`` moves the
+    hit through the inverse matrix of that element and its ancestors. Layout
+    coordinates stay untransformed. The initial ``transform-origin`` is
+    ``50% 50%``. An unparsable transform or origin rejects the document.
     """
 
     try:
@@ -1221,9 +1232,10 @@ def element_from_document(
     found.setdefault("reason", None)
     if found["outcome"] == "hit":
         box = next(box for box in boxes if box.id == found["id"])
-        caret = _hit_text(box, x, y)
-        if caret is not None:
-            found["caret"] = caret
+        if not _chain_has_transform(box):
+            caret = _hit_text(box, x, y)
+            if caret is not None:
+                found["caret"] = caret
     return found
 
 
@@ -1556,6 +1568,10 @@ def _hit_node(
             for child in children
         ],
     }
+    transform = _active_transform(box)
+    if transform is not None:
+        node["transform"] = transform
+        node["origin"] = box.transform_origin
     clip = _overflow_hit_clip(box)
     if clip is not None:
         node["clip"] = clip
@@ -2036,6 +2052,7 @@ def _make_box(
         position_area=position_area,
         capture=_read_capture(winners, custom),
     )
+    _bind_plane_transform(box, winners, custom)
     boxes = getattr(tree, "box_of", None)
     if not isinstance(boxes, dict):
         boxes = {}
@@ -6274,6 +6291,57 @@ _CAPTURE_NAMES = {
     "content_visibility": "content-visibility",
     "will_change": "will-change",
 }
+
+
+def _active_transform(box: _Box) -> str | None:
+    token = " ".join(str(box.capture.get("transform", "none")).strip().lower().split())
+    if token in {"", "none"}:
+        return None
+    return token
+
+
+def _chain_has_transform(box: _Box) -> bool:
+    current: _Box | None = box
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if _active_transform(current) is not None:
+            return True
+        current = current.parent_box
+    return False
+
+
+def _bind_plane_transform(box: _Box, winners, custom: dict) -> None:
+    """Reject a transform the hit tester cannot invert. ``none`` stays put."""
+
+    if _active_transform(box) is None:
+        return
+    origin = _declared(winners, "transform-origin", custom)
+    if origin is None or origin in {"initial", "unset", "revert", "revert-layer"}:
+        box.transform_origin = "50% 50%"
+    elif origin == "inherit":
+        raise _Invalid("transform-origin inherit is unsupported")
+    else:
+        token = " ".join(origin.split())
+        if not token:
+            raise _Invalid("transform-origin is invalid")
+        box.transform_origin = token
+    mapped = map_transformed_point(
+        {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100,
+            "transform": box.capture.get("transform", "none"),
+            "origin": box.transform_origin,
+        },
+        {"x": 0, "y": 0},
+    )
+    if mapped.get("outcome") == "mapped":
+        return
+    if mapped.get("reason") == "origin":
+        raise _Invalid("transform-origin is invalid")
+    raise _Invalid("transform is invalid")
 
 
 def _capture_token(value: str | None, *, default: str, name: str) -> str:
