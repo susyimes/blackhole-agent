@@ -628,6 +628,13 @@ block. The effect needs one ``@keyframes`` opacity rule plus
 ``animation-name``, ``animation-duration``, and the underlying opacity on a
 horizontal block. A broken keyframe block, the ``animation`` shorthand, a
 float, an absolute or sticky box, and a vertical or non-ltr box are rejected.
+``transition-property: height`` then replaces that block's specified height
+with the used length of one CSS transition at ``transition_sample_ms``.
+``transition_changes`` maps an id to the specified heights that retarget it.
+Reversing toward the length that started the running transition shortens
+the return, and the next sibling's top edge tracks the used border height.
+A float, an absolute or sticky box, a vertical or non-ltr box, the
+``transition`` shorthand, and an unparsable duration are rejected.
 ``element_from_document`` then clips each descendant to the padding edge of
 an ancestor whose overflow is ``hidden``, ``clip``, ``scroll``, or ``auto``.
 The rectangle is that ancestor's border box inset by its used border. A
@@ -714,6 +721,7 @@ from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
 from blackhole_agent.css_text_caret import element_text_offset, uniform_caret_edge
 from blackhole_agent.css_transform import map_transformed_point
+from blackhole_agent.css_transition import interrupt_css_transition
 from blackhole_agent.css_text_decoration import (
     DecorationError,
     paint_decoration_events,
@@ -1151,6 +1159,7 @@ class _Box:
     scroll_padding: tuple[int, int, int, int] = (0, 0, 0, 0)
     scroll_margin: tuple[int, int, int, int] = (0, 0, 0, 0)
     snap: dict[str, object] | None = None
+    height_transition: tuple[str, str, str] | None = None
 
 
 def layout_normal_flow(
@@ -1163,6 +1172,8 @@ def layout_normal_flow(
     scroll_y: int = 0,
     port_scroll: dict[str, tuple[int, int]] | None = None,
     scrollbars: str = "classic",
+    transition_sample_ms: int | None = None,
+    transition_changes: dict[str, list[dict[str, object]]] | None = None,
 ) -> dict[str, object]:
     """Return viewport border boxes for the document's normal-flow blocks.
 
@@ -1194,6 +1205,11 @@ def layout_normal_flow(
     around that same border box. The stroke does not move the box.
     ``scroll-snap-type`` records the resting scroll of a horizontal
     scrollport. The snap areas stay at their flow positions.
+    ``transition_sample_ms`` samples a ``transition-property: height``
+    transition. ``transition_changes`` maps an element id to retargets
+    whose ``time_ms`` and ``value`` are the new specified height. The
+    used height replaces the specified height before flow is solved, so
+    the next sibling moves with it.
     """
 
     try:
@@ -1206,6 +1222,8 @@ def layout_normal_flow(
             scroll_y=scroll_y,
             port_scroll=port_scroll,
             scrollbars=scrollbars,
+            transition_sample_ms=transition_sample_ms,
+            transition_changes=transition_changes,
         )
     except (CssSelectorError, _Invalid) as exc:
         return _invalid(str(exc))
@@ -1325,6 +1343,8 @@ def _placed_root(
     scroll_y: int,
     port_scroll: object = None,
     scrollbars: str = "classic",
+    transition_sample_ms: int | None = None,
+    transition_changes: dict[str, list[dict[str, object]]] | None = None,
 ) -> _Box:
     if not isinstance(markup, str) or not isinstance(stylesheet, str):
         raise _Invalid("markup is invalid")
@@ -1428,6 +1448,7 @@ def _placed_root(
     )
     _set_inline(root, tree, order[0], styles, declarations, ids, counter)
     _bind_list_markers(root)
+    _apply_height_transitions(root, transition_sample_ms, transition_changes)
     _solve(root, viewport_width, viewport_height, viewport_height, 0)
     placed = place_collapsed_margins(_collapse_spec(root))
     if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
@@ -2122,6 +2143,7 @@ def _make_box(
     box.snap_type, box.snap_align, box.scroll_padding, box.scroll_margin = _read_scroll_snap(
         winners, custom
     )
+    _bind_height_transition(box, winners, custom)
     return box
 
 
@@ -6196,6 +6218,169 @@ def _snap_px(token: str, *, negative: bool, label: str) -> int:
         return sign * _px(number, label)
     except _Invalid as exc:
         raise _Invalid(f"{label} is invalid") from exc
+
+
+_TRANSITION_RESET = frozenset({"initial", "unset", "revert"})
+
+
+def _bind_height_transition(box: _Box, winners, custom: dict) -> None:
+    """Record a height transition, or reject a box that cannot run one."""
+
+    spec = _read_height_transition(winners, custom)
+    if spec is None:
+        return
+    if (
+        box.root
+        or box.anonymous
+        or box.float_side != "none"
+        or box.position in {"absolute", "fixed", "sticky"}
+        or box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or box.display not in {"block", "flow-root"}
+    ):
+        raise _Invalid("height transition is unsupported")
+    if _specified_px_height(box) is None:
+        raise _Invalid("height transition is invalid")
+    box.height_transition = spec
+
+
+def _read_height_transition(winners, custom: dict) -> tuple[str, str, str] | None:
+    shorthand = _declared(winners, "transition", custom)
+    if shorthand is not None and " ".join(shorthand.split()).lower() not in {"none", *_TRANSITION_RESET}:
+        raise _Invalid("transition shorthand is unsupported")
+    raw = _declared(winners, "transition-property", custom)
+    if raw is None:
+        return None
+    token = " ".join(raw.split()).lower()
+    if token in {"none", "all", *_TRANSITION_RESET}:
+        return None
+    if token == "inherit":
+        raise _Invalid("height transition inherit is unsupported")
+    if token != "height":
+        return None
+    duration = _transition_clock(_declared(winners, "transition-duration", custom), "0s")
+    delay = _transition_clock(_declared(winners, "transition-delay", custom), "0s")
+    easing = _transition_easing(_declared(winners, "transition-timing-function", custom))
+    probe = interrupt_css_transition(
+        "0px",
+        [
+            {
+                "time_ms": 0,
+                "value": "0px",
+                "duration": duration,
+                "delay": delay,
+                "easing": easing,
+                "transition": True,
+            }
+        ],
+        0,
+    )
+    if probe.get("outcome") == "invalid":
+        raise _Invalid("height transition is invalid")
+    return (duration, delay, easing)
+
+
+def _transition_clock(value: str | None, default: str) -> str:
+    if value is None:
+        return default
+    token = " ".join(value.split()).lower()
+    if token in _TRANSITION_RESET:
+        return default
+    if token == "inherit":
+        raise _Invalid("height transition inherit is unsupported")
+    return token
+
+
+def _transition_easing(value: str | None) -> str:
+    if value is None:
+        return "ease"
+    token = " ".join(value.split()).lower()
+    if token in _TRANSITION_RESET:
+        return "ease"
+    if token == "inherit":
+        raise _Invalid("height transition inherit is unsupported")
+    return token
+
+
+def _specified_px_height(box: _Box) -> str | None:
+    found = None
+    for prop, value in box.declarations:
+        if prop == "height":
+            found = value
+    if found is None:
+        return None
+    token = " ".join(found.split()).lower()
+    if token.startswith("+"):
+        token = token[1:]
+    if not token.endswith("px") or token == "px":
+        return None
+    number = token[:-2]
+    if not number.isdigit():
+        return None
+    return f"{int(number)}px"
+
+
+def _apply_height_transitions(
+    root: _Box,
+    sample_ms: int | None,
+    changes: dict[str, list[dict[str, object]]] | None,
+) -> None:
+    """Substitute each transitioning height before normal flow is solved."""
+
+    boxes = [box for box in _each(root) if box.height_transition is not None]
+    if not boxes or sample_ms is None:
+        return
+    if type(sample_ms) is not int:
+        raise _Invalid("height transition sample is invalid")
+    if changes is None:
+        changes = {}
+    if isinstance(changes, (str, bytes)) or not isinstance(changes, dict):
+        raise _Invalid("height transition is invalid")
+    for box in boxes:
+        spec = box.height_transition
+        if spec is None:
+            continue
+        raw = changes.get(box.id, [])
+        if raw is None:
+            raw = []
+        if isinstance(raw, (str, bytes)) or not isinstance(raw, list):
+            raise _Invalid("height transition is invalid")
+        duration, delay, easing = spec
+        events: list[dict[str, object]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                raise _Invalid("height transition is invalid")
+            events.append(
+                {
+                    "time_ms": item.get("time_ms"),
+                    "value": item.get("value"),
+                    "duration": duration,
+                    "delay": delay,
+                    "easing": easing,
+                    "transition": True,
+                }
+            )
+        before = _specified_px_height(box)
+        if before is None:
+            raise _Invalid("height transition is invalid")
+        result = interrupt_css_transition(before, events, sample_ms)
+        if result.get("outcome") == "invalid" or result.get("unit") != "px":
+            raise _Invalid("height transition is invalid")
+        _replace_specified_height(box, f"{_px(result.get('value'), 'height transition')}px")
+
+
+def _replace_specified_height(box: _Box, used_px: str) -> None:
+    rewritten: list[tuple[str, str]] = []
+    replaced = False
+    for prop, value in box.declarations:
+        if prop == "height":
+            rewritten.append((prop, used_px))
+            replaced = True
+        else:
+            rewritten.append((prop, value))
+    if not replaced:
+        rewritten.append(("height", used_px))
+    box.declarations = rewritten
 
 
 def _apply_scroll_snap(root: _Box) -> None:
