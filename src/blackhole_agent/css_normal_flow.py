@@ -610,6 +610,16 @@ negative shift. The following sibling stays at the container's border edge.
 A vertical writing mode, a non-ltr direction, a float, a sticky or
 out-of-flow box, a non-visible overflow, a list item, a line box beside a
 block child, and ``baseline`` stay rejected.
+``offset-path`` then slides that box so the anchor point meets the path
+point inside the containing block's border box. ``path()`` and a basic
+shape are measured in that border box, not from the element's static
+corner, so a path point above the static position moves the box upward.
+``offset-anchor: auto`` is the center of the element's own border box, and
+two lengths select another point. ``offset-rotate`` is recorded on the box
+and does not rotate the border rectangle. Descendants move with the box.
+The following sibling stays at the static flow position. A float, an
+absolute or fixed box, a sticky box, a vertical or non-ltr box, the
+``offset`` shorthand, and a path the motion reader cannot parse are rejected.
 """
 
 from __future__ import annotations
@@ -652,6 +662,7 @@ from blackhole_agent.css_grid_placement import place_grid_items
 from blackhole_agent.css_grid_tracks import size_grid_tracks
 from blackhole_agent.css_hit_test import element_from_point
 from blackhole_agent.css_object_fit import fit_object
+from blackhole_agent.css_offset_path import travel_offset_path
 from blackhole_agent.css_replaced import used_replaced_size
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
@@ -1078,6 +1089,11 @@ class _Box:
     allotted_content_width: int | None = None
     align_mode: str = "normal"
     align_safe: bool = True
+    offset_path: str = ""
+    offset_distance: str = "0px"
+    offset_rotate: str = "auto"
+    offset_anchor: str = "auto"
+    offset_angle: int | float | None = None
 
 
 def layout_normal_flow(
@@ -1112,6 +1128,8 @@ def layout_normal_flow(
     positions, then sticky offsets. Absolute and fixed boxes are included
     in the returned boxes. ``align-content`` then packs a horizontal block's
     in-flow content inside its content box, before relative and sticky offsets.
+    ``offset-path`` then translates the box so its anchor meets the path point
+    in the containing block border box. Following siblings stay put.
     """
 
     try:
@@ -1346,6 +1364,7 @@ def _placed_root(
     _apply_port_scroll(root, port_scroll)
     _shift_stickies(root, viewport_width, viewport_height, scroll_x, scroll_y)
     _place_positioned(root, _Edge(0, 0, viewport_width, viewport_height))
+    _shift_offsets(root, viewport_width, viewport_height)
     _stamp_font_faces(root, tuple(font_faces))
     return root
 
@@ -1980,6 +1999,11 @@ def _make_box(
         raise _Invalid(exc.reason) from exc
     style = getattr(tree, "scrollbars", "classic")
     box.scrollbars = style if style in {"classic", "overlay"} else "classic"
+    path, distance, rotate, anchor = _read_offset(winners, custom)
+    box.offset_path = path
+    box.offset_distance = distance
+    box.offset_rotate = rotate
+    box.offset_anchor = anchor
     return box
 
 
@@ -3418,6 +3442,8 @@ def _record(box: _Box) -> dict[str, object]:
         "margin_right": box.margin_right,
         "lines": [_record_line(line) for line in box.lines],
     }
+    if box.offset_angle is not None:
+        item["offset_angle"] = box.offset_angle
     if box.object_box is not None:
         item["object"] = box.object_box
     if box.marker is not None:
@@ -5554,6 +5580,152 @@ def _translate(box: _Box, dx: int, dy: int) -> None:
     if box.anonymous:
         for atom in box.atoms:
             _translate(atom, dx, dy)
+
+
+def _read_offset(winners, custom: dict) -> tuple[str, str, str, str]:
+    shorthand = _latest_declared(winners, "offset")
+    if shorthand is not None and shorthand.strip().lower() not in {"none", "initial", "unset", "revert"}:
+        raise _Invalid("offset shorthand is unsupported")
+    raw = _latest_declared(winners, "offset-path")
+    if raw is None:
+        return "", "0px", "auto", "auto"
+    path = _declared(winners, "offset-path", custom)
+    if path is None:
+        raise _Invalid("offset path is invalid")
+    text = " ".join(path.split())
+    lowered = text.lower()
+    if lowered == "inherit":
+        raise _Invalid("offset path inherit is unsupported")
+    if lowered in {"none", "initial", "unset", "revert"}:
+        return "", "0px", "auto", "auto"
+    return (
+        text,
+        _offset_longhand(winners, custom, "offset-distance", "0px", "offset distance"),
+        _offset_longhand(winners, custom, "offset-rotate", "auto", "offset rotate"),
+        _offset_longhand(winners, custom, "offset-anchor", "auto", "offset anchor"),
+    )
+
+
+def _offset_longhand(winners, custom: dict, name: str, default: str, label: str) -> str:
+    if _latest_declared(winners, name) is None:
+        return default
+    value = _declared(winners, name, custom)
+    if value is None:
+        raise _Invalid(f"{label} is invalid")
+    text = " ".join(value.split()).lower()
+    if text == "inherit":
+        raise _Invalid(f"{label} inherit is unsupported")
+    if text in {"initial", "unset", "revert"}:
+        return default
+    return text
+
+
+def _latest_declared(winners, name: str) -> str | None:
+    found = None
+    for _order, prop, value in winners:
+        if prop == name:
+            found = value
+    return found
+
+
+def _shift_offsets(box: _Box, viewport_width: int, viewport_height: int | None) -> None:
+    if box.offset_path:
+        dx, dy, angle = _offset_delta(box, viewport_width, viewport_height)
+        box.offset_angle = angle
+        _translate_painted(box, dx, dy)
+    for child in box.children:
+        _shift_offsets(child, viewport_width, viewport_height)
+    for fl in box.floats:
+        _shift_offsets(fl, viewport_width, viewport_height)
+    for atom in box.atoms:
+        _shift_offsets(atom, viewport_width, viewport_height)
+    for abs_box in box.positioned:
+        _shift_offsets(abs_box, viewport_width, viewport_height)
+
+
+def _translate_painted(box: _Box, dx: int, dy: int) -> None:
+    if dx == 0 and dy == 0:
+        return
+    _translate(box, dx, dy)
+    if not box.anonymous:
+        for atom in box.atoms:
+            _translate_painted(atom, dx, dy)
+    for abs_box in box.positioned:
+        _translate_painted(abs_box, dx, dy)
+
+
+def _offset_delta(
+    box: _Box,
+    viewport_width: int,
+    viewport_height: int | None,
+) -> tuple[int, int, int | float]:
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("offset path writing mode is unsupported")
+    if box.float_side != "none" or box.position not in {"static", "relative"}:
+        raise _Invalid("offset path position is unsupported")
+    parent = box.parent_box
+    if parent is None:
+        origin_x = 0
+        origin_y = 0
+        ref_w = viewport_width
+        ref_h = viewport_height if viewport_height is not None else box.border_height
+    else:
+        origin_x = parent.x
+        origin_y = parent.y
+        ref_w = parent.border_width
+        ref_h = parent.border_height
+    placed = travel_offset_path(
+        box.offset_path,
+        box.offset_distance,
+        rotate=box.offset_rotate,
+        box_width=ref_w,
+        box_height=ref_h,
+    )
+    if placed.get("outcome") != "resolved":
+        reason = str(placed.get("reason") or "path")
+        if reason == "distance":
+            raise _Invalid("offset distance is invalid")
+        if reason == "rotate":
+            raise _Invalid("offset rotate is invalid")
+        if reason == "box":
+            raise _Invalid("offset path box is unsupported")
+        raise _Invalid("offset path is invalid")
+    point_x = placed.get("x")
+    point_y = placed.get("y")
+    angle = placed.get("angle")
+    if isinstance(point_x, bool) or isinstance(point_y, bool) or isinstance(angle, bool):
+        raise _Invalid("offset path is invalid")
+    if not isinstance(point_x, (int, float)) or not isinstance(point_y, (int, float)):
+        raise _Invalid("offset path is invalid")
+    if not isinstance(angle, (int, float)):
+        raise _Invalid("offset path is invalid")
+    anchor_x, anchor_y = _offset_anchor_point(box)
+    dx = _px((origin_x + float(point_x)) - (box.x + anchor_x), "offset x")
+    dy = _px((origin_y + float(point_y)) - (box.y + anchor_y), "offset y")
+    return dx, dy, angle
+
+
+def _offset_anchor_point(box: _Box) -> tuple[float, float]:
+    raw = " ".join(box.offset_anchor.lower().split())
+    if raw in {"auto", "initial", "unset", "revert"}:
+        return box.border_width / 2.0, box.border_height / 2.0
+    parts = raw.split()
+    if len(parts) != 2:
+        raise _Invalid("offset anchor is invalid")
+    return _offset_anchor_axis(parts[0], box.border_width), _offset_anchor_axis(parts[1], box.border_height)
+
+
+def _offset_anchor_axis(token: str, size: int) -> float:
+    try:
+        if token in {"0", "+0", "-0"}:
+            return 0.0
+        if token.endswith("%") and token != "%":
+            return float(token[:-1]) * size / 100.0
+        if token.endswith("px") and token != "px":
+            return float(token[:-2])
+    except ValueError as exc:
+        raise _Invalid("offset anchor is invalid") from exc
+    raise _Invalid("offset anchor is invalid")
 
 
 def _shift_stickies(
