@@ -640,6 +640,12 @@ box stays where flow put it, and the following block stays there too. A
 clockwise ``rotate(90deg)`` around the top-left corner selects a point in the
 negative x half and misses the old rectangle. ``transform-origin`` defaults to
 ``50% 50%``. An unparsable transform or origin is invalid.
+``outline`` paints outside the border edge and does not change that border
+box, the following block, or the page height. The recorded rectangle is the
+outer edge of the stroke: ``outline-offset`` plus the used thickness. The
+omitted color is the used ``color``, including a color inherited from an
+ancestor. ``none`` and a zero thickness record nothing. A non-replaced inline
+with a visible outline is rejected. An unparsable outline is invalid.
 """
 
 from __future__ import annotations
@@ -659,6 +665,9 @@ from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_counters import format_counter, format_counters, resolve_counters
 from blackhole_agent.css_bidi import bidi_line_order
 from blackhole_agent.css_border_radius import used_border_radii
+from blackhole_agent.css_color_mix import _Invalid as _ColorInvalid
+from blackhole_agent.css_color_mix import _convert as _convert_color
+from blackhole_agent.css_color_mix import _parse_color
 from blackhole_agent.css_auto_table import layout_auto_columns
 from blackhole_agent.css_collapsed_border import resolve_collapsed_grid
 from blackhole_agent.css_fixed_table import layout_fixed_columns
@@ -882,6 +891,7 @@ _FONT = {
     "font-family": "",
     "font-weight": "400",
     "font-style": "normal",
+    "color": "#000000",
 }
 _ALIGNS = frozenset(
     {"start", "end", "left", "right", "center", "justify", "justify-all", "match-parent"}
@@ -1124,6 +1134,9 @@ class _Box:
     scroll_opacity: int | float | None = None
     border_radius: str = ""
     border_curve: tuple[float, float, float, float, float, float, float, float] | None = None
+    color: str = "#000000"
+    color_valid: bool = True
+    outline: tuple[str, int, str, int] | None = None
 
 
 def layout_normal_flow(
@@ -1163,7 +1176,8 @@ def layout_normal_flow(
     ``offset-path`` then translates the box so its anchor meets the path point
     in the containing block border box. Following siblings stay put.
     ``border-radius`` does not move those rectangles. An unparsable radius
-    rejects the document.
+    rejects the document. ``outline`` records the outer edge of a stroke
+    around that same border box. The stroke does not move the box.
     """
 
     try:
@@ -2084,6 +2098,10 @@ def _make_box(
     box.offset_anchor = anchor
     box.scroll_rule = _read_scroll_rule(winners, custom)
     box.border_radius = _read_border_radius(winners, custom)
+    box.color, box.color_valid = _used_color(_declared(winners, "color", custom), fonts)
+    box.outline = _read_outline(winners, custom, box.color, box.color_valid)
+    if box.display == "inline" and not box.replaced and box.outline is not None:
+        raise _Invalid("inline outline is unsupported")
     return box
 
 
@@ -3526,6 +3544,8 @@ def _record(box: _Box) -> dict[str, object]:
         item["offset_angle"] = box.offset_angle
     if box.scroll_opacity is not None:
         item["opacity"] = box.scroll_opacity
+    if box.outline is not None:
+        item["outline"] = _outline_ink(box)
     if box.object_box is not None:
         item["object"] = box.object_box
     if box.marker is not None:
@@ -3799,6 +3819,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "font-family": box.font_family,
         "font-weight": box.font_weight,
         "font-style": box.font_style,
+        "color": box.color,
+        "color-valid": "1" if box.color_valid else "0",
     }
 
 
@@ -3968,6 +3990,8 @@ def _make_anonymous_block(
         font_weight=parent.font_weight,
         font_style=parent.font_style,
         parent_direction=parent.direction,
+        color=parent.color,
+        color_valid=parent.color_valid,
         anonymous=True,
         parent_box=parent,
         pieces=pieces,
@@ -6322,6 +6346,257 @@ def _chain_has_transform(box: _Box) -> bool:
             return True
         current = current.parent_box
     return False
+
+
+_OUTLINE_PROPS = frozenset(
+    {"outline", "outline-style", "outline-width", "outline-color", "outline-offset"}
+)
+_OUTLINE_STYLES = frozenset(
+    {"none", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset", "auto"}
+)
+_OUTLINE_RESET = frozenset({"initial", "unset", "revert"})
+
+
+def _used_color(raw: str | None, fonts: dict[str, str]) -> tuple[str, bool]:
+    """Used ``color``. An unparsable specified value stays invalid for outline ink."""
+
+    parent = fonts.get("color", "#000000")
+    parent_valid = fonts.get("color-valid", "1") == "1"
+    if raw is None:
+        return parent, parent_valid
+    keyword = " ".join(raw.split()).lower()
+    if keyword in {"inherit", "unset", "revert", "currentcolor"}:
+        return parent, parent_valid
+    if keyword == "initial":
+        return "#000000", True
+    try:
+        return _css_color_hex(raw, reason="color is invalid"), True
+    except _Invalid:
+        return parent, False
+
+
+def _read_outline(
+    winners, custom: dict, current: str, valid: bool
+) -> tuple[str, int, str, int] | None:
+    """Used outline, or ``None`` when the stroke has no ink."""
+
+    style = "none"
+    width = 3
+    color: str | None = None
+    offset = 0
+    seen = False
+    for order, prop, raw in winners:
+        if prop not in _OUTLINE_PROPS:
+            continue
+        seen = True
+        value = _declared([(order, prop, raw)], prop, custom)
+        if prop == "outline":
+            style, width, color = _parse_outline_shorthand(value)
+        elif prop == "outline-style":
+            style = _parse_outline_style(value)
+        elif prop == "outline-width":
+            width = _parse_outline_width(value)
+        elif prop == "outline-color":
+            color = _parse_outline_color(value)
+        else:
+            offset = _parse_outline_offset(value)
+    if not seen or style == "none" or width <= 0:
+        return None
+    if color is None:
+        if not valid:
+            raise _Invalid("color is invalid")
+        color = current
+    return style, width, color, offset
+
+
+def _parse_outline_shorthand(value: str | None) -> tuple[str, int, str | None]:
+    if value is None:
+        return "none", 3, None
+    keyword = " ".join(value.split()).lower()
+    if keyword in _OUTLINE_RESET:
+        return "none", 3, None
+    if keyword == "inherit":
+        raise _Invalid("outline inherit is unsupported")
+    tokens = _outline_tokens(value)
+    if not tokens or len(tokens) > 3:
+        raise _Invalid("outline is invalid")
+    style = "none"
+    width = 3
+    color: str | None = None
+    saw_style = False
+    saw_width = False
+    saw_color = False
+    for token in tokens:
+        lowered = token.lower()
+        if lowered in _OUTLINE_STYLES and not saw_style:
+            style = lowered
+            saw_style = True
+            continue
+        parsed_width = _outline_width_token(token)
+        if parsed_width is not None and not saw_width:
+            width = parsed_width
+            saw_width = True
+            continue
+        if saw_color:
+            raise _Invalid("outline is invalid")
+        color = _outline_color_token(token)
+        saw_color = True
+    return style, width, color
+
+
+def _parse_outline_style(value: str | None) -> str:
+    if value is None or value in _OUTLINE_RESET:
+        return "none"
+    if value == "inherit":
+        raise _Invalid("outline inherit is unsupported")
+    keyword = " ".join(value.split()).lower()
+    if keyword in _OUTLINE_STYLES:
+        return keyword
+    raise _Invalid("outline is invalid")
+
+
+def _parse_outline_width(value: str | None) -> int:
+    if value is None or value in _OUTLINE_RESET:
+        return 3
+    if value == "inherit":
+        raise _Invalid("outline inherit is unsupported")
+    width = _outline_width_token(" ".join(value.split()))
+    if width is None:
+        raise _Invalid("outline is invalid")
+    return width
+
+
+def _outline_color_token(token: str) -> str | None:
+    keyword = token.lower()
+    if keyword == "currentcolor":
+        return None
+    if keyword in _OUTLINE_RESET or keyword == "inherit":
+        raise _Invalid("outline is invalid")
+    return _css_color_hex(token, reason="outline is invalid")
+
+
+def _parse_outline_color(value: str | None) -> str | None:
+    if value is None:
+        return None
+    keyword = " ".join(value.split()).lower()
+    if keyword in _OUTLINE_RESET or keyword == "currentcolor":
+        return None
+    if keyword == "inherit":
+        raise _Invalid("outline inherit is unsupported")
+    return _css_color_hex(value.strip(), reason="outline is invalid")
+
+
+def _parse_outline_offset(value: str | None) -> int:
+    if value is None or value in _OUTLINE_RESET:
+        return 0
+    if value == "inherit":
+        raise _Invalid("outline inherit is unsupported")
+    token = " ".join(value.split())
+    if token.lower() == "0" or token.lower().endswith("px"):
+        return _outline_px(token, negative=True)
+    raise _Invalid("outline is invalid")
+
+
+def _outline_width_token(token: str) -> int | None:
+    text = token.lower()
+    if text in _BORDER_WIDTHS:
+        return _BORDER_WIDTHS[text]
+    if text == "0" or text.endswith("px"):
+        return _outline_px(text, negative=False)
+    return None
+
+
+def _outline_px(token: str, *, negative: bool) -> int:
+    text = token.lower()
+    if text == "0":
+        return 0
+    if not text.endswith("px"):
+        raise _Invalid("outline is invalid")
+    try:
+        number = float(text[:-2])
+    except ValueError as exc:
+        raise _Invalid("outline is invalid") from exc
+    if not negative and number < 0:
+        raise _Invalid("outline is invalid")
+    try:
+        return _px(number, "outline")
+    except _Invalid as exc:
+        raise _Invalid("outline is invalid") from exc
+
+
+def _outline_tokens(value: str) -> list[str]:
+    tokens: list[str] = []
+    chunk: list[str] = []
+    depth = 0
+    for char in value.strip():
+        if char == "(":
+            depth += 1
+            chunk.append(char)
+            continue
+        if char == ")" and depth:
+            depth -= 1
+            chunk.append(char)
+            continue
+        if char.isspace() and depth == 0:
+            if chunk:
+                tokens.append("".join(chunk))
+                chunk = []
+            continue
+        chunk.append(char)
+    if depth:
+        raise _Invalid("outline is invalid")
+    if chunk:
+        tokens.append("".join(chunk))
+    return tokens
+
+
+def _css_color_hex(text: str, *, reason: str) -> str:
+    try:
+        parsed = _parse_color(text.strip())
+        srgb = _convert_color(parsed, "srgb")
+    except (_ColorInvalid, KeyError, ValueError, ZeroDivisionError, OverflowError) as exc:
+        raise _Invalid(reason) from exc
+    channels = srgb.channels
+    if len(channels) != 3:
+        raise _Invalid(reason)
+    red, green, blue = (_color_byte(channel, reason) for channel in channels)
+    alpha = srgb.alpha
+    if alpha is None or abs(float(alpha) - 1.0) <= 1e-6:
+        return f"#{red:02x}{green:02x}{blue:02x}"
+    if not isinstance(alpha, (int, float)) or isinstance(alpha, bool) or alpha < 0 or alpha > 1:
+        raise _Invalid(reason)
+    return f"#{red:02x}{green:02x}{blue:02x}{_color_byte(float(alpha), reason):02x}"
+
+
+def _color_byte(channel: object, reason: str) -> int:
+    if isinstance(channel, bool) or not isinstance(channel, (int, float)):
+        raise _Invalid(reason)
+    number = float(channel)
+    if number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid(reason)
+    scaled = number * 255.0
+    if scaled < 0:
+        scaled = 0.0
+    if scaled > 255:
+        scaled = 255.0
+    return int(scaled + 0.5)
+
+
+def _outline_ink(box: _Box) -> dict[str, object]:
+    """Outer edge of the outline stroke, in the same space as the border box."""
+
+    style, thickness, color, offset = box.outline or ("none", 0, "#000000", 0)
+    outset = offset + thickness
+    return {
+        "style": style,
+        "color": color,
+        "thickness": thickness,
+        "offset": offset,
+        "x": box.x - outset,
+        "y": box.y - outset,
+        "width": box.border_width + 2 * outset,
+        "height": box.border_height + 2 * outset,
+    }
 
 
 def _read_border_radius(winners, custom: dict) -> str:
@@ -10689,6 +10964,8 @@ def _flush_flex_text(
             font_weight=host.font_weight,
             font_style=host.font_style,
             parent_direction=host.direction,
+            color=host.color,
+            color_valid=host.color_valid,
             inline_text=rendered,
             anonymous=True,
             parent_box=host,
