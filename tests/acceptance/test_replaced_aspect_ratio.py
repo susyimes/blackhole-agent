@@ -3,7 +3,7 @@
 A plain ratio replaces the intrinsic ratio. ``auto`` with a ratio keeps the
 intrinsic ratio when the attributes supply one. A specified height stays
 specified, and a maximum clamps only the automatic axis. An absolute image
-still rejects the property.
+uses that same ratio and leaves the following block at its static position.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """
@@ -121,7 +121,9 @@ def observe() -> tuple[bool, dict[str, object]]:
         "absolute": _lay(
             layout_normal_flow,
             _ABS,
-            _RESET + "#abs { position: absolute; width: 100px; height: auto; aspect-ratio: 1 / 1; }",
+            _RESET
+            + "#abs { position: absolute; left: 0px; top: 0px; width: 100px; height: auto; aspect-ratio: 1 / 1; }"
+            + " #next { height: 10px; }",
         ),
     }
     observed: dict[str, object] = {}
@@ -176,8 +178,12 @@ def observe() -> tuple[bool, dict[str, object]]:
         "non_replaced_block_still_transfers": sized(
             "block", x=0, y=0, content_width=100, content_height=100, border_height=100
         ),
-        "absolute_image_stays_rejected": cases["absolute"].get("outcome") == "invalid"
-        and cases["absolute"].get("reason") == "replaced aspect-ratio is unsupported",
+        "absolute_image_uses_the_preferred_ratio": cases["absolute"].get("outcome") == "placed"
+        and _near(
+            edges["absolute"][0], x=0, y=0, content_width=100, content_height=100, border_height=100
+        )
+        and edges["absolute"][1] is not None
+        and edges["absolute"][1].get("y") == 0,
     }
     observed["checks"] = checks
     return all(checks.values()), observed

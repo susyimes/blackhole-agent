@@ -471,12 +471,14 @@ and width 80px paints 80 by 80. Both automatic axes still use both intrinsic
 dimensions. A specified height stays specified. A maximum on the automatic
 axis clamps that axis and leaves the definite axis alone. The block
 transferred-height floor does not also apply. An absolute or fixed image
-still rejects the property. A block's automatic horizontal
+uses that same preferred ratio, so a 400 by 200 image with width 100px and
+``1 / 1`` paints 100 by 100 while the following block stays at its static
+position. A block's automatic horizontal
 margins then center that used width. An inline replaced element is an atomic
 line item whose bottom margin edge rests on the strut baseline. ``object-fit``
 places the concrete object inside the content box. An absolute or fixed image
-uses that intrinsic size and then the absolute inset equation, so definite
-insets do not stretch it. Automatic insets use its static position, including
+uses that intrinsic or preferred-ratio size and then the absolute inset
+equation, so definite insets do not stretch it. Automatic insets use its static position, including
 the line slot of an inline image. A maximum width shrinks that size and keeps
 the ratio. An inline relative or sticky image, a vertical writing mode,
 ``border-box``, and a child stay rejected.
@@ -7648,8 +7650,6 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[s
         raise _Invalid("replaced writing mode is unsupported")
     if _box_sizing(box) != "content-box":
         raise _Invalid("replaced box-sizing is unsupported")
-    if box.aspect_ratio is not None:
-        raise _Invalid("replaced aspect-ratio is unsupported")
     if box.children or box.floats or box.positioned or box.atoms:
         raise _Invalid("positioned replaced element is unsupported")
     slots = _physical_slots(box)
@@ -7690,6 +7690,7 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[s
         border_right=_border_arg(slots, "right"),
         intrinsic_width=box.intrinsic_width,
         intrinsic_height=box.intrinsic_height,
+        intrinsic_ratio=_preferred_replaced_ratio(box),
         layout="inline",
         direction=box.direction,
     )
@@ -8170,7 +8171,7 @@ def _replaced_layout(box: _Box) -> str:
 
 
 def _preferred_replaced_ratio(box: _Box) -> float | None:
-    """Width over height for an in-flow replaced box.
+    """Width over height for a replaced box.
 
     A plain ``aspect-ratio`` replaces the intrinsic ratio. ``auto`` together
     with a ratio keeps that intrinsic ratio when both attributes supply it.
