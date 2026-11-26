@@ -20,7 +20,8 @@ it still fits, so a shorter last column is not rearranged to look even.
 ``column-fill: auto`` needs a constrained column block size and is rejected
 here. ``fragment_columns`` fills that fixed block size and honors column
 breaks. This balancer does not break text, measure an inline min-content,
-collapse margins, or paint a column rule. Fragment heights are CSS pixels
+or collapse margins. The normal-flow walk paints a column rule from these
+column boxes. Fragment heights are CSS pixels
 and are already the unbreakable border-box block size.
 
 ``layout_column_rows`` uses the same column count and inline size, then

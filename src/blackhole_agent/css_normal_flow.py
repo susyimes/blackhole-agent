@@ -481,6 +481,17 @@ stays in that row. ``column-wrap: nowrap``, a specified height, and a
 forced column break are rejected when a column height is set. ``wrap``
 without a column height keeps the balanced single row. A column height
 without a column count or column width is rejected.
+``column-rule`` paints one stroke in the middle of each gap whose two
+neighboring columns both hold a box. The stroke is as tall as that column
+box, so a fixed ``column-height`` row includes the unused block and a
+``column-fill: auto`` row uses the leftover block size. A
+``column-span: all`` row and a trailing empty column have no stroke.
+``none``, ``hidden``, and a zero width paint nothing. The omitted style is
+``none`` and the omitted width is ``medium`` (3px). The omitted color is
+the used ``color``. A rule wider than the gap stays centered and overflows;
+an odd leftover pixel stays on the inline end. The stroke does not move
+the column boxes or the following block. A negative width is invalid, and
+``inherit`` is rejected.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
 own query. A named query selects the nearest ancestor with that name which can
@@ -1258,6 +1269,8 @@ class _Box:
     color_valid: bool = True
     outline: tuple[str, int, str, int] | None = None
     shadows: tuple[tuple[bool, int, int, int, int, str], ...] = ()
+    column_rule: tuple[str, int, str] | None = None
+    column_rules: tuple[tuple[int, int, int, int, str, str], ...] = ()
     snap_type: str = ""
     snap_align: tuple[str, str] = ("none", "none")
     scroll_padding: tuple[int, int, int, int] = (0, 0, 0, 0)
@@ -1310,6 +1323,8 @@ def layout_normal_flow(
     around that same border box. The stroke does not move the box.
     ``box-shadow`` records each shadow's shape or inset hole in that same
     space. The rectangles do not move the box.
+    ``column-rule`` records one centered stroke in each gap between two
+    occupied columns. Those rectangles do not move the column boxes.
     ``scroll-snap-type`` records the resting scroll of a horizontal
     scrollport. The snap areas stay at their flow positions.
     ``transition_sample_ms`` samples a ``transition-property: height``
@@ -2260,6 +2275,7 @@ def _make_box(
     box.shadows = _read_box_shadow(winners, custom, box.color, box.color_valid)
     if box.display == "inline" and not box.replaced and box.shadows:
         raise _Invalid("inline box-shadow is unsupported")
+    box.column_rule = _read_column_rule(winners, custom, box.color, box.color_valid)
     box.snap_type, box.snap_align, box.scroll_padding, box.scroll_margin = _read_scroll_snap(
         winners, custom
     )
@@ -3066,6 +3082,13 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
     _anchor_column_rows(box, content_x, placed, "inline", "block")
     if box.definite_height is None:
         box.definite_height = _px(flowed.get("block_size"), "column block size")
+    _stamp_column_rules(
+        box,
+        _content_rule_rows(placed),
+        count=_px(flowed.get("column_count"), "column count"),
+        gap=_px(spec.get("gap", 0), "column gap"),
+        column_width=_px(flowed.get("column_width"), "column width"),
+    )
     box.anchor_laid = True
 
 
@@ -3108,6 +3131,17 @@ def _anchor_column_height_rows(
     _anchor_column_rows(box, content_x, rows, "inline", "block")
     if box.definite_height is None:
         box.definite_height = _px(flowed.get("block_size"), "column block size")
+    _stamp_column_rules(
+        box,
+        _fixed_height_rule_rows(
+            placed,
+            _px(column_block, "column height"),
+            _px(spec.get("row_gap", 0), "row gap"),
+        ),
+        count=count,
+        gap=gap,
+        column_width=_px(flowed.get("column_width"), "column width"),
+    )
     box.anchor_laid = True
 
 
@@ -3126,12 +3160,14 @@ def _anchor_fixed_columns(
 
     count = _px(preview.get("column_count"), "column count")
     gap = _px((box.multicol or {}).get("gap", 0), "column gap")
+    column_width = _px(preview.get("column_width"), "column width")
     limit = box.definite_height
     if limit is None:
         raise _Invalid("column block size is indefinite")
     spec = box.multicol or {}
     cursor = 0
     rows: list[dict[str, object]] = []
+    rule_rows: list[tuple[int, int, set[int]]] = []
     run: list[_Box] = []
 
     def take_row(item: dict[str, object], inline: object, block: object) -> None:
@@ -3153,13 +3189,16 @@ def _anchor_fixed_columns(
             placed = flowed.get("boxes")
             if flowed.get("outcome") != "flowed" or not isinstance(placed, list):
                 raise _Invalid(str(flowed.get("reason") or "columns failed"))
+            row_start = cursor
             for item in placed:
                 if not isinstance(item, dict):
                     raise _Invalid("column placement failed")
                 take_row(item, item.get("inline"), cursor + _px(item.get("block"), "column block"))
             cursor += _px(flowed.get("block_size"), "column block size")
+            rule_rows.append((row_start, cursor - row_start, _occupied_columns(placed)))
         else:
             remaining = limit - cursor if cursor < limit else 0
+            row_start = cursor
             fragmented = fragment_columns(
                 count,
                 remaining,
@@ -3185,6 +3224,8 @@ def _anchor_fixed_columns(
                     _column_inline_offset(column, available, gap, count),
                     cursor + _px(item.get("block"), "column block"),
                 )
+            if remaining > 0:
+                rule_rows.append((row_start, remaining, _occupied_columns(placed)))
         run.clear()
 
     for child in box.children:
@@ -3196,7 +3237,88 @@ def _anchor_fixed_columns(
         run.append(child)
     flush(False)
     _anchor_column_rows(box, content_x, rows, "inline", "block")
+    _stamp_column_rules(box, rule_rows, count=count, gap=gap, column_width=column_width)
     box.anchor_laid = True
+
+
+def _occupied_columns(placed: list) -> set[int]:
+    found: set[int] = set()
+    for item in placed:
+        if not isinstance(item, dict) or item.get("span") == "all":
+            continue
+        column = item.get("column")
+        if type(column) is int:
+            found.add(column)
+    return found
+
+
+def _content_rule_rows(placed: list) -> list[tuple[int, int, set[int]]]:
+    """Column-box block start, size, and occupied columns. A spanner is skipped."""
+
+    grouped: dict[int, list[dict[str, object]]] = {}
+    for item in placed:
+        if not isinstance(item, dict) or item.get("span") == "all":
+            continue
+        line = item.get("line")
+        column = item.get("column")
+        if type(line) is not int or type(column) is not int:
+            continue
+        grouped.setdefault(line, []).append(item)
+    rows: list[tuple[int, int, set[int]]] = []
+    for line in sorted(grouped):
+        items = grouped[line]
+        start = min(_px(item.get("block"), "column block") for item in items)
+        end = max(
+            _px(item.get("block"), "column block") + _px(item.get("height"), "column height")
+            for item in items
+        )
+        rows.append((start, end - start, {int(item["column"]) for item in items}))
+    return rows
+
+
+def _fixed_height_rule_rows(
+    placed: list, height: int, row_gap: int
+) -> list[tuple[int, int, set[int]]]:
+    """One fixed column box per content line. A spanner line has no gap."""
+
+    occupied: dict[int, set[int]] = {}
+    for item in placed:
+        if not isinstance(item, dict) or item.get("span") == "all":
+            continue
+        line = item.get("line")
+        column = item.get("column")
+        if type(line) is not int or type(column) is not int:
+            continue
+        occupied.setdefault(line, set()).add(column)
+    return [(line * (height + row_gap), height, columns) for line, columns in sorted(occupied.items())]
+
+
+def _stamp_column_rules(
+    box: _Box,
+    rows: list[tuple[int, int, set[int]]],
+    *,
+    count: int,
+    gap: int,
+    column_width: int,
+) -> None:
+    """Center one stroke in every gap between two occupied columns."""
+
+    rule = box.column_rule
+    if rule is None or count < 2:
+        box.column_rules = ()
+        return
+    style, rule_width, color = rule
+    offset = (gap - rule_width) // 2
+    rects: list[tuple[int, int, int, int, str, str]] = []
+    for start, height, occupied in rows:
+        if height <= 0:
+            continue
+        for index in range(count - 1):
+            if index not in occupied or index + 1 not in occupied:
+                continue
+            gap_start = _column_inline_offset(index, box.content_width, gap, count) + column_width
+            rects.append((gap_start + offset, start, rule_width, height, style, color))
+    box.column_rules = tuple(rects)
 
 
 def _anchor_column_rows(
@@ -3982,6 +4104,20 @@ def _record(box: _Box) -> dict[str, object]:
         item["outline"] = _outline_ink(box)
     if box.shadows:
         item["shadows"] = _shadow_ink(box)
+    if box.column_rules:
+        origin_x = box.x + _edge_extent(box.solved, "left") + box.gutter_start
+        origin_y = box.y + _edge_extent(box.solved, "top")
+        item["rules"] = [
+            {
+                "x": origin_x + left,
+                "y": origin_y + top,
+                "width": width,
+                "height": height,
+                "style": style,
+                "color": color,
+            }
+            for left, top, width, height, style, color in box.column_rules
+        ]
     if box.snap is not None:
         item["snap"] = box.snap
     if box.object_box is not None:
@@ -7541,6 +7677,141 @@ def _color_byte(channel: object, reason: str) -> int:
     if scaled > 255:
         scaled = 255.0
     return int(scaled + 0.5)
+
+
+_COLUMN_RULE_PROPS = frozenset(
+    {"column-rule", "column-rule-style", "column-rule-width", "column-rule-color"}
+)
+_COLUMN_RULE_STYLES = frozenset(
+    {"none", "hidden", "dotted", "dashed", "solid", "double", "groove", "ridge", "inset", "outset"}
+)
+_COLUMN_RULE_RESET = frozenset({"initial", "unset", "revert"})
+
+
+def _read_column_rule(
+    winners, custom: dict, current: str, valid: bool
+) -> tuple[str, int, str] | None:
+    """Used column rule, or ``None`` when the stroke has no ink."""
+
+    style = "none"
+    width = 3
+    color: str | None = None
+    seen = False
+    for order, prop, raw in winners:
+        if prop not in _COLUMN_RULE_PROPS:
+            continue
+        seen = True
+        value = _declared([(order, prop, raw)], prop, custom)
+        if prop == "column-rule":
+            style, width, color = _parse_column_rule_shorthand(value)
+        elif prop == "column-rule-style":
+            style = _parse_column_rule_style(value)
+        elif prop == "column-rule-width":
+            width = _parse_column_rule_width(value)
+        else:
+            color = _parse_column_rule_color(value)
+    if not seen or style in {"none", "hidden"} or width <= 0:
+        return None
+    if color is None:
+        if not valid:
+            raise _Invalid("color is invalid")
+        color = current
+    return style, width, color
+
+
+def _parse_column_rule_shorthand(value: str | None) -> tuple[str, int, str | None]:
+    if value is None:
+        return "none", 3, None
+    keyword = " ".join(value.split()).lower()
+    if keyword in _COLUMN_RULE_RESET:
+        return "none", 3, None
+    if keyword == "inherit":
+        raise _Invalid("column-rule inherit is unsupported")
+    tokens = _outline_tokens(value)
+    if not tokens or len(tokens) > 3:
+        raise _Invalid("column-rule is invalid")
+    style = "none"
+    width = 3
+    color: str | None = None
+    saw_style = False
+    saw_width = False
+    saw_color = False
+    for token in tokens:
+        lowered = token.lower()
+        if lowered in _COLUMN_RULE_STYLES and not saw_style:
+            style = lowered
+            saw_style = True
+            continue
+        parsed_width = _column_rule_width_token(token, reason="column-rule is invalid")
+        if parsed_width is not None and not saw_width:
+            width = parsed_width
+            saw_width = True
+            continue
+        if saw_color:
+            raise _Invalid("column-rule is invalid")
+        color = _column_rule_color_token(token)
+        saw_color = True
+    return style, width, color
+
+
+def _parse_column_rule_style(value: str | None) -> str:
+    if value is None or value in _COLUMN_RULE_RESET:
+        return "none"
+    if value == "inherit":
+        raise _Invalid("column-rule inherit is unsupported")
+    keyword = " ".join(value.split()).lower()
+    if keyword in _COLUMN_RULE_STYLES:
+        return keyword
+    raise _Invalid("column-rule-style is invalid")
+
+
+def _parse_column_rule_width(value: str | None) -> int:
+    if value is None or value in _COLUMN_RULE_RESET:
+        return 3
+    if value == "inherit":
+        raise _Invalid("column-rule inherit is unsupported")
+    parsed = _column_rule_width_token(" ".join(value.split()), reason="column-rule-width is invalid")
+    if parsed is None:
+        raise _Invalid("column-rule-width is invalid")
+    return parsed
+
+
+def _parse_column_rule_color(value: str | None) -> str | None:
+    keyword = "" if value is None else " ".join(value.split()).lower()
+    if value is None or keyword in _COLUMN_RULE_RESET or keyword == "currentcolor":
+        return None
+    if keyword == "inherit":
+        raise _Invalid("column-rule inherit is unsupported")
+    return _css_color_hex(value.strip(), reason="column-rule-color is invalid")
+
+
+def _column_rule_color_token(token: str) -> str | None:
+    keyword = token.lower()
+    if keyword == "currentcolor":
+        return None
+    if keyword in _COLUMN_RULE_RESET or keyword == "inherit":
+        raise _Invalid("column-rule is invalid")
+    return _css_color_hex(token, reason="column-rule is invalid")
+
+
+def _column_rule_width_token(token: str, *, reason: str) -> int | None:
+    text = token.lower()
+    if text in _BORDER_WIDTHS:
+        return _BORDER_WIDTHS[text]
+    if text == "0":
+        return 0
+    if not text.endswith("px"):
+        return None
+    try:
+        number = float(text[:-2])
+    except ValueError:
+        return None
+    if number < 0:
+        raise _Invalid(reason)
+    try:
+        return _px(number, "column-rule")
+    except _Invalid as exc:
+        raise _Invalid(reason) from exc
 
 
 def _read_box_shadow(
