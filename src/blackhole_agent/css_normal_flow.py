@@ -146,7 +146,15 @@ horizontal line and omitted after the last character, so a positive value
 wraps sooner and a negative value shortens the line. ``word-spacing`` is added
 only to word separators. Both inherit, ``normal`` is zero, and a percentage is
 invalid. Justification of a spaced line, a vertical writing mode, an inside
-marker, and a declaration on an inline stay rejected. ``text-transform`` is
+marker, and a declaration on an inline stay rejected. ``text-autospace`` is
+inherited. An omitted value stays flush. ``normal`` and ``ideograph-alpha``
+open an eighth of an ideograph between a CJK letter and a non-CJK letter;
+``ideograph-numeric`` does that between a CJK letter and a digit. The gap is
+a soft wrap opportunity, so a narrow measure breaks where the scripts meet.
+``insert`` keeps a real space, and ``replace`` spends that space on the gap.
+``no-autospace`` clears an inherited value. ``auto``, ``punctuation``, a
+vertical writing mode, and a declaration on an inline are rejected.
+``text-transform`` is
 inherited and applied before wrapping. ``uppercase`` and ``lowercase`` use
 Unicode case mapping, so a German eszett becomes two letters and can push
 the next word onto the following line. ``capitalize`` titlecases the first
@@ -933,6 +941,7 @@ _FONT = {
     "text-indent": "0px",
     "letter-spacing": "0px",
     "word-spacing": "0px",
+    "text-autospace": "no-autospace",
     "text-transform": "none",
     "tab-size": "8",
     "white-space": "normal",
@@ -987,6 +996,7 @@ _INLINE_REJECTED = (
     "white-space",
     "letter-spacing",
     "word-spacing",
+    "text-autospace",
     "tab-size",
     "overflow-wrap",
     "word-wrap",
@@ -1205,6 +1215,7 @@ class _Box:
     scroll_margin: tuple[int, int, int, int] = (0, 0, 0, 0)
     snap: dict[str, object] | None = None
     height_transition: tuple[str, str, str] | None = None
+    text_autospace: str = "no-autospace"
 
 
 def layout_normal_flow(
@@ -2076,6 +2087,9 @@ def _make_box(
         word_spacing=_used_spacing_px(
             _read_spacing(_declared(winners, "word-spacing", custom), fonts["word-spacing"], "word-spacing")
         ),
+        text_autospace=_read_text_autospace(
+            _declared(winners, "text-autospace", custom), fonts["text-autospace"]
+        ),
         text_transform=_used_text_transform(
             _declared(winners, "text-transform", custom),
             fonts["text-transform"],
@@ -2163,6 +2177,8 @@ def _make_box(
         position_area=position_area,
         capture=_read_capture(winners, custom),
     )
+    if _autospace_on(box) and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
+        raise _Invalid("text-autospace writing mode is unsupported")
     _bind_plane_transform(box, winners, custom)
     boxes = getattr(tree, "box_of", None)
     if not isinstance(boxes, dict):
@@ -4040,6 +4056,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "text-indent": box.text_indent,
         "letter-spacing": f"{box.letter_spacing}px",
         "word-spacing": f"{box.word_spacing}px",
+        "text-autospace": box.text_autospace,
         "text-transform": box.text_transform,
         "tab-size": box.tab_size,
         "white-space": box.white_space,
@@ -5006,6 +5023,59 @@ def _spacing_args(box: _Box) -> dict[str, int]:
     return args
 
 
+def _read_text_autospace(value: str | None, parent: str) -> str:
+    """Computed ``text-autospace``. Omitted stays flush; ``normal`` opens both gaps."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = " ".join(value.strip().lower().split())
+    if text in {"initial", "no-autospace"}:
+        return "no-autospace"
+    if text == "normal":
+        return "ideograph-alpha ideograph-numeric"
+    if text in {"auto", "punctuation"} or "punctuation" in text.split(" ") or "auto" in text.split(" "):
+        raise _Invalid("text-autospace is unsupported")
+    parts = text.split(" ")
+    if len(parts) != len(set(parts)):
+        raise _Invalid("text-autospace is invalid")
+    allowed = {"ideograph-alpha", "ideograph-numeric", "insert", "replace"}
+    if any(part not in allowed for part in parts):
+        raise _Invalid("text-autospace is invalid")
+    if "insert" in parts and "replace" in parts:
+        raise _Invalid("text-autospace is invalid")
+    if not ({"ideograph-alpha", "ideograph-numeric"} & set(parts)):
+        raise _Invalid("text-autospace is invalid")
+    ordered = [part for part in ("ideograph-alpha", "ideograph-numeric", "replace") if part in parts]
+    return " ".join(ordered)
+
+
+def _autospace_on(box: _Box) -> bool:
+    return box.text_autospace not in {"", "no-autospace"}
+
+
+def _autospace_args(box: _Box) -> dict[str, object]:
+    if not _autospace_on(box):
+        return {}
+    return {"text_autospace": box.text_autospace, "autospace": box.font_size * 0.125}
+
+
+def _reject_text_autospace(box: _Box) -> None:
+    if not _autospace_on(box) or not (box.inline_text or "").strip():
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("text-autospace writing mode is unsupported")
+    if (
+        box.floats
+        or box.atoms
+        or _mixed_runs(box)
+        or _relative_pieces(box)
+        or box.ruby
+        or box.text_indent != "0px"
+        or box.white_space != "normal"
+    ):
+        raise _Invalid("text-autospace is unsupported")
+
+
 def _read_tab_size(value: str | None, parent: str) -> str:
     """Specified tab size. A number stays a number so a child uses its own space."""
 
@@ -5145,6 +5215,7 @@ def _measure_lines(box: _Box, text: str, measure: int, *, advances: object) -> d
         nowrap_ranges=box.nowrap_ranges,
         clone_ranges=box.clone_ranges,
         **_spacing_args(box),
+        **_autospace_args(box),
         **_break_args(box),
     )
 
@@ -10676,6 +10747,7 @@ def _apply_text_box_trim(box: _Box) -> None:
 def _fill_lines(box: _Box) -> None:
     if box.text_box_trim != "none":
         _reject_text_box_trim(box)
+    _reject_text_autospace(box)
     if box.ruby:
         _paint_ruby_lines(box)
         return

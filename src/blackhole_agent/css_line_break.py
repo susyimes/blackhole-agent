@@ -90,6 +90,7 @@ class _Tok:
     grapheme_start: bool = True
     letter_spacing: float = 0.0
     word_spacing: float = 0.0
+    autospace: float = 0.0
     nowrap: bool = False
     start: int = 0
     end: int = 0
@@ -158,6 +159,8 @@ def wrap_lines(
     hanging_punctuation: object = "none",
     nowrap_ranges: object = (),
     clone_ranges: object = (),
+    text_autospace: object = "off",
+    autospace: object = 0,
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -198,6 +201,7 @@ def wrap_lines(
         adv = _Adv(source, advances)
         tokens = _mark_graphemes(_phase1(source, white, adv, held))
         _stamp_spacing(tokens, letter, spacing)
+        _apply_autospace(tokens, text_autospace, autospace)
     except _Invalid as exc:
         return _invalid(exc.reason)
 
@@ -275,6 +279,8 @@ def balance_lines(
     hanging_punctuation: object = "none",
     nowrap_ranges: object = (),
     clone_ranges: object = (),
+    text_autospace: object = "off",
+    autospace: object = 0,
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -305,6 +311,7 @@ def balance_lines(
         adv = _Adv(source, advances)
         tokens = _mark_graphemes(_phase1(source, white, adv, held))
         _stamp_spacing(tokens, letter, spacing)
+        _apply_autospace(tokens, text_autospace, autospace)
     except _Invalid as exc:
         return _invalid(exc.reason)
 
@@ -1103,25 +1110,32 @@ def _render_tokens(
     letter = tokens[0].letter_spacing if tokens else 0.0
     word = tokens[0].word_spacing if tokens else 0.0
     seen = False
+
+    def _before(tok: _Tok) -> None:
+        nonlocal x
+        if not seen or not tok.grapheme_start:
+            return
+        if letter:
+            x += letter
+        if tok.autospace:
+            x += tok.autospace
+
     for index, tok in enumerate(tokens):
         if tok.kind == "shy":
             if show_shy and index == last:
-                if letter and seen and tok.grapheme_start:
-                    x += letter
+                _before(tok)
                 parts.append("\u2010")
                 x += tok.advance
                 seen = True
             continue
         if tok.kind == "tab":
-            if letter and seen and tok.grapheme_start:
-                x += letter
+            _before(tok)
             parts.append("\t")
             advance = _tab_advance(x, tab_size, space_advance)
             x += advance
             seen = True
             continue
-        if letter and seen and tok.grapheme_start:
-            x += letter
+        _before(tok)
         parts.append(tok.ch)
         advance = tok.advance
         if word and tok.kind in {"space", "sep"}:
@@ -1208,6 +1222,8 @@ def _opportunities(
         if word == "break-all" and _break_all_pair(prev, cur):
             before[index] = True
         if word != "keep-all" and _cjk_pair(prev, cur) and not _cj_blocked(cur, strictness):
+            before[index] = True
+        if cur.autospace > _EPS:
             before[index] = True
         if cur.ch in _INSEPARABLE and prev.ch in _INSEPARABLE and strictness == "loose":
             before[index] = True
@@ -1553,6 +1569,86 @@ def _stamp_spacing(tokens: list[_Tok], letter: float, word: float) -> None:
     for tok in tokens:
         tok.letter_spacing = letter
         tok.word_spacing = word
+
+
+def _apply_autospace(tokens: list[_Tok], text_autospace: object, autospace: object) -> None:
+    """Insert 1/8 ic between an ideograph and a Latin letter or digit.
+
+    ``insert`` leaves an existing space alone. ``replace`` spends that space's
+    advance and keeps only the autospace gap. The gap is also a soft wrap
+    opportunity, so a narrow measure can break where the scripts meet.
+    """
+
+    mode = " ".join(str(text_autospace or "off").lower().split())
+    if mode in {"", "off", "no-autospace"}:
+        return
+    parts = mode.split(" ")
+    alpha = "ideograph-alpha" in parts
+    numeric = "ideograph-numeric" in parts
+    if not alpha and not numeric:
+        return
+    size = _finite(autospace, "autospace")
+    if size <= _EPS:
+        return
+    _stamp_autospace(tokens, size, alpha=alpha, numeric=numeric, replace_spaces="replace" in parts)
+
+
+def _autospace_class(ch: str) -> str:
+    if _cjk_letter(ch):
+        return "ideo"
+    if _letter(ch):
+        return "alpha"
+    if _category(ch) == "Nd":
+        return "num"
+    return ""
+
+
+def _autospace_boundary(left: str, right: str, *, alpha: bool, numeric: bool) -> bool:
+    if not left or not right or left == right or "ideo" not in {left, right}:
+        return False
+    other = right if left == "ideo" else left
+    if other == "alpha":
+        return alpha
+    if other == "num":
+        return numeric
+    return False
+
+
+def _stamp_autospace(
+    tokens: list[_Tok],
+    size: float,
+    *,
+    alpha: bool,
+    numeric: bool,
+    replace_spaces: bool,
+) -> None:
+    last = ""
+    spaces: list[_Tok] = []
+    for tok in tokens:
+        if tok.kind == "break":
+            last = ""
+            spaces = []
+            continue
+        if tok.kind in {"space", "sep", "tab"}:
+            if last:
+                spaces.append(tok)
+            continue
+        if not tok.grapheme_start or tok.kind not in {"glyph", "shy", "nbsp"}:
+            continue
+        current = _autospace_class(tok.ch)
+        if _autospace_boundary(last, current, alpha=alpha, numeric=numeric):
+            if not spaces:
+                tok.autospace += size
+            elif replace_spaces:
+                for space in spaces:
+                    space.advance = 0.0
+                tok.autospace += size
+        if current:
+            last = current
+            spaces = []
+        else:
+            last = ""
+            spaces = []
 
 
 def _finite(value: object, name: str) -> float:
