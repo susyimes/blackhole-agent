@@ -22,6 +22,12 @@ here. ``fragment_columns`` fills that fixed block size and honors column
 breaks. This balancer does not break text, measure an inline min-content,
 collapse margins, or paint a column rule. Fragment heights are CSS pixels
 and are already the unbreakable border-box block size.
+
+``layout_column_rows`` uses the same column count and inline size, then
+keeps every row at ``column_height``. A box that does not fit the space
+left in a column moves to the next column. A full row starts another row
+``row_gap`` below that fixed height. A box taller than the column stays
+where it was placed and overflows the row. No fragments is still one row.
 """
 
 from __future__ import annotations
@@ -85,6 +91,93 @@ def layout_multicol(
         "block_size": block_size,
         "boxes": placed,
     }
+
+
+def layout_column_rows(
+    available_inline: object,
+    fragments: object,
+    *,
+    column_width: object = "auto",
+    column_count: object = "auto",
+    column_gap: object = 0,
+    column_height: object,
+    row_gap: object = 0,
+) -> dict[str, object]:
+    """Place fragments into fixed-height multicol rows.
+
+    ``column_height`` is a positive integer. ``row_gap`` is a non-negative
+    integer between rows. Each fragment has ``id``, ``height``, and an
+    optional ``span`` of ``none``. ``span: all`` is rejected.
+    """
+
+    try:
+        available = _length(available_inline, "available_inline", minimum=0)
+        gap = _length(column_gap, "column_gap", minimum=0)
+        gutter = _length(row_gap, "row_gap", minimum=0)
+        height = _length(column_height, "column_height", minimum=1)
+        width = _auto_length(column_width, "column_width", minimum=0)
+        count = _auto_length(column_count, "column_count", minimum=1)
+        items = _fragments(fragments)
+        if any(item.span != "none" for item in items):
+            raise _Invalid("span")
+        used_count, used_width = _used_columns(available, width, count, gap)
+    except _Invalid as exc:
+        return _invalid(exc.reason)
+
+    placed, block_size, rows = _wrap_rows(items, used_count, height, gutter)
+    return {
+        "outcome": "flowed",
+        "column_count": used_count,
+        "column_width": used_width,
+        "column_gap": gap,
+        "column_height": height,
+        "row_gap": gutter,
+        "row_count": rows,
+        "block_size": block_size,
+        "boxes": placed,
+    }
+
+
+def _wrap_rows(
+    items: list[_Frag],
+    count: int,
+    height: int,
+    row_gap: int,
+) -> tuple[list[dict[str, object]], int, int]:
+    if not items:
+        return [], height, 1
+    placed: list[dict[str, object]] = []
+    row = 0
+    column = 0
+    used = 0
+    for item in items:
+        while True:
+            if used == 0 or used + item.height <= height:
+                placed.append(
+                    _box(
+                        item,
+                        column=column,
+                        line=row,
+                        inline=0,
+                        block=row * (height + row_gap) + used,
+                        width=0,
+                    )
+                )
+                used += item.height
+                if used >= height:
+                    column += 1
+                    used = 0
+                    if column == count:
+                        row += 1
+                        column = 0
+                break
+            column += 1
+            used = 0
+            if column == count:
+                row += 1
+                column = 0
+    last = max(int(entry["line"]) for entry in placed)
+    return placed, (last + 1) * height + last * row_gap, last + 1
 
 
 def _used_columns(

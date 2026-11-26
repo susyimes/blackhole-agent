@@ -456,7 +456,17 @@ above the spanner, lays the spanner across the content box, and fills the
 leftover block size in source order. The multicol keeps its specified
 height. A nested formatting context, a non-zero margin, and a
 non-horizontal writing mode stay rejected. An omitted ``column-gap`` is
-``1em``.
+``1em``. ``column-height`` fixes the block size of every column in a row.
+A partly filled row keeps that size, so the multicol is taller than its
+content and the following block starts under the row. ``column-wrap: auto``
+and ``wrap`` put a box that does not fit into the next column, and a full
+row starts another row. ``row-gap: normal`` is 1em between those rows.
+A box taller than the column stays in the column where it started and
+overflows the row; the next row still starts after the fixed height and
+the gap. ``column-wrap: nowrap``, a specified height, ``column-span``, and
+a forced column break are rejected when a column height is set. ``wrap``
+without a column height keeps the balanced single row. A column height
+without a column count or column width is rejected.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
 after its content-box size is known. The container is not a candidate for its
 own query. A named query selects the nearest ancestor with that name which can
@@ -791,7 +801,7 @@ from blackhole_agent.css_logical_box import (
 from blackhole_agent.css_margin_collapse import place_collapsed_margins
 from blackhole_agent.css_column_break import fragment_columns
 from blackhole_agent.css_containing_block import resolve_containing_block
-from blackhole_agent.css_multicol import layout_multicol
+from blackhole_agent.css_multicol import layout_column_rows, layout_multicol
 from blackhole_agent.css_selectors import (
     CssSelectorError,
     _INVALID,
@@ -2819,13 +2829,19 @@ def _read_column_span(winners, custom: dict) -> str:
 def _read_columns(winners, custom: dict, font_size: int) -> dict[str, object] | None:
     count = _column_count(_column_text(_declared(winners, "column-count", custom)))
     width = _column_width(_column_text(_declared(winners, "column-width", custom)))
-    if count is None and width is None:
+    height = _column_height(_column_text(_declared(winners, "column-height", custom)))
+    if count is None and width is None and height is None:
         return None
+    if height is not None and count is None and width is None:
+        raise _Invalid("column-height needs a column count or column width")
     return {
         "count": "auto" if count is None else count,
         "width": "auto" if width is None else width,
         "gap": _column_gap(_column_text(_declared(winners, "column-gap", custom)), font_size),
         "fill": _column_fill(_column_text(_declared(winners, "column-fill", custom))),
+        "height": height,
+        "wrap": _column_wrap(_column_text(_declared(winners, "column-wrap", custom))),
+        "row_gap": _row_gap(_column_text(_declared(winners, "row-gap", custom)), font_size),
     }
 
 
@@ -2879,6 +2895,44 @@ def _column_fill(value: str | None) -> str:
     raise _Invalid("column-fill is invalid")
 
 
+def _column_height(value: str | None) -> int | None:
+    if value is None or value in {"auto", "initial", "unset", "revert"}:
+        return None
+    if value == "inherit":
+        raise _Invalid("column-height inherit is unsupported")
+    if not value.endswith("px"):
+        raise _Invalid("column-height is invalid")
+    number = _px(float(value[:-2]), "column-height")
+    if number < 1:
+        raise _Invalid("column-height is invalid")
+    return number
+
+
+def _column_wrap(value: str | None) -> str:
+    if value is None or value in {"auto", "initial", "unset", "revert"}:
+        return "auto"
+    if value == "inherit":
+        raise _Invalid("column-wrap inherit is unsupported")
+    if value in {"nowrap", "wrap"}:
+        return value
+    raise _Invalid("column-wrap is invalid")
+
+
+def _row_gap(value: str | None, font_size: int) -> int:
+    if value is None or value in {"normal", "initial", "unset", "revert"}:
+        return font_size
+    if value == "inherit":
+        raise _Invalid("row-gap inherit is unsupported")
+    if value in {"0", "0px"}:
+        return 0
+    if not value.endswith("px"):
+        raise _Invalid("row-gap is invalid")
+    number = _px(float(value[:-2]), "row-gap")
+    if number < 0:
+        raise _Invalid("row-gap is invalid")
+    return number
+
+
 def _read_fragment_break(winners, custom: dict, name: str) -> str:
     value = _column_text(_declared(winners, name, custom))
     if value is None or value in {"auto", "initial", "unset", "revert"}:
@@ -2912,6 +2966,12 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
     spec = box.multicol or {}
     if box.floats or box.positioned or box.atoms or box.inline_text:
         raise _Invalid("column content is unsupported")
+    column_block = spec.get("height")
+    if column_block is not None:
+        if box.definite_height is not None:
+            raise _Invalid("column-height with a specified height is unsupported")
+        if str(spec.get("wrap", "auto")) == "nowrap":
+            raise _Invalid("column-wrap nowrap is unsupported")
     fill = str(spec.get("fill", "balance"))
     # A continuous auto fill has no column block size, so it balances.
     sizing_fill = "balance" if fill == "auto" else fill
@@ -2931,6 +2991,11 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
         raise _Invalid("column width is invalid")
     fragments: list[dict[str, object]] = []
     for child in box.children:
+        if column_block is not None:
+            if child.column_span != "none":
+                raise _Invalid("column-span with column-height is unsupported")
+            if child.break_before != "auto" or child.break_after != "auto":
+                raise _Invalid("column break with column-height is unsupported")
         _reject_column_child(child)
         measure = available if child.column_span == "all" else column_width
         _solve(child, measure, None, viewport_height, content_x)
@@ -2940,6 +3005,9 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
         child.content_height = content_height
         child.border_height = content_height + chrome
         fragments.append({"id": child.id, "height": child.border_height, "span": child.column_span})
+    if column_block is not None:
+        _anchor_column_height_rows(box, content_x, available, fragments, column_block)
+        return
     if fill == "auto" and box.definite_height is not None:
         _anchor_fixed_columns(box, content_x, available, preview)
         return
@@ -2955,6 +3023,48 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
     if flowed.get("outcome") != "flowed" or not isinstance(placed, list):
         raise _Invalid(str(flowed.get("reason") or "columns failed"))
     _anchor_column_rows(box, content_x, placed, "inline", "block")
+    if box.definite_height is None:
+        box.definite_height = _px(flowed.get("block_size"), "column block size")
+    box.anchor_laid = True
+
+
+def _anchor_column_height_rows(
+    box: _Box,
+    content_x: int,
+    available: int,
+    fragments: list[dict[str, object]],
+    column_block: object,
+) -> None:
+    """Fill fixed-height rows and keep that block size, including the gaps."""
+
+    spec = box.multicol or {}
+    flowed = layout_column_rows(
+        available,
+        fragments,
+        column_width=spec.get("width", "auto"),
+        column_count=spec.get("count", "auto"),
+        column_gap=spec.get("gap", 0),
+        column_height=column_block,
+        row_gap=spec.get("row_gap", 0),
+    )
+    placed = flowed.get("boxes")
+    if flowed.get("outcome") != "flowed" or not isinstance(placed, list):
+        raise _Invalid(str(flowed.get("reason") or "columns failed"))
+    count = _px(flowed.get("column_count"), "column count")
+    gap = _px(spec.get("gap", 0), "column gap")
+    rows: list[dict[str, object]] = []
+    for item in placed:
+        if not isinstance(item, dict):
+            raise _Invalid("column placement failed")
+        column = _px(item.get("column"), "column")
+        rows.append(
+            {
+                "id": item.get("id"),
+                "inline": _column_inline_offset(column, available, gap, count),
+                "block": item.get("block"),
+            }
+        )
+    _anchor_column_rows(box, content_x, rows, "inline", "block")
     if box.definite_height is None:
         box.definite_height = _px(flowed.get("block_size"), "column block size")
     box.anchor_laid = True
