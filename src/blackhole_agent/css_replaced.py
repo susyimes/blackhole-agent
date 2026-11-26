@@ -6,7 +6,11 @@ width, height, and ratio. §10.3.4 then solves a block's horizontal margins.
 at zero. When both axes are automatic and a ratio exists, §10.4 resolves
 min and max violations with the ratio table. A specified axis does not use
 that table: the definite axis wins, and a min or max on the automatic axis
-may break the ratio. This is not the non-replaced block or absolute solver.
+may break the ratio. ``box-sizing: border-box`` reads a specified size, and
+its minimum or maximum, as the border box. Padding and border then shrink
+the content box, floored at zero. A ratio aimed at the border box is resolved
+before that shrink. A content ratio is resolved after it. An automatic size
+stays a content size. This is not the non-replaced block or absolute solver.
 """
 
 from __future__ import annotations
@@ -17,7 +21,11 @@ from blackhole_agent.css_block_width import used_block_width
 
 _AUTO = "auto"
 _NONE = "none"
+_CONTENT = "content-box"
+_BORDER = "border-box"
 _LAYOUTS = frozenset({"inline", "block", "inline-block", "float"})
+_SIZING = frozenset({_CONTENT, _BORDER})
+_RATIO_BOXES = frozenset({"content", "border"})
 _FALLBACK_WIDTH = 300.0
 _FALLBACK_HEIGHT = 150.0
 
@@ -44,8 +52,14 @@ def used_replaced_size(
     margin_bottom: object = 0,
     padding_left: object = 0,
     padding_right: object = 0,
+    padding_top: object = 0,
+    padding_bottom: object = 0,
     border_left: object = 0,
     border_right: object = 0,
+    border_top: object = 0,
+    border_bottom: object = 0,
+    box_sizing: object = _CONTENT,
+    ratio_box: object = "content",
     intrinsic_width: object = None,
     intrinsic_height: object = None,
     intrinsic_ratio: object = None,
@@ -63,6 +77,12 @@ def used_replaced_size(
     width divided by height. ``device_width`` selects the 300 by 150 fallback
     when it is wide enough, and a narrower 2:1 rectangle when it is not.
     ``layout`` is ``inline``, ``block``, ``inline-block``, or ``float``.
+    ``box_sizing`` is ``content-box`` or ``border-box``. Under ``border-box``
+    a specified width, height, minimum, or maximum is the border box, and
+    the returned width and height are the content box after padding and
+    border. ``ratio_box`` ``border`` maps a ratio through that border box
+    before the shrink. ``content`` maps it through the content box afterward.
+    An automatic axis is not a border-box length.
     """
 
     try:
@@ -83,11 +103,17 @@ def used_replaced_size(
         padding = (
             _resolve_box_edge(padding_left, "padding-left", cb_width),
             _resolve_box_edge(padding_right, "padding-right", cb_width),
+            _resolve_box_edge(padding_top, "padding-top", cb_width),
+            _resolve_box_edge(padding_bottom, "padding-bottom", cb_width),
         )
         border = (
             _px_only(border_left, "border-left"),
             _px_only(border_right, "border-right"),
+            _px_only(border_top, "border-top"),
+            _px_only(border_bottom, "border-bottom"),
         )
+        sizing = _keyword(box_sizing, _SIZING, "box-sizing")
+        ratio_target = _keyword(ratio_box, _RATIO_BOXES, "ratio box")
         vertical_margins = (
             _resolve_margin(margin_top, "margin-top", cb_width),
             _resolve_margin(margin_bottom, "margin-bottom", cb_width),
@@ -102,11 +128,17 @@ def used_replaced_size(
     usable_ratio = ratio
     if usable_ratio is None and intrinsic_w is not None and intrinsic_h is not None and intrinsic_h > 0:
         usable_ratio = intrinsic_w / intrinsic_h
+    horizontal_chrome = padding[0] + padding[1] + border[0] + border[1]
+    vertical_chrome = padding[2] + padding[3] + border[2] + border[3]
     available = max(
         0.0,
-        cb_width - horizontal_margins[0] - horizontal_margins[1] - padding[0] - padding[1] - border[0] - border[1],
+        cb_width - horizontal_margins[0] - horizontal_margins[1] - horizontal_chrome,
     )
-    content_width, content_height = _content_size(
+    content_width, content_height = _boxed_content_size(
+        sizing,
+        ratio_target,
+        horizontal_chrome,
+        vertical_chrome,
         specified_width,
         specified_height,
         minimum_width,
@@ -125,10 +157,10 @@ def used_replaced_size(
             width=content_width,
             margin_left=margin_left,
             margin_right=margin_right,
-            padding_left=padding_left,
-            padding_right=padding_right,
-            border_left=border_left,
-            border_right=border_right,
+            padding_left=padding[0],
+            padding_right=padding[1],
+            border_left=border[0],
+            border_right=border[1],
             box_sizing="content-box",
             min_width=_AUTO,
             max_width=_NONE,
@@ -152,6 +184,82 @@ def used_replaced_size(
         "margin_bottom": _number(vertical_margins[1]),
         "layout": box,
     }
+
+
+def _boxed_content_size(
+    sizing: str,
+    ratio_target: str,
+    horizontal_chrome: float,
+    vertical_chrome: float,
+    specified_width: float | None,
+    specified_height: float | None,
+    minimum_width: float,
+    maximum_width: float | None,
+    minimum_height: float,
+    maximum_height: float | None,
+    intrinsic_w: float | None,
+    intrinsic_h: float | None,
+    ratio: float | None,
+    available: float,
+    device: float | None,
+) -> tuple[float, float]:
+    """Content size after a border-box constraint has been read.
+
+    A definite axis under ``border-box`` is a border-box length. A plain
+    ratio is solved in that border box, then chrome is removed. A content
+    ratio removes the chrome from the constraints first. Automatic sizes
+    stay on the content-box equation.
+    """
+
+    definite = specified_width is not None or specified_height is not None
+    if sizing != _BORDER or not definite:
+        return _content_size(
+            specified_width,
+            specified_height,
+            minimum_width,
+            maximum_width,
+            minimum_height,
+            maximum_height,
+            intrinsic_w,
+            intrinsic_h,
+            ratio,
+            available,
+            device,
+        )
+    if ratio_target == "border" and ratio is not None:
+        border_w, border_h = _content_size(
+            specified_width,
+            specified_height,
+            minimum_width,
+            maximum_width,
+            minimum_height,
+            maximum_height,
+            intrinsic_w,
+            intrinsic_h,
+            ratio,
+            available,
+            device,
+        )
+        return max(0.0, border_w - horizontal_chrome), max(0.0, border_h - vertical_chrome)
+    return _content_size(
+        _inset_chrome(specified_width, horizontal_chrome),
+        _inset_chrome(specified_height, vertical_chrome),
+        max(0.0, minimum_width - horizontal_chrome),
+        None if maximum_width is None else max(0.0, maximum_width - horizontal_chrome),
+        max(0.0, minimum_height - vertical_chrome),
+        None if maximum_height is None else max(0.0, maximum_height - vertical_chrome),
+        intrinsic_w,
+        intrinsic_h,
+        ratio,
+        available,
+        device,
+    )
+
+
+def _inset_chrome(size: float | None, chrome: float) -> float | None:
+    if size is None:
+        return None
+    return max(0.0, size - chrome)
 
 
 def _content_size(

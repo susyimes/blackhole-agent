@@ -480,8 +480,13 @@ places the concrete object inside the content box. An absolute or fixed image
 uses that intrinsic or preferred-ratio size and then the absolute inset
 equation, so definite insets do not stretch it. Automatic insets use its static position, including
 the line slot of an inline image. A maximum width shrinks that size and keeps
-the ratio. An inline relative or sticky image, a vertical writing mode,
-``border-box``, and a child stay rejected.
+the ratio. ``box-sizing: border-box`` reads a specified width, height,
+minimum, or maximum as the border box. Padding and border shrink the content
+box and do not let it go below zero, so chrome larger than the specified
+size grows the used border box to that chrome. A plain ``aspect-ratio`` maps
+the border box. ``auto`` with a ratio, and the intrinsic ratio, map the
+content box. An inline relative or sticky image, a vertical writing mode,
+and a child stay rejected.
 An ``li`` and any other ``display: list-item`` principal box lays out as a
 block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
 reset that counter. The initial marker is a disc; an ``ol`` uses decimal
@@ -7706,8 +7711,6 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[s
 
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("replaced writing mode is unsupported")
-    if _box_sizing(box) != "content-box":
-        raise _Invalid("replaced box-sizing is unsupported")
     if box.children or box.floats or box.positioned or box.atoms:
         raise _Invalid("positioned replaced element is unsupported")
     slots = _physical_slots(box)
@@ -7744,8 +7747,14 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[s
         margin_bottom=0,
         padding_left=slots.get("padding-left", 0),
         padding_right=slots.get("padding-right", 0),
+        padding_top=slots.get("padding-top", 0),
+        padding_bottom=slots.get("padding-bottom", 0),
         border_left=_border_arg(slots, "left"),
         border_right=_border_arg(slots, "right"),
+        border_top=_border_arg(slots, "top"),
+        border_bottom=_border_arg(slots, "bottom"),
+        box_sizing=_box_sizing(box),
+        ratio_box=_replaced_ratio_box(box),
         intrinsic_width=box.intrinsic_width,
         intrinsic_height=box.intrinsic_height,
         intrinsic_ratio=_preferred_replaced_ratio(box),
@@ -8251,6 +8260,18 @@ def _preferred_replaced_ratio(box: _Box) -> float | None:
     return width_part / height_part
 
 
+def _replaced_ratio_box(box: _Box) -> str:
+    """A plain aspect-ratio maps the box-sizing box. ``auto`` maps content."""
+
+    parsed = box.aspect_ratio
+    if parsed is None:
+        return "content"
+    width_part, height_part, content_box = parsed
+    if content_box or width_part <= 0.0 or height_part <= 0.0:
+        return "content"
+    return "border"
+
+
 def _used_replaced(
     box: _Box,
     containing_width: int,
@@ -8259,8 +8280,6 @@ def _used_replaced(
 ) -> dict:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("replaced writing mode is unsupported")
-    if _box_sizing(box) != "content-box":
-        raise _Invalid("replaced box-sizing is unsupported")
     sized = used_replaced_size(
         containing_width,
         containing_height="auto" if containing_height is None else containing_height,
@@ -8276,8 +8295,14 @@ def _used_replaced(
         margin_bottom=_box_prop(box, "margin-bottom", "0px"),
         padding_left=_px(solved.get("padding_left"), "padding-left"),
         padding_right=_px(solved.get("padding_right"), "padding-right"),
+        padding_top=_px(solved.get("padding_top"), "padding-top"),
+        padding_bottom=_px(solved.get("padding_bottom"), "padding-bottom"),
         border_left=_px(solved.get("border_left"), "border-left"),
         border_right=_px(solved.get("border_right"), "border-right"),
+        border_top=_px(solved.get("border_top"), "border-top"),
+        border_bottom=_px(solved.get("border_bottom"), "border-bottom"),
+        box_sizing=_box_sizing(box),
+        ratio_box=_replaced_ratio_box(box),
         intrinsic_width=box.intrinsic_width,
         intrinsic_height=box.intrinsic_height,
         intrinsic_ratio=_preferred_replaced_ratio(box),

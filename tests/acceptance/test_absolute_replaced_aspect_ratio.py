@@ -4,7 +4,8 @@ A plain ratio replaces the intrinsic ratio. ``auto`` with a ratio keeps the
 intrinsic ratio when both attributes exist. A specified height stays
 specified, and a maximum clamps only the automatic axis. Definite insets do
 not stretch that used size. The following in-flow block stays put. A vertical
-writing mode and ``border-box`` stay rejected.
+writing mode stays rejected. ``border-box`` with no padding or border keeps
+the same 100 by 100 square.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """
@@ -209,8 +210,9 @@ def observe() -> tuple[bool, dict[str, object]]:
         ),
         "vertical_writing_mode_stays_rejected": cases["vertical"].get("outcome") == "invalid"
         and cases["vertical"].get("reason") == "replaced writing mode is unsupported",
-        "border_box_stays_rejected": cases["border_box"].get("outcome") == "invalid"
-        and cases["border_box"].get("reason") == "replaced box-sizing is unsupported",
+        "border_box_without_chrome_keeps_the_square": parked(
+            "border_box", x=0, y=0, content_width=100, content_height=100, border_height=100
+        ),
         "in_flow_block_still_uses_the_ratio": cases["flow"].get("outcome") == "placed"
         and _near(flow_subject, x=0, y=0, content_width=100, content_height=100, border_height=100)
         and flow_next is not None
