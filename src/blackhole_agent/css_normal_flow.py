@@ -688,6 +688,18 @@ margin and a sibling margin that does not adjoin the trimmed edge stay, so
 the following block moves up when an escaped or interior edge margin
 disappears. ``inline`` is invalid. A vertical writing mode or columns with
 a trim are rejected.
+``text-box-trim`` is not inherited. On a horizontal left-to-right block
+whose own content is normal text, ``trim-start`` removes the half-leading
+above the first line's em box, ``trim-end`` removes the half-leading below
+the last line's em box, and ``trim-both`` removes both. The em box is this
+engine's font size above the baseline and nothing below it, so a 10px font
+on a 20px line loses 5px at each trimmed edge. Later lines move up with the
+start trim, and the following block starts at the new content edge.
+``text-box`` is that shorthand and resets an omitted edge to ``auto``.
+``text-box-edge`` accepts ``auto`` and ``text``. ``cap``, ``ex``, and
+``alphabetic`` are unsupported because this engine has no font metrics
+inside the em. A specified height, a vertical or non-ltr box, a float, a
+replaced box, columns, flex, grid, table, and a block child are rejected.
 """
 
 from __future__ import annotations
@@ -985,6 +997,9 @@ _INLINE_REJECTED = (
     "text-wrap-style",
     "line-clamp",
     "text-transform",
+    "text-box",
+    "text-box-trim",
+    "text-box-edge",
 )
 
 
@@ -1171,6 +1186,7 @@ class _Box:
     align_mode: str = "normal"
     align_safe: bool = True
     margin_trim: str = "none"
+    text_box_trim: str = "none"
     offset_path: str = ""
     offset_distance: str = "0px"
     offset_rotate: str = "auto"
@@ -2105,6 +2121,7 @@ def _make_box(
         align_mode=align_mode,
         align_safe=align_safe,
         margin_trim=_read_margin_trim(_declared(winners, "margin-trim", custom)),
+        text_box_trim=_read_text_box_trim(winners, custom),
         initial_letter=initial_letter,
         parent_direction=parent_direction,
         multicol=columns,
@@ -3104,6 +3121,8 @@ def _lay_block_contents(
     viewport_height: int | None,
     scrollport_height: int | None,
 ) -> None:
+    if box.text_box_trim != "none" and box.children:
+        raise _Invalid("text-box-trim block children are unsupported")
     if box.line_clamp is not None and (box.display in {"flex", "grid", "table"} or box.multicol is not None):
         raise _Invalid("clamped formatting context is unsupported")
     if box.display == "grid":
@@ -3154,6 +3173,17 @@ def _solve(
             raise _Invalid("margin-trim writing mode is unsupported")
         if box.multicol is not None:
             raise _Invalid("margin-trim columns are unsupported")
+    if box.text_box_trim != "none":
+        if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+            raise _Invalid("text-box-trim writing mode is unsupported")
+        if box.replaced:
+            raise _Invalid("text-box-trim replaced element is unsupported")
+        if box.display not in {"block", "flow-root"}:
+            raise _Invalid("text-box-trim display is unsupported")
+        if box.position in {"absolute", "fixed", "sticky"} or box.float_side != "none":
+            raise _Invalid("text-box-trim position is unsupported")
+        if box.multicol is not None:
+            raise _Invalid("text-box-trim columns are unsupported")
     box.containing_inline = parent_width
     box.allotted_content_width = None
     box.gutter_start = 0
@@ -3374,6 +3404,88 @@ def _read_margin_trim(value: str | None) -> str:
     if len(parts) == 2 and set(parts) == {"block-start", "block-end"}:
         return "block"
     raise _Invalid("margin-trim is invalid")
+
+
+_TEXT_BOX_TRIMS = frozenset({"none", "trim-start", "trim-end", "trim-both"})
+_TEXT_BOX_EDGES = frozenset({"auto", "text"})
+_TEXT_BOX_UNSUPPORTED_EDGES = frozenset(
+    {"cap", "ex", "alphabetic", "ideographic", "ideographic-ink"}
+)
+
+
+def _read_text_box_trim(winners: list[tuple[int, str, str]], custom: dict) -> str:
+    """Used ``text-box-trim``. The shorthand ``text-box`` sets it and the edge.
+
+    The property is not inherited. ``auto`` and ``text`` trim to the em box.
+    An edge inside the em is unsupported: this engine has no cap or ex metrics.
+    """
+
+    trim_at: tuple[int, str] | None = None
+    edge_at: tuple[int, str] | None = None
+    for order, prop, value in winners:
+        if prop not in {"text-box", "text-box-trim", "text-box-edge"}:
+            continue
+        raw = _declared([(order, prop, value)], prop, custom)
+        if raw is None:
+            continue
+        if prop == "text-box":
+            trim_token, edge_token = _split_text_box(raw)
+            if trim_at is None or order >= trim_at[0]:
+                trim_at = (order, trim_token)
+            if edge_at is None or order >= edge_at[0]:
+                edge_at = (order, edge_token)
+            continue
+        if prop == "text-box-trim":
+            if trim_at is None or order >= trim_at[0]:
+                trim_at = (order, raw)
+            continue
+        if edge_at is None or order >= edge_at[0]:
+            edge_at = (order, raw)
+    trim = _parse_text_box_trim(None if trim_at is None else trim_at[1])
+    _parse_text_box_edge(None if edge_at is None else edge_at[1])
+    return trim
+
+
+def _split_text_box(value: str) -> tuple[str, str]:
+    text = " ".join(value.strip().lower().split())
+    if text in {"", "initial", "unset", "revert", "normal", "none"}:
+        return "none", "auto"
+    if text == "inherit":
+        raise _Invalid("text-box inherit is unsupported")
+    parts = text.split(" ")
+    if parts[0] in _TEXT_BOX_TRIMS:
+        edge = " ".join(parts[1:]) or "auto"
+        return parts[0], edge
+    return "none", text
+
+
+def _parse_text_box_trim(value: str | None) -> str:
+    if value is None:
+        return "none"
+    text = " ".join(value.strip().lower().split())
+    if text in {"", "initial", "unset", "revert", "none"}:
+        return "none"
+    if text == "inherit":
+        raise _Invalid("text-box-trim inherit is unsupported")
+    if text in _TEXT_BOX_TRIMS:
+        return text
+    raise _Invalid("text-box-trim is invalid")
+
+
+def _parse_text_box_edge(value: str | None) -> str:
+    if value is None:
+        return "auto"
+    text = " ".join(value.strip().lower().split())
+    if text in {"", "initial", "unset", "revert", "auto"}:
+        return "auto"
+    if text == "inherit":
+        raise _Invalid("text-box-edge inherit is unsupported")
+    parts = text.split(" ")
+    if any(part in _TEXT_BOX_UNSUPPORTED_EDGES for part in parts):
+        raise _Invalid("text-box-edge is unsupported")
+    if text in _TEXT_BOX_EDGES or parts == ["text", "text"]:
+        return "text" if text != "auto" else "auto"
+    raise _Invalid("text-box-edge is invalid")
 
 
 def _collapse_spec(box: _Box) -> dict[str, object]:
@@ -10496,7 +10608,74 @@ def _paint_ruby_lines(box: _Box) -> None:
     box.content_height = box.definite_height
 
 
+def _reject_text_box_trim(box: _Box) -> None:
+    """Keep em-box trimming on one horizontal auto-height run of plain text."""
+
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("text-box-trim writing mode is unsupported")
+    if box.display not in {"block", "flow-root"}:
+        raise _Invalid("text-box-trim display is unsupported")
+    if box.solved.get("content_height") not in {None, "auto"}:
+        raise _Invalid("text-box-trim specified height is unsupported")
+    if box.white_space != "normal":
+        raise _Invalid("text-box-trim white-space is unsupported")
+    if (
+        box.text_indent != "0px"
+        or box.letter_spacing
+        or box.word_spacing
+        or box.hanging_punctuation != "none"
+        or box.text_wrap_style not in {"auto", "wrap"}
+        or box.line_clamp is not None
+        or box.initial_letter
+        or box.list_item
+        or box.floats
+        or box.atoms
+        or box.children
+        or box.aspect_ratio is not None
+        or _mixed_runs(box)
+        or _relative_pieces(box)
+        or _gap_alignment(box)
+        or _has_decoration(box)
+    ):
+        raise _Invalid("text-box-trim content is unsupported")
+
+
+def _apply_text_box_trim(box: _Box) -> None:
+    """Drop half-leading outside the em on the first and last line boxes.
+
+    The line top stays at the content start. A start trim shortens the first
+    line and pulls every later line up. An end trim shortens only the last
+    line. The block's automatic height is the trimmed stack.
+    """
+
+    if box.text_box_trim == "none" or not box.lines:
+        return
+    used = _used_line_height(box.line_height, box.font_size)
+    height, baseline = _strut_metrics(box.font_size, used)
+    trim = box.text_box_trim
+    start = max(0, baseline - box.font_size) if trim in {"trim-start", "trim-both"} else 0
+    end = max(0, height - baseline) if trim in {"trim-end", "trim-both"} else 0
+    if start == 0 and end == 0:
+        return
+    for line in box.lines:
+        if line.height != height or line.baseline != baseline:
+            raise _Invalid("text-box-trim line metrics are unsupported")
+    first = box.lines[0]
+    last = box.lines[-1]
+    if start:
+        first.height -= start
+        first.baseline -= start
+        for line in box.lines[1:]:
+            line.y -= start
+    if end:
+        last.height -= end
+    if first.height < 1 or last.height < 1 or first.baseline < 0:
+        raise _Invalid("text-box-trim is unsupported")
+
+
 def _fill_lines(box: _Box) -> None:
+    if box.text_box_trim != "none":
+        _reject_text_box_trim(box)
     if box.ruby:
         _paint_ruby_lines(box)
         return
@@ -10540,6 +10719,7 @@ def _fill_lines(box: _Box) -> None:
         _fill_mixed(box)
         return
     box.lines = _plain_lines(box, box.content_width, box.direction, place_glyphs=True)
+    _apply_text_box_trim(box)
     if box.definite_height is None:
         end = 0
         if box.lines:
