@@ -69,6 +69,14 @@ _CASES = {
         24,
         24,
     ),
+    "super": (
+        "#row { font-size: 10px; line-height: 10px; } "
+        "#atom { display: inline-block; font-size: 10px; line-height: 10px; vertical-align: super; } "
+        "#next { font-size: 10px; line-height: 10px; }",
+        {"x": 10, "y": 0, "content_height": 10, "border_height": 10},
+        13,
+        13,
+    ),
     "text_bottom": (
         "#row { font-size: 20px; line-height: 20px; } "
         "#atom { display: inline-block; font-size: 10px; line-height: 10px; padding-bottom: 4px; "
@@ -143,12 +151,6 @@ def observe() -> tuple[bool, dict[str, object]]:
             "line_height": None if line is None else line.get("height"),
             "next_y": None if nxt is None else nxt.get("y"),
         }
-    rejected = _lay(
-        layout_normal_flow,
-        "#row { font-size: 10px; line-height: 10px; } #atom { display: inline-block; vertical-align: super; }",
-    )
-    checks["super"] = rejected.get("outcome") == "invalid" and rejected.get("reason") == "vertical-align is unsupported"
-    observed["super"] = {"outcome": rejected.get("outcome"), "reason": rejected.get("reason")}
     observed["checks"] = checks
     return all(checks.values()), observed
 

@@ -272,9 +272,11 @@ a negative length lowers them. ``top`` meets the line top. The line grows
 to cover the shifted glyphs, and baseline neighbors stay on the strut.
 Nested lengths add. An inline-block on that line keeps its own alignment:
 a baseline atomic box stays on the strut while those glyphs move, and
-``top`` still meets the grown line. ``sub``, ``super``, a keyword nested
-inside a shifted inline, preserved white space, and a vertical writing
-mode stay rejected. A ``ruby`` element with omitted ``display`` or
+``top`` still meets the grown line. ``super`` raises the baseline by the
+nearest pixel of one third of the parent font size, and ``sub`` lowers it
+by the nearest pixel of one fifth, so the line grows and the following
+block moves. A keyword nested inside a shifted inline, preserved white
+space, and a vertical writing mode stay rejected. A ``ruby`` element with omitted ``display`` or
 ``display: ruby`` is an atomic inline. Its base text stays on the parent
 baseline and one ``rt`` annotation is centered above that base. The ruby
 width is the wider of the two runs, the line grows to cover the annotation,
@@ -288,8 +290,8 @@ rests on the parent baseline when overflow is not visible or it has no line
 box; otherwise the baseline is its last line. ``vertical-align`` moves that
 margin box: ``top`` and ``bottom`` meet the line edges, ``middle`` centers it
 on the baseline, ``text-top`` and ``text-bottom`` meet the parent content
-edges, and a length or percentage raises the baseline alignment. ``sub`` and
-``super`` are rejected. A block child is laid out in that atomic box:
+edges, and a length or percentage raises the baseline alignment. ``super``
+and ``sub`` use those same parent-font ratios. A block child is laid out in that atomic box:
 automatic width shrinks to the block, a specified width wraps it, and the
 block's vertical margin stays inside the border. The surrounding words
 align to that block's last line. Loose text beside that block becomes an
@@ -2188,6 +2190,7 @@ def _make_box(
     intrinsic_height = _intrinsic_attribute(element, "height") if replaced else None
     object_fit = _read_object_fit(winners, custom) if replaced else "fill"
     object_position = _read_object_position(winners, custom) if replaced else "50% 50%"
+    parent_em = _positive_px(fonts["font-size"], "font-size")
     font_size = _font_size(_declared(winners, "font-size", custom), fonts["font-size"])
     line_height = _line_height(_declared(winners, "line-height", custom), fonts["line-height"])
     font_family = _read_font_family(_declared(winners, "font-family", custom), fonts["font-family"])
@@ -2228,7 +2231,12 @@ def _make_box(
         font_weight=font_weight,
         font_style=font_style,
         vertical_align=(
-            _read_inline_align(_declared(winners, "vertical-align", custom), font_size, line_height)
+            _read_inline_align(
+                _declared(winners, "vertical-align", custom),
+                font_size,
+                line_height,
+                parent_em,
+            )
             if display == "inline-block"
             else "baseline"
         ),
@@ -5154,7 +5162,10 @@ def _inline_segments(
                 start = piece_length
                 child_fonts = _inline_fonts(tree, child, styles, declarations, parent_fonts)
                 child_align = _nest_align(
-                    align, _used_text_align(tree, child, styles, declarations, child_fonts)
+                    align,
+                    _used_text_align(
+                        tree, child, styles, declarations, child_fonts, size
+                    ),
                 )
                 yield from walk(child, child_fonts, layers, child_align, held, here)
                 _remember_inline_chrome(pieces, start, piece_length, lead, trail)
@@ -10884,14 +10895,21 @@ def _nest_align(parent: str | int, own: str | int) -> str | int:
     raise _Invalid("nested vertical-align is unsupported")
 
 
-def _used_text_align(tree, element, styles, declarations, fonts: dict[str, str]) -> str | int:
+def _used_text_align(
+    tree, element, styles, declarations, fonts: dict[str, str], parent_em: int
+) -> str | int:
     """Used vertical-align of one non-replaced inline. The initial value is baseline."""
 
     custom = styles.get(element, ({}, ""))[0]
     raw = _declared(_winners(tree, element, declarations), "vertical-align", custom)
     if raw is None:
         return "baseline"
-    chosen = _read_inline_align(raw, _positive_px(fonts["font-size"], "font-size"), fonts["line-height"])
+    chosen = _read_inline_align(
+        raw,
+        _positive_px(fonts["font-size"], "font-size"),
+        fonts["line-height"],
+        parent_em,
+    )
     if chosen == 0:
         return "baseline"
     return chosen if isinstance(chosen, str) else int(chosen)
@@ -11329,7 +11347,27 @@ def _atom_edges(parent: _Box, atom: _Box, row: dict[str, int]) -> tuple[int, int
     return above, below
 
 
-def _read_inline_align(value: str | None, font_size: int, line_height: str) -> str | float:
+def _script_shift(parent_em: int, kind: str) -> int:
+    """Nearest pixel of the css-inline-3 script ratios of the parent em.
+
+    ``super`` raises by one third of that em. ``sub`` lowers by one fifth.
+    This engine has no font file, so the offset is the ratio rather than an
+    OpenType superscript position.
+    """
+
+    em = _px(parent_em, "font-size")
+    if em <= 0:
+        raise _Invalid("vertical-align is unsupported")
+    if kind == "super":
+        return (em + 1) // 3
+    if kind == "sub":
+        return -((em + 2) // 5)
+    raise _Invalid("vertical-align is unsupported")
+
+
+def _read_inline_align(
+    value: str | None, font_size: int, line_height: str, parent_em: int
+) -> str | float:
     """Used vertical-align for an inline-block. The initial value is baseline."""
 
     if value is None or value in {"initial", "unset", "revert", "baseline"}:
@@ -11340,7 +11378,7 @@ def _read_inline_align(value: str | None, font_size: int, line_height: str) -> s
     if token in {"top", "bottom", "middle", "text-top", "text-bottom", "baseline"}:
         return token
     if token in {"sub", "super"}:
-        raise _Invalid("vertical-align is unsupported")
+        return _script_shift(parent_em, token)
     if token == "0":
         return 0
     if token.endswith("%"):

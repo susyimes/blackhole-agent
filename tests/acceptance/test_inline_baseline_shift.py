@@ -9,8 +9,10 @@ at y 20. A 100 percent alignment matches the 10px raise. A parent span at
 letters at y 4, and the outside letters at y 14, with the next block at y
 24. vertical-align top on a later span sits that span at y 0 beside the
 raised letter. A 15px width wraps A on a 10px line and the raised B on a
-20px line, and the next block starts at y 30. sub, inherit, a top alignment
-inside a shifted inline, and padding beside the shift stay rejected.
+20px line, and the next block starts at y 30. sub lowers B by 2px, grows
+the line to 12px, and starts the next block at y 12. inherit, a top
+alignment inside a shifted inline, and padding beside the shift stay
+rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still ignores the shift exits 0 with passed
@@ -224,7 +226,18 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _line(wrap_row, 2) is None
             and _near(wrap_next, y=30)
         ),
-        "sub_stays_rejected": _invalid(sub, "vertical-align is unsupported"),
+        "sub_lowers_by_a_fifth_of_the_parent_em": (
+            sub.get("outcome") == "placed"
+            and _near(_line(_box(sub.get("boxes"), "row"), 0), text="ABC", x=0, y=0, content_width=30, height=12)
+            and _line(_box(sub.get("boxes"), "row"), 1) is None
+            and _runs(_line(_box(sub.get("boxes"), "row"), 0))
+            == [
+                {"text": "A", "x": 0, "font_size": 10, "width": 10, "y": 0},
+                {"text": "B", "x": 10, "font_size": 10, "width": 10, "y": 2},
+                {"text": "C", "x": 20, "font_size": 10, "width": 10, "y": 0},
+            ]
+            and _near(_box(sub.get("boxes"), "next"), y=12)
+        ),
         "inherit_stays_rejected": _invalid(inherited, "vertical-align inherit is unsupported"),
         "nested_keyword_stays_rejected": _invalid(nested_top, "nested vertical-align is unsupported"),
         "padding_beside_the_shift_stays_rejected": _invalid(padded, "inline chrome is unsupported"),

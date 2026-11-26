@@ -8,8 +8,10 @@ vertical-align -10px puts B at y 10 and A, D, and the inline-block at y 0.
 A 100 percent alignment matches the 10px raise. vertical-align top on the
 inline-block sits that box at y 0 beside the raised letter. A 25px width
 wraps A and B on a 20px line and the inline-block with D on a 10px line at
-y 20, and the next block starts at y 30. An inline-block nested inside the
-shifted span, sub, inherit, and padding beside the shift stay rejected.
+y 20, and the next block starts at y 30. sub lowers B by 2px beside the
+inline-block, grows the line to 12px, and starts the next block at y 12.
+An inline-block nested inside the shifted span, inherit, and padding beside
+the shift stay rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects the pair exits 0 with passed
@@ -232,7 +234,18 @@ def observe() -> tuple[bool, dict[str, object]]:
         "nested_atomic_inside_the_shift_stays_rejected": _invalid(
             nested, "vertical-align beside an inline-block is unsupported"
         ),
-        "sub_stays_rejected": _invalid(sub, "vertical-align is unsupported"),
+        "sub_lowers_the_glyph_beside_the_atomic_box": (
+            sub.get("outcome") == "placed"
+            and _near(_line(_box(sub.get("boxes"), "row"), 0), text="ABD", x=0, y=0, content_width=40, height=12)
+            and _runs(_line(_box(sub.get("boxes"), "row"), 0))
+            == [
+                {"text": "A", "x": 0, "font_size": 10, "width": 10, "y": 0},
+                {"text": "B", "x": 10, "font_size": 10, "width": 10, "y": 2},
+                {"text": "D", "x": 30, "font_size": 10, "width": 10, "y": 0},
+            ]
+            and _near(_box(sub.get("boxes"), "atom"), x=20, y=0, content_width=10, content_height=10)
+            and _near(_box(sub.get("boxes"), "next"), y=12)
+        ),
         "inherit_stays_rejected": _invalid(inherited, "vertical-align inherit is unsupported"),
         "padding_beside_the_shift_stays_rejected": _invalid(padded, "inline chrome is unsupported"),
     }

@@ -15,8 +15,9 @@ bottom box. When the bottom box is what sets that height, the aligned
 extent stays on the bottom edge. Otherwise it stays on the top edge. Top
 boxes then sit on the line top and bottom boxes on the line bottom. CSS 2.1
 does not define that choice when both edge boxes are taller than the
-aligned extent; this rule does. ``sub`` and ``super`` are rejected because
-the specification does not define their offset.
+aligned extent; this rule does. ``sub`` and ``super`` arrive as a baseline
+length: the caller lowers by the nearest pixel of one fifth of the parent
+em and raises by the nearest pixel of one third. A raw keyword stays invalid.
 """
 
 from __future__ import annotations
