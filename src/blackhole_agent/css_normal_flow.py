@@ -463,8 +463,13 @@ and ``wrap`` put a box that does not fit into the next column, and a full
 row starts another row. ``row-gap: normal`` is 1em between those rows.
 A box taller than the column stays in the column where it started and
 overflows the row; the next row still starts after the fixed height and
-the gap. ``column-wrap: nowrap``, a specified height, ``column-span``, and
-a forced column break are rejected when a column height is set. ``wrap``
+the gap. ``column-span: all`` ends a row that already holds a box, then
+occupies the next row across the whole content box. That row keeps the
+column height, so a later box starts after the height and the row gap,
+and a spanner taller than the column overflows across the gap without
+pushing the later box or growing the multicol. A spanner in an empty row
+stays in that row. ``column-wrap: nowrap``, a specified height, and a
+forced column break are rejected when a column height is set. ``wrap``
 without a column height keeps the balanced single row. A column height
 without a column count or column width is rejected.
 An ``inline-size`` or ``size`` container answers ``@container`` for descendants
@@ -3006,11 +3011,8 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
         raise _Invalid("column width is invalid")
     fragments: list[dict[str, object]] = []
     for child in box.children:
-        if column_block is not None:
-            if child.column_span != "none":
-                raise _Invalid("column-span with column-height is unsupported")
-            if child.break_before != "auto" or child.break_after != "auto":
-                raise _Invalid("column break with column-height is unsupported")
+        if column_block is not None and (child.break_before != "auto" or child.break_after != "auto"):
+            raise _Invalid("column break with column-height is unsupported")
         _reject_column_child(child)
         measure = available if child.column_span == "all" else column_width
         _solve(child, measure, None, viewport_height, content_x)

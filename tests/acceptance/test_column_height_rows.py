@@ -6,8 +6,10 @@ Seven 10px children fill that row three per column and put the seventh on
 the next row. row-gap 10px, and an omitted row-gap at font-size 10px, put
 that row at y 40 and the next block at y 70. row-gap 0px packs a full column
 beside the first box instead of under it. A 40px box overflows a 20px column
-and the row stays 20px. column-wrap nowrap, a specified height, a column
-span, a forced break, and a non-px column-height are rejected. wrap without
+and the row stays 20px. column-span all ends that row: the 10px spanner
+uses the full 80px content width at y 40 and the multicol stays 70px tall.
+column-wrap nowrap, a specified height, a forced break, and a non-px
+column-height are rejected. wrap without
 a column-height still balances.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
@@ -259,9 +261,12 @@ def observe() -> tuple[bool, dict[str, object]]:
             specified.get("outcome") == "invalid"
             and specified.get("reason") == "column-height with a specified height is unsupported"
         ),
-        "column_span_with_column_height_is_rejected": (
-            spanned.get("outcome") == "invalid"
-            and spanned.get("reason") == "column-span with column-height is unsupported"
+        "column_span_all_ends_the_row_across_the_content_box": (
+            spanned.get("outcome") == "placed"
+            and _near(take(spanned, "a"), x=0, y=0, content_width=40, content_height=10)
+            and _near(take(spanned, "s"), x=0, y=40, content_width=80, content_height=10)
+            and _near(take(spanned, "cols"), content_height=70)
+            and _near(take(spanned, "next"), y=70)
         ),
         "forced_break_with_column_height_is_rejected": (
             forced.get("outcome") == "invalid"

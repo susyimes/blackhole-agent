@@ -27,7 +27,11 @@ and are already the unbreakable border-box block size.
 keeps every row at ``column_height``. A box that does not fit the space
 left in a column moves to the next column. A full row starts another row
 ``row_gap`` below that fixed height. A box taller than the column stays
-where it was placed and overflows the row. No fragments is still one row.
+where it was placed and overflows the row. ``span: all`` ends a row that
+already has a box, then takes the next row from its inline start. That row
+stays ``column_height`` tall, so the fragment's own height does not move
+the following row and a taller spanner overflows across ``row_gap``. No
+fragments is still one row.
 """
 
 from __future__ import annotations
@@ -107,7 +111,8 @@ def layout_column_rows(
 
     ``column_height`` is a positive integer. ``row_gap`` is a non-negative
     integer between rows. Each fragment has ``id``, ``height``, and an
-    optional ``span`` of ``none``. ``span: all`` is rejected.
+    optional ``span`` of ``none`` or ``all``. A spanner occupies one row
+    and does not change that row's block size.
     """
 
     try:
@@ -118,8 +123,6 @@ def layout_column_rows(
         width = _auto_length(column_width, "column_width", minimum=0)
         count = _auto_length(column_count, "column_count", minimum=1)
         items = _fragments(fragments)
-        if any(item.span != "none" for item in items):
-            raise _Invalid("span")
         used_count, used_width = _used_columns(available, width, count, gap)
     except _Invalid as exc:
         return _invalid(exc.reason)
@@ -151,6 +154,25 @@ def _wrap_rows(
     column = 0
     used = 0
     for item in items:
+        if item.span == "all":
+            if used != 0 or column != 0:
+                row += 1
+                column = 0
+                used = 0
+            placed.append(
+                _box(
+                    item,
+                    column=0,
+                    line=row,
+                    inline=0,
+                    block=row * (height + row_gap),
+                    width=0,
+                )
+            )
+            row += 1
+            column = 0
+            used = 0
+            continue
         while True:
             if used == 0 or used + item.height <= height:
                 placed.append(
