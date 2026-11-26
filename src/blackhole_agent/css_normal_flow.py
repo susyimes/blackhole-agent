@@ -132,11 +132,14 @@ physical width is the column. ``sideways-lr`` stays rejected. ``text-indent`` mo
 horizontal left-to-right block and shortens that line's wrap measure by the
 same amount. ``hanging`` inverts that: the first line stays at the content
 edge and uses the full measure, and every later line starts at the indent
-and wraps in the shortened measure. The keyword may precede or follow the
-length. A length may be negative and can start the affected line outside
+and wraps in the shortened measure. ``each-line`` restarts that choice after
+a preserved newline, so each forced segment indents its first line and a
+soft wrap inside the segment does not. ``hanging each-line`` indents only
+those soft wraps. The keywords may precede or follow the length, in either
+order. A length may be negative and can start the affected line outside
 the content edge. A percentage is resolved against the containing block's
 inline size and is inherited as that percentage, so a child can clear it
-with zero. ``each-line`` is rejected. A float intrusion,
+with zero. A float intrusion,
 an inline-block, a mixed font, an inside marker, and a vertical writing mode
 stay rejected. ``letter-spacing`` is a length inserted between characters of a
 horizontal line and omitted after the last character, so a positive value
@@ -966,6 +969,7 @@ _FRAGMENT_BREAKS = frozenset(
     }
 )
 _COLLAPSED_EMPTY = frozenset({"normal", "nowrap"})
+_FORCED_SEGMENT_WHITE = frozenset({"pre", "pre-wrap", "break-spaces", "pre-line"})
 _INLINE_REJECTED = (
     "text-align",
     "white-space",
@@ -4778,7 +4782,8 @@ def _read_text_indent(value: str | None, parent: str) -> str:
     """Specified indent. A percentage is kept so a child resolves its own block.
 
     ``hanging`` is stored after the length and inverts which lines move.
-    ``each-line`` stays rejected.
+    ``each-line`` is stored after that and restarts the choice on each
+    preserved newline. Either keyword may be written before the length.
     """
 
     if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
@@ -4786,9 +4791,8 @@ def _read_text_indent(value: str | None, parent: str) -> str:
     if value.strip().lower() == "initial":
         return "0px"
     text = " ".join(value.strip().lower().split())
-    if "each-line" in text.split(" "):
-        raise _Invalid("text-indent is unsupported")
     hanging = False
+    each_line = False
     lengths: list[str] = []
     for part in text.split(" "):
         if part == "hanging":
@@ -4796,13 +4800,21 @@ def _read_text_indent(value: str | None, parent: str) -> str:
                 raise _Invalid("text-indent is invalid")
             hanging = True
             continue
+        if part == "each-line":
+            if each_line:
+                raise _Invalid("text-indent is invalid")
+            each_line = True
+            continue
         lengths.append(part)
     if len(lengths) != 1:
         raise _Invalid("text-indent is unsupported" if " " in text else "text-indent is invalid")
     length = _indent_length(lengths[0])
-    if length == "0px" or not hanging:
+    if length == "0px" or not (hanging or each_line):
         return length
-    return f"{length} hanging"
+    suffix = " hanging" if hanging else ""
+    if each_line:
+        suffix += " each-line"
+    return f"{length}{suffix}"
 
 
 def _indent_length(text: str) -> str:
@@ -4826,14 +4838,22 @@ def _indent_length(text: str) -> str:
 
 
 def _text_indent_length(raw: str) -> str:
-    suffix = " hanging"
-    if raw.endswith(suffix):
-        return raw[: -len(suffix)]
+    while raw.endswith(" each-line"):
+        raw = raw[: -len(" each-line")]
+    if raw.endswith(" hanging"):
+        return raw[: -len(" hanging")]
     return raw
 
 
 def _text_indent_hanging(box: _Box) -> bool:
-    return box.text_indent.endswith(" hanging")
+    raw = box.text_indent
+    if raw.endswith(" each-line"):
+        raw = raw[: -len(" each-line")]
+    return raw.endswith(" hanging")
+
+
+def _text_indent_each_line(box: _Box) -> bool:
+    return box.text_indent.endswith(" each-line")
 
 
 def _read_spacing(value: str | None, parent: str, name: str) -> str:
@@ -8166,6 +8186,20 @@ def _shrink_advances(box: _Box) -> dict[str, int] | list[int]:
 
 def _intrinsic_text_sizes(box: _Box) -> tuple[int, int]:
     text = box.inline_text or ""
+    if (
+        "\n" in text
+        and _text_indent_each_line(box)
+        and box.white_space in _FORCED_SEGMENT_WHITE
+    ):
+        saved = box.inline_text
+        pairs: list[tuple[int, int]] = []
+        try:
+            for part in text.split("\n"):
+                box.inline_text = part
+                pairs.append(_intrinsic_text_sizes(box))
+        finally:
+            box.inline_text = saved
+        return max(pair[0] for pair in pairs), max(pair[1] for pair in pairs)
     measured = wrap_lines(
         text,
         0,
@@ -10883,13 +10917,37 @@ def _kept_lines(box: _Box, wrapped: dict[str, object]) -> list:
     return lines
 
 
-def _indented_wrap(box: _Box, text: str, measure: int, indent: int, *, hanging: bool = False) -> list:
-    """Wrap one run in the shortened measure and the other at the remaining width.
+def _indented_wrap(
+    box: _Box,
+    text: str,
+    measure: int,
+    indent: int,
+    *,
+    hanging: bool = False,
+    each_line: bool = False,
+) -> list:
+    """Wrap one run, or each preserved segment when ``each-line`` is set.
 
-    A plain indent shortens the first line. ``hanging`` shortens every line
-    after the first and leaves the first line on the full measure.
+    A plain indent shortens the first line of a segment. ``hanging`` shortens
+    every later line of that segment and leaves its first line on the full
+    measure. A preserved newline starts a new segment only for ``each-line``.
     """
 
+    if each_line and "\n" in text and box.white_space in _FORCED_SEGMENT_WHITE:
+        lines: list = []
+        for segment in text.split("\n"):
+            lines.extend(_indented_segment(box, segment, measure, indent, hanging=hanging))
+        return lines
+    return _indented_segment(box, text, measure, indent, hanging=hanging)
+
+
+def _affected_indent(line: object, index: int, hanging: bool) -> bool:
+    if isinstance(line, dict) and "indented" in line:
+        return bool(line["indented"])
+    return (hanging and index > 0) or (not hanging and index == 0)
+
+
+def _indented_segment(box: _Box, text: str, measure: int, indent: int, *, hanging: bool) -> list:
     head = measure if hanging else measure - indent
     tail_measure = measure - indent if hanging else measure
     if head < 0:
@@ -10909,6 +10967,7 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int, *, hanging: 
     first = lines[0]
     if not isinstance(first, dict):
         raise _Invalid("line is invalid")
+    first["indented"] = not hanging
     rest = _drop_prefix(text, str(first.get("text") or ""), box.white_space)
     if not rest or (box.white_space in _COLLAPSED_EMPTY and not rest.strip()):
         return [first]
@@ -10919,6 +10978,9 @@ def _indented_wrap(box: _Box, text: str, measure: int, indent: int, *, hanging: 
             **_break_args(box),
         ),
     )
+    for line in tail:
+        if isinstance(line, dict):
+            line["indented"] = hanging
     return [first, *tail]
 
 
@@ -11166,7 +11228,14 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
             ),
         )
     elif text_indent:
-        lines = _indented_wrap(box, text, measure, text_indent, hanging=hanging_indent)
+        lines = _indented_wrap(
+            box,
+            text,
+            measure,
+            text_indent,
+            hanging=hanging_indent,
+            each_line=_text_indent_each_line(box),
+        )
     else:
         lines = _kept_lines(
             box,
@@ -11201,7 +11270,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         if beside_count and index < beside_count:
             line_measure = max(measure - cap_width, 0)
             origin = cap_width
-        elif text_indent and ((hanging_indent and index > 0) or (not hanging_indent and index == 0)):
+        elif text_indent and _affected_indent(line, index, hanging_indent):
             line_measure = measure - text_indent
             if line_measure < 0:
                 line_measure = 0

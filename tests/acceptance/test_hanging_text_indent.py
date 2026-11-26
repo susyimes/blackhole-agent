@@ -155,6 +155,7 @@ def observe() -> tuple[bool, dict[str, object]]:
     wide_first_next = _box(wide_first, "next")
     percent_next = _box(percent, "next")
     negative_next = _box(negative, "next")
+    each_lines = _packed(each_line, "page")
 
     observed: dict[str, object] = {
         "hanging": hang_lines,
@@ -170,7 +171,8 @@ def observe() -> tuple[bool, dict[str, object]]:
         "percent_next_y": None if percent_next is None else percent_next.get("y"),
         "negative": negative_lines,
         "negative_next_y": None if negative_next is None else negative_next.get("y"),
-        "each_line": each_line.get("reason"),
+        "each_line": each_lines,
+        "each_line_outcome": each_line.get("outcome"),
         "vertical": vertical.get("reason"),
     }
     passed = (
@@ -211,8 +213,9 @@ def observe() -> tuple[bool, dict[str, object]]:
         and _at(negative_lines, 2, "CCCC", -20, 20, 40)
         and negative_next is not None
         and negative_next.get("y") == 30
-        and each_line.get("outcome") == "invalid"
-        and each_line.get("reason") == "text-indent is unsupported"
+        and each_line.get("outcome") == "placed"
+        and _at(each_lines, 0, "AAAA", 20, 0, 40)
+        and _at(each_lines, 1, "BBBB", 0, 10, 40)
         and vertical.get("outcome") == "invalid"
         and vertical.get("reason") == "text-indent writing mode is unsupported"
     )
