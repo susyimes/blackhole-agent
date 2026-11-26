@@ -4,7 +4,7 @@ In a 200px viewport, an 80px paragraph at 10px font and line-height lays
 ABCD EFGH IJKL as three lines at x 0, and the following block starts at y 30.
 initial-letter: 2 pulls A into a 20 by 20 square at x 0 y 0, puts BCD at
 x 20 y 0 and EFGH at x 20 y 10, then returns IJKL to x 0 y 20. A one-line
-remainder still grows the block to that square. A two-value initial-letter,
+remainder still grows the block to that square. A sink deeper than the size,
 a value of 1, a leading parenthesis, an inline first-letter, a vertical
 writing mode, and a word wider than the gap stay rejected.
 
@@ -27,7 +27,7 @@ _PLAIN = _BASE + "#copy { width: 80px; }\n"
 _DROP = _PLAIN + "#copy::first-letter { initial-letter: 2; }\n"
 _SHORT_CSS = _DROP
 _NORMAL = _PLAIN + "#copy::first-letter { initial-letter: normal; }\n"
-_TWO = _PLAIN + "#copy::first-letter { initial-letter: 2 1; }\n"
+_TWO = _PLAIN + "#copy::first-letter { initial-letter: 2 3; }\n"
 _ONE = _PLAIN + "#copy::first-letter { initial-letter: 1; }\n"
 _VERTICAL = _BASE + "#copy { width: 80px; height: 80px; writing-mode: vertical-rl; }\n"
 _VERTICAL += "#copy::first-letter { initial-letter: 2; }\n"
@@ -150,7 +150,7 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(_line(normal_box, 0), text="ABCD", x=0, y=0)
             and (normal_box or {}).get("initial_letter") is None
         ),
-        "two_values_stay_rejected": _invalid(two),
+        "sink_deeper_than_the_size_stays_rejected": _invalid(two),
         "one_line_value_stays_rejected": _invalid(one),
         "leading_punctuation_stays_rejected": _invalid(marked),
         "inline_first_letter_stays_rejected": _invalid(inline),

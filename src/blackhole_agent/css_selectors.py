@@ -2440,13 +2440,16 @@ def resolve_generated_plans(
     )
 
 
-def resolve_initial_letter(tree: _Tree, element, declarations: list[_Decl], custom: dict) -> int:
-    """Drop-cap line count from ``::first-letter``, or 0 when that pseudo is absent.
+def resolve_initial_letter(tree: _Tree, element, declarations: list[_Decl], custom: dict) -> tuple[int, int]:
+    """Size and sink from ``::first-letter``, or ``(0, 0)`` when that pseudo is absent.
 
-    One integer of 2 or more is both the size and the sink. ``normal`` and the
-    CSS-wide keywords that mean the initial value leave the letter in the line.
-    A second integer, a length, a value below 2, or any other property on that
-    pseudo raises ``initial letter is unsupported``.
+    One integer of 2 or more is both the size and the sink. A second integer
+    is the sink and must be from 1 through that size. ``raise`` is a sink of
+    one line and ``drop`` repeats the size; either keyword may precede or
+    follow the integer. ``normal`` and the CSS-wide keywords that mean the
+    initial value leave the letter in the line. A non-integer, a size below
+    2, a sink below 1, a sink larger than the size, or any other property on
+    that pseudo raises ``initial letter is unsupported``.
     """
 
     chosen = [
@@ -2455,7 +2458,7 @@ def resolve_initial_letter(tree: _Tree, element, declarations: list[_Decl], cust
         if any(_trailing_pseudo(selector) == "first-letter" for selector in decl.selectors)
     ]
     if not chosen:
-        return 0
+        return 0, 0
     previous = _PseudoMatch.name
     _PseudoMatch.name = "first-letter"
     try:
@@ -2463,24 +2466,53 @@ def resolve_initial_letter(tree: _Tree, element, declarations: list[_Decl], cust
     finally:
         _PseudoMatch.name = previous
     if not winners:
-        return 0
+        return 0, 0
     if any(name != "initial-letter" for name in winners):
         raise CssSelectorError("initial letter is unsupported")
     raw = winners.get("initial-letter")
     if raw is None:
-        return 0
+        return 0, 0
     substituted = _substitute(raw, lambda item: custom.get(item, _INVALID))
     if substituted is _INVALID or not isinstance(substituted, str):
         raise CssSelectorError("initial letter is unsupported")
     text = " ".join(substituted.split()).lower()
+    return _initial_letter_pair(text)
+
+
+def _initial_letter_pair(text: str) -> tuple[int, int]:
+    """Parse ``initial-letter`` after custom properties have been substituted."""
+
     if text in {"normal", "initial", "unset", "revert"}:
-        return 0
-    if not text.isdigit() or text.startswith("0"):
+        return 0, 0
+    tokens = text.split(" ")
+    if len(tokens) == 1:
+        size = _initial_count(tokens[0])
+        if size is None or size < 2:
+            raise CssSelectorError("initial letter is unsupported")
+        return size, size
+    if len(tokens) != 2:
         raise CssSelectorError("initial letter is unsupported")
-    value = int(text)
-    if value < 2:
+    left, right = tokens
+    if left in {"drop", "raise"} or right in {"drop", "raise"}:
+        keyword = left if left in {"drop", "raise"} else right
+        number = right if left in {"drop", "raise"} else left
+        if left in {"drop", "raise"} and right in {"drop", "raise"}:
+            raise CssSelectorError("initial letter is unsupported")
+        size = _initial_count(number)
+        if size is None or size < 2:
+            raise CssSelectorError("initial letter is unsupported")
+        return size, size if keyword == "drop" else 1
+    size = _initial_count(left)
+    sink = _initial_count(right)
+    if size is None or sink is None or size < 2 or sink < 1 or sink > size:
         raise CssSelectorError("initial letter is unsupported")
-    return value
+    return size, sink
+
+
+def _initial_count(token: str) -> int | None:
+    if not token.isdigit() or token.startswith("0"):
+        return None
+    return int(token)
 
 
 _PSEUDO_FONT_PROPERTIES = frozenset({"font-size", "line-height"})

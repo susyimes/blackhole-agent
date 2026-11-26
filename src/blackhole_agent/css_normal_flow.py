@@ -605,10 +605,14 @@ drops that many line boxes. The first ASCII letter leaves the line and
 becomes a square whose side is that count times the strut, at the content
 origin. The next lines of the remaining text start after the square, and
 the first line past the drop returns to the content start. A shorter
-remainder still grows the block to the square. A second integer, a value
-below 2, a non-letter, an inline, a float, a list item, a vertical writing
-mode, a word wider than the gap beside the square, and any other property
-on that pseudo stay rejected.
+remainder still grows the block to the square. A second integer is the
+sink: the square's side stays the size, and the first line moves down by
+each size line the sink does not cover. ``raise`` sinks one line and
+``drop`` repeats the size. Either keyword may precede or follow the
+integer. A size below 2, a sink below 1 or larger than the size, a
+non-integer, a non-letter, an inline, a float, a list item, a vertical
+writing mode, a word wider than the gap beside the square, and any other
+property on that pseudo stay rejected.
 ``font-family`` names faces collected from ``@font-face``. Each finished
 line records the face that covers its characters. A later family is used
 when an earlier unicode-range misses, ``font-weight`` and ``font-style``
@@ -1142,6 +1146,7 @@ class _Box:
     font_style: str = "normal"
     line_clamp: int | None = None
     initial_letter: int = 0
+    initial_sink: int = 0
     drop_cap: dict[str, object] | None = None
     parent_direction: str | None = None
     inline_text: str | None = None
@@ -2038,10 +2043,10 @@ def _make_box(
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     position_anchor, position_area = _read_position_anchor(winners, custom, position, mode, direction)
     try:
-        initial_letter = resolve_initial_letter(tree, element, declarations, custom)
+        initial_size, initial_sink = resolve_initial_letter(tree, element, declarations, custom)
     except CssSelectorError as exc:
         raise _Invalid(str(exc)) from exc
-    if initial_letter and (
+    if initial_size and (
         display not in {"block", "flow-root"}
         or list_item
         or replaced
@@ -2149,7 +2154,8 @@ def _make_box(
         align_safe=align_safe,
         margin_trim=_read_margin_trim(_declared(winners, "margin-trim", custom)),
         text_box_trim=_read_text_box_trim(winners, custom),
-        initial_letter=initial_letter,
+        initial_letter=initial_size,
+        initial_sink=initial_sink,
         parent_direction=parent_direction,
         multicol=columns,
         column_span=_read_column_span(winners, custom),
@@ -11470,23 +11476,32 @@ def _cap_exclusion_lines(
 
 def _prepare_drop_cap(
     box: _Box, text: str, measure: int, strut: int
-) -> tuple[list, int, int]:
-    """Pull the first ASCII letter into a square and wrap what remains."""
+) -> tuple[list, int, int, int]:
+    """Pull the first ASCII letter into a square and wrap what remains.
+
+    The square's side is the size. Lines beside it are the sink. A size
+    taller than the sink keeps the square on the content origin and starts
+    the first line lower by the uncovered lines.
+    """
 
     collapsed = " ".join(text.split())
     if not collapsed or not collapsed[0].isascii() or not collapsed[0].isalpha():
         raise _Invalid("initial letter is unsupported")
     if strut < 1:
         raise _Invalid("initial letter is unsupported")
-    side = box.initial_letter * strut
+    size = box.initial_letter
+    sink = box.initial_sink or size
+    if sink < 1 or sink > size:
+        raise _Invalid("initial letter is unsupported")
+    side = size * strut
     if side > measure:
         raise _Invalid("initial letter is unsupported")
     rest = collapsed[1:]
     if rest.startswith(" "):
         rest = rest[1:]
     box.drop_cap = {"text": collapsed[0], "x": 0, "y": 0, "width": side, "height": side}
-    beside, tail = _cap_exclusion_lines(box, rest, measure, side, box.initial_letter)
-    return [*beside, *tail], side, len(beside)
+    beside, tail = _cap_exclusion_lines(box, rest, measure, side, sink)
+    return [*beside, *tail], side, len(beside), (size - sink) * strut
 
 
 def _has_decoration(box: _Box) -> bool:
@@ -11612,8 +11627,9 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         raise _Invalid("balanced text wrap is unsupported")
     cap_width = 0
     beside_count = 0
+    cap_raise = 0
     if box.initial_letter:
-        lines, cap_width, beside_count = _prepare_drop_cap(box, text, measure, height)
+        lines, cap_width, beside_count, cap_raise = _prepare_drop_cap(box, text, measure, height)
     elif indent:
         lines = _kept_lines(
             box,
@@ -11654,7 +11670,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     if _has_decoration(box):
         mark_text, collapsed_marks = _collapse_mark_text(text, _source_marks(box))
     records: list[_Line] = []
-    cursor = 0
+    cursor = cap_raise
     shift_index = 0
     last = len(lines) - 1
     # A broken line is reordered on its own. Wrapping does not drop glyphs.
