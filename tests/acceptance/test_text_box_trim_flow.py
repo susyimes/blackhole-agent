@@ -181,7 +181,7 @@ def observe() -> tuple[bool, dict[str, object]]:
             and (later_next or {}).get("y") == 30
         ),
         "invalid_keyword_is_rejected": _rejected(bad, "text-box-trim is invalid"),
-        "cap_edge_is_unsupported": _rejected(cap, "text-box-edge is unsupported"),
+        "lone_cap_edge_is_invalid": _rejected(cap, "text-box-edge is invalid"),
         "vertical_writing_mode_is_rejected": _rejected(vertical, "text-box-trim writing mode is unsupported"),
         "specified_height_is_rejected": _rejected(fixed, "text-box-trim specified height is unsupported"),
         "block_child_is_rejected": _rejected(nested, "text-box-trim block children are unsupported"),

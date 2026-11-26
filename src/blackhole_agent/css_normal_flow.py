@@ -721,9 +721,15 @@ engine's font size above the baseline and nothing below it, so a 10px font
 on a 20px line loses 5px at each trimmed edge. Later lines move up with the
 start trim, and the following block starts at the new content edge.
 ``text-box`` is that shorthand and resets an omitted edge to ``auto``.
-``text-box-edge`` accepts ``auto`` and ``text``. ``cap``, ``ex``, and
-``alphabetic`` are unsupported because this engine has no font metrics
-inside the em. A specified height, a vertical or non-ltr box, a float, a
+``text-box-edge`` names the metric that trim meets. ``auto`` and ``text``
+stay on the em box. This engine has no font file, so the Latin cap-height
+is seven tenths of the em and the x-height is half an em, the length CSS
+uses for ``ex`` when the font cannot be measured. ``cap`` and ``ex`` are
+over edges only, so ``cap alphabetic`` and ``ex alphabetic`` cut the first
+line down from the em top by the remainder of the em. The alphabetic
+baseline is the em bottom because the strut descent is zero, and a lone
+``cap`` or ``ex`` is invalid. ``ideographic`` and ``ideographic-ink`` stay
+unsupported. A specified height, a vertical or non-ltr box, a float, a
 replaced box, columns, flex, grid, table, and a block child are rejected.
 """
 
@@ -1215,6 +1221,7 @@ class _Box:
     align_safe: bool = True
     margin_trim: str = "none"
     text_box_trim: str = "none"
+    text_box_edge: tuple[str, str] = ("text", "text")
     offset_path: str = ""
     offset_distance: str = "0px"
     offset_rotate: str = "auto"
@@ -2055,6 +2062,7 @@ def _make_box(
     ):
         raise _Invalid("initial letter is unsupported")
     align_mode, align_safe = _block_align_mode(display, _declared(winners, "align-content", custom))
+    text_box_trim, text_box_edge = _read_text_box_trim(winners, custom)
     box = _Box(
         id=box_id,
         writing_mode=mode,
@@ -2153,7 +2161,8 @@ def _make_box(
         align_mode=align_mode,
         align_safe=align_safe,
         margin_trim=_read_margin_trim(_declared(winners, "margin-trim", custom)),
-        text_box_trim=_read_text_box_trim(winners, custom),
+        text_box_trim=text_box_trim,
+        text_box_edge=text_box_edge,
         initial_letter=initial_size,
         initial_sink=initial_sink,
         parent_direction=parent_direction,
@@ -3542,17 +3551,19 @@ def _read_margin_trim(value: str | None) -> str:
 
 
 _TEXT_BOX_TRIMS = frozenset({"none", "trim-start", "trim-end", "trim-both"})
-_TEXT_BOX_EDGES = frozenset({"auto", "text"})
-_TEXT_BOX_UNSUPPORTED_EDGES = frozenset(
-    {"cap", "ex", "alphabetic", "ideographic", "ideographic-ink"}
-)
+_TEXT_BOX_OVER = frozenset({"text", "cap", "ex"})
+_TEXT_BOX_UNDER = frozenset({"text", "alphabetic"})
+_TEXT_BOX_DOUBLED = frozenset({"text"})
+_TEXT_BOX_UNSUPPORTED_EDGES = frozenset({"ideographic", "ideographic-ink"})
 
 
-def _read_text_box_trim(winners: list[tuple[int, str, str]], custom: dict) -> str:
-    """Used ``text-box-trim``. The shorthand ``text-box`` sets it and the edge.
+def _read_text_box_trim(
+    winners: list[tuple[int, str, str]], custom: dict
+) -> tuple[str, tuple[str, str]]:
+    """Used ``text-box-trim`` and the over/under metric it meets.
 
-    The property is not inherited. ``auto`` and ``text`` trim to the em box.
-    An edge inside the em is unsupported: this engine has no cap or ex metrics.
+    The properties are not inherited. ``auto`` and ``text`` trim to the em
+    box. ``cap`` and ``ex`` name synthetic metrics inside that em.
     """
 
     trim_at: tuple[int, str] | None = None
@@ -3577,8 +3588,8 @@ def _read_text_box_trim(winners: list[tuple[int, str, str]], custom: dict) -> st
         if edge_at is None or order >= edge_at[0]:
             edge_at = (order, raw)
     trim = _parse_text_box_trim(None if trim_at is None else trim_at[1])
-    _parse_text_box_edge(None if edge_at is None else edge_at[1])
-    return trim
+    edge = _parse_text_box_edge(None if edge_at is None else edge_at[1])
+    return trim, edge
 
 
 def _split_text_box(value: str) -> tuple[str, str]:
@@ -3607,20 +3618,49 @@ def _parse_text_box_trim(value: str | None) -> str:
     raise _Invalid("text-box-trim is invalid")
 
 
-def _parse_text_box_edge(value: str | None) -> str:
+def _parse_text_box_edge(value: str | None) -> tuple[str, str]:
+    """Over and under edges. A single keyword is kept only when it can be doubled."""
+
     if value is None:
-        return "auto"
+        return ("text", "text")
     text = " ".join(value.strip().lower().split())
     if text in {"", "initial", "unset", "revert", "auto"}:
-        return "auto"
+        return ("text", "text")
     if text == "inherit":
         raise _Invalid("text-box-edge inherit is unsupported")
     parts = text.split(" ")
     if any(part in _TEXT_BOX_UNSUPPORTED_EDGES for part in parts):
         raise _Invalid("text-box-edge is unsupported")
-    if text in _TEXT_BOX_EDGES or parts == ["text", "text"]:
-        return "text" if text != "auto" else "auto"
+    if len(parts) == 1 and parts[0] in _TEXT_BOX_DOUBLED:
+        return (parts[0], parts[0])
+    if len(parts) == 2 and parts[0] in _TEXT_BOX_OVER and parts[1] in _TEXT_BOX_UNDER:
+        return (parts[0], parts[1])
     raise _Invalid("text-box-edge is invalid")
+
+
+def _over_metric_inset(font_size: int, edge: str) -> int:
+    """Pixels of the em above the named over edge.
+
+    Cap-height is seven tenths of the em. X-height is half an em. Both are
+    synthetic: this engine cannot read a font file, and half an em is the
+    CSS ``ex`` fallback.
+    """
+
+    if edge == "text":
+        return 0
+    if edge == "cap":
+        return font_size - (font_size * 7 // 10)
+    if edge == "ex":
+        return font_size - (font_size // 2)
+    raise _Invalid("text-box-edge is unsupported")
+
+
+def _under_metric_inset(edge: str) -> int:
+    """Pixels below the alphabetic baseline inside the em. Descent is zero."""
+
+    if edge in {"text", "alphabetic"}:
+        return 0
+    raise _Invalid("text-box-edge is unsupported")
 
 
 def _collapse_spec(box: _Box) -> dict[str, object]:
@@ -10864,11 +10904,13 @@ def _reject_text_box_trim(box: _Box) -> None:
 
 
 def _apply_text_box_trim(box: _Box) -> None:
-    """Drop half-leading outside the em on the first and last line boxes.
+    """Drop leading outside the named text edge on the first and last lines.
 
-    The line top stays at the content start. A start trim shortens the first
-    line and pulls every later line up. An end trim shortens only the last
-    line. The block's automatic height is the trimmed stack.
+    ``text`` meets the em box. ``cap`` and ``ex`` continue into the em by the
+    synthetic metric. The line top stays at the content start. A start trim
+    shortens the first line and pulls every later line up. An end trim
+    shortens only the last line. The block's automatic height is the trimmed
+    stack.
     """
 
     if box.text_box_trim == "none" or not box.lines:
@@ -10876,8 +10918,15 @@ def _apply_text_box_trim(box: _Box) -> None:
     used = _used_line_height(box.line_height, box.font_size)
     height, baseline = _strut_metrics(box.font_size, used)
     trim = box.text_box_trim
-    start = max(0, baseline - box.font_size) if trim in {"trim-start", "trim-both"} else 0
-    end = max(0, height - baseline) if trim in {"trim-end", "trim-both"} else 0
+    over, under = box.text_box_edge
+    start_lead = max(0, baseline - box.font_size)
+    end_lead = max(0, height - baseline)
+    start = (
+        start_lead + _over_metric_inset(box.font_size, over)
+        if trim in {"trim-start", "trim-both"}
+        else 0
+    )
+    end = end_lead + _under_metric_inset(under) if trim in {"trim-end", "trim-both"} else 0
     if start == 0 and end == 0:
         return
     for line in box.lines:
