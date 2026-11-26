@@ -2423,9 +2423,11 @@ def resolve_generated_plans(
     """``::before`` and ``::after`` content as text and counter parts.
 
     ``counter()`` and ``counters()`` stay in the plan. ``attr()`` is already
-    the element's attribute text. A fallback, a type, or any other function
-    raises ``generated content is unsupported``. The two font maps hold a
-    declared ``font-size`` or ``line-height`` for that pseudo. Any other
+    the element's attribute text. ``open-quote``, ``close-quote``,
+    ``no-open-quote``, and ``no-close-quote`` stay as keywords; layout chooses
+    the string from the quotation depth. A fallback, a type, or any other
+    function raises ``generated content is unsupported``. The two font maps
+    hold a declared ``font-size`` or ``line-height`` for that pseudo. Any other
     property on a pseudo that generates a box raises ``generated box is
     unsupported``.
     """
@@ -2572,6 +2574,9 @@ def _one_generated(
     return text, _pseudo_font(winners, custom)
 
 
+_QUOTE_KEYWORDS = frozenset({"open-quote", "close-quote", "no-open-quote", "no-close-quote"})
+
+
 def _generated_content_parts(value: str) -> list[tuple] | None:
     text = value.strip()
     if text.lower() in {"normal", "none", "initial", "unset", "revert"}:
@@ -2596,7 +2601,15 @@ def _generated_content_parts(value: str) -> list[tuple] | None:
             index = end
             continue
         name, next_index = _read_css_ident(text, index)
-        if name is None or next_index >= length or text[next_index] != "(":
+        if name is None:
+            raise CssSelectorError("generated content is unsupported")
+        if name.lower() in _QUOTE_KEYWORDS:
+            if next_index < length and text[next_index] == "(":
+                raise CssSelectorError("generated content is unsupported")
+            parts.append((name.lower(),))
+            index = next_index
+            continue
+        if next_index >= length or text[next_index] != "(":
             raise CssSelectorError("generated content is unsupported")
         call, index = _generated_call(text, next_index, name)
         parts.append(call)

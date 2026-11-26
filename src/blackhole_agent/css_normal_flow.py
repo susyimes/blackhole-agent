@@ -635,8 +635,22 @@ element's children. A counter style formats the integer. ``counters()``
 joins every scope of that name, outer scope first, with its separator.
 ``attr()`` copies that element's attribute into the same text. A missing
 attribute is empty, so it adds no glyphs, and a parent's attribute is not
-read. A fallback, a type, or any other function stays rejected. ``font-size``
-and ``line-height`` on ``::before`` and ``::after`` size only those glyphs.
+read. A fallback, a type, or any other function stays rejected.
+``open-quote`` and ``close-quote`` insert one pair from the element's
+``quotes`` value. The initial value is the English pairs U+201C U+201D and
+U+2018 U+2019; ``auto`` is that same value, and ``none`` inserts nothing.
+Depth is the number of earlier open quotes minus the number of earlier close
+quotes, with ``::before`` before the element's children and ``::after`` after
+them. An open quote uses the pair at that depth and then increments it. A
+close quote decrements first and then uses the pair at the new depth; the
+last pair repeats when the depth runs past the list. A close at depth zero
+is ignored and inserts nothing. ``no-open-quote`` and ``no-close-quote``
+change the depth without a glyph. ``quotes: none`` still changes the depth,
+so a child with its own pairs can use a later pair. ``display: none`` does
+not. Each quote character is one em, so the glyphs wrap with the line and
+can move the following block. An odd string list is invalid. A vertical
+writing mode or a non-ltr direction is rejected when a quote keyword is used.
+``font-size`` and ``line-height`` on ``::before`` and ``::after`` size only those glyphs.
 The element's own text keeps its metrics, and the line grows to the taller
 run without shrinking the strut. A percentage font-size is invalid. A flex,
 grid, or table box, and an absolute box that paints its own text, stay
@@ -1069,6 +1083,10 @@ _FONT = {
     "text-emphasis-mark": "",
     "text-emphasis-position": "over",
 }
+# CSS 2.1 leaves the initial quotes value to the user agent. This engine uses
+# the English double then single pairs from that specification's table.
+_AUTO_QUOTES = (("\u201c", "\u201d"), ("\u2018", "\u2019"))
+_QUOTE_PARTS = frozenset({"open-quote", "close-quote", "no-open-quote", "no-close-quote"})
 _ALIGNS = frozenset(
     {"start", "end", "left", "right", "center", "justify", "justify-all", "match-parent"}
 )
@@ -1388,6 +1406,9 @@ def layout_normal_flow(
     ``text-emphasis`` records one mark on each non-space character and grows
     that line by half an em. ``over`` moves the baseline down with the em.
     The following block starts under the enlarged line.
+    ``open-quote`` and ``close-quote`` insert the ``quotes`` pair for the
+    current quotation depth. Those glyphs use the same em advance as other
+    text, so a wrap moves the following block.
     ``column-rule`` records one centered stroke in each gap between two
     occupied columns. Those rectangles do not move the column boxes.
     ``widows`` and ``orphans`` split that multicol's only text child across
@@ -1584,6 +1605,7 @@ def _placed_root(
     generated: dict[int, tuple[str, str]] = {}
     plans: dict[int, tuple[list, list]] = {}
     generated_fonts: dict[int, tuple[dict, dict]] = {}
+    raw_plans: dict[int, tuple[list, list]] = {}
     for element in order:
         try:
             before, after, before_font, after_font = resolve_generated_plans(
@@ -1591,8 +1613,12 @@ def _placed_root(
             )
         except CssSelectorError as exc:
             raise _Invalid(str(exc)) from exc
+        raw_plans[id(element)] = (before, after)
         if before_font or after_font:
             generated_fonts[id(element)] = (before_font, after_font)
+    raw_plans = _resolve_quote_plans(tree, order, styles, declarations, raw_plans)
+    for element in order:
+        before, after = raw_plans[id(element)]
         if _plan_has_counter(before) or _plan_has_counter(after):
             if _flow_kind(tree, element, styles, declarations) == "contents":
                 raise _Invalid("generated counter is unsupported")
@@ -5876,6 +5902,176 @@ def _css_escape(value: str, index: int, name: str) -> tuple[str, int]:
             raise _Invalid(f"{name} is invalid")
         return chr(code), index
     return char, index + 1
+
+
+def _css_strings(value: str, name: str) -> list[str]:
+    """Decode every CSS string in ``value``. A bare token is invalid."""
+
+    index = 0
+    found: list[str] = []
+    length = len(value)
+    while index < length:
+        while index < length and value[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        if value[index] not in {"'", '"'}:
+            raise _Invalid(f"{name} is invalid")
+        quote = value[index]
+        index += 1
+        chars: list[str] = []
+        closed = False
+        while index < length:
+            char = value[index]
+            if char == quote:
+                found.append("".join(chars))
+                index += 1
+                closed = True
+                break
+            if char in "\n\r\f":
+                raise _Invalid(f"{name} is invalid")
+            if char == "\\":
+                decoded, index = _css_escape(value, index, name)
+                chars.append(decoded)
+                continue
+            chars.append(char)
+            index += 1
+        if not closed:
+            raise _Invalid(f"{name} is invalid")
+    if not found:
+        raise _Invalid(f"{name} is invalid")
+    return found
+
+
+def _read_quotes(
+    value: str | None, parent: tuple[tuple[str, str], ...]
+) -> tuple[tuple[str, str], ...]:
+    """Used quote pairs. ``none`` is empty; ``auto`` is the English initial value."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = value.strip()
+    lowered = " ".join(text.lower().split())
+    if lowered in {"initial", "auto"}:
+        return _AUTO_QUOTES
+    if lowered == "none":
+        return ()
+    strings = _css_strings(text, "quotes")
+    if len(strings) % 2:
+        raise _Invalid("quotes is invalid")
+    return tuple((strings[index], strings[index + 1]) for index in range(0, len(strings), 2))
+
+
+def _append_quote_text(parts: list, text: str) -> None:
+    if not text:
+        return
+    if parts and isinstance(parts[-1], tuple) and parts[-1][0] == "text":
+        parts[-1] = ("text", parts[-1][1] + text)
+    else:
+        parts.append(("text", text))
+
+
+def _apply_quote_parts(
+    parts: list,
+    pairs: tuple[tuple[str, str], ...],
+    depth: list[int],
+    mode: tuple[str, str],
+) -> list:
+    """Replace quote keywords. A close quote decrements before choosing its pair."""
+
+    if not isinstance(parts, list):
+        return []
+    if any(isinstance(part, tuple) and part and part[0] in _QUOTE_PARTS for part in parts):
+        if mode[0] != "horizontal-tb" or mode[1] != "ltr":
+            raise _Invalid("quote content is unsupported")
+    resolved: list = []
+    for part in parts:
+        if not isinstance(part, tuple) or not part or part[0] not in _QUOTE_PARTS:
+            resolved.append(part)
+            continue
+        kind = part[0]
+        if kind in {"close-quote", "no-close-quote"}:
+            if depth[0] == 0:
+                continue
+            depth[0] -= 1
+            if kind == "close-quote" and pairs:
+                _append_quote_text(resolved, pairs[min(depth[0], len(pairs) - 1)][1])
+            continue
+        if kind == "open-quote" and pairs:
+            _append_quote_text(resolved, pairs[min(depth[0], len(pairs) - 1)][0])
+        depth[0] += 1
+    return resolved
+
+
+def _quote_box_kind(tree, element, styles, declarations) -> str:
+    """``none`` and ``contents`` do not insert quotation marks of their own.
+
+    Unknown display values stay a generating box here so the later box builder
+    still reports the display error.
+    """
+
+    if _local_name(element) in _SKIP_TAGS:
+        return "none"
+    custom = styles.get(element, ({}, ""))[0]
+    winners = _winners(tree, element, declarations)
+    raw = _declared(winners, "display", custom)
+    if raw is None or raw in {"initial", "unset", "revert"}:
+        display = "block" if _local_name(element) in _BLOCK_TAGS else "inline"
+    else:
+        display = " ".join(raw.strip().lower().split())
+    if display == "list-item":
+        return "block"
+    if display == "none":
+        return "none"
+    if display == "contents":
+        return "contents"
+    return "box"
+
+
+def _resolve_quote_plans(
+    tree,
+    order: list,
+    styles,
+    declarations,
+    raw: dict[int, tuple[list, list]],
+) -> dict[int, tuple[list, list]]:
+    """Resolve quote keywords in tree order: ``::before``, children, ``::after``."""
+
+    pairs: dict[int, tuple[tuple[str, str], ...]] = {}
+    modes: dict[int, tuple[str, str]] = {}
+    kinds: dict[int, str] = {}
+    for element in order:
+        parent = tree.parent.get(element)
+        parent_pairs = pairs.get(id(parent), _AUTO_QUOTES)
+        parent_mode = modes.get(id(parent), (_INHERITED["writing-mode"], _INHERITED["direction"]))
+        custom = styles.get(element, ({}, ""))[0]
+        winners = _winners(tree, element, declarations)
+        pairs[id(element)] = _read_quotes(_declared(winners, "quotes", custom), parent_pairs)
+        inherited = {"writing-mode": parent_mode[0], "direction": parent_mode[1]}
+        modes[id(element)] = (
+            _inherited("writing-mode", winners, custom, inherited),
+            _inherited("direction", winners, custom, inherited),
+        )
+        kinds[id(element)] = _quote_box_kind(tree, element, styles, declarations)
+    resolved = {key: (list(before), list(after)) for key, (before, after) in raw.items()}
+    depth = [0]
+
+    def walk(element, hidden: bool) -> None:
+        ident = id(element)
+        kind = kinds.get(ident, "none")
+        skip = hidden or kind == "none"
+        before, after = resolved.get(ident, ([], []))
+        if not skip and kind != "contents":
+            before = _apply_quote_parts(before, pairs.get(ident, _AUTO_QUOTES), depth, modes[ident])
+        for child in tree.children.get(element, []):
+            walk(child, skip)
+        if not skip and kind != "contents":
+            after = _apply_quote_parts(after, pairs.get(ident, _AUTO_QUOTES), depth, modes[ident])
+            resolved[ident] = (before, after)
+
+    if order:
+        walk(order[0], False)
+    return resolved
 
 
 def _read_hanging(value: str | None, parent: str) -> str:
