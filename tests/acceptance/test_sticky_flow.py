@@ -4,8 +4,9 @@ A top inset pulls a block that starts above it and leaves the next block at
 its static y. A block already below that inset stays put. Viewport scroll
 moves only the viewport's sticky edge. A nearer overflow scrollport keeps
 its sticky child at the same y for two viewport scroll offsets. The
-containing block end stops a shift that would leave it. Nested sticky, a
-sticky float, and a vertical-rl sticky box are rejected.
+containing block end stops a shift that would leave it. A sticky float and
+a vertical-rl sticky box are rejected. A sticky child of a sticky parent is
+covered by the nested sticky probe.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A layout that still rejects position:sticky exits 0 with
@@ -45,11 +46,6 @@ _PORT_CSS = (
     "#port { overflow: scroll; height: 100px; margin: 0px; }\n"
     "#inner { position: sticky; top: 5px; height: 20px; margin: 0px; }\n"
     "#outer { position: sticky; top: 0px; height: 20px; margin: 0px; }\n"
-)
-_NEST = '<div id="page"><div id="out"><div id="inn">X</div></div></div>'
-_NEST_CSS = (
-    "#page { height: 400px; }\n"
-    "#out, #inn { position: sticky; top: 0px; height: 30px; }\n"
 )
 _FLOAT = '<div id="page"><div id="flo">A</div><p id="copy">B</p></div>'
 _FLOAT_CSS = "#flo { float: left; position: sticky; top: 0px; width: 40px; height: 40px; }\n"
@@ -109,7 +105,6 @@ def observe() -> tuple[bool, dict[str, object]]:
     capped = _lay(layout_normal_flow, _CAP, _CAP_CSS, scroll_y=180)
     port_still = _lay(layout_normal_flow, _PORT, _PORT_CSS)
     port_scrolled = _lay(layout_normal_flow, _PORT, _PORT_CSS, scroll_y=200)
-    nested = _lay(layout_normal_flow, _NEST, _NEST_CSS)
     floated = _lay(layout_normal_flow, _FLOAT, _FLOAT_CSS)
     vertical = _lay(layout_normal_flow, _VERTICAL, _VERTICAL_CSS)
     observed: dict[str, object] = {
@@ -119,7 +114,6 @@ def observe() -> tuple[bool, dict[str, object]]:
         "capped": _point(capped, "cap"),
         "port_still": {name: _point(port_still, name) for name in ("lead", "port", "inner", "outer")},
         "port_scrolled": {name: _point(port_scrolled, name) for name in ("lead", "port", "inner", "outer")},
-        "nested_reason": nested.get("reason"),
         "float_reason": floated.get("reason"),
         "vertical_reason": vertical.get("reason"),
     }
@@ -138,7 +132,6 @@ def observe() -> tuple[bool, dict[str, object]]:
         "port_outer_scrolled": _near(_box(port_scrolled.get("boxes"), "outer"), x=0, y=200, border_height=20),
         "port_lead": _near(_box(port_scrolled.get("boxes"), "lead"), y=0),
         "port_box": _near(_box(port_scrolled.get("boxes"), "port"), y=40),
-        "nested": nested.get("outcome") == "invalid" and nested.get("boxes") is None,
         "floated": floated.get("outcome") == "invalid" and floated.get("boxes") is None,
         "vertical": vertical.get("outcome") == "invalid" and vertical.get("boxes") is None,
     }

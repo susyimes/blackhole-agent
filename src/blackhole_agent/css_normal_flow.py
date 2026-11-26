@@ -27,8 +27,11 @@ the viewport when every ancestor is visible. ``scroll_x`` and ``scroll_y``
 move only that viewport. A nearer scrollport uses ``port_scroll`` when that
 port scrolls on its own, and otherwise stays at scroll zero. The parent
 padding edge stops the shift, and the following sibling stays at its static
-position. Nested sticky, a sticky float, a sticky inline, a sticky root, and
-a sticky box that is not horizontal and left-to-right are rejected.
+position. A sticky descendant is shifted after that ancestor, so it keeps
+the ancestor's shift until the ancestor's containing block stops the ancestor,
+and it can then still meet the viewport inset inside the ancestor padding edge.
+A sticky float, a sticky inline, a sticky root, and a non-horizontal or
+non-ltr sticky box are rejected.
 Horizontal text inside that box supplies shrink-to-fit width and the stacked
 line-box height. A static block child is laid out in that content box: its
 text wraps to the definite width, adjoining child margins collapse inside
@@ -6485,8 +6488,6 @@ def _shift_stickies(
             raise _Invalid("sticky writing mode is unsupported")
         if box.float_side != "none":
             raise _Invalid("sticky float is unsupported")
-        if _sticky_descendant(box):
-            raise _Invalid("nested sticky is unsupported")
         _translate(box, *_sticky_delta(box, viewport_width, viewport_height, scroll_x, scroll_y))
     for child in box.children:
         _shift_stickies(child, viewport_width, viewport_height, scroll_x, scroll_y)
@@ -6496,19 +6497,6 @@ def _shift_stickies(
         _shift_stickies(atom, viewport_width, viewport_height, scroll_x, scroll_y)
     for abs_box in box.positioned:
         _shift_stickies(abs_box, viewport_width, viewport_height, scroll_x, scroll_y)
-
-
-def _sticky_descendant(box: _Box) -> bool:
-    pending = [*box.children, *box.floats, *box.atoms, *box.positioned]
-    while pending:
-        current = pending.pop()
-        if current.position == "sticky":
-            return True
-        pending.extend(current.children)
-        pending.extend(current.floats)
-        pending.extend(current.atoms)
-        pending.extend(current.positioned)
-    return False
 
 
 def _sticky_delta(
