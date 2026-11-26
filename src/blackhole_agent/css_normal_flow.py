@@ -798,6 +798,16 @@ baseline is the em bottom because the strut descent is zero, and a lone
 ``cap`` or ``ex`` is invalid. ``ideographic`` and ``ideographic-ink`` stay
 unsupported. A specified height, a vertical or non-ltr box, a float, a
 replaced box, columns, flex, grid, table, and a block child are rejected.
+``content-visibility: hidden`` skips that element's contents. The used
+block size is the size the box would have with no content: an automatic
+height becomes zero, ``contain-intrinsic-block-size`` supplies that empty
+content height, and a specified height stays. Padding and border stay.
+The following block starts at the collapsed border edge. Descendant boxes
+are not hit targets, and the skipped text leaves no line. ``visible``,
+``auto``, and an omitted property keep the content height.
+``contain-intrinsic-block-size`` does nothing without ``hidden``.
+A vertical or non-ltr box, an inline, a float, an absolute or sticky box,
+a list item, a replaced box, columns, and an aspect ratio are rejected.
 """
 
 from __future__ import annotations
@@ -1293,6 +1303,7 @@ class _Box:
     marker_width: int = 0
     marker: dict[str, object] | None = None
     capture: dict[str, str] = field(default_factory=dict)
+    intrinsic_block: int | None = None
     transform_origin: str = "50% 50%"
     scrollbar_gutter: str = "auto"
     scrollbars: str = "classic"
@@ -1429,6 +1440,8 @@ def element_from_document(
     positive z-index is in front of a later auto-positioned sibling, and a
     negative z-index that escapes its parent is behind that parent.
     ``pointer-events: none`` and ``visibility: hidden`` are not targets.
+    ``content-visibility: hidden`` sizes the box as if it had no content,
+    and its descendants are not targets.
     A flex, inline-flex, grid, table, table-row, or table-cell box is a
     target. A point in a flex container's unoccupied gap hits that container,
     and a positive z-index still paints above the flex item it covers.
@@ -1634,6 +1647,7 @@ def _placed_root(
     _bind_list_markers(root)
     _apply_height_transitions(root, transition_sample_ms, transition_changes)
     _solve(root, viewport_width, viewport_height, viewport_height, 0)
+    _seal_skipped_contents(root)
     placed = place_collapsed_margins(_collapse_spec(root))
     if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
         raise _Invalid(str(placed.get("reason") or "margin collapse failed"))
@@ -1795,7 +1809,11 @@ def _hit_node(
     )
     used_z = _used_z(box.stack_z, inherited_z)
     used_opacity = _used_opacity(box.stack_opacity, inherited_opacity)
-    children = sorted(by_parent.get(id(box), ()), key=lambda child: _hit_sibling_key(box, child))
+    children = (
+        []
+        if _skips_contents(box)
+        else sorted(by_parent.get(id(box), ()), key=lambda child: _hit_sibling_key(box, child))
+    )
     node: dict[str, object] = {
         "id": box.id,
         "position": box.position,
@@ -2364,6 +2382,8 @@ def _make_box(
         winners, custom
     )
     _bind_height_transition(box, winners, custom)
+    box.intrinsic_block = _read_intrinsic_block(winners, custom)
+    _reject_skipped_box(box)
     return box
 
 
@@ -3643,9 +3663,11 @@ def _lay_block_contents(
             raise _Invalid("column writing mode is unsupported")
         _place_multicol(box, content_x, viewport_height)
         return
-    if box.floats and not box.children:
+    if _skips_contents(box) and (box.floats or box.atoms):
+        raise _Invalid("content-visibility content is unsupported")
+    if box.floats and not box.children and not _skips_contents(box):
         _place_floats(box, content_x)
-    if not box.children and (box.inline_text or box.floats or box.atoms):
+    if not _skips_contents(box) and not box.children and (box.inline_text or box.floats or box.atoms):
         _fill_lines(box)
     elif (
         box.list_item
@@ -4021,6 +4043,93 @@ def _under_metric_inset(edge: str) -> int:
     if edge in {"text", "alphabetic"}:
         return 0
     raise _Invalid("text-box-edge is unsupported")
+
+
+def _skips_contents(box: _Box) -> bool:
+    return box.capture.get("content_visibility") == "hidden"
+
+
+def _reject_skipped_box(box: _Box) -> None:
+    """``hidden`` applies only to a horizontal static block or flow-root."""
+
+    if not _skips_contents(box):
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("content-visibility writing mode is unsupported")
+    if box.display not in {"block", "flow-root"} or box.list_item or box.replaced:
+        raise _Invalid("content-visibility display is unsupported")
+    if box.position != "static" or box.float_side != "none":
+        raise _Invalid("content-visibility position is unsupported")
+    if box.multicol is not None:
+        raise _Invalid("content-visibility columns are unsupported")
+    if box.aspect_ratio is not None:
+        raise _Invalid("content-visibility aspect ratio is unsupported")
+
+
+def _read_intrinsic_block(winners, custom: dict) -> int | None:
+    longhand = _declared(winners, "contain-intrinsic-block-size", custom)
+    if longhand is not None:
+        return _intrinsic_block_length(longhand, "contain-intrinsic-block-size")
+    shorthand = _declared(winners, "contain-intrinsic-size", custom)
+    if shorthand is None:
+        return None
+    return _intrinsic_size_block(shorthand)
+
+
+def _intrinsic_block_length(value: str, name: str) -> int | None:
+    token = " ".join(value.strip().lower().split())
+    if token in {"none", "initial", "unset", "revert"}:
+        return None
+    if token == "inherit" or token == "auto" or token.startswith("auto "):
+        raise _Invalid(f"{name} is invalid")
+    return _nonnegative_px(token, name)
+
+
+def _intrinsic_size_block(value: str) -> int | None:
+    name = "contain-intrinsic-size"
+    token = " ".join(value.strip().lower().split())
+    if token in {"none", "initial", "unset", "revert"}:
+        return None
+    if token == "inherit" or "auto" in token.split(" "):
+        raise _Invalid(f"{name} is invalid")
+    parts = token.split(" ")
+    if len(parts) > 2:
+        raise _Invalid(f"{name} is invalid")
+    lengths = [_nonnegative_px(part, name) for part in parts]
+    return lengths[-1]
+
+
+def _nonnegative_px(token: str, name: str) -> int:
+    if not token.endswith("px"):
+        raise _Invalid(f"{name} is invalid")
+    try:
+        number = _px(float(token[:-2]), name)
+    except (TypeError, ValueError) as exc:
+        raise _Invalid(f"{name} is invalid") from exc
+    if number < 0:
+        raise _Invalid(f"{name} is invalid")
+    return number
+
+
+def _clear_skipped_ink(box: _Box) -> None:
+    box.lines = []
+    box.drop_cap = None
+    box.marker = None
+    for child in (*box.children, *box.floats, *box.atoms, *box.positioned):
+        _clear_skipped_ink(child)
+
+
+def _seal_skipped_contents(box: _Box) -> None:
+    """Size a skipped box as if empty, after its contents have been measured."""
+
+    if _skips_contents(box) and box.solved:
+        if box.solved.get("content_height") == "auto":
+            box.definite_height = 0 if box.intrinsic_block is None else box.intrinsic_block
+        elif box.definite_height is None:
+            raise _Invalid("content-visibility size is unsupported")
+        _clear_skipped_ink(box)
+    for child in (*box.children, *box.floats, *box.atoms, *box.positioned):
+        _seal_skipped_contents(child)
 
 
 def _collapse_spec(box: _Box) -> dict[str, object]:
