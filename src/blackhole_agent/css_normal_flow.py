@@ -672,6 +672,21 @@ line-through one third of an em above it, and overline at the top of the
 em. The line box does not grow to cover the ink. A vertical writing mode,
 a non-ltr direction, a float, justification, spacing, a list marker, and a
 shifted vertical-align stay rejected.
+``text-emphasis`` is inherited. On a horizontal left-to-right block whose own
+content is normal text, each non-space character with a positive advance gets
+one mark. ``filled`` and ``open`` select the dot when the shape is omitted, a
+named shape defaults to filled, and a one-character string is that mark.
+``none`` paints nothing. The mark band is half an em, at least one pixel,
+centered in the character advance with a leftover pixel on the inline end.
+``over`` sits above the em and moves the baseline down by that band; ``under``
+keeps the baseline and sits below the em. The line box grows by the band, so
+the following block starts lower. ``left`` and ``right`` may accompany the
+block side and do not move that horizontal mark. A bare side is invalid. An
+empty string, a string of any other length, and both the shorthand and
+``text-emphasis-style`` together are invalid. The mark uses the used
+``color``. An inline declaration, a vertical or non-ltr box, a float, a list
+item, spacing, indentation, justification, a clamp, and a block child beside
+the text stay rejected.
 ``scrollbar-gutter`` is not inherited. A horizontal left-to-right scroll
 container reserves this engine's 15px classic scrollbar on the inline-end
 edge, between the border and the padding. The border box keeps its allotted
@@ -848,6 +863,12 @@ from blackhole_agent.css_text_decoration import (
     DecorationError,
     paint_decoration_events,
     parse_text_decoration,
+)
+from blackhole_agent.css_text_emphasis import (
+    EmphasisError,
+    emphasis_band,
+    resolve_emphasis_position,
+    resolve_emphasis_style,
 )
 from blackhole_agent.css_tree_counting import resolve_tree_counting
 from blackhole_agent.css_logical_box import (
@@ -1035,6 +1056,8 @@ _FONT = {
     "font-weight": "400",
     "font-style": "normal",
     "color": "#000000",
+    "text-emphasis-mark": "",
+    "text-emphasis-position": "over",
 }
 _ALIGNS = frozenset(
     {"start", "end", "left", "right", "center", "justify", "justify-all", "match-parent"}
@@ -1145,6 +1168,7 @@ class _Line:
     truncated: bool = False
     decorations: list[dict[str, object]] = field(default_factory=list)
     combines: list[dict[str, object]] = field(default_factory=list)
+    emphasis: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -1292,6 +1316,8 @@ class _Box:
     border_curve: tuple[float, float, float, float, float, float, float, float] | None = None
     color: str = "#000000"
     color_valid: bool = True
+    emphasis_mark: str = ""
+    emphasis_position: str = "over"
     outline: tuple[str, int, str, int] | None = None
     shadows: tuple[tuple[bool, int, int, int, int, str], ...] = ()
     column_rule: tuple[str, int, str] | None = None
@@ -1348,6 +1374,9 @@ def layout_normal_flow(
     around that same border box. The stroke does not move the box.
     ``box-shadow`` records each shadow's shape or inset hole in that same
     space. The rectangles do not move the box.
+    ``text-emphasis`` records one mark on each non-space character and grows
+    that line by half an em. ``over`` moves the baseline down with the em.
+    The following block starts under the enlarged line.
     ``column-rule`` records one centered stroke in each gap between two
     occupied columns. Those rectangles do not move the column boxes.
     ``widows`` and ``orphans`` split that multicol's only text child across
@@ -2312,6 +2341,18 @@ def _make_box(
     box.scroll_rule = _read_scroll_rule(winners, custom)
     box.border_radius = _read_border_radius(winners, custom)
     box.color, box.color_valid = _used_color(_declared(winners, "color", custom), fonts)
+    box.emphasis_mark, box.emphasis_position = _read_text_emphasis(winners, custom, fonts)
+    if box.display == "inline" and not box.replaced and _emphasis_authored(winners):
+        raise _Invalid("inline text emphasis is unsupported")
+    if box.emphasis_mark and (
+        box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or box.display not in {"block", "flow-root"}
+        or box.list_item
+        or box.float_side != "none"
+        or box.replaced
+    ):
+        raise _Invalid("text emphasis is unsupported")
     box.outline = _read_outline(winners, custom, box.color, box.color_valid)
     if box.display == "inline" and not box.replaced and box.outline is not None:
         raise _Invalid("inline outline is unsupported")
@@ -4360,6 +4401,19 @@ def _record_line(line: _Line) -> dict[str, object]:
             }
             for cluster in line.combines
         ]
+    if line.emphasis:
+        item["baseline"] = line.baseline
+        item["emphasis"] = [
+            {
+                "text": str(mark["text"]),
+                "x": line.x + int(mark["x"]),
+                "y": line.y + int(mark["y"]),
+                "width": int(mark["width"]),
+                "height": int(mark["height"]),
+                "color": str(mark["color"]),
+            }
+            for mark in line.emphasis
+        ]
     if line.decorations:
         item["decorations"] = [
             {
@@ -4570,6 +4624,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "font-style": box.font_style,
         "color": box.color,
         "color-valid": "1" if box.color_valid else "0",
+        "text-emphasis-mark": box.emphasis_mark,
+        "text-emphasis-position": box.emphasis_position,
     }
 
 
@@ -4742,6 +4798,8 @@ def _make_anonymous_block(
         parent_direction=parent.direction,
         color=parent.color,
         color_valid=parent.color_valid,
+        emphasis_mark=parent.emphasis_mark,
+        emphasis_position=parent.emphasis_position,
         anonymous=True,
         parent_box=parent,
         pieces=pieces,
@@ -11661,6 +11719,8 @@ def _apply_text_box_trim(box: _Box) -> None:
 
 
 def _fill_lines(box: _Box) -> None:
+    if box.emphasis_mark and (box.floats or box.atoms or box.ruby or _mixed_runs(box) or box.children):
+        raise _Invalid("text emphasis is unsupported")
     if box.text_box_trim != "none":
         _reject_text_box_trim(box)
     _reject_text_autospace(box)
@@ -12357,6 +12417,93 @@ def _text_decorations(
         raise _Invalid(exc.reason) from exc
 
 
+_EMPHASIS_PROPERTIES = ("text-emphasis", "text-emphasis-style", "text-emphasis-position")
+
+
+def _emphasis_authored(winners) -> bool:
+    return any(_latest_declared(winners, name) is not None for name in _EMPHASIS_PROPERTIES)
+
+
+def _read_text_emphasis(winners, custom: dict, fonts: dict[str, str]) -> tuple[str, str]:
+    raw_shorthand = _latest_declared(winners, "text-emphasis")
+    raw_style = _latest_declared(winners, "text-emphasis-style")
+    if raw_shorthand is not None and raw_style is not None:
+        raise _Invalid("text emphasis is invalid")
+    style = _declared(winners, "text-emphasis", custom)
+    if style is None:
+        style = _declared(winners, "text-emphasis-style", custom)
+    position = _declared(winners, "text-emphasis-position", custom)
+    parent_mark = fonts.get("text-emphasis-mark", "")
+    parent_position = fonts.get("text-emphasis-position", "over")
+    try:
+        mark = resolve_emphasis_style(style, parent_mark)
+        side = resolve_emphasis_position(position, parent_position)
+    except EmphasisError as exc:
+        raise _Invalid(exc.reason) from exc
+    return mark, side
+
+
+def _reject_emphasis_layout(box: _Box) -> None:
+    if (
+        box.writing_mode != "horizontal-tb"
+        or box.direction != "ltr"
+        or box.white_space != "normal"
+        or box.letter_spacing
+        or box.word_spacing
+        or box.text_indent != "0px"
+        or box.hanging_punctuation != "none"
+        or box.line_clamp is not None
+        or box.text_box_trim != "none"
+        or box.initial_letter
+        or box.hyphens == "auto"
+        or box.hyphenate_character != "\u2010"
+        or box.floats
+        or box.atoms
+        or box.ruby
+        or _gap_alignment(box)
+        or _relative_pieces(box)
+        or _mixed_runs(box)
+        or not box.color_valid
+    ):
+        raise _Invalid("text emphasis is unsupported")
+
+
+def _apply_text_emphasis(box: _Box, records: list[_Line]) -> list[_Line]:
+    if not box.emphasis_mark or not records:
+        return records
+    _reject_emphasis_layout(box)
+    band = emphasis_band(box.font_size)
+    over = box.emphasis_position == "over"
+    cursor = 0
+    for line in records:
+        total = 0
+        marks: list[dict[str, object]] = []
+        strut = line.height
+        for ch in line.text:
+            advance = _advance_of(ch, box.font_size)
+            if advance > 0 and not ch.isspace():
+                marks.append(
+                    {
+                        "text": box.emphasis_mark,
+                        "x": total + max(0, (advance - band) // 2),
+                        "y": 0 if over else strut,
+                        "width": band,
+                        "height": band,
+                        "color": box.color,
+                    }
+                )
+            total += advance
+        if total != line.content_width:
+            raise _Invalid("text emphasis is unsupported")
+        if over:
+            line.baseline += band
+        line.height = strut + band
+        line.y = cursor
+        line.emphasis = marks
+        cursor += line.height
+    return records
+
+
 def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool = False) -> list[_Line]:
     _reject_decoration_context(box)
     _reject_spacing(box)
@@ -12513,7 +12660,7 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         raise _Invalid("relative inline is unsupported")
     if collapsed_marks is not None and mark_text.strip():
         raise _Invalid("text decoration is unsupported")
-    return _clamp_plain_lines(box, records, measure, direction, place_glyphs)
+    return _apply_text_emphasis(box, _clamp_plain_lines(box, records, measure, direction, place_glyphs))
 
 
 def _used_line_height(computed: str, font_size: int) -> int:
@@ -12871,6 +13018,8 @@ def _flush_flex_text(
             parent_direction=host.direction,
             color=host.color,
             color_valid=host.color_valid,
+            emphasis_mark=host.emphasis_mark,
+            emphasis_position=host.emphasis_position,
             inline_text=rendered,
             anonymous=True,
             parent_box=host,
