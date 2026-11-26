@@ -10,12 +10,24 @@ from blackhole_agent.css_line_break import source_line_tokens
 
 
 def uniform_caret_edge(
-    source: str, lines: Sequence[str], white_space: str, direction: str, font_size: int, width: int, x: float
+    source: str,
+    lines: Sequence[str],
+    white_space: str,
+    direction: str,
+    font_size: int,
+    width: int,
+    x: float,
+    *,
+    hyphen_mark: str = "",
 ) -> tuple[int, bool] | None:
-    """Return (source character index, after) on the last line, at x from its painted text edge."""
+    """Return (source character index, after) on the last line, at x from its painted text edge.
+
+    ``hyphen_mark`` is the string painted at a taken hyphen break. Those glyphs
+    are not extra source characters; they still occupy caret cells.
+    """
     if not lines or not 0 <= x < width or "\t" in lines[-1]:
         return None
-    tokens = source_line_tokens(source, white_space, lines)
+    tokens = source_line_tokens(source, white_space, lines, hyphen_mark=hyphen_mark)
     if not tokens:
         return None
     order, levels = bidi_line_order(lines[-1], direction)

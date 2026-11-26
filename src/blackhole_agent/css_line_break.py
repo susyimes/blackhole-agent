@@ -1681,30 +1681,74 @@ def _mark_graphemes(tokens: list[_Tok]) -> list[_Tok]:
     return tokens
 
 
-def source_line_tokens(source: str, white_space: str, rendered_lines: Iterable[str]) -> list[_Tok]:
+def source_line_tokens(
+    source: str,
+    white_space: str,
+    rendered_lines: Iterable[str],
+    *,
+    hyphen_mark: str = "",
+) -> list[_Tok]:
     """Recover the last supplied line's source spans, consuming earlier lines in order.
 
-    Only a trimmed separator, forced break, or invisible soft hyphen may be
-    skipped. A synthetic glyph without a source span leaves the line unmapped.
+    A trimmed separator, a forced break, or an invisible soft hyphen may be
+    skipped. ``hyphen_mark`` is the string painted at a taken hyphen break.
+    When that string is not the next source character, an automatic break maps
+    every mark glyph to the source boundary where the break was taken. A
+    source soft hyphen keeps that character's span on the first glyph, and
+    any further mark glyphs sit on the boundary after it. Any other synthetic
+    glyph leaves the line unmapped.
     """
+
+    mark = hyphen_mark if isinstance(hyphen_mark, str) else ""
     stream = iter(_phase1(source, white_space, _Adv(source, None)))
     token = next(stream, None)
     line: list[_Tok] = []
     for rendered in rendered_lines:
         line = []
-        for ch in rendered:
+        index = 0
+        while index < len(rendered):
+            ch = rendered[index]
             while token is not None and token.ch != ch:
-                if token.kind == "shy" and ch == "\u2010":
+                if _hyphen_mark_at(rendered, index, mark, token):
                     break
                 at_break = not line and (token.kind == "break" or _trimmed_token(token, white_space))
                 if token.kind != "shy" and not at_break:
                     return []
                 token = next(stream, None)
+            if _hyphen_mark_at(rendered, index, mark, token):
+                if token is not None and token.kind == "shy":
+                    advance = token.advance
+                    boundary = token.end
+                    token.ch = mark[0]
+                    line.append(token)
+                    for glyph in mark[1:]:
+                        line.append(_Tok("shy", glyph, advance, start=boundary, end=boundary))
+                    token = next(stream, None)
+                else:
+                    boundary = token.start if token is not None else len(source)
+                    advance = line[-1].advance if line else 1.0
+                    for glyph in mark:
+                        line.append(_Tok("shy", glyph, advance, start=boundary, end=boundary))
+                index += len(mark)
+                continue
             if token is None:
                 return []
             line.append(token)
             token = next(stream, None)
+            index += 1
+        if len(line) != len(rendered):
+            return []
     return _mark_graphemes(line)
+
+
+def _hyphen_mark_at(rendered: str, index: int, mark: str, token: _Tok | None) -> bool:
+    """True when ``mark`` is painted here and is not the next source glyph."""
+
+    if not mark or not rendered.startswith(mark, index):
+        return False
+    if token is not None and token.kind == "shy":
+        return True
+    return token is None or token.ch != rendered[index]
 
 
 def _hyphen_letter(token: _Tok) -> bool:

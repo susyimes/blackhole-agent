@@ -1405,7 +1405,11 @@ def element_from_document(
     and a positive z-index still paints above the flex item it covers.
     A hit inside uniform horizontal text also has a ``caret``. Its ``line`` is
     zero-based and its ``offset`` counts UTF-16 code units in the element's
-    original text, before wrapping and whitespace collapse. A box hit in
+    original text, before wrapping and whitespace collapse. A hyphen mark
+    painted by a taken automatic or soft break is not in that text. A pointer
+    on the mark, and on either fragment, still reports the caret. An automatic
+    break maps each mark glyph to the source boundary where the break was
+    taken. A source soft hyphen keeps that character's caret span. A box hit in
     empty space or on text without a source mapping has no caret field.
     ``overflow: hidden``, ``clip``, ``scroll``, and ``auto`` clip descendants
     to the padding edge. The element's own border box stays a target, and
@@ -1462,6 +1466,7 @@ def _hit_text(box: _Box, x: float, y: float) -> dict[str, int] | None:
         edge = uniform_caret_edge(
             source, [row.text for row in box.lines[:index + 1]], box.white_space,
             box.direction, box.font_size, line.content_width, x - line.x,
+            hyphen_mark=box.hyphenate_character,
         )
         if edge is not None:
             offset = _source_offset(box, *edge)
