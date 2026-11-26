@@ -24,6 +24,11 @@ wrapping is not allowed. Otherwise the breaks are a partition into that same
 number of lines. The partition that strictly lowers the population variance
 of leftover inline space (the measure minus each line's content width) wins.
 A tie keeps the first-fit breaks. Emergency breaks are not rearranged.
+``pretty_lines`` is ``text-wrap-style: pretty``. A group keeps those first-fit
+breaks, then moves the last break back to the previous legal wrap opportunity
+when the last line is a single word, the enlarged line still fits, and the
+previous line still has text. Earlier lines stay put. ``min_content`` and
+``max_content`` stay the first-fit measures for both.
 """
 
 from __future__ import annotations
@@ -290,6 +295,100 @@ def balance_lines(
     breaks. ``min_content`` and ``max_content`` stay the first-fit measures.
     """
 
+    return _styled_breaks(
+        text,
+        width,
+        layout=_balance_lay_out,
+        white_space=white_space,
+        overflow_wrap=overflow_wrap,
+        word_break=word_break,
+        line_break=line_break,
+        hyphens=hyphens,
+        tab_size=tab_size,
+        lang=lang,
+        advances=advances,
+        letter_spacing=letter_spacing,
+        word_spacing=word_spacing,
+        hanging_punctuation=hanging_punctuation,
+        nowrap_ranges=nowrap_ranges,
+        clone_ranges=clone_ranges,
+        text_autospace=text_autospace,
+        autospace=autospace,
+    )
+
+
+def pretty_lines(
+    text: object,
+    width: object,
+    *,
+    white_space: object = "normal",
+    overflow_wrap: object = "normal",
+    word_break: object = "normal",
+    line_break: object = "auto",
+    hyphens: object = "manual",
+    tab_size: object = 8,
+    lang: object = "",
+    advances: object = None,
+    letter_spacing: object = 0,
+    word_spacing: object = 0,
+    hanging_punctuation: object = "none",
+    nowrap_ranges: object = (),
+    clone_ranges: object = (),
+    text_autospace: object = "off",
+    autospace: object = 0,
+) -> dict[str, object]:
+    """Keep the first-fit breaks, then lengthen a one-word last line.
+
+    Only the break between the last two lines moves, and only back to the
+    previous legal wrap opportunity. The line count stays the same. A last
+    line that already holds two words, a move that would overflow, and a
+    previous line that would become empty stay on the first-fit breaks.
+    ``min_content`` and ``max_content`` stay the first-fit measures.
+    """
+
+    return _styled_breaks(
+        text,
+        width,
+        layout=_pretty_lay_out,
+        white_space=white_space,
+        overflow_wrap=overflow_wrap,
+        word_break=word_break,
+        line_break=line_break,
+        hyphens=hyphens,
+        tab_size=tab_size,
+        lang=lang,
+        advances=advances,
+        letter_spacing=letter_spacing,
+        word_spacing=word_spacing,
+        hanging_punctuation=hanging_punctuation,
+        nowrap_ranges=nowrap_ranges,
+        clone_ranges=clone_ranges,
+        text_autospace=text_autospace,
+        autospace=autospace,
+    )
+
+
+def _styled_breaks(
+    text: object,
+    width: object,
+    *,
+    layout,
+    white_space: object,
+    overflow_wrap: object,
+    word_break: object,
+    line_break: object,
+    hyphens: object,
+    tab_size: object,
+    lang: object,
+    advances: object,
+    letter_spacing: object,
+    word_spacing: object,
+    hanging_punctuation: object,
+    nowrap_ranges: object,
+    clone_ranges: object,
+    text_autospace: object,
+    autospace: object,
+) -> dict[str, object]:
     try:
         source = _text(text)
         measure = _nonneg(width, "width")
@@ -319,7 +418,7 @@ def balance_lines(
     clone_token = _CLONE.set(clones)
     try:
         try:
-            lines = _balance_lay_out(
+            lines = layout(
                 tokens,
                 measure,
                 white=white,
@@ -601,6 +700,171 @@ def _balance_segment(
         built.append(_line(text, content, full))
         start = end
     return built
+
+
+def _pretty_lay_out(
+    tokens: list[_Tok],
+    width: float,
+    *,
+    white: str,
+    overflow: str,
+    word: str,
+    strictness: str,
+    hyphens: str,
+    lang: str,
+    tab_size: float,
+    space_advance: float,
+) -> list[dict[str, object]]:
+    if hyphens == "auto":
+        tokens = _with_auto_hyphens(tokens, lang)
+    segments = _segments(tokens)
+    last = len(segments) - 1
+    lines: list[dict[str, object]] = []
+    for index, segment in enumerate(segments):
+        marker = _OPENING.set(index == 0)
+        try:
+            lines.extend(
+                _pretty_segment(
+                    segment,
+                    width,
+                    white=white,
+                    overflow=overflow,
+                    word=word,
+                    strictness=strictness,
+                    hyphens=hyphens,
+                    lang=lang,
+                    tab_size=tab_size,
+                    space_advance=space_advance,
+                    before_forced=index < last,
+                )
+            )
+        finally:
+            _OPENING.reset(marker)
+    return lines
+
+
+def _pretty_segment(
+    tokens: list[_Tok],
+    width: float,
+    *,
+    white: str,
+    overflow: str,
+    word: str,
+    strictness: str,
+    hyphens: str,
+    lang: str,
+    tab_size: float,
+    space_advance: float,
+    before_forced: bool,
+) -> list[dict[str, object]]:
+    """Slide only the final break back one opportunity when the last line is one word."""
+
+    fitted = _segment(
+        tokens,
+        width,
+        white=white,
+        overflow=overflow,
+        word=word,
+        strictness=strictness,
+        hyphens=hyphens,
+        lang=lang,
+        tab_size=tab_size,
+        space_advance=space_advance,
+        before_forced=before_forced,
+        intrinsic=False,
+    )
+    if white not in _WRAPS or len(fitted) < 2 or not tokens:
+        return fitted
+    breaks = _opportunities(
+        tokens, white=white, word=word, strictness=strictness, hyphens=hyphens, lang=lang
+    )
+    relaxed = None
+    if word == "keep-all" and overflow == "normal" and strictness != "anywhere":
+        relaxed = _opportunities(
+            tokens,
+            white=white,
+            word="normal",
+            strictness=strictness,
+            hyphens=hyphens,
+            lang=lang,
+        )
+    ends = _greedy_ends(
+        tokens,
+        width,
+        breaks,
+        relaxed,
+        _emergency_enabled(white, overflow, strictness, False),
+        white=white,
+        hyphens=hyphens,
+        tab_size=tab_size,
+        space_advance=space_advance,
+        before_forced=before_forced,
+    )
+    if len(ends) != len(fitted) or ends[-1] != len(tokens):
+        return fitted
+    prev_end = ends[-2]
+    if not _span_is_one_word(tokens, prev_end, ends[-1], white):
+        return fitted
+    prev_start = ends[-3] if len(ends) > 2 else 0
+    candidate = _previous_wrap(breaks, relaxed, prev_start, prev_end)
+    if candidate is None:
+        return fitted
+    last_text, last_content, last_full = _measure(
+        tokens,
+        candidate,
+        ends[-1],
+        white=white,
+        hyphens=hyphens,
+        tab_size=tab_size,
+        space_advance=space_advance,
+        width=width,
+        at_segment_end=True,
+        before_forced=before_forced,
+    )
+    if not last_text or last_content > width + _EPS:
+        return fitted
+    prev_text, prev_content, prev_full = _measure(
+        tokens,
+        prev_start,
+        candidate,
+        white=white,
+        hyphens=hyphens,
+        tab_size=tab_size,
+        space_advance=space_advance,
+        width=width,
+        at_segment_end=False,
+        before_forced=before_forced,
+    )
+    if not prev_text or prev_content > width + _EPS:
+        return fitted
+    adjusted = list(fitted)
+    adjusted[-2] = _line(prev_text, prev_content, prev_full)
+    adjusted[-1] = _line(last_text, last_content, last_full)
+    return adjusted
+
+
+def _span_is_one_word(tokens: list[_Tok], start: int, end: int, white: str) -> bool:
+    low = start
+    while low < end and tokens[low].kind == "space" and tokens[low].collapsible:
+        low += 1
+    high = end
+    while high > low and _is_trail(tokens[high - 1], white):
+        high -= 1
+    if low >= high:
+        return False
+    return all(tok.kind not in {"space", "tab", "sep", "break"} for tok in tokens[low:high])
+
+
+def _previous_wrap(
+    breaks: list[bool],
+    relaxed: list[bool] | None,
+    start: int,
+    end: int,
+) -> int | None:
+    for index in range(end - 1, start, -1):
+        if breaks[index] or (relaxed is not None and index < len(relaxed) and relaxed[index]):
+            return index
+    return None
 
 
 def _greedy_ends(

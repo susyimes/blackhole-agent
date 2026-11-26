@@ -194,7 +194,13 @@ partition whose leftover inline space has the lower variance. ``wrap`` and
 ``auto`` stay on the first-fit breaks. A group of more than ten lines stays
 on those breaks. A float, a text indent, an inside marker, a mixed font, an
 inline-block, a relative inline, a vertical writing mode, and a declaration
-on an inline are rejected for that balance. ``line-clamp`` is not
+on an inline are rejected for that balance. ``text-wrap: pretty`` and
+``text-wrap-style: pretty`` keep the first-fit line count and, when the last
+line is one word, move the previous wrap opportunity onto it if the enlarged
+line still fits. Earlier lines stay on the first-fit breaks. A float, a text
+indent, an inside marker, a mixed font, an inline-block, a relative inline, a
+vertical writing mode, and a declaration on an inline are rejected for that
+pretty wrap. ``line-clamp`` is not
 inherited. ``none`` keeps every line. A positive integer keeps that many
 lines of a horizontal left-to-right block; when a later line was discarded,
 the last kept line ends with U+2026 and drops end characters until that mark
@@ -793,7 +799,7 @@ from blackhole_agent.css_offset_path import travel_offset_path
 from blackhole_agent.css_replaced import used_replaced_size
 from blackhole_agent.css_inline_line import layout_inline_line
 from blackhole_agent.css_length_math import is_length_math
-from blackhole_agent.css_line_break import _default_advance, balance_lines, wrap_lines
+from blackhole_agent.css_line_break import _default_advance, balance_lines, pretty_lines, wrap_lines
 from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
@@ -4756,7 +4762,7 @@ def _reject_glyph_chrome(box: _Box) -> None:
         raise _Invalid("inline chrome is unsupported")
     if box.floats or box.atoms or _mixed_runs(box) or _relative_pieces(box) or box.list_item:
         raise _Invalid("inline chrome is unsupported")
-    if box.text_indent != "0px" or box.text_wrap_style == "balance" or box.line_clamp is not None:
+    if box.text_indent != "0px" or box.text_wrap_style in {"balance", "pretty"} or box.line_clamp is not None:
         raise _Invalid("inline chrome is unsupported")
     if box.hanging_punctuation != "none":
         raise _Invalid("inline chrome is unsupported")
@@ -5356,7 +5362,7 @@ def _text_wrap_style(winners: list[tuple[int, str, str]], custom: dict, parent: 
     token = raw.strip().lower()
     if token == "initial":
         return "auto"
-    mapped = {"balance": "balance", "auto": "auto"}
+    mapped = {"balance": "balance", "auto": "auto", "pretty": "pretty"}
     if prop == "text-wrap":
         mapped["wrap"] = "auto"
     if token not in mapped:
@@ -5367,10 +5373,17 @@ def _text_wrap_style(winners: list[tuple[int, str, str]], custom: dict, parent: 
 def _reject_balanced_context(box: _Box) -> None:
     if box.text_wrap_style == "balance":
         raise _Invalid("balanced text wrap is unsupported")
+    if box.text_wrap_style == "pretty":
+        raise _Invalid("pretty text wrap is unsupported")
 
 
 def _measure_lines(box: _Box, text: str, measure: int, *, advances: object) -> dict[str, object]:
-    function = balance_lines if box.text_wrap_style == "balance" else wrap_lines
+    if box.text_wrap_style == "balance":
+        function = balance_lines
+    elif box.text_wrap_style == "pretty":
+        function = pretty_lines
+    else:
+        function = wrap_lines
     return function(
         text,
         measure,
@@ -10699,7 +10712,7 @@ def _reject_line_clamp(box: _Box, direction: str) -> None:
         raise _Invalid("clamped spacing is unsupported")
     if box.text_indent != "0px":
         raise _Invalid("clamped text-indent is unsupported")
-    if box.text_wrap_style == "balance":
+    if box.text_wrap_style in {"balance", "pretty"}:
         raise _Invalid("clamped text wrap is unsupported")
     if _gap_alignment(box):
         raise _Invalid("clamped justification is unsupported")
@@ -11660,10 +11673,12 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
         raise _Invalid("inside marker content is unsupported")
     if indent and (box.letter_spacing or box.word_spacing):
         raise _Invalid("spaced marker is unsupported")
-    if box.text_wrap_style == "balance" and (
+    if box.text_wrap_style in {"balance", "pretty"} and (
         text_indent or indent or shifted or box.writing_mode != "horizontal-tb" or box.direction != "ltr"
     ):
-        raise _Invalid("balanced text wrap is unsupported")
+        if box.text_wrap_style == "balance":
+            raise _Invalid("balanced text wrap is unsupported")
+        raise _Invalid("pretty text wrap is unsupported")
     cap_width = 0
     beside_count = 0
     cap_raise = 0

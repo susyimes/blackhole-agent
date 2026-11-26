@@ -152,6 +152,7 @@ def observe() -> tuple[bool, dict[str, object]]:
     plain_lines = _lines(_box(inherited, "plain"))
     ten_lines = _lines(_box(ten, "page"))
     eleven_lines = _lines(_box(eleven, "page"))
+    pretty_lines = _lines(_box(pretty, "page"))
     observed: dict[str, object] = {
         "balance": [_pack(line) for line in balance_lines],
         "balance_next_y": None if _box(balance, "next") is None else _box(balance, "next").get("y"),
@@ -165,6 +166,7 @@ def observe() -> tuple[bool, dict[str, object]]:
         "eleven_next_y": None if _box(eleven, "next") is None else _box(eleven, "next").get("y"),
         "pretty": pretty.get("outcome"),
         "pretty_reason": pretty.get("reason"),
+        "pretty_line": _pack(pretty_lines[0]) if pretty_lines else None,
         "inline": inline.get("outcome"),
         "inline_reason": inline.get("reason"),
         "float": floated.get("outcome"),
@@ -195,8 +197,12 @@ def observe() -> tuple[bool, dict[str, object]]:
         and eleven_lines[0].get("content_width") == 110
         and eleven_lines[-1].get("text") == "W30"
         and observed["eleven_next_y"] == 110
-        and pretty.get("outcome") == "invalid"
-        and pretty.get("reason") == "text-wrap is invalid"
+        and pretty.get("outcome") == "placed"
+        and len(pretty_lines) == 1
+        and pretty_lines[0].get("text") == "AB"
+        and pretty_lines[0].get("x") == 0
+        and pretty_lines[0].get("y") == 0
+        and pretty_lines[0].get("content_width") == 20
         and inline.get("outcome") == "invalid"
         and inline.get("reason") == "inline text-wrap is unsupported"
         and floated.get("outcome") == "invalid"
