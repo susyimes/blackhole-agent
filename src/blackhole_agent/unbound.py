@@ -1753,15 +1753,9 @@ def is_reported_command_replay(replay: Mapping[str, Any]) -> bool:
 # `| Tee-Object`) and a language statement (`foreach`, `try`). Any unquoted
 # Verb-Noun command name is PowerShell, including after a pipe. A path
 # segment such as `\blackhole-agent` is not a command name.
-_POWERSHELL_CALL_OPERATOR = re.compile(r"\s*&\s*(?:['\"]|\$[A-Za-z_])")
-_POWERSHELL_ENV_STATEMENT = re.compile(
-    r"\s*\$env:[A-Za-z_][A-Za-z0-9_]*\s*=",
-    re.IGNORECASE,
-)
-_POWERSHELL_VAR_ASSIGNMENT = re.compile(r"\s*\$[A-Za-z_][A-Za-z0-9_]*\s*=")
-_POWERSHELL_LANGUAGE = re.compile(
-    r"\s*(?:foreach|try|catch|finally|switch|while|param|throw|trap|class|enum|"
-    r"function|filter|using)\b",
+_POWERSHELL_STATEMENT = re.compile(
+    r"(?:^|[;\n])\s*(?:\$(?:env:)?[A-Za-z_][A-Za-z0-9_]*\s*=|&\s*(?:['\"]|\$[A-Za-z_])|"
+    r"(?:foreach|try|catch|finally|switch|while|param|throw|trap|class|enum|function|filter|using)\b)",
     re.IGNORECASE,
 )
 _POWERSHELL_COMMAND_NAME = re.compile(
@@ -1770,73 +1764,16 @@ _POWERSHELL_COMMAND_NAME = re.compile(
 _POSIX_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
-def _statement_starts(text: str) -> list[int]:
-    """Indexes of unquoted statement starts. Semicolons and newlines split."""
-
-    starts = [0]
-    in_single = False
-    in_double = False
-    for index, character in enumerate(text):
-        if character == "'" and not in_double:
-            in_single = not in_single
-        elif character == '"' and not in_single:
-            in_double = not in_double
-        elif character in ";\n" and not in_single and not in_double:
-            starts.append(index + 1)
-    return starts
-
-
-def _powershell_env_assignment(text: str) -> bool:
-    """True when an ``$env:`` assignment is its own unquoted statement."""
-
-    return any(
-        _POWERSHELL_ENV_STATEMENT.match(text[start:]) for start in _statement_starts(text)
-    )
-
-
-def _unquoted_pieces(text: str) -> list[str]:
-    """Pieces outside single and double quotes. An unclosed quote drops its tail."""
-
-    pieces: list[str] = []
-    start = 0
-    in_single = False
-    in_double = False
-    for index, character in enumerate(text):
-        if character == "'" and not in_double:
-            if not in_single:
-                pieces.append(text[start:index])
-            in_single = not in_single
-            start = index + 1
-        elif character == '"' and not in_single:
-            if not in_double:
-                pieces.append(text[start:index])
-            in_double = not in_double
-            start = index + 1
-    if not in_single and not in_double:
-        pieces.append(text[start:])
-    return pieces
-
-
-def _powershell_command_name(text: str) -> bool:
-    """True when an unquoted token is a Verb-Noun command, including after a pipe."""
-
-    return any(_POWERSHELL_COMMAND_NAME.search(piece) for piece in _unquoted_pieces(text))
+def _unquoted_syntax(text: str) -> str:
+    """Mask quoted argument bodies while retaining delimiters for the PowerShell call operator."""
+    return re.sub(r"""'[^']*(?:'|\Z)|"[^"]*(?:"|\Z)""", lambda match: match[0][0] * 2, text)
 
 
 def _powershell_script(text: str) -> bool:
     """True when one unquoted statement is PowerShell rather than cmd."""
 
-    if _powershell_env_assignment(text) or _powershell_command_name(text):
-        return True
-    for start in _statement_starts(text):
-        segment = text[start:]
-        if (
-            _POWERSHELL_VAR_ASSIGNMENT.match(segment)
-            or _POWERSHELL_CALL_OPERATOR.match(segment)
-            or _POWERSHELL_LANGUAGE.match(segment)
-        ):
-            return True
-    return False
+    syntax = _unquoted_syntax(text)
+    return bool(_POWERSHELL_STATEMENT.search(syntax) or _POWERSHELL_COMMAND_NAME.search(syntax))
 
 
 def _agent_shell_argv(text: str) -> list[str] | None:
@@ -1869,103 +1806,20 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     return _agent_shell_argv(text)
 
 
-_CMD_LAUNCH_FRAGMENTS: tuple[str, ...] | None = None
-
-
-def _console_encoding() -> str:
-    """OEM code page cmd.exe uses for its own parser and launch errors."""
-
-    if os.name != "nt":
-        return "utf-8"
-    try:
-        import ctypes
-
-        code_page = int(ctypes.windll.kernel32.GetOEMCP())
-    except (AttributeError, OSError, ValueError):
-        return "mbcs"
-    return f"cp{code_page}" if code_page > 0 else "mbcs"
-
-
-def _oem_decode(payload: bytes) -> str:
-    if not payload:
-        return ""
-    return payload.decode(_console_encoding(), errors="replace")
-
-
-def _cmd_launch_fragments() -> tuple[str, ...]:
-    """Stable pieces of this machine's cmd.exe parser and launch errors.
-
-    The text is learned from cmd itself so a Chinese or English console matches
-    without a hard-coded language table. A program traceback does not contain
-    those pieces.
-    """
-
-    global _CMD_LAUNCH_FRAGMENTS
-    if _CMD_LAUNCH_FRAGMENTS is not None:
-        return _CMD_LAUNCH_FRAGMENTS
-    found: list[str] = []
-    if os.name == "nt":
-        probes = (
-            ("bh_missing_token_zz", "bh_missing_token_zz"),
-            ("if (1 -eq 0) { exit 9 }", "-eq"),
-            ("echo hi &&", ""),
-        )
-        probe_cwd = os.environ.get("SYSTEMROOT") or os.environ.get("WINDIR") or "."
-        for command, token in probes:
-            try:
-                completed = subprocess.run(
-                    command,
-                    cwd=probe_cwd,
-                    capture_output=True,
-                    timeout=15,
-                    shell=True,
-                )
-            except (OSError, subprocess.TimeoutExpired):
-                continue
-            text = " ".join(
-                f"{_oem_decode(completed.stdout or b'')} {_oem_decode(completed.stderr or b'')}".split()
-            )
-            pieces = text.split(token, 1) if token and token in text else (text,)
-            for piece in pieces:
-                cleaned = piece.strip(" '\"。．.")
-                if len(cleaned) >= 4:
-                    found.append(cleaned)
-    kept: list[str] = []
-    for piece in sorted(set(found), key=len, reverse=True):
-        if any(piece in prior for prior in kept):
-            continue
-        kept.append(piece)
-    _CMD_LAUNCH_FRAGMENTS = tuple(kept)
-    return _CMD_LAUNCH_FRAGMENTS
-
-
-def _text_has_launch_fragment(text: str) -> bool:
-    compact = " ".join(str(text or "").split())
-    if not compact:
-        return False
-    return any(fragment in compact for fragment in _cmd_launch_fragments())
-
-
 def _decode_cmd_output(payload: bytes) -> str:
-    """Prefer OEM text when it is a cmd parser banner; keep UTF-8 program output."""
+    """Read UTF-8 program output and localized shell diagnostics."""
 
-    if not payload:
-        return ""
-    oem = _oem_decode(payload)
     try:
-        utf8 = payload.decode("utf-8")
+        return payload.decode("utf-8")
     except UnicodeDecodeError:
-        return oem
-    if _text_has_launch_fragment(oem) and not _text_has_launch_fragment(utf8):
-        return oem
-    return utf8
+        return payload.decode("oem" if os.name == "nt" else "utf-8", errors="replace")
 
 
 def _run_cmd_replay(
     command: str,
     *,
     cwd: Path,
-    timeout: int,
+    timeout: float,
     env: dict[str, str] | None,
 ) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(
@@ -1982,20 +1836,6 @@ def _run_cmd_replay(
         _decode_cmd_output(completed.stdout or b""),
         _decode_cmd_output(completed.stderr or b""),
     )
-
-
-def _cmd_launch_rejected(completed: subprocess.CompletedProcess[str]) -> bool:
-    """True when cmd.exe rejected the text before a program could exit.
-
-    Parser and 'not recognized' failures on this host are exit 1 and carry a
-    learned banner. A program cmd.exe actually started keeps its own exit,
-    including exit 1.
-    """
-
-    if os.name != "nt" or completed.returncode != 1:
-        return False
-    text = " ".join(f"{completed.stdout or ''} {completed.stderr or ''}".split())
-    return _text_has_launch_fragment(text)
 
 
 def _posix_prefix_token(body: str) -> tuple[str, str, str] | None:
@@ -2073,6 +1913,70 @@ def _cmd_program_token_span(text: str) -> tuple[int, int] | None:
     while end < len(text) and not text[end].isspace():
         end += 1
     return 0, end
+
+
+_CMD_BUILTINS = frozenset(
+    "assoc break call cd chdir cls color copy date del dir dpath echo endlocal erase exit for ftype "
+    "goto if keys lh loadhigh md mkdir mklink move path pause popd prompt pushd rd rem ren rename "
+    "rmdir set setlocal shift start time title type ver verify vol".split()
+)
+
+
+def _use_cmd_for_unclassified(command: str, workspace: Path, environment: dict[str, str], deadline: float) -> bool:
+    """Select cmd for native programs and batch syntax before any validation statement runs."""
+    text = command.lstrip()
+    if re.match(r"(?:if|for)\s*\(", text, re.IGNORECASE):
+        # A PowerShell condition ends at the matching ')' and opens a script block.
+        # Parentheses in quoted operands and braces in a cmd IF's body are data.
+        header = _unquoted_syntax(text)
+        depth = 0
+        for paren in re.finditer(r"[()]", header):
+            depth += 1 if paren[0] == "(" else -1
+            if depth == 0:
+                return not header[paren.end():].lstrip().startswith("{")
+    if text.startswith(("@(", "@{", "@'", '@"')):
+        return False
+    text = text.lstrip("(").lstrip()
+    span = _cmd_program_token_span(text)
+    if span is None or text.startswith(("@", "%", "^", "<", ">")):
+        return True
+    start, end = span
+    head = text[start:end]
+    if text[0] not in "'\"":
+        head = re.split(r"[&|<>()]", head, maxsplit=1)[0]
+    name = head.casefold()
+    if name.endswith(".ps1"):
+        return False
+    if name in _CMD_BUILTINS or re.match(r"(?:cd|chdir|echo)[./\\]", name):
+        return True
+    if any(char in head for char in "\\/%^") or re.match(r"^[a-z]:", name):
+        return True
+    # Use the child's PATHEXT and resolve relative PATH entries against its workspace.
+    extensions = (environment.get("PATHEXT") or ".COM;.EXE;.BAT;.CMD").lower().split(os.pathsep)
+    extensions = [ext for ext in extensions if ext]
+    if name.endswith(tuple(extensions)):
+        return True
+    directories = ["", *environment.get("PATH", os.defpath).split(os.pathsep)]
+    for entry in directories:
+        directory = workspace / entry.strip('"')
+        if any((directory / (head + ext)).is_file() for ext in extensions):
+            return True
+    if re.fullmatch(r"[a-z_][\w.-]*", name) and re.search(r"[&|]", _unquoted_syntax(text)):
+        # A missing first program can still take a cmd recovery branch. Use the agent
+        # shell for such a chain only if it actually supplies the head (e.g. an alias).
+        # The lookup receives only the name and never evaluates the validation text.
+        lookup = _agent_shell_argv(
+            "$PSModuleAutoLoadingPreference = 'None'\n"
+            "if ($ExecutionContext.InvokeCommand.GetCommand($env:BH_REPLAY_HEAD, "
+            "'Alias,Function,Filter,Cmdlet,ExternalScript')) { exit 0 }\nexit 1"
+        )
+        if lookup is not None:
+            discovery = run_text_command(
+                lookup, cwd=workspace, env={**environment, "BH_REPLAY_HEAD": head},
+                timeout=max(0, deadline - time.monotonic()),
+            )
+            return discovery.returncode != 0
+    return False
 
 
 def normalize_cmd_program_slashes(command: str) -> str:
@@ -2165,7 +2069,7 @@ def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str]:
     for key in [key for key in environment if str(key).casefold() == "pythonhome"]:
         del environment[key]
     if overlay:
-        environment.update({str(key): str(value) for key, value in overlay.items()})
+        environment.update({key.upper() if os.name == "nt" else key: value for key, value in overlay.items()})
     return environment
 
 
@@ -2178,14 +2082,15 @@ def replay_validation_command(
 ) -> dict[str, Any]:
     """Re-execute one agent-reported validation command under controller authority.
 
-    The agent already executes arbitrary commands during its own turn, so
-    replaying its claimed validation in the mission workspace adds no new
-    authority; it only removes the need to trust the reported exit code.
+    On Windows each replay selects a shell before the validation starts.
+    A true shell_fallback records selection of the agent shell for an
+    unclassified command. The receipt keeps the exit and output of that run.
     """
 
     shell_fallback = False
     try:
         if command_runner is subprocess.run:
+            deadline = time.monotonic() + timeout
             prefix = split_posix_env_prefix(command)
             run_command = command
             overlay = None
@@ -2193,53 +2098,33 @@ def replay_validation_command(
                 overlay, run_command = prefix
             environment = _replay_environment(overlay)
             argv = powershell_replay_argv(run_command)
+            if argv is None and os.name == "nt" and not _use_cmd_for_unclassified(
+                run_command, workspace, environment, deadline
+            ):
+                # Once any statement runs, retrying the text may repeat effects or hide its first failure.
+                argv = _agent_shell_argv(run_command)
+                shell_fallback = argv is not None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
             if argv is not None:
                 completed = run_text_command(
                     argv,
                     cwd=workspace,
-                    timeout=timeout,
+                    timeout=remaining,
                     shell=False,
                     env=environment,
                 )
             else:
-                agent_command = run_command
                 run_command = normalize_cmd_single_quoted_args(
                     normalize_cmd_program_slashes(run_command)
                 )
                 completed = _run_cmd_replay(
                     run_command,
                     cwd=workspace,
-                    timeout=timeout,
+                    timeout=remaining,
                     env=environment,
                 )
-                # cmd.exe is the replay default. A command it cannot start is
-                # run again in the agent shell, and that shell's exit stands
-                # even when the program fails. A program cmd already ran keeps
-                # cmd's exit, including a non-zero one.
-                if completed.returncode not in (0, None):
-                    fallback = _agent_shell_argv(agent_command)
-                    if fallback is not None:
-                        try:
-                            alternate = run_text_command(
-                                fallback,
-                                cwd=workspace,
-                                timeout=timeout,
-                                shell=False,
-                                env=environment,
-                            )
-                        except subprocess.TimeoutExpired:
-                            raise
-                        except Exception:
-                            alternate = None
-                        launch_rejected = _cmd_launch_rejected(completed)
-                        if (
-                            alternate is not None
-                            and isinstance(alternate.stdout, str)
-                            and alternate.returncode is not None
-                            and (alternate.returncode == 0 or launch_rejected)
-                        ):
-                            completed = alternate
-                            shell_fallback = True
         else:
             completed = command_runner(
                 command,

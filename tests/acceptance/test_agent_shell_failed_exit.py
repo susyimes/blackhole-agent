@@ -1,9 +1,7 @@
-"""A command cmd.exe rejects keeps the agent shell's failed exit code.
+"""Unclassified PowerShell comparisons retain their selected branch's exit.
 
-cmd.exe turns ``if (1 -eq 0) { exit 0 } else { exit 5 }`` into exit 1 before
-any program runs. The agent shell runs that comparison and exits 5. Replay
-keeps exit 5. A native program cmd.exe actually starts still keeps its own
-exit, and a comparison the agent shell can satisfy still exits 0.
+The failing comparison exits 5, the satisfied one exits 0, and native
+validators preserve their own exit codes and stderr.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both met
 and unmet outcomes.

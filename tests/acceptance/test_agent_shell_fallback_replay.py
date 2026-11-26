@@ -1,11 +1,7 @@
-"""Replay an unclassified comparison through the agent shell after cmd.exe fails.
+"""An unclassified PowerShell comparison takes the agent-shell fallback.
 
-cmd.exe rejects ``if (1 -eq 1) { exit 0 } else { exit 4 }`` because ``-eq`` is
-not cmd syntax. The statement is not a classified PowerShell form, so replay
-used to stop at that cmd failure. A failed cmd launch now runs again in the
-agent shell, and an agent-shell exit 0 is the replay result. A native program
-that already exits 4 under cmd stays 4. A cmd ``set VAR=value&&`` chain that
-already exits 0 is not run again.
+The comparison exits 0. A native validator retains exit 4 and a cmd
+assignment chain retains exit 0.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both met
 and unmet outcomes.
