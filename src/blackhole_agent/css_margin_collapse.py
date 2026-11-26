@@ -16,7 +16,10 @@ Float and absolute children are out of flow and are rejected. Clearance is
 supplied by the caller. It stops a top margin from collapsing with the
 parent or the previous sibling. A collapsed-through clearance box still
 collapses with following siblings, and that result stays inside the parent.
-Horizontal margins are untouched. After the content span is known,
+``trim_block_start`` and ``trim_block_end`` discard the descendant margins
+that adjoin those edges, including margins collapsed with them. The box's
+own margin, and a sibling margin that does not adjoin the trimmed edge,
+stay. Horizontal margins are untouched. After the content span is known,
 ``max_height`` clamps it and ``min_height`` raises it, so the minimum wins
 when both apply. An absent maximum does not clamp. A maximum alone does not
 stop a zero minimum from collapsing through.
@@ -44,6 +47,8 @@ _FIELDS = frozenset(
         "position",
         "display",
         "clearance",
+        "trim_block_start",
+        "trim_block_end",
         "children",
     }
 )
@@ -76,6 +81,8 @@ class _Spec:
     position: str
     display: str
     clearance: bool
+    trim_block_start: bool
+    trim_block_end: bool
     children: list[_Spec]
 
 
@@ -148,6 +155,8 @@ def _spec(box: object, *, nested: bool, seen: set[str]) -> _Spec:
         position=_choice(box.get("position", "static"), _POSITIONS, "position"),
         display=_choice(box.get("display", "block"), _DISPLAYS, "display"),
         clearance=_flag(box.get("clearance", False)),
+        trim_block_start=_flag(box.get("trim_block_start", False)),
+        trim_block_end=_flag(box.get("trim_block_end", False)),
         children=_children(box.get("children", []), seen),
     )
     if nested and (spec.float != "none" or spec.position in {"absolute", "fixed"}):
@@ -192,11 +201,15 @@ def _can_through(spec: _Spec, kids: list[_Node]) -> bool:
 
 def _through_node(spec: _Spec, kids: list[_Node]) -> _Node:
     parts: list[int] = [spec.margin_top, spec.margin_bottom]
-    for child in kids:
-        parts.extend(child.parts)
-        child.y = 0
     top_parts = [spec.margin_top]
+    # A through box joins every descendant margin into both edges. Trimming
+    # either edge drops those descendant pieces and keeps the box's own.
+    discard = spec.trim_block_start or spec.trim_block_end
     for child in kids:
+        child.y = 0
+        if discard:
+            continue
+        parts.extend(child.parts)
         top_parts.extend(child.parts)
     blocked = spec.clearance or any(child.blocks_bottom for child in kids)
     collapsed = _collapse(parts)
@@ -312,20 +325,33 @@ def _place(
                 top_parts=top_parts,
                 spec=spec,
             )
+            if index == len(_segments(kids)) - 1 and spec.trim_block_end:
+                carried = 0
             continue
         first = blocks[0][0]
+        trim_start = index == 0 and spec.trim_block_start
         if index == 0 and absorb_top:
-            top_parts = [spec.margin_top, *_parts(leading), *_edge(first, top=True)]
+            if trim_start:
+                top_parts = [spec.margin_top]
+                for child in leading:
+                    child.y = content_y
+            else:
+                top_parts = [spec.margin_top, *_parts(leading), *_edge(first, top=True)]
+                for child in leading:
+                    child.y = 0
             first.y = content_y
-            for child in leading:
-                child.y = 0
             base = content_y
             extra = 0
         elif prev_end is None:
             base = content_y
             extra = 0
-            first.y = base + _collapse([*_parts(leading), *_edge(first, top=True)])
-            _mark_leading(leading, base)
+            if trim_start:
+                first.y = content_y
+                for child in leading:
+                    child.y = content_y
+            else:
+                first.y = base + _collapse([*_parts(leading), *_edge(first, top=True)])
+                _mark_leading(leading, base)
         else:
             base = prev_end
             extra = carried
@@ -341,8 +367,11 @@ def _place(
         _mark_between(trailing, previous)
         prev_end = previous.y + previous.border_height
         trail = [*_edge(previous, top=False), *_parts(trailing)]
-        if index == len(_segments(kids)) - 1 and absorb_bottom and not _segment_blocks(trailing):
-            bottom_parts = [*trail, spec.margin_bottom]
+        at_end = index == len(_segments(kids)) - 1 and not _segment_blocks(trailing)
+        if at_end and absorb_bottom:
+            bottom_parts = [spec.margin_bottom] if spec.trim_block_end else [*trail, spec.margin_bottom]
+            carried = 0
+        elif at_end and spec.trim_block_end:
             carried = 0
         else:
             carried = _collapse(trail)
@@ -365,7 +394,13 @@ def _through_segment(
     if index == 0 and absorb_top and not _segment_blocks(leading):
         for child in leading:
             child.y = 0
+        if spec.trim_block_start:
+            return None, 0, [spec.margin_top]
         return None, 0, [spec.margin_top, *parts]
+    if index == 0 and spec.trim_block_start and prev_end is None:
+        for child in leading:
+            child.y = content_y
+        return content_y, 0, top_parts
     origin = content_y if prev_end is None else prev_end + carried
     _mark_leading(leading, origin)
     end = content_y if prev_end is None else prev_end

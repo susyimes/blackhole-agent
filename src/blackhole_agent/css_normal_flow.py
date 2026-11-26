@@ -663,6 +663,13 @@ snapport. ``scroll-padding`` insets the snapport and ``scroll-margin``
 outsets an area. The areas and the following block stay where flow put
 them. An unparsable snap is invalid. A vertical writing mode or a visible
 overflow port is rejected.
+``margin-trim`` on a horizontal block container discards descendant margins
+that adjoin the named block edges, including a grandchild margin collapsed
+through the first child. ``block`` trims both edges. The container's own
+margin and a sibling margin that does not adjoin the trimmed edge stay, so
+the following block moves up when an escaped or interior edge margin
+disappears. ``inline`` is invalid. A vertical writing mode or columns with
+a trim are rejected.
 """
 
 from __future__ import annotations
@@ -1144,6 +1151,7 @@ class _Box:
     allotted_content_width: int | None = None
     align_mode: str = "normal"
     align_safe: bool = True
+    margin_trim: str = "none"
     offset_path: str = ""
     offset_distance: str = "0px"
     offset_rotate: str = "auto"
@@ -2077,6 +2085,7 @@ def _make_box(
         line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
         align_mode=align_mode,
         align_safe=align_safe,
+        margin_trim=_read_margin_trim(_declared(winners, "margin-trim", custom)),
         initial_letter=initial_letter,
         parent_direction=parent_direction,
         multicol=columns,
@@ -3121,6 +3130,11 @@ def _solve(
     box: _Box, parent_width: int, parent_height: int | None, viewport_height: int | None,
     parent_content_x: int, scrollport_height: int | None = None,
 ) -> None:
+    if box.margin_trim != "none":
+        if box.writing_mode != "horizontal-tb":
+            raise _Invalid("margin-trim writing mode is unsupported")
+        if box.multicol is not None:
+            raise _Invalid("margin-trim columns are unsupported")
     box.containing_inline = parent_width
     box.allotted_content_width = None
     box.gutter_start = 0
@@ -3302,12 +3316,54 @@ def _max_limit_token(value: int | None) -> int | str:
     return "none" if value is None else value
 
 
+def _margin_trim_flags(box: _Box) -> tuple[bool, bool]:
+    """Block-edge trim for an in-flow horizontal block container.
+
+    ``margin-trim`` does not apply to flex, grid, table, float, or out-of-flow
+    boxes. On a box it does apply to, ``block`` trims both block edges.
+    """
+
+    if box.margin_trim == "none":
+        return False, False
+    if (
+        box.display not in {"block", "flow-root", "inline-block"}
+        or box.float_side != "none"
+        or box.position in {"absolute", "fixed"}
+        or box.writing_mode != "horizontal-tb"
+    ):
+        return False, False
+    return box.margin_trim in {"block", "block-start"}, box.margin_trim in {"block", "block-end"}
+
+
+def _read_margin_trim(value: str | None) -> str:
+    """``none``, ``block``, or the block-start and block-end edges.
+
+    ``block`` is both edges. The two edge keywords may occur in either order.
+    ``inline`` is not a value of this property.
+    """
+
+    if value is None:
+        return "none"
+    text = " ".join(value.strip().lower().split())
+    if text in {"", "initial", "unset", "revert"}:
+        return "none"
+    if text == "inherit":
+        raise _Invalid("margin-trim inherit is unsupported")
+    if text in {"none", "block", "block-start", "block-end"}:
+        return text
+    parts = text.split(" ")
+    if len(parts) == 2 and set(parts) == {"block-start", "block-end"}:
+        return "block"
+    raise _Invalid("margin-trim is invalid")
+
+
 def _collapse_spec(box: _Box) -> dict[str, object]:
     solved = box.solved
     minimum, maximum = _used_block_limits(box)
     display = box.display if box.display in {"inline-block", "flow-root"} else "block"
     if display == "block" and box.align_mode != "normal":
         display = "flow-root"
+    trim_start, trim_end = _margin_trim_flags(box)
     return {
         "id": box.id,
         "margin_top": _px(solved.get("margin_top"), "margin-top"),
@@ -3324,6 +3380,8 @@ def _collapse_spec(box: _Box) -> dict[str, object]:
         "position": "relative" if box.position == "relative" else "static",
         "display": display,
         "clearance": False,
+        "trim_block_start": trim_start,
+        "trim_block_end": trim_end,
         "children": [] if box.anchor_laid else [_collapse_spec(child) for child in box.children],
     }
 
