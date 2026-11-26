@@ -21,13 +21,15 @@ for the maximum.
 Percentage margins and padding use ``percentage_basis`` (the containing
 block's physical width). Inline-size percentages use ``containing_inline``.
 Block-size percentages use ``containing_block``. Inset percentages are
-rejected. A used border width is zero when its style is ``none`` or
+rejected. ``anchor()`` is valid inset syntax and is rejected here, because
+only an absolutely positioned box can resolve it. A used border width is zero when its style is ``none`` or
 ``hidden``; otherwise ``thin``, ``medium``, and ``thick`` are 1px, 3px, and
 5px. An omitted width next to a visible style is medium.
 """
 
 from __future__ import annotations
 
+from blackhole_agent.css_anchor_position import parse_anchor_call
 from blackhole_agent.css_anchor_query import parse_anchor_size_call
 from blackhole_agent.css_block_width import used_block_width
 from blackhole_agent.css_length_math import is_length_math, resolve_length_math
@@ -299,6 +301,8 @@ def _check_component(longhand: str, value: str) -> None:
     if family == "inset":
         if value.lower() == "auto":
             return
+        if _anchor_component(value):
+            return
         _parse_length(value, negative=True, percent=False, name="inset")
         return
     if family == "margin":
@@ -324,6 +328,15 @@ def _check_component(longhand: str, value: str) -> None:
         _parse_length(value, negative=False, percent=True, name="size")
         return
     raise _Invalid("property is invalid")
+
+
+def _anchor_component(value: str) -> bool:
+    parsed = parse_anchor_call(value)
+    if parsed.get("outcome") == "absent":
+        return False
+    if parsed.get("outcome") != "parsed":
+        raise _Invalid(str(parsed.get("reason") or "anchor() is invalid"))
+    return True
 
 
 def _anchor_size_component(value: str) -> bool:
@@ -609,6 +622,11 @@ def _needs_basis(raw: str) -> bool:
 def _inset(raw: str) -> object:
     if raw.lower() == "auto":
         return "auto"
+    parsed = parse_anchor_call(raw)
+    if parsed.get("outcome") == "parsed":
+        raise _Invalid("anchor() is unsupported")
+    if parsed.get("outcome") == "invalid":
+        raise _Invalid(str(parsed.get("reason") or "anchor() is invalid"))
     return _number(_length(raw, 0.0, negative=True, percent=False, name="inset"))
 
 

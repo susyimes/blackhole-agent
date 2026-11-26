@@ -64,7 +64,17 @@ it uses ``position-anchor`` when the name is omitted. A length or percentage
 fallback is used when that anchor is missing; the percentage uses the
 containing block's size on that axis. A missing fallback, a static box, a
 float or other out-of-flow anchor, an anchor inside the positioned box, and
-a vertical or non-ltr box are rejected. A float inside
+a vertical or non-ltr box are rejected. ``anchor()`` on ``left``, ``right``,
+``top``, or ``bottom`` of that same absolute or fixed box is resolved before
+the inset equation. The margin edge lines up with the requested edge of the
+named in-flow anchor. An omitted name uses ``position-anchor``. ``center``
+and a percentage select a point on the property's axis. A missing anchor, or
+a side on the wrong axis, uses a ``px`` or percentage fallback when one is
+written and is invalid without one. The following in-flow block stays where
+it was. A static, relative, or sticky box, a float or other out-of-flow
+anchor, an anchor inside the positioned box, a vertical box, and a non-ltr
+box are rejected. ``position-area`` still moves the box after that inset is
+solved. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. An inline-block in that text is an unbreakable item: its margin box
@@ -689,7 +699,7 @@ from blackhole_agent.css_animation import _extract_keyframes, _strip_comments as
 from blackhole_agent.css_scroll_snap import resolve_scroll_snap
 from blackhole_agent.css_scroll_timeline import sample_scroll_driven_animation, scroll_timeline_progress
 from blackhole_agent.css_anchor_query import parse_anchor_size_call, resolve_anchor_size
-from blackhole_agent.css_anchor_position import place_anchored
+from blackhole_agent.css_anchor_position import parse_anchor_call, place_anchored, used_anchor_inset
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_counters import format_counter, format_counters, resolve_counters
@@ -7706,6 +7716,94 @@ def _apply_anchor_sizes(
         slots[prop] = f"{length}px"
 
 
+def _anchor_call_text(value: object) -> bool:
+    return isinstance(value, str) and value.strip().lower().startswith("anchor(")
+
+
+def _anchor_fallback_px(text: object, prop: str, cb: _Edge) -> tuple[float | None, bool]:
+    """Pixels of a written fallback, and whether a percentage has no basis yet."""
+
+    if text is None:
+        return None, False
+    token = str(text).strip().lower()
+    if token.endswith("px"):
+        return float(token[:-2]), False
+    if token.endswith("%"):
+        basis = cb.width if prop in {"left", "right"} else cb.height
+        if basis is None:
+            return None, True
+        return float(basis) * float(token[:-1]) / 100.0, False
+    raise _Invalid("anchor() is invalid")
+
+
+def _apply_anchor_insets(
+    box: _Box,
+    slots: dict[str, str],
+    anchors: dict[str, _Box],
+    cb: _Edge,
+) -> None:
+    """Replace anchor() insets with the px length the absolute equation solves."""
+
+    props = [side for side in ("top", "right", "bottom", "left") if _anchor_call_text(_inset(slots, side))]
+    if not props:
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("anchor() is unsupported")
+    containing = {
+        "x": cb.x,
+        "y": cb.y,
+        "width": cb.width,
+        "height": 0 if cb.height is None else cb.height,
+        "writing_mode": "horizontal-tb",
+        "direction": "ltr",
+    }
+    for prop in props:
+        parsed = parse_anchor_call(_inset(slots, prop))
+        if parsed.get("outcome") != "parsed":
+            raise _Invalid(str(parsed.get("reason") or "anchor() is invalid"))
+        name = parsed.get("anchor") or box.position_anchor
+        anchor = anchors.get(str(name)) if name else None
+        if anchor is not None:
+            if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
+                raise _Invalid("anchor is out of flow")
+            if anchor.writing_mode != "horizontal-tb" or anchor.direction != "ltr":
+                raise _Invalid("anchor() is unsupported")
+            if _box_contains(box, anchor):
+                raise _Invalid("anchor is inside the positioned box")
+            measured: dict[str, object] | None = {
+                "x": anchor.x,
+                "y": anchor.y,
+                "width": anchor.border_width,
+                "height": anchor.border_height,
+                "writing_mode": "horizontal-tb",
+                "direction": "ltr",
+            }
+        else:
+            measured = None
+        if prop == "bottom" and cb.height is None and measured is not None:
+            raise _Invalid("anchor containing block is indefinite")
+        fallback, unresolved_fallback = _anchor_fallback_px(parsed.get("fallback"), prop, cb)
+        if measured is None and fallback is None and not unresolved_fallback:
+            raise _Invalid("default anchor is missing")
+        resolved = used_anchor_inset(
+            containing,
+            measured,
+            prop=prop,
+            side=parsed.get("side"),
+            fallback=fallback,
+        )
+        if resolved.get("outcome") != "resolved":
+            if unresolved_fallback:
+                raise _Invalid("anchor() is invalid")
+            raise _Invalid(str(resolved.get("reason") or "anchor() is invalid"))
+        length = resolved.get("length")
+        if isinstance(length, bool) or not isinstance(length, (int, float)):
+            raise _Invalid("anchor() is invalid")
+        number = float(length)
+        token = str(int(number)) if number == int(number) else str(number)
+        slots[f"inset-{prop}"] = f"{token}px"
+
+
 def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[str, _Box]) -> None:
     """Give an out-of-flow replaced box its used size, then solve the insets."""
 
@@ -7715,6 +7813,7 @@ def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[s
         raise _Invalid("positioned replaced element is unsupported")
     slots = _physical_slots(box)
     _apply_anchor_sizes(box, slots, anchors, cb)
+    _apply_anchor_insets(box, slots, anchors, cb)
     left, right = _inset(slots, "left"), _inset(slots, "right")
     top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
     needs_static = (_is_auto(left) and _is_auto(right)) or (_is_auto(top) and _is_auto(bottom))
@@ -7815,6 +7914,7 @@ def _place_one_absolute(
         return
     slots = _physical_slots(box)
     _apply_anchor_sizes(box, slots, anchors, cb)
+    _apply_anchor_insets(box, slots, anchors, cb)
     left, right = _inset(slots, "left"), _inset(slots, "right")
     top, bottom = _inset(slots, "top"), _inset(slots, "bottom")
     needs_static = (_is_auto(left) and _is_auto(right)) or (_is_auto(top) and _is_auto(bottom))

@@ -13,12 +13,15 @@ the base position is kept.
 ``anchor()`` resolves to the inset that lines the inset-modified edge up
 with the requested anchor edge. An unresolvable reference uses its fallback
 length. A physical side on the wrong axis is unresolvable. This placer
-does not scroll-shift. ``resolve_anchor_size`` and
-``resolve_position_visibility`` answer ``anchor-size()`` and
-``position-visibility``.
+does not scroll-shift. ``parse_anchor_call`` reads one written ``anchor()``
+function, and ``used_anchor_inset`` returns that inset in pixels.
+``resolve_anchor_size`` and ``resolve_position_visibility`` answer
+``anchor-size()`` and ``position-visibility``.
 """
 
 from __future__ import annotations
+
+import re
 
 from blackhole_agent.css_writing_mode import resolve_writing_mode
 
@@ -36,12 +39,124 @@ _SWAP = {
 _OPPOSITE = {"top": "bottom", "bottom": "top", "left": "right", "right": "left"}
 _PHYSICAL = frozenset(_OPPOSITE)
 _AUTO = "auto"
+_ANCHOR_SIDES = frozenset(
+    {
+        "inside",
+        "outside",
+        "top",
+        "left",
+        "right",
+        "bottom",
+        "start",
+        "end",
+        "self-start",
+        "self-end",
+        "center",
+    }
+)
+_ANCHOR_FALLBACK = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:px|%)$", re.IGNORECASE)
+_INSET_PROPS = frozenset({"top", "right", "bottom", "left"})
 
 
 class _Invalid(Exception):
     def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(reason)
+
+
+def _anchor_payload(
+    outcome: str,
+    reason: str | None,
+    anchor: str | None,
+    side: str | None,
+    fallback: str | None,
+) -> dict[str, object]:
+    return {
+        "outcome": outcome,
+        "reason": reason,
+        "anchor": anchor,
+        "side": side,
+        "fallback": fallback,
+    }
+
+
+def _split_anchor_args(value: str) -> list[str]:
+    parts: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for char in value:
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            if depth == 0:
+                raise _Invalid("anchor() is invalid")
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append("".join(buf).strip())
+            buf = []
+            continue
+        buf.append(char)
+    if depth != 0:
+        raise _Invalid("anchor() is invalid")
+    parts.append("".join(buf).strip())
+    return parts
+
+
+def _dashed_anchor(token: str) -> bool:
+    if len(token) < 3 or not token.startswith("--"):
+        return False
+    body = token[2:]
+    first = body[0]
+    if not first.isascii() or not (first.isalpha() or first == "_"):
+        return False
+    return all(char.isascii() and (char.isalnum() or char in "_-") for char in body)
+
+
+def parse_anchor_call(value: object) -> dict[str, object]:
+    """Parse one ``anchor()`` inset into an anchor name, a side, and a fallback.
+
+    The function name and side keyword are case-insensitive. A dashed anchor
+    name keeps the case written in the value. The fallback is the text after
+    the top-level comma. A value that is not this function is ``absent``.
+    ``anchor-size()`` is not this function.
+    """
+
+    if not isinstance(value, str):
+        return _anchor_payload("absent", None, None, None, None)
+    text = " ".join(value.strip().split())
+    lowered = text.lower()
+    if lowered.startswith("anchor-size(") or not lowered.startswith("anchor(") or not text.endswith(")"):
+        return _anchor_payload("absent", None, None, None, None)
+    try:
+        inner = text[len("anchor(") : -1].strip()
+        parts = _split_anchor_args(inner)
+        if len(parts) > 2 or not parts or not parts[0] or (len(parts) == 2 and not parts[1]):
+            raise _Invalid("anchor() is invalid")
+        anchor = None
+        side = None
+        for token in parts[0].split(" "):
+            if not token:
+                continue
+            folded = token.lower()
+            if folded in _ANCHOR_SIDES or folded.endswith("%"):
+                if side is not None:
+                    raise _Invalid("anchor() is invalid")
+                side = folded
+                continue
+            if _dashed_anchor(token):
+                if anchor is not None:
+                    raise _Invalid("anchor() is invalid")
+                anchor = token
+                continue
+            raise _Invalid("anchor() is invalid")
+        if side is None:
+            raise _Invalid("anchor() is invalid")
+        fallback = parts[1] if len(parts) == 2 else None
+        if fallback is not None and _ANCHOR_FALLBACK.fullmatch(fallback) is None:
+            raise _Invalid("anchor() is invalid")
+        return _anchor_payload("parsed", None, anchor, side, fallback)
+    except _Invalid as exc:
+        return _anchor_payload("invalid", exc.reason, None, None, None)
 
 
 def place_anchored(
@@ -81,6 +196,51 @@ def place_anchored(
     if chosen is None:
         chosen = options[0]
     return _payload(chosen)
+
+
+def used_anchor_inset(
+    containing: object,
+    anchor: object = None,
+    *,
+    prop: object,
+    side: object,
+    fallback: object = None,
+) -> dict[str, object]:
+    """Return the used inset, in pixels, for one ``anchor()`` side.
+
+    ``prop`` is ``top``, ``right``, ``bottom``, or ``left``. ``side`` is the
+    anchor side. ``fallback`` is a number of pixels used when the reference
+    cannot be resolved. ``anchor`` is omitted when that reference is missing.
+    """
+
+    if not isinstance(prop, str) or prop not in _INSET_PROPS:
+        return {"outcome": "invalid", "reason": "anchor() is invalid", "length": None}
+    spec: dict[str, object] = {"side": side}
+    if fallback is not None:
+        spec["fallback"] = fallback
+    insets = {name: _AUTO for name in _INSET_PROPS}
+    insets[prop] = spec
+    placed = place_anchored(
+        containing,
+        anchor,
+        {
+            "width": 0,
+            "height": 0,
+            "insets": insets,
+            "writing_mode": "horizontal-tb",
+            "direction": "ltr",
+        },
+    )
+    if placed.get("outcome") != "placed":
+        return {
+            "outcome": "invalid",
+            "reason": str(placed.get("reason") or "anchor() is invalid"),
+            "length": None,
+        }
+    length = placed.get(prop)
+    if isinstance(length, bool) or not isinstance(length, (int, float)):
+        return {"outcome": "invalid", "reason": "anchor() is invalid", "length": None}
+    return {"outcome": "resolved", "reason": None, "length": length}
 
 
 def _options(item: dict[str, object], fallbacks: object, container: dict[str, object], anchor: dict[str, object] | None) -> list[dict[str, object]]:
