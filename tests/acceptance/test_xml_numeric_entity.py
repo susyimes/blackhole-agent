@@ -1,3 +1,4 @@
+# replay-input: capabilities/absorbed/fast-xml-parser/package/lib/fxp.cjs
 """Out-of-range XML numeric character references parse as text.
 
 ``&#65;`` and ``&#1114111;`` still decode. ``&#9999999;``, ``&#xFFFFFF;``, and

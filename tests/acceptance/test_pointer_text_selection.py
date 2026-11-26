@@ -1,34 +1,11 @@
 """Recover original text from two pointer hits on a wrapped paragraph."""
 
-import io
 import json
-import subprocess
-import sys
-import tempfile
-import zipfile
-from pathlib import Path
 
-from blackhole_agent import html5_document
 from blackhole_agent.css_normal_flow import element_from_document
 
 
-def supply_html_parser():
-    """The controller archives src alone. Restore only the frozen parser dependency."""
-    package = html5_document._package_dir() / "html5lib"
-    if (package / "__init__.py").is_file():
-        return
-    root = Path(html5_document.__file__).resolve().parents[2]
-    if (root / ".git").exists() or not root.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        raise RuntimeError("missing vendored HTML parser in checkout")
-    checkout = next(p.parent for p in map(Path, sys.path) if (p.parent / ".git").exists())
-    tree = "397395a7d05f3f55ebd5bcb029a66b55bac0306b"
-    archive = subprocess.check_output(["git", "-C", str(checkout), "archive", "--format=zip", tree], timeout=30)
-    with zipfile.ZipFile(io.BytesIO(archive)) as files:
-        files.extractall(package)
-
-
 def observe():
-    supply_html_parser()
     source = "A😀   אבא"
     rules = "#p { width: 40px; font-size: 10px; line-height: 10px; }"
 

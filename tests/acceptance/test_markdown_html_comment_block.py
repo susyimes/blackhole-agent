@@ -1,3 +1,4 @@
+# replay-input: capabilities/absorbed/markdown-it-py/markdown_it_py-4.0.0/markdown_it
 """HTML comments inside a list keep their closing marker across a blank line.
 
 Absorbed markdown-it-py 4.0.0 ended the comment when the blank line was

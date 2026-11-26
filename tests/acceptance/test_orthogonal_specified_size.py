@@ -1,37 +1,13 @@
 """A specified size on a horizontal child of a vertical parent is the border box."""
 
-import io
 import json
-import subprocess
-import sys
-import tempfile
-import zipfile
-from pathlib import Path
 
-from blackhole_agent import html5_document
 from blackhole_agent.css_normal_flow import layout_normal_flow
 
 
 PAGE = '<div id="page"><div id="v">{0}</div><p id="next">Z</p></div>'
 BASE = "html, body, p, div {margin:0px} #page {font-size:10px;line-height:10px} "
 HORIZONTAL = " #a {writing-mode:horizontal-tb}"
-
-
-def supply_html_parser():
-    """Restore the baseline's genuine runtime data to a src-only replay archive."""
-    package = html5_document._package_dir() / "html5lib"
-    if (package / "__init__.py").is_file():
-        return
-    root = Path(html5_document.__file__).resolve().parents[2]
-    if (root / ".git").exists() or not root.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        raise RuntimeError("the checkout is missing its absorbed HTML parser")
-    checkout = next((item.parent for item in map(Path, sys.path) if (item.parent / ".git").exists()), None)
-    if checkout is None:
-        raise RuntimeError("the replay requires the installed project's Git object database")
-    tree = "397395a7d05f3f55ebd5bcb029a66b55bac0306b"
-    archive = subprocess.check_output(["git", "-C", str(checkout), "archive", "--format=zip", tree], timeout=30)
-    with zipfile.ZipFile(io.BytesIO(archive)) as files:
-        files.extractall(package)
 
 
 def _placed(html, css):
@@ -54,7 +30,6 @@ def _line(boxes, name):
 
 
 def observe():
-    supply_html_parser()
     observed = {}
     passed = True
 

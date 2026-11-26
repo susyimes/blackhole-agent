@@ -34,15 +34,22 @@ actual = reconstruct([b"hel", b"lo"])
 print(json.dumps({"passed": actual == "hello", "observed": {"actual": actual}}))
 ```
 
-The controller copies the exact probe, archives the previous milestone's `src`,
-and runs it against baseline and candidate source in separate subprocesses and
-temporary working directories. Baseline must report false, candidate true.
-Crashes, missing imports, malformed output and timeouts do not count as a failing
-baseline. Handle an expected unavailable API explicitly in the probe. Dependencies
-must already exist in the controller Python environment; this interface currently
-covers Python `src` implementations, not arbitrary build systems.
+The controller runs the same probe bytes in fresh Python processes with private
+copies of `src` and the selected runtime files. The baseline reads the specified
+Git commit. The candidate reads working-tree contents, including unstaged edits,
+deletions and nonignored new files. Acceptance requires a false baseline outcome
+and a true candidate outcome. Both runs must finish and produce valid observations.
 
-The receipt records baseline ref, probe SHA-256, both outcomes and process results.
+Put a leading comment such as `# replay-input: locales/fr` in a probe to require
+a versioned file or directory in both snapshots. Use one literal repository-relative
+path per comment, before the module docstring or imports. A missing required input
+stops replay before either run. The optional `tests/acceptance/replay-inputs.txt`
+lists paths shared by multiple probes, one per line. Each snapshot includes the
+shared files present in its own revision. For example, document-layout probes use
+the project's absorbed HTML parser through this list.
+
+The receipt records the resolved commit, selected inputs, probe SHA-256, both
+outcomes and process results.
 Exact validation-command replay still runs. Probe a real task or independent
 reference fixture, not source/version names, ledger flags or `builtin_*_proof`.
 This is regression evidence, not independent standards certification or a

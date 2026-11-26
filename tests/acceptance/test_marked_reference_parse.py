@@ -1,3 +1,5 @@
+# replay-input: capabilities/absorbed/marked/package/package.json
+# replay-input: capabilities/absorbed/marked/package/lib/marked.esm.js
 """A titled reference link and 6400 reference definitions render through marked.
 
 The titled link keeps its href and title. The long document contains the first

@@ -1,0 +1,2 @@
+# Shared by HTML parsing, DOM, stylesheet and layout probes.
+capabilities/absorbed/html5lib/html5lib-1.1/html5lib

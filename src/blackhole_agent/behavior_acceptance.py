@@ -2,8 +2,10 @@
 
 The probe is an executable Python file under tests/acceptance. It prints a
 JSON object with boolean passed and nonempty observed, exiting zero even for
-an unmet outcome. Crashes/import errors/timeouts are not a failing baseline.
-This is regression evidence, not an assertion of third-party conformance.
+an unmet outcome. Each run gets its own copy of src. Leading comments of the
+form "# replay-input: relative/path" also include required files or directories.
+The baseline reads committed blobs. The candidate reads the working bytes of
+tracked and nonignored new files under the same paths.
 
 Isolated children run in UTF-8 mode. A captured pipe would otherwise use the
 ANSI code page, and Hangul on that pipe becomes UnicodeEncodeError.
@@ -12,12 +14,11 @@ ANSI code page, and Hangul on that pipe becomes UnicodeEncodeError.
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import os
+import shutil
 import subprocess
 import sys
-import tarfile
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -79,6 +80,98 @@ def execute_outcome_probe(
     }
 
 
+def _relative_input(name: str) -> str:
+    if (
+        "\\" in name or ":" in name or "\x00" in name
+        or any(part.casefold() in {"", ".", "..", ".git"} for part in name.split("/"))
+    ):
+        raise ValueError(f"unsupported replay input path: {name!r}")
+    return name
+
+
+def _input_paths(source: bytes) -> list[str]:
+    paths = ["src"]
+    for raw in source.removeprefix(b"\xef\xbb\xbf").splitlines():
+        line = raw.strip()
+        if line.startswith(b"# replay-input:"):
+            name = _relative_input(line.partition(b":")[2].strip().decode("utf-8"))
+            if name not in paths:
+                paths.append(name)
+        elif line and not line.startswith(b"#"):
+            break
+    return paths
+
+
+def _shared_inputs(directory: Path) -> list[str]:
+    manifest = directory / "replay-inputs.txt"
+    if not manifest.exists():
+        return []
+    if manifest.resolve() != manifest:
+        raise ValueError("unsupported link to replay-inputs.txt")
+    lines = (line.strip() for line in manifest.read_text(encoding="utf-8").splitlines())
+    return [_relative_input(line) for line in lines if line and not line.startswith("#")]
+
+
+def _git_files(root: Path, *args: str) -> list[bytes]:
+    output = subprocess.check_output(
+        ["git", "--literal-pathspecs", *args], cwd=root, stderr=subprocess.PIPE, timeout=60,
+    )
+    return output.rstrip(b"\0").split(b"\0") if output else []
+
+
+def _baseline_snapshot(root: Path, revision: str, paths: list[str], destination: Path) -> None:
+    # Read blobs directly. git archive would silently omit export-ignore files.
+    files = []
+    for entry in _git_files(root, "ls-tree", "-rz", "--full-tree", revision, "--", *paths):
+        info, name = entry.split(b"\t", 1)
+        mode, kind, oid = info.split()
+        path = destination / _relative_input(os.fsdecode(name))
+        if kind != b"blob" or mode not in {b"100644", b"100755"} or not path.resolve().is_relative_to(destination):
+            raise ValueError(f"unsupported link/path in baseline: {os.fsdecode(name)}")
+        files.append((path, oid, mode))
+    with tempfile.TemporaryFile() as blobs:
+        subprocess.run(
+            ["git", "cat-file", "--batch"], cwd=root, input=b"".join(oid + b"\n" for _, oid, _ in files),
+            stdout=blobs, stderr=subprocess.PIPE, check=True, timeout=60,
+        )
+        blobs.seek(0)
+        for path, oid, mode in files:
+            actual_oid, kind, size = blobs.readline().split()
+            if actual_oid != oid or kind != b"blob":
+                raise ValueError(f"missing baseline blob {oid!r}")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            remaining = int(size)
+            with path.open("xb") as target:
+                while remaining:
+                    chunk = blobs.read(min(remaining, 1024 * 1024))
+                    if not chunk:
+                        raise ValueError(f"incomplete baseline blob {oid!r}")
+                    target.write(chunk)
+                    remaining -= len(chunk)
+            if blobs.read(1) != b"\n":
+                raise ValueError(f"incomplete baseline blob {oid!r}")
+            if mode == b"100755":
+                path.chmod(0o755)
+
+
+def _candidate_snapshot(root: Path, paths: list[str], destination: Path) -> None:
+    entries = _git_files(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths)
+    for raw in dict.fromkeys(entries):
+        name = _relative_input(os.fsdecode(raw))
+        source = root / name
+        if source.resolve() != source:
+            raise ValueError(f"unsupported link/path in candidate: {name}")
+        if not source.exists():
+            continue  # An unstaged deletion is part of the candidate.
+        if source.is_dir() and not (source / ".git").exists():
+            continue  # A tracked file can be replaced by a directory of new files.
+        if not source.is_file():
+            raise ValueError(f"unsupported candidate file type: {name}")
+        target = destination / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+
 def replay_behavior_acceptance(
     workspace: Path,
     baseline_ref: str,
@@ -107,34 +200,25 @@ def replay_behavior_acceptance(
             encoding="utf-8",
             errors="replace",
         ).stdout.strip()
-        archive = subprocess.run(
-            ["git", "archive", "--format=tar", revision, "src"],
-            cwd=root,
-            capture_output=True,
-            check=True,
-            timeout=60,
-        ).stdout
+        required = _input_paths(source)
+        shared = _shared_inputs(accepted_root)
+        paths = list(dict.fromkeys([*required, *shared]))
+        result.update(baseline_commit=revision, required_inputs=required, shared_inputs=shared)
         with tempfile.TemporaryDirectory(prefix="blackhole-acceptance-") as directory:
-            scratch = Path(directory)
+            scratch = Path(directory).resolve()
             baseline = scratch / "baseline"
-            baseline.mkdir()
-            with tarfile.open(fileobj=io.BytesIO(archive)) as bundle:
-                for member in bundle.getmembers():
-                    destination = (baseline / member.name).resolve()
-                    if not destination.is_relative_to(baseline) or not (member.isfile() or member.isdir()):
-                        raise ValueError("unsupported link/path in baseline source archive")
-                    if member.isdir():
-                        destination.mkdir(parents=True, exist_ok=True)
-                    else:
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        stream = bundle.extractfile(member)
-                        if stream is not None:
-                            destination.write_bytes(stream.read())
-            script = scratch / "outcome_probe.py"
-            script.write_bytes(source)
-            for label, implementation in (("baseline", baseline / "src"), ("candidate", root / "src")):
+            candidate = scratch / "candidate"
+            _baseline_snapshot(root, revision, paths, baseline)
+            _candidate_snapshot(root, paths, candidate)
+            for label, snapshot in (("baseline", baseline), ("candidate", candidate)):
+                for path in required:
+                    if not (snapshot / path).exists():
+                        raise ValueError(f"{label} missing replay input: {path}")
+            for label, implementation in (("baseline", baseline / "src"), ("candidate", candidate / "src")):
                 run_dir = scratch / f"run-{label}"
                 run_dir.mkdir()
+                script = run_dir / "outcome_probe.py"
+                script.write_bytes(source)
                 env = dict(os.environ)
                 env["BLACKHOLE_DURABLE_ROOT"] = str(run_dir / "durable")
                 completed = execute_outcome_probe(
@@ -165,6 +249,6 @@ def replay_behavior_acceptance(
             )
             if not result["ok"]:
                 result["error"] = "the same probe must show baseline passed=false and candidate passed=true"
-    except (OSError, ValueError, IndexError, subprocess.SubprocessError, tarfile.TarError) as exc:
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError) as exc:
         result["error"] = str(exc)
     return result

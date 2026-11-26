@@ -7,39 +7,12 @@ passed false.
 
 from __future__ import annotations
 
-import io
 import json
-import subprocess
-import sys
-import tempfile
-import zipfile
-from pathlib import Path
 
-from blackhole_agent import html5_document
 from blackhole_agent.css_normal_flow import layout_normal_flow
 
 _PAGE = '<div id="page"><div id="v">{text}</div><p id="next">Z</p></div>'
 _BASE = "html, body, p { margin: 0px } #page { font-size: 10px; line-height: 10px }\n"
-
-
-def supply_html_parser() -> None:
-    """Restore the baseline's genuine runtime data to a src-only replay archive."""
-
-    package = html5_document._package_dir() / "html5lib"
-    if (package / "__init__.py").is_file():
-        return
-    root = Path(html5_document.__file__).resolve().parents[2]
-    if (root / ".git").exists() or not root.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        raise RuntimeError("the checkout is missing its absorbed HTML parser")
-    checkout = next((path.parent for path in map(Path, sys.path) if (path.parent / ".git").exists()), None)
-    if checkout is None:
-        raise RuntimeError("the replay requires the installed project's Git object database")
-    tree = "397395a7d05f3f55ebd5bcb029a66b55bac0306b"
-    archive = subprocess.check_output(
-        ["git", "-C", str(checkout), "archive", "--format=zip", tree], timeout=30
-    )
-    with zipfile.ZipFile(io.BytesIO(archive)) as files:
-        files.extractall(package)
 
 
 def _lay(text: str, css: str) -> dict[str, object]:
@@ -105,7 +78,6 @@ def _cluster(text: str, y: int, glyph_y: int) -> dict[str, object]:
 
 
 def observe() -> tuple[bool, dict[str, object]]:
-    supply_html_parser()
     upright_css = "#v { writing-mode: vertical-rl } #c { text-combine-upright: all }\n"
     upright = _geometry(_lay('A<span id="c">12</span>B', upright_css))
     left = _geometry(

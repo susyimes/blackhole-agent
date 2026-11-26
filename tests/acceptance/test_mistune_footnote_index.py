@@ -1,3 +1,4 @@
+# replay-input: capabilities/absorbed/mistune-markdown/src/mistune
 """A second footnote label is stored in the index map.
 
 The label list rejects membership tests. Admission must still append SECOND,

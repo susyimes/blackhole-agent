@@ -1,3 +1,6 @@
+# replay-input: capabilities/absorbed/tomli/tomli-2.4.1/src/tomli
+# replay-input: capabilities/absorbed/tomli-foraged/tomli-2.4.1/src/tomli
+# replay-input: capabilities/absorbed/tomli-parser/tomli-2.4.1/src/tomli
 """An over-long TOML decimal integer is a decode error, not ValueError.
 
 The standard-library parser still leaks ValueError. The contract parser and

@@ -1,3 +1,4 @@
+# replay-input: capabilities/absorbed/tomli/tomli-2.4.1/src/tomli
 """The public TOML loader accepts a TOML 1.1 document tomllib rejects.
 
 A multiline inline table with a trailing comma, a ``\\e`` escape, a ``\\xHH``

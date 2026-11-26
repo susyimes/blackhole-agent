@@ -34,6 +34,42 @@ def test_same_probe_replayed_on_immutable_baseline_and_candidate(tmp_path):
     assert (tmp_path / "src" / "seed.py").read_text() == "VALUE = 2\n"
 
 
+def test_snapshot_preserves_binary_edits_and_keeps_probe_writes_private(tmp_path):
+    fixture(tmp_path, probe=(
+        "# replay-input: samples\n"
+        "import json, seed\nfrom pathlib import Path\n"
+        "folder = Path(seed.__file__).resolve().parents[1] / 'samples'\n"
+        "values = {f.name: f.read_bytes().hex() for f in folder.iterdir()}\n"
+        "(folder / 'keep.bin').write_bytes(b'probe wrote here')\n"
+        "print(json.dumps({'passed': 'new.bin' in values, 'observed': values}))\n"
+    ))
+    samples = tmp_path / "samples"
+    samples.mkdir()
+    (tmp_path / ".gitignore").write_text("ignored.bin\n")
+    (samples / "keep.bin").write_bytes(b"\x00\xff\n")
+    (samples / "old.bin").write_bytes(b"old")
+    subprocess.run(["git", "add", "samples", ".gitignore"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-qm", "binary samples"], cwd=tmp_path, check=True)
+    (samples / "old.bin").unlink()
+    (samples / "keep.bin").write_bytes(b"\xfe\n\x00")
+    (samples / "new.bin").write_bytes(b"new")
+    (samples / "ignored.bin").write_bytes(b"local")
+
+    result = replay_behavior_acceptance(tmp_path, "HEAD", "tests/acceptance/probe.py")
+    assert result["ok"], result
+    assert result["baseline"]["outcome"]["observed"] == {"keep.bin": "00ff0a", "old.bin": "6f6c64"}
+    assert result["candidate"]["outcome"]["observed"] == {"keep.bin": "fe0a00", "new.bin": "6e6577"}
+    assert (samples / "keep.bin").read_bytes() == b"\xfe\n\x00"
+
+
+@pytest.mark.parametrize("path", ["../data", "/data", ".git/config", "C:/data"])
+def test_invalid_input_stops_before_either_process(tmp_path, path):
+    baseline = fixture(tmp_path, probe=f"# replay-input: {path}\nraise AssertionError('should never run')\n")
+    result = replay_behavior_acceptance(tmp_path, baseline, "tests/acceptance/probe.py")
+    assert not result["ok"] and "unsupported replay input path" in result["error"]
+    assert "baseline" not in result and "candidate" not in result
+
+
 @pytest.mark.parametrize("value", [1, 3])
 def test_no_improvement_or_wrong_outcome_cannot_pass(tmp_path, value):
     baseline = fixture(tmp_path, value=value)

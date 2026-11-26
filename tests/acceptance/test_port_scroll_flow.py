@@ -13,13 +13,7 @@ miss and a hit.
 
 from __future__ import annotations
 
-import io
 import json
-import subprocess
-import sys
-import tempfile
-import zipfile
-from pathlib import Path
 
 _PAGE = (
     '<div id="page"><div id="lead"></div><div id="port"><div id="inner">I</div>'
@@ -39,25 +33,6 @@ _VERTICAL = _CSS.replace(
     "#port { overflow: scroll; height: 100px; margin: 0px; writing-mode: vertical-rl; }\n",
     1,
 )
-
-
-def supply_html_parser() -> None:
-    """Restore the baseline's genuine runtime data to a src-only replay archive."""
-    from blackhole_agent import html5_document
-
-    package = html5_document._package_dir() / "html5lib"
-    if (package / "__init__.py").is_file():
-        return
-    root = Path(html5_document.__file__).resolve().parents[2]
-    if (root / ".git").exists() or not root.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        raise RuntimeError("the checkout is missing its absorbed HTML parser")
-    checkout = next((item.parent for item in map(Path, sys.path) if (item.parent / ".git").exists()), None)
-    if checkout is None:
-        raise RuntimeError("the replay requires the installed project's Git object database")
-    tree = "397395a7d05f3f55ebd5bcb029a66b55bac0306b"
-    archive = subprocess.check_output(["git", "-C", str(checkout), "archive", "--format=zip", tree], timeout=30)
-    with zipfile.ZipFile(io.BytesIO(archive)) as files:
-        files.extractall(package)
 
 
 def _box(boxes: object, ident: str) -> dict[str, object] | None:
@@ -120,7 +95,6 @@ def _point(result: dict[str, object], ident: str) -> dict[str, object] | None:
 
 def observe() -> tuple[bool, dict[str, object]]:
     try:
-        supply_html_parser()
         from blackhole_agent.css_normal_flow import element_from_document, layout_normal_flow
     except Exception as exc:  # noqa: BLE001 - baseline without placement still exits 0
         return False, {"error": f"{type(exc).__name__}: {exc}"}
