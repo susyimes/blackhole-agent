@@ -712,6 +712,15 @@ outer edge of the stroke: ``outline-offset`` plus the used thickness. The
 omitted color is the used ``color``, including a color inherited from an
 ancestor. ``none`` and a zero thickness record nothing. A non-replaced inline
 with a visible outline is rejected. An unparsable outline is invalid.
+``box-shadow`` is not inherited and does not move the border box or the
+following block. Each comma-separated shadow records a physical offset, a
+non-negative blur, a spread, a color, and whether it is inset. Blur does
+not enlarge the recorded rectangle. An outset rectangle is the border-box
+shadow shape: expanded by the spread, then shifted by the offsets. An
+inset rectangle is the unshadowed hole inside the padding edge: that
+padding box contracted by the spread and shifted by the offsets, with the
+padding edge recorded as the clip. ``none`` records nothing. A negative
+blur, a percentage, and a non-replaced inline are rejected.
 ``scroll-snap-type`` other than ``none`` rests a horizontal scrollport on
 the alignment of its descendant snap areas. The recorded ``snap`` is that
 resting offset. ``y mandatory`` chooses the nearest start and breaks a tie
@@ -1248,6 +1257,7 @@ class _Box:
     color: str = "#000000"
     color_valid: bool = True
     outline: tuple[str, int, str, int] | None = None
+    shadows: tuple[tuple[bool, int, int, int, int, str], ...] = ()
     snap_type: str = ""
     snap_align: tuple[str, str] = ("none", "none")
     scroll_padding: tuple[int, int, int, int] = (0, 0, 0, 0)
@@ -1298,6 +1308,8 @@ def layout_normal_flow(
     ``border-radius`` does not move those rectangles. An unparsable radius
     rejects the document. ``outline`` records the outer edge of a stroke
     around that same border box. The stroke does not move the box.
+    ``box-shadow`` records each shadow's shape or inset hole in that same
+    space. The rectangles do not move the box.
     ``scroll-snap-type`` records the resting scroll of a horizontal
     scrollport. The snap areas stay at their flow positions.
     ``transition_sample_ms`` samples a ``transition-property: height``
@@ -2245,6 +2257,9 @@ def _make_box(
     box.outline = _read_outline(winners, custom, box.color, box.color_valid)
     if box.display == "inline" and not box.replaced and box.outline is not None:
         raise _Invalid("inline outline is unsupported")
+    box.shadows = _read_box_shadow(winners, custom, box.color, box.color_valid)
+    if box.display == "inline" and not box.replaced and box.shadows:
+        raise _Invalid("inline box-shadow is unsupported")
     box.snap_type, box.snap_align, box.scroll_padding, box.scroll_margin = _read_scroll_snap(
         winners, custom
     )
@@ -3965,6 +3980,8 @@ def _record(box: _Box) -> dict[str, object]:
         item["opacity"] = box.scroll_opacity
     if box.outline is not None:
         item["outline"] = _outline_ink(box)
+    if box.shadows:
+        item["shadows"] = _shadow_ink(box)
     if box.snap is not None:
         item["snap"] = box.snap
     if box.object_box is not None:
@@ -7524,6 +7541,185 @@ def _color_byte(channel: object, reason: str) -> int:
     if scaled > 255:
         scaled = 255.0
     return int(scaled + 0.5)
+
+
+def _read_box_shadow(
+    winners, custom: dict, current: str, valid: bool
+) -> tuple[tuple[bool, int, int, int, int, str], ...]:
+    """Used shadows, outer first. An empty result paints nothing."""
+
+    raw = _declared(winners, "box-shadow", custom)
+    if raw is None:
+        return ()
+    keyword = " ".join(raw.split()).lower()
+    if keyword in {"none", "initial", "unset", "revert"}:
+        return ()
+    if keyword == "inherit":
+        raise _Invalid("box-shadow inherit is unsupported")
+    return tuple(_one_shadow(layer, current, valid) for layer in _shadow_layers(raw))
+
+
+def _shadow_layers(value: str) -> list[str]:
+    layers: list[str] = []
+    chunk: list[str] = []
+    depth = 0
+    for char in value:
+        if char == "(":
+            depth += 1
+        elif char == ")" and depth:
+            depth -= 1
+        elif char == "," and depth == 0:
+            layers.append("".join(chunk).strip())
+            chunk = []
+            continue
+        chunk.append(char)
+    if depth:
+        raise _Invalid("box-shadow is invalid")
+    layers.append("".join(chunk).strip())
+    if not layers or any(not layer for layer in layers):
+        raise _Invalid("box-shadow is invalid")
+    return layers
+
+
+def _shadow_tokens(layer: str) -> list[str]:
+    tokens: list[str] = []
+    chunk: list[str] = []
+    depth = 0
+    for char in layer.strip():
+        if char == "(":
+            depth += 1
+            chunk.append(char)
+            continue
+        if char == ")" and depth:
+            depth -= 1
+            chunk.append(char)
+            continue
+        if char.isspace() and depth == 0:
+            if chunk:
+                tokens.append("".join(chunk))
+                chunk = []
+            continue
+        chunk.append(char)
+    if depth:
+        raise _Invalid("box-shadow is invalid")
+    if chunk:
+        tokens.append("".join(chunk))
+    if not tokens:
+        raise _Invalid("box-shadow is invalid")
+    return tokens
+
+
+def _shadow_length(token: str) -> int | None:
+    text = token.lower()
+    if text in {"0", "+0", "-0", "0px", "+0px", "-0px"}:
+        return 0
+    if not text.endswith("px"):
+        return None
+    try:
+        number = float(text[:-2])
+    except ValueError:
+        return None
+    if number != number or number in {float("inf"), float("-inf")}:
+        raise _Invalid("box-shadow is invalid")
+    try:
+        return _px(number, "box-shadow")
+    except _Invalid as exc:
+        raise _Invalid("box-shadow is invalid") from exc
+
+
+def _shadow_color(token: str, *, current: str, valid: bool) -> str:
+    if token.lower() == "currentcolor":
+        if not valid:
+            raise _Invalid("color is invalid")
+        return current
+    return _css_color_hex(token, reason="box-shadow is invalid")
+
+
+def _one_shadow(layer: str, current: str, valid: bool) -> tuple[bool, int, int, int, int, str]:
+    inset = False
+    color: str | None = None
+    lengths: list[int] = []
+    for token in _shadow_tokens(layer):
+        if token.lower() == "inset":
+            if inset:
+                raise _Invalid("box-shadow is invalid")
+            inset = True
+            continue
+        length = _shadow_length(token)
+        if length is not None:
+            if len(lengths) >= 4 or (len(lengths) == 2 and length < 0):
+                raise _Invalid("box-shadow is invalid")
+            lengths.append(length)
+            continue
+        if color is not None:
+            raise _Invalid("box-shadow is invalid")
+        color = _shadow_color(token, current=current, valid=valid)
+    if len(lengths) not in {2, 3, 4}:
+        raise _Invalid("box-shadow is invalid")
+    while len(lengths) < 4:
+        lengths.append(0)
+    if color is None:
+        if not valid:
+            raise _Invalid("color is invalid")
+        color = current
+    return inset, lengths[0], lengths[1], lengths[2], lengths[3], color
+
+
+def _padding_box(box: _Box) -> tuple[int, int, int, int]:
+    """Padding edge in the same space as the border box."""
+
+    left = _solved_edge(box, "border_left")
+    top = _solved_edge(box, "border_top")
+    right = _solved_edge(box, "border_right")
+    bottom = _solved_edge(box, "border_bottom")
+    return (
+        box.x + left,
+        box.y + top,
+        box.border_width - left - right,
+        box.border_height - top - bottom,
+    )
+
+
+def _shadow_ink(box: _Box) -> list[dict[str, object]]:
+    """Outset shadow shapes and inset holes. Blur stays a radius, not an outset."""
+
+    pad_x, pad_y, pad_w, pad_h = _padding_box(box)
+    recorded: list[dict[str, object]] = []
+    for inset, offset_x, offset_y, blur, spread, color in box.shadows:
+        if inset:
+            item: dict[str, object] = {
+                "inset": True,
+                "geometry": "hole",
+                "color": color,
+                "offset_x": offset_x,
+                "offset_y": offset_y,
+                "blur": blur,
+                "spread": spread,
+                "x": pad_x + offset_x + spread,
+                "y": pad_y + offset_y + spread,
+                "width": pad_w - 2 * spread,
+                "height": pad_h - 2 * spread,
+                "clip_x": pad_x,
+                "clip_y": pad_y,
+                "clip_width": pad_w,
+                "clip_height": pad_h,
+            }
+        else:
+            item = {
+                "inset": False,
+                "geometry": "shape",
+                "color": color,
+                "offset_x": offset_x,
+                "offset_y": offset_y,
+                "blur": blur,
+                "spread": spread,
+                "x": box.x + offset_x - spread,
+                "y": box.y + offset_y - spread,
+                "width": box.border_width + 2 * spread,
+                "height": box.border_height + 2 * spread,
+            }
+        recorded.append(item)
+    return recorded
 
 
 def _outline_ink(box: _Box) -> dict[str, object]:
