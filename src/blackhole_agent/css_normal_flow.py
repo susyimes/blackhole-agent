@@ -188,7 +188,14 @@ that would leave fewer than two letters on either side, stays whole.
 Another language has no patterns. Those automatic breaks do not lower a
 float's min-content, so shrink-to-fit keeps the whole word. An inline
 ``hyphens`` declaration, and an inline whose language differs from that
-block, are rejected. ``text-wrap: balance``
+block, are rejected. ``hyphenate-character`` is inherited. ``auto`` draws
+U+2010. A quoted string replaces that mark on every taken automatic or
+soft-hyphen break, and an empty string keeps the break without the advance,
+so a later opportunity can fit and a longer string can prevent the default
+break and move the following block. Each character of the string is one em.
+Automatic breaks still leave a float's min-content at the whole word. An
+unquoted value, an inline declaration, and a vertical or non-ltr box whose
+used string is not U+2010 are rejected. ``text-wrap: balance``
 and ``text-wrap-style: balance`` keep that first-fit line count and choose the
 partition whose leftover inline space has the lower variance. ``wrap`` and
 ``auto`` stay on the first-fit breaks. A group of more than ten lines stays
@@ -1016,6 +1023,7 @@ _FONT = {
     "overflow-wrap": "normal",
     "word-break": "normal",
     "hyphens": "manual",
+    "hyphenate-character": "\u2010",
     "lang": "",
     "hanging-punctuation": "none",
     "widows": "",
@@ -1072,6 +1080,7 @@ _INLINE_REJECTED = (
     "word-wrap",
     "word-break",
     "hyphens",
+    "hyphenate-character",
     "hanging-punctuation",
     "text-wrap",
     "text-wrap-style",
@@ -1191,6 +1200,7 @@ class _Box:
     overflow_wrap: str = "normal"
     word_break: str = "normal"
     hyphens: str = "manual"
+    hyphenate_character: str = "\u2010"
     lang: str = ""
     hanging_punctuation: str = "none"
     text_wrap_style: str = "auto"
@@ -2210,6 +2220,10 @@ def _make_box(
             fonts["hyphens"],
             _FONT["hyphens"],
             "hyphens",
+        ),
+        hyphenate_character=_read_hyphenate_character(
+            _declared(winners, "hyphenate-character", custom),
+            fonts["hyphenate-character"],
         ),
         lang=_read_lang(element, fonts["lang"]),
         hanging_punctuation=_read_hanging(
@@ -4538,6 +4552,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "overflow-wrap": box.overflow_wrap,
         "word-break": box.word_break,
         "hyphens": box.hyphens,
+        "hyphenate-character": box.hyphenate_character,
         "lang": box.lang,
         "hanging-punctuation": box.hanging_punctuation,
         "widows": "" if box.widows is None else str(box.widows),
@@ -4712,6 +4727,7 @@ def _make_anonymous_block(
         overflow_wrap=parent.overflow_wrap,
         word_break=parent.word_break,
         hyphens=parent.hyphens,
+        hyphenate_character=parent.hyphenate_character,
         lang=parent.lang,
         hanging_punctuation=parent.hanging_punctuation,
         text_wrap_style=parent.text_wrap_style,
@@ -4989,6 +5005,7 @@ def _inline_fonts(tree, element, styles, declarations, parent: dict[str, str]) -
         "text-justify": parent["text-justify"],
         "white-space": parent["white-space"],
         "hyphens": parent.get("hyphens", "manual"),
+        "hyphenate-character": parent.get("hyphenate-character", "\u2010"),
         "lang": parent.get("lang", ""),
         "text-transform": parent.get("text-transform", "none"),
     }
@@ -5610,6 +5627,8 @@ def _read_lang(element, parent: str) -> str:
 def _break_args(box: _Box) -> dict[str, object]:
     if box.hanging_punctuation != "none" and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
         raise _Invalid("hanging punctuation writing mode is unsupported")
+    if box.hyphenate_character != "\u2010" and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
+        raise _Invalid("hyphenate-character writing mode is unsupported")
     return {
         "overflow_wrap": box.overflow_wrap,
         "word_break": box.word_break,
@@ -5617,7 +5636,74 @@ def _break_args(box: _Box) -> dict[str, object]:
         "hyphens": box.hyphens,
         "lang": box.lang,
         "hanging_punctuation": box.hanging_punctuation,
+        "hyphenate_character": box.hyphenate_character,
     }
+
+
+def _read_hyphenate_character(value: str | None, parent: str) -> str:
+    """Used hyphen mark. ``auto`` is U+2010; a quoted string is inserted as written."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = value.strip()
+    if text.lower() in {"initial", "auto"}:
+        return "\u2010"
+    return _css_string(text, "hyphenate-character")
+
+
+def _css_string(value: str, name: str) -> str:
+    """Decode one CSS string. Anything after the closing quote is invalid."""
+
+    if len(value) < 2 or value[0] not in {"'", '"'}:
+        raise _Invalid(f"{name} is invalid")
+    quote = value[0]
+    index = 1
+    chars: list[str] = []
+    while index < len(value):
+        char = value[index]
+        if char == quote:
+            if index != len(value) - 1:
+                raise _Invalid(f"{name} is invalid")
+            return "".join(chars)
+        if char in "\n\r\f":
+            raise _Invalid(f"{name} is invalid")
+        if char == "\\":
+            decoded, index = _css_escape(value, index, name)
+            chars.append(decoded)
+            continue
+        chars.append(char)
+        index += 1
+    raise _Invalid(f"{name} is invalid")
+
+
+def _css_escape(value: str, index: int, name: str) -> tuple[str, int]:
+    index += 1
+    if index >= len(value):
+        raise _Invalid(f"{name} is invalid")
+    char = value[index]
+    if char in "\n\f":
+        return "", index + 1
+    if char == "\r":
+        if index + 1 < len(value) and value[index + 1] == "\n":
+            return "", index + 2
+        return "", index + 1
+    if char in "0123456789abcdefABCDEF":
+        digits = [char]
+        index += 1
+        while index < len(value) and len(digits) < 6 and value[index] in "0123456789abcdefABCDEF":
+            digits.append(value[index])
+            index += 1
+        if index < len(value) and value[index] in " \t":
+            index += 1
+        elif index < len(value) and value[index] == "\r":
+            index += 2 if index + 1 < len(value) and value[index + 1] == "\n" else 1
+        elif index < len(value) and value[index] in "\n\f":
+            index += 1
+        code = int("".join(digits), 16)
+        if code == 0 or code > 0x10FFFF or 0xD800 <= code <= 0xDFFF:
+            raise _Invalid(f"{name} is invalid")
+        return chr(code), index
+    return char, index + 1
 
 
 def _read_hanging(value: str | None, parent: str) -> str:
@@ -12770,6 +12856,7 @@ def _flush_flex_text(
             overflow_wrap=host.overflow_wrap,
             word_break=host.word_break,
             hyphens=host.hyphens,
+            hyphenate_character=host.hyphenate_character,
             lang=host.lang,
             hanging_punctuation=host.hanging_punctuation,
             text_wrap_style=host.text_wrap_style,

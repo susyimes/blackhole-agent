@@ -9,9 +9,11 @@ except it disappears when both neighbors have East Asian width F, W, or H and
 neither is Hangul. That is the Level 3 rule left to the UA; it is the rule
 that reproduces the spec's English, Korean, and Chinese examples. U+000D is a
 space, not a segment break. hyphens:auto adds English Liang breaks, and
-the line that takes one draws U+2010. Those breaks are omitted from
-min-content. hyphens:manual still breaks only at U+00AD, and hyphens:none
-does not. line-break:auto uses the normal
+the line that takes one draws U+2010. ``hyphenate_character`` replaces that
+mark: an empty string keeps the break and adds no advance, and each character
+of another string uses the preceding letter's advance. Those automatic breaks
+are omitted from min-content. hyphens:manual still breaks only at U+00AD, and
+hyphens:none does not. line-break:auto uses the normal
 strictness list. Tab stops are multiples of the space advance measured from
 the line's content start. ``letter_spacing`` is inserted between grapheme
 clusters and is not applied after the last cluster on a line. ``word_spacing``
@@ -53,6 +55,10 @@ _HANGS = frozenset({"first", "force-end", "allow-end", "last"})
 _STOPS = frozenset(",.\u060c\u06d4\u3001\u3002\uff0c\uff0e\ufe50\ufe51\ufe52\uff61\uff64")
 _HANGING: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
     "css_hanging_punctuation", default=frozenset()
+)
+_DEFAULT_HYPHEN = "\u2010"
+_HYPHEN_MARK: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "css_hyphenate_character", default=_DEFAULT_HYPHEN
 )
 _OPENING: contextvars.ContextVar[bool] = contextvars.ContextVar("css_hanging_opening", default=False)
 _CLONE: contextvars.ContextVar[tuple[tuple[int, int, float, float], ...]] = contextvars.ContextVar(
@@ -166,6 +172,7 @@ def wrap_lines(
     clone_ranges: object = (),
     text_autospace: object = "off",
     autospace: object = 0,
+    hyphenate_character: object = _DEFAULT_HYPHEN,
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -200,6 +207,7 @@ def wrap_lines(
         hanging = _hanging_modes(hanging_punctuation)
         held = _nowrap_ranges(nowrap_ranges)
         clones = _clone_ranges(clone_ranges, len(source))
+        hyphen_mark = _used_hyphen_mark(hyphenate_character)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -212,6 +220,7 @@ def wrap_lines(
 
     token = _HANGING.set(hanging)
     clone_token = _CLONE.set(clones)
+    mark_token = _HYPHEN_MARK.set(hyphen_mark)
     try:
         lines = _lay_out(
             tokens,
@@ -259,6 +268,7 @@ def wrap_lines(
     finally:
         _HANGING.reset(token)
         _CLONE.reset(clone_token)
+        _HYPHEN_MARK.reset(mark_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -286,6 +296,7 @@ def balance_lines(
     clone_ranges: object = (),
     text_autospace: object = "off",
     autospace: object = 0,
+    hyphenate_character: object = _DEFAULT_HYPHEN,
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -314,6 +325,7 @@ def balance_lines(
         clone_ranges=clone_ranges,
         text_autospace=text_autospace,
         autospace=autospace,
+        hyphenate_character=hyphenate_character,
     )
 
 
@@ -336,6 +348,7 @@ def pretty_lines(
     clone_ranges: object = (),
     text_autospace: object = "off",
     autospace: object = 0,
+    hyphenate_character: object = _DEFAULT_HYPHEN,
 ) -> dict[str, object]:
     """Keep the first-fit breaks, then lengthen a one-word last line.
 
@@ -365,6 +378,7 @@ def pretty_lines(
         clone_ranges=clone_ranges,
         text_autospace=text_autospace,
         autospace=autospace,
+        hyphenate_character=hyphenate_character,
     )
 
 
@@ -388,6 +402,7 @@ def _styled_breaks(
     clone_ranges: object,
     text_autospace: object,
     autospace: object,
+    hyphenate_character: object = _DEFAULT_HYPHEN,
 ) -> dict[str, object]:
     try:
         source = _text(text)
@@ -404,6 +419,7 @@ def _styled_breaks(
         hanging = _hanging_modes(hanging_punctuation)
         held = _nowrap_ranges(nowrap_ranges)
         clones = _clone_ranges(clone_ranges, len(source))
+        hyphen_mark = _used_hyphen_mark(hyphenate_character)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -416,6 +432,7 @@ def _styled_breaks(
 
     token = _HANGING.set(hanging)
     clone_token = _CLONE.set(clones)
+    mark_token = _HYPHEN_MARK.set(hyphen_mark)
     try:
         try:
             lines = layout(
@@ -465,6 +482,7 @@ def _styled_breaks(
     finally:
         _HANGING.reset(token)
         _CLONE.reset(clone_token)
+        _HYPHEN_MARK.reset(mark_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -1341,6 +1359,14 @@ def _clone_fragment_chrome(tokens: list[_Tok], low: int, high: int) -> float:
     return extra
 
 
+def _used_hyphen_mark(value: object) -> str:
+    """String drawn when a hyphenation break is taken."""
+
+    if not isinstance(value, str):
+        raise _Invalid("hyphenate_character is invalid")
+    return value
+
+
 def _render(
     tokens: list[_Tok],
     start: int,
@@ -1387,10 +1413,14 @@ def _render_tokens(
     for index, tok in enumerate(tokens):
         if tok.kind == "shy":
             if show_shy and index == last:
-                _before(tok)
-                parts.append("\u2010")
-                x += tok.advance
-                seen = True
+                mark = _HYPHEN_MARK.get()
+                if mark:
+                    _before(tok)
+                    parts.append(mark)
+                    x += tok.advance * len(mark)
+                    if letter and len(mark) > 1:
+                        x += letter * (len(mark) - 1)
+                    seen = True
             continue
         if tok.kind == "tab":
             _before(tok)
