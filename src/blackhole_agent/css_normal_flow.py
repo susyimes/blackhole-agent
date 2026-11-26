@@ -460,6 +460,17 @@ to that content height: a child that does not fit starts the next column,
 column empty, ``avoid-column`` keeps a fitting suffix with the next child,
 and content past the last column overflows it. ``page`` does not start a
 column. The following block stays under that specified border box.
+``widows`` and ``orphans`` are inherited. On that fixed fill's only text
+child they fragment its line boxes: a break leaves at least the orphans
+count before it and at least the widows count after it, and a missing
+partner defaults to 2. A column that cannot hold a legal break is skipped
+until the block has started, then the current column keeps the rest and may
+overflow. The child's border box stays with the first fragment and shrinks
+to it; later lines keep their column positions. The following block stays
+under the specified height. Both values omitted, or ``initial``, ``unset``,
+and ``revert``, keep the unbreakable box. Zero, a negative, and any other
+token are invalid. A sibling, a spanner, ``column-height``, a balanced fill,
+mixed line heights, and padding or border on that child are rejected.
 ``column-span: all`` inside that fixed fill balances and shortens the line
 above the spanner, lays the spanner across the content box, and fills the
 leftover block size in source order. The multicol keeps its specified
@@ -1007,6 +1018,8 @@ _FONT = {
     "hyphens": "manual",
     "lang": "",
     "hanging-punctuation": "none",
+    "widows": "",
+    "orphans": "",
     "text-wrap-style": "auto",
     "list-style-type": "disc",
     "list-style-position": "outside",
@@ -1207,6 +1220,8 @@ class _Box:
     column_span: str = "none"
     break_before: str = "auto"
     break_after: str = "auto"
+    widows: int | None = None
+    orphans: int | None = None
     parent_box: _Box | None = None
     anonymous: bool = False
     container_type: str = "normal"
@@ -1325,6 +1340,9 @@ def layout_normal_flow(
     space. The rectangles do not move the box.
     ``column-rule`` records one centered stroke in each gap between two
     occupied columns. Those rectangles do not move the column boxes.
+    ``widows`` and ``orphans`` split that multicol's only text child across
+    a fixed ``column-fill: auto`` height. Later lines stay in their columns,
+    and the following block stays under the specified height.
     ``scroll-snap-type`` records the resting scroll of a horizontal
     scrollport. The snap areas stay at their flow positions.
     ``transition_sample_ms`` samples a ``transition-property: height``
@@ -2211,6 +2229,12 @@ def _make_box(
         column_span=_read_column_span(winners, custom),
         break_before=_read_fragment_break(winners, custom, "break-before"),
         break_after=_read_fragment_break(winners, custom, "break-after"),
+        widows=_read_line_break_count(
+            _declared(winners, "widows", custom), fonts.get("widows", ""), "widows"
+        ),
+        orphans=_read_line_break_count(
+            _declared(winners, "orphans", custom), fonts.get("orphans", ""), "orphans"
+        ),
         shape_outside=shape_outside,
         shape_margin=shape_margin,
         container_type=_container_kind(_declared(winners, "container-type", custom)),
@@ -3015,6 +3039,121 @@ def _column_inline_offset(index: int, available: int, gap: int, count: int) -> i
     return product // count
 
 
+def _read_line_break_count(value: str | None, parent: str, name: str) -> int | None:
+    """Positive ``widows`` or ``orphans``. An omitted value does not fragment lines."""
+
+    if value is None:
+        return int(parent) if parent.isdigit() else None
+    text = " ".join(value.split()).lower()
+    if text in {"initial", "unset", "revert"}:
+        return None
+    if text == "inherit":
+        return int(parent) if parent.isdigit() else None
+    if not text.isdigit() or text.startswith("0"):
+        raise _Invalid(f"{name} is invalid")
+    return int(text)
+
+
+def _line_fragments(
+    line_count: int, slot: int, columns: int, orphans: int, widows: int
+) -> list[tuple[int, int]]:
+    """Split one block so a break keeps orphans before it and widows after it.
+
+    A column that cannot hold a legal break is skipped until the block starts.
+    After that, the current column keeps every remaining line.
+    """
+
+    if line_count <= slot or columns < 2:
+        return [(0, line_count)]
+    remaining = line_count
+    column = 0
+    started = False
+    placed: list[tuple[int, int]] = []
+    while remaining > 0:
+        if remaining <= slot or column >= columns - 1:
+            placed.append((column, remaining))
+            break
+        minimum = orphans if not started else max(orphans, widows)
+        maximum = slot
+        if remaining - slot < widows:
+            maximum = min(maximum, remaining - widows)
+        if maximum < minimum:
+            if started:
+                placed.append((column, remaining))
+                break
+            column += 1
+            continue
+        placed.append((column, maximum))
+        remaining -= maximum
+        started = True
+        column += 1
+    return placed
+
+
+def _spread_column_lines(
+    box: _Box,
+    *,
+    content_x: int,
+    count: int,
+    gap: int,
+    limit: int,
+    column_width: int,
+) -> None:
+    """Move one text child's lines into fixed columns and shrink its first fragment."""
+
+    if len(box.children) != 1:
+        return
+    child = box.children[0]
+    if child.widows is None and child.orphans is None:
+        return
+    orphans = 2 if child.orphans is None else child.orphans
+    widows = 2 if child.widows is None else child.widows
+    lines = child.lines
+    if not lines:
+        raise _Invalid("column line fragmentation is unsupported")
+    height = lines[0].height
+    uniform = all(line.height == height and line.y == index * height for index, line in enumerate(lines))
+    stacked = lines[-1].y + lines[-1].height
+    if (
+        not uniform
+        or height < 1
+        or child.content_height != stacked
+        or _edge_extent(child.solved, "top", "bottom", "left", "right") != 0
+    ):
+        raise _Invalid("column line fragmentation is unsupported")
+    slot = limit // height
+    if slot < 1:
+        raise _Invalid("column line fragmentation is unsupported")
+    plan = _line_fragments(len(lines), slot, count, orphans, widows)
+    if sum(taken for _column, taken in plan) != len(lines):
+        raise _Invalid("column line fragmentation is unsupported")
+    if plan == [(0, len(lines))]:
+        return
+    first_column, first_count = plan[0]
+    origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
+    first_x = _column_inline_offset(first_column, box.content_width, gap, count)
+    child.x = content_x + first_x + child.margin_left
+    child.anchor_y = origin
+    index = 0
+    for column, taken in plan:
+        column_x = _column_inline_offset(column, box.content_width, gap, count)
+        for local in range(taken):
+            line = lines[index]
+            line.x += column_x - first_x
+            line.y = local * height
+            index += 1
+    child.content_height = first_count * height
+    child.border_height = child.content_height
+    child.definite_height = child.content_height
+    _stamp_column_rules(
+        box,
+        [(0, limit, {column for column, taken in plan if taken})],
+        count=count,
+        gap=gap,
+        column_width=column_width,
+    )
+
+
 def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> None:
     """Lay text-only children into columns and anchor them there.
 
@@ -3033,6 +3172,11 @@ def _place_multicol(box: _Box, content_x: int, viewport_height: int | None) -> N
         if str(spec.get("wrap", "auto")) == "nowrap":
             raise _Invalid("column-wrap nowrap is unsupported")
     fill = str(spec.get("fill", "balance"))
+    if any(child.widows is not None or child.orphans is not None for child in box.children):
+        fixed_fill = column_block is None and fill == "auto" and box.definite_height is not None
+        only = box.children[0] if len(box.children) == 1 else None
+        if not fixed_fill or only is None or only.column_span == "all":
+            raise _Invalid("column line fragmentation is unsupported")
     # A continuous auto fill has no column block size, so it balances.
     sizing_fill = "balance" if fill == "auto" else fill
     available = box.content_width
@@ -3238,6 +3382,14 @@ def _anchor_fixed_columns(
     flush(False)
     _anchor_column_rows(box, content_x, rows, "inline", "block")
     _stamp_column_rules(box, rule_rows, count=count, gap=gap, column_width=column_width)
+    _spread_column_lines(
+        box,
+        content_x=content_x,
+        count=count,
+        gap=gap,
+        limit=limit,
+        column_width=column_width,
+    )
     box.anchor_laid = True
 
 
@@ -4388,6 +4540,8 @@ def _fonts(box: _Box) -> dict[str, str]:
         "hyphens": box.hyphens,
         "lang": box.lang,
         "hanging-punctuation": box.hanging_punctuation,
+        "widows": "" if box.widows is None else str(box.widows),
+        "orphans": "" if box.orphans is None else str(box.orphans),
         "text-wrap-style": box.text_wrap_style,
         "list-style-type": box.list_style_type,
         "list-style-position": box.list_style_position,
