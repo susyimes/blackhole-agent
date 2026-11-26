@@ -765,7 +765,8 @@ def run_captured_process(
     *,
     cwd: Path,
     timeout: float,
-    input: str | None = None,
+    input: str | bytes | None = None,
+    stdout_errors: str = "replace",
     env: dict[str, str] | None = None,
     resource_limits: ResourceLimits | None = None,
     shell: bool = False,
@@ -827,7 +828,9 @@ def run_captured_process(
         job = None
         startup_error = Path(scratch) / "startup-error.json"
         stdin_path = Path(scratch) / "stdin.txt"
-        if input is not None:
+        if isinstance(input, bytes):
+            stdin_path.write_bytes(input)
+        elif input is not None:
             stdin_path.write_text(input, encoding="utf-8")
         timed_out = False
         cancelled = False
@@ -1004,12 +1007,8 @@ def run_captured_process(
             raise OutputLimitExceeded(cap_bytes, observed, exceeded_stream)
         if exceeded_scratch:
             raise ScratchLimitExceeded(scratch_cap, exceeded_scratch)
-        if cap_bytes:
-            out = stdout.read(cap_bytes).decode("utf-8", errors="replace")
-            err = stderr.read(cap_bytes).decode("utf-8", errors="replace")
-        else:
-            out = stdout.read().decode("utf-8", errors="replace")
-            err = stderr.read().decode("utf-8", errors="replace")
+        out = stdout.read(cap_bytes or -1).decode("utf-8", errors=stdout_errors)
+        err = stderr.read(cap_bytes or -1).decode("utf-8", errors="replace")
         if cleanup_error:
             err += f"\nProcess cleanup: {cleanup_error}"
         if timed_out:

@@ -1,25 +1,10 @@
-"""Class-level repair for recurring ``milestone_rejected`` on staging.
-
-Three recorded rejections were the same class, not three packages: the
-controller ran ``git add -A``, Git for Windows walked regenerable forage
-scratch, and ``Filename too long`` aborted a proved behavior increment.
-
-An instance patch deletes or gitignores the last extract (airflow wheels,
-tmp-infer-airflow-amazon, …). A later sdist with a different long path
-would fail the same way.
-
-This module:
-
-- enables ``core.longpaths`` on Unbound worktrees
-- stages porcelain-listed paths instead of walking the whole tree
-- skips regenerable scratch and unreadable non-behavior paths
-- closes ``milestone_rejected`` once the resilience capability is proved
-"""
+"""Stage literal milestone paths. Whole-tree adds previously failed on long paths in forage scratch."""
 
 from __future__ import annotations
 
 import inspect
 import json
+import os
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -91,6 +76,8 @@ def is_tree_walking_git_add(command: Sequence[str]) -> bool:
     """True for git add -A / --all / . which walk the whole working tree."""
 
     parts = [str(item) for item in command]
+    if parts[:2] == ["git", "--literal-pathspecs"]:
+        del parts[1]
     if len(parts) < 2 or parts[0] != "git" or parts[1] != "add":
         return False
     rest = parts[2:]
@@ -101,14 +88,8 @@ def is_tree_walking_git_add(command: Sequence[str]) -> bool:
 
 
 def is_regenerable_scratch(path: str) -> bool:
-    normalized = str(path or "").strip().replace("\\", "/").lstrip("./")
-    lowered = normalized.lower()
-    if not lowered:
-        return False
-    if any(lowered.startswith(prefix) for prefix in SCRATCH_PREFIXES):
-        return True
-    padded = f"/{lowered}"
-    return any(infix in padded for infix in SCRATCH_INFIXES)
+    lowered = str(path or "").strip().replace("\\", "/").lstrip("./").lower()
+    return lowered.startswith(SCRATCH_PREFIXES) or any(infix in f"/{lowered}" for infix in SCRATCH_INFIXES)
 
 
 def _is_workspace_dir(workspace: Path, relative: str) -> bool:
@@ -116,17 +97,6 @@ def _is_workspace_dir(workspace: Path, relative: str) -> bool:
         return (workspace / relative).is_dir()
     except OSError:
         return False
-
-
-def _should_skip_staging_path(workspace: Path, relative: str, *, behavior: bool) -> bool:
-    if is_regenerable_scratch(relative):
-        return True
-    if behavior:
-        return False
-    if _is_workspace_dir(workspace, relative):
-        # Adding a directory recurses; porcelain -uall already lists files.
-        return True
-    return False
 
 
 def ensure_git_longpaths(
@@ -146,32 +116,23 @@ def ensure_git_longpaths(
     )
 
 
-def _details(completed: subprocess.CompletedProcess) -> str:
-    return ((completed.stderr or "") + "\n" + (completed.stdout or "")).strip()
-
-
-def _add_one_path(
+def run_git_pathspec(
     workspace: Path,
-    path: str,
+    arguments: Sequence[str],
+    paths: Sequence[str],
     *,
     command_runner: Callable[..., Any],
-    run_command: Callable[..., Any],
-    is_behavior_path: Callable[[str], bool],
-) -> str | None:
-    """Stage one path. Return the path when skipped, or None when staged."""
+) -> None:
+    """Pass exact UTF-8 filenames to Git without glob expansion or an argv length limit."""
 
-    completed = run_command(
-        ["git", "add", "--", path],
-        cwd=workspace,
-        command_runner=command_runner,
-        check=False,
+    from blackhole_agent.unbound import run_command
+
+    if not paths or any(not path or "\0" in path for path in paths):
+        raise ValueError("Git needs nonempty filenames without NUL")
+    run_command(
+        ["git", "--literal-pathspecs", *arguments, "--pathspec-from-file=-", "--pathspec-file-nul"],
+        cwd=workspace, command_runner=command_runner, input_bytes=("\0".join(paths) + "\0").encode("utf-8"),
     )
-    if completed.returncode == 0:
-        return None
-    details = _details(completed) or f"exit code {completed.returncode}"
-    if is_unreadable_tree_error(details) and not is_behavior_path(path):
-        return path
-    raise RuntimeError(f"git add -- {path} failed: {details}")
 
 
 def stage_milestone_paths(
@@ -186,50 +147,34 @@ def stage_milestone_paths(
     be staged still fails the milestone.
     """
 
-    from blackhole_agent.unbound import (
-        _normalize_repo_relpath,
-        is_behavior_path,
-        run_command,
-    )
+    from blackhole_agent.unbound import is_behavior_path
 
     ensure_git_longpaths(workspace, command_runner=command_runner)
-    staged: list[str] = []
     skipped: list[str] = []
     pending: list[str] = []
-    seen: set[str] = set()
-    for raw in paths:
-        path = _normalize_repo_relpath(str(raw or ""))
-        if not path or path in seen:
-            continue
-        seen.add(path)
-        if _should_skip_staging_path(workspace, path, behavior=is_behavior_path(path)):
+    unique = dict.fromkeys(str(path).replace(os.sep, "/").removeprefix("./") for path in paths if path)
+    for path in filter(None, unique):
+        if is_regenerable_scratch(path) or (not is_behavior_path(path) and _is_workspace_dir(workspace, path)):
             skipped.append(path)
-            continue
-        pending.append(path)
-
-    for offset in range(0, len(pending), 32):
-        batch = pending[offset : offset + 32]
-        completed = run_command(
-            ["git", "add", "--", *batch],
-            cwd=workspace,
-            command_runner=command_runner,
-            check=False,
-        )
-        if completed.returncode == 0:
-            staged.extend(batch)
-            continue
-        for path in batch:
-            skipped_path = _add_one_path(
-                workspace,
-                path,
-                command_runner=command_runner,
-                run_command=run_command,
-                is_behavior_path=is_behavior_path,
-            )
-            if skipped_path is None:
-                staged.append(path)
-            else:
-                skipped.append(skipped_path)
+        else:
+            pending.append(path)
+    try:
+        if pending:
+            run_git_pathspec(workspace, ["add"], pending, command_runner=command_runner)
+        return {"staged": pending, "skipped": skipped}
+    except RuntimeError as error:
+        if not is_unreadable_tree_error(str(error)):
+            raise
+    staged = []
+    for path in pending:
+        try:
+            run_git_pathspec(workspace, ["add"], [path], command_runner=command_runner)
+        except RuntimeError as error:
+            if is_behavior_path(path) or not is_unreadable_tree_error(str(error)):
+                raise
+            skipped.append(path)
+        else:
+            staged.append(path)
     return {"staged": staged, "skipped": skipped}
 
 
@@ -321,17 +266,6 @@ def _write_proved_closer(root: Path, capability_id: str) -> Path:
     return path
 
 
-def _git_text(root: Path, arguments: list[str]) -> str:
-    completed = subprocess.run(
-        arguments,
-        cwd=root,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return (completed.stdout or "").strip()
-
-
 def builtin_milestone_commit_resilience_proof() -> dict[str, Any]:
     """Hermetic proof: a later long-path extract cannot reject a milestone."""
 
@@ -343,7 +277,7 @@ def builtin_milestone_commit_resilience_proof() -> dict[str, Any]:
         required_pattern_mission,
         save_register,
     )
-    from blackhole_agent.unbound import TurnDecision, commit_milestone, git_head
+    from blackhole_agent.unbound import TurnDecision, commit_milestone, git_head, git_text
 
     checks: dict[str, bool] = {}
     stage_source = inspect.getsource(stage_milestone_paths)
@@ -373,21 +307,7 @@ def builtin_milestone_commit_resilience_proof() -> dict[str, Any]:
         "git add -A failed: warning: could not open directory 'x': Filename too long"
     )
 
-    decision = TurnDecision.from_payload(
-        {
-            "status": "milestone",
-            "summary": "behavior increment",
-            "strategy": "class-level staging",
-            "next_step": "none",
-            "capability_delta": "Milestone commits survive unreadable scratch.",
-            "outcome_evidence": ["src/capability.py committed"],
-            "validation": [{"command": "true", "exit_code": 0, "summary": "ok"}],
-            "done_when_met": False,
-            "commit_message": "Add executable capability path",
-            "mission_goal": "",
-            "done_when": "",
-        }
-    )
+    decision = TurnDecision.from_payload({"status": "milestone", "commit_message": "Add executable capability path"})
 
     with tempfile.TemporaryDirectory(prefix="milestone-commit-resilience-") as tmp:
         root = Path(tmp)
@@ -397,8 +317,8 @@ def builtin_milestone_commit_resilience_proof() -> dict[str, Any]:
         (root / "src" / "capability.py").write_text("print('CAPABILITY_OK')\n", encoding="utf-8")
         before = git_head(root)
         sha = commit_milestone(root, decision, 1, command_runner=poison_tree_walking_git_add())
-        names = _git_text(root, ["git", "show", "--name-only", "--pretty=format:", sha])
-        longpaths = _git_text(root, ["git", "config", "--get", "core.longpaths"])
+        names = git_text(root, ["git", "show", "--name-only", "--pretty=format:", sha])
+        longpaths = git_text(root, ["git", "config", "--get", "core.longpaths"])
         checks["commits_behavior_while_add_all_is_poisoned"] = bool(sha) and sha != before
         checks["behavior_path_is_in_commit"] = "src/capability.py" in names
         checks["later_extract_not_committed"] = "other-sdist-not-airflow" not in names

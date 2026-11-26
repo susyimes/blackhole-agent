@@ -43,7 +43,7 @@ from blackhole_agent.kernel_resume import (
     consume_resumed_campaign,
     hydrate_mission_from_campaign,
 )
-from blackhole_agent.milestone_commit import ensure_git_longpaths, stage_milestone_paths
+from blackhole_agent.milestone_commit import ensure_git_longpaths, run_git_pathspec, stage_milestone_paths
 from blackhole_agent.mission_selection import (
     SELECTION_REJECTION_LIMIT,
     assess_mission_selection,
@@ -462,9 +462,19 @@ def run_command(
     command_runner: Callable[..., Any] = subprocess.run,
     timeout: int = 120,
     check: bool = True,
+    input_bytes: bytes | None = None,
+    exact_stdout: bool = False,
 ) -> subprocess.CompletedProcess:
+    errors = "strict" if exact_stdout else "replace"
     if command_runner is subprocess.run:
-        completed = run_captured_process(command, cwd=cwd, timeout=timeout)
+        completed = run_captured_process(command, cwd=cwd, timeout=timeout, input=input_bytes, stdout_errors=errors)
+    elif exact_stdout or input_bytes is not None:
+        # Read Git's machine output before text-mode newline conversion or loss of filename bytes.
+        completed = command_runner(command, cwd=cwd, capture_output=True, timeout=timeout, input=input_bytes)
+        if isinstance(completed.stdout, bytes):
+            completed.stdout = completed.stdout.decode("utf-8", errors=errors)
+        if isinstance(completed.stderr, bytes):
+            completed.stderr = completed.stderr.decode("utf-8", errors="replace")
     else:
         completed = command_runner(
             command, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
@@ -1474,15 +1484,6 @@ def invoke_kernel_turn(
     raise ValueError(f"Unsupported kernel: {state.kernel}")
 
 
-def _normalize_repo_relpath(path: str) -> str:
-    """Normalize git path output to a repo-relative forward-slash path."""
-
-    value = path.strip().strip('"').replace("\\", "/")
-    if value.startswith("./"):
-        value = value[2:]
-    return value
-
-
 _UNACCEPTED_SKIP_NAMES = frozenset({".env", ".env.local", "credentials.json", "id_rsa", "id_rsa.pub"})
 _UNACCEPTED_SKIP_SUFFIXES = frozenset({".pem", ".key"})
 _REPARSE_ATTRIBUTE = 0x400
@@ -1493,24 +1494,12 @@ def _porcelain_entries(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> list[tuple[str, str]]:
-    completed = run_command(
-        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
-        cwd=workspace,
-        command_runner=command_runner,
+    # A rename is two independent paths for staging, restoration and change reporting.
+    result = run_command(
+        ["git", "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all"],
+        cwd=workspace, command_runner=command_runner, exact_stdout=True,
     )
-    entries: list[tuple[str, str]] = []
-    for line in (completed.stdout or "").splitlines():
-        line = line.rstrip()
-        if len(line) < 4:
-            continue
-        status = line[:2]
-        raw = line[3:]
-        parts = raw.split(" -> ", 1) if " -> " in raw else (raw,)
-        for part in parts:
-            path = _normalize_repo_relpath(part)
-            if path:
-                entries.append((status, path))
-    return entries
+    return [(record[:2], record[3:]) for record in result.stdout.split("\0") if record]
 
 
 def _leave_unaccepted_path(path: str) -> bool:
@@ -1531,25 +1520,10 @@ def _path_is_reparse(path: Path) -> bool:
 
 def _strictly_inside_workspace(workspace: Path, candidate: Path) -> bool:
     try:
-        candidate.resolve().relative_to(workspace)
+        relative = candidate.resolve().relative_to(workspace)
     except (OSError, ValueError):
         return False
-    return candidate.resolve() != workspace
-
-
-def _head_contains(
-    workspace: Path,
-    path: str,
-    *,
-    command_runner: Callable[..., Any] = subprocess.run,
-) -> bool:
-    completed = run_command(
-        ["git", "cat-file", "-e", f"HEAD:{path}"],
-        cwd=workspace,
-        command_runner=command_runner,
-        check=False,
-    )
-    return completed.returncode == 0
+    return bool(relative.parts)
 
 
 def restore_unaccepted_workspace(
@@ -1567,11 +1541,16 @@ def restore_unaccepted_workspace(
     """
 
     workspace = workspace.resolve()
-    restored: list[str] = []
+    entries = _porcelain_entries(workspace, command_runner=command_runner)
+    in_git = {path: status for status, path in entries if status != "??"}
     removed: list[str] = []
     skipped: list[dict[str, str]] = []
-    tracked: list[str] = []
-    for status, path in _porcelain_entries(workspace, command_runner=command_runner):
+    tracked_files: list[str] = []
+    tracked_directories: list[str] = []
+    for status, path in entries:
+        if status == "??" and path in in_git:
+            # A staged deletion and a newly created working copy can name the same file.
+            continue
         if _leave_unaccepted_path(path):
             skipped.append({"path": path, "reason": "protected_name"})
             continue
@@ -1582,47 +1561,49 @@ def restore_unaccepted_workspace(
         if not _strictly_inside_workspace(workspace, raw):
             skipped.append({"path": path, "reason": "outside_workspace"})
             continue
-        if _head_contains(workspace, path, command_runner=command_runner):
-            if path not in tracked:
-                tracked.append(path)
-            continue
-        if raw.is_file():
-            if status != "??":
-                run_command(
-                    ["git", "rm", "--cached", "-q", "--", path],
-                    cwd=workspace,
-                    command_runner=command_runner,
-                    check=False,
-                )
+        if status != "??":
+            if raw.is_dir():
+                tracked_directories.append(path)
+            else:
+                tracked_files.append(path)
+        elif raw.is_file():
             raw.unlink()
             removed.append(path)
         elif raw.exists():
             skipped.append({"path": path, "reason": "not_a_file"})
-        elif status != "??":
-            run_command(
-                ["git", "rm", "--cached", "-q", "--", path],
-                cwd=workspace,
-                command_runner=command_runner,
-                check=False,
-            )
-            removed.append(path)
-    if tracked:
-        run_command(
-            ["git", "restore", "--source=HEAD", "--worktree", "--staged", "--", *tracked],
-            cwd=workspace,
-            command_runner=command_runner,
+    restored: list[str] = []
+    # Remove rejected leaf additions before checking whether their parent can become a file again.
+    for group in (tracked_files, tracked_directories):
+        paths = []
+        for path in group:
+            raw = workspace / path
+            if raw.is_dir():
+                entry = git_text(
+                    workspace, ["git", "--literal-pathspecs", "ls-tree", "HEAD", "--", path],
+                    command_runner=command_runner,
+                )
+                kind = entry.partition(" ")[2].partition(" ")[0]
+                if kind != "commit" and (kind != "blob" or any(raw.iterdir())):
+                    skipped.append({"path": path, "reason": "directory_in_the_way"})
+                    continue
+            paths.append(path)
+        if not paths:
+            continue
+        run_git_pathspec(
+            workspace, ["restore", "--source=HEAD", "--worktree", "--staged", "--no-recurse-submodules"],
+            paths, command_runner=command_runner,
         )
-        restored.extend(tracked)
-    remaining = [
-        path
-        for _status, path in _porcelain_entries(workspace, command_runner=command_runner)
-        if path
-    ]
+        for path in paths:
+            # A case-only rename's removed spelling may still resolve on a case-insensitive filesystem.
+            if in_git[path] in {"A ", "AM", "AD", "AT", " A"} or not os.path.lexists(workspace / path):
+                removed.append(path)
+            else:
+                restored.append(path)
     return {
         "restored_tracked": restored,
         "removed_untracked": removed,
         "skipped": skipped,
-        "clean": not remaining,
+        "clean": not _porcelain_entries(workspace, command_runner=command_runner),
     }
 
 
@@ -1641,27 +1622,7 @@ def status_changed_paths(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> list[str]:
-    # porcelain v1 prefixes each entry with a two-column status and one
-    # space, so the path starts at column 3. Read the raw stdout instead of
-    # git_text: stripping the whole output would delete the leading status
-    # space of the FIRST entry and mangle its path (src/x -> rc/x).
-    completed = run_command(
-        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
-        cwd=workspace,
-        command_runner=command_runner,
-    )
-    paths: list[str] = []
-    for line in (completed.stdout or "").splitlines():
-        line = line.rstrip()
-        if len(line) < 4:
-            continue
-        value = line[3:]
-        if " -> " in value:
-            value = value.split(" -> ", 1)[1]
-        value = _normalize_repo_relpath(value)
-        if value:
-            paths.append(value)
-    return paths
+    return list(dict.fromkeys(path for _, path in _porcelain_entries(workspace, command_runner=command_runner)))
 
 
 def changed_paths_since(
@@ -1670,40 +1631,27 @@ def changed_paths_since(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> list[str]:
-    paths: list[str] = []
+    paths = set(status_changed_paths(workspace, command_runner=command_runner))
     if base_head:
         completed = run_command(
-            ["git", "diff", "--name-only", f"{base_head}..HEAD"],
-            cwd=workspace,
-            command_runner=command_runner,
-            check=False,
+            ["git", "diff", "--no-renames", "--name-only", "-z", f"{base_head}..HEAD", "--"],
+            cwd=workspace, command_runner=command_runner, check=False, exact_stdout=True,
         )
         if completed.returncode == 0:
-            paths.extend((completed.stdout or "").splitlines())
-    paths.extend(status_changed_paths(workspace, command_runner=command_runner))
-    return sorted(
-        {
-            _normalize_repo_relpath(path)
-            for path in paths
-            if path and path.strip()
-        }
-    )
+            paths.update(filter(None, completed.stdout.split("\0")))
+    return sorted(paths)
 
 
 def is_behavior_path(path: str) -> bool:
-    normalized = _normalize_repo_relpath(path)
-    lowered = normalized.lower()
-    if not normalized or any(lowered.startswith(prefix) for prefix in NON_BEHAVIOR_PREFIXES):
+    # Classification retains its conservative normalization. Git receives the original path.
+    lowered = path.strip().strip('"').replace("\\", "/").removeprefix("./").lower()
+    if not lowered or lowered.startswith(NON_BEHAVIOR_PREFIXES):
         return False
     # Extra safety: never treat artifact trees as behavior even if mistyped.
     if "/artifacts/" in f"/{lowered}" or lowered.startswith("artifacts"):
         return False
-    name = Path(lowered).name
-    if name in NON_BEHAVIOR_FILENAMES:
-        return False
-    if Path(lowered).suffix in {".md", ".rst"}:
-        return False
-    return True
+    file = Path(lowered)
+    return file.name not in NON_BEHAVIOR_FILENAMES and file.suffix not in {".md", ".rst"}
 
 
 def reload_worktree_compounder() -> Any:
@@ -2508,9 +2456,12 @@ def commit_milestone(
     """
 
     ensure_git_longpaths(workspace, command_runner=command_runner)
-    status = status_changed_paths(workspace, command_runner=command_runner)
-    if status:
-        stage_milestone_paths(workspace, status, command_runner=command_runner)
+    entries = _porcelain_entries(workspace, command_runner=command_runner)
+    if entries:
+        # Index-only changes already participate in the commit. Re-adding a staged deletion fails.
+        pending = [path for status, path in entries if status[1] != " "]
+        if pending:
+            stage_milestone_paths(workspace, pending, command_runner=command_runner)
         staged = run_command(
             ["git", "diff", "--cached", "--quiet"],
             cwd=workspace,
