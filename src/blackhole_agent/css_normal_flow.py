@@ -36,8 +36,11 @@ the absolute formatting context, and an automatic height grows to the last
 child's margin edge. An automatic width with an automatic horizontal inset
 shrinks to those children: the used content width is the minimum of their
 max-content and the maximum of their min-content and the available space.
-A child margin stays inside that box. A percentage width, an intrinsic
-limit, a float, and a nested positioned box stay rejected. Automatic insets
+A child margin stays inside that box. A plain percentage width on that
+child is cyclic: shrink-to-fit uses the child's min-content and max-content
+as if the percentage were auto, then the used width is that percentage of
+the definite shrink width. An intrinsic limit, a float, and a nested
+positioned box stay rejected. Automatic insets
 on an axis use the static position between
 block siblings. An inline absolute in a horizontal left-to-right line uses the
 static position of the first inline box it would have generated: preceding text
@@ -5758,7 +5761,27 @@ def _resolve_float_child(
     return solved
 
 
-def _float_child_span(box: _Box, *, reason: str = "float content is unsupported") -> tuple[int, int]:
+def _plain_width_percentage(value: object) -> bool:
+    """True for one non-negative percentage token, not calc or a keyword."""
+
+    if not isinstance(value, str):
+        return False
+    text = value.strip().lower()
+    if len(text) < 2 or not text.endswith("%"):
+        return False
+    try:
+        number = float(text[:-1])
+    except ValueError:
+        return False
+    return number >= 0 and number == number and number not in {float("inf"), float("-inf")}
+
+
+def _float_child_span(
+    box: _Box,
+    *,
+    reason: str = "float content is unsupported",
+    cyclic_percentage: bool = False,
+) -> tuple[int, int]:
     if any(prop == "box-sizing" and value.strip().lower() == "border-box" for prop, value in box.declarations):
         raise _Invalid(reason)
     if _has_explicit_limit(box, _WIDTH_LIMITS):
@@ -5779,9 +5802,13 @@ def _float_child_span(box: _Box, *, reason: str = "float content is unsupported"
         for key in ("padding_left", "padding_right", "border_left", "border_right")
     )
     specified = narrow.get("specified_width")
-    if _specified_auto(specified):
+    cyclic = cyclic_percentage and _plain_width_percentage(specified)
+    if _specified_auto(specified) or cyclic:
         if box.children:
-            pairs = [_float_child_span(child, reason=reason) for child in box.children]
+            pairs = [
+                _float_child_span(child, reason=reason, cyclic_percentage=cyclic_percentage)
+                for child in box.children
+            ]
             inner_min = max(item[0] for item in pairs)
             inner_max = max(item[1] for item in pairs)
         else:
@@ -5794,10 +5821,19 @@ def _float_child_span(box: _Box, *, reason: str = "float content is unsupported"
 
 
 def _absolute_content_span(box: _Box) -> tuple[int, int]:
-    """Min-content and max-content of an absolute box from its block children."""
+    """Min-content and max-content of an absolute box from its block children.
+
+    A plain percentage width is cyclic during this pass. The used percentage
+    is resolved later, once this box has a definite shrink width.
+    """
 
     pairs = [
-        _float_child_span(child, reason="absolute shrink-to-fit is unsupported") for child in box.children
+        _float_child_span(
+            child,
+            reason="absolute shrink-to-fit is unsupported",
+            cyclic_percentage=True,
+        )
+        for child in box.children
     ]
     return max(item[0] for item in pairs), max(item[1] for item in pairs)
 
