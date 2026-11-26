@@ -1,4 +1,4 @@
-"""Place one ruby annotation above its base.
+"""Place one ruby annotation above its base, and a second one under it.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A tree that paints the annotation as the next inline glyphs
@@ -195,11 +195,49 @@ def observe() -> tuple[bool, dict[str, object]]:
         and long.get("height") == 10
         and observed["declared_next_y"] == 15
     )
+    paired_row = _box(paired, "row")
+    paired_ruby = _box(paired, "rb")
+    paired_lines = _lines(paired_row)
+    paired_ruby_lines = _lines(paired_ruby)
+    paired_host = paired_lines[0] if paired_lines else None
+    paired_slot = None
+    if paired_host is not None and isinstance(paired_host.get("atoms"), list) and paired_host["atoms"]:
+        candidate = paired_host["atoms"][0]
+        paired_slot = candidate if isinstance(candidate, dict) else None
+    paired_over = _line(paired_ruby_lines, "C")
+    paired_base = _line(paired_ruby_lines, "B")
+    paired_under = _line(paired_ruby_lines, "D")
+    paired_ok = (
+        paired.get("outcome") == "placed"
+        and paired_host is not None
+        and len(paired_lines) == 1
+        and paired_host.get("text") == "A"
+        and paired_host.get("height") == 20
+        and paired_host.get("width") == 20
+        and paired_slot == {"id": "rb", "x": 10, "width": 10}
+        and paired_ruby is not None
+        and paired_ruby.get("content_width") == 10
+        and paired_ruby.get("content_height") == 20
+        and paired_over is not None
+        and paired_over.get("x") == 12
+        and paired_over.get("y") == 0
+        and paired_over.get("width") == 5
+        and paired_over.get("height") == 5
+        and paired_base is not None
+        and paired_base.get("x") == 10
+        and paired_base.get("y") == 5
+        and paired_base.get("width") == 10
+        and paired_base.get("height") == 10
+        and paired_under is not None
+        and paired_under.get("x") == 12
+        and paired_under.get("y") == 15
+        and paired_under.get("width") == 5
+        and paired_under.get("height") == 5
+    )
     passed = (
         wide_ok
         and declared_ok
-        and paired.get("outcome") == "invalid"
-        and paired.get("reason") == "ruby annotation is unsupported"
+        and paired_ok
         and vertical.get("outcome") == "invalid"
         and vertical.get("reason") == "ruby writing mode is unsupported"
         and floated.get("outcome") == "invalid"

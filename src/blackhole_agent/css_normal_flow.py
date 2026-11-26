@@ -278,11 +278,13 @@ by the nearest pixel of one fifth, so the line grows and the following
 block moves. A keyword nested inside a shifted inline, preserved white
 space, and a vertical writing mode stay rejected. A ``ruby`` element with omitted ``display`` or
 ``display: ruby`` is an atomic inline. Its base text stays on the parent
-baseline and one ``rt`` annotation is centered above that base. The ruby
-width is the wider of the two runs, the line grows to cover the annotation,
-and the following block starts under that grown line. A second annotation,
-a float beside the ruby, a vertical writing mode, and a specified ruby size
-are rejected. An
+baseline and one ``rt`` annotation is centered above that base. A second
+``rt`` is centered under the base. The ruby width is the widest of those
+runs, so a wider under annotation can push the ruby onto the next line.
+The line grows to cover both annotations, and the following block starts
+under that grown line. The base stays on the parent baseline, so the under
+annotation hangs below it. A third annotation, a float beside the ruby, a
+vertical writing mode, and a specified ruby size are rejected. An
 inline-block is an atomic inline: automatic width is the shrink-to-fit of
 its text, the words before and after stay on the line, and the atomic box
 moves intact to the next line when it does not fit. Its bottom margin edge
@@ -11318,8 +11320,10 @@ def _atomic_content_baseline(atom: _Box) -> int | None:
                 if box.anchor_y is None:
                     raise _Invalid("inline-block baseline is invalid")
                 origin = box.anchor_y + _edge_extent(box.solved, "top") - atom_top
-            last = box.lines[-1]
-            found = origin + last.y + last.baseline
+            chosen = box.lines[-1]
+            if box is atom and box.ruby and len(box.lines) >= 2:
+                chosen = box.lines[1]
+            found = origin + chosen.y + chosen.baseline
         for child in box.children:
             visit(child)
 
@@ -11905,8 +11909,26 @@ def _ruby_advance(text: str, size: int) -> int:
     return total
 
 
+def _ruby_annotation_run(box: _Box, tree, node, styles, declarations) -> dict[str, object]:
+    """One ``rt`` run, with its own strut and no nested content."""
+
+    if (node.tail or "").strip():
+        raise _Invalid("ruby base is unsupported")
+    if any(_local_name(child) for child in tree.children.get(node, [])):
+        raise _Invalid("ruby annotation is unsupported")
+    text = node.text or ""
+    if not text or any(ch.isspace() for ch in text):
+        raise _Invalid("ruby annotation is unsupported")
+    fonts = _inline_fonts(tree, node, styles, declarations, _fonts(box))
+    if fonts.get("text-transform", "none") != "none":
+        raise _Invalid("ruby spacing is unsupported")
+    size = _positive_px(fonts["font-size"], "font-size")
+    height, baseline = _strut_metrics(size, _used_line_height(fonts["line-height"], size))
+    return {"text": text, "width": _ruby_advance(text, size), "height": height, "baseline": baseline}
+
+
 def _bind_ruby(box: _Box, tree, element, styles, declarations) -> None:
-    """Record one base run and the single annotation centered above it."""
+    """Record the base, the annotation above it, and an optional one under it."""
 
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("ruby writing mode is unsupported")
@@ -11920,36 +11942,32 @@ def _bind_ruby(box: _Box, tree, element, styles, declarations) -> None:
     if not base or any(ch.isspace() for ch in base):
         raise _Invalid("ruby base is unsupported")
     nodes = [node for node in tree.children.get(element, []) if _local_name(node)]
-    if len(nodes) != 1 or _local_name(nodes[0]) != "rt":
+    if not nodes or len(nodes) > 2 or any(_local_name(node) != "rt" for node in nodes):
         raise _Invalid("ruby annotation is unsupported")
-    annotation = nodes[0]
-    if (annotation.tail or "").strip():
-        raise _Invalid("ruby base is unsupported")
-    if any(_local_name(node) for node in tree.children.get(annotation, [])):
-        raise _Invalid("ruby annotation is unsupported")
-    text = annotation.text or ""
-    if not text or any(ch.isspace() for ch in text):
-        raise _Invalid("ruby annotation is unsupported")
-    fonts = _inline_fonts(tree, annotation, styles, declarations, _fonts(box))
-    if fonts.get("text-transform", "none") != "none":
-        raise _Invalid("ruby spacing is unsupported")
-    anno_size = _positive_px(fonts["font-size"], "font-size")
+    runs = [_ruby_annotation_run(box, tree, node, styles, declarations) for node in nodes]
+    over = runs[0]
+    under = runs[1] if len(runs) == 2 else None
     base_size = box.font_size
-    anno_height, anno_baseline = _strut_metrics(anno_size, _used_line_height(fonts["line-height"], anno_size))
     base_height, base_baseline = _strut_metrics(base_size, _used_line_height(box.line_height, base_size))
-    anno_width = _ruby_advance(text, anno_size)
     base_width = _ruby_advance(base, base_size)
-    box.ruby_pair = {
+    under_width = int(under["width"]) if under is not None else 0
+    pair: dict[str, object] = {
         "base": base,
-        "annotation": text,
-        "width": max(base_width, anno_width),
+        "annotation": over["text"],
+        "width": max(base_width, int(over["width"]), under_width),
         "base_width": base_width,
-        "anno_width": anno_width,
+        "anno_width": over["width"],
         "base_height": base_height,
-        "anno_height": anno_height,
+        "anno_height": over["height"],
         "base_baseline": base_baseline,
-        "anno_baseline": anno_baseline,
+        "anno_baseline": over["baseline"],
     }
+    if under is not None:
+        pair["under"] = under["text"]
+        pair["under_width"] = under["width"]
+        pair["under_height"] = under["height"]
+        pair["under_baseline"] = under["baseline"]
+    box.ruby_pair = pair
 
 
 def _paint_ruby_lines(box: _Box) -> None:
@@ -11963,9 +11981,11 @@ def _paint_ruby_lines(box: _Box) -> None:
     base_height = int(pair["base_height"])
     anno_width = int(pair["anno_width"])
     base_width = int(pair["base_width"])
-    if anno_width > width or base_width > width:
+    under_width = int(pair["under_width"]) if "under" in pair else 0
+    under_height = int(pair["under_height"]) if "under" in pair else 0
+    if anno_width > width or base_width > width or under_width > width:
         raise _Invalid("ruby width is unsupported")
-    box.lines = [
+    lines = [
         _Line(
             text=str(pair["annotation"]),
             x=(width - anno_width) // 2,
@@ -11983,7 +12003,19 @@ def _paint_ruby_lines(box: _Box) -> None:
             baseline=int(pair["base_baseline"]),
         ),
     ]
-    box.definite_height = anno_height + base_height
+    if "under" in pair:
+        lines.append(
+            _Line(
+                text=str(pair["under"]),
+                x=(width - under_width) // 2,
+                y=anno_height + base_height,
+                height=under_height,
+                content_width=under_width,
+                baseline=int(pair["under_baseline"]),
+            )
+        )
+    box.lines = lines
+    box.definite_height = anno_height + base_height + under_height
     box.content_height = box.definite_height
 
 
