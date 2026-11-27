@@ -20,13 +20,10 @@ and markers; recent, unresolved and uncertain evidence remains intact.
 
 from __future__ import annotations
 
-import errno
 import json
 import os
-import time
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, ContextManager
 
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -38,6 +35,7 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
+from blackhole_agent.file_guard import file_guard
 from blackhole_agent.loop_login_journal_prune import (
     LOOP_LOGIN_JOURNAL_PRUNE_DONE_WHEN,
     LOOP_LOGIN_JOURNAL_PRUNE_GOAL,
@@ -88,39 +86,8 @@ def is_login_rollup_repair_journal_entry(record: dict[str, Any]) -> bool:
     )
 
 
-@contextmanager
-def repair_journal_guard(path: Path) -> Iterator[None]:
-    """Serialize journal appends/replacement without acquiring owner locks.
-
-    This constant-size sidecar stays in place so competing processes always
-    lock the same inode. The OS releases the lock if its holder exits.
-    """
-    with path.with_suffix(path.suffix + ".guard").open("a+b") as guard:
-        if os.name == "nt":
-            import msvcrt
-        else:
-            import fcntl
-        deadline = time.monotonic() + 5
-        while True:
-            try:
-                guard.seek(0)
-                if os.name == "nt":
-                    msvcrt.locking(guard.fileno(), msvcrt.LK_NBLCK, 1)
-                else:
-                    fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except OSError as error:
-                if error.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK} or time.monotonic() >= deadline:
-                    raise
-                time.sleep(0.01)
-        try:
-            yield
-        finally:
-            guard.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(guard.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+def repair_journal_guard(path: Path) -> ContextManager[None]:
+    return file_guard(path, timeout=5)
 
 
 def record_login_rollup_repair(

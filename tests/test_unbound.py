@@ -29,14 +29,18 @@ from blackhole_agent.unbound import (
 )
 
 
+def git(repo: Path, *arguments: str) -> str:
+    return subprocess.check_output(["git", *arguments], cwd=repo, text=True).strip()
+
+
 def init_repository(path: Path) -> None:
-    subprocess.run(["git", "init", "-b", "main"], cwd=path, check=True, capture_output=True, text=True)
-    subprocess.run(["git", "config", "user.name", "Blackhole Test"], cwd=path, check=True)
-    subprocess.run(["git", "config", "user.email", "blackhole@example.invalid"], cwd=path, check=True)
+    git(path, "init", "-b", "main")
+    git(path, "config", "user.name", "Blackhole Test")
+    git(path, "config", "user.email", "blackhole@example.invalid")
     (path / "src").mkdir()
     (path / "src" / "seed.py").write_text("VALUE = 1\n", encoding="utf-8")
-    subprocess.run(["git", "add", "."], cwd=path, check=True)
-    subprocess.run(["git", "commit", "-m", "seed"], cwd=path, check=True, capture_output=True, text=True)
+    git(path, "add", ".")
+    git(path, "commit", "-m", "seed")
 
 
 def make_state(tmp_path: Path, **overrides) -> UnboundMission:
@@ -443,15 +447,7 @@ def test_continuing_work_persists_without_commit_until_capability_milestone(tmp_
     )
     initial_state = load_mission(state_path)
     workspace = Path(initial_state.workspace_path)
-    baseline_count = int(
-        subprocess.run(
-            ["git", "rev-list", "--count", "HEAD"],
-            cwd=workspace,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-    )
+    baseline_count = int(git(workspace, "rev-list", "--count", "HEAD"))
     responses = [
         decision_payload("continue", summary="Implementation is substantial but not demonstrated yet."),
         decision_payload(
@@ -484,26 +480,10 @@ def test_continuing_work_persists_without_commit_until_capability_milestone(tmp_
         )
 
     first = run_unbound_turn(state_path, kernel_runner=fake_kernel)
-    count_after_continue = int(
-        subprocess.run(
-            ["git", "rev-list", "--count", "HEAD"],
-            cwd=workspace,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-    )
+    count_after_continue = int(git(workspace, "rev-list", "--count", "HEAD"))
     second = run_unbound_turn(state_path, kernel_runner=fake_kernel)
     final_state = load_mission(state_path)
-    final_count = int(
-        subprocess.run(
-            ["git", "rev-list", "--count", "HEAD"],
-            cwd=workspace,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-    )
+    final_count = int(git(workspace, "rev-list", "--count", "HEAD"))
 
     assert first["effective_status"] == "continue"
     assert count_after_continue == baseline_count
@@ -610,44 +590,17 @@ def test_rejected_genesis_restores_workspace_before_the_next_turn(tmp_path):
     venv = repo / ".venv"
     venv.mkdir()
     (venv / "pyvenv.cfg").write_text("keep-venv\n", encoding="utf-8")
-    subprocess.run(["git", "add", ".gitignore", "src/other.py"], cwd=repo, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "ignore local env"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    git(repo, "add", ".gitignore", "src/other.py")
+    git(repo, "commit", "-m", "ignore local env")
     outside = tmp_path / "outside.txt"
     outside.write_text("keep-outside\n", encoding="utf-8")
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    head = git(repo, "rev-parse", "HEAD")
     state_path = tmp_path / "mission" / "state.json"
-    save_mission(
-        state_path,
-        UnboundMission(
-            schema_version=1,
-            mission_id="restore-probe",
-            created_at="2026-10-30T00:00:00Z",
-            updated_at="2026-10-30T00:00:00Z",
-            repo_path=str(repo),
-            workspace_path=str(repo),
-            branch="main",
-            target_branch="main",
-            goal="",
-            done_when="",
-            stage="genesis",
-            status="active",
-            kernel="grok",
-            base_head=head,
-            last_milestone_head=head,
-        ),
-    )
+    stamp = "2026-10-30T00:00:00Z"
+    save_mission(state_path, make_state(
+        repo, mission_id="restore-probe", created_at=stamp, updated_at=stamp, branch="main",
+        goal="", done_when="", stage="genesis", base_head=head, last_milestone_head=head,
+    ))
     seen: dict[str, object] = {}
 
     def kernel(state, prompt, turn_dir, **kwargs):
@@ -793,14 +746,8 @@ def test_continuous_loop_starts_new_genesis_missions_and_compounds_proven_heads(
         workspace = Path(state.workspace_path)
         capability = workspace / "src" / f"capability_{state.mission_id[-8:]}.py"
         capability.write_text(f"MISSION_ID = {state.mission_id!r}\n", encoding="utf-8")
-        subprocess.run(["git", "add", str(capability)], cwd=workspace, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", f"complete {state.mission_id}"],
-            cwd=workspace,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        git(workspace, "add", str(capability))
+        git(workspace, "commit", "-m", f"complete {state.mission_id}")
         state.status = "complete"
         state.milestone_count = 1
         state.last_milestone_head = git_head(workspace)
@@ -900,16 +847,11 @@ def test_publish_lineage_pushes_and_verifies_exact_remote_head(tmp_path):
     remote = tmp_path / "remote.git"
     repo.mkdir()
     init_repository(repo)
-    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    git(tmp_path, "init", "--bare", str(remote))
     commit_sha = git_head(repo)
 
     result = publish_lineage(repo, commit_sha, str(remote), "main")
-    remote_head = subprocess.run(
-        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/main"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    remote_head = git(remote, "rev-parse", "refs/heads/main")
 
     assert result.ok is True
     assert result.remote_before == ""
@@ -922,25 +864,13 @@ def test_publish_lineage_blocks_protected_path_diff_without_operator_ack(tmp_pat
     remote = tmp_path / "remote.git"
     repo.mkdir()
     init_repository(repo)
-    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
-    subprocess.run(
-        ["git", "push", str(remote), "main"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    git(tmp_path, "init", "--bare", str(remote))
+    git(repo, "push", str(remote), "main")
     package = repo / "src" / "blackhole_agent"
     package.mkdir(parents=True)
     (package / "persona.py").write_text("JUDGE = True\n", encoding="utf-8")
-    subprocess.run(["git", "add", "."], cwd=repo, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "touch judge file"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "touch judge file")
     commit_sha = git_head(repo)
 
     blocked = publish_lineage(repo, commit_sha, str(remote), "main")
@@ -949,12 +879,7 @@ def test_publish_lineage_blocks_protected_path_diff_without_operator_ack(tmp_pat
     assert "src/blackhole_agent/persona.py" in blocked.error
 
     acked = publish_lineage(repo, commit_sha, str(remote), "main", operator_acknowledged=True)
-    remote_head = subprocess.run(
-        ["git", "--git-dir", str(remote), "rev-parse", "refs/heads/main"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
+    remote_head = git(remote, "rev-parse", "refs/heads/main")
 
     assert acked.ok is True
     assert remote_head == commit_sha
@@ -974,14 +899,8 @@ def test_continuous_loop_retries_failed_publication_before_creating_another_miss
         workspace = Path(state.workspace_path)
         capability = workspace / "src" / "published_capability.py"
         capability.write_text("PUBLISHED = True\n", encoding="utf-8")
-        subprocess.run(["git", "add", str(capability)], cwd=workspace, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "complete publishable capability"],
-            cwd=workspace,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        git(workspace, "add", str(capability))
+        git(workspace, "commit", "-m", "complete publishable capability")
         state.status = "complete"
         state.milestone_count = 1
         state.last_milestone_head = git_head(workspace)

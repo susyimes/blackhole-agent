@@ -9,7 +9,6 @@ treated as capability growth.
 
 from __future__ import annotations
 
-import errno
 import importlib
 import json
 import os
@@ -23,7 +22,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, Sequence
+from typing import Any, Callable, ContextManager, Iterator, Mapping, Sequence
 
 import typer
 from rich.console import Console
@@ -38,6 +37,7 @@ from blackhole_agent.evolution_quality import (
     record_local_progress,
 )
 from blackhole_agent.experience_fuel import render_experience_for_genesis
+from blackhole_agent.file_guard import file_guard
 from blackhole_agent.kernel_resume import (
     bind_create_fields,
     consume_resumed_campaign,
@@ -367,7 +367,10 @@ def load_mission(state_path: Path) -> UnboundMission:
     payload = json.loads(state_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Mission state must be a JSON object: {state_path}")
-    state = UnboundMission.from_dict(payload)
+    try:
+        state = UnboundMission.from_dict(payload)
+    except TypeError as error:
+        raise ValueError(f"Invalid mission state at {state_path}: {error}") from error
     if state.schema_version != SCHEMA_VERSION:
         raise ValueError(
             f"Unsupported unbound mission schema {state.schema_version}; expected {SCHEMA_VERSION}."
@@ -2422,11 +2425,14 @@ def run_unbound_turn(
 
     state_path = state_path.resolve()
     with mission_turn_lock(state_path):
-        state = load_mission(state_path)
-        if hydrate_mission_from_campaign(state, persist=True).get("applied"):
-            save_mission(state_path, state)
+        with file_guard(state_path):
+            state = load_mission(state_path)
         if state.status != "active":
             raise RuntimeError(f"Mission is {state.status}; resume it before running another turn.")
+        if hydrate_mission_from_campaign(state, persist=True).get("applied"):
+            with file_guard(state_path):
+                state.status = load_mission(state_path).status
+                save_mission(state_path, state)
         workspace = Path(state.workspace_path)
         if not workspace.exists():
             raise FileNotFoundError(f"Mission workspace does not exist: {workspace}")
@@ -2589,10 +2595,11 @@ def run_unbound_turn(
                     "outcome_evidence": list(decision.outcome_evidence),
                 }
                 state.milestones.append(milestone)
-                append_jsonl(
-                    state_path.parent / "events.jsonl",
-                    {"event": "mission.milestone", "mission_id": state.mission_id, **milestone},
-                )
+                with file_guard(state_path):
+                    append_jsonl(
+                        state_path.parent / "events.jsonl",
+                        {"event": "mission.milestone", "mission_id": state.mission_id, **milestone},
+                    )
 
         after_fingerprint = content_fingerprint(workspace, [p for p in changed_paths if is_behavior_path(p)])
         progress = record_local_progress(
@@ -2612,10 +2619,6 @@ def run_unbound_turn(
                 consume_resumed_campaign(state)
             except Exception:  # noqa: BLE001 - pattern resolve must never fail completion
                 pass
-        elif effective_status == "blocked":
-            state.status = "blocked"
-        else:
-            state.status = "active"
         state.iteration = iteration
         state.session_id = kernel_result.session_id or state.session_id
         state.session_started = bool(state.session_id) or state.session_started
@@ -2678,14 +2681,17 @@ def run_unbound_turn(
         }
         from blackhole_agent.mission_journal_bound import write_bounded_turn_files
 
-        persisted = write_bounded_turn_files(
-            state_path.parent,
-            record,
-            turn_dir=turn_dir,
-            mission_id=state.mission_id,
-        )
-        state.recent_turns = [*state.recent_turns, persisted][-STATE_HISTORY_LIMIT:]
-        save_mission(state_path, state)
+        with file_guard(state_path):
+            # A terminal outcome closes the turn. Otherwise stop/resume owns scheduling.
+            if effective_status in {"complete", "blocked"}:
+                state.status = effective_status
+            else:
+                state.status = load_mission(state_path).status
+            persisted = write_bounded_turn_files(
+                state_path.parent, record, turn_dir=turn_dir, mission_id=state.mission_id,
+            )
+            state.recent_turns = [*state.recent_turns, persisted][-STATE_HISTORY_LIMIT:]
+            save_mission(state_path, state)
         try:
             ingest_unbound_turn(Path(state.repo_path), persisted)
         except Exception:  # noqa: BLE001 - pattern ingest must never fail a turn
@@ -2798,42 +2804,12 @@ def pid_is_running(pid: int) -> bool:
     return True
 
 
-@contextmanager
-def continuous_loop_guard(lock_path: Path) -> Iterator[None]:
-    """Serialize controllers and reapers with an OS lock released on process exit.
-
-    Keep the guard file permanently: unlinking it would let competing openers
-    lock different inodes. The separate PID file remains readable by operators.
-    """
-
+def continuous_loop_guard(lock_path: Path) -> ContextManager[None]:
+    """Refuse a second controller or reaper while the first owns the loop."""
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with lock_path.with_suffix(lock_path.suffix + ".guard").open("a+b") as guard:
-        guard.seek(0, os.SEEK_END)
-        if guard.tell() == 0:
-            guard.write(b"\0")
-            guard.flush()
-        guard.seek(0)
-        if os.name == "nt":
-            import msvcrt
-        else:
-            import fcntl
-        try:
-            if os.name == "nt":
-                msvcrt.locking(guard.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                fcntl.flock(guard.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as error:
-            if error.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
-                raise RuntimeError("Another Unbound controller or reaper owns the continuous loop guard") from error
-            raise
-        try:
-            yield
-        finally:
-            guard.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(guard.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
+    return file_guard(
+        lock_path, timeout=0, busy_message="Another Unbound controller or reaper owns the continuous loop guard",
+    )
 
 
 def continuous_loop_owner_pid(value: Any) -> int:
@@ -4270,19 +4246,17 @@ def status(
 
 
 def set_mission_status(state_path: Path, status_value: str) -> UnboundMission:
-    state = load_mission(state_path)
     if status_value not in MISSION_STATUSES:
         raise ValueError(f"Unsupported mission status: {status_value}")
-    state.status = status_value
-    save_mission(state_path, state)
-    append_jsonl(
-        state_path.parent / "events.jsonl",
-        {
-            "event": f"mission.{status_value}",
-            "at": utc_now_iso(),
-            "mission_id": state.mission_id,
-        },
-    )
+    with file_guard(state_path):
+        state = load_mission(state_path)
+        if status_value == "stopped" and state.status in {"complete", "blocked"}:
+            return state
+        state.status = status_value
+        save_mission(state_path, state)
+        append_jsonl(state_path.parent / "events.jsonl", {
+            "event": f"mission.{status_value}", "at": utc_now_iso(), "mission_id": state.mission_id,
+        })
     return state
 
 
@@ -4297,7 +4271,7 @@ def resume(
     console.print(f"resumed {state.mission_id}")
 
 
-@app.command(help="Stop scheduling a mission while preserving all work and state.")
+@app.command(help="Stop scheduling this mission. An in-flight turn saves its work. Use resume to allow another turn.")
 def stop(
     state_path: Path = typer.Option(..., "--state-path", help="Mission state path."),
 ) -> None:
@@ -4305,7 +4279,7 @@ def stop(
         state = set_mission_status(state_path.resolve(), "stopped")
     except (ValueError, FileNotFoundError) as error:
         raise typer.BadParameter(str(error)) from error
-    console.print(f"stopped {state.mission_id}")
+    console.print(f"{state.status} {state.mission_id}")
 
 
 @capability_app.command("seed", help="Install bootstrap capabilities into the durable ledger.")
