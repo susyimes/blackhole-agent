@@ -464,13 +464,17 @@ def run_command(
     check: bool = True,
     input_bytes: bytes | None = None,
     exact_stdout: bool = False,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     errors = "strict" if exact_stdout else "replace"
+    environment = {} if env is None else {"env": env}
     if command_runner is subprocess.run:
-        completed = run_captured_process(command, cwd=cwd, timeout=timeout, input=input_bytes, stdout_errors=errors)
+        completed = run_captured_process(
+            command, cwd=cwd, timeout=timeout, input=input_bytes, stdout_errors=errors, **environment,
+        )
     elif exact_stdout or input_bytes is not None:
         # Read Git's machine output before text-mode newline conversion or loss of filename bytes.
-        completed = command_runner(command, cwd=cwd, capture_output=True, timeout=timeout, input=input_bytes)
+        completed = command_runner(command, cwd=cwd, capture_output=True, timeout=timeout, input=input_bytes, **environment)
         if isinstance(completed.stdout, bytes):
             completed.stdout = completed.stdout.decode("utf-8", errors=errors)
         if isinstance(completed.stderr, bytes):
@@ -478,6 +482,7 @@ def run_command(
     else:
         completed = command_runner(
             command, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+            **environment,
         )
     if check and completed.returncode != 0:
         stderr = (completed.stderr or "").strip()
@@ -601,20 +606,44 @@ def remote_branch_head(
     branch: str,
     *,
     command_runner: Callable[..., Any] = subprocess.run,
+    push_url: str | None = None,
 ) -> tuple[str, str]:
-    completed = run_command(
-        ["git", "ls-remote", "--heads", remote, f"refs/heads/{branch}"],
-        cwd=repo_path,
-        command_runner=command_runner,
-        check=False,
-    )
-    if completed.returncode != 0:
-        details = (completed.stderr or completed.stdout or "").strip()
-        return "", details or f"git ls-remote exited {completed.returncode}"
-    output = (completed.stdout or "").strip()
-    if not output:
-        return "", ""
-    return output.split(maxsplit=1)[0].strip(), ""
+    from blackhole_agent.publication_resilience import is_http_transport_abort, is_schannel_handshake_failure
+
+    env = None
+    if push_url is not None:
+        # Read the already expanded push URL verbatim. Passing it back as a repository
+        # argument could select a different named remote or apply insteadOf a second time.
+        remote = f"blackhole-receiver-{uuid.uuid4().hex}:"
+        env = dict(os.environ)
+        index = int(env.get("GIT_CONFIG_COUNT") or 0)
+        env.update({
+            "GIT_CONFIG_COUNT": str(index + 1),
+            f"GIT_CONFIG_KEY_{index}": f"url.{push_url}.insteadOf",
+            f"GIT_CONFIG_VALUE_{index}": remote,
+        })
+    ref = f"refs/heads/{branch}"
+    for _ in range(2):
+        try:
+            response = run_command(
+                ["git", "ls-remote", "--heads", "--", remote, ref], cwd=repo_path,
+                command_runner=command_runner, check=False, env=env,
+            )
+        except subprocess.TimeoutExpired as exc:
+            error = f"git ls-remote timed out after {exc.timeout}s"
+        else:
+            if response.returncode == 0:
+                for line in response.stdout.splitlines():
+                    oid, tab, name = line.partition("\t")
+                    if not tab or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", oid):
+                        return "", "Invalid git ls-remote response"
+                    if name == ref:
+                        return oid, ""
+                return "", ""
+            error = (response.stderr or response.stdout or "").strip() or f"git ls-remote exited {response.returncode}"
+            if not (is_http_transport_abort(error) or is_schannel_handshake_failure(error)):
+                break
+    return "", error
 
 
 def publish_lineage(
@@ -626,223 +655,109 @@ def publish_lineage(
     command_runner: Callable[..., Any] = subprocess.run,
     operator_acknowledged: bool = False,
 ) -> PublicationResult:
-    """Fast-forward one proven local commit to the configured remote branch.
+    """Publish a fast-forward and confirm delivery at the receiving Git branch.
 
-    A push that fails because git asked for a larger ``http.postBuffer`` is
-    attempted once more with that buffer on the same command. A schannel TLS
-    abort, and a harvested empty-reply, connect, or DNS abort, including the
-    same abort from ``ls-remote``, are attempted once more with the original
-    command. Other push failures stay single-attempt.
-
-    A remote head that shares history with the lineage tip and merges cleanly
-    is published as a merge commit whose first parent is that remote head.
-    The push stays a fast-forward. Unrelated histories and content conflicts
-    are refused before push.
+    A lost acknowledgement can follow a successful ref update. Read the receiver
+    after each attempt. Retry a transport failure once if all tips are still at
+    their preflight values. Clean sibling integration and protected-path review
+    apply before the first write.
     """
-
-    command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
-    if not git_commit_exists(repo_path, commit_sha, command_runner=command_runner):
-        return PublicationResult(
-            ok=False,
-            commit_sha=commit_sha,
-            remote=remote,
-            branch=branch,
-            remote_before="",
-            remote_after="",
-            error=f"Lineage commit does not exist: {commit_sha}",
-            command=command,
-        )
     from blackhole_agent.publication_resilience import (
+        POST_BUFFER_RETRY_BYTES,
+        REMOTE_HEAD_MISMATCH_PREFIX,
+        integrate_clean_divergence,
         is_http_transport_abort,
+        is_post_buffer_overflow,
         is_schannel_handshake_failure,
+        publication_read_targets,
     )
 
-    def _same_command_transport_retry(error: str) -> bool:
-        return is_schannel_handshake_failure(error) or is_http_transport_abort(error)
+    remote_before = ""
+    command = ("git", "push", remote, f"{commit_sha}:refs/heads/{branch}")
 
-    remote_before, lookup_error = remote_branch_head(
-        repo_path,
-        remote,
-        branch,
-        command_runner=command_runner,
-    )
-    if lookup_error and _same_command_transport_retry(lookup_error):
-        remote_before, lookup_error = remote_branch_head(
-            repo_path,
-            remote,
-            branch,
-            command_runner=command_runner,
-        )
-    if lookup_error:
+    def receipt(error: str = "", after: str = "") -> PublicationResult:
         return PublicationResult(
-            ok=False,
-            commit_sha=commit_sha,
-            remote=remote,
-            branch=branch,
-            remote_before="",
-            remote_after="",
-            error=lookup_error,
-            command=command,
+            ok=not error, commit_sha=commit_sha, remote=remote, branch=branch,
+            remote_before=remote_before, remote_after=after, error=error, command=command,
         )
-    if remote_before == commit_sha:
-        return PublicationResult(
-            ok=True,
-            commit_sha=commit_sha,
-            remote=remote,
-            branch=branch,
-            remote_before=remote_before,
-            remote_after=remote_before,
-            error="",
-            command=command,
-        )
+
+    if not git_commit_exists(repo_path, commit_sha, command_runner=command_runner):
+        return receipt(f"Lineage commit does not exist: {commit_sha}")
+    try:
+        targets = publication_read_targets(repo_path, remote, command_runner)
+    except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+        return receipt(str(exc) or "Unable to resolve Git push destinations")
+
+    def read_heads() -> tuple[tuple[str, ...], str]:
+        heads = []
+        for target in targets:
+            head, error = remote_branch_head(repo_path, remote, branch, command_runner=command_runner, push_url=target)
+            if error:
+                return (), error
+            heads.append(head)
+        return tuple(heads), ""
+
+    before, error = read_heads()
+    if error:
+        return receipt(error)
+    remote_before = before[0]
     publish_sha = commit_sha
-    if not remote_head_is_fast_forward(
-        repo_path,
-        remote_before,
-        commit_sha,
-        command_runner=command_runner,
-    ):
-        from blackhole_agent.publication_resilience import (
-            REMOTE_HEAD_MISMATCH_PREFIX,
-            integrate_clean_divergence,
-        )
+    predecessors = tuple(dict.fromkeys(before))
+    for head in predecessors:
+        if remote_head_is_fast_forward(repo_path, head, publish_sha, command_runner=command_runner):
+            continue
+        # Plan against the primary receiving branch. Every additional receiver
+        # must accept that same commit without combining separate receiver histories.
+        if head == remote_before:
+            merged = integrate_clean_divergence(repo_path, head, publish_sha, command_runner=command_runner)
+            if merged:
+                publish_sha = merged
+                continue
+        return receipt(f"{REMOTE_HEAD_MISMATCH_PREFIX}: {head} is not a fast-forward ancestor of {publish_sha}")
+    if all(head == publish_sha for head in before):
+        return receipt(after=publish_sha)
+    command = ("git", "push", remote, f"{publish_sha}:refs/heads/{branch}")
+    for head in predecessors:
+        if head and head != publish_sha:
+            protected = evaluate_candidate_protected_paths(
+                target_repo_path=repo_path, candidate_repo_path=repo_path,
+                target_before=head, candidate_head=publish_sha,
+                operator_acknowledged=operator_acknowledged, command_runner=command_runner,
+            )
+            if protected.blocked:
+                detail = f": {', '.join(protected.touched)}" if protected.touched else ""
+                return receipt(protected.reason + detail)
 
-        publish_sha = integrate_clean_divergence(
-            repo_path,
-            remote_before,
-            commit_sha,
-            command_runner=command_runner,
-        )
-        if not publish_sha:
-            return PublicationResult(
-                ok=False,
-                commit_sha=commit_sha,
-                remote=remote,
-                branch=branch,
-                remote_before=remote_before,
-                remote_after="",
-                error=(
-                    f"{REMOTE_HEAD_MISMATCH_PREFIX}: {remote_before} is not a "
-                    f"fast-forward ancestor of {commit_sha}"
-                ),
-                command=command,
-            )
-        command = ("git", "push", remote, f"{publish_sha}:refs/heads/{branch}")
-    if remote_before:
-        protected = evaluate_candidate_protected_paths(
-            target_repo_path=repo_path,
-            candidate_repo_path=repo_path,
-            target_before=remote_before,
-            candidate_head=publish_sha,
-            operator_acknowledged=operator_acknowledged,
-            command_runner=command_runner,
-        )
-        if protected.blocked:
-            detail = protected.reason
-            if protected.touched:
-                detail = f"{detail}: {', '.join(protected.touched)}"
-            return PublicationResult(
-                ok=False,
-                commit_sha=commit_sha,
-                remote=remote,
-                branch=branch,
-                remote_before=remote_before,
-                remote_after="",
-                error=detail,
-                command=command,
-            )
-    pushed = run_command(
-        list(command),
-        cwd=repo_path,
-        command_runner=command_runner,
-        timeout=300,
-        check=False,
-    )
-    if pushed.returncode != 0:
-        details = (pushed.stderr or pushed.stdout or "").strip()
-        from blackhole_agent.publication_resilience import (
-            POST_BUFFER_RETRY_BYTES,
-            is_post_buffer_overflow,
-        )
-
-        if is_post_buffer_overflow(details):
-            command = (
-                "git",
-                "-c",
-                f"http.postBuffer={POST_BUFFER_RETRY_BYTES}",
-                "push",
-                remote,
-                f"{publish_sha}:refs/heads/{branch}",
-            )
-        elif _same_command_transport_retry(details):
-            command = ("git", "push", remote, f"{publish_sha}:refs/heads/{branch}")
+    retried = False
+    while True:
+        try:
+            pushed = run_command(list(command), cwd=repo_path, command_runner=command_runner, timeout=300, check=False)
+        except subprocess.TimeoutExpired as exc:
+            push_error = f"git push timed out after {exc.timeout}s"
+            retryable = True
         else:
-            return PublicationResult(
-                ok=False,
-                commit_sha=commit_sha,
-                remote=remote,
-                branch=branch,
-                remote_before=remote_before,
-                remote_after="",
-                error=details or f"git push exited {pushed.returncode}",
-                command=command,
+            push_error = ""
+            if pushed.returncode:
+                push_error = (pushed.stderr or pushed.stdout or "").strip() or f"git push exited {pushed.returncode}"
+            retryable = (
+                is_http_transport_abort(push_error) or is_schannel_handshake_failure(push_error)
+                or is_post_buffer_overflow(push_error)
             )
-        pushed = run_command(
-            list(command),
-            cwd=repo_path,
-            command_runner=command_runner,
-            timeout=300,
-            check=False,
-        )
-        if pushed.returncode != 0:
-            retry_details = (pushed.stderr or pushed.stdout or "").strip()
-            return PublicationResult(
-                ok=False,
-                commit_sha=commit_sha,
-                remote=remote,
-                branch=branch,
-                remote_before=remote_before,
-                remote_after="",
-                error=retry_details or details or f"git push exited {pushed.returncode}",
-                command=command,
-            )
-    remote_after, lookup_error = remote_branch_head(
-        repo_path,
-        remote,
-        branch,
-        command_runner=command_runner,
-    )
-    if lookup_error and _same_command_transport_retry(lookup_error):
-        remote_after, lookup_error = remote_branch_head(
-            repo_path,
-            remote,
-            branch,
-            command_runner=command_runner,
-        )
-    if lookup_error or remote_after != publish_sha:
-        details = lookup_error or (
-            f"Remote verification mismatch: expected {publish_sha}, observed {remote_after or '(missing)'}"
-        )
-        return PublicationResult(
-            ok=False,
-            commit_sha=commit_sha,
-            remote=remote,
-            branch=branch,
-            remote_before=remote_before,
-            remote_after=remote_after,
-            error=details,
-            command=command,
-        )
-    return PublicationResult(
-        ok=True,
-        commit_sha=commit_sha,
-        remote=remote,
-        branch=branch,
-        remote_before=remote_before,
-        remote_after=remote_after,
-        error="",
-        command=command,
-    )
+
+        after, error = read_heads()
+        if error:
+            return receipt(f"{push_error}. Unable to verify publication: {error}" if push_error else error)
+        if all(head == publish_sha for head in after):
+            return receipt(after=publish_sha)
+        observed = after[0] if len(set(after)) == 1 else ""
+        if not push_error or after != before:
+            tips = ", ".join(head or "(missing)" for head in after)
+            return receipt(f"Remote verification mismatch: expected {publish_sha}, observed {tips}", observed)
+        if retried or not retryable:
+            return receipt(push_error, observed)
+        if is_post_buffer_overflow(push_error):
+            command = ("git", "-c", f"http.postBuffer={POST_BUFFER_RETRY_BYTES}", *command[1:])
+        retried = True
 
 
 def unbound_kernel_harnesses() -> tuple[ProviderHarness, ...]:

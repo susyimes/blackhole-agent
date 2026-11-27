@@ -168,6 +168,37 @@ def is_http_transport_abort(error: str) -> bool:
     return any(marker in text for marker in _HTTP_TRANSPORT_ABORT_MARKERS)
 
 
+def publication_read_targets(repo: Path, remote: str, command_runner: Callable[..., Any]) -> tuple[str | None, ...]:
+    """None reads through the original remote. Other entries are resolved push URLs."""
+    from blackhole_agent.unbound import run_command
+
+    def config(*args: str) -> subprocess.CompletedProcess:
+        return run_command(["git", *args], cwd=repo, command_runner=command_runner, check=False)
+
+    push = config("remote", "get-url", "--push", "--all", "--", remote)
+    if push.returncode == 2:  # A literal repository argument, outside the named remotes.
+        rules = config("config", "--null", "--get-regexp", r"^url\..*\.pushinsteadof$")
+        if rules.returncode not in (0, 1):
+            raise RuntimeError(rules.stderr.strip() or "Unable to read Git push URL rewrites")
+        matches = []
+        for rule in rules.stdout.split("\0"):
+            key, sep, prefix = rule.partition("\n")
+            if sep and remote.startswith(prefix):
+                matches.append((prefix, key[4:-len(".pushinsteadof")]))
+        if not matches:
+            return (None,)
+        prefix, base = max(matches, key=lambda pair: len(pair[0]))
+        return (base + remote[len(prefix):],)
+    if push.returncode or not push.stdout.splitlines():
+        raise RuntimeError(push.stderr.strip() or "Unable to resolve Git push destinations")
+    fetch = config("remote", "get-url", "--", remote)
+    if fetch.returncode:
+        raise RuntimeError(fetch.stderr.strip() or "Unable to resolve Git fetch URL")
+    # Keep remote-specific upload-pack settings when the read and write URLs agree.
+    fetch_url = fetch.stdout.rstrip("\r\n")
+    return tuple(dict.fromkeys(None if url == fetch_url else url for url in push.stdout.splitlines()))
+
+
 def apply_publication_failure(loop_state: dict[str, Any], error: str) -> dict[str, Any]:
     """Record a failed publish; a terminal refusal must not retry forever."""
 
