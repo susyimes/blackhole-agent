@@ -18,6 +18,10 @@ strictness list. Tab stops are multiples of the space advance measured from
 the line's content start. ``letter_spacing`` is inserted between grapheme
 clusters and is not applied after the last cluster on a line. ``word_spacing``
 is added to each space and to each other Unicode Zs separator.
+``text_spacing_trim`` of ``trim-start`` then halves the advance of a
+fullwidth opening punctuation glyph when that glyph is the first on a line.
+An even advance loses exactly half. An odd pixel advance keeps the floor of
+half so the used width stays integral. ``space-all`` leaves the advance alone.
 
 ``balance_lines`` is CSS Text Level 4 ``text-wrap-style: balance``. Forced
 line breaks split the block into independent groups. A group keeps the
@@ -63,6 +67,9 @@ _HYPHEN_MARK: contextvars.ContextVar[str] = contextvars.ContextVar(
 _OPENING: contextvars.ContextVar[bool] = contextvars.ContextVar("css_hanging_opening", default=False)
 _CLONE: contextvars.ContextVar[tuple[tuple[int, int, float, float], ...]] = contextvars.ContextVar(
     "css_clone_decoration", default=()
+)
+_TRIM_START: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "css_text_spacing_trim_start", default=False
 )
 _COLLAPSE = frozenset({"normal", "nowrap", "pre-line"})
 _WRAPS = frozenset({"normal", "pre-wrap", "break-spaces", "pre-line"})
@@ -173,6 +180,7 @@ def wrap_lines(
     text_autospace: object = "off",
     autospace: object = 0,
     hyphenate_character: object = _DEFAULT_HYPHEN,
+    text_spacing_trim: object = "space-all",
 ) -> dict[str, object]:
     """Wrap ``text`` into line boxes of ``width``.
 
@@ -208,6 +216,7 @@ def wrap_lines(
         held = _nowrap_ranges(nowrap_ranges)
         clones = _clone_ranges(clone_ranges, len(source))
         hyphen_mark = _used_hyphen_mark(hyphenate_character)
+        trim_start = _trim_start_enabled(text_spacing_trim)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -221,6 +230,7 @@ def wrap_lines(
     token = _HANGING.set(hanging)
     clone_token = _CLONE.set(clones)
     mark_token = _HYPHEN_MARK.set(hyphen_mark)
+    trim_token = _TRIM_START.set(trim_start)
     try:
         lines = _lay_out(
             tokens,
@@ -269,6 +279,7 @@ def wrap_lines(
         _HANGING.reset(token)
         _CLONE.reset(clone_token)
         _HYPHEN_MARK.reset(mark_token)
+        _TRIM_START.reset(trim_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -297,6 +308,7 @@ def balance_lines(
     text_autospace: object = "off",
     autospace: object = 0,
     hyphenate_character: object = _DEFAULT_HYPHEN,
+    text_spacing_trim: object = "space-all",
 ) -> dict[str, object]:
     """Choose first-fit breaks, then rebalance a short block.
 
@@ -326,6 +338,7 @@ def balance_lines(
         text_autospace=text_autospace,
         autospace=autospace,
         hyphenate_character=hyphenate_character,
+        text_spacing_trim=text_spacing_trim,
     )
 
 
@@ -349,6 +362,7 @@ def pretty_lines(
     text_autospace: object = "off",
     autospace: object = 0,
     hyphenate_character: object = _DEFAULT_HYPHEN,
+    text_spacing_trim: object = "space-all",
 ) -> dict[str, object]:
     """Keep the first-fit breaks, then lengthen a one-word last line.
 
@@ -379,6 +393,7 @@ def pretty_lines(
         text_autospace=text_autospace,
         autospace=autospace,
         hyphenate_character=hyphenate_character,
+        text_spacing_trim=text_spacing_trim,
     )
 
 
@@ -403,6 +418,7 @@ def _styled_breaks(
     text_autospace: object,
     autospace: object,
     hyphenate_character: object = _DEFAULT_HYPHEN,
+    text_spacing_trim: object = "space-all",
 ) -> dict[str, object]:
     try:
         source = _text(text)
@@ -420,6 +436,7 @@ def _styled_breaks(
         held = _nowrap_ranges(nowrap_ranges)
         clones = _clone_ranges(clone_ranges, len(source))
         hyphen_mark = _used_hyphen_mark(hyphenate_character)
+        trim_start = _trim_start_enabled(text_spacing_trim)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -433,6 +450,7 @@ def _styled_breaks(
     token = _HANGING.set(hanging)
     clone_token = _CLONE.set(clones)
     mark_token = _HYPHEN_MARK.set(hyphen_mark)
+    trim_token = _TRIM_START.set(trim_start)
     try:
         try:
             lines = layout(
@@ -483,6 +501,7 @@ def _styled_breaks(
         _HANGING.reset(token)
         _CLONE.reset(clone_token)
         _HYPHEN_MARK.reset(mark_token)
+        _TRIM_START.reset(trim_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -1200,6 +1219,52 @@ def _closes(ch: str) -> bool:
     return _category(ch) in {"Pe", "Pf"}
 
 
+def _trim_start_enabled(value: object) -> bool:
+    if not isinstance(value, str):
+        raise _Invalid("text_spacing_trim is not a supported keyword")
+    text = " ".join(value.strip().lower().split())
+    if text in {"", "space-all", "off"}:
+        return False
+    if text == "trim-start":
+        return True
+    raise _Invalid("text_spacing_trim is not a supported keyword")
+
+
+def _fullwidth_opening(ch: str) -> bool:
+    """CSS Text fullwidth opening punctuation, plus the two quote exceptions."""
+
+    if ch in {"\u2018", "\u201c"}:
+        return True
+    if len(ch) != 1 or _category(ch) != "Ps":
+        return False
+    code = ord(ch)
+    if 0x3000 <= code <= 0x303F:
+        return True
+    return _east(ch) == "F"
+
+
+def _trimmed_half(advance: float) -> float:
+    """Pixels removed so a line-start opening glyph keeps at most half its advance."""
+
+    nearest = round(advance)
+    if abs(advance - nearest) <= _EPS:
+        whole = int(nearest)
+        if whole <= 0:
+            return 0.0
+        return float(whole - whole // 2)
+    half = advance / 2.0
+    return half if half > 0 else 0.0
+
+
+def _opening_trim(tokens: list[_Tok], low: int, high: int) -> float:
+    if not _TRIM_START.get() or low >= high:
+        return 0.0
+    tok = tokens[low]
+    if not tok.grapheme_start or tok.kind != "glyph" or not _fullwidth_opening(tok.ch):
+        return 0.0
+    return _trimmed_half(tok.advance)
+
+
 def _hanging_deduction(
     tokens: list[_Tok],
     low: int,
@@ -1299,8 +1364,13 @@ def _measure(
         at_segment_end=at_segment_end,
         before_forced=before_forced,
     )
+    trimmed = _opening_trim(tokens, low, high)
+    content -= trimmed
+    full -= trimmed
     if content < 0:
         content = 0.0
+    if full < content:
+        full = content
     clone = _clone_fragment_chrome(tokens, low, high)
     if clone:
         content += clone

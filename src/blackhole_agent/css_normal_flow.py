@@ -160,6 +160,20 @@ a soft wrap opportunity, so a narrow measure breaks where the scripts meet.
 ``insert`` keeps a real space, and ``replace`` spends that space on the gap.
 ``no-autospace`` clears an inherited value. ``auto``, ``punctuation``, a
 vertical writing mode, and a declaration on an inline are rejected.
+``text-spacing-trim`` is inherited. This engine's initial value is
+``space-all``, so an omitted value keeps every glyph's full advance.
+``trim-start`` sets a fullwidth opening punctuation glyph at the start of
+each line to half that advance. The class is Unicode Ps in the CJK Symbols
+and Punctuation block or with East Asian Width F, plus U+2018 and U+201C.
+The character stays in the line text. An even em loses exactly half; an odd
+pixel advance keeps the floor of half so the used width stays integral.
+Under ``word-break: break-all``, a 15px line at 10px can then hold U+FF08
+and the next character, and the following block starts higher. An ASCII
+parenthesis is not in the class. ``normal`` stays rejected until adjacent
+punctuation collapsing exists. ``trim-both`` and any other keyword are
+rejected. A vertical or non-ltr box, preserved white space, extra spacing,
+hanging punctuation, indentation, a float, an atomic inline, a list item,
+and an inline declaration are rejected.
 ``text-transform`` is
 inherited and applied before wrapping. ``uppercase`` and ``lowercase`` use
 Unicode case mapping, so a German eszett becomes two letters and can push
@@ -1075,6 +1089,7 @@ _FONT = {
     "hyphenate-character": "\u2010",
     "lang": "",
     "hanging-punctuation": "none",
+    "text-spacing-trim": "space-all",
     "widows": "",
     "orphans": "",
     "text-wrap-style": "auto",
@@ -1137,6 +1152,7 @@ _INLINE_REJECTED = (
     "hyphens",
     "hyphenate-character",
     "hanging-punctuation",
+    "text-spacing-trim",
     "text-wrap",
     "text-wrap-style",
     "line-clamp",
@@ -1259,6 +1275,7 @@ class _Box:
     hyphenate_character: str = "\u2010"
     lang: str = ""
     hanging_punctuation: str = "none"
+    text_spacing_trim: str = "space-all"
     text_wrap_style: str = "auto"
     font_family: str = ""
     font_weight: str = "400"
@@ -2316,6 +2333,9 @@ def _make_box(
         lang=_read_lang(element, fonts["lang"]),
         hanging_punctuation=_read_hanging(
             _declared(winners, "hanging-punctuation", custom), fonts["hanging-punctuation"]
+        ),
+        text_spacing_trim=_read_text_spacing_trim(
+            _declared(winners, "text-spacing-trim", custom), fonts["text-spacing-trim"]
         ),
         text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
         line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
@@ -3755,6 +3775,8 @@ def _solve(
     horizontal = flow["horizontal"] is True
     if box.initial_letter:
         _reject_initial_letter_context(box, horizontal)
+    if box.text_spacing_trim == "trim-start" and (box.inline_text or "").strip():
+        _reject_text_spacing_trim(box)
     if box.display == "flow-root":
         if not horizontal or box.direction != "ltr":
             raise _Invalid("flow-root writing mode is unsupported")
@@ -4759,6 +4781,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "hyphenate-character": box.hyphenate_character,
         "lang": box.lang,
         "hanging-punctuation": box.hanging_punctuation,
+        "text-spacing-trim": box.text_spacing_trim,
         "widows": "" if box.widows is None else str(box.widows),
         "orphans": "" if box.orphans is None else str(box.orphans),
         "text-wrap-style": box.text_wrap_style,
@@ -4936,6 +4959,7 @@ def _make_anonymous_block(
         hyphenate_character=parent.hyphenate_character,
         lang=parent.lang,
         hanging_punctuation=parent.hanging_punctuation,
+        text_spacing_trim=parent.text_spacing_trim,
         text_wrap_style=parent.text_wrap_style,
         font_family=parent.font_family,
         font_weight=parent.font_weight,
@@ -5840,6 +5864,7 @@ def _break_args(box: _Box) -> dict[str, object]:
         raise _Invalid("hanging punctuation writing mode is unsupported")
     if box.hyphenate_character != "\u2010" and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
         raise _Invalid("hyphenate-character writing mode is unsupported")
+    _reject_text_spacing_trim(box)
     return {
         "overflow_wrap": box.overflow_wrap,
         "word_break": box.word_break,
@@ -5848,6 +5873,7 @@ def _break_args(box: _Box) -> dict[str, object]:
         "lang": box.lang,
         "hanging_punctuation": box.hanging_punctuation,
         "hyphenate_character": box.hyphenate_character,
+        "text_spacing_trim": box.text_spacing_trim,
     }
 
 
@@ -6085,6 +6111,68 @@ def _resolve_quote_plans(
     if order:
         walk(order[0], False)
     return resolved
+
+
+def _read_text_spacing_trim(value: str | None, parent: str) -> str:
+    """Computed ``text-spacing-trim``. This engine's initial value is ``space-all``."""
+
+    if value is None or value.strip().lower() in {"inherit", "unset", "revert"}:
+        return parent
+    text = " ".join(value.strip().lower().split())
+    if text in {"initial", "space-all"}:
+        return "space-all"
+    if text == "trim-start":
+        return "trim-start"
+    if text in {
+        "normal",
+        "auto",
+        "trim-both",
+        "trim-all",
+        "trim-end",
+        "trim-adjacent",
+        "space-start",
+        "space-first",
+        "space-end",
+        "space-adjacent",
+        "allow-end",
+    }:
+        raise _Invalid("text-spacing-trim is unsupported")
+    raise _Invalid("text-spacing-trim is invalid")
+
+
+def _reject_text_spacing_trim(box: _Box) -> None:
+    """Keep line-start trimming on one horizontal left-to-right run of plain text."""
+
+    if box.text_spacing_trim != "trim-start":
+        return
+    if not (box.inline_text or "").strip() and box.white_space == "normal":
+        return
+    if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+        raise _Invalid("text-spacing-trim writing mode is unsupported")
+    if box.white_space != "normal":
+        raise _Invalid("text-spacing-trim white-space is unsupported")
+    if (
+        box.letter_spacing
+        or box.word_spacing
+        or box.hanging_punctuation != "none"
+        or _autospace_on(box)
+        or box.text_indent != "0px"
+        or box.line_clamp is not None
+        or box.text_wrap_style not in {"auto", "wrap"}
+        or box.floats
+        or box.atoms
+        or box.ruby
+        or box.list_item
+        or box.initial_letter
+        or box.emphasis_mark
+        or box.text_box_trim != "none"
+        or _mixed_runs(box)
+        or _relative_pieces(box)
+        or _glyph_chrome(box)
+        or _has_decoration(box)
+        or box.nowrap_ranges
+    ):
+        raise _Invalid("text-spacing-trim is unsupported")
 
 
 def _read_hanging(value: str | None, parent: str) -> str:
@@ -13386,6 +13474,7 @@ def _flush_flex_text(
             hyphenate_character=host.hyphenate_character,
             lang=host.lang,
             hanging_punctuation=host.hanging_punctuation,
+            text_spacing_trim=host.text_spacing_trim,
             text_wrap_style=host.text_wrap_style,
             font_family=host.font_family,
             font_weight=host.font_weight,
