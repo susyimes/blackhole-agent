@@ -2,7 +2,7 @@
 
 The replaced box keeps its used size. Fallback text and elements do not
 generate boxes or line text, so the following block or item starts on that
-edge. A vertical writing mode and a relative replaced box stay invalid.
+edge. A vertical writing mode and a sticky replaced box stay invalid.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit.
@@ -58,7 +58,7 @@ _VERTICAL = (
 )
 _RELATIVE = (
     '<canvas id="shot" width="20" height="10">QQ</canvas>',
-    "#shot { position: relative; }",
+    "#shot { position: sticky; }",
 )
 
 

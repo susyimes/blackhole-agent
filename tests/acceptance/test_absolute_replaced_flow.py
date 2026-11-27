@@ -4,7 +4,7 @@ Definite insets keep that size. A specified width keeps the ratio. Equal
 automatic margins center it. A maximum width shrinks it and keeps the ratio.
 object-fit contain maps the concrete object. A fixed image uses the same
 size. An inline image with automatic insets keeps the line's static slot.
-An inline relative image and a vertical writing mode stay invalid.
+A sticky image and a vertical writing mode stay invalid.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit.
@@ -53,7 +53,7 @@ _LINE = (
 )
 _RELATIVE = (
     '<img id="photo" width="10" height="10">',
-    "#photo { position: relative; left: 5px; }",
+    "#photo { position: sticky; left: 5px; }",
 )
 _VERTICAL = (
     '<img id="photo" width="40" height="20">',

@@ -636,7 +636,9 @@ size grows the used border box to that chrome. A plain ``aspect-ratio`` maps
 the border box. ``auto`` with a ratio, and the intrinsic ratio, map the
 content box. Fallback text and elements are not generated, so they do not
 change that used size or where the following block starts. An inline
-relative or sticky image and a vertical writing mode stay rejected.
+relative image keeps that static margin box, then moves by its used
+left and top; neighboring glyphs and the following block stay put.
+A sticky image and a vertical writing mode stay rejected.
 An ``li`` and any other ``display: list-item`` principal box lays out as a
 block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
 reset that counter. The initial marker is a disc; an ``ol`` uses decimal
@@ -2050,6 +2052,18 @@ def _modes(box: _Box) -> dict[str, str]:
     }
 
 
+def _flow_relative_replaced(box: _Box) -> bool:
+    """Keep a static atom, and a relative replaced atom that shifts after layout.
+
+    Sticky, absolute, and a relative inline-block that is not replaced stay
+    on the rejection paths that already own them.
+    """
+
+    if box.position == "static":
+        return True
+    return box.replaced and box.position == "relative" and box.float_side == "none"
+
+
 def _walk(
     tree,
     element,
@@ -2107,12 +2121,12 @@ def _walk(
                 flow.append(box)
                 continue
             if box.display == "inline":
-                if box.position != "static":
+                if not _flow_relative_replaced(box):
                     raise _Invalid("positioned replaced element is unsupported")
                 host.atoms.append(box)
                 continue
             if box.display == "inline-block":
-                if box.position != "static":
+                if not _flow_relative_replaced(box):
                     raise _Invalid("positioned inline-block is unsupported")
                 host.atoms.append(box)
                 continue
@@ -2230,7 +2244,7 @@ def _walk(
             flow.append(box)
             continue
         if box.replaced and box.display == "inline" and box.float_side == "none":
-            if box.position != "static":
+            if not _flow_relative_replaced(box):
                 raise _Invalid("positioned replaced element is unsupported")
             host.atoms.append(box)
             continue
@@ -2261,7 +2275,7 @@ def _walk(
             host.relative_layers[id(child)] = _inline_shift(box)
             box.counters_closed = True
             continue
-        if box.display == "inline-block" and box.position != "static":
+        if box.display == "inline-block" and not _flow_relative_replaced(box):
             raise _Invalid("positioned inline-block is unsupported")
         nested = _walk(
             tree, child, _modes(box), _fonts(box), box.direction, styles, declarations,
@@ -5672,7 +5686,11 @@ def _flow_kind(tree, element, styles, declarations) -> str:
         return "contents"
     if position in {"absolute", "fixed"} or float_side != "none":
         return "out"
-    if display == "inline" and position == "static" and _local_name(element) in _REPLACED_TAGS:
+    if (
+        display == "inline"
+        and position in {"static", "relative"}
+        and _local_name(element) in _REPLACED_TAGS
+    ):
         return "inline-block"
     if display == "inline":
         return "inline"
@@ -7113,6 +7131,8 @@ def _shift_relatives(box: _Box, cb_width: int, cb_height: int | None) -> None:
         if fl.position == "relative" and fl.float_placed:
             dx, dy = _relative_delta(fl, box.content_width, box.definite_height)
             _translate(fl, dx, dy)
+    for atom in box.atoms:
+        _shift_relatives(atom, box.content_width, box.definite_height)
 
 
 def _inline_shift(box: _Box) -> _Shift:
@@ -7200,9 +7220,8 @@ def _translate(box: _Box, dx: int, dy: int) -> None:
             _translate(fl, dx, dy)
     for child in box.children:
         _translate(child, dx, dy)
-    if box.anonymous:
-        for atom in box.atoms:
-            _translate(atom, dx, dy)
+    for atom in box.atoms:
+        _translate(atom, dx, dy)
 
 
 _SCROLL_LONGHANDS = (
