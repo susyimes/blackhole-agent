@@ -485,7 +485,15 @@ zero and only one side of the spacing remains. The leading gap stays when
 every row is omitted. Text, a preserved space, a block child, one ``show``
 cell, or a rowspan that covers the row keeps it. ``border-collapse:
 collapse`` ignores ``empty-cells``. A specified table height that would omit
-a row is rejected. Any other keyword is rejected. A static text caption stacks in
+a row is rejected. Any other keyword is rejected. In the separate model a
+cell's padding and used border inset its text. ``none``, ``hidden``, and an
+omitted border style contribute no width; a style with no width uses the
+medium width of 3px. Horizontal chrome is added to that cell's min-content
+and max-content, so an automatic column and the next cell move by it.
+Vertical chrome sits above and below the line and shifts the baseline, so
+the following block starts lower. ``border-spacing`` stays outside that
+border edge. A fixed table, a span, a block child, a percentage, a negative
+length, and padding under collapsed borders stay rejected. A static text caption stacks in
 that content box: ``caption-side: top`` sits above the grid and
 ``caption-side: bottom`` sits under it. The caption wraps to the table's
 used width and does not change the columns, so the following block starts
@@ -16351,6 +16359,19 @@ def _table_cells(
         cell.table["empty_cells"] = _empty_cells_value(tree, child, styles, declarations)
         if collapse:
             cell.table["borders"] = _specified_borders(cell)
+        else:
+            try:
+                chrome = _grid_chrome(cell)
+            except _Invalid as exc:
+                raise _Invalid("table cell edge is unsupported") from exc
+            if any(int(value) for value in chrome.values()):
+                span = int(cell.table.get("span") or 1)
+                rowspan = int(cell.table.get("rowspan") or 1)
+                if span != 1 or rowspan != 1 or cell.children:
+                    raise _Invalid("table cell edge is unsupported")
+                if str((host.table or {}).get("layout") or "auto") == "fixed":
+                    raise _Invalid("table cell edge is unsupported")
+            cell.table["chrome"] = chrome
         cells.append(cell)
     return cells
 
@@ -16360,18 +16381,62 @@ def _reject_table_text(text: object) -> None:
         raise _Invalid("table text is unsupported")
 
 
+_SEPARATE_CELL_CHROME = frozenset(
+    {
+        "padding",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
+        "border-width",
+        "border-top-width",
+        "border-right-width",
+        "border-bottom-width",
+        "border-left-width",
+        "border-style",
+        "border-top-style",
+        "border-right-style",
+        "border-bottom-style",
+        "border-left-style",
+    }
+)
+
+
 def _reject_table_edges(box: _Box, *, collapse: bool = False) -> None:
     sizing = _box_decl(box, "box-sizing")
     if sizing not in {None, "content-box", "initial", "unset", "revert"}:
         raise _Invalid("table box-sizing is unsupported")
-    allowed_border = collapse
-    for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
-        if allowed_border and _border_declaration(name):
-            continue
-        raw = _box_decl(box, name)
-        if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
-            continue
-        raise _Invalid("table cell edge is unsupported")
+    if collapse:
+        for name in (*_FLEX_EDGES, "margin", "padding", "border-width"):
+            if _border_declaration(name):
+                continue
+            raw = _box_decl(box, name)
+            if raw is None or raw.strip().lower() in _ZERO_EDGE | {"none"}:
+                continue
+            raise _Invalid("table cell edge is unsupported")
+    else:
+        for prop, raw in box.declarations:
+            name = prop.strip().lower()
+            if name in _SEPARATE_CELL_CHROME:
+                continue
+            if name in _FLEX_EDGES or name in _GRID_LOGICAL_CHROME or name in {
+                "margin",
+                "padding",
+                "border-width",
+                "border",
+                "border-top",
+                "border-right",
+                "border-bottom",
+                "border-left",
+            }:
+                token = " ".join(raw.strip().lower().split())
+                if token in _ZERO_EDGE | {"none", "auto"}:
+                    continue
+                raise _Invalid("table cell edge is unsupported")
+        try:
+            _grid_chrome(box)
+        except _Invalid as exc:
+            raise _Invalid("table cell edge is unsupported") from exc
     limits = {
         "min-width": {"auto", "0", "0px", "initial", "unset", "revert"},
         "min-height": {"auto", "0", "0px", "initial", "unset", "revert"},
@@ -16830,13 +16895,35 @@ def _reject_table_cell_block(box: _Box) -> None:
         _reject_table_cell_block(child)
 
 
+def _cell_chrome(cell: _Box) -> dict[str, int]:
+    raw = (cell.table or {}).get("chrome")
+    if not isinstance(raw, dict):
+        return {}
+    return {str(key): _px(value, "table cell") for key, value in raw.items()}
+
+
+def _cell_horizontal_chrome(cell: _Box) -> int:
+    chrome = _cell_chrome(cell)
+    return sum(int(chrome.get(key) or 0) for key in ("padding_left", "padding_right", "border_left", "border_right"))
+
+
+def _cell_vertical_chrome(cell: _Box) -> tuple[int, int]:
+    chrome = _cell_chrome(cell)
+    top = sum(int(chrome.get(key) or 0) for key in ("padding_top", "border_top"))
+    bottom = sum(int(chrome.get(key) or 0) for key in ("padding_bottom", "border_bottom"))
+    return top, bottom
+
+
 def _cell_content_bounds(cell: _Box) -> tuple[int, int]:
-    """Min and max content of a cell, including a block child's text."""
+    """Min and max content of a cell, including padding, border, and a block child."""
 
     if cell.children:
         bounds = [_nested_block_intrinsic(child) for child in cell.children]
-        return max(bound[0] for bound in bounds), max(bound[1] for bound in bounds)
-    return _intrinsic_text_sizes(cell)
+        minimum, maximum = max(bound[0] for bound in bounds), max(bound[1] for bound in bounds)
+    else:
+        minimum, maximum = _intrinsic_text_sizes(cell)
+    extra = _cell_horizontal_chrome(cell)
+    return minimum + extra, maximum + extra
 
 
 def _cell_content_baseline(cell: _Box) -> int:
@@ -16987,7 +17074,11 @@ def _place_table(box: _Box, content_x: int) -> None:
         for cell in row.children:
             column, span, rowspan = _cell_slot(cell)
             if inline_axis is None:
-                cell.content_width = _grid_span(column_sizes, column, span, spacing_x)
+                full = _grid_span(column_sizes, column, span, spacing_x)
+                horizontal = _cell_horizontal_chrome(cell)
+                if full < horizontal:
+                    raise _Invalid("table cell edge is unsupported")
+                cell.content_width = full - horizontal
             else:
                 axis_x, axis_left, axis_right = inline_axis
                 cell.content_width = _span_metrics(
@@ -17014,13 +17105,14 @@ def _place_table(box: _Box, content_x: int) -> None:
                 )
             elif (cell.inline_text or "").strip() or cell.white_space not in _COLLAPSED_EMPTY:
                 _fill_lines(cell)
+            top_chrome, bottom_chrome = _cell_vertical_chrome(cell)
             row_cells.append(
                 {
                     "id": cell.id,
                     "row": row_index,
                     "rowspan": rowspan,
-                    "content_height": cell.definite_height or 0,
-                    "baseline": _cell_content_baseline(cell),
+                    "content_height": (cell.definite_height or 0) + top_chrome + bottom_chrome,
+                    "baseline": _cell_content_baseline(cell) + top_chrome,
                     "vertical_align": str((cell.table or {}).get("vertical_align") or "baseline"),
                 }
             )
@@ -17046,6 +17138,7 @@ def _place_table(box: _Box, content_x: int) -> None:
     if collapse:
         _place_collapsed_table(box, rows, column_sizes, list(heights), by_id, content_x)
         return
+    omitted_rows = set(collapsed_rows)
     origin = _px(box.solved.get("border_top"), "border-top") + _px(box.solved.get("padding_top"), "padding-top")
     for row_index, row in enumerate(rows):
         row_height = _px(heights[row_index], "table row")
@@ -17071,15 +17164,27 @@ def _place_table(box: _Box, content_x: int) -> None:
             shift = _px(entry.get("content_top"), "table cell")
             cell_top = _px(entry.get("border_top"), "table cell")
             content_width = _grid_span(column_sizes, column, span, spacing_x)
+            horizontal = _cell_horizontal_chrome(cell)
+            top_chrome, bottom_chrome = _cell_vertical_chrome(cell)
+            vertical = top_chrome + bottom_chrome
             cell.x = content_x + column_offsets[column]
             cell.anchor_y = cell_top - row_top
-            cell.content_width = content_width
-            cell.content_height = slot
             cell.border_width = content_width
             cell.border_height = slot
             cell.margin_left = 0
             cell.margin_right = 0
-            cell.solved = dict(_ZERO_FLEX_EDGES)
+            if row_index not in omitted_rows and (horizontal or vertical):
+                if content_width < horizontal or slot < vertical:
+                    raise _Invalid("table cell edge is unsupported")
+                cell.content_width = content_width - horizontal
+                cell.content_height = slot - vertical
+                solved = dict(_ZERO_FLEX_EDGES)
+                solved.update(_cell_chrome(cell))
+                cell.solved = solved
+            else:
+                cell.content_width = content_width
+                cell.content_height = slot
+                cell.solved = dict(_ZERO_FLEX_EDGES)
             for line in cell.lines:
                 line.y += shift
             _shift_cell_children(cell, shift)
