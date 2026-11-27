@@ -21,7 +21,7 @@ import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Iterator, Sequence
 
 POLICY_ID = "BA_LOCAL_STORAGE_BUDGET_V1"
 SCHEMA_VERSION = 1
@@ -61,35 +61,30 @@ class BudgetPolicy:
             raise ValueError("preventive threshold cannot exceed the cap")
 
 
-def default_ba_roots(repo_path: Path) -> list[Path]:
-    """Main repository plus sibling managed worktree directories.
-
-    Unbound missions use ``.{repo}-unbound-worktrees``. Older evolution
-    checkouts use ``.{repo}-blackhole-worktrees``. Both are BA-owned.
-    """
-
-    repo = Path(repo_path)
-    roots = [repo]
-    parent = repo.parent
-    prefix = f".{repo.name}-"
-    if not parent.is_dir():
-        return roots
+def _matching_children(
+    directory: Path, matches: Callable[[str], bool], errors: list[dict[str, str]] | None,
+) -> list[Path]:
     try:
-        children = list(parent.iterdir())
-    except OSError:
-        return roots
-    for child in children:
-        name = child.name
-        if name.startswith(prefix) and name.endswith("-worktrees"):
-            roots.append(child)
-    return roots
+        with os.scandir(directory) as entries:
+            return [Path(entry.path) for entry in entries if matches(entry.name)]
+    except FileNotFoundError:
+        pass  # A namespace with no directory has no children.
+    except OSError as exc:
+        if errors is not None:
+            errors.append({"path": str(directory), "reason": str(exc)})
+    return []
 
 
-# Direct children of TEMP created by this repository. ``blackhole-`` and
-# ``bh-unbound`` were the first counted names. Later scratch uses ``bh-``
-# (``bh-mcp-plugin-``, ``bh-fp-``, ``bh-acq-``, ``bh-fg-``) and ``ba-``
-# (``ba-grok-`` start probes). Reclaim uses this same set. A counted name
-# that reclaim ignores can hold the cap after the creating process has exited.
+def default_ba_roots(repo_path: Path, *, errors: list[dict[str, str]] | None = None) -> list[Path]:
+    """The required repository and its existing managed worktree directories."""
+    repo = Path(os.path.abspath(repo_path))
+    managed = _matching_children(
+        repo.parent, lambda name: name.startswith(f".{repo.name}-") and name.endswith("-worktrees"), errors,
+    )
+    return [repo, *managed]
+
+
+# Discovery and reclamation share the same names for owned TEMP children.
 _MEASURED_TEMP_PREFIXES = ("blackhole-", "bh-", "ba-")
 
 
@@ -97,53 +92,93 @@ def _measured_temp_name(name: str) -> bool:
     return str(name or "").lower().startswith(_MEASURED_TEMP_PREFIXES)
 
 
-def discover_attributable_roots() -> list[Path]:
-    """Temp outputs and Grok session directories positively attributable to BA.
-
-    The shared Grok home (vendor, downloads, plugin caches) is not included.
-    Native session records are measured only; this function does not delete them.
-    A direct TEMP child is included when its name starts with ``blackhole-``,
-    ``bh-``, or ``ba-``. Other names in TEMP stay outside the owned total.
-    """
-
+def discover_attributable_roots(*, errors: list[dict[str, str]] | None = None) -> list[Path]:
+    """Owned TEMP children and provider sessions. Native sessions are measurement-only."""
     found: list[Path] = []
-    temp = os.environ.get("TEMP") or os.environ.get("TMP") or ""
-    if temp and os.path.isdir(temp) and not _is_reparse(temp):
-        try:
-            with os.scandir(temp) as iterator:
-                for entry in iterator:
-                    if _measured_temp_name(entry.name):
-                        found.append(Path(entry.path))
-        except OSError:
-            pass
+    temp = os.environ.get("TEMP") or os.environ.get("TMP")
+    if temp and not _is_reparse(temp):
+        found.extend(_matching_children(Path(temp), _measured_temp_name, errors))
     sessions = Path.home() / ".grok" / "sessions"
-    if sessions.is_dir() and not _is_reparse(str(sessions)):
-        try:
-            with os.scandir(sessions) as iterator:
-                for entry in iterator:
-                    decoded = urllib.parse.unquote(entry.name).replace("/", "\\").lower()
-                    if "blackhole-agent" in decoded:
-                        found.append(Path(entry.path))
-        except OSError:
-            pass
+    if not _is_reparse(str(sessions)):
+        found.extend(_matching_children(
+            sessions, lambda name: "blackhole-agent" in urllib.parse.unquote(name).lower(), errors,
+        ))
     return found
 
 
-def measure_roots(roots: Sequence[Path | str]) -> dict[str, Any]:
+def _record_unmeasured(measured: dict[str, Any], issues: list[dict[str, str]]) -> None:
+    if issues:
+        measured["complete"] = False
+        measured["unmeasured_owned_count"] += len(issues)
+        measured["unmeasured_owned"] = (measured["unmeasured_owned"] + issues)[:_SAMPLE_LIMIT]
+
+
+@dataclass(frozen=True)
+class RepositoryStorage:
+    """A discoverable storage scope. The repository itself is always required."""
+
+    repo: Path
+    include_attributable: bool = True
+
+    def discover(self, errors: list[dict[str, str]]) -> list[Path]:
+        roots = default_ba_roots(self.repo, errors=errors)
+        if self.include_attributable:
+            roots.extend(discover_attributable_roots(errors=errors))
+        return roots
+
+    def _inventory(self, errors: list[dict[str, str]]) -> dict[Path, tuple[int, int] | None]:
+        inventory = {}
+        for path in self.discover(errors):
+            try:
+                info = path.lstat()
+                inventory[path] = (info.st_dev, info.st_ino)
+            except FileNotFoundError:
+                inventory[path] = None  # The walk and the next discovery must account for its disappearance.
+            except OSError as exc:
+                inventory[path] = None
+                errors.append({"path": str(path), "reason": str(exc)})
+        return inventory
+
+    def measure(self) -> dict[str, Any]:
+        """Require matching directory inventories around the walk. Retry once on churn."""
+        errors: list[dict[str, str]] = []
+        inventory = self._inventory(errors)
+        for attempt in range(2):
+            measured = measure_roots(list(inventory))
+            if any(_norm(item["root"]) == _norm(self.repo) for item in measured["nested_roots"]):
+                # Its bytes are already counted under the enclosing root. Price the checkout separately.
+                checkout = measured["nested_checkout"] = _measure_one(self.repo)
+                _record_unmeasured(measured, checkout["unmeasured_owned"])
+            if errors:
+                break
+            current = self._inventory(errors)
+            if errors or (inventory == current and measured["complete"]):
+                break
+            if attempt == 0:
+                inventory = current
+            else:
+                changed = {path for path, _ in inventory.items() ^ current.items()}
+                errors.extend(
+                    {"path": str(path), "reason": "storage roots changed during rescan"} for path in sorted(changed)
+                )
+        _record_unmeasured(measured, errors)
+        return measured
+
+
+def measure_roots(roots: Sequence[Path | str] | RepositoryStorage) -> dict[str, Any]:
     """Sum logical sizes of regular files. Reparse points are not followed."""
 
-    declared = [Path(root) for root in roots]
-    ordered: list[Path] = []
+    if isinstance(roots, RepositoryStorage):
+        return roots.measure()
+    declared = {Path(os.path.abspath(root)): Path(root) for root in roots}
+    per_root: list[dict[str, Any]] = []
     nested: list[dict[str, str]] = []
-    for root in declared:
-        container = next((earlier for earlier in ordered if _strictly_inside(earlier, root)), None)
+    for path, root in declared.items():
+        container = next((declared[p] for p in reversed(path.parents) if p in declared), None)
         if container is not None:
             nested.append({"root": str(root), "nested_in": str(container), "outcome": "skipped_nested"})
-            continue
-        ordered.append(root)
-    per_root: list[dict[str, Any]] = []
-    for root in ordered:
-        per_root.append(_measure_one(root))
+        else:
+            per_root.append(_measure_one(root))
     logical = sum(int(item["logical_bytes"]) for item in per_root)
     files = sum(int(item["file_count"]) for item in per_root)
     unmeasured = [row for item in per_root for row in item["unmeasured_owned"]]
@@ -153,6 +188,7 @@ def measure_roots(roots: Sequence[Path | str]) -> dict[str, Any]:
         "logical_bytes": logical,
         "file_count": files,
         "complete": not unmeasured,
+        "declared_roots": [str(root) for root in declared.values()],
         "roots": per_root,
         "nested_roots": nested,
         "unmeasured_owned_count": len(unmeasured),
@@ -167,7 +203,7 @@ def measure_roots(roots: Sequence[Path | str]) -> dict[str, Any]:
 
 
 def govern_expansion(
-    roots: Sequence[Path | str],
+    roots: Sequence[Path | str] | RepositoryStorage,
     *,
     additional_bytes: int = 0,
     policy: BudgetPolicy | None = None,
@@ -195,7 +231,7 @@ def govern_expansion(
     needs_housekeeping = _needs_housekeeping(before, additional_bytes, chosen)
     actions: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
-    if needs_housekeeping:
+    if before["complete"] and needs_housekeeping and (closed_logs or scratch_dirs):
         actions, skipped = _maintain(
             before,
             closed_logs=closed_logs,
@@ -215,7 +251,7 @@ def govern_expansion(
         "cap_bytes": chosen.cap_bytes,
         "preventive_bytes": chosen.preventive_bytes,
         "log_tail_bytes": chosen.log_tail_bytes,
-        "roots": [str(Path(root)) for root in roots],
+        "roots": after["declared_roots"] if isinstance(roots, RepositoryStorage) else [str(Path(root)) for root in roots],
         "bytes_before": int(before["logical_bytes"]),
         "bytes_after": int(after["logical_bytes"]),
         "file_count_before": int(before["file_count"]),
@@ -232,6 +268,8 @@ def govern_expansion(
         },
         "honesty": after["honesty"],
     }
+    if isinstance(roots, RepositoryStorage):
+        receipt["root_scope"] = "shared" if roots.include_attributable else "checkouts"
     if receipt_path is not None:
         _write_receipt(Path(receipt_path), receipt)
     return receipt
@@ -258,13 +296,7 @@ class StorageBudgetRefusal(RuntimeError):
 
 
 def mission_checkout_roots(repo_path: Path) -> list[Path]:
-    """Repository plus its managed worktree directories.
-
-    Host temp outputs and provider session homes are not part of this
-    decision. They are not reported as zero bytes; a caller that needs them
-    measures them separately.
-    """
-
+    """Return checkout roots for callers pricing a new worktree."""
     return default_ba_roots(Path(repo_path))
 
 
@@ -286,7 +318,10 @@ def checkout_growth_bytes(measurement: dict[str, Any], repo_path: Path) -> int:
     """
 
     repo_abs = os.path.abspath(repo_path)
-    for item in measurement.get("roots") or []:
+    items = measurement.get("roots") or []
+    if measurement.get("nested_checkout"):
+        items = [measurement["nested_checkout"], *items]
+    for item in items:
         if os.path.abspath(str(item.get("root") or "")) != repo_abs:
             continue
         total = int(item.get("logical_bytes") or 0)
@@ -314,11 +349,7 @@ def budget_reclaim_needed(
         return False
     logical = int(measurement.get("logical_bytes") or 0)
     growth = max(0, int(growth_bytes))
-    if logical >= policy.preventive_bytes or logical >= policy.cap_bytes:
-        return True
-    if logical + growth >= policy.preventive_bytes:
-        return True
-    return logical + growth > policy.cap_bytes
+    return logical + growth >= policy.preventive_bytes
 
 
 def completed_checkout_reclaim_allowed(measurement: dict[str, Any]) -> bool:
@@ -410,23 +441,16 @@ def _read_storage_receipt(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _receipt_measure_roots(receipt: dict[str, Any], repo: Path) -> list[Path]:
-    """Roots the receipt already claimed, otherwise the checkout roots only.
-
-    The turn must not widen the measurement to temp directories or provider
-    sessions. The stale creator counted checkout roots, and the after-figure
-    has to be the same scope with the removed checkouts gone.
-    """
-
+def _receipt_measure_roots(receipt: dict[str, Any], repo: Path) -> list[Path] | RepositoryStorage:
+    """Rediscover live scopes. Legacy receipts retain their explicitly recorded scope."""
+    scope = receipt.get("root_scope")
+    if scope in ("shared", "checkouts"):
+        return RepositoryStorage(repo, include_attributable=scope == "shared")
     listed = receipt.get("roots")
-    roots: list[Path] = []
     if isinstance(listed, list):
-        for item in listed:
-            text = str(item or "").strip()
-            if text:
-                roots.append(Path(text))
-    if roots:
-        return roots
+        paths = [Path(str(item).strip()) for item in listed if str(item or "").strip()]
+        if paths:
+            return paths
     return mission_checkout_roots(repo)
 
 
@@ -504,7 +528,7 @@ def _refresh_receipt_after_checkout_reclaim(repo: Path, receipt: dict[str, Any])
     receipt["bytes_after"] = int(after["logical_bytes"])
     receipt["file_count_after"] = int(after["file_count"])
     receipt["measurement_after"] = _compact_measurement(after)
-    receipt["roots"] = [str(Path(root)) for root in roots]
+    receipt["roots"] = after["declared_roots"]
     receipt["timestamp"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     receipt["honesty"] = after["honesty"]
     receipt["size_kind"] = after["size_kind"]
@@ -838,31 +862,11 @@ def _record_supervisor_reclaim(repo: Path, report: dict[str, Any]) -> None:
 
 
 def authorization_measurement_roots(repo_path: Path) -> list[Path]:
-    """Checkout roots plus temp outputs and provider sessions attributable to BA.
-
-    ``mission_checkout_roots`` stays checkout-only so a caller can still price
-    one new checkout. Authorization is the shared budget: a provider session
-    or a ``blackhole-``, ``bh-``, or ``ba-`` temp directory that meets the cap
-    has to be visible or the receipt reports the cap satisfied while owned
-    bytes were left out.
-    """
-
-    roots = mission_checkout_roots(repo_path)
-    for extra in discover_attributable_roots():
-        if any(_norm(extra) == _norm(root) or _strictly_inside(root, extra) for root in roots):
-            continue
-        if any(_strictly_inside(extra, root) for root in roots):
-            continue
-        roots.append(extra)
-    return roots
+    """List the roots currently attributed to this repository."""
+    return RepositoryStorage(repo_path).discover([])
 
 
-_ATTRIBUTABLE_TEMP_PREFIXES = _MEASURED_TEMP_PREFIXES
 ABANDONED_TEMP_MIN_AGE_SECONDS = 24 * 60 * 60
-
-
-def _attributable_temp_name(name: str) -> bool:
-    return _measured_temp_name(name)
 
 
 def _active_temp(path: str, active: Sequence[str]) -> bool:
@@ -964,7 +968,7 @@ def reclaim_abandoned_attributable_temps(
     except OSError as exc:
         return {"removed": removed, "skipped": [{"path": root, "reason": str(exc)}]}
     for entry in children:
-        if not _attributable_temp_name(entry.name):
+        if not _measured_temp_name(entry.name):
             continue
         path = os.path.abspath(entry.path)
         if _norm(os.path.dirname(path)) != _norm(root):
@@ -999,7 +1003,7 @@ def reclaim_abandoned_attributable_temps(
             _is_reparse(path)
             or _active_temp(path, active)
             or _norm(os.path.dirname(path)) != _norm(root)
-            or not _attributable_temp_name(Path(path).name)
+            or not _measured_temp_name(Path(path).name)
         ):
             skipped.append({"path": path, "reason": "ownership changed before removal"})
             continue
@@ -1032,39 +1036,33 @@ def reclaim_process_attributable_temps(
 
 
 def authorize_mission_worktree(repo_path: Path) -> dict[str, Any]:
-    """Measure the shared budget and refuse when a new worktree is not allowed.
+    """Price a checkout against shared storage after eligible reclamation.
 
-    The measurement covers checkout roots, BA temp outputs, and attributable
-    provider-session directories. ``CAP_BYTES`` and ``PREVENTIVE_BYTES`` are
-    read at call time so a caller can point a fixture at a small cap. A
-    complete measurement removes older completed published worktrees with no
-    unique work before the new checkout, including while usage is still below
-    the preventive line. It also removes a clean supervisor evolution checkout
-    whose commits are already in the remote lineage. An incomplete measurement
-    removes nothing. Removal is
-    ``git worktree remove`` without ``--force``. The receipt is written under
-    the repository's unbound directory.
+    A complete inventory permits cleanup of abandoned scratch and verified
+    published worktrees, even below the preventive threshold. Rediscover and
+    measure again after reclamation before issuing the authorization receipt.
     """
 
     repo = Path(repo_path)
     cap = int(CAP_BYTES)
     preventive = min(int(PREVENTIVE_BYTES), cap)
     policy = BudgetPolicy(cap_bytes=cap, preventive_bytes=preventive)
-    temp_reclaim = reclaim_process_attributable_temps(active_paths=[repo])
-    roots = authorization_measurement_roots(repo)
+    roots = RepositoryStorage(repo)
     before = measure_roots(roots)
-    growth = checkout_growth_bytes(before, repo)
+    after = before
+    temp_reclaim: dict[str, Any] = {}
     reclaim_report: dict[str, Any] | None = None
     supervisor_report: dict[str, Any] | None = None
     if completed_checkout_reclaim_allowed(before):
+        temp_reclaim = reclaim_process_attributable_temps(active_paths=[repo])
         reclaim_report = reclaim_completed_for_budget(repo)
         supervisor_report = reclaim_supervisor_evolution_checkouts(repo, record_receipt=False)
+        after = measure_roots(roots)
     receipt = govern_expansion(
         roots,
-        additional_bytes=growth,
+        additional_bytes=checkout_growth_bytes(after, repo),
         policy=policy,
-        receipt_path=repo / ".blackhole-agent" / "unbound" / "storage-budget.json",
-        already_measured=None if reclaim_report is not None else before,
+        already_measured=after,
     )
     if reclaim_report is not None:
         compact = _compact_worktree_reclaim(reclaim_report)
@@ -1145,6 +1143,18 @@ def _compact_measurement(measurement: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _entry_stats(directory: str, issues: list[dict[str, Any]]) -> Iterator[tuple[os.DirEntry, os.stat_result]]:
+    try:
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                try:
+                    yield entry, entry.stat(follow_symlinks=False)
+                except OSError as exc:
+                    issues.append({"path": entry.path, "reason": str(exc)})
+    except OSError as exc:
+        issues.append({"path": directory, "reason": str(exc)})
+
+
 def _measure_one(root: Path) -> dict[str, Any]:
     root_abs = os.path.abspath(root)
     unmeasured: list[dict[str, Any]] = []
@@ -1153,83 +1163,50 @@ def _measure_one(root: Path) -> dict[str, Any]:
     logical = 0
     files = 0
     directories = 0
-    if not os.path.exists(root_abs) and not os.path.lexists(root_abs):
+    stack: list[tuple[str, str]] = []
+    try:
+        info = os.lstat(root_abs)
+    except FileNotFoundError:
         unmeasured.append({"path": root_abs, "reason": "root missing"})
-        return _root_payload(root_abs, 0, 0, 0, 0, unmeasured, reparses, children)
-    if _is_reparse(root_abs):
-        reparses.append(_reparse_record(root_abs, root_abs))
-        unmeasured.append({"path": root_abs, "reason": "root is a reparse point and was not followed"})
-        return _root_payload(root_abs, 0, 0, 0, 1, unmeasured, reparses, children)
-    if os.path.isfile(root_abs):
-        try:
-            st = os.lstat(root_abs)
-        except OSError as exc:
-            unmeasured.append({"path": root_abs, "reason": str(exc)})
-            return _root_payload(root_abs, 0, 0, 0, 0, unmeasured, reparses, children)
-        if stat.S_ISREG(st.st_mode):
-            return _root_payload(root_abs, int(st.st_size), 1, 0, 0, unmeasured, reparses, children)
-        unmeasured.append({"path": root_abs, "reason": "not a regular file"})
-        return _root_payload(root_abs, 0, 0, 0, 0, unmeasured, reparses, children)
-    stack = [root_abs]
+    except OSError as exc:
+        unmeasured.append({"path": root_abs, "reason": str(exc)})
+    else:
+        if _reparse_stat(info):
+            reparses.append(_reparse_record(root_abs, root_abs))
+            unmeasured.append({"path": root_abs, "reason": "root is a reparse point and was not followed"})
+        elif stat.S_ISDIR(info.st_mode):
+            stack.append((root_abs, ""))
+        elif stat.S_ISREG(info.st_mode):
+            logical, files = info.st_size, 1
+        else:
+            unmeasured.append({"path": root_abs, "reason": "not a regular file"})
     while stack:
-        current = stack.pop()
-        try:
-            iterator = os.scandir(current)
-        except OSError as exc:
-            unmeasured.append({"path": current, "reason": str(exc)})
-            continue
-        with iterator:
-            for entry in iterator:
-                try:
-                    st = entry.stat(follow_symlinks=False)
-                except OSError as exc:
-                    unmeasured.append({"path": entry.path, "reason": str(exc)})
-                    continue
-                if (getattr(st, "st_file_attributes", 0) & _REPARSE) or entry.is_symlink():
-                    record = _reparse_record(entry.path, root_abs)
-                    reparses.append(record)
-                    if record.get("counts_as_unmeasured_owned"):
-                        unmeasured.append(
-                            {
-                                "path": entry.path,
-                                "reason": str(record.get("unmeasured_reason") or "reparse target not measured"),
-                            }
-                        )
-                    continue
-                if stat.S_ISDIR(st.st_mode):
-                    directories += 1
-                    stack.append(entry.path)
-                    continue
-                if not stat.S_ISREG(st.st_mode):
-                    unmeasured.append({"path": entry.path, "reason": "not a regular file"})
-                    continue
-                logical += int(st.st_size)
+        current, top_child = stack.pop()
+        for entry, info in _entry_stats(current, unmeasured):
+            child = top_child or entry.name
+            if _reparse_stat(info):
+                record = _reparse_record(entry.path, root_abs)
+                reparses.append(record)
+                if record["counts_as_unmeasured_owned"]:
+                    unmeasured.append({"path": entry.path, "reason": record["unmeasured_reason"]})
+            elif stat.S_ISDIR(info.st_mode):
+                directories += 1
+                stack.append((entry.path, child))
+            elif stat.S_ISREG(info.st_mode):
+                logical += info.st_size
                 files += 1
-                relative = os.path.relpath(entry.path, root_abs)
-                child = relative.split(os.sep, 1)[0]
                 bucket = children.setdefault(child, [0, 0])
-                bucket[0] += int(st.st_size)
+                bucket[0] += info.st_size
                 bucket[1] += 1
-    return _root_payload(root_abs, logical, files, directories, len(reparses), unmeasured, reparses, children)
-
-
-def _root_payload(
-    root_abs: str,
-    logical: int,
-    files: int,
-    directories: int,
-    reparse_count: int,
-    unmeasured: list[dict[str, Any]],
-    reparses: list[dict[str, Any]],
-    children: dict[str, list[int]],
-) -> dict[str, Any]:
+            else:
+                unmeasured.append({"path": entry.path, "reason": "not a regular file"})
     top = sorted(children.items(), key=lambda item: item[1][0], reverse=True)[:15]
     return {
         "root": root_abs,
         "logical_bytes": logical,
         "file_count": files,
         "directory_count": directories,
-        "reparse_count": reparse_count,
+        "reparse_count": len(reparses),
         "unmeasured_count": len(unmeasured),
         "unmeasured_owned": unmeasured,
         "reparse_not_followed": reparses,
@@ -1602,14 +1579,15 @@ def _norm(path: Path | str) -> str:
     return os.path.normcase(os.path.abspath(path))
 
 
+def _reparse_stat(info: os.stat_result) -> bool:
+    return bool(getattr(info, "st_file_attributes", 0) & _REPARSE) or stat.S_ISLNK(info.st_mode)
+
+
 def _is_reparse(path: str) -> bool:
     try:
-        st = os.lstat(path)
+        return _reparse_stat(os.lstat(path))
     except OSError:
         return False
-    if getattr(st, "st_file_attributes", 0) & _REPARSE:
-        return True
-    return stat.S_ISLNK(st.st_mode)
 
 
 def _reparse_between(root: str, path: str) -> bool:

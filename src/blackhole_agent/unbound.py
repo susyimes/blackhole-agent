@@ -4062,17 +4062,10 @@ def storage_budget(
 ) -> None:
     """Report measured usage. Does not delete logs, scratch, worktrees, or Grok sessions."""
 
-    from blackhole_agent.storage_budget import (
-        default_ba_roots,
-        discover_attributable_roots,
-        govern_expansion,
-    )
+    from blackhole_agent.storage_budget import RepositoryStorage, govern_expansion
 
-    roots = default_ba_roots(repo_path)
-    if include_attributable:
-        roots.extend(discover_attributable_roots())
     result = govern_expansion(
-        roots,
+        RepositoryStorage(repo_path, include_attributable),
         additional_bytes=additional_bytes,
         receipt_path=receipt,
     )
