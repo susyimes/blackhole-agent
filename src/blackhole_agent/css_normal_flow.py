@@ -384,6 +384,15 @@ max-content width is the longest line, so spaces on a ``pre`` line stay and
 a short second line does not widen the item. The automatic cross size is
 those line boxes, and the following block starts under the stack. A tab and
 a different font on the run stay rejected.
+A static block child of a nowrap ``display: flex`` row item is an
+independent formatting context. The item's max-content is that child's
+max-content, so an automatic ``flex: none`` width ends where the text ends
+and the next item starts there. A specified width wraps the child's text,
+and the child's margin stays inside the item. Adjoining child margins
+collapse. The row grows to that content, a stretched sibling uses the same
+cross size, and a column gap sits between the items. The following block
+starts under the row. A column, wrapping, inline-flex, a float, mixed text,
+and any display other than a static block stay rejected.
 ``display: inline-flex`` is that same row as an atomic inline. A definite
 width flexes the items inside the line, and the words before and after stay
 on that line. An automatic width with ``flex: none`` shrinks to the items'
@@ -3828,7 +3837,7 @@ def _lay_block_contents(
         _place_grid(box, content_x, viewport_height)
         return
     if box.display == "flex":
-        _place_flex_row(box, content_x)
+        _place_flex_row(box, content_x, viewport_height)
         return
     if box.display == "table":
         _place_table(box, content_x)
@@ -13350,7 +13359,29 @@ def _collect_flex_items(
         if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
             raise _Invalid("flex writing mode is unsupported")
         if _flex_item_elements(tree, child):
-            raise _Invalid("flex item content is unsupported")
+            spec = host.flex or {}
+            if (
+                host.display != "flex"
+                or column
+                or str(spec.get("wrap") or "nowrap") != "nowrap"
+                or box.display not in {"block", "flow-root"}
+            ):
+                raise _Invalid("flex item content is unsupported")
+            _reject_item_edges(box, column=column)
+            _adopt_grid_item_blocks(
+                tree,
+                child,
+                box,
+                styles,
+                declarations,
+                ids,
+                counter,
+                reason="flex item content is unsupported",
+            )
+            box.flex = _flex_item(tree, child, styles, declarations)
+            items.append(box)
+            _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+            continue
         _reject_item_edges(box, column=column)
         box.inline_text = _leaf_generated(tree, child)
         box.flex = _flex_item(tree, child, styles, declarations)
@@ -13396,9 +13427,20 @@ def _flex_has_preserved_break(item: _Box) -> bool:
 def _flex_content_inline(item: _Box) -> int:
     """Max-content inline size. A preserved newline uses the longest line."""
 
+    if item.children:
+        return _flex_block_contribution(item)[1]
     if _flex_has_preserved_break(item):
         return _intrinsic_text_sizes(item)[1]
     return _text_main(item.inline_text or "", item.font_size, item.letter_spacing, item.word_spacing)
+
+
+def _flex_block_contribution(item: _Box) -> tuple[int, int]:
+    """Min and max content of the static blocks inside one flex item."""
+
+    bounds = [_nested_block_intrinsic(child) for child in item.children]
+    if not bounds:
+        raise _Invalid("flex item content is unsupported")
+    return max(bound[0] for bound in bounds), max(bound[1] for bound in bounds)
 
 
 def _flex_preserved_block_size(item: _Box, measure: int) -> int:
@@ -14035,6 +14077,7 @@ def _commit_flex_item(
     origin: int,
     container_main: int,
     reverse: bool,
+    viewport_height: int | None = None,
 ) -> None:
     inner = _px(entry.get("main_size"), "flex main")
     margin_box = _px(entry.get("main"), "flex main")
@@ -14083,7 +14126,9 @@ def _commit_flex_item(
     item.solved = dict(_ZERO_FLEX_EDGES)
     if isinstance(item.solved, dict):
         item.solved.update(solved_margins)
-    if item.inline_text and (not column or _flex_has_preserved_break(item)):
+    if item.children:
+        _lay_grid_item_blocks(item, viewport_height, reason="flex item content is unsupported")
+    elif item.inline_text and (not column or _flex_has_preserved_break(item)):
         item.lines = _plain_lines(item, item.content_width, item.direction)
 
 
@@ -14212,7 +14257,30 @@ _ZERO_FLEX_EDGES = {
 }
 
 
-def _place_flex_row(box: _Box, content_x: int) -> None:
+def _apply_flex_block_cross(
+    rows: list[dict[str, object]],
+    sizes: list[object],
+    viewport_height: int | None,
+    *,
+    column: bool,
+) -> None:
+    """Size block children at the used main size before the line's cross size."""
+
+    if column:
+        return
+    for row, inner in zip(rows, sizes, strict=True):
+        item = row["item"]
+        if not isinstance(item, _Box) or not item.children or row["cross"] != "auto":
+            continue
+        if not item.solved:
+            item.solved = dict(_ZERO_FLEX_EDGES)
+        item.content_width = _px(inner, "flex width")
+        row["hypothetical"] = _lay_grid_item_blocks(
+            item, viewport_height, reason="flex item content is unsupported"
+        )
+
+
+def _place_flex_row(box: _Box, content_x: int, viewport_height: int | None = None) -> None:
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("flex writing mode is unsupported")
     spec = box.flex or {"justify": "normal", "align": "normal", "wrap": "nowrap", "direction": "row"}
@@ -14222,12 +14290,18 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     for item in box.children:
         flex = item.flex or {"grow": 0.0, "shrink": 1.0, "basis": "auto", "align": "auto"}
         text = item.inline_text or ""
-        preserved = _flex_has_preserved_break(item)
-        text_width = (
-            _intrinsic_text_sizes(item)[1]
-            if preserved
-            else _text_main(text, item.font_size, item.letter_spacing, item.word_spacing)
-        )
+        block_content = bool(item.children)
+        if block_content and (column or str(spec.get("wrap") or "nowrap") != "nowrap"):
+            raise _Invalid("flex item content is unsupported")
+        preserved = False if block_content else _flex_has_preserved_break(item)
+        if block_content:
+            text_width = _flex_block_contribution(item)[1]
+        else:
+            text_width = (
+                _intrinsic_text_sizes(item)[1]
+                if preserved
+                else _text_main(text, item.font_size, item.letter_spacing, item.word_spacing)
+            )
         if preserved:
             specified_width = _main_size(_box_decl(item, "width"), "auto")
             block_measure = (
@@ -14341,6 +14415,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
     sizes = line["main_sizes"]
     if len(sizes) != len(rows):
         raise _Invalid("flex line failed")
+    _apply_flex_block_cross(rows, sizes, viewport_height, column=column)
     reverse = direction in {"row-reverse", "column-reverse"}
     entries = [
         _flex_entry(row, inner, column=column, container_align=container_align, reverse=reverse)
@@ -14380,6 +14455,7 @@ def _place_flex_row(box: _Box, content_x: int) -> None:
             origin=origin,
             container_main=container_main,
             reverse=reverse,
+            viewport_height=viewport_height,
         )
     box.anchor_laid = True
 
@@ -15769,14 +15845,16 @@ def _adopt_grid_item_blocks(
     declarations,
     ids: set[str],
     counter: list[int],
+    *,
+    reason: str = "grid item content is unsupported",
 ) -> None:
-    """Take a grid item's block children. Mixed text and other displays stay rejected."""
+    """Take a grid or flex item's block children. Mixed text stays rejected."""
 
     if _grid_text(getattr(element, "text", None)):
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     for node in tree.children.get(element, []):
         if _grid_text(getattr(node, "tail", None)):
-            raise _Invalid("grid item content is unsupported")
+            raise _Invalid(reason)
     found, floats, _flow, positioned = _walk(
         tree,
         element,
@@ -15790,23 +15868,23 @@ def _adopt_grid_item_blocks(
         item,
     )
     if floats or positioned or item.atoms or not found:
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     for child in found:
-        _reject_grid_item_block(child)
+        _reject_grid_item_block(child, reason)
     item.children = found
     item.flow = list(found)
 
 
-def _reject_grid_item_block(box: _Box) -> None:
+def _reject_grid_item_block(box: _Box, reason: str = "grid item content is unsupported") -> None:
     if box.display != "block" or box.position != "static" or box.float_side != "none":
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     sizing = _box_decl(box, "box-sizing")
     if sizing not in {None, "content-box", "initial", "unset", "revert"}:
-        raise _Invalid("grid item content is unsupported")
+        raise _Invalid(reason)
     for child in box.children:
-        _reject_grid_item_block(child)
+        _reject_grid_item_block(child, reason)
 
 
 def _lay_grid_item_blocks(
