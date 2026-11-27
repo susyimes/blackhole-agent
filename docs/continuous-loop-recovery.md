@@ -1,6 +1,7 @@
 # Continuous loop recovery
 
-`loop-status` checks owner liveness and reaps a confirmed dead controller. It
+`loop-status` checks ownership and reaps a controller that exited, including
+one whose PID the operating system has reassigned. It
 persists `status=orphaned`, the previous status, reaping time and reason, removes
 the stale PID lock, and appends one `continuous_loop.orphaned` event. Repeated
 checks leave the receipt unchanged. Mission state, worktrees, lineage references,
@@ -9,10 +10,15 @@ pending publication and existing error diagnostics remain available for recovery
 stop request. Neither command terminates processes or resumes a mission.
 
 Use `loop-status --read-only` for inspection without changing state or locks.
-Both modes add `pid_alive`, `effective_status`, `checked_at` and `liveness_error`.
-A malformed PID or failed process query produces unknown liveness, not evidence
-of death. A live PID alone is not health proof: verify its command line, creation
-time and mission/Cursor descendant tree as well; PID reuse is treated conservatively.
+Both modes report `pid_alive`, `owner_status`, `effective_status`, `checked_at`
+and `liveness_error`. A recycled PID can have `pid_alive=true` alongside
+`owner_status=reused`. Windows supplies the process creation time. POSIX
+systems supply elapsed process time through `ps`. Recovery compares the process
+lifetime with the loop creation time, its last active checkpoint and, when
+present, its matching PID lock's write time. A two-second margin accounts
+for coarse file timestamps. The recovery event records `controller_pid_reused`.
+Legacy records without a creation time retain the live PID claim. Malformed
+timestamps and failed process queries leave ownership unresolved.
 
 Controllers and reapers share an OS ownership guard, released automatically when
 the owner process exits. The `.lock.guard` file stays on disk as the stable lock

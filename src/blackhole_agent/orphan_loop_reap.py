@@ -1,11 +1,4 @@
-"""Reap a durable continuous loop whose owner pid is gone.
-
-A dead controller used to keep status=running_mission after the process
-exited, so later wakes treated the orphan as still active. This module is
-the first-class helper: a missing owner reports effective_status=orphaned
-and reap_orphaned_loop clears status=running_mission without touching a
-live owner pid. Later genesis can take continuous-loop reboot restoration.
-"""
+"""Reconcile durable continuous-loop state after the controller exits or its PID is reused."""
 
 from __future__ import annotations
 
@@ -64,35 +57,26 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def annotate_loop_status(payload: dict[str, Any]) -> dict[str, Any]:
-    """Read-only liveness annotation; durable 'running' is not a health verdict.
-
-    A live PID still needs command-line/parent-tree verification by the operator.
-    A missing PID is sufficient evidence to reject an active durable status.
-    """
-
-    from blackhole_agent.unbound import (
-        continuous_loop_owner_pid,
-        pid_is_running,
-        utc_now_iso as loop_now,
-    )
+    """Report numeric PID liveness separately from ownership of the recorded loop."""
+    from blackhole_agent.unbound import continuous_loop_owner_status, utc_now_iso as loop_now
 
     error = ""
     try:
-        owner_pid = continuous_loop_owner_pid(payload.get("pid"))
-        alive: bool | None = pid_is_running(owner_pid)
+        _, owner = continuous_loop_owner_status(payload)
     except (OSError, ValueError) as exc:
-        alive = None
+        owner = "unknown"
         error = f"loop owner PID liveness unavailable: {exc}"
     active = str(payload.get("status") or "") in ACTIVE_LOOP_STATUSES
     effective_status = payload.get("status")
-    if active and alive is False:
+    if active and owner in {"missing", "reused"}:
         effective_status = "orphaned"
-        error = "durable loop owner PID is missing"
-    elif active and alive is None:
+        error = f"durable loop owner PID is {owner}"
+    elif active and owner == "unknown":
         effective_status = "unknown"
     return {
         **payload,
-        "pid_alive": alive,
+        "pid_alive": None if owner == "unknown" else owner != "missing",
+        "owner_status": owner,
         "checked_at": loop_now(),
         "effective_status": effective_status,
         "liveness_error": error,
@@ -113,9 +97,8 @@ def reap_orphaned_loop(repo_path: Path, output_dir: Path | None = None) -> dict[
         continuous_loop_events_path,
         continuous_loop_guard,
         continuous_loop_lock_path,
-        continuous_loop_owner_pid,
+        continuous_loop_owner_status,
         continuous_loop_state_path,
-        pid_is_running,
         save_continuous_loop_state,
         utc_now_iso as loop_now,
     )
@@ -137,20 +120,21 @@ def reap_orphaned_loop(repo_path: Path, output_dir: Path | None = None) -> dict[
             if current["effective_status"] != "orphaned" or payload.get("status") == "orphaned":
                 return current
             if lock_path.exists():
-                lock_pid = continuous_loop_owner_pid(lock_path.read_text(encoding="utf-8").strip())
-                if pid_is_running(lock_pid):
+                lock_pid, lock_owner = continuous_loop_owner_status(payload, lock_path)
+                if lock_owner == "live":
                     return {
                         **current,
                         "reaping_error": f"continuous loop PID lock has a live owner: {lock_pid}",
                     }
             at = loop_now()
             previous_status = payload["status"]
+            reason = "controller_pid_reused" if current["owner_status"] == "reused" else "controller_process_missing"
             payload.update(
                 status="orphaned",
                 orphaned_from_status=previous_status,
                 reaped_at=at,
                 reaped_by_pid=os.getpid(),
-                stop_reason="controller_process_missing",
+                stop_reason=reason,
                 next_wake_at="",
             )
             save_continuous_loop_state(state_path, payload)
@@ -165,7 +149,7 @@ def reap_orphaned_loop(repo_path: Path, output_dir: Path | None = None) -> dict[
                     "current_mission_id": payload.get("current_mission_id", ""),
                     "current_state_path": payload.get("current_state_path", ""),
                     "reaped_by_pid": os.getpid(),
-                    "reason": "controller_process_missing",
+                    "reason": reason,
                 },
             )
             lock_path.unlink(missing_ok=True)

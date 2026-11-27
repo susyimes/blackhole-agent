@@ -31,6 +31,7 @@ from rich.console import Console
 
 from blackhole_agent.durable_state import durable_overlay_session
 from blackhole_agent.process_capture import run_captured_process, run_text_command
+from blackhole_agent.process_lifetime import pid_is_running, process_started_after
 from blackhole_agent.behavior_acceptance import replay_behavior_acceptance
 from blackhole_agent.evolution_quality import (
     content_fingerprint,
@@ -2641,48 +2642,6 @@ def run_mission_loop(
             time.sleep(interval_seconds)
 
 
-def pid_is_running(pid: int) -> bool:
-    if pid < 1:
-        return False
-    if pid == os.getpid():
-        return True
-    if os.name == "nt":
-        import ctypes
-
-        process_query_limited_information = 0x1000
-        still_active = 259
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        open_process = kernel32.OpenProcess
-        open_process.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
-        open_process.restype = ctypes.c_void_p
-        get_exit_code = kernel32.GetExitCodeProcess
-        get_exit_code.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
-        get_exit_code.restype = ctypes.c_int
-        close_handle = kernel32.CloseHandle
-        close_handle.argtypes = [ctypes.c_void_p]
-        close_handle.restype = ctypes.c_int
-        handle = open_process(process_query_limited_information, False, pid)
-        if not handle:
-            error = ctypes.get_last_error()
-            if error == 87:  # ERROR_INVALID_PARAMETER: this PID no longer exists.
-                return False
-            raise ctypes.WinError(error)
-        try:
-            exit_code = ctypes.c_uint32()
-            if not get_exit_code(handle, ctypes.byref(exit_code)):
-                raise ctypes.WinError(ctypes.get_last_error())
-            return exit_code.value == still_active
-        finally:
-            close_handle(handle)
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
 def continuous_loop_guard(lock_path: Path) -> ContextManager[None]:
     """Refuse a second controller or reaper while the first owns the loop."""
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2700,14 +2659,45 @@ def continuous_loop_owner_pid(value: Any) -> int:
     return pid
 
 
+def continuous_loop_owner_status(payload: Mapping[str, Any], lock_path: Path | None = None) -> tuple[int, str]:
+    """A live PID can only have owned records written during its current lifetime."""
+    recorded_pid = payload.get("pid")
+    lock_time = None
+    if lock_path is None:
+        pid = continuous_loop_owner_pid(recorded_pid)
+    else:
+        with lock_path.open(encoding="utf-8") as marker:
+            pid = continuous_loop_owner_pid(marker.read().strip())
+            lock_time = os.fstat(marker.fileno()).st_mtime
+    if not pid_is_running(pid):
+        return pid, "missing"
+    created = payload.get("created_at")
+    if created and pid == continuous_loop_owner_pid(recorded_pid):
+        # Reaping itself updates updated_at. Only active checkpoints witness the old controller.
+        last_write = payload.get("updated_at") if payload.get("status") != "orphaned" else None
+        stamps = [datetime.fromisoformat(str(value).replace("Z", "+00:00")) for value in (created, last_write) if value]
+        if any(stamp.utcoffset() is None for stamp in stamps):
+            raise ValueError("loop ownership time has no UTC offset")
+        recorded_at = max(stamp.timestamp() for stamp in stamps)
+        if lock_time is not None:
+            recorded_at = max(recorded_at, lock_time)
+        if process_started_after(pid, recorded_at):
+            return pid, "reused"
+    return pid, "live"
+
+
 @contextmanager
 def continuous_loop_lock(lock_path: Path) -> Iterator[None]:
-    """Own one outer evolution loop, reclaiming only a known-dead PID lock."""
+    """Own one outer evolution loop, reclaiming a missing or positively identified former owner."""
 
     with continuous_loop_guard(lock_path):
         if lock_path.exists():
-            owner_pid = continuous_loop_owner_pid(lock_path.read_text(encoding="utf-8").strip())
-            if pid_is_running(owner_pid):
+            try:
+                state = json.loads(lock_path.with_suffix(".json").read_bytes())
+            except (FileNotFoundError, UnicodeError, json.JSONDecodeError):
+                state = {}
+            owner_pid, status = continuous_loop_owner_status(state if isinstance(state, dict) else {}, lock_path)
+            if status == "live":
                 raise RuntimeError(f"Another Unbound continuous loop owns this repository: pid={owner_pid}")
             lock_path.unlink()
         with lock_path.open("x", encoding="utf-8") as handle:
@@ -3754,11 +3744,7 @@ def loop(
 
 
 def continuous_loop_status_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
-    """Read-only liveness annotation; durable 'running' is not a health verdict.
-
-    A live PID still needs command-line/parent-tree verification by the operator.
-    A missing PID is sufficient evidence to reject an active durable status.
-    """
+    """Inspect the recorded controller's liveness without changing loop state."""
 
     from blackhole_agent.orphan_loop_reap import annotate_loop_status
 

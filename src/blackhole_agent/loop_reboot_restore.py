@@ -1,12 +1,4 @@
-"""Restore a reaped orphaned continuous loop after login or reboot.
-
-Reaping leaves status=orphaned and clears the stale PID lock. A machine
-restart then keeps the native loop stopped until an operator starts it.
-This helper is the missing startup path: it starts a controller only when
-no live owner pid exists, and it refuses to start a second controller
-beside a live owner pid. Operator-stopped loops and unknown liveness are
-left alone. Paused daily-health automation is never rewritten.
-"""
+"""Restore an orphaned continuous loop after login or reboot once ownership is available."""
 
 from __future__ import annotations
 
@@ -116,11 +108,7 @@ def restore_orphaned_loop_on_startup(
     *,
     controller_starter: ControllerStarter | None = None,
 ) -> dict[str, Any]:
-    """Start a reaped orphan only when no live owner pid exists.
-
-    A live owner, an uncertain PID, or an operator-stopped loop never starts
-    another controller. Daily-health automation files are not rewritten.
-    """
+    """Start the successor to a confirmed orphan, preserving operator stops and live owners."""
 
     from blackhole_agent.orphan_loop_reap import annotate_loop_status, reap_orphaned_loop
     from blackhole_agent.unbound import (
@@ -129,6 +117,7 @@ def restore_orphaned_loop_on_startup(
         continuous_loop_events_path,
         continuous_loop_lock_path,
         continuous_loop_owner_pid,
+        continuous_loop_owner_status,
         continuous_loop_state_path,
         pid_is_running,
         utc_now_iso as loop_now,
@@ -153,60 +142,38 @@ def restore_orphaned_loop_on_startup(
         return skip({}, "no_loop_state")
 
     current = reap_orphaned_loop(repo, output)
-    if current.get("pid_alive") is True:
+    if current["owner_status"] == "live":
         return skip(current, "live_owner")
     if lock_path.exists():
         try:
-            lock_pid = continuous_loop_owner_pid(lock_path.read_text(encoding="utf-8").strip())
+            lock_pid, lock_owner = continuous_loop_owner_status(current, lock_path)
         except (OSError, ValueError) as exc:
             return skip({**current, "liveness_error": str(exc)}, "unknown_lock")
-        if pid_is_running(lock_pid):
+        if lock_owner == "live":
             return skip({**current, "lock_pid": lock_pid, "pid_alive": True}, "live_owner")
-    if current.get("pid_alive") is None or current.get("effective_status") == "unknown":
+    if current["owner_status"] == "unknown":
         return skip(current, "unknown_liveness")
     if current.get("status") != "orphaned":
         return skip(current, "not_orphaned")
 
     health_before = {
-        str(path): path.read_bytes() if path.exists() else None
+        path: path.read_bytes() if path.exists() else None
         for path in health_automation_paths(repo, output)
     }
+
+    def health_unchanged() -> bool:
+        return all((path.read_bytes() if path.exists() else None) == before for path, before in health_before.items())
+
     at = loop_now()
     try:
         started = starter(repo, output, current)
+        owner_pid = continuous_loop_owner_pid(started.get("pid"))
+        if not pid_is_running(owner_pid):
+            raise RuntimeError("starter did not leave a live owner pid")
     except Exception as exc:  # noqa: BLE001 - startup must report, not raise through login
+        shown = annotate_loop_status(json.loads(state_path.read_text(encoding="utf-8")))
         return {
-            **annotate_loop_status(json.loads(state_path.read_text(encoding="utf-8"))),
-            "started": False,
-            "action": "skip",
-            "restore_reason": "start_failed",
-            "restore_error": str(exc),
-            "health_automation_untouched": all(
-                (path.read_bytes() if path.exists() else None) == health_before[str(path)]
-                for path in health_automation_paths(repo, output)
-            ),
-        }
-    new_pid = started.get("pid")
-    try:
-        owner_pid = continuous_loop_owner_pid(new_pid)
-        live = pid_is_running(owner_pid)
-    except (OSError, ValueError) as exc:
-        return {
-            **annotate_loop_status(json.loads(state_path.read_text(encoding="utf-8"))),
-            "started": False,
-            "action": "skip",
-            "restore_reason": "start_failed",
-            "restore_error": str(exc),
-            "health_automation_untouched": True,
-        }
-    if not live:
-        return {
-            **annotate_loop_status(json.loads(state_path.read_text(encoding="utf-8"))),
-            "started": False,
-            "action": "skip",
-            "restore_reason": "start_failed",
-            "restore_error": "starter did not leave a live owner pid",
-            "health_automation_untouched": True,
+            **skip(shown, "start_failed"), "restore_error": str(exc), "health_automation_untouched": health_unchanged(),
         }
     append_jsonl(
         continuous_loop_events_path(repo, output),
@@ -223,10 +190,6 @@ def restore_orphaned_loop_on_startup(
         },
     )
     shown = annotate_loop_status(json.loads(state_path.read_text(encoding="utf-8")))
-    health_untouched = all(
-        (path.read_bytes() if path.exists() else None) == health_before[str(path)]
-        for path in health_automation_paths(repo, output)
-    )
     return {
         **shown,
         "started": True,
@@ -234,7 +197,7 @@ def restore_orphaned_loop_on_startup(
         "restore_reason": "orphaned_no_live_owner",
         "restored_pid": owner_pid,
         "previous_pid": current.get("pid"),
-        "health_automation_untouched": health_untouched,
+        "health_automation_untouched": health_unchanged(),
     }
 
 

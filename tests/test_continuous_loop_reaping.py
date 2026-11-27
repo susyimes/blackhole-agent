@@ -65,6 +65,21 @@ def test_failed_liveness_query_never_means_dead(tmp_path, monkeypatch):
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize("created", ["not a date", "2000-01-01T00:00:00", "2000-01-01T00:00:00Z"])
+def test_uncertain_process_age_preserves_live_claim(tmp_path, monkeypatch, created):
+    def denied(pid, recorded_at):
+        raise PermissionError("process start time unavailable")
+
+    lock = f"{os.getpid()}\n"
+    path = seed_loop(tmp_path, pid=os.getpid(), lock=lock)
+    unbound.save_continuous_loop_state(path, {**json.loads(path.read_bytes()), "created_at": created})
+    before = path.read_bytes()
+    monkeypatch.setattr(unbound, "process_started_after", denied)
+    assert unbound.reap_orphaned_continuous_loop(tmp_path)["effective_status"] == "unknown"
+    assert path.read_bytes() == before
+    assert unbound.continuous_loop_lock_path(tmp_path).read_text(encoding="utf-8") == lock
+
+
 @pytest.mark.parametrize("status", ["stopped", "orphaned"])
 def test_terminal_state_is_not_rewritten(tmp_path, monkeypatch, status):
     monkeypatch.setattr(unbound, "pid_is_running", lambda _: False)
