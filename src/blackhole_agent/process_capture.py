@@ -36,7 +36,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, BinaryIO, Callable, Mapping, Sequence
 
 
 class ProcessCancelled(RuntimeError):
@@ -777,6 +777,7 @@ def run_captured_process(
     max_scratch_bytes: int | None = None,
     on_output: Callable[[str, str], None] | None = None,
     preserve_scratch_to: Path | None = None,
+    read_output: Callable[[BinaryIO], str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Return UTF-8 output, or raise TimeoutExpired within timeout + cleanup grace.
 
@@ -810,6 +811,8 @@ def run_captured_process(
     When ``on_output`` is given, each newly captured stdout/stderr chunk is
     pushed as ``on_output(stream, text)`` while the tree still runs. The
     final ``CompletedProcess`` still carries the full decoded blobs.
+    A caller needing just a diagnostic tail can supply a reader for each
+    seekable capture file. It also reads the final output on timeout.
     When ``preserve_scratch_to`` is given, child-created files in the
     per-invocation TEMP (and this invocation's new/rewritten files in the
     shared AppContainer TEMP) are copied into that directory before the
@@ -1007,8 +1010,11 @@ def run_captured_process(
             raise OutputLimitExceeded(cap_bytes, observed, exceeded_stream)
         if exceeded_scratch:
             raise ScratchLimitExceeded(scratch_cap, exceeded_scratch)
-        out = stdout.read(cap_bytes or -1).decode("utf-8", errors=stdout_errors)
-        err = stderr.read(cap_bytes or -1).decode("utf-8", errors="replace")
+        if read_output is None:
+            out = stdout.read(cap_bytes or -1).decode("utf-8", errors=stdout_errors)
+            err = stderr.read(cap_bytes or -1).decode("utf-8", errors="replace")
+        else:
+            out, err = read_output(stdout), read_output(stderr)
         if cleanup_error:
             err += f"\nProcess cleanup: {cleanup_error}"
         if timed_out:

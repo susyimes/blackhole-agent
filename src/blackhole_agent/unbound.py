@@ -9,6 +9,7 @@ treated as capability growth.
 
 from __future__ import annotations
 
+import codecs
 import importlib
 import json
 import os
@@ -21,8 +22,9 @@ import uuid
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timedelta, timezone
+from functools import partial
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Iterator, Mapping, Sequence
+from typing import Any, BinaryIO, Callable, ContextManager, Iterator, Mapping, Sequence
 
 import typer
 from rich.console import Console
@@ -1579,6 +1581,7 @@ def successful_validation(validation: tuple[dict[str, Any], ...]) -> bool:
 
 VALIDATION_REPLAY_LIMIT = 5
 VALIDATION_REPLAY_TIMEOUT_SECONDS = 300
+VALIDATION_TAIL_CHARS = 4000
 BEHAVIOR_ACCEPTANCE_COMMAND = "controller:behavior-acceptance"
 
 
@@ -1612,7 +1615,8 @@ _POWERSHELL_STATEMENT = re.compile(
 _POWERSHELL_COMMAND_NAME = re.compile(
     r"(?<![A-Za-z0-9_\\/.=-])[A-Za-z][A-Za-z0-9]*-[A-Za-z][A-Za-z0-9]*\b"
 )
-_POSIX_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_POSIX_ASSIGNMENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=")
+_POSIX_VALUE = re.compile(r"""(?P<token>'[^']*'|"[^"]*"|(?!['"])[^\s&|;<>]*)\s+""")
 
 
 def _unquoted_syntax(text: str) -> str:
@@ -1657,97 +1661,45 @@ def powershell_replay_argv(command: str) -> list[str] | None:
     return _agent_shell_argv(text)
 
 
-def _decode_cmd_output(payload: bytes) -> str:
-    """Read UTF-8 program output and localized shell diagnostics."""
-
-    try:
-        return payload.decode("utf-8")
-    except UnicodeDecodeError:
-        return payload.decode("oem" if os.name == "nt" else "utf-8", errors="replace")
-
-
-def _run_cmd_replay(
-    command: str,
-    *,
-    cwd: Path,
-    timeout: float,
-    env: dict[str, str] | None,
-) -> subprocess.CompletedProcess[str]:
-    completed = subprocess.run(
-        command,
-        cwd=cwd,
-        capture_output=True,
-        timeout=timeout,
-        shell=True,
-        env=env,
-    )
-    return subprocess.CompletedProcess(
-        completed.args,
-        completed.returncode,
-        _decode_cmd_output(completed.stdout or b""),
-        _decode_cmd_output(completed.stderr or b""),
-    )
+def _decode_native_tail(stream: BinaryIO, encoding: str, errors: str) -> str:
+    stream.seek(0)
+    decoder = codecs.getincrementaldecoder(encoding)(errors)
+    tail = ""
+    while block := stream.read(64 * 1024):
+        tail = (tail + decoder.decode(block))[-VALIDATION_TAIL_CHARS:]
+    return (tail + decoder.decode(b"", final=True))[-VALIDATION_TAIL_CHARS:]
 
 
-def _posix_prefix_token(body: str) -> tuple[str, str, str] | None:
-    """Parse one leading ``NAME=value`` token. None when it is not a prefix."""
-
-    name = _POSIX_ENV_NAME.match(body)
-    if name is None:
-        return None
-    index = name.end()
-    if index >= len(body) or body[index] != "=":
-        return None
-    rest = body[index + 1 :]
-    if rest.startswith(("'", '"')):
-        quote = rest[0]
-        end = rest.find(quote, 1)
-        if end < 0:
-            return None
-        value = rest[1:end]
-        rest = rest[end + 1 :]
-    else:
-        end = 0
-        while end < len(rest) and not rest[end].isspace():
-            if rest[end] in "&|;<>":
-                return None
-            end += 1
-        value = rest[:end]
-        rest = rest[end:]
-    if not rest or not rest[0].isspace():
-        return None
-    remainder = rest.lstrip()
-    if not remainder:
-        return None
-    return name.group(0), value, remainder
-
-
-def _starts_posix_prefix(body: str) -> bool:
-    name = _POSIX_ENV_NAME.match(body)
-    return bool(name and name.end() < len(body) and body[name.end()] == "=")
+def _read_validation_tail(stream: BinaryIO, *, native_shell: bool) -> str:
+    """Keep at most 4000 characters, preserving the shell's decoding and newline conventions."""
+    size = stream.seek(0, os.SEEK_END)
+    stream.seek(max(0, size - 4 * (VALIDATION_TAIL_CHARS + 1)))
+    data = stream.read()
+    if native_shell and os.name == "nt" and not data.isascii():
+        # The whole native stream selects UTF-8 or OEM. Seeking into a DBCS
+        # trail byte can garble every subsequent character, even at the very end.
+        try:
+            return _decode_native_tail(stream, "utf-8", "strict")
+        except UnicodeDecodeError:
+            return _decode_native_tail(stream, "oem", "replace")
+    text = data.decode("utf-8", errors="replace")
+    if not native_shell:
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return text[-VALIDATION_TAIL_CHARS:]
 
 
 def split_posix_env_prefix(command: str) -> tuple[dict[str, str], str] | None:
-    """Split a leading POSIX ``NAME=value`` command prefix.
-
-    The harvested form is ``PYTHONPATH=src uv run python ...``. A cmd
-    ``set NAME=value&&`` chain contains no space-separated ``NAME=value``
-    token, and an assignment inside quotes is not at the start of the
-    command. A ``NAME=value&&`` token is not this prefix. The caller runs
-    the returned command with the returned variables in the child environment.
-    """
-
+    """Extract whitespace-delimited assignments only when a command follows them."""
     body = str(command or "").lstrip()
     assigned: dict[str, str] = {}
-    while _starts_posix_prefix(body):
-        parsed = _posix_prefix_token(body)
-        if parsed is None:
+    while name := _POSIX_ASSIGNMENT.match(body):
+        value = _POSIX_VALUE.match(body, name.end())
+        if value is None:
             return None
-        name, value, body = parsed
-        assigned[name] = value
-    if not assigned or not body:
-        return None
-    return assigned, body
+        token = value["token"]
+        assigned[name[1]] = token[1:-1] if token.startswith(("'", '"')) else token
+        body = body[value.end():]
+    return (assigned, body) if assigned and body else None
 
 
 def _cmd_program_token_span(text: str) -> tuple[int, int] | None:
@@ -1822,29 +1774,23 @@ def _use_cmd_for_unclassified(command: str, workspace: Path, environment: dict[s
             "'Alias,Function,Filter,Cmdlet,ExternalScript')) { exit 0 }\nexit 1"
         )
         if lookup is not None:
-            discovery = run_text_command(
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, 0)
+            discovery = run_captured_process(
                 lookup, cwd=workspace, env={**environment, "BH_REPLAY_HEAD": head},
-                timeout=max(0, deadline - time.monotonic()),
+                timeout=remaining,
             )
             return discovery.returncode != 0
     return False
 
 
 def normalize_cmd_program_slashes(command: str) -> str:
-    """Rewrite a forward-slash program path so cmd.exe can start it.
-
-    The harvested form is ``.venv/Scripts/python.exe -m pytest ...``. cmd.exe
-    splits that token on ``/`` and executes ``.venv``. A slash that appears
-    only inside a later argument is left alone, and a ``scheme://`` program
-    is not a filesystem path.
-    """
-
+    """Normalize a path such as .venv/Scripts/python.exe in cmd's program token."""
     if os.name != "nt":
         return command
     body = str(command or "")
     stripped = body.lstrip()
-    if not stripped:
-        return body
     span = _cmd_program_token_span(stripped)
     if span is None:
         return body
@@ -1853,59 +1799,23 @@ def normalize_cmd_program_slashes(command: str) -> str:
     if "/" not in token or "://" in token or token.startswith("-"):
         return body
     rewritten = token.replace("/", "\\")
-    if rewritten == token:
-        return body
     offset = len(body) - len(stripped)
     return body[: offset + start] + rewritten + body[offset + end :]
 
 
 def normalize_cmd_single_quoted_args(command: str) -> str:
-    """Rewrite single-quoted cmd arguments so a space stays inside one token.
-
-    Harvested login-audit replay ``pytest -k 'not builtin'`` exited 4.
-    cmd.exe keeps the quote characters and splits on the space, so pytest
-    looks for a path named ``builtin'``. A quote inside an existing double
-    quoted region stays there. An unclosed quote stays. A trailing percent
-    stays literal under this cmd launch. A ``%NAME%`` variable inside the
-    argument can still expand. PowerShell commands are routed before this runs.
-    """
-
+    """Translate single-line quoted arguments such as `pytest -k 'not builtin'` for cmd."""
     if os.name != "nt" or "'" not in command:
         return command
-    chars = str(command)
-    out: list[str] = []
-    index = 0
-    limit = len(chars)
-    in_double = False
-    while index < limit:
-        character = chars[index]
-        if character == '"':
-            if in_double and index + 1 < limit and chars[index + 1] == '"':
-                out.append('""')
-                index += 2
-                continue
-            in_double = not in_double
-            out.append(character)
-            index += 1
-            continue
-        if character != "'" or in_double:
-            out.append(character)
-            index += 1
-            continue
-        end = chars.find("'", index + 1)
-        if end < 0:
-            out.append(character)
-            index += 1
-            continue
-        body = chars[index + 1 : end]
-        if "\n" in body or "\r" in body:
-            out.append(chars[index : end + 1])
-        else:
-            out.append('"')
-            out.append(body.replace('"', '""'))
-            out.append('"')
-        index = end + 1
-    return "".join(out)
+
+    def quote(match: re.Match[str]) -> str:
+        token = match[0]
+        if token.startswith('"') or "\n" in token or "\r" in token:
+            return token
+        return '"' + token[1:-1].replace('"', '""') + '"'
+
+    # Consume double-quoted spans verbatim, including an unfinished final span.
+    return re.sub(r'"[^"]*(?:"|\Z)' r"|'[^']*'", quote, command)
 
 
 def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str]:
@@ -1938,15 +1848,15 @@ def replay_validation_command(
     unclassified command. The receipt keeps the exit and output of that run.
     """
 
+    receipt: dict[str, Any] = {
+        "command": command, "reported_exit_code": 0, "reproduced_exit_code": None,
+        "timed_out": False, "ok": False, "stdout_tail": "", "stderr_tail": "",
+    }
     shell_fallback = False
     try:
         if command_runner is subprocess.run:
             deadline = time.monotonic() + timeout
-            prefix = split_posix_env_prefix(command)
-            run_command = command
-            overlay = None
-            if prefix is not None:
-                overlay, run_command = prefix
+            overlay, run_command = split_posix_env_prefix(command) or (None, command)
             environment = _replay_environment(overlay)
             argv = powershell_replay_argv(run_command)
             if argv is None and os.name == "nt" and not _use_cmd_for_unclassified(
@@ -1958,24 +1868,12 @@ def replay_validation_command(
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise subprocess.TimeoutExpired(command, timeout)
-            if argv is not None:
-                completed = run_text_command(
-                    argv,
-                    cwd=workspace,
-                    timeout=remaining,
-                    shell=False,
-                    env=environment,
-                )
-            else:
-                run_command = normalize_cmd_single_quoted_args(
-                    normalize_cmd_program_slashes(run_command)
-                )
-                completed = _run_cmd_replay(
-                    run_command,
-                    cwd=workspace,
-                    timeout=remaining,
-                    env=environment,
-                )
+            native_shell = argv is None
+            invocation = argv or normalize_cmd_single_quoted_args(normalize_cmd_program_slashes(run_command))
+            completed = run_captured_process(
+                invocation, cwd=workspace, timeout=remaining, shell=native_shell, env=environment,
+                read_output=partial(_read_validation_tail, native_shell=native_shell),
+            )
         else:
             completed = command_runner(
                 command,
@@ -1985,42 +1883,23 @@ def replay_validation_command(
                 text=True,
                 timeout=timeout,
             )
-    except subprocess.TimeoutExpired:
-        return {
-            "command": command,
-            "reported_exit_code": 0,
-            "reproduced_exit_code": None,
-            "timed_out": True,
-            "ok": False,
-            "stdout_tail": "",
-            "stderr_tail": "",
-        }
+    except subprocess.TimeoutExpired as error:
+        receipt["timed_out"] = True
+        stdout, stderr = error.stdout, error.stderr
     except Exception as error:  # pragma: no cover - defensive replay guard
-        return {
-            "command": command,
-            "reported_exit_code": 0,
-            "reproduced_exit_code": None,
-            "timed_out": False,
-            "ok": False,
-            "error": str(error),
-            "stdout_tail": "",
-            "stderr_tail": "",
-        }
-    stdout = completed.stdout if isinstance(completed.stdout, str) else ""
-    stderr = completed.stderr if isinstance(completed.stderr, str) else ""
-    # Strict text mode reports a successful exit with stdout None after the
-    # reader thread dies. That is a lost transcript, not a reproduction.
-    transcript_lost = command_runner is subprocess.run and not isinstance(completed.stdout, str)
-    return {
-        "command": command,
-        "reported_exit_code": 0,
-        "reproduced_exit_code": completed.returncode,
-        "timed_out": False,
-        "ok": completed.returncode == 0 and not transcript_lost,
-        "shell_fallback": shell_fallback,
-        "stdout_tail": stdout[-4000:],
-        "stderr_tail": stderr[-4000:],
-    }
+        return {**receipt, "error": str(error)}
+    else:
+        stdout, stderr = completed.stdout, completed.stderr
+        receipt.update(
+            reproduced_exit_code=completed.returncode, shell_fallback=shell_fallback,
+            ok=completed.returncode == 0 and (command_runner is not subprocess.run or isinstance(stdout, str)),
+        )
+    for key, value in (("stdout_tail", stdout), ("stderr_tail", stderr)):
+        if isinstance(value, bytes):  # subprocess.TimeoutExpired may carry bytes even in text mode.
+            value = value[-4 * VALIDATION_TAIL_CHARS:].decode("utf-8", errors="replace")
+        if isinstance(value, str):
+            receipt[key] = value[-VALIDATION_TAIL_CHARS:]
+    return receipt
 
 
 def reproduce_validation(
