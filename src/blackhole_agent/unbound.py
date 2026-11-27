@@ -44,6 +44,7 @@ from blackhole_agent.kernel_resume import (
     hydrate_mission_from_campaign,
 )
 from blackhole_agent.milestone_commit import ensure_git_longpaths, run_git_pathspec, stage_milestone_paths
+from blackhole_agent.mission_prompt import TurnPrompt, compact_text, decision_only_prompt
 from blackhole_agent.mission_selection import (
     SELECTION_REJECTION_LIMIT,
     assess_mission_selection,
@@ -105,7 +106,6 @@ from blackhole_agent.capability_compounder import (
     detect_lineage_drift,
 )
 from blackhole_agent.kernel_salvage import (
-    DECISION_ONLY_PROMPT,
     execute_kernel_turn_with_salvage,
     extract_json_decision as extract_json_decision,
 )
@@ -1124,34 +1124,38 @@ def _bind_imported_creator() -> None:
 _bind_imported_creator()
 
 
-def compact_text(value: str, *, limit: int) -> str:
-    text = value.strip()
-    if len(text) <= limit:
-        return text
-    head = max(0, limit // 2)
-    tail = max(0, limit - head)
-    return f"{text[:head]}\n... compacted by controller ...\n{text[-tail:]}"
-
-
 def repository_snapshot(
     state: UnboundMission,
     *,
     command_runner: Callable[..., Any] = subprocess.run,
+    handoff_dir: Path | None = None,
 ) -> dict[str, Any]:
     workspace = Path(state.workspace_path)
-    status = git_text(workspace, ["git", "status", "--short"], command_runner=command_runner)
+    status = run_command(
+        ["git", "-c", "core.quotePath=false", "status", "--short", "--untracked-files=all"],
+        cwd=workspace, command_runner=command_runner,
+    ).stdout
     diff_stat = git_text(workspace, ["git", "diff", "--stat"], command_runner=command_runner)
     recent_commits = git_text(
         workspace,
         ["git", "log", "-5", "--oneline", "--decorate"],
         command_runner=command_runner,
     )
-    return {
+    snapshot = {
         "head": git_head(workspace, command_runner=command_runner),
-        "status": compact_text(status, limit=4_000),
+        "status": compact_text(status, limit=4_000, strip_chars="\r\n"),
         "diff_stat": compact_text(diff_stat, limit=4_000),
         "recent_commits": compact_text(recent_commits, limit=2_000),
     }
+    if handoff_dir is not None and snapshot["status"] != status.strip("\r\n"):
+        path = handoff_dir / f"worktree-status-{uuid.uuid4().hex}.json"
+        try:
+            atomic_write_json(path, {"head": snapshot["head"], "status": status})
+        except OSError:
+            pass  # The inline excerpt and the live Git command are still available.
+        else:
+            snapshot["status_file"] = str(path)
+    return snapshot
 
 
 def soul_for_prompt(workspace: Path, repo_path: Path) -> str:
@@ -1192,17 +1196,11 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
     """Render compact, outcome-oriented context for one continuing turn."""
 
     if getattr(state, "decision_only_resume", False):
-        # The previous launch already truncated. Another full mission prompt
-        # repeats that failure. The session has the work; ask only for the decision.
-        goal = str(getattr(state, "goal", "") or "").strip()
-        done = str(getattr(state, "done_when", "") or "").strip()
-        parts = [DECISION_ONLY_PROMPT]
-        if goal:
-            parts.append(f"Mission goal:\n{goal}")
-        if done:
-            parts.append(f"Done when:\n{done}")
-        return "\n\n".join(parts)
+        return decision_only_prompt(state)
+    return _prepare_turn_prompt(state, state_path).render(snapshot, limit=PROMPT_TEXT_LIMIT)
 
+
+def _prepare_turn_prompt(state: UnboundMission, state_path: Path) -> TurnPrompt:
     hydrate_mission_from_campaign(state)
     if state.stage == "genesis":
         experience_block = render_experience_for_genesis(Path(state.repo_path))
@@ -1257,7 +1255,7 @@ def build_turn_prompt(state: UnboundMission, snapshot: dict[str, Any], *, state_
     except Exception:  # noqa: BLE001 - prompt construction must not fail a turn
         campaign_block = ""
     campaign_text = f"\n\n{campaign_block}" if campaign_block else ""
-    prompt = f"""You are Blackhole Unbound, the single long-running agent responsible for this mission.
+    mission = f"""You are Blackhole Unbound, the single long-running agent responsible for this mission.
 
 There are no child agents in this version. Do not spawn, delegate to, fork, or simulate subagents. Work directly.
 {soul_block}
@@ -1271,23 +1269,10 @@ Mission state:
 - Milestones already recorded: {state.milestone_count}
 - Persistent branch: {state.branch}
 - Workspace: {state.workspace_path}
-- Current HEAD: {snapshot.get("head", "")}
 - Last milestone HEAD: {state.last_milestone_head}
-- State file: {state_path}
+- State file: {state_path}"""
 
-Current repository state:
-```text
-git status --short
-{snapshot.get("status") or "(clean)"}
-
-git diff --stat
-{snapshot.get("diff_stat") or "(no unstaged diff)"}
-
-recent commits
-{snapshot.get("recent_commits") or "(none)"}
-```
-
-Compounded capability ledger (durable, invocable; prefer growing this over legacy skill-route paperwork):
+    instructions = f"""Compounded capability ledger (durable, invocable; prefer growing this over legacy skill-route paperwork):
 ```json
 {ledger_block}
 ```
@@ -1346,7 +1331,7 @@ Return only one JSON object with exactly this shape:
   "commit_message": "semantic milestone message; optional unless milestone/complete"
 }}
 """
-    return compact_text(prompt, limit=PROMPT_TEXT_LIMIT)
+    return TurnPrompt(mission, instructions)
 
 
 def grok_launch_plan(state: Any) -> dict[str, Any]:
@@ -2554,10 +2539,20 @@ def run_unbound_turn(
         started_at = utc_now_iso()
         turn_dir = state_path.parent / "turns" / f"{iteration:04d}"
         turn_dir.mkdir(parents=True, exist_ok=True)
-        snapshot = repository_snapshot(state, command_runner=command_runner)
+        context = _prepare_turn_prompt(state, state_path)
+
+        def fresh_prompt(*, handoff: bool = True) -> str:
+            try:
+                snapshot = repository_snapshot(
+                    state, command_runner=command_runner, handoff_dir=turn_dir if handoff else None,
+                )
+            except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+                snapshot = {"error": type(error).__name__}
+            return context.render(snapshot, limit=PROMPT_TEXT_LIMIT, handoff=handoff)
+
         before_paths = changed_paths_since(workspace, state.last_milestone_head, command_runner=command_runner)
         before_fingerprint = content_fingerprint(workspace, [p for p in before_paths if is_behavior_path(p)])
-        prompt = build_turn_prompt(state, snapshot, state_path=state_path)
+        prompt = decision_only_prompt(state) if state.decision_only_resume else fresh_prompt(handoff=False)
         (turn_dir / "prompt.md").write_text(prompt, encoding="utf-8")
 
         kernel_result, decision, salvage_meta = execute_kernel_turn_with_salvage(
@@ -2566,6 +2561,7 @@ def run_unbound_turn(
             turn_dir,
             kernel_runner=kernel_runner,
             command_runner=command_runner,
+            refresh_prompt=fresh_prompt,
         )
         if salvage_meta.get("ok") is True:
             state.decision_only_resume = False

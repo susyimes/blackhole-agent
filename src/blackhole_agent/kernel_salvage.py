@@ -191,7 +191,7 @@ import shutil
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Literal, Mapping
 
 from blackhole_agent.kernel_health import (
     CLI_FAILOVER_ORDER,
@@ -517,6 +517,33 @@ SESSIONLESS_ABORT_CONTINUE_PROMPT = (
     "Do not restart the mission from the beginning. Continue from files already changed in the workspace. "
     "Finish the unfinished edit, then reply with only the JSON decision object."
 )
+
+
+@dataclass(frozen=True)
+class _SessionRetry:
+    source: str
+    prompt: str | None
+    session: Literal["required", "optional", "fresh"] = "required"
+
+
+_FRESH_SESSION = _SessionRetry("fresh_session", None, "fresh")
+_SESSION_RETRIES = {
+    SESSION_ALREADY_IN_USE: _FRESH_SESSION,
+    SESSION_NOT_FOUND: _FRESH_SESSION,
+    OUTPUT_TRUNCATED: _SessionRetry("decision_only_resume", DECISION_ONLY_PROMPT),
+    STEP_RETRIES_EXHAUSTED: _SessionRetry("step_retry_resume", STEP_CONTINUE_PROMPT),
+    RESPONSE_STREAM_FAILED: _SessionRetry("stream_resume", STREAM_CONTINUE_PROMPT),
+    AUTH_TEMPORARILY_UNAVAILABLE: _SessionRetry("wake_resume", WAKE_CONTINUE_PROMPT),
+    TOKEN_GENERATION_FAILED: _SessionRetry("token_generation_resume", TOKEN_GENERATION_CONTINUE_PROMPT),
+    INFERENCE_IDLE_TIMEOUT: _SessionRetry("inference_idle_resume", INFERENCE_IDLE_CONTINUE_PROMPT),
+    SESSION_ACTOR_DEAD: _SessionRetry("dead_actor_fresh_session", DEAD_ACTOR_CONTINUE_PROMPT, "fresh"),
+    DOOM_LOOP_REPETITION: _SessionRetry("doom_loop_resume", DOOM_LOOP_CONTINUE_PROMPT),
+    BACKGROUND_TASK_WAIT: _SessionRetry("background_task_resume", BACKGROUND_CONTINUE_PROMPT, "optional"),
+    ABNORMAL_PROCESS_EXIT: _SessionRetry("abnormal_process_resume", ABNORMAL_EXIT_CONTINUE_PROMPT, "optional"),
+    SESSIONLESS_PROCESS_ABORT: _SessionRetry("sessionless_abort_continue", SESSIONLESS_ABORT_CONTINUE_PROMPT, "fresh"),
+}
+
+
 _TOOL_RESULT_MARKER = '"role":"tool"'
 ARTIFACT_NAMES = (
     "latest-cursor-run.json",
@@ -1139,11 +1166,17 @@ def _repo_from_state(state: Any) -> Path | None:
     return Path(value) if value else None
 
 
+def _release_session(state: Any) -> None:
+    state.session_id = ""
+    state.session_started = False
+    if hasattr(state, "decision_only_resume"):
+        state.decision_only_resume = False
+
+
 def _switch_kernel(state: Any, kernel: str) -> None:
     if getattr(state, "kernel", None) != kernel:
         state.kernel = kernel
-        state.session_id = ""
-        state.session_started = False
+        _release_session(state)
         if hasattr(state, "model"):
             state.model = None  # Provider-specific model names cannot cross a failover route.
 
@@ -1155,6 +1188,7 @@ def execute_kernel_turn_with_salvage(
     *,
     kernel_runner: Callable[..., Any],
     command_runner: Callable[..., Any] | None = None,
+    refresh_prompt: Callable[[], str] | None = None,
     installed_kernels: Iterable[str] | None = None,
     health: KernelHealth | None = None,
     now: datetime | None = None,
@@ -1167,6 +1201,8 @@ def execute_kernel_turn_with_salvage(
 
     Half-open peer CLI kernels are pinged before the requested kernel runs so
     cooldown recovery cannot stall behind a healthy mission kernel.
+    A replacement kernel starts with the full task and a fresh view of the
+    worktree. String-only callers can supply a fixed full task instead.
     """
 
     from blackhole_agent.kernel_half_open_probe import (
@@ -1244,112 +1280,47 @@ def execute_kernel_turn_with_salvage(
         )
 
     original = state.kernel
+    original_prompt = prompt
+
+    def full_task() -> str:
+        return refresh_prompt() if refresh_prompt is not None else original_prompt
+
     rerouted = apply_health_reroute(original, store, installed, now=now)
     if rerouted != original:
         _switch_kernel(state, rerouted)
+        prompt = full_task()
 
     tried: set[str] = set()
-    released_sessions: set[str] = set()
-    truncated_resumes: set[str] = set()
-    step_resumes: set[str] = set()
-    stream_resumes: set[str] = set()
-    wake_resumes: set[str] = set()
-    token_resumes: set[str] = set()
-    idle_resumes: set[str] = set()
-    dead_actor_retries: set[str] = set()
-    doom_resumes: set[str] = set()
-    background_resumes: set[str] = set()
-    abnormal_resumes: set[str] = set()
-    sessionless_aborts: set[str] = set()
-    pending_fresh_session = False
-    pending_decision_resume = False
-    pending_step_resume = False
-    pending_stream_resume = False
-    pending_wake_resume = False
-    pending_token_resume = False
-    pending_idle_resume = False
-    pending_dead_actor = False
-    pending_doom_resume = False
-    pending_background_resume = False
-    pending_abnormal_resume = False
-    pending_sessionless_abort = False
-    original_prompt = prompt
-    kernel_result = None
-    salvaged = None
+    retries: set[tuple[str, str]] = set()
+    source = "kernel"
     from_kernel = original
-    attempt = 0
+    salvaged = None
     while True:
-        attempt += 1
+        kernel_result = None
         try:
             kernel_result = dispatch()
             mark_kernel_success(store, state.kernel, now=now)
             persist()
             decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
-            if attempt == 1:
-                meta = {"ok": True, "source": "kernel"}
+            if source == "kernel":
+                meta = {"ok": True, "source": source}
                 if rerouted != original:
                     meta.update({"rerouted_from": original, "health_reroute": True})
-                return kernel_result, decision, with_probe_meta(meta)
-            meta = salvaged.to_dict() if salvaged is not None else {}
-            if pending_fresh_session:
-                source = "fresh_session"
-            elif pending_decision_resume:
-                source = "decision_only_resume"
-            elif pending_step_resume:
-                source = "step_retry_resume"
-            elif pending_stream_resume:
-                source = "stream_resume"
-            elif pending_wake_resume:
-                source = "wake_resume"
-            elif pending_token_resume:
-                source = "token_generation_resume"
-            elif pending_idle_resume:
-                source = "inference_idle_resume"
-            elif pending_dead_actor:
-                source = "dead_actor_fresh_session"
-            elif pending_doom_resume:
-                source = "doom_loop_resume"
-            elif pending_background_resume:
-                source = "background_task_resume"
-            elif pending_abnormal_resume:
-                source = "abnormal_process_resume"
-            elif pending_sessionless_abort:
-                source = "sessionless_abort_continue"
             else:
-                source = "failover"
-            meta.update(
-                {
-                    "ok": True,
-                    "source": source,
-                    "from_kernel": from_kernel,
-                    "failover_kernel": "" if source != "failover" else state.kernel,
-                    "released_session": pending_fresh_session,
-                }
-            )
-            if pending_decision_resume and hasattr(state, "decision_only_resume"):
+                meta = salvaged.to_dict()
+                meta.update(
+                    ok=True, source=source, from_kernel=from_kernel,
+                    failover_kernel=state.kernel if source == "failover" else "",
+                    released_session=source == "fresh_session",
+                )
+            if source == "decision_only_resume" and hasattr(state, "decision_only_resume"):
                 state.decision_only_resume = False
-            pending_fresh_session = False
-            pending_decision_resume = False
-            pending_step_resume = False
-            pending_stream_resume = False
-            pending_wake_resume = False
-            pending_token_resume = False
-            pending_idle_resume = False
-            pending_dead_actor = False
-            pending_doom_resume = False
-            pending_background_resume = False
-            pending_abnormal_resume = False
-            pending_sessionless_abort = False
             return kernel_result, decision, with_probe_meta(meta)
         except Exception as error:
             if kernel_result is not None:
                 state.session_id = kernel_result.session_id or state.session_id
                 state.session_started = bool(state.session_id) or state.session_started
             tried.add(state.kernel)
-            pending_doom_resume = False
-            pending_background_resume = False
-            pending_abnormal_resume = False
-            pending_sessionless_abort = False
             artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
             if state.kernel == "cursor" and artifact.get("session_id"):
                 state.session_id = str(artifact["session_id"])
@@ -1364,33 +1335,26 @@ def execute_kernel_turn_with_salvage(
                 now=now,
                 allow_failover=True,
             )
-            if (
-                salvaged.class_id in {SESSION_ALREADY_IN_USE, SESSION_NOT_FOUND}
-                and state.kernel not in released_sessions
-            ):
-                # One fresh launch per kernel. A second miss or collision failsover.
-                released_sessions.add(state.kernel)
-                state.session_id = ""
-                state.session_started = False
-                pending_fresh_session = True
-                pending_decision_resume = False
-                continue
-            if salvaged.class_id == OUTPUT_TRUNCATED:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
+            retry = _SESSION_RETRIES.get(salvaged.class_id)
+            if retry is not None:
+                if retry.session != "fresh" and not str(getattr(state, "session_id", "") or "").strip():
+                    adopted = session_id_from_artifact(artifact)
+                    if adopted:
+                        state.session_id = adopted
+                        state.session_started = True
                 resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
                     getattr(state, "session_started", False)
                 )
-                if resumable and state.kernel not in truncated_resumes:
-                    # One decision-only resume. The original prompt is not sent again.
-                    truncated_resumes.add(state.kernel)
-                    prompt = DECISION_ONLY_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = True
+                key = (state.kernel, retry.source)
+                if key not in retries and (retry.session != "required" or resumable):
+                    retries.add(key)
+                    if retry.session == "fresh":
+                        _release_session(state)
+                    from_kernel = state.kernel
+                    source = retry.source
+                    prompt = retry.prompt if retry.prompt is not None else full_task()
                     continue
-                if resumable:
+                if salvaged.class_id == OUTPUT_TRUNCATED and resumable:
                     state.decision_only_resume = True
                     exhausted = salvage_kernel_failure(
                         error=error,
@@ -1421,263 +1385,6 @@ def execute_kernel_turn_with_salvage(
                         }
                     )
                     return result, decision, with_probe_meta(meta)
-            if salvaged.class_id == STEP_RETRIES_EXHAUSTED:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                if resumable and state.kernel not in step_resumes:
-                    # One continuation on the session that was already working.
-                    # The original mission prompt is not sent again.
-                    step_resumes.add(state.kernel)
-                    prompt = STEP_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = True
-                    continue
-                # The step runner failed again. Another kernel gets the mission
-                # prompt. This kernel stays available; the account is not spent.
-                prompt = original_prompt
-                pending_step_resume = False
-            if salvaged.class_id == RESPONSE_STREAM_FAILED:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                if resumable and state.kernel not in stream_resumes:
-                    # One continuation on the session whose responses stream died.
-                    # The original mission prompt is not sent again.
-                    stream_resumes.add(state.kernel)
-                    prompt = STREAM_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = True
-                    continue
-                # The same stream died again. Another kernel gets the mission
-                # prompt, and this kernel's circuit opens below.
-                prompt = original_prompt
-                pending_stream_resume = False
-            if salvaged.class_id == AUTH_TEMPORARILY_UNAVAILABLE:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                if resumable and state.kernel not in wake_resumes:
-                    # One continuation on the session that already did the work.
-                    # The original mission prompt is not sent again, and the
-                    # auth circuit stays closed: the account is still signed in.
-                    wake_resumes.add(state.kernel)
-                    prompt = WAKE_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = True
-                    pending_token_resume = False
-                    continue
-                # The same blip happened again. Another kernel gets the mission
-                # prompt. This kernel stays available; the account is not spent.
-                prompt = original_prompt
-                pending_wake_resume = False
-            if salvaged.class_id == TOKEN_GENERATION_FAILED:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                if resumable and state.kernel not in token_resumes:
-                    # One continuation on the session that already did the work.
-                    # The original mission prompt is not sent again, and the
-                    # auth circuit stays closed: generation failed, not sign-in.
-                    token_resumes.add(state.kernel)
-                    prompt = TOKEN_GENERATION_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = True
-                    pending_idle_resume = False
-                    continue
-                # The same generation failure happened again. Another kernel
-                # gets the mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_token_resume = False
-            if salvaged.class_id == INFERENCE_IDLE_TIMEOUT:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                if resumable and state.kernel not in idle_resumes:
-                    # One continuation on the session that already did the work.
-                    # The original mission prompt is not sent again, and the
-                    # auth circuit stays closed: inference went idle, not sign-in.
-                    idle_resumes.add(state.kernel)
-                    prompt = INFERENCE_IDLE_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = False
-                    pending_idle_resume = True
-                    continue
-                # The same idle death happened again. Another kernel gets the
-                # mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_idle_resume = False
-            if salvaged.class_id == SESSION_ACTOR_DEAD:
-                if state.kernel not in dead_actor_retries:
-                    # The actor for this session id is already dead. One fresh
-                    # session on the same kernel continues from files on disk.
-                    # The dead id is not resumed, and the circuit stays closed.
-                    dead_actor_retries.add(state.kernel)
-                    state.session_id = ""
-                    state.session_started = False
-                    prompt = DEAD_ACTOR_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = False
-                    pending_idle_resume = False
-                    pending_dead_actor = True
-                    continue
-                # The fresh session's actor died too. Another kernel gets the
-                # mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_dead_actor = False
-            if salvaged.class_id == DOOM_LOOP_REPETITION:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                if resumable and state.kernel not in doom_resumes:
-                    # One continuation on the session that already did the work.
-                    # The original mission prompt is not sent again, and the
-                    # circuit stays closed: the model repeated itself.
-                    doom_resumes.add(state.kernel)
-                    prompt = DOOM_LOOP_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = False
-                    pending_idle_resume = False
-                    pending_dead_actor = False
-                    pending_doom_resume = True
-                    pending_background_resume = False
-                    pending_abnormal_resume = False
-                    continue
-                # The same doom loop happened again. Another kernel gets the
-                # mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_doom_resume = False
-            if salvaged.class_id == BACKGROUND_TASK_WAIT:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                if state.kernel not in background_resumes:
-                    # One continuation on the kernel that was already working.
-                    # The original mission prompt is not sent again, and the
-                    # circuit stays closed: the process was waiting, not signed out.
-                    background_resumes.add(state.kernel)
-                    prompt = BACKGROUND_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = False
-                    pending_idle_resume = False
-                    pending_dead_actor = False
-                    pending_doom_resume = False
-                    pending_background_resume = True
-                    pending_abnormal_resume = False
-                    continue
-                # The same wait happened again. Another kernel gets the
-                # mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_background_resume = False
-            if salvaged.class_id == ABNORMAL_PROCESS_EXIT:
-                adopted = session_id_from_artifact(artifact)
-                if adopted and not str(getattr(state, "session_id", "") or "").strip():
-                    state.session_id = adopted
-                    state.session_started = True
-                if state.kernel not in abnormal_resumes:
-                    # One continuation on the session that was already selected.
-                    # The original mission prompt is not sent again, and the
-                    # circuit stays closed: Windows recorded -1, not a sign-out.
-                    abnormal_resumes.add(state.kernel)
-                    prompt = ABNORMAL_EXIT_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = False
-                    pending_idle_resume = False
-                    pending_dead_actor = False
-                    pending_doom_resume = False
-                    pending_background_resume = False
-                    pending_abnormal_resume = True
-                    continue
-                # The same all-ones exit happened again. Another kernel gets
-                # the mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_abnormal_resume = False
-            if salvaged.class_id == SESSIONLESS_PROCESS_ABORT:
-                if state.kernel not in sessionless_aborts:
-                    # One continuation on the kernel that already produced a
-                    # tool result. There is no session to resume. The original
-                    # mission prompt is not sent again, and the circuit stays
-                    # closed: Windows recorded -1 after the tool result.
-                    sessionless_aborts.add(state.kernel)
-                    state.session_id = ""
-                    state.session_started = False
-                    prompt = SESSIONLESS_ABORT_CONTINUE_PROMPT
-                    pending_fresh_session = False
-                    pending_decision_resume = False
-                    pending_step_resume = False
-                    pending_stream_resume = False
-                    pending_wake_resume = False
-                    pending_token_resume = False
-                    pending_idle_resume = False
-                    pending_dead_actor = False
-                    pending_doom_resume = False
-                    pending_background_resume = False
-                    pending_abnormal_resume = False
-                    pending_sessionless_abort = True
-                    continue
-                # The same abort happened again. Another kernel gets the
-                # mission prompt. This kernel stays available.
-                prompt = original_prompt
-                pending_sessionless_abort = False
-            pending_fresh_session = False
-            pending_token_resume = False
-            pending_idle_resume = False
-            pending_dead_actor = False
             if salvaged.class_id in FAILOVER_CLASSES:
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
                 persist()
@@ -1708,6 +1415,8 @@ def execute_kernel_turn_with_salvage(
                 return result, decision, with_probe_meta(blocked.to_dict())
             from_kernel = state.kernel
             _switch_kernel(state, next_kernel)
+            source = "failover"
+            prompt = full_task()
 
 
 def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
