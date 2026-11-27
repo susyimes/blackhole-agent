@@ -104,6 +104,8 @@ def observe() -> tuple[bool, dict[str, object]]:
     page = _box(inline, "page")
     fitted = _box(contain, "photo")
     plain_page = _box(plain, "page")
+    bad = _box(child, "bad")
+    kid = _box(child, "kid")
     line = None
     if page is not None and isinstance(page.get("lines"), list) and page["lines"]:
         first = page["lines"][0]
@@ -124,7 +126,8 @@ def observe() -> tuple[bool, dict[str, object]]:
         else {"text": line.get("text"), "runs": line.get("runs"), "height": line.get("height")},
         "contain": _pack(fitted),
         "child_outcome": child.get("outcome"),
-        "child_reason": child.get("reason"),
+        "child_box": _pack(bad),
+        "child_fallback_present": kid is not None,
         "plain": _pack(plain_page),
     }
     runs = line.get("runs") if isinstance(line, dict) else None
@@ -175,8 +178,11 @@ def observe() -> tuple[bool, dict[str, object]]:
         and fitted.get("content_width") == 100
         and fitted.get("content_height") == 100
         and fitted.get("object") == {"x": 0, "y": 25, "width": 100, "height": 50}
-        and child.get("outcome") == "invalid"
-        and child.get("reason") == "replaced content is unsupported"
+        and child.get("outcome") == "placed"
+        and bad is not None
+        and bad.get("content_width") == 40
+        and bad.get("content_height") == 10
+        and kid is None
         and plain.get("outcome") == "placed"
         and plain_page is not None
         and plain_page.get("content_width") == 40

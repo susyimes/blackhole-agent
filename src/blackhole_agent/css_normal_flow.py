@@ -634,8 +634,9 @@ minimum, or maximum as the border box. Padding and border shrink the content
 box and do not let it go below zero, so chrome larger than the specified
 size grows the used border box to that chrome. A plain ``aspect-ratio`` maps
 the border box. ``auto`` with a ratio, and the intrinsic ratio, map the
-content box. An inline relative or sticky image, a vertical writing mode,
-and a child stay rejected.
+content box. Fallback text and elements are not generated, so they do not
+change that used size or where the following block starts. An inline
+relative or sticky image and a vertical writing mode stay rejected.
 An ``li`` and any other ``display: list-item`` principal box lays out as a
 block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
 reset that counter. The initial marker is a disc; an ``ol`` uses decimal
@@ -2089,6 +2090,36 @@ def _walk(
         if box.display == "none":
             continue
         if box.replaced and _replaced_has_content(tree, child):
+            if box.display == "contents":
+                raise _Invalid("replaced content is unsupported")
+            host.counter_children.append(box)
+            _seal_replaced_fallback(box)
+            if box.position in {"absolute", "fixed"}:
+                box.static_index = len(found)
+                positioned.append(box)
+                continue
+            if box.float_side != "none":
+                if box.position == "sticky":
+                    raise _Invalid("sticky float is unsupported")
+                if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
+                    raise _Invalid("float content is unsupported")
+                floats.append(box)
+                flow.append(box)
+                continue
+            if box.display == "inline":
+                if box.position != "static":
+                    raise _Invalid("positioned replaced element is unsupported")
+                host.atoms.append(box)
+                continue
+            if box.display == "inline-block":
+                if box.position != "static":
+                    raise _Invalid("positioned inline-block is unsupported")
+                host.atoms.append(box)
+                continue
+            if box.display in {"block", "flow-root"}:
+                found.append(box)
+                flow.append(box)
+                continue
             raise _Invalid("replaced content is unsupported")
         if box.display == "contents":
             if host.float_side != "none" and _float_loose_text(tree, child, host.white_space):
@@ -9997,6 +10028,19 @@ def _replaced_has_content(tree, element) -> bool:
     return False
 
 
+def _seal_replaced_fallback(box: _Box) -> None:
+    """A supporting replaced element does not generate its fallback."""
+
+    box.children = []
+    box.floats = []
+    box.flow = []
+    box.positioned = []
+    box.atoms = []
+    box.pieces = []
+    box.inline_text = ""
+    box.counters_closed = True
+
+
 def _box_prop(box: _Box, name: str, default: str) -> str:
     found = default
     for prop, value in box.declarations:
@@ -13358,6 +13402,13 @@ def _collect_flex_items(
             raise _Invalid("flex item is outside the line")
         if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
             raise _Invalid("flex writing mode is unsupported")
+        if box.replaced:
+            _reject_item_edges(box, column=column)
+            _seal_replaced_fallback(box)
+            box.flex = _flex_item(tree, child, styles, declarations)
+            items.append(box)
+            _append_flex_text(pending, getattr(child, "tail", None), font, leading, white, host)
+            continue
         if _flex_item_elements(tree, child):
             spec = host.flex or {}
             if (
@@ -14566,7 +14617,9 @@ def _walk_grid(
             raise _Invalid("grid item is outside the grid")
         if item.writing_mode != "horizontal-tb" or item.direction != "ltr":
             raise _Invalid("grid writing mode is unsupported")
-        if _flex_item_elements(tree, child):
+        if item.replaced:
+            _seal_replaced_fallback(item)
+        elif _flex_item_elements(tree, child):
             _adopt_grid_item_blocks(tree, child, item, styles, declarations, ids, counter)
         else:
             item.inline_text = _leaf_generated(tree, child)
