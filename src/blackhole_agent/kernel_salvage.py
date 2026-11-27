@@ -1,187 +1,14 @@
-"""Salvage a structured Unbound decision when a kernel CLI dies.
+"""Recover a mission turn from a failed provider CLI.
 
-Harvested class ``kernel_turn_failed`` is a kernel that exits (402 quota,
-timeout, empty last_message, malformed JSON) before the controller can record
-a turn decision. This module classifies the failure, reuses any parseable
-decision, trips the kernel circuit breaker on quota/auth and on a pre-session
-transport abort, releases an occupied session id and retries that same kernel
-once on a fresh session, fails over to another installed first-class kernel or
-the local capability kernel, and otherwise synthesizes a blocked or continue
-decision so the mission loop does not stall or retry a dead kernel.
+A usable final reply can supply the decision even if the process exits with an
+error. Otherwise the run artifact determines whether to continue a session,
+start a fresh one, retry the decision only, or try another provider. A successor
+receives the task and the worktree state. Provider-wide failures open the
+corresponding circuit in kernel_health so subsequent turns can route around it.
 
-A spent account is quota even when the provider stopped using HTTP 402.
-Harvested Grok runs return HTTP 403 ``personal-team-blocked:spending-limit``
-(``run out of credits``), and harvested Kimi runs return a billing-cycle
-``usage limit`` labeled ``auth_error``. Both used to stay a retryable CLI
-error, so the next turn launched the same kernel again.
-
-A kernel that rejects the requested model is not a retry of that same launch.
-The 2026-10-15 Cursor run exited 1 with ``Cannot use this model:
-grok-4.7-xhigh``, and 2026-09-04 Kimi runs exited because ``Model "grok-4.6"
-is not configured in config.toml``. Codex runs from 2026-08-24 through
-2026-09-06 exited 1 because ``The 'grok-4.6' model is not supported when
-using Codex with a ChatGPT account``. All three stayed a retryable CLI
-error, so the next resolution launched the same kernel with the same
-unavailable model. A Codex "unknown model ... fallback" warning is not a
-rejection.
-
-A Kimi launch that never obtains an access token is an auth failure of that
-kernel. Harvested runs exited 1 with ``failed to fetch an access token``
-after TLS disconnect, ``ENOTFOUND auth.kimi.com``, or ``ECONNRESET``. The
-session id was often already set, so the pre-session transport rule did not
-match, and the next resolution launched Kimi again.
-
-A provider that has already retried and still returns HTTP 429 is not a spent
-account and not a transient CLI blip. The 2026-08-02 Kimi run exited 1 with
-``provider.rate_limit`` and ``The engine is currently overloaded, please try
-again later`` after its own retry loop. That stayed a retryable CLI error, so
-the next resolution launched Kimi again.
-
-A response cut off by the output token limit is not a dead kernel and not a
-reason to send the mission prompt again. The 2026-09-04 Grok run exited 1
-with ``error_kind`` ``max_tokens_truncation`` after 37 model calls. Salvage
-resumes that same session once with a decision-only prompt. A second
-truncation keeps the session and does not replay the original prompt.
-
-A Cursor step runner that already exhausted its own retries is not a dead
-kernel either. The 2026-09-11 run exited 1 with ``RetriableError`` ``Failed
-to run step, exceeded max retries`` while a session id was present. That
-stayed a retryable CLI error, so the turn left Cursor and replayed the
-mission on another kernel. Salvage resumes that same session once with a
-continuation prompt. A second exhaustion failsover without opening the circuit.
-
-A Codex responses endpoint that answers HTTP 404 after the CLI's own retries
-is not a transient CLI blip. The 2026-09-03 run exited 1 with
-``unexpected status 404 Not Found`` on ``backend-api/codex/responses`` for
-both the websocket and the HTTPS fallback. That stayed a retryable CLI error,
-so the next resolution launched Codex again. A bare 404, a deleted-session
-404, and a model-metadata fallback warning are not this class.
-
-A Kimi prompt that dies with ``provider.connection_error: Connection error``
-after the CLI has already retried ``APIConnectionError`` is not a transient
-blip and is not the OAuth token-fetch failure. The 2026-07-31 run exited 1
-with ``turn.step.retrying`` up to ``max_attempts`` 3, then ``failed to run
-prompt: provider.connection_error: Connection error``. That stayed a retryable
-CLI error, so the next resolution launched Kimi again. A bare connection
-warning, a zero exit, and a token-fetch ``provider.connection_error`` stay on
-their existing paths.
-
-A Grok CLI that exits because the operator is not signed in is an auth
-failure of that kernel. Harvested 2026-08-13 runs exited 1 with ``Not signed
-in. Run grok login`` after ``No auth credentials for cli-chat-proxy``. The
-existing auth markers do not contain that sentence, so the death stayed a
-retryable CLI error and the next resolution launched Grok again. A credentials
-warning without the sign-in death line, and a zero exit, stay off this path.
-
-A Grok responses stream that dies after the session already did work is not a
-fresh launch. Harvested 2026-07-29 and 2026-09-10 runs exited 1 on
-``reqwest error stream`` (decode-body, or sending to
-``cli-chat-proxy.grok.com/v1/responses``) after several model calls, with the
-session id only on the command line. That stayed a retryable CLI error, so
-the next resolution replayed the mission prompt and discarded the session.
-Salvage resumes that session once with a continuation prompt. A second stream
-death opens the Grok circuit and failsover. A telemetry export network error,
-a settings-fetch warning, and a zero exit stay off this path.
-
-An MCP timeout warning in the same log is not that death. Harvested
-2026-08-27 run ``20260827T073025Z`` exited 1 on ``reqwest error stream`` for
-session ``65d6a254-5d25-4f20-a720-f59f834e7962`` while the gmail MCP server
-``timed out after 90s``. The timeout substring used to win, so the next
-resolution replayed the mission and left the session. The stream sentence
-wins over that warning. A bare MCP timeout stays a retryable timeout.
-
-A post-wake authentication blip is not a signed-out account and not a generic
-timeout. Harvested 2026-08-13 and 2026-08-23 runs exited 124 with
-``timed_out`` after many model calls. The transcript says authentication is
-temporarily unavailable, the session is still signed in, and there is no need
-to run login. The same stderr also says "timed out", so the death was a
-retryable timeout and the next resolution replayed the mission on another
-kernel. Salvage resumes that session once. A second blip fails over without
-opening the auth circuit. A bare timeout, a 401 without the still-signed-in
-sentence, and a signed-out login death stay on their existing paths.
-
-A token-generation HTTP 500 is not a tool timeout. Harvested 2026-08-24 runs
-exited 1 after hundreds of model calls with ``Internal error during token
-generation`` and ``status 500``. The same stderr contains ``grep timed out``,
-so the death was a retryable timeout and the next resolution replayed the
-mission. Salvage resumes that session once. A second generation failure
-fails over without opening the auth circuit. A bare timeout, a signed-out
-login death, and a zero exit stay on their existing paths.
-
-An inference stream that goes idle after the session already did work is not
-a generic process timeout. Harvested 2026-08-25 run
-``20260825T174327Z-1e9ef9af`` exited 124 with ``timed_out`` after 20 model
-calls. The transcript says ``inference idle timeout after 3600s with no
-chunks``. The same stderr also says ``grep timed out`` and ``file lock timed
-out``, so the death was a retryable timeout and the next resolution replayed
-the mission on another kernel. Salvage resumes that session once. A second
-idle death fails over without opening the auth circuit. A bare timeout, a
-file-lock wait, and a zero exit stay on their existing paths.
-
-A reply cut off by the output token limit is still that truncation when a
-tool timeout shares the log. Harvested 2026-08-25 run
-``20260825T054458Z-daa11fd7`` exited 1 after 25 turns with ``error_kind``
-``max_tokens_truncation`` and ``response truncated by max_tokens``. The same
-stderr says ``grep timed out`` and ``signal sync timed out``, so the death
-was a retryable timeout and the next resolution replayed the mission prompt.
-Salvage resumes that session once with the decision-only prompt. A bare tool
-timeout, one truncation phrase beside a timeout string, and a zero exit stay
-on their existing paths.
-
-A resident session actor that has already been reaped is not a live session
-and not a reason to leave a healthy kernel. Harvested 2026-08-26 run
-``20260826T102353Z-ee74a113`` exited 124 after 26 model calls. The transcript
-says the resident session actor exited unexpectedly and was reaped as
-DeadFailed for session ``858749f4-3c21-4375-955c-65c08166b900``. The same
-stderr also says ``auth: file lock timed out``, so the death was a retryable
-timeout and the next resolution left Grok. Salvage drops that session and
-continues once on the same kernel with a fresh session. A second dead actor
-fails over without opening the circuit. A file-lock wait without both
-phrases, and a zero exit, stay on their existing paths.
-
-A thinking tail-repetition doom loop is not a generic process timeout.
-Harvested 2026-10-10 run ``20261010T200752Z-1f0fecd9`` exited 124 with
-``timed_out`` while doom-loop recovery was retaining a failed response for
-``tail_repetition`` on session ``49babe86-c4a7-44ad-a8ce-0608c2acd2c8``.
-The same stderr also says ``grep timed out`` and that an MCP handshake
-timed out, so the death was a retryable timeout and the next resolution
-replayed the mission prompt. Salvage resumes that session once with a
-stop-repeating continuation. A second doom loop fails over without opening
-the circuit. A bare tool timeout, one of the two phrases, and a zero exit
-stay on their existing paths.
-
-A CLI that sits on a background shell until the controller kills it is not
-a generic process timeout. Harvested 2026-09-12 run
-``20260912T181339Z-47f10307`` exited 124 with ``timed_out`` after stderr
-repeated ``Waiting … / 10m · 1 background task still running`` seventy
-times. The command line had no session id. The same sentence in an exit-0
-transcript is not this death. Salvage continues that kernel once with a
-short prompt that forbids another background wait and does not resend the
-mission prompt. A recorded session id is kept. A second wait fails over
-without opening the circuit. A bare tool timeout stays a retryable timeout.
-
-A Windows process exit of 4294967295 (the unsigned form of -1) while a
-session is already on the command line is not a provider CLI error.
-Harvested 2026-07-31 Grok run ``20260731T101316Z`` exited 4294967295 with
-``timed_out`` false, an empty transcript, and ``--resume`` session
-``b3c94acc-389f-43e5-ad01-34ad7502e679``. That stayed a retryable CLI
-error, so the next resolution replayed the mission prompt. Salvage
-continues that same session once with a short prompt. A second all-ones
-exit fails over without opening the circuit. Exit 1, exit 124, and exit 0
-stay on their existing paths. An all-ones exit with no session id and no
-tool result stays a CLI error.
-
-A Kimi process that aborts with that same Windows status after it has
-already emitted a tool result is not a session resume and not a CLI retry.
-Harvested 2026-07-31 run ``20260731T102420Z`` exited 4294967295 with
-``timed_out`` false, an empty last message, no ``--resume`` flag, and a
-stdout tail containing ``{"role":"tool"``. That stayed a retryable CLI
-error, so the next resolution replayed the mission prompt and discarded
-the partial transcript. Salvage continues that kernel once with a short
-prompt and does not attach a session id. A second abort fails over
-without opening the circuit. The same status with an empty transcript, a
-short sentence that only mentions a tool, exit 1, and a resumed Grok
-session stay on their existing paths.
+The classifier orders provider diagnoses ahead of incidental tool warnings.
+The acceptance fixtures under tests/acceptance preserve the harvested CLI
+transcripts, mission identifiers, and the expected next dispatch.
 """
 
 from __future__ import annotations
@@ -200,6 +27,7 @@ from blackhole_agent.kernel_health import (
     TRIP_CLASSES,
     KernelHealth,
     apply_health_reroute,
+    empty_local_decision,
     invoke_local_kernel,
     kernel_is_available,
     load_kernel_health,
@@ -951,22 +779,8 @@ def select_failover_kernel(
 
 
 def empty_decision(**overrides: Any) -> dict[str, Any]:
-    payload = {
-        "status": "continue",
-        "summary": "",
-        "strategy": "",
-        "next_step": "",
-        "capability_delta": "",
-        "outcome_evidence": [],
-        "validation": [],
-        "acceptance_probe": "",
-        "done_when_met": False,
-        "commit_message": "",
-        "mission_goal": "",
-        "done_when": "",
-    }
-    payload.update(overrides)
-    return payload
+    overrides.setdefault("acceptance_probe", "")
+    return empty_local_decision(**overrides)
 
 
 def synthesize_decision(
@@ -1347,14 +1161,16 @@ def execute_kernel_turn_with_salvage(
                 )
                 key = (state.kernel, retry.source)
                 if key not in retries and (retry.session != "required" or resumable):
-                    retries.add(key)
-                    if retry.session == "fresh":
-                        _release_session(state)
-                    from_kernel = state.kernel
-                    source = retry.source
-                    prompt = retry.prompt if retry.prompt is not None else full_task()
-                    continue
-                if salvaged.class_id == OUTPUT_TRUNCATED and resumable:
+                    persist()
+                    if kernel_is_available(store, state.kernel, now=now):
+                        retries.add(key)
+                        if retry.session == "fresh":
+                            _release_session(state)
+                        from_kernel = state.kernel
+                        source = retry.source
+                        prompt = retry.prompt if retry.prompt is not None else full_task()
+                        continue
+                elif salvaged.class_id == OUTPUT_TRUNCATED and resumable:
                     state.decision_only_resume = True
                     exhausted = salvage_kernel_failure(
                         error=error,
@@ -1385,9 +1201,10 @@ def execute_kernel_turn_with_salvage(
                         }
                     )
                     return result, decision, with_probe_meta(meta)
-            if salvaged.class_id in FAILOVER_CLASSES:
+            if salvaged.class_id in FAILOVER_CLASSES and kernel_is_available(store, state.kernel, now=now):
                 trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
-                persist()
+            # A different turn may have taken our next provider out of service during dispatch.
+            persist()
             if salvaged.source == "message":
                 decision = TurnDecision.from_payload(salvaged.decision)
                 result = kernel_result or _synthetic_result(state, salvaged, None, KernelTurnResult)

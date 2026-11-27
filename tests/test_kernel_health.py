@@ -1,4 +1,8 @@
-from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+from threading import Barrier
+
+import pytest
 
 from blackhole_agent.kernel_health import (
     LOCAL_KERNEL,
@@ -11,6 +15,7 @@ from blackhole_agent.kernel_health import (
     mark_kernel_success,
     persist_half_open_kernel_health,
     recorded_kernel_state,
+    save_kernel_health,
     trip_kernel,
 )
 from blackhole_agent.kernel_salvage import HARVESTED_GROK_402, classify_run_artifact
@@ -33,8 +38,6 @@ def test_success_closes_breaker_and_cooldown_half_opens(tmp_path):
     assert not kernel_is_available(health, "grok")
 
     later = health.kernels["grok"]
-    from datetime import datetime, timezone
-
     tripped = datetime.fromisoformat(later.tripped_at.replace("Z", "+00:00"))
     assert kernel_is_available(health, "grok", now=tripped + timedelta(hours=7))
 
@@ -45,8 +48,6 @@ def test_success_closes_breaker_and_cooldown_half_opens(tmp_path):
 
     mark_kernel_success(health, "grok")
     assert kernel_is_available(health, "grok")
-
-    from blackhole_agent.kernel_health import save_kernel_health
 
     save_kernel_health(tmp_path, health)
     loaded = load_kernel_health(tmp_path)
@@ -62,3 +63,43 @@ def test_builtin_proof_replays_harvested_402_storm():
     assert report["passed_count"] == len(report["checks"])
     assert report["checks"]["storm_invokes_grok_once"]
     assert report["checks"]["storm_finishes_on_local"]
+
+
+def test_simultaneous_provider_failures_all_survive_restart(tmp_path):
+    names = ("codex", "kimi", "grok", "cursor")
+    ready = Barrier(len(names))
+
+    def fail(name):
+        health = load_kernel_health(tmp_path)
+        trip_kernel(health, name, "quota_exhausted")
+        ready.wait(timeout=10)
+        save_kernel_health(tmp_path, health)
+
+    with ThreadPoolExecutor(len(names)) as pool:
+        list(pool.map(fail, names))
+    restarted = load_kernel_health(tmp_path)
+    assert all(apply_health_reroute(name, restarted, names) == LOCAL_KERNEL for name in names)
+
+
+def test_failed_replace_preserves_legacy_health_and_allows_retry(tmp_path, monkeypatch):
+    from blackhole_agent import file_guard
+    from blackhole_agent.kernel_health import health_path
+
+    path = health_path(tmp_path)
+    path.parent.mkdir(parents=True)
+    legacy = b'{"schema_version":1,"kernels":{"kimi":{"state":"open","trip_count":3}}}'
+    path.write_bytes(legacy)
+    pending = load_kernel_health(tmp_path)
+    trip_kernel(pending, "grok", "quota_exhausted")
+
+    def fail_replace(*args):
+        raise OSError("interrupted replacement")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(file_guard.os, "replace", fail_replace)
+        with pytest.raises(OSError, match="interrupted replacement"):
+            save_kernel_health(tmp_path, pending)
+    assert path.read_bytes() == legacy
+    save_kernel_health(tmp_path, pending)
+    restarted = load_kernel_health(tmp_path)
+    assert {name: row.trip_count for name, row in restarted.kernels.items()} == {"kimi": 3, "grok": 1}

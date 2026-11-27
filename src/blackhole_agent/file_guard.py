@@ -1,16 +1,38 @@
 """Serialize short updates across processes without locking the file being replaced."""
 
 import errno
+import json
 import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
+from uuid import uuid4
 
 if os.name == "nt":
     import msvcrt
 else:
     import fcntl
+
+
+def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
+    stream = temporary.open("x", encoding="utf-8")
+    try:
+        with stream:
+            stream.write(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+        for attempt in range(8):
+            try:
+                os.replace(temporary, path)
+                return
+            except OSError as error:
+                # On Windows even a short-lived reader can deny replacement.
+                if getattr(error, "winerror", None) not in {5, 32} or attempt == 7:
+                    raise
+                time.sleep(0.01 * (attempt + 1))
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 @contextmanager

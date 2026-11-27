@@ -1,27 +1,19 @@
-"""Durable kernel circuit breaker and local last-resort capability kernel.
+"""Persist provider cooldowns and route unavailable kernels to a peer or local execution.
 
-The harvested 2026-08-16 Grok 402 storm retried a dead kernel for twelve
-turns. Decision salvage records a structured turn, but without memory the
-next turn (and the next mission) still invokes the same exhausted kernel.
-
-This module persists non-retryable kernel deaths (quota, auth, a pre-session
-transport abort, a rejected model, a provider overload 429, a Codex
-responses endpoint that returns HTTP 404, a Kimi prompt that dies with
-provider.connection_error after its own APIConnectionError retries, a
-Grok CLI that exits because it is not signed in, and a Grok responses
-stream that dies again after one session continuation), skips
-open-circuit kernels on later resolution, and failsover to a local capability
-kernel that still emits a structured Unbound decision so the mission does not
-block or burn turns.
+The 2026-08-16 Grok 402 storm retried a spent account for twelve turns.
+Overlapping turns share this file. Each provider's trip count identifies the
+cooldown a caller observed before doing work.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
+
+from blackhole_agent.file_guard import atomic_write_json, file_guard
 
 LOCAL_KERNEL = "local"
 HEALTH_RELATIVE = Path(".blackhole-agent") / "unbound" / "kernel-health.json"
@@ -31,27 +23,11 @@ TRIP_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
 DEFAULT_COOLDOWN_SECONDS = {
     "quota_exhausted": 6 * 3600,
     "auth_failed": 3600,
-    # A socket that dies before TLS is an environment failure of that kernel,
-    # not a model decision. One hour matches auth: long enough that resume
-    # does not relaunch the same aborted CLI, short enough to recover.
     "pre_session_transport_abort": 3600,
-    # The provider rejected the configured model. Immediate relaunch of that
-    # kernel repeats the rejection. One hour matches the transport abort.
     "model_unavailable": 3600,
-    # The engine already retried HTTP 429 and still exited. One hour avoids
-    # relaunching that kernel into the same overload without treating the
-    # account as spent (quota stays on the six-hour cooldown).
     "provider_overloaded": 3600,
-    # Codex already retried a 404 on its responses URL. One hour avoids
-    # relaunching that kernel into the same missing endpoint.
     "responses_endpoint_missing": 3600,
-    # Kimi already retried APIConnectionError and exited on
-    # provider.connection_error. One hour avoids relaunching that kernel
-    # into the same dead prompt path. This is not a spent account.
     "provider_connection_failed": 3600,
-    # Grok already died on reqwest error stream and the one session
-    # continuation died the same way. One hour avoids relaunching that
-    # kernel into the same proxy. This is not a spent account.
     "response_stream_failed": 3600,
 }
 DEFAULT_COOLDOWN_FALLBACK = 1800
@@ -117,6 +93,10 @@ class KernelHealth:
     schema_version: int = SCHEMA_VERSION
     updated_at: str = ""
     kernels: dict[str, KernelBreaker] = field(default_factory=dict)
+    _observed: dict[str, KernelBreaker] = field(default_factory=dict, init=False, repr=False, compare=False)
+
+    def _remember(self) -> None:
+        self._observed = {name: replace(breaker) for name, breaker in self.kernels.items()}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -129,7 +109,7 @@ class KernelHealth:
     def from_dict(cls, payload: Mapping[str, Any] | None) -> "KernelHealth":
         payload = payload or {}
         raw = payload.get("kernels") if isinstance(payload.get("kernels"), Mapping) else {}
-        return cls(
+        health = cls(
             schema_version=int(payload.get("schema_version") or SCHEMA_VERSION),
             updated_at=str(payload.get("updated_at") or ""),
             kernels={
@@ -137,29 +117,82 @@ class KernelHealth:
                 for name, value in raw.items()
             },
         )
+        health._remember()
+        return health
 
 
 def health_path(repo_path: Path) -> Path:
     return Path(repo_path) / HEALTH_RELATIVE
 
 
-def load_kernel_health(repo_path: Path) -> KernelHealth:
-    path = health_path(repo_path)
-    if not path.is_file():
-        return KernelHealth()
+def _read_health_file(path: Path) -> Mapping[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return KernelHealth()
-    return KernelHealth.from_dict(payload if isinstance(payload, Mapping) else {})
+    except (FileNotFoundError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, Mapping) else {}
+
+
+def _read_health_record(repo_path: Path) -> Mapping[str, Any]:
+    try:
+        return _read_health_file(health_path(repo_path))
+    except OSError:
+        return {}
+
+
+def load_kernel_health(repo_path: Path) -> KernelHealth:
+    return KernelHealth.from_dict(_read_health_record(repo_path))
+
+
+def _merge_breaker(
+    observed: KernelBreaker | None, proposed: KernelBreaker, current: KernelBreaker | None,
+) -> KernelBreaker:
+    if current is None or current == observed:
+        return replace(proposed)
+    # A trip committed while this caller was working supersedes its entire observation.
+    if current.trip_count != (observed.trip_count if observed else 0):
+        return current
+    if proposed.trip_count > current.trip_count:
+        return replace(proposed, last_success_at=max(current.last_success_at, proposed.last_success_at))
+    if proposed.state == "closed":
+        return replace(
+            current, state="closed", class_id="", cooldown_until="",
+            last_success_at=max(current.last_success_at, proposed.last_success_at),
+        )
+    # A diagnostic from a half-open ping can update evidence while the same trip is outstanding.
+    if current.state != "closed" and observed and proposed.last_evidence != observed.last_evidence:
+        current.last_evidence = proposed.last_evidence
+    return current
+
+
+def _persist_health(repo_path: Path, health: KernelHealth, now: datetime | None) -> tuple[Path, tuple[str, ...]]:
+    path = health_path(repo_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with file_guard(path):
+        record = _read_health_file(path)
+        live = KernelHealth.from_dict(record or {"schema_version": health.schema_version})
+        for name in health._observed.keys() - health.kernels.keys():
+            if live.kernels.get(name) == health._observed[name]:
+                del live.kernels[name]
+        for name, proposed in health.kernels.items():
+            observed = health._observed.get(name)
+            if record and observed is not None and (proposed == observed or name not in live.kernels):
+                continue
+            live.kernels[name] = _merge_breaker(observed, proposed, live.kernels.get(name))
+        updated_at = max(live.updated_at, _iso(_utc_now(now)))
+        changed = refresh_kernel_breakers(live, now=now)
+        live.updated_at = updated_at
+        atomic_write_json(path, live.to_dict())
+        health.kernels = live.kernels
+        health.updated_at = updated_at
+        health.schema_version = live.schema_version
+        health._remember()
+    return path, changed
 
 
 def save_kernel_health(repo_path: Path, health: KernelHealth, *, now: datetime | None = None) -> Path:
-    refresh_kernel_breakers(health, now=now)
-    path = health_path(repo_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    health.updated_at = _iso(_utc_now(now))
-    path.write_text(json.dumps(health.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    """Commit this caller's changes and refresh its in-memory view of every provider."""
+    path, _ = _persist_health(repo_path, health, now)
     return path
 
 
@@ -192,15 +225,7 @@ def refresh_kernel_breakers(health: KernelHealth, *, now: datetime | None = None
 def recorded_kernel_state(repo_path: Path, kernel: str) -> str:
     """Return the raw persisted ``state`` field operators read from disk."""
 
-    path = health_path(repo_path)
-    if not path.is_file():
-        return ""
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return ""
-    if not isinstance(payload, Mapping):
-        return ""
+    payload = _read_health_record(repo_path)
     raw = payload.get("kernels") if isinstance(payload.get("kernels"), Mapping) else {}
     row = raw.get(kernel) if isinstance(raw.get(kernel), Mapping) else {}
     return str(row.get("state") or "")
@@ -254,9 +279,8 @@ def persist_half_open_kernel_health(
 ) -> tuple[Path, KernelHealth, tuple[str, ...]]:
     """Persist computed half-open status so the on-disk record is not still open."""
 
-    live = health if health is not None else load_kernel_health(repo_path)
-    changed = refresh_kernel_breakers(live, now=now)
-    path = save_kernel_health(repo_path, live, now=now)
+    live = health if health is not None else KernelHealth()
+    path, changed = _persist_health(repo_path, live, now)
     return path, live, changed
 
 
@@ -268,10 +292,11 @@ def kernel_health_snapshot(
 ) -> dict[str, Any]:
     """Load, refresh, optionally persist, and report kernel health."""
 
-    health = load_kernel_health(repo_path)
-    changed = refresh_kernel_breakers(health, now=now)
     if persist:
-        save_kernel_health(repo_path, health, now=now)
+        _, health, changed = persist_half_open_kernel_health(repo_path, now=now)
+    else:
+        health = load_kernel_health(repo_path)
+        changed = refresh_kernel_breakers(health, now=now)
     report = kernel_health_report(health, now=now)
     report["persisted"] = persist
     report["state_changes"] = list(changed)
@@ -505,9 +530,7 @@ def builtin_kernel_circuit_breaker_proof() -> dict[str, Any]:
 
     timeout = classify_kernel_failure(timed_out=True, error="Timed out after 30 seconds.")
     timeout_health = KernelHealth()
-    if timeout.class_id not in TRIP_CLASSES:
-        pass
-    else:
+    if timeout.class_id in TRIP_CLASSES:
         trip_kernel(timeout_health, "grok", timeout.class_id)
     checks["timeout_does_not_trip"] = timeout.class_id not in TRIP_CLASSES and not timeout_health.kernels
 

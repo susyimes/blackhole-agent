@@ -14,6 +14,7 @@ from blackhole_agent.kernel_half_open_probe import (
 from blackhole_agent.kernel_health import (
     KernelHealth,
     _utc_now,
+    load_kernel_health,
     recorded_kernel_state,
     save_kernel_health,
     trip_kernel,
@@ -89,6 +90,27 @@ def test_builtin_proof_pings_half_open_peers_without_hijacking_mission() -> None
     assert capability.last_proof_exit_code == 0
     assert "probe" in capability.tags
     assert "peer" in capability.tags
+
+
+def test_late_ping_cannot_announce_recovery_after_another_turn_retrips(tmp_path: Path) -> None:
+    now = _utc_now()
+    probing = KernelHealth()
+    trip_kernel(probing, "grok", "quota_exhausted", now=now - timedelta(hours=7))
+    save_kernel_health(tmp_path, probing, now=now)
+
+    def ping(name):
+        serving = load_kernel_health(tmp_path)
+        trip_kernel(serving, name, "quota_exhausted", "second refusal", now=now)
+        save_kernel_health(tmp_path, serving, now=now)
+        return {"ok": True}
+
+    report = probe_half_open_peer_kernels(
+        probing, requested="cursor", installed={"grok", "cursor"}, probe=ping, now=now,
+        persist=lambda: save_kernel_health(tmp_path, probing, now=now),
+    )
+    assert report["recovered"] == []
+    assert report["probed"][0]["action"] == "superseded"
+    assert recorded_kernel_state(tmp_path, "grok") == "open"
 
 
 def test_selection_gate_accepts_peer_probe_family(tmp_path: Path) -> None:

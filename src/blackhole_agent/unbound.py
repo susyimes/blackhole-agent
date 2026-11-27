@@ -40,7 +40,7 @@ from blackhole_agent.evolution_quality import (
     record_local_progress,
 )
 from blackhole_agent.experience_fuel import render_experience_for_genesis
-from blackhole_agent.file_guard import file_guard
+from blackhole_agent.file_guard import atomic_write_json, file_guard
 from blackhole_agent.kernel_resume import (
     bind_create_fields,
     consume_resumed_campaign,
@@ -348,16 +348,6 @@ def normalize_validation(value: Any) -> list[dict[str, Any]]:
             row["witness_receipt"] = witness_receipt
         normalized.append(row)
     return normalized
-
-
-def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, path)
 
 
 def append_jsonl(path: Path, payload: dict[str, Any]) -> None:

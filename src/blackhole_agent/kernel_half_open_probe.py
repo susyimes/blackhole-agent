@@ -1,19 +1,7 @@
-"""Probe half_open peer kernels so cooldown recovery cannot stall behind a healthy requested kernel.
+"""Probe eligible peers after cooldown while the requested provider serves the turn.
 
-Half-open persist records ``state=half_open`` once cooldown elapses, and the
-requested kernel's mission turn is the probe for that kernel. Peer CLI
-kernels recorded as half_open are never invoked while a healthy requested
-kernel serves, so Codex and Kimi stay half_open forever.
-
-This module closes that hole:
-
-- ping half_open peers on a bounded check before the mission kernel runs
-- recover a peer to closed on a healthy ping
-- re-trip quota/auth deaths so cooldown starts again
-- leave other ping failures half_open
-- never hijack the requested mission kernel
-- never ping a still-open (cooldown) kernel, the requested kernel, or local
-- leave the no-ping path so the hole stays falsifiable
+Each bounded CLI ping can close its breaker, start another cooldown, or leave
+the peer available for a later probe. Reports reflect the committed outcome.
 """
 
 from __future__ import annotations
@@ -240,9 +228,6 @@ def probe_half_open_peer_kernels(
         now=now,
     )
     rows: list[dict[str, Any]] = []
-    recovered: list[str] = []
-    retripped: list[str] = []
-    left: list[str] = []
     for name in peers:
         try:
             outcome = dict(ping(name) or {})
@@ -261,23 +246,23 @@ def probe_half_open_peer_kernels(
             "evidence": str(outcome.get("evidence") or "")[:400],
         }
         rows.append(row)
-        if action == "recovered":
-            recovered.append(name)
-        elif action == "retripped":
-            retripped.append(name)
-        else:
-            left.append(name)
     if persist is not None and rows:
+        expected = {name: (health.kernels[name].trip_count, health.kernels[name].state) for name in peers}
         persist()
+        for row in rows:
+            name = row["kernel"]
+            committed = health.kernels.get(name)
+            if committed is None or expected[name] != (committed.trip_count, committed.state):
+                row["action"] = "superseded"
     return {
         "ok": True,
         "skipped": False,
         "requested": requested,
         "candidates": list(peers),
         "probed": rows,
-        "recovered": recovered,
-        "retripped": retripped,
-        "left_half_open": left,
+        "recovered": [row["kernel"] for row in rows if row["action"] == "recovered"],
+        "retripped": [row["kernel"] for row in rows if row["action"] == "retripped"],
+        "left_half_open": [row["kernel"] for row in rows if row["action"] == "left_half_open"],
     }
 
 
