@@ -411,7 +411,9 @@ Padding and a used border inset the content box. An absent or hidden border
 style contributes nothing. A definite grid height is the used content height:
 fixed rows keep their size, ``fr`` rows share the free space after row gaps,
 and a following block starts at that border edge even when the tracks overflow
-it. An ``fr`` row without a definite height stays rejected.
+it. An automatic height sizes each ``fr`` row by the indefinite flex fraction,
+so the rows keep their content ratios and the following block starts under
+that stack.
 ``minmax()`` clamps a track between a length floor and a length ceiling.
 That ceiling is filled before a flexible sibling takes leftover space, and
 a flexible ceiling keeps a floor that already exceeds its share. A ceiling
@@ -15287,7 +15289,13 @@ def _automatic_row_sizes(
     auto_rows: object,
     located: dict[str, dict[str, object]],
     text_heights: dict[str, int],
+    row_gap: int,
 ) -> list[int]:
+    used = [explicit_rows[index] for index in range(min(row_count, len(explicit_rows)))]
+    if any(isinstance(track, dict) and "flex" in track for track in used):
+        return _indefinite_flex_rows(
+            box, explicit_rows, row_count, auto_rows, located, text_heights, row_gap
+        )
     sizes: list[int] = []
     for index in range(row_count):
         if index < len(explicit_rows):
@@ -15298,6 +15306,56 @@ def _automatic_row_sizes(
             continue
         sizes.append(_content_row_height(index, box, located, text_heights))
     return sizes
+
+
+def _indefinite_flex_rows(
+    box: _Box,
+    explicit_rows: list,
+    row_count: int,
+    auto_rows: object,
+    located: dict[str, dict[str, object]],
+    text_heights: dict[str, int],
+    row_gap: int,
+) -> list[int]:
+    """Size rows when the block size is indefinite and an explicit row is flexible.
+
+    CSS Grid §11.7 uses the max-content flex fraction when free space is
+    indefinite. A ``1fr`` row therefore becomes the largest content ratio,
+    and a ``2fr`` row keeps twice that length. The following block starts
+    under the sum, including row gaps.
+    """
+
+    tracks: list[object] = []
+    for index in range(row_count):
+        if index < len(explicit_rows):
+            tracks.append(explicit_rows[index])
+        elif isinstance(auto_rows, int):
+            tracks.append({"fixed": auto_rows})
+        else:
+            tracks.append({"breadth": "auto"})
+    payload: list[dict[str, object]] = []
+    for item in box.children:
+        entry = located.get(item.id)
+        if entry is None:
+            raise _Invalid("grid placement failed")
+        row = int(entry.get("row") or 0) - 1
+        span = int(entry.get("row_span") or 0)
+        if row < 0 or span < 1 or row + span > row_count:
+            raise _Invalid("grid placement failed")
+        amount = _grid_row_minimum(item, text_heights)
+        payload.append(
+            {
+                "start": row,
+                "span": span,
+                "min_content": amount,
+                "max_content": amount,
+            }
+        )
+    sized = size_content_grid_tracks("auto", tracks, payload, gap=row_gap)
+    raw_sizes = sized.get("track_sizes")
+    if sized.get("outcome") != "resolved" or not isinstance(raw_sizes, list):
+        raise _Invalid(str(sized.get("reason") or "grid row flex is unsupported"))
+    return [_px(size, "grid row") for size in raw_sizes]
 
 
 def _definite_row_sizes(
@@ -15399,7 +15457,7 @@ def _place_grid(box: _Box, content_x: int, viewport_height: int | None) -> None:
     auto_rows = spec.get("auto_rows")
     if specified_height is None:
         row_sizes = _automatic_row_sizes(
-            box, explicit_rows, row_count, auto_rows, located, text_heights
+            box, explicit_rows, row_count, auto_rows, located, text_heights, row_gap
         )
     else:
         row_sizes = _definite_row_sizes(

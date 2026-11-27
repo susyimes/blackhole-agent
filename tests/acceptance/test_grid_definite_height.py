@@ -3,7 +3,7 @@
 Fixed rows keep their size. Flexible rows share the leftover content height
 after row gaps. A flex factor below one leaves the rest of that content box
 empty. Rows that overflow the specified height do not move the following
-block. A flexible row without a definite height stays rejected.
+block. An automatic height sizes a single 1fr row to that line.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 for both a
 miss and a hit. A tree that still rejects a definite grid height exits 0.
@@ -188,10 +188,12 @@ def observe() -> tuple[bool, dict[str, object]]:
             and _near(_line(_box(tiny.get("boxes"), "a")), text="AB", y=0)
             and _near(_box(tiny.get("boxes"), "after"), y=4)
         ),
-        "indefinite_height_still_rejects_a_flex_row": (
-            indefinite.get("outcome") == "invalid"
-            and indefinite.get("boxes") is None
-            and "flex" in str(indefinite.get("reason") or "")
+        "indefinite_height_sizes_a_flex_row_to_its_line": (
+            indefinite.get("outcome") == "placed"
+            and _near(_box(indefinite.get("boxes"), "grid"), y=0, content_height=10, border_height=10)
+            and _near(_box(indefinite.get("boxes"), "a"), y=0, content_height=10, border_height=10)
+            and _near(_line(_box(indefinite.get("boxes"), "a")), text="AB", x=0, y=0)
+            and _near(_box(indefinite.get("boxes"), "after"), y=10)
         ),
     }
     observed["checks"] = checks
