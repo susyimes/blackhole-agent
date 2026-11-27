@@ -80,7 +80,13 @@ written and is invalid without one. The following in-flow block stays where
 it was. A static, relative, or sticky box, a float or other out-of-flow
 anchor, an anchor inside the positioned box, a vertical box, and a non-ltr
 box are rejected. ``position-area`` still moves the box after that inset is
-solved. A float inside
+solved. ``position-try-fallbacks`` then tries ``flip-block``, ``flip-inline``,
+``flip-x``, and ``flip-y``, in order, when that base area cannot hold the
+margin box. The first tactic that fits is used. The base position stays when
+every tactic overflows or the property is omitted. An unknown tactic is
+invalid, and the property on a box that is not an anchored absolute or fixed
+box is rejected. The anchor and the following in-flow block stay where flow
+put them. A float inside
 a block whose only in-flow content is text
 is placed in that content box, and the line boxes beside its margin box
 shrink. An inline-block in that text is an unbreakable item: its margin box
@@ -1399,6 +1405,8 @@ class _Box:
     anchor_name: str = ""
     position_anchor: str = ""
     position_area: str = ""
+    position_try_fallbacks: tuple[str, ...] = ()
+    position_try: str = ""
     replaced: bool = False
     intrinsic_width: int | None = None
     intrinsic_height: int | None = None
@@ -2384,6 +2392,9 @@ def _make_box(
     columns = _read_columns(winners, custom, font_size)
     shape_outside, shape_margin = _read_float_shape(winners, custom) if float_side != "none" else ("", 0.0)
     position_anchor, position_area = _read_position_anchor(winners, custom, position, mode, direction)
+    position_try_fallbacks = _read_position_try_fallbacks(
+        winners, custom, position, position_area, mode, direction
+    )
     try:
         initial_size, initial_sink = resolve_initial_letter(tree, element, declarations, custom)
     except CssSelectorError as exc:
@@ -2563,6 +2574,7 @@ def _make_box(
         anchor_name=_read_anchor_name(winners, custom),
         position_anchor=position_anchor,
         position_area=position_area,
+        position_try_fallbacks=position_try_fallbacks,
         capture=_read_capture(winners, custom),
     )
     if _autospace_on(box) and (box.writing_mode != "horizontal-tb" or box.direction != "ltr"):
@@ -4702,6 +4714,8 @@ def _record(box: _Box) -> dict[str, object]:
         item["object"] = box.object_box
     if box.marker is not None:
         item["marker"] = {key: box.marker[key] for key in ("text", "x", "y", "width")}
+    if box.position_try:
+        item["position_try"] = box.position_try
     if box.drop_cap is not None:
         item["initial_letter"] = {key: box.drop_cap[key] for key in ("text", "x", "y", "width", "height")}
     used = (box.table or {}).get("used_edges")
@@ -8168,6 +8182,47 @@ def _read_position_anchor(
     return anchor, area
 
 
+_TRY_TACTICS = frozenset({"flip-block", "flip-inline", "flip-x", "flip-y"})
+
+
+def _read_position_try_fallbacks(
+    winners,
+    custom: dict,
+    position: str,
+    area: str,
+    writing_mode: str,
+    direction: str,
+) -> tuple[str, ...]:
+    """Author tactic list. ``none`` and an omitted property try nothing."""
+
+    raw = _declared(winners, "position-try-fallbacks", custom)
+    if raw is None:
+        return ()
+    token = " ".join(raw.split()).lower()
+    if token in {"none", "initial", "unset", "revert"}:
+        return ()
+    if token == "inherit":
+        raise _Invalid("position-try-fallbacks inherit is unsupported")
+    eligible = (
+        position in {"absolute", "fixed"}
+        and bool(area)
+        and writing_mode == "horizontal-tb"
+        and direction == "ltr"
+    )
+    if not eligible:
+        raise _Invalid("position-try-fallbacks is unsupported")
+    groups = [part.strip() for part in token.split(",")]
+    if not groups or any(not part for part in groups):
+        raise _Invalid("position-try-fallbacks is invalid")
+    parsed: list[str] = []
+    for group in groups:
+        tactics = group.split()
+        if any(part not in _TRY_TACTICS for part in tactics):
+            raise _Invalid("position-try-fallbacks is invalid")
+        parsed.append(" ".join(tactics))
+    return tuple(parsed)
+
+
 def _anchor_index(root: _Box) -> dict[str, _Box]:
     found: dict[str, _Box] = {}
 
@@ -8239,9 +8294,15 @@ def _align_to_anchor(box: _Box, cb: _Edge, anchors: dict[str, _Box]) -> None:
             "writing_mode": "horizontal-tb",
             "direction": "ltr",
         },
+        fallbacks=box.position_try_fallbacks,
     )
     if placed.get("outcome") != "placed":
         raise _Invalid(str(placed.get("reason") or "position-area failed"))
+    if box.position_try_fallbacks:
+        option = placed.get("option")
+        if not isinstance(option, str) or not option:
+            raise _Invalid("position-try-fallbacks is invalid")
+        box.position_try = option
     _translate(box, _px(placed.get("x"), "x") - box.x, _px(placed.get("y"), "y") - box.y)
 
 
