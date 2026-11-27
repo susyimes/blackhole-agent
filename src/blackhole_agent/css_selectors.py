@@ -2402,7 +2402,8 @@ def resolve_generated_strings(
     """String content of ``::before`` and ``::after``, or empty when no box is generated.
 
     ``attr()`` is replaced by that element's attribute before the string is
-    returned. A missing attribute is empty. A fallback, a type, or any other
+    returned. A missing attribute is empty. A quoted fallback is used only
+    when the attribute is absent. A type, an unquoted fallback, or any other
     function raises ``generated content is unsupported``. ``font-size`` and
     ``line-height`` are the only other properties that may sit on a generated
     box. Any further property raises ``generated box is unsupported``.
@@ -2423,11 +2424,12 @@ def resolve_generated_plans(
     """``::before`` and ``::after`` content as text and counter parts.
 
     ``counter()`` and ``counters()`` stay in the plan. ``attr()`` is already
-    the element's attribute text. ``open-quote``, ``close-quote``,
-    ``no-open-quote``, and ``no-close-quote`` stay as keywords; layout chooses
-    the string from the quotation depth. A fallback, a type, or any other
-    function raises ``generated content is unsupported``. The two font maps
-    hold a declared ``font-size`` or ``line-height`` for that pseudo. Any other
+    the element's attribute text, or its quoted fallback when that attribute
+    is absent. ``open-quote``, ``close-quote``, ``no-open-quote``, and
+    ``no-close-quote`` stay as keywords; layout chooses the string from the
+    quotation depth. A type, an unquoted fallback, or any other function
+    raises ``generated content is unsupported``. The two font maps hold a
+    declared ``font-size`` or ``line-height`` for that pseudo. Any other
     property on a pseudo that generates a box raises ``generated box is
     unsupported``.
     """
@@ -2675,20 +2677,43 @@ def _generated_call(text: str, index: int, name: str) -> tuple[tuple, int]:
         if attr_name is None:
             raise CssSelectorError("generated content is unsupported")
         index = _skip_css_space(text, index)
+        fallback: str | None = None
+        if index < len(text) and text[index] == ",":
+            index = _skip_css_space(text, index + 1)
+            if index >= len(text) or text[index] not in "\"'":
+                raise CssSelectorError("generated content is unsupported")
+            end = _end_of_string(text, index)
+            if end is None:
+                raise CssSelectorError("generated content is unsupported")
+            quoted = _unquote(text[index:end])
+            if quoted is None:
+                raise CssSelectorError("generated content is unsupported")
+            fallback = quoted
+            index = _skip_css_space(text, end)
         if index >= len(text) or text[index] != ")":
             raise CssSelectorError("generated content is unsupported")
-        return ("attr", attr_name), index + 1
+        if fallback is None:
+            return ("attr", attr_name), index + 1
+        return ("attr", attr_name, fallback), index + 1
     raise CssSelectorError("generated content is unsupported")
 
 
 def _expand_attr_parts(element, parts: list[tuple]) -> list[tuple]:
-    """Replace ``attr()`` with that element's attribute. A missing one is empty."""
+    """Replace ``attr()`` with that element's attribute.
+
+    A missing attribute with no fallback is empty. A quoted fallback is used
+    only when the attribute is absent. A present value, including an empty
+    string, replaces the fallback. A parent attribute is not read.
+    """
 
     expanded: list[tuple] = []
     for part in parts:
         if part[0] == "attr":
             raw = _attr(element, part[1])
-            piece = "" if raw is None else raw
+            if raw is None:
+                piece = part[2] if len(part) >= 3 else ""
+            else:
+                piece = raw
             if expanded and expanded[-1][0] == "text":
                 expanded[-1] = ("text", expanded[-1][1] + piece)
             else:

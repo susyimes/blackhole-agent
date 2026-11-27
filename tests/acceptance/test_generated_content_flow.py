@@ -3,8 +3,9 @@
 A text-only block paints the strings on its line. An id beats a type. A later
 none removes the string. A parent of block children turns the leading string
 into an anonymous block. A flex container keeps each pseudo as its own item.
-``attr()`` copies the element's attribute onto the line. A fallback or any
-other content function, and a generated box property, stay rejected.
+``attr()`` copies the element's attribute onto the line. A typed or unquoted
+attr() and any other content function, and a generated box property, stay
+rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """

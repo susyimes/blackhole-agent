@@ -115,7 +115,11 @@ def observe() -> tuple[bool, dict[str, object]]:
             "reason": spaced.get("reason"),
             "line": _line(_box(spaced, "t")),
         },
-        "fallback": {"outcome": fallback.get("outcome"), "reason": fallback.get("reason")},
+        "fallback": {
+            "outcome": fallback.get("outcome"),
+            "reason": fallback.get("reason"),
+            "line": _line(_box(fallback, "t")),
+        },
         "unit": {"outcome": unit.get("outcome"), "reason": unit.get("reason")},
     }
     checks = {
@@ -142,9 +146,10 @@ def observe() -> tuple[bool, dict[str, object]]:
             "reason": None,
             "line": ("A B", 0, 0, 30, 10),
         },
-        "fallback_rejected": observed["fallback"] == {
-            "outcome": "invalid",
-            "reason": "generated content is unsupported",
+        "fallback_keeps_present_attribute": observed["fallback"] == {
+            "outcome": "placed",
+            "reason": None,
+            "line": ("GoHi", 0, 0, 40, 10),
         },
         "unit_rejected": observed["unit"] == {
             "outcome": "invalid",

@@ -698,7 +698,11 @@ element's children. A counter style formats the integer. ``counters()``
 joins every scope of that name, outer scope first, with its separator.
 ``attr()`` copies that element's attribute into the same text. A missing
 attribute is empty, so it adds no glyphs, and a parent's attribute is not
-read. A fallback, a type, or any other function stays rejected.
+read. A quoted fallback after a comma is used only when the attribute is
+missing: those glyphs join the line, collapse like other text, wrap, and
+can move the following block. A present attribute, including an empty one,
+keeps its own text. A type, an unquoted fallback, and any other function
+stay rejected.
 ``open-quote`` and ``close-quote`` insert one pair from the element's
 ``quotes`` value. The initial value is the English pairs U+201C U+201D and
 U+2018 U+2019; ``auto`` is that same value, and ``none`` inserts nothing.
