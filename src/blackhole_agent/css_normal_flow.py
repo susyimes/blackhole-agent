@@ -407,7 +407,14 @@ max-content to the columns, plus any definite horizontal margin, padding,
 and used border.
 ``max-content`` keeps the unwrapped line, ``auto`` then absorbs leftover
 space in a definite grid, and a fixed column keeps its length and wraps the
-text inside the content box. Definite margins shrink a stretched automatic
+text inside the content box. ``fit-content()`` caps that max-content at its
+length and does not stretch up to the argument. A shorter item stays on its
+max-content, so the next column starts earlier than it would after a fixed
+track of the same length. An unbreakable word longer than the argument keeps
+the min-content width. A flexible sibling takes the space that remains, and
+wrapping inside the cap moves the following block down. ``fit-content()`` on
+a row, a percentage, a flexible argument, and a negative length are rejected.
+Definite margins shrink a stretched automatic
 size. An auto margin absorbs positive free space in the area and does not
 grow the track. An automatic row grows to the line boxes plus definite
 vertical margins, padding, and used border. A block child is placed in that content box: the item is
@@ -14891,8 +14898,9 @@ def _grid_track_atoms(value: str) -> list[tuple[str, str]]:
             continue
         if value[index] == "]":
             raise _Invalid("grid line is unsupported")
-        if value.startswith("minmax(", index):
-            end = _matching_paren(value, index + 6)
+        function = _function_track_at(value, index)
+        if function is not None:
+            end = _matching_paren(value, index + len(function) - 1)
             atoms.append(("track", value[index : end + 1]))
             index = end + 1
             continue
@@ -14918,10 +14926,48 @@ def _matching_paren(value: str, open_index: int) -> int:
     raise _Invalid("grid track is unsupported")
 
 
+_FUNCTION_TRACKS = ("minmax(", "fit-content(")
+
+
+def _function_track_at(value: str, index: int) -> str | None:
+    for name in _FUNCTION_TRACKS:
+        if value.startswith(name, index):
+            return name
+    return None
+
+
 def _parse_track_token(token: str) -> dict[str, object]:
     if token.startswith("minmax("):
         return _minmax_track(token)
+    if token.startswith("fit-content("):
+        return _fit_content_track(token)
     return _plain_track(token)
+
+
+def _fit_content_track(token: str) -> dict[str, object]:
+    """``fit-content(<length>)`` is a max-content cap, not a fixed track."""
+
+    prefix = "fit-content("
+    if (
+        not token.startswith(prefix)
+        or not token.endswith(")")
+        or token.count("(") != 1
+        or token.count(")") != 1
+    ):
+        raise _Invalid("grid track is unsupported")
+    inner = token[len(prefix) : -1].strip()
+    if not inner or any(char.isspace() for char in inner):
+        raise _Invalid("grid track is unsupported")
+    if inner != "0" and not inner.endswith("px"):
+        raise _Invalid("grid track is unsupported")
+    raw = "0" if inner == "0" else inner[:-2]
+    try:
+        number = float(raw)
+    except ValueError as exc:
+        raise _Invalid("grid track is unsupported") from exc
+    if number < 0:
+        raise _Invalid("grid track is unsupported")
+    return {"fit_content": _px(number, "grid track")}
 
 
 def _minmax_track(token: str) -> dict[str, object]:
@@ -15275,6 +15321,13 @@ def _grid_row_minimum(item: _Box, text_heights: dict[str, int]) -> int:
     )
 
 
+def _reject_fit_content_rows(tracks: list) -> None:
+    """Column ``fit-content()`` is sized from inline content. Rows are not."""
+
+    if any(isinstance(track, dict) and "fit_content" in track for track in tracks):
+        raise _Invalid("grid row track is unsupported")
+
+
 def _automatic_row_sizes(
     box: _Box,
     explicit_rows: list,
@@ -15284,6 +15337,7 @@ def _automatic_row_sizes(
     text_heights: dict[str, int],
     row_gap: int,
 ) -> list[int]:
+    _reject_fit_content_rows(explicit_rows)
     used = [explicit_rows[index] for index in range(min(row_count, len(explicit_rows)))]
     if any(isinstance(track, dict) and "flex" in track for track in used):
         return _indefinite_flex_rows(
@@ -15363,6 +15417,7 @@ def _definite_row_sizes(
 ) -> list[int]:
     """Size rows in a definite content box. Flexible rows take the leftover."""
 
+    _reject_fit_content_rows(explicit_rows)
     tracks: list[dict[str, object]] = []
     for index in range(row_count):
         if index < len(explicit_rows):
@@ -15532,7 +15587,7 @@ def _size_grid_columns(
     column_gap: int,
     spec: dict[str, object],
 ) -> list[int]:
-    if any("breadth" in track for track in track_defs):
+    if any("breadth" in track or "fit_content" in track for track in track_defs):
         payload: list[dict[str, object]] = []
         for item in box.children:
             entry = located.get(item.id)
