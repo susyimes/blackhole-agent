@@ -1,12 +1,68 @@
-"""Map a horizontal text cell to its source character and DOM text offset."""
+"""Visual grapheme cells for horizontal text painting and DOM caret hits."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
+from typing import NamedTuple
 from xml.etree.ElementTree import Element
 
 from blackhole_agent.css_bidi import bidi_line_order
-from blackhole_agent.css_line_break import source_line_tokens
+from blackhole_agent.css_line_break import _Tok, source_line_tokens
+
+
+class _Cell(NamedTuple):
+    start: int
+    stop: int
+    width: int
+    rtl: bool
+
+
+def _visual_cells(text: str, tokens: Sequence[_Tok], direction: str, font_size: int) -> list[_Cell]:
+    """Group visual indices by grapheme while retaining their logical boundaries."""
+    order, levels = bidi_line_order(text, direction)
+    owner: list[int] = []
+    stops: dict[int, int] = {}
+    first = 0
+    for i, token in enumerate(tokens):
+        if token.grapheme_start:
+            first = i
+        owner.append(first)
+        stops[first] = i + 1
+    widths: dict[int, int] = {}
+    for i in order:
+        first = owner[i]
+        widths[first] = widths.get(first, 0) + int(tokens[i].advance * font_size)
+    return [_Cell(i, stops[i], width, bool(levels[i] % 2)) for i, width in widths.items()]
+
+
+def ellipsis_glyphs(
+    text: str, direction: str, font_size: int, width: int, available: int,
+) -> list[dict[str, object]] | None:
+    """Paint an overflowing uniform line. Coordinates are relative to its full left edge."""
+    tokens = source_line_tokens(text, "pre", (text,))
+    if not tokens or "\t" in text:
+        return None
+    cells = _visual_cells(text, tokens, direction, font_size)
+    if sum(cell.width for cell in cells) != width:
+        return None
+    rtl = direction == "rtl"
+    kept: list[tuple[str, int]] = []
+    used = 0
+    for cell in reversed(cells) if rtl else cells:
+        # The inline-start character must survive, even when the edge clips it.
+        if used and used + cell.width + font_size > available:
+            break
+        kept.append((text[cell.start:cell.stop], cell.width))
+        used += cell.width
+    if used < available:
+        kept.append(("\u2026", font_size))
+        used += font_size
+    x = width - used if rtl else 0
+    glyphs = []
+    for ch, advance in reversed(kept) if rtl else kept:
+        glyphs.append({"ch": ch, "x": x, "width": advance})
+        x += advance
+    return glyphs
 
 
 def uniform_caret_edge(
@@ -30,30 +86,14 @@ def uniform_caret_edge(
     tokens = source_line_tokens(source, white_space, lines, hyphen_mark=hyphen_mark)
     if not tokens:
         return None
-    order, levels = bidi_line_order(lines[-1], direction)
-    # A grapheme can contain several code points. Keep both caret edges on
-    # its source boundaries even when some members occupy no painted width.
-    owner: list[int] = []
-    ends: dict[int, int] = {}
-    first = 0
-    for i, token in enumerate(tokens):
-        if token.grapheme_start:
-            first = i
-        owner.append(first)
-        ends[first] = token.end
-    # Insertion order is physical paint order, including repeated characters.
-    widths: dict[int, float] = {}
-    for i in order:
-        first = owner[i]
-        widths[first] = widths.get(first, 0) + tokens[i].advance * font_size
-    if sum(widths.values()) != width:
+    cells = _visual_cells(lines[-1], tokens, direction, font_size)
+    if sum(cell.width for cell in cells) != width:
         return None
-    for first, advance in widths.items():
-        if x < advance:
-            # On an odd embedding level the physical left edge is the logical end.
-            after = (x >= advance / 2) != bool(levels[first] % 2)
-            return (ends[first] - 1 if after else tokens[first].start), after
-        x -= advance
+    for cell in cells:
+        if x < cell.width:
+            after = (x >= cell.width / 2) != cell.rtl
+            return (tokens[cell.stop - 1].end - 1 if after else tokens[cell.start].start), after
+        x -= cell.width
     return None
 
 

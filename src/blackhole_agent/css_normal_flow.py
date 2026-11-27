@@ -238,7 +238,12 @@ wider than the box, is not ellipsized, and the following block starts under
 the clamped lines. Zero, ``inherit``, preserved white space, spacing,
 justification, indent, balance, a float beside the text, an inline-block, a
 marker, a vertical writing mode, and an inline declaration are rejected. A
-block child does not take the clamp. ``hanging-punctuation`` is inherited.
+block child does not take the clamp. On uniform horizontal text,
+``text-overflow: ellipsis`` substitutes U+2026 for grapheme cells that
+overflow the visual end of a clipped content box. The line's ``glyphs``
+describe the paint in physical order. Its text, width and pointer caret
+still describe the full line. The initial value is ``clip``; a block
+child computes its own value. ``hanging-punctuation`` is inherited.
 ``first`` keeps one opening mark, Unicode Ps or Pi, out of the first line's
 measure, so the following word can stay on that line. ``last`` keeps one
 closing mark, Pe or Pf, out of the final line's measure. ``force-end`` always
@@ -883,8 +888,10 @@ below-fold skip applies.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from typing import TypeVar
 from xml.etree.ElementTree import Element
 
 from blackhole_agent.css_absolute import place_absolute
@@ -937,7 +944,7 @@ from blackhole_agent.css_line_break import _default_advance, balance_lines, pret
 from blackhole_agent.css_relative import place_relative
 from blackhole_agent.css_table_rows import layout_table_rows
 from blackhole_agent.css_text_align import align_inline_line
-from blackhole_agent.css_text_caret import element_text_offset, uniform_caret_edge
+from blackhole_agent.css_text_caret import element_text_offset, ellipsis_glyphs, uniform_caret_edge
 from blackhole_agent.css_transform import map_transformed_point
 from blackhole_agent.css_transition import interrupt_css_transition
 from blackhole_agent.css_text_decoration import (
@@ -1103,6 +1110,7 @@ _POSITIONS = frozenset({"static", "relative", "absolute", "fixed", "sticky"})
 _FLOATS = frozenset({"none", "left", "right"})
 _CLEARS = frozenset({"none", "left", "right", "both"})
 _OVERFLOWS = frozenset({"visible", "hidden", "auto", "scroll", "clip"})
+_TEXT_OVERFLOWS = frozenset({"clip", "ellipsis"})
 _SCROLLPORTS = frozenset({"hidden", "auto", "scroll", "clip"})
 _INHERITED = {
     "writing-mode": "horizontal-tb",
@@ -1198,6 +1206,7 @@ _INLINE_REJECTED = (
     "text-wrap",
     "text-wrap-style",
     "line-clamp",
+    "text-overflow",
     "text-transform",
     "text-box",
     "text-box-trim",
@@ -1324,6 +1333,7 @@ class _Box:
     font_weight: str = "400"
     font_style: str = "normal"
     line_clamp: int | None = None
+    text_overflow: str = "clip"
     initial_letter: int = 0
     initial_sink: int = 0
     drop_cap: dict[str, object] | None = None
@@ -1503,9 +1513,10 @@ def layout_normal_flow(
             transition_sample_ms=transition_sample_ms,
             transition_changes=transition_changes,
         )
+        boxes = [_record(box) for box in _each(root)]
     except (CssSelectorError, _Invalid) as exc:
         return _invalid(str(exc))
-    return {"outcome": "placed", "reason": None, "boxes": [_record(box) for box in _each(root)]}
+    return {"outcome": "placed", "reason": None, "boxes": boxes}
 
 
 def element_from_document(
@@ -2250,6 +2261,9 @@ def _make_box(
     winners = _winners(tree, element, declarations)
     mode = _inherited("writing-mode", winners, custom, inherited)
     direction = _inherited("direction", winners, custom, inherited)
+    direction_hint = (_attr(element, "dir") or "").lower()
+    if direction_hint in {"ltr", "rtl"} and _declared(winners, "direction", custom) is None:
+        direction = direction_hint
     orientation = _inherited("text-orientation", winners, custom, inherited)
     tag = _local_name(element)
     if _declared(winners, "list-style", custom) is not None:
@@ -2432,6 +2446,7 @@ def _make_box(
         ),
         text_wrap_style=_text_wrap_style(winners, custom, fonts["text-wrap-style"]),
         line_clamp=_read_line_clamp(_declared(winners, "line-clamp", custom)),
+        text_overflow=_keyword(_declared(winners, "text-overflow", custom), _TEXT_OVERFLOWS, "clip", "text-overflow"),
         align_mode=align_mode,
         align_safe=align_safe,
         margin_trim=_read_margin_trim(_declared(winners, "margin-trim", custom)),
@@ -4557,6 +4572,30 @@ def _each(box: _Box):
         yield from _each(abs_box)
 
 
+def _record_lines(box: _Box) -> list[dict[str, object]]:
+    # Anonymous lines belong to the block that generated them. An element
+    # child is a separate block container, with its own overflow edge.
+    owner = box.parent_box if box.anonymous else box
+    if owner is None or owner.text_overflow != "ellipsis" or owner.overflow == "visible" or not box.lines:
+        return [_record_line(line) for line in box.lines]
+    if box.writing_mode != "horizontal-tb" or box.multicol is not None:
+        raise _Invalid("text-overflow requires horizontal lines in one column")
+    left = owner.x + _edge_extent(owner.solved, "left") + owner.gutter_start
+    right = left + owner.content_width
+    records = []
+    for line in box.lines:
+        available = line.x + line.content_width - left if box.direction == "rtl" else right - line.x
+        if line.content_width > available:
+            if line.runs or line.atoms or line.decorations or line.emphasis or box.letter_spacing or box.word_spacing:
+                raise _Invalid("text-overflow requires uniform text")
+            glyphs = ellipsis_glyphs(line.text, box.direction, box.font_size, line.content_width, available)
+            if glyphs is None:
+                raise _Invalid("text-overflow requires uniform advances")
+            line = replace(line, glyphs=glyphs)
+        records.append(_record_line(line))
+    return records
+
+
 def _record(box: _Box) -> dict[str, object]:
     item = {
         "id": box.id,
@@ -4568,7 +4607,7 @@ def _record(box: _Box) -> dict[str, object]:
         "border_height": box.border_height,
         "margin_left": box.margin_left,
         "margin_right": box.margin_right,
-        "lines": [_record_line(line) for line in box.lines],
+        "lines": _record_lines(box),
     }
     if box.offset_angle is not None:
         item["offset_angle"] = box.offset_angle
@@ -4597,24 +4636,24 @@ def _record(box: _Box) -> dict[str, object]:
     if box.object_box is not None:
         item["object"] = box.object_box
     if box.marker is not None:
-        item["marker"] = {
-            "text": box.marker["text"],
-            "x": box.marker["x"],
-            "y": box.marker["y"],
-            "width": box.marker["width"],
-        }
+        item["marker"] = {key: box.marker[key] for key in ("text", "x", "y", "width")}
     if box.drop_cap is not None:
-        item["initial_letter"] = {
-            "text": box.drop_cap["text"],
-            "x": box.drop_cap["x"],
-            "y": box.drop_cap["y"],
-            "width": box.drop_cap["width"],
-            "height": box.drop_cap["height"],
-        }
+        item["initial_letter"] = {key: box.drop_cap[key] for key in ("text", "x", "y", "width", "height")}
     used = (box.table or {}).get("used_edges")
     if isinstance(used, dict):
         item["collapsed_borders"] = used
     return item
+
+
+def _positioned_ink(line: _Line, entry: dict[str, object]) -> dict[str, object]:
+    """Paint records use the line origin, including the glyphs inside an upright cluster."""
+    ink = dict(entry)
+    ink["x"] = line.x + int(entry["x"])
+    if "y" in entry:
+        ink["y"] = line.y + int(entry["y"])
+    if "glyphs" in entry:
+        ink["glyphs"] = [_positioned_ink(line, glyph) for glyph in entry["glyphs"]]
+    return ink
 
 
 def _record_line(line: _Line) -> dict[str, object]:
@@ -4625,87 +4664,12 @@ def _record_line(line: _Line) -> dict[str, object]:
         "height": line.height,
         "content_width": line.content_width,
     }
-    if line.runs:
-        recorded_runs = []
-        for run in line.runs:
-            recorded = {
-                "text": run["text"],
-                "x": line.x + int(run["x"]),
-                "font_size": run["font_size"],
-                "width": run["width"],
-            }
-            if "font_face" in run:
-                recorded["font_face"] = run["font_face"]
-            if "y" in run:
-                recorded["y"] = line.y + int(run["y"])
-            if "height" in run:
-                recorded["height"] = int(run["height"])
-            recorded_runs.append(recorded)
-        item["runs"] = recorded_runs
-    if line.combines:
-        item["combines"] = [
-            {
-                "text": str(cluster["text"]),
-                "x": line.x + int(cluster["x"]),
-                "y": line.y + int(cluster["y"]),
-                "width": int(cluster["width"]),
-                "height": int(cluster["height"]),
-                "glyphs": [
-                    {
-                        "text": str(glyph["text"]),
-                        "x": line.x + int(glyph["x"]),
-                        "y": line.y + int(glyph["y"]),
-                        "width": int(glyph["width"]),
-                        "height": int(glyph["height"]),
-                    }
-                    for glyph in cluster["glyphs"]
-                ],
-            }
-            for cluster in line.combines
-        ]
+    for name in ("runs", "combines", "emphasis", "decorations", "atoms", "glyphs"):
+        entries = getattr(line, name)
+        if entries:
+            item[name] = [_positioned_ink(line, entry) for entry in entries]
     if line.emphasis:
         item["baseline"] = line.baseline
-        item["emphasis"] = [
-            {
-                "text": str(mark["text"]),
-                "x": line.x + int(mark["x"]),
-                "y": line.y + int(mark["y"]),
-                "width": int(mark["width"]),
-                "height": int(mark["height"]),
-                "color": str(mark["color"]),
-            }
-            for mark in line.emphasis
-        ]
-    if line.decorations:
-        item["decorations"] = [
-            {
-                "kind": str(mark["kind"]),
-                "x": line.x + int(mark["x"]),
-                "y": line.y + int(mark["y"]),
-                "width": int(mark["width"]),
-                "owner": str(mark["owner"]),
-                "font_size": int(mark["font_size"]),
-            }
-            for mark in line.decorations
-        ]
-    if line.atoms:
-        item["atoms"] = [
-            {
-                "id": str(entry["id"]),
-                "x": line.x + int(entry["x"]),
-                "width": int(entry["width"]),
-            }
-            for entry in line.atoms
-        ]
-    if line.glyphs:
-        item["glyphs"] = [
-            {
-                "ch": str(glyph["ch"]),
-                "x": line.x + int(glyph["x"]),
-                "width": int(glyph["width"]),
-            }
-            for glyph in line.glyphs
-        ]
     return item
 
 
@@ -10861,7 +10825,7 @@ def _fill_lines_beside_floats(
     text = box.inline_text or ""
     shift_rows: list[tuple[_Shift, ...]] | None = None
     if _relative_pieces(box):
-        text, shift_rows = _collapse_shift_text(text, _source_shifts(box))
+        text, shift_rows = _collapse_with_values(text, _source_shifts(box))
     if bands is None:
         bands = [fl.float_band for fl in box.floats if fl.float_placed and fl.float_band is not None]
     used = _used_line_height(box.line_height, box.font_size)
@@ -11150,34 +11114,21 @@ def _advance_of(ch: str, size: int) -> int:
     return _px(size * _default_advance(ch), "advance")
 
 
-def _collapse_styled(
-    text: str, styles: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]]
-) -> tuple[str, list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]]]:
-    pieces: list[str] = []
-    chosen: list[tuple[int, str, str | int, tuple[tuple[str, int, str], ...]]] = []
-    index = 0
-    count = len(text)
-    gap: tuple[int, str, str | int, tuple[tuple[str, int, str], ...]] | None = None
-    while index < count:
-        if text[index].isspace():
-            if gap is None:
-                gap = styles[index]
-            index += 1
-            continue
-        if pieces:
-            if gap is None:
-                raise _Invalid("inline font break is unsupported")
-            pieces.append(" ")
-            chosen.append(gap)
-        gap = None
-        while index < count and not text[index].isspace():
-            pieces.append(text[index])
-            chosen.append(styles[index])
-            index += 1
-    collapsed = "".join(pieces)
-    if collapsed != " ".join(text.split()):
-        raise _Invalid("inline font break is unsupported")
-    return collapsed, chosen
+_TextValue = TypeVar("_TextValue")
+
+
+def _collapse_with_values(text: str, values: list[_TextValue]) -> tuple[str, list[_TextValue]]:
+    """Collapse spaces together with their font, shift, or decoration. The first space owns the gap."""
+    words: list[str] = []
+    chosen: list[_TextValue] = []
+    previous_end = 0
+    for word in re.finditer(r"\S+", text):
+        if words:
+            chosen.append(values[previous_end])
+        words.append(word.group())
+        chosen.extend(values[word.start():word.end()])
+        previous_end = word.end()
+    return " ".join(words), chosen
 
 
 def _split_styled(
@@ -11197,7 +11148,7 @@ def _split_styled(
             raise _Invalid("inline font break is unsupported")
         used = len(rendered)
         return styles[:used], source[used:], styles[used:]
-    collapsed, collapsed_styles = _collapse_styled(source, styles)
+    collapsed, collapsed_styles = _collapse_with_values(source, styles)
     if not rendered:
         if source.strip():
             raise _Invalid("inline font break is unsupported")
@@ -12388,37 +12339,6 @@ def _source_shifts(box: _Box) -> list[tuple[_Shift, ...]]:
     return shifts
 
 
-def _collapse_shift_text(
-    text: str, shifts: list[tuple[_Shift, ...]]
-) -> tuple[str, list[tuple[_Shift, ...]]]:
-    """Collapse whitespace the same way a normal line keeps one space."""
-
-    if len(shifts) != len(text):
-        raise _Invalid("relative inline is unsupported")
-    chars: list[str] = []
-    chosen: list[tuple[_Shift, ...]] = []
-    index = 0
-    count = len(text)
-    gap: tuple[_Shift, ...] | None = None
-    while index < count:
-        if text[index].isspace():
-            if gap is None:
-                gap = shifts[index]
-            index += 1
-            continue
-        if chars:
-            if gap is None:
-                raise _Invalid("relative inline is unsupported")
-            chars.append(" ")
-            chosen.append(gap)
-        gap = None
-        while index < count and not text[index].isspace():
-            chars.append(text[index])
-            chosen.append(shifts[index])
-            index += 1
-    return "".join(chars), chosen
-
-
 def _layers_delta(shifts: tuple[_Shift, ...], cb_width: int, cb_height: int | None) -> tuple[int, int]:
     dx = 0
     dy = 0
@@ -12941,35 +12861,6 @@ def _source_marks(box: _Box) -> list[tuple[tuple[str, int, str], ...]]:
     return marks
 
 
-def _collapse_mark_text(
-    text: str, marks: list[tuple[tuple[str, int, str], ...]]
-) -> tuple[str, list[tuple[tuple[str, int, str], ...]]]:
-    if len(marks) != len(text):
-        raise _Invalid("text decoration is unsupported")
-    chars: list[str] = []
-    chosen: list[tuple[tuple[str, int, str], ...]] = []
-    index = 0
-    count = len(text)
-    gap: tuple[tuple[str, int, str], ...] | None = None
-    while index < count:
-        if text[index].isspace():
-            if gap is None:
-                gap = marks[index]
-            index += 1
-            continue
-        if chars:
-            if gap is None:
-                raise _Invalid("text decoration is unsupported")
-            chars.append(" ")
-            chosen.append(gap)
-        gap = None
-        while index < count and not text[index].isspace():
-            chars.append(text[index])
-            chosen.append(marks[index])
-            index += 1
-    return "".join(chars), chosen
-
-
 def _text_decorations(
     text: str,
     marks: list[tuple[tuple[str, int, str], ...]],
@@ -13148,14 +13039,13 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
     collapsed = ""
     collapsed_shifts: list[tuple[_Shift, ...]] = []
     if shifted:
-        collapsed, collapsed_shifts = _collapse_shift_text(text, _source_shifts(box))
+        collapsed, collapsed_shifts = _collapse_with_values(text, _source_shifts(box))
     mark_text = ""
     collapsed_marks: list[tuple[tuple[str, int, str], ...]] | None = None
     if _has_decoration(box):
-        mark_text, collapsed_marks = _collapse_mark_text(text, _source_marks(box))
+        mark_text, collapsed_marks = _collapse_with_values(text, _source_marks(box))
     records: list[_Line] = []
     cursor = cap_raise
-    shift_index = 0
     last = len(lines) - 1
     # A broken line is reordered on its own. Wrapping does not drop glyphs.
     for index, line in enumerate(lines):
@@ -13180,11 +13070,9 @@ def _plain_lines(box: _Box, measure: int, direction: str, *, place_glyphs: bool 
                 raise _Invalid("justified relative inline is unsupported")
             if rendered and not collapsed.startswith(rendered):
                 raise _Invalid("relative inline is unsupported")
-            line_shifts = collapsed_shifts[shift_index : shift_index + len(rendered)]
-            shift_index += len(rendered)
+            line_shifts = collapsed_shifts[:len(rendered)]
             collapsed = collapsed[len(rendered) :]
-            collapsed_shifts = collapsed_shifts[shift_index:]
-            shift_index = 0
+            collapsed_shifts = collapsed_shifts[len(rendered):]
             if collapsed.startswith(" "):
                 collapsed = collapsed[1:]
                 collapsed_shifts = collapsed_shifts[1:]
