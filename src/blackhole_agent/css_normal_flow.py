@@ -58,8 +58,10 @@ in-flow anchor. The margin box meets the anchor's block-start border edge
 for ``block-start`` and its inline-end border edge for ``inline-end``, and
 it stays centered on the other axis. A specified ``left`` or ``top`` does
 not keep the box away from that edge. The following in-flow block stays
-where it was without the anchored box. A missing name, a duplicated
-``anchor-name``, a float or other out-of-flow anchor, an anchor inside the
+where it was without the anchored box. Components can reuse anchor names
+across distinct ``anchor-scope`` subtrees. Each name in an ``anchor-name`` list
+has its own scope. A missing name, a duplicate within one scope,
+a float or other out-of-flow anchor, an anchor inside the
 positioned box, a non-horizontal box, an indefinite containing block
 height, and ``position-area`` on a static box are rejected. ``anchor-size()``
 on that absolute or fixed box copies one border-box edge of its anchor into
@@ -942,8 +944,10 @@ from blackhole_agent.css_animation import _Invalid as _AnimInvalid
 from blackhole_agent.css_animation import _extract_keyframes, _strip_comments as _strip_animation_comments
 from blackhole_agent.css_scroll_snap import resolve_scroll_snap
 from blackhole_agent.css_scroll_timeline import sample_scroll_driven_animation, scroll_timeline_progress
-from blackhole_agent.css_anchor_query import parse_anchor_size_call, resolve_anchor_size
-from blackhole_agent.css_anchor_position import parse_anchor_call, place_anchored, used_anchor_inset
+from blackhole_agent.css_anchor_query import (
+    is_anchor_name, parse_anchor_call, parse_anchor_size_call, resolve_anchor_size,
+)
+from blackhole_agent.css_anchor_position import place_anchored, used_anchor_inset
 from blackhole_agent.css_aspect_ratio import block_ratio_limits, parse_aspect_ratio
 from blackhole_agent.css_container_query import match_container_query
 from blackhole_agent.css_counters import format_counter, format_counters, resolve_counters
@@ -1270,6 +1274,9 @@ class _Edge:
     width: int
     height: int | None
 
+    def rect(self) -> dict[str, int]:
+        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height or 0}
+
 
 @dataclass(frozen=True)
 class _Shift:
@@ -1311,6 +1318,9 @@ class _Line:
     decorations: list[dict[str, object]] = field(default_factory=list)
     combines: list[dict[str, object]] = field(default_factory=list)
     emphasis: list[dict[str, object]] = field(default_factory=list)
+
+
+_NO_ANCHOR_NAMES: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -1416,7 +1426,8 @@ class _Box:
     stack_opacity: str | None = None
     stack_pointer: str | None = None
     stack_visibility: str | None = None
-    anchor_name: str = ""
+    anchor_names: frozenset[str] = _NO_ANCHOR_NAMES
+    anchor_scope: frozenset[str] = _NO_ANCHOR_NAMES
     position_anchor: str = ""
     position_area: str = ""
     position_try_fallbacks: tuple[str, ...] = ()
@@ -1479,6 +1490,9 @@ class _Box:
     snap: dict[str, object] | None = None
     height_transition: tuple[str, str, str] | None = None
     text_autospace: str = "no-autospace"
+
+
+_AnchorIndex = dict[tuple[Element | None, str], _Box]
 
 
 def layout_normal_flow(
@@ -2587,7 +2601,8 @@ def _make_box(
         counter_reset=_counter_declaration(winners, custom, "counter-reset", tag, element),
         counter_increment=_counter_declaration(winners, custom, "counter-increment", "", element),
         counter_set=_counter_declaration(winners, custom, "counter-set", tag, element),
-        anchor_name=_read_anchor_name(winners, custom),
+        anchor_names=_read_anchor_names(winners, custom, "anchor-name", tree, element),
+        anchor_scope=_read_anchor_names(winners, custom, "anchor-scope", tree, element),
         position_anchor=position_anchor,
         position_area=position_area,
         position_try_fallbacks=position_try_fallbacks,
@@ -8141,31 +8156,22 @@ def _padding_edge(box: _Box) -> _Edge:
     return _Edge(box.x + border_left, box.y + border_top, pad_left + box.content_width + pad_right, height)
 
 
-def _dashed_ident(token: str) -> bool:
-    if len(token) < 3 or not token.startswith("--"):
-        return False
-    body = token[2:]
-    first = body[0]
-    if not first.isascii() or not (first.isalpha() or first == "_"):
-        return False
-    return all(char.isascii() and (char.isalnum() or char in "_-") for char in body)
-
-
-def _read_anchor_name(winners, custom: dict) -> str:
-    value = _declared(winners, "anchor-name", custom)
-    if value is None:
-        return ""
-    token = " ".join(value.split())
-    lowered = token.lower()
-    if lowered in {"initial", "unset", "revert", "none"}:
-        return ""
-    if lowered == "inherit":
-        raise _Invalid("anchor-name inherit is unsupported")
-    if "," in token or " " in token:
-        raise _Invalid("anchor-name is unsupported")
-    if not _dashed_ident(token):
-        raise _Invalid("anchor-name is invalid")
-    return token
+def _read_anchor_names(winners, custom: dict, prop: str, tree, element: Element) -> frozenset[str]:
+    value = (_declared(winners, prop, custom) or "none").strip()
+    keyword = value.lower()
+    if keyword in {"none", "initial", "unset", "revert"}:
+        return _NO_ANCHOR_NAMES
+    if prop == "anchor-scope" and keyword == "all":
+        return frozenset({"all"})
+    if keyword == "inherit":
+        parent = getattr(tree, "box_of", {}).get(id(tree.parent.get(element)))
+        if parent is None:
+            return _NO_ANCHOR_NAMES
+        return parent.anchor_scope if prop == "anchor-scope" else parent.anchor_names
+    names = frozenset(part.strip() for part in value.split(","))
+    if not all(is_anchor_name(name) for name in names):
+        raise _Invalid(f"{prop} is invalid")
+    return names
 
 
 def _read_position_anchor(
@@ -8183,7 +8189,7 @@ def _read_position_anchor(
         anchor = ""
     elif anchor.lower() == "inherit":
         raise _Invalid("position-anchor inherit is unsupported")
-    elif "," in anchor or " " in anchor or not _dashed_ident(anchor):
+    elif not is_anchor_name(anchor):
         raise _Invalid("position-anchor is invalid")
     if area in {"", "initial", "unset", "revert", "none"}:
         area = ""
@@ -8239,14 +8245,26 @@ def _read_position_try_fallbacks(
     return tuple(parsed)
 
 
-def _anchor_index(root: _Box) -> dict[str, _Box]:
-    found: dict[str, _Box] = {}
+def _anchor_key(box: _Box, name: str) -> tuple[Element | None, str]:
+    # A display: contents wrapper can scope a name without generating a box.
+    node = box.element
+    while node is not None:
+        owner = box.tree.box_of.get(id(node))
+        if owner is not None and ("all" in owner.anchor_scope or name in owner.anchor_scope):
+            break
+        node = box.tree.parent.get(node)
+    return node, name
+
+
+def _anchor_index(root: _Box) -> _AnchorIndex:
+    found: _AnchorIndex = {}
 
     def walk(box: _Box) -> None:
-        if box.anchor_name:
-            if box.anchor_name in found:
+        for name in box.anchor_names:
+            key = _anchor_key(box, name)
+            if key in found:
                 raise _Invalid("anchor-name is duplicated")
-            found[box.anchor_name] = box
+            found[key] = box
         for child in (*box.children, *box.floats, *box.atoms, *box.positioned):
             walk(child)
 
@@ -8263,42 +8281,33 @@ def _box_contains(ancestor: _Box, node: _Box) -> bool:
     return False
 
 
-def _align_to_anchor(box: _Box, cb: _Edge, anchors: dict[str, _Box]) -> None:
+def _anchor_rect(box: _Box, name: str, anchors: _AnchorIndex, usage: str) -> dict[str, int] | None:
+    anchor = anchors.get(_anchor_key(box, name)) if name else None
+    if anchor is None:
+        return None
+    if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
+        raise _Invalid("anchor is out of flow")
+    if usage != "anchor-size" and (anchor.writing_mode != "horizontal-tb" or anchor.direction != "ltr"):
+        raise _Invalid(f"{usage} is unsupported")
+    if _box_contains(box, anchor):
+        raise _Invalid("anchor is inside the positioned box")
+    return {"x": anchor.x, "y": anchor.y, "width": anchor.border_width, "height": anchor.border_height}
+
+
+def _align_to_anchor(box: _Box, cb: _Edge, anchors: _AnchorIndex) -> None:
     """Move an absolute or fixed border box onto its named anchor area."""
 
     if not box.position_area:
         return
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("position-area is unsupported")
-    name = box.position_anchor
-    anchor = anchors.get(name)
+    anchor = _anchor_rect(box, box.position_anchor, anchors, "position-area")
     if anchor is None:
         raise _Invalid("default anchor is missing")
-    if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
-        raise _Invalid("anchor is out of flow")
-    if anchor.writing_mode != "horizontal-tb" or anchor.direction != "ltr":
-        raise _Invalid("position-area is unsupported")
-    if _box_contains(box, anchor):
-        raise _Invalid("anchor is inside the positioned box")
     if cb.height is None:
         raise _Invalid("anchor containing block is indefinite")
     placed = place_anchored(
-        {
-            "x": cb.x,
-            "y": cb.y,
-            "width": cb.width,
-            "height": cb.height,
-            "writing_mode": "horizontal-tb",
-            "direction": "ltr",
-        },
-        {
-            "x": anchor.x,
-            "y": anchor.y,
-            "width": anchor.border_width,
-            "height": anchor.border_height,
-            "writing_mode": "horizontal-tb",
-            "direction": "ltr",
-        },
+        cb.rect(), anchor,
         {
             "width": box.border_width,
             "height": box.border_height,
@@ -8307,8 +8316,6 @@ def _align_to_anchor(box: _Box, cb: _Edge, anchors: dict[str, _Box]) -> None:
             "margin_bottom": _px(box.solved.get("margin_bottom"), "margin-bottom"),
             "margin_left": box.margin_left,
             "position_area": box.position_area,
-            "writing_mode": "horizontal-tb",
-            "direction": "ltr",
         },
         fallbacks=box.position_try_fallbacks,
     )
@@ -9135,12 +9142,7 @@ def _captured_edge(box: _Box, viewport: _Edge) -> _Edge:
     found = resolve_containing_block(
         _capture_tree(box),
         box.id,
-        viewport={
-            "x": viewport.x,
-            "y": viewport.y,
-            "width": viewport.width,
-            "height": 0 if viewport.height is None else viewport.height,
-        },
+        viewport=viewport.rect(),
     )
     if found.get("outcome") != "resolved":
         raise _Invalid(str(found.get("reason") or "containing block failed"))
@@ -9158,7 +9160,7 @@ def _captured_edge(box: _Box, viewport: _Edge) -> _Edge:
 def _place_positioned(
     box: _Box,
     viewport: _Edge,
-    anchors: dict[str, _Box] | None = None,
+    anchors: _AnchorIndex | None = None,
 ) -> None:
     if anchors is None:
         anchors = _anchor_index(box)
@@ -9463,7 +9465,7 @@ def _anchor_size_text(value: object) -> bool:
 def _apply_anchor_sizes(
     box: _Box,
     slots: dict[str, str],
-    anchors: dict[str, _Box],
+    anchors: _AnchorIndex,
     cb: _Edge,
 ) -> None:
     """Replace anchor-size() sizing values with the anchor's border-box length."""
@@ -9477,16 +9479,8 @@ def _apply_anchor_sizes(
         parsed = parse_anchor_size_call(slots[prop])
         if parsed.get("outcome") != "parsed":
             raise _Invalid(str(parsed.get("reason") or "anchor-size is invalid"))
-        name = parsed.get("anchor") or box.position_anchor
-        anchor = anchors.get(str(name)) if name else None
-        if anchor is not None:
-            if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
-                raise _Invalid("anchor is out of flow")
-            if _box_contains(box, anchor):
-                raise _Invalid("anchor is inside the positioned box")
-            measured = {"width": anchor.border_width, "height": anchor.border_height}
-        else:
-            measured = None
+        name = str(parsed.get("anchor") or box.position_anchor)
+        measured = _anchor_rect(box, name, anchors, "anchor-size")
         axis = _ANCHOR_SIZE_AXIS[prop]
         basis = cb.width if axis == "width" else cb.height
         resolved = resolve_anchor_size(
@@ -9494,12 +9488,7 @@ def _apply_anchor_sizes(
             parsed.get("keyword"),
             used_in=prop,
             fallback=parsed.get("fallback"),
-            containing_writing_mode="horizontal-tb",
-            containing_direction="ltr",
-            box_writing_mode=box.writing_mode,
-            box_direction=box.direction,
             percentage_basis=basis,
-            absolutely_positioned=True,
         )
         if resolved.get("outcome") not in {"resolved", "fallback"}:
             raise _Invalid(str(resolved.get("reason") or "anchor-size is invalid"))
@@ -9532,7 +9521,7 @@ def _anchor_fallback_px(text: object, prop: str, cb: _Edge) -> tuple[float | Non
 def _apply_anchor_insets(
     box: _Box,
     slots: dict[str, str],
-    anchors: dict[str, _Box],
+    anchors: _AnchorIndex,
     cb: _Edge,
 ) -> None:
     """Replace anchor() insets with the px length the absolute equation solves."""
@@ -9542,37 +9531,13 @@ def _apply_anchor_insets(
         return
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
         raise _Invalid("anchor() is unsupported")
-    containing = {
-        "x": cb.x,
-        "y": cb.y,
-        "width": cb.width,
-        "height": 0 if cb.height is None else cb.height,
-        "writing_mode": "horizontal-tb",
-        "direction": "ltr",
-    }
+    containing = cb.rect()
     for prop in props:
         parsed = parse_anchor_call(_inset(slots, prop))
         if parsed.get("outcome") != "parsed":
             raise _Invalid(str(parsed.get("reason") or "anchor() is invalid"))
-        name = parsed.get("anchor") or box.position_anchor
-        anchor = anchors.get(str(name)) if name else None
-        if anchor is not None:
-            if anchor.position in {"absolute", "fixed"} or anchor.float_side != "none":
-                raise _Invalid("anchor is out of flow")
-            if anchor.writing_mode != "horizontal-tb" or anchor.direction != "ltr":
-                raise _Invalid("anchor() is unsupported")
-            if _box_contains(box, anchor):
-                raise _Invalid("anchor is inside the positioned box")
-            measured: dict[str, object] | None = {
-                "x": anchor.x,
-                "y": anchor.y,
-                "width": anchor.border_width,
-                "height": anchor.border_height,
-                "writing_mode": "horizontal-tb",
-                "direction": "ltr",
-            }
-        else:
-            measured = None
+        name = str(parsed.get("anchor") or box.position_anchor)
+        measured = _anchor_rect(box, name, anchors, "anchor()")
         if prop == "bottom" and cb.height is None and measured is not None:
             raise _Invalid("anchor containing block is indefinite")
         fallback, unresolved_fallback = _anchor_fallback_px(parsed.get("fallback"), prop, cb)
@@ -9597,7 +9562,7 @@ def _apply_anchor_insets(
         slots[f"inset-{prop}"] = f"{token}px"
 
 
-def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: dict[str, _Box]) -> None:
+def _place_absolute_replaced(box: _Box, cb: _Edge, parent: _Box, anchors: _AnchorIndex) -> None:
     """Give an out-of-flow replaced box its used size, then solve the insets."""
 
     if box.writing_mode != "horizontal-tb" or box.direction != "ltr":
@@ -9700,7 +9665,7 @@ def _place_one_absolute(
     box: _Box,
     cb: _Edge,
     parent: _Box,
-    anchors: dict[str, _Box],
+    anchors: _AnchorIndex,
 ) -> None:
     if box.replaced:
         _place_absolute_replaced(box, cb, parent, anchors)

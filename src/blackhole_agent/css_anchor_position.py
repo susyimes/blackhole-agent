@@ -21,8 +21,7 @@ function, and ``used_anchor_inset`` returns that inset in pixels.
 
 from __future__ import annotations
 
-import re
-
+from blackhole_agent.css_anchor_query import parse_anchor_call as parse_anchor_call
 from blackhole_agent.css_writing_mode import resolve_writing_mode
 
 _EPS = 1e-9
@@ -39,22 +38,6 @@ _SWAP = {
 _OPPOSITE = {"top": "bottom", "bottom": "top", "left": "right", "right": "left"}
 _PHYSICAL = frozenset(_OPPOSITE)
 _AUTO = "auto"
-_ANCHOR_SIDES = frozenset(
-    {
-        "inside",
-        "outside",
-        "top",
-        "left",
-        "right",
-        "bottom",
-        "start",
-        "end",
-        "self-start",
-        "self-end",
-        "center",
-    }
-)
-_ANCHOR_FALLBACK = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:px|%)$", re.IGNORECASE)
 _INSET_PROPS = frozenset({"top", "right", "bottom", "left"})
 
 
@@ -62,101 +45,6 @@ class _Invalid(Exception):
     def __init__(self, reason: str) -> None:
         self.reason = reason
         super().__init__(reason)
-
-
-def _anchor_payload(
-    outcome: str,
-    reason: str | None,
-    anchor: str | None,
-    side: str | None,
-    fallback: str | None,
-) -> dict[str, object]:
-    return {
-        "outcome": outcome,
-        "reason": reason,
-        "anchor": anchor,
-        "side": side,
-        "fallback": fallback,
-    }
-
-
-def _split_anchor_args(value: str) -> list[str]:
-    parts: list[str] = []
-    buf: list[str] = []
-    depth = 0
-    for char in value:
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            if depth == 0:
-                raise _Invalid("anchor() is invalid")
-            depth -= 1
-        if char == "," and depth == 0:
-            parts.append("".join(buf).strip())
-            buf = []
-            continue
-        buf.append(char)
-    if depth != 0:
-        raise _Invalid("anchor() is invalid")
-    parts.append("".join(buf).strip())
-    return parts
-
-
-def _dashed_anchor(token: str) -> bool:
-    if len(token) < 3 or not token.startswith("--"):
-        return False
-    body = token[2:]
-    first = body[0]
-    if not first.isascii() or not (first.isalpha() or first == "_"):
-        return False
-    return all(char.isascii() and (char.isalnum() or char in "_-") for char in body)
-
-
-def parse_anchor_call(value: object) -> dict[str, object]:
-    """Parse one ``anchor()`` inset into an anchor name, a side, and a fallback.
-
-    The function name and side keyword are case-insensitive. A dashed anchor
-    name keeps the case written in the value. The fallback is the text after
-    the top-level comma. A value that is not this function is ``absent``.
-    ``anchor-size()`` is not this function.
-    """
-
-    if not isinstance(value, str):
-        return _anchor_payload("absent", None, None, None, None)
-    text = " ".join(value.strip().split())
-    lowered = text.lower()
-    if lowered.startswith("anchor-size(") or not lowered.startswith("anchor(") or not text.endswith(")"):
-        return _anchor_payload("absent", None, None, None, None)
-    try:
-        inner = text[len("anchor(") : -1].strip()
-        parts = _split_anchor_args(inner)
-        if len(parts) > 2 or not parts or not parts[0] or (len(parts) == 2 and not parts[1]):
-            raise _Invalid("anchor() is invalid")
-        anchor = None
-        side = None
-        for token in parts[0].split(" "):
-            if not token:
-                continue
-            folded = token.lower()
-            if folded in _ANCHOR_SIDES or folded.endswith("%"):
-                if side is not None:
-                    raise _Invalid("anchor() is invalid")
-                side = folded
-                continue
-            if _dashed_anchor(token):
-                if anchor is not None:
-                    raise _Invalid("anchor() is invalid")
-                anchor = token
-                continue
-            raise _Invalid("anchor() is invalid")
-        if side is None:
-            raise _Invalid("anchor() is invalid")
-        fallback = parts[1] if len(parts) == 2 else None
-        if fallback is not None and _ANCHOR_FALLBACK.fullmatch(fallback) is None:
-            raise _Invalid("anchor() is invalid")
-        return _anchor_payload("parsed", None, anchor, side, fallback)
-    except _Invalid as exc:
-        return _anchor_payload("invalid", exc.reason, None, None, None)
 
 
 def place_anchored(

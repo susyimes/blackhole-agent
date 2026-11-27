@@ -29,11 +29,17 @@ document, or evaluate ``clip-path``.
 from __future__ import annotations
 
 import math
+import re
 
 from blackhole_agent.css_writing_mode import resolve_writing_mode
 
 _EPS = 1e-9
 _SIZE_KEYWORDS = frozenset({"width", "height", "block", "inline", "self-block", "self-inline"})
+_ANCHOR_SIDES = frozenset({
+    "inside", "outside", "top", "left", "right", "bottom",
+    "start", "end", "self-start", "self-end", "center",
+})
+_INSET_FALLBACK = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:px|%)", re.IGNORECASE)
 _PROPERTY_AXIS = {
     "width": "width",
     "min-width": "width",
@@ -66,96 +72,72 @@ class _Invalid(Exception):
         super().__init__(reason)
 
 
-def _anchor_size_payload(
-    outcome: str,
-    reason: str | None,
-    anchor: str | None,
-    keyword: str | None,
-    fallback: str | None,
-) -> dict[str, object]:
-    return {
-        "outcome": outcome,
-        "reason": reason,
-        "anchor": anchor,
-        "keyword": keyword,
-        "fallback": fallback,
-    }
+def is_anchor_name(token: str) -> bool:
+    return re.fullmatch(r"--[A-Za-z_][A-Za-z0-9_-]*", token) is not None
 
 
-def _dashed_anchor(token: str) -> bool:
-    if len(token) < 3 or not token.startswith("--"):
-        return False
-    body = token[2:]
-    first = body[0]
-    if not first.isascii() or not (first.isalpha() or first == "_"):
-        return False
-    return all(char.isascii() and (char.isalnum() or char in "_-") for char in body)
-
-
-def _split_anchor_args(text: str) -> list[str]:
+def _split_anchor_args(text: str) -> list[str] | None:
     parts: list[str] = []
-    buf: list[str] = []
+    start = 0
     depth = 0
-    for char in text:
+    for index, char in enumerate(text):
         if char == "(":
             depth += 1
         elif char == ")":
             if depth == 0:
-                raise _Invalid("anchor-size is invalid")
+                return None
             depth -= 1
-        if char == "," and depth == 0:
-            parts.append("".join(buf).strip())
-            buf = []
-            continue
-        buf.append(char)
+        elif char == "," and depth == 0:
+            parts.append(text[start:index].strip())
+            start = index + 1
     if depth != 0:
-        raise _Invalid("anchor-size is invalid")
-    parts.append("".join(buf).strip())
+        return None
+    parts.append(text[start:].strip())
     return parts
 
 
+def _parse_anchor_query(value: object, *, sizing: bool) -> dict[str, object]:
+    if sizing:
+        prefix, field, keywords = "anchor-size(", "keyword", _SIZE_KEYWORDS
+    else:
+        prefix, field, keywords = "anchor(", "side", _ANCHOR_SIDES
+    empty = {"anchor": None, field: None, "fallback": None}
+    text = " ".join(value.split()) if isinstance(value, str) else ""
+    if not text.lower().startswith(prefix) or not text.endswith(")"):
+        return {"outcome": "absent", "reason": None, **empty}
+    inner = text[len(prefix):-1].strip()
+    if sizing and not inner:
+        return {"outcome": "parsed", "reason": None, **empty}
+    error = "anchor-size is invalid" if sizing else "anchor() is invalid"
+    invalid = {"outcome": "invalid", "reason": error, **empty}
+    parts = _split_anchor_args(inner)
+    if parts is None or len(parts) > 2 or not all(parts):
+        return invalid
+    anchor = keyword = None
+    for token in parts[0].split():
+        folded = token.lower()
+        if folded in keywords or (not sizing and folded.endswith("%")):
+            if keyword is not None:
+                return invalid
+            keyword = folded
+        elif anchor is None and is_anchor_name(token):
+            anchor = token
+        else:
+            return invalid
+    fallback = parts[1] if len(parts) == 2 else None
+    if not sizing and (keyword is None or (fallback is not None and not _INSET_FALLBACK.fullmatch(fallback))):
+        return invalid
+    return {"outcome": "parsed", "reason": None, "anchor": anchor, field: keyword, "fallback": fallback}
+
+
 def parse_anchor_size_call(value: object) -> dict[str, object]:
-    """Parse one ``anchor-size()`` value into an anchor, a keyword, and a fallback.
+    """Read the optional anchor name, size keyword and unresolved fallback."""
+    return _parse_anchor_query(value, sizing=True)
 
-    The function name and size keyword are case-insensitive. A dashed anchor
-    name keeps the case written in the value. The fallback is the text after
-    the top-level comma, still unresolved. A value that is not this function
-    is ``absent``.
-    """
 
-    if not isinstance(value, str):
-        return _anchor_size_payload("absent", None, None, None, None)
-    text = " ".join(value.strip().split())
-    lowered = text.lower()
-    prefix = "anchor-size("
-    if not lowered.startswith(prefix) or not text.endswith(")"):
-        return _anchor_size_payload("absent", None, None, None, None)
-    try:
-        inner = text[len(prefix) : -1].strip()
-        if not inner:
-            return _anchor_size_payload("parsed", None, None, None, None)
-        parts = _split_anchor_args(inner)
-        if len(parts) > 2 or not parts[0] or (len(parts) == 2 and not parts[1]):
-            raise _Invalid("anchor-size is invalid")
-        anchor = None
-        keyword = None
-        for token in parts[0].split(" "):
-            folded = token.lower()
-            if folded in _SIZE_KEYWORDS:
-                if keyword is not None:
-                    raise _Invalid("anchor-size is invalid")
-                keyword = folded
-                continue
-            if _dashed_anchor(token):
-                if anchor is not None:
-                    raise _Invalid("anchor-size is invalid")
-                anchor = token
-                continue
-            raise _Invalid("anchor-size is invalid")
-        fallback = parts[1] if len(parts) == 2 else None
-        return _anchor_size_payload("parsed", None, anchor, keyword, fallback)
-    except _Invalid as exc:
-        return _anchor_size_payload("invalid", exc.reason, None, None, None)
+def parse_anchor_call(value: object) -> dict[str, object]:
+    """Read the optional anchor name, required side and optional inset fallback."""
+    return _parse_anchor_query(value, sizing=False)
 
 
 def resolve_anchor_size(
