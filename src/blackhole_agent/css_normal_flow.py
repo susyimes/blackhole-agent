@@ -485,7 +485,13 @@ zero and only one side of the spacing remains. The leading gap stays when
 every row is omitted. Text, a preserved space, a block child, one ``show``
 cell, or a rowspan that covers the row keeps it. ``border-collapse:
 collapse`` ignores ``empty-cells``. A specified table height that would omit
-a row is rejected. Any other keyword is rejected. In the separate model a
+a row is rejected. Any other keyword is rejected. ``visibility: collapse``
+on a table row removes that row from the stack, including the gap after it,
+while the row's cell text still sizes automatic columns. Those cells leave
+no line. ``hidden`` keeps the row. Collapse on a cell or on an ordinary
+block is hidden and does not change the flow. A collapsed border model, a
+fixed table, a span, a block child in that row, and a specified table height
+are rejected. In the separate model a
 cell's padding and used border inset its text. ``none``, ``hidden``, and an
 omitted border style contribute no width; a style with no width uses the
 medium width of 3px. Horizontal chrome is added to that cell's min-content
@@ -1522,6 +1528,7 @@ def element_from_document(
     positive z-index is in front of a later auto-positioned sibling, and a
     negative z-index that escapes its parent is behind that parent.
     ``pointer-events: none`` and ``visibility: hidden`` are not targets.
+    ``visibility: collapse`` is the same kind of miss.
     ``content-visibility: hidden`` sizes the box as if it had no content,
     and its descendants are not targets. ``auto`` does the same when the
     box starts at or below the viewport end, and keeps its text when the
@@ -1926,8 +1933,14 @@ def _hit_node(
         box.stack_pointer, pointer, frozenset({"auto", "none"}), "auto", "pointer-events"
     )
     used_visibility = _used_keyword(
-        box.stack_visibility, visibility, frozenset({"visible", "hidden"}), "visible", "visibility"
+        box.stack_visibility,
+        visibility,
+        frozenset({"visible", "hidden", "collapse"}),
+        "visible",
+        "visibility",
     )
+    if used_visibility == "collapse":
+        used_visibility = "hidden"
     used_z = _used_z(box.stack_z, inherited_z)
     used_opacity = _used_opacity(box.stack_opacity, inherited_opacity)
     children = (
@@ -16510,6 +16523,19 @@ def _collapsed_empty_rows(rows: list[_Box]) -> list[int]:
     return chosen
 
 
+def _visibility_collapsed_rows(rows: list[_Box]) -> list[int]:
+    """Rows that specified ``visibility: collapse`` and leave the stack."""
+
+    chosen: list[int] = []
+    for index, row in enumerate(rows):
+        raw = row.stack_visibility
+        if raw is None:
+            continue
+        if " ".join(raw.strip().lower().split()) == "collapse":
+            chosen.append(index)
+    return chosen
+
+
 def _table_container(tree, element, styles, declarations) -> dict[str, object]:
     custom = styles.get(element, ({}, ""))[0]
     layout = "auto"
@@ -17019,6 +17045,20 @@ def _place_table(box: _Box, content_x: int) -> None:
         raise _Invalid("table caption collapse is unsupported")
     if collapse and (layout == "fixed" or not width_auto):
         raise _Invalid("collapsed table width is unsupported")
+    visibility_rows = _visibility_collapsed_rows(rows)
+    if visibility_rows and (
+        collapse
+        or layout == "fixed"
+        or box.definite_height is not None
+        or any(
+            int((cell.table or {}).get("rowspan") or 1) != 1
+            for row in rows
+            for cell in row.children
+        )
+        or any(cell.children for index in visibility_rows for cell in rows[index].children)
+    ):
+        raise _Invalid("table row visibility is unsupported")
+    hidden_rows = set(visibility_rows)
     spacing_x, spacing_y = (0, 0) if collapse else _used_table_spacing(box)
     fixed_width = layout == "fixed" and not width_auto
     if fixed_width:
@@ -17084,7 +17124,9 @@ def _place_table(box: _Box, content_x: int) -> None:
                 cell.content_width = _span_metrics(
                     axis_x, axis_left, axis_right, column_sizes, column, span
                 )[1]
-            if cell.children:
+            if row_index in hidden_rows:
+                pass
+            elif cell.children:
                 if inline_axis is None:
                     cell.x = content_x + column_offsets[column]
                     cell.solved = dict(_ZERO_FLEX_EDGES)
@@ -17117,6 +17159,8 @@ def _place_table(box: _Box, content_x: int) -> None:
                 }
             )
     collapsed_rows = [] if collapse else _collapsed_empty_rows(rows)
+    if hidden_rows:
+        collapsed_rows = sorted(set(collapsed_rows).union(hidden_rows))
     if collapsed_rows and box.definite_height is not None:
         raise _Invalid("table empty cells height is unsupported")
     laid = layout_table_rows(
