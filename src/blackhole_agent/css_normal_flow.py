@@ -845,11 +845,17 @@ block size is the size the box would have with no content: an automatic
 height becomes zero, ``contain-intrinsic-block-size`` supplies that empty
 content height, and a specified height stays. Padding and border stay.
 The following block starts at the collapsed border edge. Descendant boxes
-are not hit targets, and the skipped text leaves no line. ``visible``,
-``auto``, and an omitted property keep the content height.
-``contain-intrinsic-block-size`` does nothing without ``hidden``.
-A vertical or non-ltr box, an inline, a float, an absolute or sticky box,
-a list item, a replaced box, columns, and an aspect ratio are rejected.
+are not hit targets, and the skipped text leaves no line. ``visible`` and an omitted property keep the content height.
+``contain-intrinsic-block-size`` does nothing for those values.
+``auto`` also keeps the full content when the viewport height is omitted
+or the border box starts above the viewport end. When that border box
+starts at or below the end, ``auto`` skips like ``hidden`` and the
+intrinsic size is the empty content height, so the following block starts
+higher. The choice uses the full-content position. Scrolling the box back
+above the end lays the lines out. A vertical or non-ltr box, an inline,
+a float, an absolute or sticky box, a list item, a replaced box, columns,
+and an aspect ratio are rejected when the box is hidden or that
+below-fold skip applies.
 """
 
 from __future__ import annotations
@@ -1356,6 +1362,7 @@ class _Box:
     marker_width: int = 0
     marker: dict[str, object] | None = None
     capture: dict[str, str] = field(default_factory=dict)
+    offscreen_skip: bool = False
     intrinsic_block: int | None = None
     transform_origin: str = "50% 50%"
     scrollbar_gutter: str = "auto"
@@ -1414,8 +1421,10 @@ def layout_normal_flow(
     ``viewport_height`` is that block's height, or indefinite when omitted.
     ``scroll_x`` and ``scroll_y`` are that viewport's scroll offsets. They
     move a sticky box whose scrollport is the viewport and sample
-    ``animation-timeline: scroll()`` opacity. Every other box stays at its
-    static position. ``port_scroll`` maps a scrollport id to
+    ``animation-timeline: scroll()`` opacity. ``scroll_y`` also decides
+    whether a ``content-visibility: auto`` box that starts at or below the
+    viewport end skips its contents, which moves the following block.
+    Every other box stays at the position that flow produced. ``port_scroll`` maps a scrollport id to
     ``(x, y)`` offsets. A horizontal left-to-right ``hidden``, ``auto``, or
     ``scroll`` port then shifts only the sticky boxes it contains; in-flow
     siblings stay at their static positions. Omitted ports stay at scroll
@@ -1497,7 +1506,9 @@ def element_from_document(
     negative z-index that escapes its parent is behind that parent.
     ``pointer-events: none`` and ``visibility: hidden`` are not targets.
     ``content-visibility: hidden`` sizes the box as if it had no content,
-    and its descendants are not targets.
+    and its descendants are not targets. ``auto`` does the same when the
+    box starts at or below the viewport end, and keeps its text when the
+    viewport height is omitted or the box meets that viewport.
     A flex, inline-flex, grid, table, table-row, or table-cell box is a
     target. A point in a flex container's unoccupied gap hits that container,
     and a positive z-index still paints above the flex item it covers.
@@ -1584,6 +1595,40 @@ def _source_offset(box: _Box, character: int, after: bool) -> int | None:
     if not box.pieces and box.inline_text == box.element.text:
         return element_text_offset(box.element, (box.element, False), character + int(after))
     return None
+
+
+def _place_static(root: _Box) -> None:
+    """Collapse margins and write border positions. Shifts stay with the caller."""
+
+    placed = place_collapsed_margins(_collapse_spec(root))
+    if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
+        raise _Invalid(str(placed.get("reason") or "margin collapse failed"))
+    by_id = {str(item["id"]): item for item in placed["boxes"] if isinstance(item, dict)}
+    margin_top = _px(root.solved.get("margin_top"), "margin-top")
+    _assign_y(root, by_id, margin_top)
+
+
+def _skip_auto_below_fold(root: _Box, scroll_y: int, viewport_height: int | None) -> bool:
+    """Skip ``content-visibility: auto`` boxes whose border starts at the fold.
+
+    The fold is ``scroll_y + viewport_height``. An omitted viewport height
+    cannot prove a box is below it, so those boxes keep their lines. The
+    decision uses this full-content pass and is not repeated after a skip.
+    """
+
+    if viewport_height is None:
+        return False
+    fold = scroll_y + viewport_height
+    changed = False
+    for box in _each(root):
+        if box.capture.get("content_visibility") != "auto" or box.offscreen_skip:
+            continue
+        if box.y < fold:
+            continue
+        box.offscreen_skip = True
+        _reject_skipped_box(box)
+        changed = True
+    return changed
 
 
 def _placed_root(
@@ -1709,12 +1754,10 @@ def _placed_root(
     _apply_height_transitions(root, transition_sample_ms, transition_changes)
     _solve(root, viewport_width, viewport_height, viewport_height, 0)
     _seal_skipped_contents(root)
-    placed = place_collapsed_margins(_collapse_spec(root))
-    if placed.get("outcome") != "placed" or not isinstance(placed.get("boxes"), list):
-        raise _Invalid(str(placed.get("reason") or "margin collapse failed"))
-    by_id = {str(item["id"]): item for item in placed["boxes"] if isinstance(item, dict)}
-    margin_top = _px(root.solved.get("margin_top"), "margin-top")
-    _assign_y(root, by_id, margin_top)
+    _place_static(root)
+    if _skip_auto_below_fold(root, scroll_y, viewport_height):
+        _seal_skipped_contents(root)
+        _place_static(root)
     _pack_block_align(root)
     _shift_relatives(root, viewport_width, viewport_height)
     _apply_port_scroll(root, port_scroll)
@@ -4124,11 +4167,11 @@ def _under_metric_inset(edge: str) -> int:
 
 
 def _skips_contents(box: _Box) -> bool:
-    return box.capture.get("content_visibility") == "hidden"
+    return box.offscreen_skip or box.capture.get("content_visibility") == "hidden"
 
 
 def _reject_skipped_box(box: _Box) -> None:
-    """``hidden`` applies only to a horizontal static block or flow-root."""
+    """A skipped box is a horizontal static block or flow-root."""
 
     if not _skips_contents(box):
         return
@@ -4142,6 +4185,8 @@ def _reject_skipped_box(box: _Box) -> None:
         raise _Invalid("content-visibility columns are unsupported")
     if box.aspect_ratio is not None:
         raise _Invalid("content-visibility aspect ratio is unsupported")
+    if box.floats or box.atoms:
+        raise _Invalid("content-visibility content is unsupported")
 
 
 def _read_intrinsic_block(winners, custom: dict) -> int | None:
