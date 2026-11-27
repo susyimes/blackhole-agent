@@ -1,168 +1,156 @@
-"""Outcome probe: closed mission journals keep a path-list digest, not the full inventory.
-
-A completed fixture whose events journal and state repeat a changed-path list
-longer than the retention bound is compacted. The rewritten state still
-reports the original goal, status complete, and last error, and the receipt
-records that path list's sha256 and count. A sibling active mission keeps
-identical events and state bytes. A newly written turn file keeps the digest
-and omits a middle sentinel path.
-
-On the previous milestone the bounder is absent, so this probe reports
-passed=false. Both outcomes exit 0.
-"""
-
-from __future__ import annotations
-
+"""Exercise live journal writes and retry a real, interrupted archive compaction."""
 import hashlib
 import json
-import shutil
-import tempfile
+import os
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+import blackhole_agent
 
 
+FILES = ("state.json", "events.jsonl", "state.previous.bak", "turns/0001/turn.json")
 SENTINEL = "artifacts/forage/UNIQUE-SENTINEL-NOT-IN-SAMPLE.whl"
+PATHS = [f"artifacts/forage/regenerated-cache-object-{i:05d}.whl" for i in range(400)]
+PATHS[200] = SENTINEL
 GOAL = "Keep regenerated forage paths out of the mission journal."
 LAST_ERROR = "journal grew without a bound"
+DIGEST = hashlib.sha256("\n".join(PATHS).encode()).hexdigest()
+CUT = 73
 
 
-def _sha256(paths: list[str]) -> str:
-    return hashlib.sha256("\n".join(paths).encode("utf-8")).hexdigest()
+def seed(mission, status):
+    for name in FILES:
+        path = mission / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = {"mission_id": mission.name, "status": status, "goal": GOAL, "last_error": LAST_ERROR,
+                  "changed_paths": PATHS, "milestone_gate": {"behavior_paths": PATHS}, "note": name}
+        path.write_bytes((json.dumps(record) + "\n").encode())
+    return snapshot(mission)
 
 
-def _paths() -> list[str]:
-    paths = [f"artifacts/forage/regenerated-cache-object-{index:05d}.whl" for index in range(400)]
-    paths[200] = SENTINEL
-    return paths
+def snapshot(mission):
+    return {name: (mission / name).read_bytes() for name in FILES}
 
 
-def _mission(root: Path, name: str, status: str, paths: list[str]) -> Path:
-    mission = root / name
-    mission.mkdir(parents=True)
-    record = {
-        "changed_paths": list(paths),
-        "effective_status": "continue",
-        "last_error": LAST_ERROR,
-        "milestone_gate": {
-            "accepted": False,
-            "behavior_paths": list(paths),
-            "changed_paths": list(paths),
-            "reasons": ["kept-diagnosis"],
-            "requested": True,
-        },
-        "summary": "turn stored every changed path",
+def worker(directory, boundary):
+    from blackhole_agent.mission_journal_bound import compact_closed_mission_journal
+
+    mission = Path(directory)
+    if boundary:
+        replace = os.replace
+        journals = {mission / name for name in FILES}
+        remaining = int(boundary)
+
+        def install(source, target):
+            nonlocal remaining
+            replace(source, target)
+            if Path(target) in journals:
+                remaining -= 1
+                if remaining == 0:
+                    os._exit(CUT)
+
+        os.replace = install
+    print(json.dumps(compact_closed_mission_journal(mission, allowed_root=mission.parent)))
+
+
+def invoke(mission, boundary=""):
+    bootstrap = "import sys,runpy;sys.path.insert(0,sys.argv[1]);runpy.run_path(sys.argv[2])['worker'](*sys.argv[3:])"
+    child = subprocess.run(
+        [sys.executable, "-I", "-X", "utf8", "-c", bootstrap, str(Path(blackhole_agent.__file__).parents[1]),
+         str(Path(__file__).resolve()), str(mission), str(boundary)],
+        capture_output=True, text=True, encoding="utf-8", timeout=20,
+    )
+    return child.returncode, json.loads(child.stdout) if child.returncode == 0 else {"error": child.stderr[-500:]}
+
+
+def restart(mission, edit=False):
+    original = seed(mission, "complete")
+    code, _ = invoke(mission, 1)
+    partial = snapshot(mission)
+    installed = [name for name in FILES if partial[name] != original[name]]
+    cut = code == CUT and len(installed) == 1
+    final = mission / "journal-bound-receipt.json"
+    if edit:
+        name = next(n for n in FILES if n not in installed)
+        with (mission / name).open("ab") as stream:
+            stream.write(b" \n")
+        edited = snapshot(mission)
+        code, reply = invoke(mission)
+        refused = code == 0 and reply.get("ok") is False and "conflict" in reply.get("reason", "")
+        intact = edited == snapshot(mission) and not final.exists()
+        return cut and refused and intact, {"refused": refused, "preserved": intact}
+
+    code, result = invoke(mission)
+    after = snapshot(mission)
+    rows = {Path(row["path"]): row for row in result.get("files", [])}
+    originals = 0
+    compact = True
+    inventories = True
+    for name, raw in original.items():
+        row = rows.get(mission / name, {})
+        originals += (row.get("sha256_before") == hashlib.sha256(raw).hexdigest()
+                      and row.get("bytes_before") == len(raw) and row.get("bytes_after") == len(after[name]))
+        doc = json.loads(after[name])
+        summary = doc.get("changed_paths_inventory", {})
+        compact &= (len(after[name]) < len(raw) and SENTINEL.encode() not in after[name] and doc["note"] == name
+                    and (doc["goal"], doc["last_error"], doc["status"]) == (GOAL, LAST_ERROR, "complete")
+                    and (summary.get("sha256"), summary.get("count")) == (DIGEST, len(PATHS)))
+        inventories &= any(i["field"] == "changed_paths" and i["sha256"] == DIGEST and i["count"] == len(PATHS)
+                           for i in row.get("inventories", []))
+    receipt = final.read_bytes() if final.exists() else b""
+    again, repeated = invoke(mission)
+    stable = bool(receipt and again == 0 and repeated == result == json.loads(receipt)
+                  and receipt == final.read_bytes() and after == snapshot(mission))
+    original_bytes, remaining = sum(map(len, original.values())), sum(map(len, after.values()))
+    totals = (result.get("bytes_before"), result.get("bytes_after"))
+    passed = cut and code == 0 and result.get("ok") is True and originals == len(FILES) and compact and inventories and stable
+    return passed and totals == (original_bytes, remaining), {
+        "installed": installed, "original_hashes_and_sizes": originals, "compacted": compact, "repeat_identical": stable,
+        "true_original_bytes": original_bytes, "reported_bytes": totals,
     }
-    state = {
-        "done_when": "journal stays bounded",
-        "goal": GOAL,
-        "last_error": LAST_ERROR,
-        "mission_id": name,
-        "recent_turns": [record],
-        "status": status,
-    }
-    (mission / "state.json").write_text(json.dumps(state), encoding="utf-8")
-    (mission / "events.jsonl").write_text(json.dumps({"event": "turn.completed", **record}) + "\n", encoding="utf-8")
-    return mission
 
 
-def _observe() -> dict:
+def _observe():
     try:
-        from blackhole_agent.mission_journal_bound import (
-            compact_closed_mission_journal,
-            write_bounded_turn_files,
-        )
+        from blackhole_agent.mission_journal_bound import compact_closed_mission_journal, write_bounded_turn_files
     except ImportError:
         return {"passed": False, "observed": "mission journal bounder is absent"}
-
-    paths = _paths()
-    expected = _sha256(paths)
-    parent = Path(tempfile.mkdtemp(prefix="mission-journal-bound-"))
-    try:
-        completed = _mission(parent, "completed-mission", "complete", paths)
-        active = _mission(parent, "active-mission", "active", paths)
-        active_before = {
-            "state": (active / "state.json").read_bytes(),
-            "events": (active / "events.jsonl").read_bytes(),
-        }
-        original_state = (completed / "state.json").stat().st_size
-        original_events = (completed / "events.jsonl").stat().st_size
-        receipt = compact_closed_mission_journal(completed, allowed_root=parent)
-        active_same = (
-            (active / "state.json").read_bytes() == active_before["state"]
-            and (active / "events.jsonl").read_bytes() == active_before["events"]
-        )
-        active_refusal = compact_closed_mission_journal(active, allowed_root=parent)
-        active_still = (
-            (active / "state.json").read_bytes() == active_before["state"]
-            and (active / "events.jsonl").read_bytes() == active_before["events"]
-        )
-        rewritten = json.loads((completed / "state.json").read_text(encoding="utf-8"))
-        events_text = (completed / "events.jsonl").read_text(encoding="utf-8")
-        state_text = (completed / "state.json").read_text(encoding="utf-8")
-        inventories = [
-            item
-            for file_row in receipt.get("files") or []
-            for item in file_row.get("inventories") or []
-            if item.get("field") == "changed_paths"
-        ]
-        live = parent / "live-mission"
-        persisted = write_bounded_turn_files(
-            live,
-            {
-                "changed_paths": list(paths),
-                "milestone_gate": {"changed_paths": list(paths), "behavior_paths": list(paths)},
-                "summary": "new turn",
-            },
-            turn_dir=live / "turns" / "0001",
-            mission_id="live-mission",
-        )
-        turn_text = (live / "turns" / "0001" / "turn.json").read_text(encoding="utf-8")
-        live_events = (live / "events.jsonl").read_text(encoding="utf-8")
-        passed = bool(
-            receipt.get("ok") is True
-            and (completed / "state.json").stat().st_size < original_state
-            and (completed / "events.jsonl").stat().st_size < original_events
-            and rewritten.get("goal") == GOAL
-            and rewritten.get("status") == "complete"
-            and rewritten.get("last_error") == LAST_ERROR
-            and SENTINEL not in state_text
-            and SENTINEL not in events_text
-            and any(item.get("sha256") == expected and item.get("count") == len(paths) for item in inventories)
-            and active_same
-            and active_refusal.get("ok") is False
-            and str(active_refusal.get("reason") or "").startswith("status_active")
-            and active_still
-            and persisted.get("changed_paths_inventory", {}).get("sha256") == expected
-            and persisted.get("changed_paths_inventory", {}).get("count") == len(paths)
-            and SENTINEL not in turn_text
-            and SENTINEL not in live_events
-        )
-        return {
-            "passed": passed,
-            "observed": {
-                "completed_bytes": [
-                    original_state,
-                    (completed / "state.json").stat().st_size,
-                    original_events,
-                    (completed / "events.jsonl").stat().st_size,
-                ],
-                "receipt_reason": receipt.get("reason"),
-                "goal": rewritten.get("goal"),
-                "status": rewritten.get("status"),
-                "last_error": rewritten.get("last_error"),
-                "sentinel_removed": SENTINEL not in state_text and SENTINEL not in events_text,
-                "active_unchanged": active_still,
-                "active_reason": active_refusal.get("reason"),
-                "turn_digest": persisted.get("changed_paths_inventory", {}).get("sha256"),
-            },
-        }
-    finally:
-        shutil.rmtree(parent, ignore_errors=True)
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        active = root / "active"
+        before = seed(active, "active")
+        recovered, recovery = restart(root / "restarted")
+        protected, conflict = restart(root / "edited", edit=True)
+        refusal = compact_closed_mission_journal(active, allowed_root=root)
+        untouched = before == snapshot(active) and refusal.get("ok") is False and refusal["reason"] == "status_active"
+        turn = active / "turns" / "0002"
+        persisted = write_bounded_turn_files(active, {"changed_paths": PATHS, "milestone_gate": {"behavior_paths": PATHS}},
+                                             turn_dir=turn, mission_id=active.name)
+        inventory = persisted["changed_paths_inventory"]
+        event = (active / "events.jsonl").read_bytes().splitlines()[-1]
+        written = (inventory["sha256"] == DIGEST and inventory["count"] == len(PATHS)
+                   and SENTINEL.encode() not in (turn / "turn.json").read_bytes() and SENTINEL.encode() not in event
+                   and json.loads(event)["changed_paths_inventory"] == inventory)
+    return {"passed": bool(recovered and protected and untouched and written), "observed": {
+        "restart": recovery, "conflict": conflict, "active_unchanged": untouched, "live_turn_bounded": written}}
 
 
-def main() -> int:
-    print(json.dumps(_observe(), sort_keys=True))
-    return 0
+def test_concurrent_recovery(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    for boundary in (2, len(FILES)):
+        mission = tmp_path / str(boundary)
+        before = seed(mission, "complete")
+        assert invoke(mission, boundary)[0] == CUT
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first, second = pool.map(invoke, (mission, mission))
+        code, receipt = first
+        assert first == second and code == 0 and receipt["ok"]
+        assert receipt["bytes_before"] == sum(map(len, before.values()))
+        assert receipt["bytes_after"] == sum(map(len, snapshot(mission).values()))
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    print(json.dumps(_observe(), sort_keys=True))
