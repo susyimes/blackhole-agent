@@ -21,7 +21,16 @@ is added to each space and to each other Unicode Zs separator.
 ``text_spacing_trim`` of ``trim-start`` then halves the advance of a
 fullwidth opening punctuation glyph when that glyph is the first on a line.
 An even advance loses exactly half. An odd pixel advance keeps the floor of
-half so the used width stays integral. ``space-all`` leaves the advance alone.
+half so the used width stays integral. ``normal`` leaves that line-start
+opening full. It halves a fullwidth opening after a fullwidth opening, a
+fullwidth middle dot, an ideographic space, any Ps character, or a fullwidth
+closing of the same or larger advance, and halves a fullwidth closing before
+a fullwidth closing, a fullwidth middle dot, an ideographic space, any Pe
+character, or a fullwidth opening of a strictly larger advance. A fullwidth
+closing that ends a line becomes half-width only when the untrimmed line
+does not fit. Colon punctuation is a middle dot and dot punctuation is
+closing, the Japanese horizontal classes. ``space-all`` leaves every advance
+alone.
 
 ``balance_lines`` is CSS Text Level 4 ``text-wrap-style: balance``. Forced
 line breaks split the block into independent groups. A group keeps the
@@ -68,9 +77,12 @@ _OPENING: contextvars.ContextVar[bool] = contextvars.ContextVar("css_hanging_ope
 _CLONE: contextvars.ContextVar[tuple[tuple[int, int, float, float], ...]] = contextvars.ContextVar(
     "css_clone_decoration", default=()
 )
-_TRIM_START: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "css_text_spacing_trim_start", default=False
+_TRIM_MODE: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "css_text_spacing_trim", default=""
 )
+_FULLWIDTH_DOT = frozenset("\u3001\u3002\uff0c\uff0e")
+_FULLWIDTH_COLON = frozenset("\uff1a\uff1b")
+_MIDDLE_DOT = frozenset("\u00b7\u2027\u30fb") | _FULLWIDTH_COLON
 _COLLAPSE = frozenset({"normal", "nowrap", "pre-line"})
 _WRAPS = frozenset({"normal", "pre-wrap", "break-spaces", "pre-line"})
 _AFTER_HYPHEN = frozenset("-\u2010\u2013")
@@ -216,7 +228,7 @@ def wrap_lines(
         held = _nowrap_ranges(nowrap_ranges)
         clones = _clone_ranges(clone_ranges, len(source))
         hyphen_mark = _used_hyphen_mark(hyphenate_character)
-        trim_start = _trim_start_enabled(text_spacing_trim)
+        trim_mode = _trim_mode(text_spacing_trim)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -230,7 +242,7 @@ def wrap_lines(
     token = _HANGING.set(hanging)
     clone_token = _CLONE.set(clones)
     mark_token = _HYPHEN_MARK.set(hyphen_mark)
-    trim_token = _TRIM_START.set(trim_start)
+    trim_token = _TRIM_MODE.set(trim_mode)
     try:
         lines = _lay_out(
             tokens,
@@ -279,7 +291,7 @@ def wrap_lines(
         _HANGING.reset(token)
         _CLONE.reset(clone_token)
         _HYPHEN_MARK.reset(mark_token)
-        _TRIM_START.reset(trim_token)
+        _TRIM_MODE.reset(trim_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -436,7 +448,7 @@ def _styled_breaks(
         held = _nowrap_ranges(nowrap_ranges)
         clones = _clone_ranges(clone_ranges, len(source))
         hyphen_mark = _used_hyphen_mark(hyphenate_character)
-        trim_start = _trim_start_enabled(text_spacing_trim)
+        trim_mode = _trim_mode(text_spacing_trim)
         if word == "break-word":
             word = "normal"
             overflow = "anywhere"
@@ -450,7 +462,7 @@ def _styled_breaks(
     token = _HANGING.set(hanging)
     clone_token = _CLONE.set(clones)
     mark_token = _HYPHEN_MARK.set(hyphen_mark)
-    trim_token = _TRIM_START.set(trim_start)
+    trim_token = _TRIM_MODE.set(trim_mode)
     try:
         try:
             lines = layout(
@@ -501,7 +513,7 @@ def _styled_breaks(
         _HANGING.reset(token)
         _CLONE.reset(clone_token)
         _HYPHEN_MARK.reset(mark_token)
-        _TRIM_START.reset(trim_token)
+        _TRIM_MODE.reset(trim_token)
     return {
         "outcome": "wrapped",
         "lines": lines,
@@ -1219,14 +1231,14 @@ def _closes(ch: str) -> bool:
     return _category(ch) in {"Pe", "Pf"}
 
 
-def _trim_start_enabled(value: object) -> bool:
+def _trim_mode(value: object) -> str:
     if not isinstance(value, str):
         raise _Invalid("text_spacing_trim is not a supported keyword")
     text = " ".join(value.strip().lower().split())
     if text in {"", "space-all", "off"}:
-        return False
-    if text == "trim-start":
-        return True
+        return ""
+    if text in {"trim-start", "normal"}:
+        return text
     raise _Invalid("text_spacing_trim is not a supported keyword")
 
 
@@ -1256,11 +1268,90 @@ def _trimmed_half(advance: float) -> float:
     return half if half > 0 else 0.0
 
 
+def _fullwidth_closing(ch: str) -> bool:
+    """CSS Text fullwidth closing punctuation. Japanese colon stays a middle dot."""
+
+    if ch in {"\u2019", "\u201d"} or ch in _FULLWIDTH_DOT:
+        return True
+    if ch in _MIDDLE_DOT or len(ch) != 1 or _category(ch) != "Pe":
+        return False
+    code = ord(ch)
+    if 0x3000 <= code <= 0x303F:
+        return True
+    return _east(ch) == "F"
+
+
+def _middle_dot(ch: str) -> bool:
+    return ch in _MIDDLE_DOT
+
+
+def _spacing_characters(tokens: list[_Tok], low: int, high: int) -> list[int]:
+    return [
+        index
+        for index in range(low, high)
+        if tokens[index].grapheme_start
+        and tokens[index].ch
+        and tokens[index].kind in {"glyph", "sep", "nbsp", "space"}
+    ]
+
+
 def _opening_trim(tokens: list[_Tok], low: int, high: int) -> float:
-    if not _TRIM_START.get() or low >= high:
+    if _TRIM_MODE.get() != "trim-start" or low >= high:
         return 0.0
     tok = tokens[low]
     if not tok.grapheme_start or tok.kind != "glyph" or not _fullwidth_opening(tok.ch):
+        return 0.0
+    return _trimmed_half(tok.advance)
+
+
+def _opening_collapses(tok: _Tok, previous: _Tok | None) -> bool:
+    if previous is None or tok.kind != "glyph" or not _fullwidth_opening(tok.ch):
+        return False
+    if _fullwidth_opening(previous.ch) or _middle_dot(previous.ch) or previous.ch == "\u3000":
+        return True
+    if _category(previous.ch) == "Ps":
+        return True
+    return _fullwidth_closing(previous.ch) and previous.advance + _EPS >= tok.advance
+
+
+def _closing_collapses(tok: _Tok, following: _Tok | None) -> bool:
+    if following is None or tok.kind != "glyph" or not _fullwidth_closing(tok.ch):
+        return False
+    if _fullwidth_closing(following.ch) or _middle_dot(following.ch) or following.ch == "\u3000":
+        return True
+    if _category(following.ch) == "Pe":
+        return True
+    return _fullwidth_opening(following.ch) and following.advance > tok.advance + _EPS
+
+
+def _adjacent_trim(tokens: list[_Tok], low: int, high: int) -> float:
+    """Half-width advance removed from punctuation that touches a neighbor."""
+
+    if _TRIM_MODE.get() != "normal" or low >= high:
+        return 0.0
+    indexes = _spacing_characters(tokens, low, high)
+    removed = 0.0
+    for pos, index in enumerate(indexes):
+        tok = tokens[index]
+        previous = tokens[indexes[pos - 1]] if pos else None
+        following = tokens[indexes[pos + 1]] if pos + 1 < len(indexes) else None
+        if _opening_collapses(tok, previous) or _closing_collapses(tok, following):
+            removed += _trimmed_half(tok.advance)
+    return removed
+
+
+def _allow_end_trim(tokens: list[_Tok], low: int, high: int, content: float, width: float) -> float:
+    """Half-width removed from a line-end closing mark that does not fit."""
+
+    if _TRIM_MODE.get() != "normal" or low >= high or content <= width + _EPS:
+        return 0.0
+    if not math.isfinite(width) or width <= 0:
+        return 0.0
+    indexes = _spacing_characters(tokens, low, high)
+    if not indexes:
+        return 0.0
+    tok = tokens[indexes[-1]]
+    if tok.kind != "glyph" or not _fullwidth_closing(tok.ch):
         return 0.0
     return _trimmed_half(tok.advance)
 
@@ -1364,9 +1455,14 @@ def _measure(
         at_segment_end=at_segment_end,
         before_forced=before_forced,
     )
-    trimmed = _opening_trim(tokens, low, high)
+    trimmed = _opening_trim(tokens, low, high) + _adjacent_trim(tokens, low, high)
     content -= trimmed
     full -= trimmed
+    if content < 0:
+        content = 0.0
+    end_trim = _allow_end_trim(tokens, low, high, content, width)
+    content -= end_trim
+    full -= end_trim
     if content < 0:
         content = 0.0
     if full < content:

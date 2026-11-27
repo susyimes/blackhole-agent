@@ -169,8 +169,9 @@ The character stays in the line text. An even em loses exactly half; an odd
 pixel advance keeps the floor of half so the used width stays integral.
 Under ``word-break: break-all``, a 15px line at 10px can then hold U+FF08
 and the next character, and the following block starts higher. An ASCII
-parenthesis is not in the class. ``normal`` stays rejected until adjacent
-punctuation collapsing exists. ``trim-both`` and any other keyword are
+parenthesis is not in the class. ``normal`` keeps a line-start opening at
+full width, collapses an adjacent fullwidth pair, and halves a line-end
+closing only when that full advance does not fit. ``trim-both`` stays
 rejected. A vertical or non-ltr box, preserved white space, extra spacing,
 hanging punctuation, indentation, a float, an atomic inline, a list item,
 and an inline declaration are rejected.
@@ -3775,7 +3776,7 @@ def _solve(
     horizontal = flow["horizontal"] is True
     if box.initial_letter:
         _reject_initial_letter_context(box, horizontal)
-    if box.text_spacing_trim == "trim-start" and (box.inline_text or "").strip():
+    if box.text_spacing_trim in {"trim-start", "normal"} and (box.inline_text or "").strip():
         _reject_text_spacing_trim(box)
     if box.display == "flow-root":
         if not horizontal or box.direction != "ltr":
@@ -6123,8 +6124,9 @@ def _read_text_spacing_trim(value: str | None, parent: str) -> str:
         return "space-all"
     if text == "trim-start":
         return "trim-start"
+    if text == "normal":
+        return "normal"
     if text in {
-        "normal",
         "auto",
         "trim-both",
         "trim-all",
@@ -6141,9 +6143,9 @@ def _read_text_spacing_trim(value: str | None, parent: str) -> str:
 
 
 def _reject_text_spacing_trim(box: _Box) -> None:
-    """Keep line-start trimming on one horizontal left-to-right run of plain text."""
+    """Keep punctuation trimming on one horizontal left-to-right run of plain text."""
 
-    if box.text_spacing_trim != "trim-start":
+    if box.text_spacing_trim not in {"trim-start", "normal"}:
         return
     if not (box.inline_text or "").strip() and box.white_space == "normal":
         return

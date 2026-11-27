@@ -7,7 +7,7 @@ leaves two 10px lines and starts the following block at y 20. U+201C and
 U+300C trim the same way. An ASCII parenthesis does not. On a 20px block,
 AA U+FF08 A stays two lines and the second line is 15px wide under
 trim-start, 20px when the property is omitted. A child inherits the trim.
-normal and trim-both are rejected.
+normal keeps a line-start opening at full width. trim-both is rejected.
 
 Prints JSON with boolean passed and nonempty observed. Exit 0 either way.
 """
@@ -134,7 +134,8 @@ def main() -> None:
         "opening_mark_after_a_letter_trims_on_the_next_line": _two(end_mark["lines"], "A", _OPEN, 10, 5, 10)
         and end_mark["next_y"] == 20,
         "child_inherits_trim_start": _one(inherited["lines"], opened, 15) and inherited["next_y"] == 10,
-        "normal_is_rejected": normal["outcome"] != "placed",
+        "normal_keeps_a_line_start_opening_full": _two(normal["lines"], _OPEN, "A", 10, 10, 10)
+        and normal["next_y"] == 20,
         "trim_both_is_rejected": both["outcome"] != "placed",
     }
     observed = {
