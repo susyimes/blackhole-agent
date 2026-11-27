@@ -194,7 +194,14 @@ to one character. ``break-word`` splits the same definite line and leaves that
 minimum at the whole word. ``keep-all`` keeps a Han run together for the
 minimum and still wraps it inside a definite measure. ``word-wrap`` is the
 same property as ``overflow-wrap``. Any other keyword is invalid, and a
-declaration of either property on an inline is rejected. ``hyphens`` is
+declaration of either property on an inline is rejected. ``line-break`` is
+inherited. ``auto`` and ``normal`` may break before a wavedash in Chinese
+or Japanese, so U+6587 U+301C in a one-em measure is two lines and the
+following block starts under both. ``strict`` keeps that pair on one
+overflowing line, so the following block starts one line higher. ``loose``
+also breaks before a small kana. ``anywhere`` breaks between Latin letters
+and can add a line. A vertical or non-ltr box, and a declaration on an
+inline, are rejected. ``hyphens`` is
 inherited. ``manual`` breaks only at a soft hyphen, and ``none`` does not
 break there. ``auto`` also breaks an English word, when the element's
 language is ``en``, at a Liang pattern boundary and draws U+2010 on the
@@ -1089,6 +1096,7 @@ _FONT = {
     "overflow-wrap": "normal",
     "word-break": "normal",
     "hyphens": "manual",
+    "line-break": "auto",
     "hyphenate-character": "\u2010",
     "lang": "",
     "hanging-punctuation": "none",
@@ -1118,6 +1126,7 @@ _WHITES = frozenset({"normal", "nowrap", "pre", "pre-wrap", "break-spaces", "pre
 _OVERFLOW_WRAPS = frozenset({"normal", "break-word", "anywhere"})
 _WORD_BREAKS = frozenset({"normal", "keep-all", "break-all", "break-word"})
 _HYPHENS = frozenset({"none", "manual", "auto"})
+_LINE_BREAKS = frozenset({"auto", "loose", "normal", "strict", "anywhere"})
 _TRANSFORMS = frozenset({"none", "uppercase", "lowercase", "capitalize"})
 _TRANSFORM_REJECTED_DISPLAYS = frozenset(
     {"flex", "inline-flex", "grid", "table", "table-row", "table-cell", "table-caption"}
@@ -1153,6 +1162,7 @@ _INLINE_REJECTED = (
     "word-wrap",
     "word-break",
     "hyphens",
+    "line-break",
     "hyphenate-character",
     "hanging-punctuation",
     "text-spacing-trim",
@@ -1275,6 +1285,7 @@ class _Box:
     overflow_wrap: str = "normal"
     word_break: str = "normal"
     hyphens: str = "manual"
+    line_break: str = "auto"
     hyphenate_character: str = "\u2010"
     lang: str = ""
     hanging_punctuation: str = "none"
@@ -2328,6 +2339,12 @@ def _make_box(
             fonts["hyphens"],
             _FONT["hyphens"],
             "hyphens",
+        ),
+        line_break=_read_line_break(
+            _declared(winners, "line-break", custom),
+            fonts["line-break"],
+            mode,
+            direction,
         ),
         hyphenate_character=_read_hyphenate_character(
             _declared(winners, "hyphenate-character", custom),
@@ -4781,6 +4798,7 @@ def _fonts(box: _Box) -> dict[str, str]:
         "overflow-wrap": box.overflow_wrap,
         "word-break": box.word_break,
         "hyphens": box.hyphens,
+        "line-break": box.line_break,
         "hyphenate-character": box.hyphenate_character,
         "lang": box.lang,
         "hanging-punctuation": box.hanging_punctuation,
@@ -4959,6 +4977,7 @@ def _make_anonymous_block(
         overflow_wrap=parent.overflow_wrap,
         word_break=parent.word_break,
         hyphens=parent.hyphens,
+        line_break=parent.line_break,
         hyphenate_character=parent.hyphenate_character,
         lang=parent.lang,
         hanging_punctuation=parent.hanging_punctuation,
@@ -5873,6 +5892,7 @@ def _break_args(box: _Box) -> dict[str, object]:
         "word_break": box.word_break,
         "tab_size": _tab_size_number(box),
         "hyphens": box.hyphens,
+        "line_break": box.line_break,
         "lang": box.lang,
         "hanging_punctuation": box.hanging_punctuation,
         "hyphenate_character": box.hyphenate_character,
@@ -6340,6 +6360,15 @@ def _inherited_keyword(
     if token not in allowed:
         raise _Invalid(f"{name} is invalid")
     return token
+
+
+def _read_line_break(value: str | None, parent: str, mode: str, direction: str) -> str:
+    """Computed ``line-break``. A horizontal left-to-right box may leave ``auto``."""
+
+    chosen = _inherited_keyword(value, _LINE_BREAKS, parent, _FONT["line-break"], "line-break")
+    if chosen != "auto" and (mode != "horizontal-tb" or direction != "ltr"):
+        raise _Invalid("line-break writing mode is unsupported")
+    return chosen
 
 
 def _used_text_transform(value: str | None, parent: str, mode: str, direction: str, display: str) -> str:
@@ -13475,6 +13504,7 @@ def _flush_flex_text(
             overflow_wrap=host.overflow_wrap,
             word_break=host.word_break,
             hyphens=host.hyphens,
+            line_break=host.line_break,
             hyphenate_character=host.hyphenate_character,
             lang=host.lang,
             hanging_punctuation=host.hanging_punctuation,
