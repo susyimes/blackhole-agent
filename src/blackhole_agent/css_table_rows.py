@@ -33,7 +33,10 @@ The caller supplies content heights and baselines. This does not break text,
 collapse borders, or size columns. ``border_spacing`` matches
 ``layout_auto_columns``: one gap before the first row, one after the last,
 and one between each pair. Those outer gaps are part of the table height and
-are not part of a cell's border box.
+are not part of a cell's border box. A row listed in ``collapsed_rows`` has
+height zero and does not keep the gap after itself, so a hidden empty row
+leaves spacing on only one side. The leading gap stays, including when every
+row is collapsed.
 """
 
 from __future__ import annotations
@@ -74,6 +77,7 @@ def layout_table_rows(
     *,
     table_height: object = "auto",
     border_spacing: object = 0,
+    collapsed_rows: object = (),
 ) -> dict[str, object]:
     """Return used row heights and each cell's content position.
 
@@ -82,27 +86,37 @@ def layout_table_rows(
     ``row``, ``content_height``, and optionally ``rowspan``, ``baseline``,
     ``vertical_align``, and ``height``. ``table_height`` is ``auto`` or a
     resolved length. ``border_spacing`` is the vertical border-spacing.
+    ``collapsed_rows`` lists rows whose height is forced to zero and whose
+    trailing border-spacing gap is omitted.
     """
 
     try:
         parsed_rows = _rows(rows)
         parsed_cells = _cells(cells, len(parsed_rows))
+        collapsed = _collapsed(collapsed_rows, len(parsed_rows))
         specified = _table_height(table_height)
         spacing = _length(border_spacing, "border_spacing")
         bases, baselines, auto = _pass(parsed_rows, parsed_cells, specified, spacing, False)
+        for index in collapsed:
+            bases[index] = 0.0
+            auto[index] = False
         if specified is None:
             refs = bases
         else:
             refs, _, _ = _pass(parsed_rows, parsed_cells, specified, spacing, True)
+            for index in collapsed:
+                refs[index] = 0.0
             refs = [max(base, ref) for base, ref in zip(bases, refs)]
-        heights = _finalize(bases, refs, auto, specified, spacing)
+        heights = _finalize(bases, refs, auto, specified, spacing, collapsed)
+        for index in collapsed:
+            heights[index] = 0.0
     except _Invalid as exc:
         return _invalid(exc.reason)
 
     placed = [
-        _place(cell, heights, baselines, spacing) for cell in parsed_cells
+        _place(cell, heights, baselines, spacing, collapsed) for cell in parsed_cells
     ]
-    edge = (len(heights) + 1) * spacing
+    edge = _spacing_slots(len(heights), collapsed) * spacing
     return {
         "outcome": "resolved",
         "reason": None,
@@ -217,9 +231,10 @@ def _finalize(
     auto: list[bool],
     table_height: float | None,
     spacing: float,
+    collapsed: set[int],
 ) -> list[float]:
     count = len(bases)
-    edge = (count + 1) * spacing
+    edge = _spacing_slots(count, collapsed) * spacing
     base_sum = sum(bases)
     ref_sum = sum(refs)
     base_grid = base_sum + edge
@@ -236,7 +251,9 @@ def _finalize(
             portion = 1.0
         return [base + portion * (ref - base) for base, ref in zip(bases, refs)]
     extra = target_grid - ref_grid
-    chosen = [index for index, flag in enumerate(auto) if flag]
+    chosen = [index for index, flag in enumerate(auto) if flag and index not in collapsed]
+    if not chosen:
+        chosen = [index for index in range(count) if index not in collapsed]
     if not chosen:
         chosen = list(range(count))
     share = extra / len(chosen)
@@ -251,8 +268,9 @@ def _place(
     heights: list[float],
     baselines: list[float],
     spacing: float,
+    collapsed: set[int],
 ) -> dict[str, object]:
-    block = _span_size(heights, spacing, cell.row, cell.rowspan)
+    block = _span_size(heights, spacing, cell.row, cell.rowspan, collapsed)
     if cell.align == "top":
         content_top = 0.0
     elif cell.align == "bottom":
@@ -264,25 +282,49 @@ def _place(
     return {
         "id": cell.id,
         "content_top": _number(content_top),
-        "border_top": _number(_border_top(heights, spacing, cell.row)),
+        "border_top": _number(_border_top(heights, spacing, cell.row, collapsed)),
         "border_height": _number(block),
     }
 
 
-def _span_size(heights: list[float], spacing: float, row: int, span: int) -> float:
+def _span_size(
+    heights: list[float], spacing: float, row: int, span: int, collapsed: set[int]
+) -> float:
     size = 0.0
     for offset in range(span):
         size += heights[row + offset]
         if offset:
-            size += spacing
+            size += _gap_after(row + offset - 1, spacing, collapsed)
     return size
 
 
-def _border_top(heights: list[float], spacing: float, row: int) -> float:
+def _border_top(heights: list[float], spacing: float, row: int, collapsed: set[int]) -> float:
     top = spacing
     for index in range(row):
-        top += heights[index] + spacing
+        top += heights[index] + _gap_after(index, spacing, collapsed)
     return top
+
+
+def _gap_after(index: int, spacing: float, collapsed: set[int]) -> float:
+    if index in collapsed:
+        return 0.0
+    return spacing
+
+
+def _spacing_slots(count: int, collapsed: set[int]) -> int:
+    return 1 + sum(1 for index in range(count) if index not in collapsed)
+
+
+def _collapsed(value: object, count: int) -> set[int]:
+    if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple, set, frozenset)):
+        raise _Invalid("collapsed_rows")
+    chosen: set[int] = set()
+    for item in value:
+        index = _index(item, "collapsed_rows")
+        if index >= count:
+            raise _Invalid("collapsed_rows")
+        chosen.add(index)
+    return chosen
 
 
 def _specified_length(

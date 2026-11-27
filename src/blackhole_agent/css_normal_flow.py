@@ -476,7 +476,16 @@ separates those cells. A horizontal length opens a gap between adjoining
 columns, and a vertical length opens a gap between rows. An automatic table
 width also keeps that horizontal gap outside both edges. A fixed table width
 keeps it only between columns. ``border-collapse: collapse`` ignores the
-spacing. A negative length is rejected. A static text caption stacks in
+spacing. A negative length is rejected. ``empty-cells`` applies to cells and
+inherits. An empty cell lays out: with no visible content its row content
+height is zero, and ``show`` keeps a vertical border-spacing gap on both
+sides of that row. ``hide`` omits the gap after a row whose originating
+cells are all ``hide`` and have no visible content, so the row height is
+zero and only one side of the spacing remains. The leading gap stays when
+every row is omitted. Text, a preserved space, a block child, one ``show``
+cell, or a rowspan that covers the row keeps it. ``border-collapse:
+collapse`` ignores ``empty-cells``. A specified table height that would omit
+a row is rejected. Any other keyword is rejected. A static text caption stacks in
 that content box: ``caption-side: top`` sits above the grid and
 ``caption-side: bottom`` sits under it. The caption wraps to the table's
 used width and does not change the columns, so the following block starts
@@ -16339,6 +16348,7 @@ def _table_cells(
                 _reject_table_text(getattr(grand, "tail", None))
             cell.inline_text = _leaf_generated(tree, child)
         cell.table = _table_cell(tree, child, styles, declarations)
+        cell.table["empty_cells"] = _empty_cells_value(tree, child, styles, declarations)
         if collapse:
             cell.table["borders"] = _specified_borders(cell)
         cells.append(cell)
@@ -16375,6 +16385,66 @@ def _reject_table_edges(box: _Box, *, collapse: bool = False) -> None:
         raise _Invalid("table cell limit is unsupported")
 
 
+_EMPTY_CELL_VALUES = frozenset({"show", "hide"})
+
+
+def _empty_cells_value(tree, element, styles, declarations) -> str:
+    """Used empty-cells for one cell. The property inherits."""
+
+    node = element
+    while node is not None:
+        custom = styles.get(node, ({}, ""))[0]
+        raw = _declared(_winners(tree, node, declarations), "empty-cells", custom)
+        if raw is not None:
+            token = " ".join(raw.strip().lower().split())
+            if token in {"initial", "unset", "revert"}:
+                return "show"
+            if token == "inherit":
+                node = tree.parent.get(node)
+                continue
+            if token not in _EMPTY_CELL_VALUES:
+                raise _Invalid("table empty cells are unsupported")
+            return token
+        node = tree.parent.get(node)
+    return "show"
+
+
+def _cell_has_visible_content(cell: _Box) -> bool:
+    if cell.children:
+        return True
+    text = cell.inline_text or ""
+    if cell.white_space in _COLLAPSED_EMPTY:
+        return bool(text.strip())
+    return bool(text)
+
+
+def _row_covered_by_span(rows: list[_Box], index: int) -> bool:
+    for earlier, row in enumerate(rows[:index]):
+        for cell in row.children:
+            rowspan = int((cell.table or {}).get("rowspan") or 1)
+            if earlier + rowspan > index:
+                return True
+    return False
+
+
+def _collapsed_empty_rows(rows: list[_Box]) -> list[int]:
+    """Rows whose cells are all hidden and empty. Spanned rows stay."""
+
+    chosen: list[int] = []
+    for index, row in enumerate(rows):
+        if not row.children or _row_covered_by_span(rows, index):
+            continue
+        if any(int((cell.table or {}).get("rowspan") or 1) != 1 for cell in row.children):
+            continue
+        if all(
+            str((cell.table or {}).get("empty_cells") or "show") == "hide"
+            and not _cell_has_visible_content(cell)
+            for cell in row.children
+        ):
+            chosen.append(index)
+    return chosen
+
+
 def _table_container(tree, element, styles, declarations) -> dict[str, object]:
     custom = styles.get(element, ({}, ""))[0]
     layout = "auto"
@@ -16401,8 +16471,8 @@ def _table_container(tree, element, styles, declarations) -> dict[str, object]:
         if prop == "caption-side":
             caption_side = _caption_side_token(value)
             continue
-        if prop == "empty-cells" and value not in {"show", "initial", "unset", "revert"}:
-            raise _Invalid("table empty cells are unsupported")
+        if prop == "empty-cells":
+            continue
     return {
         "layout": layout,
         "collapse": collapse,
@@ -16774,6 +16844,8 @@ def _cell_content_baseline(cell: _Box) -> int:
 
     if cell.lines:
         return int(cell.lines[0].baseline)
+    if not cell.solved or cell.solved.get("border_top") is None:
+        return 0
     found = _first_block_baseline(cell, -_edge_extent(cell.solved, "top"))
     return 0 if found is None else found
 
@@ -16952,11 +17024,15 @@ def _place_table(box: _Box, content_x: int) -> None:
                     "vertical_align": str((cell.table or {}).get("vertical_align") or "baseline"),
                 }
             )
+    collapsed_rows = [] if collapse else _collapsed_empty_rows(rows)
+    if collapsed_rows and box.definite_height is not None:
+        raise _Invalid("table empty cells height is unsupported")
     laid = layout_table_rows(
         ["auto"] * len(rows),
         row_cells,
         table_height="auto" if box.definite_height is None else box.definite_height,
         border_spacing=spacing_y,
+        collapsed_rows=collapsed_rows,
     )
     placed = laid.get("cells")
     heights = laid.get("row_heights")
