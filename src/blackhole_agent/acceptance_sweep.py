@@ -1,17 +1,10 @@
-"""Execute every standalone acceptance probe and aggregate the verdicts.
+"""Sweep standalone acceptance scripts against the requested checkout.
 
-Probes under ``tests/acceptance`` are scripts, not pytest tests: each
-prints a JSON object with boolean ``passed`` and nonempty ``observed`` and
-exits 0 for both met and unmet outcomes so the controller can replay the
-same file against baseline and candidate source trees. Several legacy
-probes call ``sys.exit`` at module scope, which aborts pytest collection,
-so they are excluded from pytest and swept here instead, each in a fresh
-subprocess with a durable-state overlay that keeps the worktree clean.
-
-CLI: ``python -m blackhole_agent.acceptance_sweep [--repo PATH]
-[--timeout SECONDS] [--probe NAME ...]`` prints the aggregate report and
-exits 0 only when every selected probe ran to completion with a parseable
-verdict (met and unmet outcomes both count; crashes and timeouts do not).
+Run each tests/acceptance script in a fresh process with its own durable state.
+Legacy probes can call sys.exit at module scope. Each prints a JSON verdict
+with boolean ``passed`` and nonempty ``observed``.
+``python -m blackhole_agent.acceptance_sweep [--repo PATH] [--probe NAME ...]``
+exits zero when every selected script exits zero with a valid met or unmet verdict.
 """
 
 from __future__ import annotations
@@ -20,11 +13,12 @@ import argparse
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Any, Sequence
+
+from blackhole_agent.behavior_acceptance import execute_outcome_probe
 
 DEFAULT_PROBE_TIMEOUT = 300
 
@@ -63,40 +57,34 @@ def run_probe(probe: Path, *, timeout: int = DEFAULT_PROBE_TIMEOUT, env: dict[st
         "passed": None,
         "observed": None,
         "error": "",
-        "duration_seconds": 0.0,
     }
     started = time.monotonic()
+    script = probe.absolute()
+    repo = script.parent.parent.parent if script.parent.name == "acceptance" else None
     try:
-        completed = subprocess.run(
-            [sys.executable, str(probe)],
-            cwd=str(probe.parent.parent.parent) if probe.parent.name == "acceptance" else None,
-            env=env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
+        completed = execute_outcome_probe(
+            repo / "src" if repo else None, script,
+            cwd=repo or Path.cwd(), env=env, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         record["timed_out"] = True
         record["error"] = f"probe exceeded {timeout}s"
-        record["duration_seconds"] = round(time.monotonic() - started, 3)
         return record
     except OSError as error:
         record["error"] = f"{type(error).__name__}: {error}"
-        record["duration_seconds"] = round(time.monotonic() - started, 3)
         return record
-    record["duration_seconds"] = round(time.monotonic() - started, 3)
-    record["exit_code"] = completed.returncode
-    verdict = _parse_verdict(completed.stdout)
+    finally:
+        record["duration_seconds"] = round(time.monotonic() - started, 3)
+    record["exit_code"] = completed["exit_code"]
+    verdict = _parse_verdict(completed["stdout"])
     if verdict is None:
         record["error"] = "probe did not print a JSON verdict with boolean passed and nonempty observed"
-        record["stderr_tail"] = completed.stderr[-400:]
+        record["stderr_tail"] = completed["stderr"][-400:]
         return record
     record["passed"] = verdict["passed"]
     record["observed"] = verdict["observed"]
-    if completed.returncode != 0:
-        record["error"] = f"probe exited {completed.returncode}; the contract requires exit 0 for met and unmet outcomes"
+    if completed["exit_code"] != 0:
+        record["error"] = f"probe exited {completed['exit_code']}; the contract requires exit 0 for met and unmet outcomes"
     return record
 
 
@@ -112,10 +100,10 @@ def sweep_acceptance_probes(
     if only:
         wanted = {Path(name).stem for name in only}
         probes = [probe for probe in probes if probe.stem in wanted]
-    env = dict(os.environ)
-    with tempfile.TemporaryDirectory(prefix="blackhole-acceptance-sweep-") as overlay:
-        env["BLACKHOLE_DURABLE_ROOT"] = overlay
-        records = [run_probe(probe, timeout=timeout, env=env) for probe in probes]
+    records = []
+    for probe in probes:
+        with tempfile.TemporaryDirectory(prefix="blackhole-acceptance-sweep-") as overlay:
+            records.append(run_probe(probe, timeout=timeout, env={**os.environ, "BLACKHOLE_DURABLE_ROOT": overlay}))
     report: dict[str, Any] = {
         "total": len(records),
         "executed": sum(1 for record in records if record["exit_code"] is not None),

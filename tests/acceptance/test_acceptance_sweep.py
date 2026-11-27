@@ -1,80 +1,106 @@
-"""Acceptance probe: the acceptance sweep adjudicates standalone probes.
-
-Prints JSON with boolean passed and nonempty observed. Exits 0 for both
-met and unmet outcomes so the controller can replay the same probe on
-baseline and candidate source trees.
-"""
-
-from __future__ import annotations
+"""A till and its Python worker issue receipts during a checkout sweep and Git replay."""
 
 import json
+import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
-_MET_PROBE = """import json
-print(json.dumps({"passed": True, "observed": {"sentinel": "MET"}}))
+
+TILL = """import json, os
+from pathlib import Path
+
+def sale(units):
+    book = Path(os.environ["BLACKHOLE_DURABLE_ROOT"]) / "receipts"
+    book.parent.mkdir(parents=True, exist_ok=True)
+    with book.open("a+", encoding="ascii") as entries:
+        entries.seek(0)
+        number = len(entries.readlines()) + 1
+        cents = PRICE
+        print(cents, file=entries)
+    return [number, cents]
+
+if __name__ == "__main__":
+    print(json.dumps(sale(3)))
+"""
+ORDER = """import json, subprocess, sys
+from till import sale
+
+counter = sale(3)
+worker = json.loads(subprocess.check_output([sys.executable, "-m", "till"], timeout=10))
+print(json.dumps({"passed": [counter, worker] == [[1, EXPECTED], [2, EXPECTED]], "observed": [counter, worker]}))
 """
 
-_UNMET_PROBE = """import json, sys
-print(json.dumps({"passed": False, "observed": {"sentinel": "UNMET"}}))
-sys.exit(0)
-"""
 
-_CRASHED_PROBE = """import sys
-sys.stderr.write("boom")
-sys.exit(3)
-"""
-
-
-def main() -> dict[str, object]:
-    observed: dict[str, object] = {"family": "acceptance-sweep"}
+def main():
     try:
-        from blackhole_agent.acceptance_sweep import iter_acceptance_probes, sweep_acceptance_probes
-    except Exception as error:  # baseline source tree has no sweep runner
-        observed["error"] = type(error).__name__
-        observed["detail"] = str(error)
-        return {"passed": False, "observed": observed}
+        from blackhole_agent import acceptance_sweep
+        from blackhole_agent.behavior_acceptance import replay_behavior_acceptance
+    except ImportError as exc:
+        return {"passed": False, "observed": str(exc)}
 
-    with tempfile.TemporaryDirectory(prefix="acceptance-sweep-probe-") as directory:
-        repo = Path(directory)
-        acceptance = repo / "tests" / "acceptance"
-        acceptance.mkdir(parents=True)
-        (acceptance / "test_met.py").write_text(_MET_PROBE, encoding="utf-8")
-        (acceptance / "test_unmet.py").write_text(_UNMET_PROBE, encoding="utf-8")
-        (acceptance / "test_crashed.py").write_text(_CRASHED_PROBE, encoding="utf-8")
-        (acceptance / "helper.py").write_text("raise RuntimeError('must not be collected')\n", encoding="utf-8")
+    with tempfile.TemporaryDirectory(prefix="till-sweep-") as directory:
+        root = Path(directory)
+        shop = root / "shop checkout"
+        probes = shop / "tests" / "acceptance"
+        probes.mkdir(parents=True)
+        source = shop / "src"
+        source.mkdir()
+        foreign = root / "other checkout" / "src"
+        foreign.mkdir(parents=True)
+        (foreign / "till.py").write_text(TILL.replace("PRICE", "999"), encoding="utf-8")
+        till = source / "till.py"
+        till.write_text(TILL.replace("PRICE", "units * 125"), encoding="utf-8")
+        for args in (["init", "-q"], ["add", "src"], ["commit", "-qm", "full-price orders"]):
+            subprocess.run(
+                ["git", "-c", "user.name=Till", "-c", "user.email=till@example.invalid",
+                 "-c", "commit.gpgSign=false", "-c", "core.hooksPath=.no-hooks", *args],
+                cwd=shop, capture_output=True, check=True, timeout=15,
+            )
+        till.write_text(TILL.replace("PRICE", "(units - units // 3) * 125"), encoding="utf-8")
+        for name, price in (("test_discount", 250), ("test_full_price", 375)):
+            (probes / f"{name}.py").write_text(ORDER.replace("EXPECTED", str(price)), encoding="utf-8")
+        (probes / "helper.py").write_text("raise RuntimeError('not a probe')", encoding="utf-8")
 
-        discovered = [path.name for path in iter_acceptance_probes(repo)]
-        report = sweep_acceptance_probes(repo, timeout=60)
+        def sweep(repo):
+            runner = Path(acceptance_sweep.__file__).resolve().parents[1]
+            result = subprocess.run(
+                [sys.executable, "-m", "blackhole_agent.acceptance_sweep", "--repo", str(repo)],
+                cwd=root, env={**os.environ, "PYTHONPATH": os.pathsep.join(map(str, (runner, foreign)))},
+                capture_output=True, check=False, timeout=30,
+            )
+            try:
+                report = json.loads(result.stdout)
+            except ValueError:
+                return {"exit": result.returncode, "stderr": result.stderr.decode("utf-8", "replace")[-400:]}
+            return {
+                "exit": result.returncode, "ok": report["ok"],
+                "counts": [report[k] for k in ("total", "met", "unmet", "crashed")],
+                "sales": {
+                    Path(row["path"]).stem: [row["exit_code"], row["passed"], row["observed"]]
+                    for row in report["probes"]
+                },
+            }
 
-    by_name = {Path(record["path"]).name: record for record in report["probes"]}
-    met = by_name.get("test_met.py", {})
-    unmet = by_name.get("test_unmet.py", {})
-    crashed = by_name.get("test_crashed.py", {})
-    checks = {
-        "discovers_only_test_probes": discovered == ["test_crashed.py", "test_met.py", "test_unmet.py"],
-        "met_probe_adjudicated": met.get("passed") is True and met.get("exit_code") == 0,
-        "unmet_probe_adjudicated": unmet.get("passed") is False and unmet.get("exit_code") == 0,
-        "crash_flagged_not_unmet": crashed.get("passed") is None and crashed.get("exit_code") == 3,
-        "aggregate_counts": (
-            report.get("total") == 3
-            and report.get("met") == 1
-            and report.get("unmet") == 1
-            and report.get("crashed") == 1
-        ),
-        "crashed_probe_fails_sweep": report.get("ok") is False,
-    }
-    observed.update(
-        {
-            "checks": checks,
-            "report": {key: report.get(key) for key in ("total", "met", "unmet", "crashed", "timed_out", "ok")},
-            "sentinel": "BH-ACCEPTANCE-SWEEP-OK" if all(checks.values()) else "",
-        }
-    )
-    return {"passed": bool(all(checks.values())), "observed": observed}
+        relative, absolute = sweep(shop.name), sweep(shop)
+        with patch.dict(os.environ, {"PYTHONPATH": str(foreign)}):
+            replay = replay_behavior_acceptance(shop, "HEAD", "tests/acceptance/test_discount.py")
+        sides = [replay.get(side, {}).get("outcome") for side in ("baseline", "candidate")]
+        (probes / "test_fault.py").write_text("raise SystemExit(3)", encoding="utf-8")
+        fault = sweep(shop)
+
+    sales = [[1, 250], [2, 250]]
+    rows = {"test_discount": [0, True, sales], "test_full_price": [0, False, sales]}
+    healthy = {"exit": 0, "ok": True, "counts": [2, 1, 1, 0], "sales": rows}
+    failed = {"exit": 1, "ok": False, "counts": [3, 1, 1, 1], "sales": {**rows, "test_fault": [3, None, None]}}
+    passed = relative == absolute == healthy and fault == failed and replay["ok"] and sides == [
+        {"passed": False, "observed": [[1, 375], [2, 375]]}, {"passed": True, "observed": sales},
+    ]
+    observed = {"relative": relative, "absolute": absolute, "git_replay": sides, "fault": fault}
+    return {"passed": passed, "observed": observed}
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(), sort_keys=True))
-    sys.exit(0)
+    print(json.dumps(main()))

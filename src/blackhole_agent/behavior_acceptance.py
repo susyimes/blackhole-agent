@@ -1,14 +1,8 @@
-"""Replay the same outcome probe against baseline and candidate implementations.
+"""Run the same acceptance script against committed blobs and working-tree bytes.
 
-The probe is an executable Python file under tests/acceptance. It prints a
-JSON object with boolean passed and nonempty observed, exiting zero even for
-an unmet outcome. Each run gets its own copy of src. Leading comments of the
-form "# replay-input: relative/path" also include required files or directories.
-The baseline reads committed blobs. The candidate reads the working bytes of
-tracked and nonignored new files under the same paths.
-
-Isolated children run in UTF-8 mode. A captured pipe would otherwise use the
-ANSI code page, and Hangul on that pipe becomes UnicodeEncodeError.
+Each snapshot includes src and any files or directories declared by leading
+``# replay-input: relative/path`` comments. The candidate reads tracked and
+nonignored new files from the working tree. Each run gets private durable state.
 """
 
 from __future__ import annotations
@@ -23,48 +17,39 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-# ``-I`` ignores PYTHONUTF8. ``-X utf8`` is a command flag, so it still applies.
-# The bootstrap reconfigures the pipe again before the probe prints.
-_UTF8_PROBE_BOOTSTRAP = (
-    "import sys,runpy;"
-    "sys.stdout.reconfigure(encoding='utf-8',errors='strict');"
-    "sys.stderr.reconfigure(encoding='utf-8',errors='backslashreplace');"
-    "sys.path.insert(0,sys.argv[1]);"
-    "runpy.run_path(sys.argv[2],run_name='__main__')"
-)
+_PROBE_BOOTSTRAP = """\
+import os
+import runpy
+import sys
+
+source, script = map(os.path.abspath, sys.argv[1:])
+# The isolated interpreter uses sys.path. Workers launched by the probe inherit PYTHONPATH.
+os.environ["PYTHONPATH"] = source
+sys.path[:0] = [source, os.path.dirname(script)]
+sys.argv = [script]
+sys.stdout.reconfigure(encoding="utf-8", errors="strict")
+sys.stderr.reconfigure(encoding="utf-8", errors="backslashreplace")
+runpy.run_path(script, run_name="__main__")
+"""
 
 
 def outcome_probe_command(implementation: Path, script: Path) -> list[str]:
-    """Return the isolated argv used to run one acceptance probe."""
-
-    return [
-        sys.executable,
-        "-I",
-        "-X",
-        "utf8",
-        "-c",
-        _UTF8_PROBE_BOOTSTRAP,
-        str(implementation),
-        str(script),
-    ]
+    """Select the source for the isolated probe and ordinary Python workers it launches."""
+    return [sys.executable, "-I", "-X", "utf8", "-c", _PROBE_BOOTSTRAP, str(implementation), str(script)]
 
 
 def execute_outcome_probe(
-    implementation: Path,
+    implementation: Path | None,
     script: Path,
     *,
     timeout: int = 120,
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Run one probe and decode its pipe as UTF-8.
-
-    ``stdout`` contains the characters the probe printed, including Hangul
-    that a GBK pipe would have refused to encode.
-    """
-
+    """Capture a probe's UTF-8 output. Standalone scripts can omit a source tree."""
+    command = [sys.executable, str(script)] if implementation is None else outcome_probe_command(implementation, script)
     completed = subprocess.run(
-        outcome_probe_command(implementation, script),
+        command,
         cwd=cwd or Path(script).parent,
         env=env,
         capture_output=True,
@@ -219,14 +204,9 @@ def replay_behavior_acceptance(
                 run_dir.mkdir()
                 script = run_dir / "outcome_probe.py"
                 script.write_bytes(source)
-                env = dict(os.environ)
-                env["BLACKHOLE_DURABLE_ROOT"] = str(run_dir / "durable")
                 completed = execute_outcome_probe(
-                    implementation,
-                    script,
-                    timeout=timeout,
-                    cwd=run_dir,
-                    env=env,
+                    implementation, script, timeout=timeout,
+                    env={**os.environ, "BLACKHOLE_DURABLE_ROOT": str(run_dir / "durable")},
                 )
                 evidence: dict[str, Any] = {
                     "exit_code": completed["exit_code"],
