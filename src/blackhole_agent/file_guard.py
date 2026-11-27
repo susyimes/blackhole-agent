@@ -16,12 +16,16 @@ else:
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+
+
+def atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
     stream = temporary.open("x", encoding="utf-8")
     try:
         with stream:
-            stream.write(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+            stream.write(text)
         for attempt in range(8):
             try:
                 os.replace(temporary, path)

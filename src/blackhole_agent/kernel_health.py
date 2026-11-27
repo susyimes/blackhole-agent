@@ -439,6 +439,7 @@ def invoke_local_kernel(
     *,
     action: Callable[[Any, Path], Mapping[str, Any]] | None = None,
     now: datetime | None = None,
+    output_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Produce a structured Unbound decision without a first-class CLI kernel."""
 
@@ -447,7 +448,7 @@ def invoke_local_kernel(
         or getattr(state, "repo_path", "")
         or turn_dir
     )
-    kernel_dir = Path(turn_dir) / "kernel"
+    kernel_dir = output_dir if output_dir is not None else Path(turn_dir) / "kernel"
     kernel_dir.mkdir(parents=True, exist_ok=True)
     tick = action or default_local_capability_tick
     try:

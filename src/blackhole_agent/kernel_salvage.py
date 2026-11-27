@@ -14,12 +14,15 @@ transcripts, mission identifiers, and the expected next dispatch.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
+import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Mapping
 
+from blackhole_agent.file_guard import atomic_write_text
 from blackhole_agent.kernel_health import (
     CLI_FAILOVER_ORDER,
     FAILOVER_ORDER,
@@ -56,79 +59,8 @@ BACKGROUND_TASK_WAIT = "background_task_wait"
 ABNORMAL_PROCESS_EXIT = "abnormal_process_exit"
 SESSIONLESS_PROCESS_ABORT = "sessionless_process_abort"
 _UNSIGNED_PROCESS_EXIT = 0xFFFFFFFF
-# Quota and auth trip the breaker. A pre-session TLS abort does too: the
-# 2026-10-18 Cursor run exited before a session id existed, and treating it
-# as a retryable CLI error relaunched the same kernel on resume.
-# An occupied session does not trip the breaker. The 2026-09-01 and
-# 2026-09-03 Grok runs exited because ``--session-id`` was already in use;
-# the kernel was healthy, and retrying that same id fails again.
-# A deleted remote session does not trip the breaker either. The 2026-08-13
-# Grok runs exited on ``--resume`` with "Failed to restore session from
-# remote" and "session get failed: 404 Not Found". The kernel was healthy.
-# Resuming that id fails again, so the id is dropped once.
-# Spending-limit and billing-cycle usage limits are quota_exhausted, which
-# is already a trip class. The 2026-07-29 Grok runs and the 2026-08-15 Kimi
-# runs used HTTP 403 instead of HTTP 402.
-# A rejected model trips the breaker too. Retrying Cursor with grok-4.7-xhigh,
-# Kimi with an unconfigured grok-4.6, or Codex with a ChatGPT account that
-# rejects grok-4.6 dies the same way. Failover clears the provider-specific
-# model name.
-# Provider overload trips the breaker too. The harvested Kimi 429 already
-# retried inside the CLI. Launching that kernel again hits the same engine.
-# A missing Codex responses endpoint trips the breaker too. The 2026-09-03
-# run already retried websocket and HTTPS 404s. Launching Codex again hits
-# the same URL.
-# A Kimi APIConnectionError that already used its step retries trips the
-# breaker too. The 2026-07-31 run exited on provider.connection_error after
-# max_attempts 3. Launching Kimi again hits the same dead prompt path.
-# Token-fetch deaths stay auth_failed and are not this class.
-# An unsigned Grok CLI is auth_failed too. The 2026-08-13 runs exited on
-# "Not signed in. Run grok login". Launching Grok again hits the same login
-# wall. A credentials warning without that death line is not this class.
-# A Grok responses stream that already died mid-session trips the breaker
-# on the second death. The 2026-07-29 and 2026-09-10 runs exited on
-# "reqwest error stream" after model calls. The 2026-08-27 run exited 1 on
-# the same sentence while gmail MCP said "timed out"; that substring is not
-# the death. The first death resumes that session once. Launching Grok again
-# after the resume dies hits the same proxy. A telemetry network error is
-# not this class. A bare MCP timeout is not this class.
-# A post-wake authentication blip does not trip the breaker. The 2026-08-23
-# run exited 124 after 90 model calls and said the session was still signed
-# in. Opening auth_failed would take Grok offline. The first blip resumes
-# that session. A second blip fails over and leaves the circuit closed.
-# A token-generation HTTP 500 does not trip the breaker either. The
-# 2026-08-24 run exited 1 after 204 model calls. A grep timeout warning in
-# the same stderr is not the death. The first failure resumes that session.
-# A second generation failure fails over and leaves the circuit closed.
-# An inference idle timeout does not trip the breaker. The 2026-08-25 run
-# exited 124 after 20 model calls with no further chunks. Tool and file-lock
-# "timed out" lines in that stderr are not the death. The first idle death
-# resumes that session. A second idle death fails over and leaves the circuit
-# closed.
-# A reaped resident session actor does not trip the breaker. The 2026-08-26
-# run exited 124 after 26 model calls. The actor for that session id is
-# already DeadFailed, so resuming it cannot continue the work. The first
-# death drops the id and starts a fresh session on the same kernel. A second
-# dead actor fails over and leaves the circuit closed.
-# A thinking doom loop does not trip the breaker. The 2026-10-10 run exited
-# 124 while recovery was still resampling tail_repetition. A grep timeout in
-# that stderr is not the death. The first doom loop resumes that session. A
-# second doom loop fails over and leaves the circuit closed.
-# A background-task wait does not trip the breaker. The 2026-09-12 Kimi run
-# exited 124 while stderr repeated that one background task was still
-# running. A grep or MCP "timed out" line is not this death, and an exit 0
-# that only quotes the sentence is not this death. The first wait continues
-# on the same kernel. A second wait fails over and leaves the circuit closed.
-# An all-ones Windows exit does not trip the breaker. The 2026-07-31 Grok
-# run exited 4294967295 while --resume named a live session and the
-# transcript was empty. Exit 1, exit 124, exit 0, and the same code with no
-# session id are not this death. The first death resumes that session. A
-# second all-ones exit fails over and leaves the circuit closed.
-# A tool result with no session id is not this death either. The 2026-07-31
-# Kimi run exited 4294967295 after stdout contained {"role":"tool" and the
-# command line had no --resume. That continues once on the same kernel
-# without a session. An empty transcript and a sentence that only mentions
-# a tool stay a retryable CLI error. The circuit stays closed.
+
+# Provider failures can change routes. Session-local failures use the retry rules below.
 FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
     {
         PRE_SESSION_TRANSPORT_ABORT,
@@ -729,21 +661,39 @@ def session_id_from_artifact(artifact: Mapping[str, Any] | None) -> str:
 
 def load_kernel_run_artifact(turn_dir: Path, *, kernel: str = "") -> dict[str, Any]:
     kernel_dir = turn_dir / "kernel"
-    if not kernel_dir.is_dir():
+    if kernel and kernel not in FAILOVER_ORDER:
         return {}
-    names = (f"latest-{kernel}-run.json",) if kernel in {*CLI_FAILOVER_ORDER, LOCAL_KERNEL} else ARTIFACT_NAMES
+    names = (f"latest-{kernel}-run.json",) if kernel else ARTIFACT_NAMES
     for name in names:
         path = kernel_dir / name
         if not path.is_file():
             continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             continue
         if isinstance(payload, dict):
             payload["_artifact_path"] = str(path)
             return payload
     return {}
+
+
+def _publish_attempt(attempt: Path, kernel: str) -> None:
+    """Refresh the operator's latest files. Only the attempt's own receipt can drive recovery."""
+    if kernel not in FAILOVER_ORDER:
+        return
+    for suffix in ("run.json", "last-message.md" if kernel == LOCAL_KERNEL else "provider-preflight.json"):
+        name = f"latest-{kernel}-{suffix}"
+        source = attempt / "kernel" / name
+        try:
+            text = source.read_text(encoding="utf-8")
+            if source.suffix == ".json" and not isinstance(json.loads(text), dict):
+                raise ValueError("expected a JSON object")
+            atomic_write_text(attempt.parent / "kernel" / name, text)
+        except FileNotFoundError:
+            continue  # Preflight can fail before the adapter writes a run receipt.
+        except (OSError, ValueError) as error:
+            logging.getLogger(__name__).warning("Could not refresh %s: %s", name, error)
 
 
 def installed_first_class_kernels(*, which: Callable[[str], str | None] = shutil.which) -> set[str]:
@@ -789,114 +739,76 @@ def synthesize_decision(
     current_kernel: str,
     failover_kernel: str = "",
 ) -> dict[str, Any]:
+    status = "continue"
     if failure.class_id == OUTPUT_TRUNCATED:
-        return empty_decision(
-            status="continue",
-            summary=(
-                f"Kernel {current_kernel} truncated by max_tokens. "
-                "The session stays on a decision-only resume and the original "
-                "mission prompt is not replayed."
-            ),
-            strategy=(
-                "Resume the same session with a decision-only prompt. "
-                "Do not replay the full mission prompt."
-            ),
-            next_step="Resume the truncated session with a decision-only prompt.",
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        summary = (
+            f"Kernel {current_kernel} truncated by max_tokens. "
+            "The session stays on a decision-only resume and the original mission prompt is not replayed."
         )
-    if failure.class_id == STEP_RETRIES_EXHAUSTED:
-        return empty_decision(
-            status="continue",
-            summary=(
-                f"Kernel {current_kernel} exhausted its internal step retries. "
-                "The same session continues once without replaying the mission prompt."
-            ),
-            strategy=(
-                "Resume the same session with a continuation prompt. "
-                "Do not abandon the session on the first exhaustion."
-            ),
-            next_step=f"Resume on the {current_kernel} kernel.",
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        strategy = "Resume the same session with a decision-only prompt. Do not replay the full mission prompt."
+        next_step = "Resume the truncated session with a decision-only prompt."
+    elif failure.class_id == STEP_RETRIES_EXHAUSTED:
+        summary = (
+            f"Kernel {current_kernel} exhausted its internal step retries. "
+            "The same session continues once without replaying the mission prompt."
         )
-    if failure.class_id in {SESSION_ALREADY_IN_USE, SESSION_NOT_FOUND}:
+        strategy = (
+            "Resume the same session with a continuation prompt. Do not abandon the session on the first exhaustion."
+        )
+        next_step = f"Resume on the {current_kernel} kernel."
+    elif failure.class_id in {SESSION_ALREADY_IN_USE, SESSION_NOT_FOUND}:
         if failure.class_id == SESSION_NOT_FOUND:
             reason = "the missing remote session was dropped"
             strategy = f"Drop the missing session and continue on {current_kernel}."
         else:
             reason = "the occupied session was released"
             strategy = f"Drop the occupied session and continue on {current_kernel}."
-        return empty_decision(
-            status="continue",
-            summary=(
-                f"Kernel {current_kernel} failed ({failure.class_id}); "
-                f"{reason} so the same kernel can continue on a fresh session."
-            ),
-            strategy=strategy,
-            next_step=f"Resume on the {current_kernel} kernel with a fresh session.",
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        summary = (
+            f"Kernel {current_kernel} failed ({failure.class_id}); "
+            f"{reason} so the same kernel can continue on a fresh session."
         )
-    if failure.class_id == ABNORMAL_PROCESS_EXIT:
-        return empty_decision(
-            status="continue",
-            summary=(
-                f"Kernel {current_kernel} exited with Windows status 4294967295 "
-                "while a session was already selected. The same session continues "
-                "once and the original mission prompt is not replayed."
-            ),
-            strategy=(
-                "Resume the same session with a continuation prompt. "
-                "Do not replay the full mission prompt."
-            ),
-            next_step=f"Resume the {current_kernel} session after the abnormal process exit.",
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        next_step = f"Resume on the {current_kernel} kernel with a fresh session."
+    elif failure.class_id == ABNORMAL_PROCESS_EXIT:
+        summary = (
+            f"Kernel {current_kernel} exited with Windows status 4294967295 while a session was already selected. "
+            "The same session continues once and the original mission prompt is not replayed."
         )
-    if failure.class_id == SESSIONLESS_PROCESS_ABORT:
-        return empty_decision(
-            status="continue",
-            summary=(
-                f"Kernel {current_kernel} exited with Windows status 4294967295 "
-                "after a tool result and before a session id existed. The same "
-                "kernel continues once and the original mission prompt is not replayed."
-            ),
-            strategy=(
-                "Continue on the same kernel from files already changed. "
-                "Do not attach a session id. Do not replay the full mission prompt."
-            ),
-            next_step=f"Continue on the {current_kernel} kernel after the sessionless process abort.",
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        strategy = "Resume the same session with a continuation prompt. Do not replay the full mission prompt."
+        next_step = f"Resume the {current_kernel} session after the abnormal process exit."
+    elif failure.class_id == SESSIONLESS_PROCESS_ABORT:
+        summary = (
+            f"Kernel {current_kernel} exited with Windows status 4294967295 "
+            "after a tool result and before a session id existed. The same kernel continues once "
+            "and the original mission prompt is not replayed."
         )
-    if failover_kernel:
-        return empty_decision(
-            status="continue",
-            summary=(
-                f"Kernel {current_kernel} failed ({failure.class_id}); "
-                f"failing over to {failover_kernel} so the mission does not stall."
-            ),
-            strategy=f"Continue on {failover_kernel} after {failure.class_id} on {current_kernel}.",
-            next_step=f"Resume on the {failover_kernel} kernel.",
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        strategy = (
+            "Continue on the same kernel from files already changed. "
+            "Do not attach a session id. Do not replay the full mission prompt."
         )
-    if not failure.retryable:
-        return empty_decision(
-            status="blocked",
-            summary=(
-                f"Kernel {current_kernel} failed ({failure.class_id}) before a model decision. "
-                "Recorded a structured blocked decision instead of stalling the mission."
-            ),
-            strategy="Wait for provider/operator recovery; do not invent work while the kernel cannot run.",
-            next_step=(
-                f"Unblock {failure.class_id} on {current_kernel} or install another first-class kernel."
-            ),
-            outcome_evidence=[failure.evidence] if failure.evidence else [],
+        next_step = f"Continue on the {current_kernel} kernel after the sessionless process abort."
+    elif failover_kernel:
+        summary = (
+            f"Kernel {current_kernel} failed ({failure.class_id}); "
+            f"failing over to {failover_kernel} so the mission does not stall."
         )
+        strategy = f"Continue on {failover_kernel} after {failure.class_id} on {current_kernel}."
+        next_step = f"Resume on the {failover_kernel} kernel."
+    else:
+        summary = f"Kernel {current_kernel} failed ({failure.class_id}) before a model decision. "
+        if failure.retryable:
+            summary += "Recorded a structured continue so the mission can retry."
+            strategy = f"Retry {current_kernel} after a {failure.class_id} failure."
+            next_step = "Retry the turn with the same mission state."
+        else:
+            status = "blocked"
+            summary += "Recorded a structured blocked decision instead of stalling the mission."
+            strategy = "Wait for provider/operator recovery; do not invent work while the kernel cannot run."
+            next_step = f"Unblock {failure.class_id} on {current_kernel} or install another first-class kernel."
     return empty_decision(
-        status="continue",
-        summary=(
-            f"Kernel {current_kernel} failed ({failure.class_id}) before a model decision. "
-            "Recorded a structured continue so the mission can retry."
-        ),
-        strategy=f"Retry {current_kernel} after a {failure.class_id} failure.",
-        next_step="Retry the turn with the same mission state.",
+        status=status,
+        summary=summary,
+        strategy=strategy,
+        next_step=next_step,
         outcome_evidence=[failure.evidence] if failure.evidence else [],
     )
 
@@ -957,21 +869,12 @@ def salvage_kernel_failure(
 
 
 def _synthetic_result(state: Any, salvaged: KernelSalvage, prior: Any, kernel_turn_result: Any) -> Any:
-    last_message = ""
-    command: tuple[str, ...] = ()
-    result_path = salvaged.artifact_path
-    session_id = getattr(state, "session_id", "") or ""
-    if prior is not None:
-        last_message = prior.last_message or last_message
-        command = tuple(prior.command or ())
-        result_path = result_path or prior.result_path
-        session_id = prior.session_id or session_id
     return kernel_turn_result(
         kernel=getattr(state, "kernel", ""),
-        last_message=last_message or json.dumps(salvaged.decision),
-        session_id=session_id,
-        command=command,
-        result_path=result_path,
+        last_message=getattr(prior, "last_message", "") or json.dumps(salvaged.decision),
+        session_id=getattr(prior, "session_id", "") or getattr(state, "session_id", "") or "",
+        command=tuple(getattr(prior, "command", ()) or ()),
+        result_path=salvaged.artifact_path or getattr(prior, "result_path", ""),
     )
 
 
@@ -1017,6 +920,8 @@ def execute_kernel_turn_with_salvage(
     cooldown recovery cannot stall behind a healthy mission kernel.
     A replacement kernel starts with the full task and a fresh view of the
     worktree. String-only callers can supply a fixed full task instead.
+    Each dispatch writes to its own directory under the turn. Its result path
+    remains readable after retries. The turn's latest files are refreshed at exit.
     """
 
     from blackhole_agent.kernel_half_open_probe import (
@@ -1070,7 +975,7 @@ def execute_kernel_turn_with_salvage(
         meta.setdefault("peer_probe", peer_probe_report)
         return meta
 
-    def dispatch() -> Any:
+    def dispatch(attempt: Path) -> Any:
         if state.kernel == LOCAL_KERNEL:
             local = invoke_local_kernel(
                 state,
@@ -1078,6 +983,7 @@ def execute_kernel_turn_with_salvage(
                 turn_dir,
                 action=local_action,
                 now=now,
+                output_dir=attempt / "kernel",
             )
             return KernelTurnResult(
                 kernel=LOCAL_KERNEL,
@@ -1089,7 +995,7 @@ def execute_kernel_turn_with_salvage(
         return kernel_runner(
             state,
             prompt,
-            turn_dir,
+            attempt,
             command_runner=command_runner,
         )
 
@@ -1109,10 +1015,17 @@ def execute_kernel_turn_with_salvage(
     source = "kernel"
     from_kernel = original
     salvaged = None
+    turn_dir.mkdir(parents=True, exist_ok=True)
     while True:
+        # Reserve before dispatch, even on a same-session retry or a reopened turn.
+        attempt = Path(tempfile.mkdtemp(prefix="attempt-", dir=turn_dir))
+        provider = state.kernel
         kernel_result = None
         try:
-            kernel_result = dispatch()
+            try:
+                kernel_result = dispatch(attempt)
+            finally:
+                _publish_attempt(attempt, provider)
             mark_kernel_success(store, state.kernel, now=now)
             persist()
             decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
@@ -1135,20 +1048,16 @@ def execute_kernel_turn_with_salvage(
                 state.session_id = kernel_result.session_id or state.session_id
                 state.session_started = bool(state.session_id) or state.session_started
             tried.add(state.kernel)
-            artifact = load_kernel_run_artifact(turn_dir, kernel=state.kernel)
+            artifact = load_kernel_run_artifact(attempt, kernel=provider)
             if state.kernel == "cursor" and artifact.get("session_id"):
                 state.session_id = str(artifact["session_id"])
                 state.session_started = True
-            salvaged = salvage_kernel_failure(
-                error=error,
-                current_kernel=state.kernel,
-                last_message=kernel_result.last_message if kernel_result else "",
-                artifact=artifact,
-                installed_kernels=installed,
-                health=store,
-                now=now,
-                allow_failover=True,
+            evidence = dict(
+                error=error, current_kernel=provider, artifact=artifact,
+                installed_kernels=installed, health=store, now=now,
             )
+            message = kernel_result.last_message if kernel_result else ""
+            salvaged = salvage_kernel_failure(**evidence, last_message=message)
             retry = _SESSION_RETRIES.get(salvaged.class_id)
             if retry is not None:
                 if retry.session != "fresh" and not str(getattr(state, "session_id", "") or "").strip():
@@ -1172,33 +1081,13 @@ def execute_kernel_turn_with_salvage(
                         continue
                 elif salvaged.class_id == OUTPUT_TRUNCATED and resumable:
                     state.decision_only_resume = True
-                    exhausted = salvage_kernel_failure(
-                        error=error,
-                        current_kernel=state.kernel,
-                        last_message="",
-                        artifact=artifact,
-                        installed_kernels=installed,
-                        health=store,
-                        now=now,
-                        allow_failover=False,
-                    )
+                    exhausted = salvage_kernel_failure(**evidence, allow_failover=False)
                     decision = TurnDecision.from_payload(exhausted.decision)
-                    result = KernelTurnResult(
-                        kernel=str(getattr(state, "kernel", "") or ""),
-                        last_message=json.dumps(exhausted.decision),
-                        session_id=str(getattr(state, "session_id", "") or ""),
-                        command=(),
-                        result_path=str(artifact.get("_artifact_path") or ""),
-                    )
+                    result = _synthetic_result(state, exhausted, None, KernelTurnResult)
                     meta = exhausted.to_dict()
                     meta.update(
-                        {
-                            "ok": False,
-                            "exhausted": True,
-                            "source": "decision_only_resume",
-                            "from_kernel": state.kernel,
-                            "failover_kernel": "",
-                        }
+                        ok=False, exhausted=True, source="decision_only_resume",
+                        from_kernel=state.kernel, failover_kernel="",
                     )
                     return result, decision, with_probe_meta(meta)
             if salvaged.class_id in FAILOVER_CLASSES and kernel_is_available(store, state.kernel, now=now):
@@ -1206,8 +1095,12 @@ def execute_kernel_turn_with_salvage(
             # A different turn may have taken our next provider out of service during dispatch.
             persist()
             if salvaged.source == "message":
+                receipt_session = session_id_from_artifact(artifact)
+                if receipt_session and not getattr(kernel_result, "session_id", ""):
+                    state.session_id = receipt_session
+                    state.session_started = True
                 decision = TurnDecision.from_payload(salvaged.decision)
-                result = kernel_result or _synthetic_result(state, salvaged, None, KernelTurnResult)
+                result = _synthetic_result(state, salvaged, kernel_result, KernelTurnResult)
                 return result, decision, with_probe_meta(salvaged.to_dict())
             next_kernel = select_failover_kernel(
                 state.kernel,
@@ -1217,16 +1110,7 @@ def execute_kernel_turn_with_salvage(
                 exclude=tried,
             )
             if not next_kernel:
-                blocked = salvage_kernel_failure(
-                    error=error,
-                    current_kernel=state.kernel,
-                    last_message=kernel_result.last_message if kernel_result else "",
-                    artifact=artifact,
-                    installed_kernels=installed,
-                    health=store,
-                    now=now,
-                    allow_failover=False,
-                )
+                blocked = salvage_kernel_failure(**evidence, last_message=message, allow_failover=False)
                 decision = TurnDecision.from_payload(blocked.decision)
                 result = _synthetic_result(state, blocked, kernel_result, KernelTurnResult)
                 return result, decision, with_probe_meta(blocked.to_dict())
@@ -1398,8 +1282,6 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
         item.get("class_id") == "kernel_turn_failed" for item in events
     )
 
-    import tempfile
-
     class _State:
         kernel = "grok"
         session_id = "sess"
@@ -1407,13 +1289,10 @@ def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="kernel-salvage-") as tmp:
         turn_dir = Path(tmp) / "turn"
-        (turn_dir / "kernel").mkdir(parents=True)
-        (turn_dir / "kernel" / "latest-grok-run.json").write_text(
-            json.dumps(HARVESTED_GROK_402),
-            encoding="utf-8",
-        )
-
         def boom(state: Any, prompt: str, turn_dir: Path, **kwargs: Any) -> Any:
+            receipt = turn_dir / "kernel" / "latest-grok-run.json"
+            receipt.parent.mkdir(parents=True, exist_ok=True)
+            receipt.write_text(json.dumps(HARVESTED_GROK_402), encoding="utf-8")
             raise RuntimeError("Grok CLI failed with exit code 1")
 
         result, decision, meta = execute_kernel_turn_with_salvage(
