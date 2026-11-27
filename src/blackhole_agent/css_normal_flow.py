@@ -648,10 +648,24 @@ A sticky image and a vertical writing mode stay rejected.
 An ``li`` and any other ``display: list-item`` principal box lays out as a
 block and paints a marker from the ``list-item`` counter. ``ol`` and ``ul``
 reset that counter. The initial marker is a disc; an ``ol`` uses decimal
-unless the author sets another type. ``list-style-position: outside`` ends
+unless the author sets another type. An ``ol`` ``start`` or ``reversed``
+attribute is a presentational hint for ``counter-reset`` when the author
+did not declare that property. ``start`` uses the HTML integer parser:
+ASCII whitespace, an optional sign, then digits, and trailing junk is
+ignored. Reversed with a parsed start resets to ``reversed(list-item)``
+one above that integer; reversed without one counts down automatically.
+A start without reversed resets to one below that integer. A failed parse
+and a ``ul`` leave the hint unset. An ``li`` ``value`` attribute is the
+same hint for ``counter-set: list-item``, including on a block item that
+paints no marker, so the next item continues from it. An author
+``counter-reset`` or ``counter-set``, including ``none``, wins. A boolean
+``reversed`` attribute is present even when its value is ``false``.
+``list-style-position: outside`` ends
 the marker on the content start and does not move the principal line.
 ``inside`` places the marker on the first line and wraps the remaining text
-at the full content width. ``none`` paints nothing. A float, a non-horizontal
+at the full content width. A wider ordinal can fill that line, so the
+letter starts on the next line and the following block moves down.
+``none`` paints nothing. A float, a non-horizontal
 writing mode, and an inside marker beside a block child stay rejected.
 ``text-combine-upright`` is not inherited. On an inline with no element
 children and no generated text, ``all`` compresses that text into one em and
@@ -1420,6 +1434,7 @@ class _Box:
     list_style_position: str = "outside"
     counter_reset: str = ""
     counter_increment: str = ""
+    counter_set: str = ""
     counter_children: list[_Box] = field(default_factory=list)
     counters_closed: bool = False
     marker_text: str | None = None
@@ -2569,8 +2584,9 @@ def _make_box(
             "outside",
             "list-style-position",
         ),
-        counter_reset=_counter_declaration(winners, custom, "counter-reset", tag),
-        counter_increment=_counter_declaration(winners, custom, "counter-increment", ""),
+        counter_reset=_counter_declaration(winners, custom, "counter-reset", tag, element),
+        counter_increment=_counter_declaration(winners, custom, "counter-increment", "", element),
+        counter_set=_counter_declaration(winners, custom, "counter-set", tag, element),
         anchor_name=_read_anchor_name(winners, custom),
         position_anchor=position_anchor,
         position_area=position_area,
@@ -12575,12 +12591,69 @@ def _list_style_type(winners, custom: dict, fonts: dict[str, str], tag: str) -> 
     return _inherited_keyword(raw, _LIST_TYPES, fonts["list-style-type"], "disc", "list-style-type")
 
 
-def _counter_declaration(winners, custom: dict, name: str, tag: str) -> str:
+_HTML_SPACE = " \t\n\f\r"
+
+
+def _html_parsed_integer(raw: str) -> int | None:
+    """HTML's rules for parsing integers. Trailing junk is ignored."""
+
+    index = 0
+    size = len(raw)
+    while index < size and raw[index] in _HTML_SPACE:
+        index += 1
+    if index >= size:
+        return None
+    sign = 1
+    if raw[index] == "-":
+        sign = -1
+        index += 1
+    elif raw[index] == "+":
+        index += 1
+    if index >= size or not raw[index].isdigit():
+        return None
+    start = index
+    while index < size and raw[index].isdigit():
+        index += 1
+    return sign * int(raw[start:index])
+
+
+def _ol_counter_reset_hint(element) -> str | None:
+    """Presentational ``counter-reset`` for an ``ol``, or None to keep the UA reset."""
+
+    parsed = None
+    if _attr(element, "start") is not None:
+        parsed = _html_parsed_integer(_attr(element, "start") or "")
+    if _attr(element, "reversed") is not None:
+        if parsed is None:
+            return "reversed(list-item)"
+        return f"reversed(list-item) {parsed + 1}"
+    if parsed is None:
+        return None
+    return f"list-item {parsed - 1}"
+
+
+def _li_counter_set_hint(element) -> str:
+    raw = _attr(element, "value")
+    if raw is None:
+        return ""
+    parsed = _html_parsed_integer(raw)
+    if parsed is None:
+        return ""
+    return f"list-item {parsed}"
+
+
+def _counter_declaration(winners, custom: dict, name: str, tag: str, element) -> str:
     raw = _declared(winners, name, custom)
     if raw == "inherit":
         raise _Invalid(f"{name} inherit is unsupported")
+    if raw is None and name == "counter-reset" and tag == "ol":
+        hint = _ol_counter_reset_hint(element)
+        if hint is not None:
+            return hint
     if name == "counter-reset" and raw is None and tag in _LIST_RESET_TAGS:
         return "list-item"
+    if raw is None and name == "counter-set" and tag == "li":
+        return _li_counter_set_hint(element)
     if raw is None or raw in {"initial", "unset", "revert", "none"}:
         return ""
     return " ".join(raw.split())
@@ -12612,6 +12685,8 @@ def _counter_payload(box: _Box) -> dict[str, object]:
         payload["counter_reset"] = box.counter_reset
     if box.counter_increment:
         payload["counter_increment"] = box.counter_increment
+    if box.counter_set:
+        payload["counter_set"] = box.counter_set
     plans = getattr(box.tree, "generated_plans", None) if box.tree is not None else None
     pair = plans.get(id(box.element)) if isinstance(plans, dict) and box.element is not None else None
     if isinstance(pair, tuple) and len(pair) == 2:
