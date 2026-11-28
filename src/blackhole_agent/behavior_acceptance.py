@@ -1,4 +1,4 @@
-"""Run the same acceptance script against committed blobs and working-tree bytes.
+"""Run the same acceptance script against a historical checkout and working-tree bytes.
 
 Each snapshot includes src and any files or directories declared by leading
 ``# replay-input: relative/path`` comments. The candidate reads tracked and
@@ -16,6 +16,8 @@ import sys
 import tempfile
 from pathlib import Path
 from typing import Any
+
+from blackhole_agent.revision_checkout import RevisionCheckout
 
 _PROBE_BOOTSTRAP = """\
 import os
@@ -58,11 +60,7 @@ def execute_outcome_probe(
         errors="replace",
         timeout=timeout,
     )
-    return {
-        "exit_code": completed.returncode,
-        "stdout": completed.stdout,
-        "stderr": completed.stderr,
-    }
+    return {"exit_code": completed.returncode, "stdout": completed.stdout, "stderr": completed.stderr}
 
 
 def _relative_input(name: str) -> str:
@@ -79,12 +77,10 @@ def _input_paths(source: bytes) -> list[str]:
     for raw in source.removeprefix(b"\xef\xbb\xbf").splitlines():
         line = raw.strip()
         if line.startswith(b"# replay-input:"):
-            name = _relative_input(line.partition(b":")[2].strip().decode("utf-8"))
-            if name not in paths:
-                paths.append(name)
+            paths.append(_relative_input(line.partition(b":")[2].strip().decode("utf-8")))
         elif line and not line.startswith(b"#"):
             break
-    return paths
+    return list(dict.fromkeys(paths))
 
 
 def _shared_inputs(directory: Path) -> list[str]:
@@ -97,51 +93,22 @@ def _shared_inputs(directory: Path) -> list[str]:
     return [_relative_input(line) for line in lines if line and not line.startswith("#")]
 
 
-def _git_files(root: Path, *args: str) -> list[bytes]:
-    output = subprocess.check_output(
-        ["git", "--literal-pathspecs", *args], cwd=root, stderr=subprocess.PIPE, timeout=60,
-    )
-    return output.rstrip(b"\0").split(b"\0") if output else []
-
-
 def _baseline_snapshot(root: Path, revision: str, paths: list[str], destination: Path) -> None:
-    # Read blobs directly. git archive would silently omit export-ignore files.
-    files = []
-    for entry in _git_files(root, "ls-tree", "-rz", "--full-tree", revision, "--", *paths):
-        info, name = entry.split(b"\t", 1)
-        mode, kind, oid = info.split()
+    checkout = RevisionCheckout(root, revision, destination.parent)
+    modes = checkout.modes(*paths)
+    for name, mode in modes.items():
         path = destination / _relative_input(os.fsdecode(name))
-        if kind != b"blob" or mode not in {b"100644", b"100755"} or not path.resolve().is_relative_to(destination):
+        if mode not in {b"100644", b"100755"} or not path.resolve().is_relative_to(destination):
             raise ValueError(f"unsupported link/path in baseline: {os.fsdecode(name)}")
-        files.append((path, oid, mode))
-    with tempfile.TemporaryFile() as blobs:
-        subprocess.run(
-            ["git", "cat-file", "--batch"], cwd=root, input=b"".join(oid + b"\n" for _, oid, _ in files),
-            stdout=blobs, stderr=subprocess.PIPE, check=True, timeout=60,
-        )
-        blobs.seek(0)
-        for path, oid, mode in files:
-            actual_oid, kind, size = blobs.readline().split()
-            if actual_oid != oid or kind != b"blob":
-                raise ValueError(f"missing baseline blob {oid!r}")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            remaining = int(size)
-            with path.open("xb") as target:
-                while remaining:
-                    chunk = blobs.read(min(remaining, 1024 * 1024))
-                    if not chunk:
-                        raise ValueError(f"incomplete baseline blob {oid!r}")
-                    target.write(chunk)
-                    remaining -= len(chunk)
-            if blobs.read(1) != b"\n":
-                raise ValueError(f"incomplete baseline blob {oid!r}")
-            if mode == b"100755":
-                path.chmod(0o755)
+    checkout.write(destination, modes)
 
 
 def _candidate_snapshot(root: Path, paths: list[str], destination: Path) -> None:
-    entries = _git_files(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths)
-    for raw in dict.fromkeys(entries):
+    entries = subprocess.check_output(
+        ["git", "--literal-pathspecs", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths],
+        cwd=root, stderr=subprocess.PIPE, timeout=60,
+    )
+    for raw in dict.fromkeys(entries.split(b"\0")[:-1]):
         name = _relative_input(os.fsdecode(raw))
         source = root / name
         if source.resolve() != source:
@@ -175,37 +142,30 @@ def replay_behavior_acceptance(
             raise ValueError("a controller-owned baseline commit is required")
         source = probe.read_bytes()
         result["probe_sha256"] = hashlib.sha256(source).hexdigest()
-        revision = subprocess.run(
+        revision = subprocess.check_output(
             ["git", "rev-parse", "--verify", f"{baseline_ref}^{{commit}}"],
-            cwd=root,
-            capture_output=True,
-            check=True,
-            timeout=30,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        ).stdout.strip()
+            cwd=root, stderr=subprocess.PIPE, timeout=30,
+        ).decode("ascii").strip()
         required = _input_paths(source)
         shared = _shared_inputs(accepted_root)
         paths = list(dict.fromkeys([*required, *shared]))
         result.update(baseline_commit=revision, required_inputs=required, shared_inputs=shared)
         with tempfile.TemporaryDirectory(prefix="blackhole-acceptance-") as directory:
             scratch = Path(directory).resolve()
-            baseline = scratch / "baseline"
-            candidate = scratch / "candidate"
-            _baseline_snapshot(root, revision, paths, baseline)
-            _candidate_snapshot(root, paths, candidate)
-            for label, snapshot in (("baseline", baseline), ("candidate", candidate)):
+            _baseline_snapshot(root, revision, paths, scratch / "baseline")
+            _candidate_snapshot(root, paths, scratch / "candidate")
+            labels = ("baseline", "candidate")
+            for label in labels:
                 for path in required:
-                    if not (snapshot / path).exists():
+                    if not (scratch / label / path).exists():
                         raise ValueError(f"{label} missing replay input: {path}")
-            for label, implementation in (("baseline", baseline / "src"), ("candidate", candidate / "src")):
+            for label in labels:
                 run_dir = scratch / f"run-{label}"
                 run_dir.mkdir()
                 script = run_dir / "outcome_probe.py"
                 script.write_bytes(source)
                 completed = execute_outcome_probe(
-                    implementation, script, timeout=timeout,
+                    scratch / label / "src", script, timeout=timeout,
                     env={**os.environ, "BLACKHOLE_DURABLE_ROOT": str(run_dir / "durable")},
                 )
                 evidence: dict[str, Any] = {
@@ -229,6 +189,8 @@ def replay_behavior_acceptance(
             )
             if not result["ok"]:
                 result["error"] = "the same probe must show baseline passed=false and candidate passed=true"
+    except subprocess.CalledProcessError as exc:
+        result["error"] = (exc.stderr or b"").decode("utf-8", "replace").strip()[-2000:] or str(exc)
     except (OSError, ValueError, IndexError, subprocess.SubprocessError) as exc:
         result["error"] = str(exc)
     return result

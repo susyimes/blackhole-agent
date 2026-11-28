@@ -35,8 +35,10 @@ print(json.dumps({"passed": actual == "hello", "observed": {"actual": actual}}))
 ```
 
 The controller runs the same probe bytes in fresh Python processes with private
-copies of `src` and the selected runtime files. The baseline reads the specified
-Git commit. The candidate reads working-tree contents, including unstaged edits,
+copies of `src` and the selected runtime files. Git checks out the baseline inputs
+using that revision’s attributes, including line endings and working-tree encoding.
+An input that needs a configured external smudge filter stops replay.
+The candidate reads working-tree contents, including unstaged edits,
 deletions and nonignored new files. Acceptance requires a false baseline outcome
 and a true candidate outcome. Both runs must finish and produce valid observations.
 

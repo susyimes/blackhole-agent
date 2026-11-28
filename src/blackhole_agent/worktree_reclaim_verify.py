@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, NamedTuple, Sequence
 
+from blackhole_agent.revision_checkout import RevisionCheckout
+
 _REPARSE_ATTRIBUTE = 0x400
 _REPRODUCIBLE_DIR_NAMES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "htmlcov", ".venv"}
 _REPRODUCIBLE_FILE_NAMES = frozenset({".coverage"})
@@ -261,12 +263,10 @@ def _verified_contents(
             os.fsencode(path.relative_to(workspace).as_posix()): state
             for path, state in contents.items() if path != marker and stat.S_ISREG(state.mode)
         }
-        location = command_runner(
-            ["git", "rev-parse", "--absolute-git-dir"], cwd=repo, capture_output=True, check=True, timeout=120,
-        )
-        gitdir = os.fsdecode(location.stdout.removesuffix(b"\n"))
         with tempfile.TemporaryDirectory(prefix="bh-verify-checkout-") as directory:
-            if _matches_checkout(Path(directory), gitdir, commit, workspace, files, command_runner):
+            scratch = Path(directory)
+            checkout = RevisionCheckout(repo, commit, scratch, command_runner)
+            if _matches_checkout(checkout, scratch / "rendered", workspace, files):
                 return contents
     except (OSError, ValueError, subprocess.SubprocessError):
         pass
@@ -274,46 +274,14 @@ def _verified_contents(
 
 
 def _matches_checkout(
-    scratch: Path, gitdir: str, commit: str, workspace: Path, files: dict[bytes, _FileState], command_runner: Callable,
+    checkout: RevisionCheckout, rendered: Path, workspace: Path, files: dict[bytes, _FileState],
 ) -> bool:
-    # An empty worktree and a private index give checkout-index the mission's attributes.
-    # Leave the owner's real index, files and hooks out of the verification.
-    env = {**os.environ, "GIT_DIR": gitdir, "GIT_INDEX_FILE": str(scratch / "index"), "GIT_ATTR_SOURCE": commit}
-    options = ["git", "-c", f"core.hooksPath={scratch / 'hooks'}",
-               "-c", "core.splitIndex=false", "-c", "core.fsmonitor=false"]
-    empty = scratch / "empty"
-    empty.mkdir()
-
-    def git(*args: str, paths: Sequence[bytes] = (), tree: Path = empty) -> bytes:
-        return command_runner(
-            [*options, f"--work-tree={tree.absolute()}", *args], cwd=tree, env=env,
-            input=b"".join(name + b"\0" for name in paths), capture_output=True, check=True, timeout=120,
-        ).stdout
-
-    # An external smudge program can fetch data or have side effects. Make such
-    # paths fail checkout even when their driver was originally optional.
-    keys = git("config", "--null", "--name-only", "--list").split(b"\0")
-    drivers = {
-        os.fsdecode(key.rsplit(b".", 1)[0]) for key in keys
-        if key.startswith(b"filter.") and key.endswith((b".smudge", b".process"))
-    }
-    for driver in drivers:
-        if "=" in driver:
-            return False
-        for setting in ("process=", "smudge=", "required=true"):
-            options.extend(["-c", f"{driver}.{setting}"])
-
-    git("read-tree", "--no-sparse-checkout", commit)
-    modes = {}
-    for entry in git("ls-files", "--stage", "-z").split(b"\0"):
-        if entry:
-            meta, name = entry.split(b"\t", 1)
-            modes[name] = meta.split()[0]
+    modes = checkout.modes()
     extra = files.keys() - modes.keys()
     if extra:
         if not all(_is_reproducible_ignored(os.fsdecode(name)) for name in extra):
             return False
-        ignored = git("check-ignore", "--no-index", "-z", "--stdin", paths=sorted(extra), tree=workspace)
+        ignored = checkout.git("check-ignore", "--no-index", "-z", "--stdin", paths=sorted(extra), tree=workspace)
         if set(ignored.split(b"\0")[:-1]) != extra:
             return False
 
@@ -323,9 +291,8 @@ def _matches_checkout(
             return False
         if os.name != "nt" and bool(state.mode & stat.S_IXUSR) != (modes[name] == b"100755"):
             return False
-    rendered = scratch / "rendered"
     for batch in _checkout_batches(tracked):
-        git("checkout-index", f"--prefix={rendered.as_posix()}/", "-z", "--stdin", paths=batch)
+        checkout.write(rendered, batch)
         for name in batch:
             relative = os.fsdecode(name)
             reference = rendered / relative

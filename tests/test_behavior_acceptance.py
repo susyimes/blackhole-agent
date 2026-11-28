@@ -140,13 +140,9 @@ def test_failed_behavior_acceptance_is_not_a_command_replay(tmp_path, monkeypatc
     )
     monkeypatch.setattr("blackhole_agent.unbound.run_workspace_goal_watchdog", lambda *a, **k: None)
 
-    def runner(command, **kwargs):
-        exit_code = kwargs.pop("exit_code", 0)
-        return subprocess.CompletedProcess(command, exit_code, stdout="[]\n", stderr="")
-
     def gate(exit_code: int):
         def command_runner(command, **kwargs):
-            return runner(command, exit_code=exit_code, **kwargs)
+            return subprocess.CompletedProcess(command, exit_code, stdout="[]\n", stderr="")
 
         return evaluate_milestone(
             TurnDecision.from_payload(
@@ -177,14 +173,5 @@ def test_failed_behavior_acceptance_is_not_a_command_replay(tmp_path, monkeypatc
     )
     from blackhole_agent.pattern_register import classify_unbound_turn
 
-    events = classify_unbound_turn(
-        {
-            "iteration": 2,
-            "milestone_gate": {
-                "requested": True,
-                "accepted": False,
-                "reasons": list(passing.reasons),
-            },
-        }
-    )
+    events = classify_unbound_turn({"iteration": 2, "milestone_gate": passing.to_dict()})
     assert events[0]["class_id"] == "milestone_rejected"
