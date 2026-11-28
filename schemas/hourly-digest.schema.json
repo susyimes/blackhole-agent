@@ -22,8 +22,10 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["github_trending_repositories"]
+          "enum": ["github_trending_repositories", "github_cached_watchlist"]
         },
+        "discovered_at": { "type": "string", "format": "date-time" },
+        "search_error": { "type": "string" },
         "query": { "type": "string" },
         "sort": { "type": "string" },
         "order": { "type": "string" },

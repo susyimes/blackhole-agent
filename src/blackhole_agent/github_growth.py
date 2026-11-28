@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 import requests
 import typer
@@ -24,8 +25,8 @@ from rich.console import Console
 
 from blackhole_agent.experience_fuel import harvest_experience, merge_experience_into_proposals
 from blackhole_agent.file_guard import atomic_write_json, atomic_write_text, file_guard
-from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
-from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel, GrokCliRunResult
+from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
+from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
 from blackhole_agent.persona import render_persona_layer
 from blackhole_agent.soul import SoulSnapshot, read_soul_snapshot, render_soul_layer
@@ -365,6 +366,7 @@ class GrowthState:
     trend_seen_repositories: set[str] = field(default_factory=set)
     trend_last_stars_by_repo: dict[str, int] = field(default_factory=dict)
     last_poll_at_by_repo: dict[str, str] = field(default_factory=dict)
+    trend_watchlist: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GrowthState":
@@ -372,6 +374,7 @@ class GrowthState:
             seen_event_ids=set(data.get("seen_event_ids", [])),
             last_seen_at_by_repo=dict(data.get("last_seen_at_by_repo", {})),
             last_poll_at_by_repo=dict(data.get("last_poll_at_by_repo", {})),
+            trend_watchlist=data["trend_watchlist"] if isinstance(data.get("trend_watchlist"), dict) else {},
             trend_seen_repositories=set(data.get("trend_seen_repositories", [])),
             trend_last_stars_by_repo={
                 str(repo): int(stars) for repo, stars in dict(data.get("trend_last_stars_by_repo", {})).items()
@@ -385,6 +388,7 @@ class GrowthState:
             "last_poll_at_by_repo": dict(sorted(self.last_poll_at_by_repo.items())),
             "trend_seen_repositories": sorted(self.trend_seen_repositories),
             "trend_last_stars_by_repo": dict(sorted(self.trend_last_stars_by_repo.items())),
+            "trend_watchlist": self.trend_watchlist,
         }
 
 
@@ -569,6 +573,7 @@ class GitHubTrendSearchResult:
     repositories: list[TrendingRepository]
     total_count: int
     incomplete_results: bool
+    request_scope: str = field(default="", repr=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -627,6 +632,17 @@ class RollbackPoint:
     restore_commands: list[list[str]]
 
 
+_TRANSPORT_ERRORS = (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError)
+
+
+class GitHubUnavailable(RuntimeError):
+    """A retryable HTTP response from GitHub."""
+
+    def __init__(self, message: str, request: requests.PreparedRequest | None) -> None:
+        super().__init__(message)
+        self.request = request
+
+
 class GitHubEventsClient:
     """Small GitHub REST client for repository trend search and event feeds."""
 
@@ -649,6 +665,43 @@ class GitHubEventsClient:
         if token:
             self._headers["Authorization"] = f"Bearer {token}"
 
+    def _search_scope(self, request: requests.PreparedRequest | None, config: GitHubTrendConfig, query: str) -> str:
+        if request is None or not request.url or getattr(self._session, "cert", None):
+            return ""  # The sent headers alone cannot identify a client certificate or an opaque transport.
+        url = urlsplit(request.url)
+        endpoint = url._replace(query="", fragment="").geturl()
+        if endpoint != f"{self._api_base_url}/search/repositories":
+            return ""
+        # Omit the rolling creation date. The settings reproduce it for either poll date.
+        params = [(k, v) for k, v in parse_qsl(url.query, keep_blank_values=True) if (k, v) != ("q", query)]
+        return stable_hash({
+            "url": endpoint, "params": params, "config": asdict(config),
+            "headers": {k.lower(): str(v) for k, v in request.headers.items()},
+        })
+
+    def _get_json(self, url: str, params: dict[str, Any] | None, failure: str) -> tuple[requests.Response, Any]:
+        response = self._session.get(url, headers=self._headers, params=params, timeout=self._timeout, stream=True)
+        try:
+            status = response.status_code
+            if status >= 400:
+                headers = getattr(response, "headers", {})
+                rate_limited = status == 403 and (
+                    "Retry-After" in headers or headers.get("X-RateLimit-Remaining") == "0"
+                )
+                message = f"{failure}: HTTP {status}"
+                if rate_limited or status in {408, 429} or 500 <= status < 600:
+                    raise GitHubUnavailable(message, getattr(response, "request", None))
+                raise RuntimeError(message)
+            return response, response.json()
+        except _TRANSPORT_ERRORS as error:
+            # Requests can lose the associated request when the body is interrupted after headers.
+            if error.request is None:
+                error.request = getattr(response, "request", None)
+            raise
+        finally:
+            if close := getattr(response, "close", None):
+                close()
+
     def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict[str, Any]]:
         if per_page < 1 or per_page > 100:
             raise ValueError("per_page must be between 1 and 100")
@@ -657,15 +710,7 @@ class GitHubEventsClient:
         params: dict[str, int] | None = {"per_page": per_page}
         events: list[dict[str, Any]] = []
         while url:
-            response = self._session.get(
-                url,
-                headers=self._headers,
-                params=params,
-                timeout=self._timeout,
-            )
-            if response.status_code >= 400:
-                raise RuntimeError(f"GitHub events request failed for {repo}: HTTP {response.status_code}")
-            payload = response.json()
+            response, payload = self._get_json(url, params, f"GitHub events request failed for {repo}")
             if not isinstance(payload, list):
                 raise RuntimeError(f"GitHub events request failed for {repo}: expected a JSON list")
             events.extend(payload)
@@ -691,20 +736,11 @@ class GitHubEventsClient:
             raise ValueError("trend order must be one of: asc, desc")
 
         query = build_trending_repository_query(config, now=now)
-        response = self._session.get(
+        response, payload = self._get_json(
             f"{self._api_base_url}/search/repositories",
-            headers=self._headers,
-            params={
-                "q": query,
-                "sort": config.sort,
-                "order": config.order,
-                "per_page": config.limit,
-            },
-            timeout=self._timeout,
+            {"q": query, "sort": config.sort, "order": config.order, "per_page": config.limit},
+            "GitHub trend search failed",
         )
-        if response.status_code >= 400:
-            raise RuntimeError(f"GitHub trend search failed: HTTP {response.status_code}")
-        payload = response.json()
         if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
             raise RuntimeError("GitHub trend search failed: expected a JSON object with an items list")
         repositories = [TrendingRepository.from_search_item(item) for item in payload["items"]]
@@ -718,6 +754,7 @@ class GitHubEventsClient:
             repositories=repositories,
             total_count=int(payload.get("total_count") or 0),
             incomplete_results=bool(payload.get("incomplete_results") or False),
+            request_scope=self._search_scope(getattr(response, "request", None), config, query),
         )
 
 
@@ -770,8 +807,13 @@ def save_memory(path: Path, memory: GrowthMemory) -> None:
 
 def update_memory_from_digest(memory: GrowthMemory, digest: dict[str, Any], *, lesson_limit: int = 200) -> None:
     generated_at = str(digest.get("generated_at") or "")
+    source = digest.get("source") or {}
+    failed = set()
+    if source.get("kind") == "github_cached_watchlist":
+        failed = {row["repo"] for row in source.get("event_fetch_errors", [])}
     for repo in digest.get("repositories", []):
-        touch_memory_stats(memory.repositories, str(repo), generated_at=generated_at)
+        if repo not in failed:
+            touch_memory_stats(memory.repositories, str(repo), generated_at=generated_at)
     for item in digest.get("items", []):
         repo = repo_from_digest_summary(str(item.get("summary") or ""))
         if repo:
@@ -1073,12 +1115,56 @@ def build_trend_events(
 
 def build_trend_source_metadata(result: GitHubTrendSearchResult, *, state: GrowthState) -> dict[str, Any]:
     source = asdict(result)
+    source.pop("request_scope", None)
     source["kind"] = "github_trending_repositories"
     for repo in source["repositories"]:
         previous = state.trend_last_stars_by_repo.get(repo["full_name"])
         repo["star_delta_since_last_run"] = None if previous is None else repo["stargazers_count"] - previous
         repo["first_seen"] = repo["full_name"] not in state.trend_seen_repositories
     return source
+
+
+def discover_event_sources(
+    github: GitHubEventsClient, config: GitHubTrendConfig, state: GrowthState, now: datetime,
+) -> tuple[list[str], list[GitHubEvent], dict[str, Any]]:
+    generated_at = now.isoformat().replace("+00:00", "Z")
+    try:
+        result = github.search_trending_repositories(config, now=now)
+    except (GitHubUnavailable, *_TRANSPORT_ERRORS) as error:
+        saved = state.trend_watchlist
+        names = saved.get("repositories")
+        scope_for = getattr(github, "_search_scope", None)
+        if not scope_for or not saved.get("scope") or not isinstance(names, list):
+            raise
+        query = build_trending_repository_query(config, now=now)
+        if saved["scope"] != scope_for(error.request, config, query):
+            raise
+        if not all(isinstance(name, str) and re.fullmatch(r"[\w.-]+/[\w.-]+", name) for name in names):
+            raise
+        try:
+            discovered = parse_github_timestamp(saved["discovered_at"])
+        except (AttributeError, KeyError, ValueError):
+            discovered = datetime.min.replace(tzinfo=timezone.utc)
+        if not timedelta(0) <= now - discovered <= timedelta(days=config.window_days):
+            raise
+        return names, [], {
+            "kind": "github_cached_watchlist", "discovered_at": saved["discovered_at"],
+            "query": build_trending_repository_query(config, now=discovered),
+            "sort": config.sort, "order": config.order, "repositories": [],
+            "search_error": str(error) if isinstance(error, GitHubUnavailable) else type(error).__name__,
+        }
+
+    names = [repo.full_name for repo in result.repositories]
+    source = build_trend_source_metadata(result, state=state)
+    source["discovered_at"] = generated_at
+    events = build_trend_events(result.repositories, state=state, generated_at=generated_at)
+    update_trend_state(state, result.repositories)
+    if not result.incomplete_results:
+        state.trend_watchlist = (
+            {"scope": result.request_scope, "discovered_at": generated_at, "repositories": names}
+            if result.request_scope else {}
+        )
+    return names, events, source
 
 
 def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> list[GrowthSignal]:
@@ -1333,48 +1419,24 @@ def run_proposal_interpretation_kernel(
     """Run the selected CLI as a read-only interpretation kernel."""
 
     if kernel == "grok":
-        grok = GrokCliKernel(
-            GrokCliConfig(
-                model=model,
-                sandbox="read-only",
-                permission_mode="dontAsk",
-            ),
-            command_runner=command_runner,
+        reader = GrokCliKernel(
+            GrokCliConfig(model=model, sandbox="read-only", permission_mode="dontAsk"), command_runner=command_runner
         )
-        result = grok.run(
-            render_proposal_synthesis_prompt(evidence_package),
-            cwd=repo_path,
-            output_dir=output_dir / "proposal-synthesis",
-            timeout_seconds=timeout_seconds,
+    elif kernel == "kimi":
+        reader = KimiCliKernel(KimiCliConfig(model=model), command_runner=command_runner)
+    elif kernel == "codex":
+        config = CodexCliConfig(
+            model=model,
+            profile=profile,
+            sandbox="read-only",
+            approval_policy="never",
+            ignore_user_config=ignore_user_config,
+            bypass_approvals_and_sandbox=False,
         )
-        return result.last_message
-    if kernel == "kimi":
-        kimi = KimiCliKernel(
-            KimiCliConfig(
-                model=model,
-            ),
-            command_runner=command_runner,
-        )
-        result = kimi.run(
-            render_proposal_synthesis_prompt(evidence_package),
-            cwd=repo_path,
-            output_dir=output_dir / "proposal-synthesis",
-            timeout_seconds=timeout_seconds,
-        )
-        return result.last_message
-    if kernel != "codex":
+        reader = CodexCliKernel(config, command_runner=command_runner)
+    else:
         raise ValueError("kernel must be one of: codex, grok, kimi")
-
-    config = CodexCliConfig(
-        model=model,
-        profile=profile,
-        sandbox="read-only",
-        approval_policy="never",
-        ignore_user_config=ignore_user_config,
-        bypass_approvals_and_sandbox=False,
-    )
-    codex = CodexCliKernel(config, command_runner=command_runner)
-    result = codex.run(
+    result = reader.run(
         render_proposal_synthesis_prompt(evidence_package),
         cwd=repo_path,
         output_dir=output_dir / "proposal-synthesis",
@@ -2705,6 +2767,10 @@ def stable_push_message_hash(text: str) -> str:
     return hashlib.sha256(" ".join(text.split()).encode("utf-8")).hexdigest()[:16]
 
 
+def _watchlist_notice(source: dict[str, Any]) -> str:
+    return f"GitHub search unavailable ({source['search_error']}). Using the list discovered at {source['discovered_at']}."
+
+
 def render_markdown_digest(digest: dict[str, Any]) -> str:
     lines = [
         "# GitHub Growth Digest",
@@ -2722,11 +2788,14 @@ def render_markdown_digest(digest: dict[str, Any]) -> str:
                 f"- Kind: `{source.get('kind', 'unknown')}`",
                 f"- Query: `{source.get('query', '')}`",
                 f"- Sort: `{source.get('sort', '')} {source.get('order', '')}`",
-                f"- Total matches: {source.get('total_count', 0)}",
-                f"- Incomplete results: {source.get('incomplete_results', False)}",
-                "",
             ]
         )
+        if source.get("kind") == "github_cached_watchlist":
+            lines.append(f"- {_watchlist_notice(source)}")
+        else:
+            lines.extend([f"- Total matches: {source.get('total_count', 0)}",
+                          f"- Incomplete results: {source.get('incomplete_results', False)}"])
+        lines.append("")
         event_fetch_errors = source.get("event_fetch_errors") or []
         if event_fetch_errors:
             lines.extend(["### Event Fetch Warnings", ""])
@@ -3307,8 +3376,6 @@ def run_self_evolution_codex(
     timeout_seconds: int = 3600,
     command_runner: Any = subprocess.run,
 ) -> SelfEvolutionRunResult:
-    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    monotonic_started = time.monotonic()
     config = CodexCliConfig(
         model=model,
         profile=profile,
@@ -3330,106 +3397,9 @@ def run_self_evolution_codex(
         "ignore_user_config": config.ignore_user_config,
         "bypass_approvals_and_sandbox": config.bypass_approvals_and_sandbox,
     }
-    result: CodexCliRunResult = kernel.run(
-        plan.task,
-        cwd=Path(plan.repo_path),
-        output_dir=output_dir,
-        timeout_seconds=timeout_seconds,
+    return _run_evolution_kernel(
+        plan, output_dir, kernel, "codex", codex_metadata, timeout_seconds, command_runner,
     )
-    finished_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    elapsed_seconds = round(time.monotonic() - monotonic_started, 3)
-    run_result = SelfEvolutionRunResult(
-        command=result.command,
-        returncode=result.returncode,
-        task_path=result.task_path,
-        last_message_path=result.last_message_path,
-        result_path=result.result_path,
-        branch_name=plan.branch_name,
-        stdout_tail=result.stdout_tail,
-        stderr_tail=result.stderr_tail,
-        last_message=result.last_message,
-    )
-    (output_dir / "latest-self-evolution-run.json").write_text(
-        json.dumps(
-            {
-                "command": run_result.command,
-                "codex_cli": codex_metadata,
-                "provider_preflight": result.provider_preflight,
-                "returncode": run_result.returncode,
-                "task_path": str(run_result.task_path),
-                "last_message_path": str(run_result.last_message_path),
-                "result_path": str(run_result.result_path),
-                "branch_name": run_result.branch_name,
-                "stdout_tail": run_result.stdout_tail,
-                "stderr_tail": run_result.stderr_tail,
-                "last_message": run_result.last_message,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    current_head = run_controller_command(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        cwd=Path(plan.repo_path),
-        command_runner=command_runner,
-    ).stdout.strip()
-    proposal_controls = [
-        proposal_manifest_control(proposal)
-        for proposal in plan.proposals
-        if str(proposal.get("proposal_id") or "").strip()
-    ]
-    manifest = {
-        "schema_version": 1,
-        "started_at": started_at,
-        "finished_at": finished_at,
-        "elapsed_seconds": elapsed_seconds,
-        "source_digest_id": plan.source_digest_id,
-        "source_digest_generated_at": plan.source_digest_generated_at,
-        "capability_theme_window": dict(plan.capability_theme_window),
-        "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
-        "repo_path": plan.repo_path,
-        "branch_name": plan.branch_name,
-        "target_head": current_head,
-        "self_model_path": plan.self_model_path,
-        "returncode": run_result.returncode,
-        "codex_cli": codex_metadata,
-        "provider_preflight": result.provider_preflight,
-        "task_path": str(run_result.task_path),
-        "last_message_path": str(run_result.last_message_path),
-        "codex_result_path": str(run_result.result_path),
-        "proposal_controls": proposal_controls,
-        "replayable_validation_report": build_replayable_validation_report(plan, proposal_controls),
-        "validation_gates": [
-            str(proposal.get("validation_gate"))
-            for proposal in plan.proposals
-            if str(proposal.get("validation_gate") or "").strip()
-        ],
-        "proposal_ids": [
-            str(proposal.get("proposal_id"))
-            for proposal in plan.proposals
-            if str(proposal.get("proposal_id") or "").strip()
-        ],
-        "evidence_urls": sorted(
-            {
-                str(url)
-                for proposal in plan.proposals
-                for url in proposal.get("evidence_urls", [])
-                if str(url).strip()
-            }
-        ),
-    }
-    (output_dir / "latest-self-evolution-manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    write_self_model_snapshot(
-        output_dir,
-        read_self_model_snapshot(Path(plan.repo_path), Path(plan.self_model_path)),
-        phase="after",
-    )
-    return run_result
 
 
 def run_self_evolution_grok(
@@ -3445,8 +3415,6 @@ def run_self_evolution_grok(
 ) -> SelfEvolutionRunResult:
     """Run one self-evolution task through Grok CLI and preserve controller artifacts."""
 
-    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    monotonic_started = time.monotonic()
     config = GrokCliConfig(
         model=model,
         require_explicit_route=require_explicit_route,
@@ -3465,108 +3433,9 @@ def run_self_evolution_grok(
         "disable_web_search": config.disable_web_search,
         "controller_owned_git_actions_denied": ["commit", "push"],
     }
-    result: GrokCliRunResult = kernel.run(
-        plan.task,
-        cwd=Path(plan.repo_path),
-        output_dir=output_dir,
-        timeout_seconds=timeout_seconds,
+    return _run_evolution_kernel(
+        plan, output_dir, kernel, "grok", grok_metadata, timeout_seconds, command_runner,
     )
-    finished_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    elapsed_seconds = round(time.monotonic() - monotonic_started, 3)
-    run_result = SelfEvolutionRunResult(
-        command=result.command,
-        returncode=result.returncode,
-        task_path=result.task_path,
-        last_message_path=result.last_message_path,
-        result_path=result.result_path,
-        branch_name=plan.branch_name,
-        stdout_tail=result.stdout_tail,
-        stderr_tail=result.stderr_tail,
-        last_message=result.last_message,
-    )
-    (output_dir / "latest-self-evolution-run.json").write_text(
-        json.dumps(
-            {
-                "command": run_result.command,
-                "kernel": "grok",
-                "grok_cli": grok_metadata,
-                "provider_preflight": result.provider_preflight,
-                "returncode": run_result.returncode,
-                "task_path": str(run_result.task_path),
-                "last_message_path": str(run_result.last_message_path),
-                "result_path": str(run_result.result_path),
-                "branch_name": run_result.branch_name,
-                "stdout_tail": run_result.stdout_tail,
-                "stderr_tail": run_result.stderr_tail,
-                "last_message": run_result.last_message,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    current_head = run_controller_command(
-        ["git", "rev-parse", "--verify", "HEAD"],
-        cwd=Path(plan.repo_path),
-        command_runner=command_runner,
-    ).stdout.strip()
-    proposal_controls = [
-        proposal_manifest_control(proposal)
-        for proposal in plan.proposals
-        if str(proposal.get("proposal_id") or "").strip()
-    ]
-    manifest = {
-        "schema_version": 1,
-        "started_at": started_at,
-        "finished_at": finished_at,
-        "elapsed_seconds": elapsed_seconds,
-        "source_digest_id": plan.source_digest_id,
-        "source_digest_generated_at": plan.source_digest_generated_at,
-        "capability_theme_window": dict(plan.capability_theme_window),
-        "upstream_evidence_capability_step": dict(plan.upstream_evidence_capability_step),
-        "repo_path": plan.repo_path,
-        "branch_name": plan.branch_name,
-        "target_head": current_head,
-        "self_model_path": plan.self_model_path,
-        "returncode": run_result.returncode,
-        "kernel": "grok",
-        "grok_cli": grok_metadata,
-        "provider_preflight": result.provider_preflight,
-        "task_path": str(run_result.task_path),
-        "last_message_path": str(run_result.last_message_path),
-        "grok_result_path": str(run_result.result_path),
-        "proposal_controls": proposal_controls,
-        "replayable_validation_report": build_replayable_validation_report(plan, proposal_controls),
-        "validation_gates": [
-            str(proposal.get("validation_gate"))
-            for proposal in plan.proposals
-            if str(proposal.get("validation_gate") or "").strip()
-        ],
-        "proposal_ids": [
-            str(proposal.get("proposal_id"))
-            for proposal in plan.proposals
-            if str(proposal.get("proposal_id") or "").strip()
-        ],
-        "evidence_urls": sorted(
-            {
-                str(url)
-                for proposal in plan.proposals
-                for url in proposal.get("evidence_urls", [])
-                if str(url).strip()
-            }
-        ),
-    }
-    (output_dir / "latest-self-evolution-manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    write_self_model_snapshot(
-        output_dir,
-        read_self_model_snapshot(Path(plan.repo_path), Path(plan.self_model_path)),
-        phase="after",
-    )
-    return run_result
 
 
 def run_self_evolution_kimi(
@@ -3580,8 +3449,6 @@ def run_self_evolution_kimi(
 ) -> SelfEvolutionRunResult:
     """Run one self-evolution task through Kimi CLI and preserve controller artifacts."""
 
-    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    monotonic_started = time.monotonic()
     config = KimiCliConfig(
         model=model,
         require_explicit_route=require_explicit_route,
@@ -3595,7 +3462,23 @@ def run_self_evolution_kimi(
         "permission_mode_source": "native_prompt_mode",
         "native_session_persistence": True,
     }
-    result: KimiCliRunResult = kernel.run(
+    return _run_evolution_kernel(
+        plan, output_dir, kernel, "kimi", kimi_metadata, timeout_seconds, command_runner,
+    )
+
+
+def _run_evolution_kernel(
+    plan: SelfEvolutionPlan,
+    output_dir: Path,
+    kernel: CodexCliKernel | GrokCliKernel | KimiCliKernel,
+    name: str,
+    metadata: dict[str, Any],
+    timeout_seconds: int,
+    command_runner: Any,
+) -> SelfEvolutionRunResult:
+    started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    monotonic_started = time.monotonic()
+    result = kernel.run(
         plan.task,
         cwd=Path(plan.repo_path),
         output_dir=output_dir,
@@ -3614,29 +3497,15 @@ def run_self_evolution_kimi(
         stderr_tail=result.stderr_tail,
         last_message=result.last_message,
     )
-    (output_dir / "latest-self-evolution-run.json").write_text(
-        json.dumps(
-            {
-                "command": run_result.command,
-                "kernel": "kimi",
-                "kimi_cli": kimi_metadata,
-                "provider_preflight": result.provider_preflight,
-                "returncode": run_result.returncode,
-                "task_path": str(run_result.task_path),
-                "last_message_path": str(run_result.last_message_path),
-                "result_path": str(run_result.result_path),
-                "branch_name": run_result.branch_name,
-                "stdout_tail": run_result.stdout_tail,
-                "stderr_tail": run_result.stderr_tail,
-                "last_message": run_result.last_message,
-                "session_id": result.session_id,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    provider_fields: dict[str, Any] = {f"{name}_cli": metadata, "provider_preflight": result.provider_preflight}
+    if name != "codex":
+        provider_fields["kernel"] = name
+    if isinstance(result, KimiCliRunResult):
+        provider_fields["session_id"] = result.session_id
+    receipt = {**asdict(run_result), **provider_fields}
+    for key in ("task_path", "last_message_path", "result_path"):
+        receipt[key] = str(receipt[key])
+    atomic_write_text(output_dir / "latest-self-evolution-run.json", json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     current_head = run_controller_command(
         ["git", "rev-parse", "--verify", "HEAD"],
         cwd=Path(plan.repo_path),
@@ -3661,13 +3530,10 @@ def run_self_evolution_kimi(
         "target_head": current_head,
         "self_model_path": plan.self_model_path,
         "returncode": run_result.returncode,
-        "kernel": "kimi",
-        "kimi_cli": kimi_metadata,
-        "provider_preflight": result.provider_preflight,
+        **provider_fields,
         "task_path": str(run_result.task_path),
         "last_message_path": str(run_result.last_message_path),
-        "kimi_result_path": str(run_result.result_path),
-        "session_id": result.session_id,
+        f"{name}_result_path": str(run_result.result_path),
         "proposal_controls": proposal_controls,
         "replayable_validation_report": build_replayable_validation_report(plan, proposal_controls),
         "validation_gates": [
@@ -3675,11 +3541,7 @@ def run_self_evolution_kimi(
             for proposal in plan.proposals
             if str(proposal.get("validation_gate") or "").strip()
         ],
-        "proposal_ids": [
-            str(proposal.get("proposal_id"))
-            for proposal in plan.proposals
-            if str(proposal.get("proposal_id") or "").strip()
-        ],
+        "proposal_ids": [control["proposal_id"] for control in proposal_controls],
         "evidence_urls": sorted(
             {
                 str(url)
@@ -3689,9 +3551,8 @@ def run_self_evolution_kimi(
             }
         ),
     }
-    (output_dir / "latest-self-evolution-manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+    atomic_write_text(
+        output_dir / "latest-self-evolution-manifest.json", json.dumps(manifest, indent=2, sort_keys=True) + "\n",
     )
     write_self_model_snapshot(
         output_dir,
@@ -3757,12 +3618,9 @@ def run_intake_once(
         trend_events: list[GitHubEvent] = []
         trend_source: dict[str, Any] | None = None
         if trend_config is not None:
-            result = github.search_trending_repositories(trend_config)
-            normalized_repos.extend(repo.full_name for repo in result.repositories)
-            trend_events = build_trend_events(result.repositories, state=state, generated_at=generated_at)
-            trend_source = build_trend_source_metadata(result, state=state)
+            names, trend_events, trend_source = discover_event_sources(github, trend_config, state, poll_started_at)
+            normalized_repos.extend(names)
             trend_source["event_fetch_errors"] = []
-            update_trend_state(state, result.repositories)
         normalized_repos = list(dict.fromkeys(normalized_repos))
 
         events: list[GitHubEvent] = []
@@ -3980,7 +3838,9 @@ def main(
             ignore_user_config=ignore_user_config,
         )
         source = result.digest.get("source") or {}
-        if source:
+        if source.get("kind") == "github_cached_watchlist":
+            console.print(_watchlist_notice(source))
+        elif source:
             console.print(
                 f"Trend search tracked {len(source.get('repositories') or [])} repo(s) "
                 f"from query [bold]{source.get('query', '')}[/bold]"

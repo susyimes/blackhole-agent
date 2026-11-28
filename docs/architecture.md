@@ -46,7 +46,7 @@ Trend discovery uses GitHub repository search with bounded query parameters:
 - sort by stars, forks, or updated time
 - fork inclusion policy
 
-The digest should keep a trend snapshot with star count, first-seen status, and star delta since the previous run.
+The digest records star counts, first-seen status, and changes since the previous live search. A complete search also saves its repository names and discovery time in the intake state file. During a temporary search outage or rate limit, the next poll can use that list for up to the configured search window, with matching search settings, API endpoint, and request credentials. The digest marks the list as cached, dates it, and reports only newly fetched events as items. A successful empty search clears the list.
 
 Initial event types:
 
