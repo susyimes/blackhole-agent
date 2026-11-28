@@ -666,6 +666,21 @@ Run tests:
 uv run pytest
 ```
 
+To isolate a hanging test in a serial pytest shard, give each case a deadline in seconds.
+
+```bash
+uv run python -m blackhole_agent.suite_shards --repo . --shards 8 --shard-timeout 900 --case-timeout 60
+```
+
+The runner records the exact pytest node ID and phase in `timed_out_cases`, stops the worker
+and its ordinary child processes, and starts a fresh pytest session for the cases that have
+yet to run. Session fixtures are created again. Each restart uses the time left on the
+original shard deadline and respects pytest's `--maxfail`. Assertion failures appear in
+`failed_cases`. A shard with any timeout returns a failing result and runs again on the
+next invocation. Scheduled callers can set `BLACKHOLE_PYTEST_CASE_TIMEOUT` in seconds.
+With only a shard deadline, `active_at_shard_timeout` identifies the serial case running
+when the budget expired. A timeout during collection has no active case.
+
 Run lint:
 
 ```bash

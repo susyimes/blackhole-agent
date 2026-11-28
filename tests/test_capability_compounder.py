@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -45,6 +46,16 @@ from blackhole_agent.durable_state import durable_forget, durable_read_path
 from blackhole_agent.unbound import (
     build_turn_prompt,
 )
+
+
+def _capability_cli(repo: Path, *args: str, timeout: int) -> dict:
+    result = subprocess.run(
+        [sys.executable, "-m", "blackhole_agent.unbound", "capability", *args],
+        cwd=repo, env={**os.environ, "PYTHONPATH": str(repo / "src")},
+        capture_output=True, text=True, timeout=timeout,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return json.loads(result.stdout)
 
 
 def _make_mission_state(tmp_path: Path):
@@ -185,16 +196,7 @@ def test_prompt_includes_capability_ledger(tmp_path: Path):
 
 def test_cli_demo_exits_zero():
     repo = Path(__file__).resolve().parents[1]
-    completed = subprocess.run(
-        [sys.executable, "-m", "blackhole_agent.unbound", "capability", "demo", "--repo-path", str(repo)],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env={**dict(**{k: v for k, v in __import__("os").environ.items()}), "PYTHONPATH": str(repo / "src")},
-        timeout=180,
-    )
-    assert completed.returncode == 0, completed.stdout + completed.stderr
-    payload = json.loads(completed.stdout)
+    payload = _capability_cli(repo, "demo", "--repo-path", str(repo), timeout=180)
     assert payload["ok"] is True
     assert payload["used_skill_route_discovery"] is False
 
@@ -499,33 +501,11 @@ def test_synthesize_dynamic_domain_compositions_skips_known_sets():
 
 def test_cli_scout_and_grow_exit_zero():
     repo = Path(__file__).resolve().parents[1]
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    scout = subprocess.run(
-        [sys.executable, "-m", "blackhole_agent.unbound", "capability", "scout", "--repo-path", str(repo)],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=120,
-    )
-    assert scout.returncode == 0, scout.stdout + scout.stderr
-    scout_payload = json.loads(scout.stdout)
+    scout_payload = _capability_cli(repo, "scout", "--repo-path", str(repo), timeout=120)
     assert scout_payload["ok"] is True
     assert isinstance(scout_payload["opportunities"], list)
 
-    grow = subprocess.run(
-        [sys.executable, "-m", "blackhole_agent.unbound", "capability", "grow", "--repo-path", str(repo)],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=240,
-    )
-    assert grow.returncode == 0, grow.stdout + grow.stderr
-    grow_payload = json.loads(grow.stdout)
+    grow_payload = _capability_cli(repo, "grow", "--repo-path", str(repo), timeout=240)
     assert grow_payload["ok"] is True
     assert grow_payload["used_skill_route_discovery"] is False
     assert grow_payload.get("promoted_id") or grow_payload.get("grew") is False
@@ -542,54 +522,12 @@ def test_builtin_supervisor_compound_wake():
 
 def test_cli_integrity_and_budget_grow_exit_zero():
     repo = Path(__file__).resolve().parents[1]
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    integrity = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "integrity",
-            "--repo-path",
-            str(repo),
-            "--limit",
-            "8",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=180,
-    )
-    assert integrity.returncode == 0, integrity.stdout + integrity.stderr
-    integrity_payload = json.loads(integrity.stdout)
+    integrity_payload = _capability_cli(repo, "integrity", "--repo-path", str(repo), "--limit", "8", timeout=180)
     assert integrity_payload["ok"] is True
     assert integrity_payload["score"] >= 1.0
     assert integrity_payload["used_skill_route_discovery"] is False
 
-    grow = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "grow",
-            "--repo-path",
-            str(repo),
-            "--budget",
-            "2",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=360,
-    )
-    assert grow.returncode == 0, grow.stdout + grow.stderr
-    grow_payload = json.loads(grow.stdout)
+    grow_payload = _capability_cli(repo, "grow", "--repo-path", str(repo), "--budget", "2", timeout=360)
     assert grow_payload["ok"] is True
     assert grow_payload["used_skill_route_discovery"] is False
     assert grow_payload.get("action") == "adaptive_grow"
@@ -690,28 +628,7 @@ def test_autonomic_cycle_novelty_grow_distill_integrity():
     )
 
     # CLI surface for the autonomic plane.
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    novelty_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "novelty",
-            "--repo-path",
-            str(repo),
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=120,
-    )
-    assert novelty_cli.returncode == 0, novelty_cli.stdout + novelty_cli.stderr
-    novelty_payload = json.loads(novelty_cli.stdout)
+    novelty_payload = _capability_cli(repo, "novelty", "--repo-path", str(repo), timeout=120)
     assert novelty_payload["ok"] is True
     assert novelty_payload["used_skill_route_discovery"] is False
 
@@ -794,31 +711,13 @@ def test_mission_plane_expands_primitives_and_runs_program():
         or after["novel_ready_count"] >= 0
     )
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    plan_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "plan",
-            "health integrity persona",
-            "--repo-path",
-            str(repo),
-            "--max-steps",
-            "3",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    plan_payload = _capability_cli(
+        repo, "plan",
+        "health integrity persona",
+        "--repo-path", str(repo),
+        "--max-steps", "3",
         timeout=120,
     )
-    assert plan_cli.returncode == 0, plan_cli.stdout + plan_cli.stderr
-    plan_payload = json.loads(plan_cli.stdout)
     assert plan_payload["ok"] is True
     assert plan_payload["step_count"] >= 1
 
@@ -908,29 +807,12 @@ def test_outcome_contract_parses_and_evaluates_machine_predicates():
     assert plane["mission"]["ok"] is True
     assert plane["contract"]["passed_count"] >= 5
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    contract_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "contract",
-            "min_capabilities:3;capability_exists:repo.import-health;no_skill_route",
-            "--repo-path",
-            str(repo),
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    contract_payload = _capability_cli(
+        repo, "contract",
+        "min_capabilities:3;capability_exists:repo.import-health;no_skill_route",
+        "--repo-path", str(repo),
         timeout=120,
     )
-    assert contract_cli.returncode == 0, contract_cli.stdout + contract_cli.stderr
-    contract_payload = json.loads(contract_cli.stdout)
     assert contract_payload["ok"] is True
     assert contract_payload["met"] is True
 
@@ -997,28 +879,7 @@ def test_assurance_plane_ablation_transfer_and_adversarial():
     assert plane["adversarial"]["ok"] is True
     assert plane["used_skill_route_discovery"] is False
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    assurance_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "assurance",
-            "--repo-path",
-            str(repo),
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=180,
-    )
-    assert assurance_cli.returncode == 0, assurance_cli.stdout + assurance_cli.stderr
-    assurance_payload = json.loads(assurance_cli.stdout)
+    assurance_payload = _capability_cli(repo, "assurance", "--repo-path", str(repo), timeout=180)
     assert assurance_payload["ok"] is True
     assert assurance_payload["action"] == "assurance_plane"
 
@@ -1115,55 +976,23 @@ def test_sovereignty_plane_certificate_issue_and_verify():
     assert synthetic["certificate_hash"]
     assert verify_sovereignty_certificate(synthetic)["valid"] is True
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    sovereignty_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "sovereignty",
-            "--repo-path",
-            str(repo),
-            "--no-mission",
-            "--timeout-seconds",
-            "180",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    sovereignty_payload = _capability_cli(
+        repo, "sovereignty",
+        "--repo-path", str(repo),
+        "--no-mission",
+        "--timeout-seconds", "180",
         timeout=240,
     )
-    assert sovereignty_cli.returncode == 0, sovereignty_cli.stdout + sovereignty_cli.stderr
-    sovereignty_payload = json.loads(sovereignty_cli.stdout)
     assert sovereignty_payload["ok"] is True
     assert sovereignty_payload["action"] == "sovereignty_plane"
     assert sovereignty_payload["certificate"]["ok"] is True
 
-    verify_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "sovereignty",
-            "--repo-path",
-            str(repo),
-            "--verify-only",
-            sovereignty_payload["certificate"]["certificate_path"],
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    verify_payload = _capability_cli(
+        repo, "sovereignty",
+        "--repo-path", str(repo),
+        "--verify-only", sovereignty_payload["certificate"]["certificate_path"],
         timeout=90,
     )
-    assert verify_cli.returncode == 0, verify_cli.stdout + verify_cli.stderr
-    verify_payload = json.loads(verify_cli.stdout)
     assert verify_payload["ok"] is True
     assert verify_payload["valid"] is True
     # Keep path reference live for linters; ledger path is a side effect of seed.
@@ -1274,57 +1103,24 @@ def test_lineage_plane_chain_drift_and_adversarial():
     write_lineage_log(tmp, synthetic)
     assert load_lineage_log(tmp)["entry_count"] == 2
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    lineage_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "lineage",
-            "--repo-path",
-            str(repo),
-            "--no-mission",
-            "--lineage-path",
-            str(repo / "artifacts" / "capability-lineage" / "cli-lineage.json"),
-            "--timeout-seconds",
-            "240",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    lineage_payload = _capability_cli(
+        repo, "lineage",
+        "--repo-path", str(repo),
+        "--no-mission",
+        "--lineage-path", str(repo / "artifacts" / "capability-lineage" / "cli-lineage.json"),
+        "--timeout-seconds", "240",
         timeout=300,
     )
-    assert lineage_cli.returncode == 0, lineage_cli.stdout + lineage_cli.stderr
-    lineage_payload = json.loads(lineage_cli.stdout)
     assert lineage_payload["ok"] is True
     assert lineage_payload["action"] == "lineage_plane"
     assert lineage_payload["chain"]["valid"] is True
 
-    verify_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "lineage",
-            "--repo-path",
-            str(repo),
-            "--verify-only",
-            lineage_payload["lineage"]["path"],
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    verify_payload = _capability_cli(
+        repo, "lineage",
+        "--repo-path", str(repo),
+        "--verify-only", lineage_payload["lineage"]["path"],
         timeout=120,
     )
-    assert verify_cli.returncode == 0, verify_cli.stdout + verify_cli.stderr
-    verify_payload = json.loads(verify_cli.stdout)
     assert verify_payload["ok"] is True
     assert verify_payload["action"] == "verify_lineage"
     assert verify_payload["chain"]["valid"] is True
@@ -1414,33 +1210,14 @@ def test_reconciliation_plane_heals_synthetic_drift():
     drifted = inject_synthetic_lineage_drift(loaded)
     assert detect_lineage_drift(repo, drifted, timeout=60)["drift"] is True
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    recon_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "reconcile",
-            "--repo-path",
-            str(repo),
-            "--no-mission",
-            "--lineage-path",
-            str(repo / "artifacts" / "capability-lineage" / "cli-reconciliation.json"),
-            "--timeout-seconds",
-            "300",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    recon_payload = _capability_cli(
+        repo, "reconcile",
+        "--repo-path", str(repo),
+        "--no-mission",
+        "--lineage-path", str(repo / "artifacts" / "capability-lineage" / "cli-reconciliation.json"),
+        "--timeout-seconds", "300",
         timeout=360,
     )
-    assert recon_cli.returncode == 0, recon_cli.stdout + recon_cli.stderr
-    recon_payload = json.loads(recon_cli.stdout)
     assert recon_payload["ok"] is True
     assert recon_payload["action"] == "reconciliation_plane"
     assert recon_payload["heal"]["healed"] is True
@@ -1524,36 +1301,15 @@ def test_finality_plane_multi_epoch_seal_and_adversarial():
     assert int(loaded.get("epoch_count") or 0) >= 2
     assert int(loaded.get("tip_height") or 0) >= 2
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    finality_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "finality",
-            "--repo-path",
-            str(repo),
-            "--lineage-path",
-            str(repo / "artifacts" / "capability-lineage" / "cli-finality.json"),
-            "--quorum-path",
-            str(repo / "artifacts" / "quorum-bundles" / "cli-finality-quorum.json"),
-            "--finality-path",
-            str(repo / "artifacts" / "finality-bundles" / "cli-finality.json"),
-            "--timeout-seconds",
-            "240",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    finality_payload = _capability_cli(
+        repo, "finality",
+        "--repo-path", str(repo),
+        "--lineage-path", str(repo / "artifacts" / "capability-lineage" / "cli-finality.json"),
+        "--quorum-path", str(repo / "artifacts" / "quorum-bundles" / "cli-finality-quorum.json"),
+        "--finality-path", str(repo / "artifacts" / "finality-bundles" / "cli-finality.json"),
+        "--timeout-seconds", "240",
         timeout=300,
     )
-    assert finality_cli.returncode == 0, finality_cli.stdout + finality_cli.stderr
-    finality_payload = json.loads(finality_cli.stdout)
     assert finality_payload["ok"] is True
     assert finality_payload["action"] == "finality_plane"
     assert finality_payload["finalized"] is True
@@ -1646,40 +1402,17 @@ def test_actuation_plane_effects_and_adversarial():
     assert int(loaded.get("tip_height") or 0) >= 2
     assert loaded.get("bound_state_root")
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    actuate_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "actuate",
-            "--repo-path",
-            str(repo),
-            "--lineage-path",
-            str(repo / "artifacts" / "capability-lineage" / "cli-actuation.json"),
-            "--quorum-path",
-            str(repo / "artifacts" / "quorum-bundles" / "cli-actuation-quorum.json"),
-            "--finality-path",
-            str(repo / "artifacts" / "finality-bundles" / "cli-actuation-finality.json"),
-            "--execution-path",
-            str(repo / "artifacts" / "execution-bundles" / "cli-actuation-execution.json"),
-            "--actuation-path",
-            str(repo / "artifacts" / "actuation-bundles" / "cli-actuation.json"),
-            "--timeout-seconds",
-            "300",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    actuate_payload = _capability_cli(
+        repo, "actuate",
+        "--repo-path", str(repo),
+        "--lineage-path", str(repo / "artifacts" / "capability-lineage" / "cli-actuation.json"),
+        "--quorum-path", str(repo / "artifacts" / "quorum-bundles" / "cli-actuation-quorum.json"),
+        "--finality-path", str(repo / "artifacts" / "finality-bundles" / "cli-actuation-finality.json"),
+        "--execution-path", str(repo / "artifacts" / "execution-bundles" / "cli-actuation-execution.json"),
+        "--actuation-path", str(repo / "artifacts" / "actuation-bundles" / "cli-actuation.json"),
+        "--timeout-seconds", "300",
         timeout=360,
     )
-    assert actuate_cli.returncode == 0, actuate_cli.stdout + actuate_cli.stderr
-    actuate_payload = json.loads(actuate_cli.stdout)
     assert actuate_payload["ok"] is True
     assert actuate_payload["action"] == "actuation_plane"
     assert actuate_payload["effects_applied"] is True
@@ -1758,35 +1491,15 @@ def test_quorum_plane_majority_byzantine_and_adversarial():
     assert int(loaded.get("origin_count") or 0) >= 3
     assert int(loaded.get("byzantine_count") or 0) >= 1
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    quorum_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "quorum",
-            "--repo-path",
-            str(repo),
-            "--no-continuity",
-            "--lineage-path",
-            str(repo / "artifacts" / "capability-lineage" / "cli-quorum.json"),
-            "--quorum-path",
-            str(repo / "artifacts" / "quorum-bundles" / "cli-quorum.json"),
-            "--timeout-seconds",
-            "180",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    quorum_payload = _capability_cli(
+        repo, "quorum",
+        "--repo-path", str(repo),
+        "--no-continuity",
+        "--lineage-path", str(repo / "artifacts" / "capability-lineage" / "cli-quorum.json"),
+        "--quorum-path", str(repo / "artifacts" / "quorum-bundles" / "cli-quorum.json"),
+        "--timeout-seconds", "180",
         timeout=240,
     )
-    assert quorum_cli.returncode == 0, quorum_cli.stdout + quorum_cli.stderr
-    quorum_payload = json.loads(quorum_cli.stdout)
     assert quorum_payload["ok"] is True
     assert quorum_payload["action"] == "quorum_plane"
     assert quorum_payload["quorum_met"] is True
@@ -1872,71 +1585,19 @@ def test_continuity_plane_export_rehydrate_and_adversarial():
     assert loaded.get("bundle_hash")
     assert int(loaded.get("lineage_entry_count") or 0) >= 1
 
-    env = {
-        **dict(**{k: v for k, v in __import__("os").environ.items()}),
-        "PYTHONPATH": str(repo / "src"),
-    }
-    continuity_cli = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "blackhole_agent.unbound",
-            "capability",
-            "continuity",
-            "--repo-path",
-            str(repo),
-            "--lineage-path",
-            str(repo / "artifacts" / "capability-lineage" / "cli-continuity.json"),
-            "--bundle-path",
-            str(repo / "artifacts" / "continuity-bundles" / "cli-continuity.json"),
-            "--timeout-seconds",
-            "360",
-        ],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        env=env,
+    continuity_payload = _capability_cli(
+        repo, "continuity",
+        "--repo-path", str(repo),
+        "--lineage-path", str(repo / "artifacts" / "capability-lineage" / "cli-continuity.json"),
+        "--bundle-path", str(repo / "artifacts" / "continuity-bundles" / "cli-continuity.json"),
+        "--timeout-seconds", "360",
         timeout=420,
     )
-    assert continuity_cli.returncode == 0, continuity_cli.stdout + continuity_cli.stderr
-    continuity_payload = json.loads(continuity_cli.stdout)
     assert continuity_payload["ok"] is True
     assert continuity_payload["action"] == "continuity_plane"
     assert continuity_payload["resurrected"] is True
     assert continuity_payload["rehydrate"]["ok"] is True
     assert path.name == "ledger.json"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _audit_fixture_capability(capability_id: str, proof: str, recorded: int | None) -> Capability:

@@ -19,10 +19,12 @@ import subprocess
 import sys
 import tempfile
 import time
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, BinaryIO, Mapping, Sequence
 
 from blackhole_agent.file_guard import atomic_write_json, file_guard
+from blackhole_agent.process_capture import ProcessCancelled, run_captured_process
 from blackhole_agent.suite_inputs import file_digest, inputs_digest, suite_inputs
 
 DEFAULT_SHARD_COUNT = 8
@@ -68,8 +70,7 @@ _DURATION_LINE = re.compile(r"^\s*(\d+(?:\.\d+)?)s\s+(?:call|setup|teardown)\s+(
 
 
 def parse_test_durations(output: str) -> tuple[dict[str, float], list[dict[str, Any]]]:
-    """Sum per-file seconds and keep the ten slowest tests."""
-    per_file: dict[str, float] = {}
+    """Read pytest terminal durations when a parallel worker owns the reporting."""
     per_test: dict[str, float] = {}
     for line in output.splitlines():
         match = _DURATION_LINE.match(line)
@@ -78,6 +79,12 @@ def parse_test_durations(output: str) -> tuple[dict[str, float], list[dict[str, 
         seconds = float(match.group(1))
         nodeid = match.group(2)
         per_test[nodeid] = per_test.get(nodeid, 0.0) + seconds
+    return _duration_profile(per_test)
+
+
+def _duration_profile(per_test: dict[str, float]) -> tuple[dict[str, float], list[dict[str, Any]]]:
+    per_file: dict[str, float] = {}
+    for nodeid, seconds in per_test.items():
         name = nodeid.split("::")[0].replace("\\", "/").rsplit("/", 1)[-1]
         per_file[name] = per_file.get(name, 0.0) + seconds
     slowest = sorted(per_test.items(), key=lambda item: (-item[1], item[0]))[:10]
@@ -155,6 +162,75 @@ def resolve_pytest_command() -> tuple[list[str], str]:
     return [*launcher, "--", "python", "-m", "pytest"], "uv-ephemeral"
 
 
+class _CaseWatch:
+    """Read flushed phase transitions outside pytest, including when its interpreter is stuck."""
+
+    def __init__(self, directory: Path, stream: BinaryIO, seconds: float | None):
+        self.directory = directory
+        self.stream = stream
+        self.seconds = seconds
+        self.entered: set[int] = set()
+        self.timeouts: list[dict[str, str]] = []
+        self.failures: list[dict[str, str]] = []
+        self.durations: dict[str, float] = {}
+        self.active: tuple[int, str] | None = None
+        self.started = 0.0
+        self.worker_expired = False
+
+    @cached_property
+    def collection(self) -> dict[str, Any]:
+        # Pytest flushes the selection before reporting the first case.
+        return json.loads((self.directory / "collection.json").read_bytes())
+
+    def describe(self, index: int, phase: str) -> dict[str, str]:
+        return {"nodeid": self.collection["nodeids"][index], "phase": phase}
+
+    def refresh(self) -> None:
+        while True:
+            offset = self.stream.tell()
+            line = self.stream.readline()
+            if not line.endswith(b"\n"):
+                self.stream.seek(offset)
+                return
+            index, event, value = json.loads(line)
+            if event == "expired":
+                self.worker_expired = True
+                continue
+            if event == "result":
+                phase, outcome, duration = value
+                nodeid = self.collection["nodeids"][index]
+                self.durations[nodeid] = self.durations.get(nodeid, 0.0) + duration
+                if outcome == "failed":
+                    self.failures.append(self.describe(index, phase))
+                continue
+            if event == "setup":
+                self.entered.add(index)
+                self.started = value
+            self.active = None if event == "finished" else (index, event)
+
+    def is_set(self) -> bool:
+        self.refresh()
+        return self.active is not None and self.seconds is not None and time.monotonic() - self.started >= self.seconds
+
+    def after_case_timeout(self) -> bool:
+        """Save the interrupted case and select only unentered items for another worker."""
+        assert self.active is not None
+        self.timeouts.append(self.describe(*self.active))
+        self.refresh()  # The tree is now stopped. Account for any last transitions.
+        self.stream.truncate(self.stream.tell())  # Discard an unterminated final record before another writer appends.
+        self.active = None
+        self.worker_expired = False
+        failures = len(self.timeouts) + len(self.failures)
+        if self.collection["maxfail"] and failures >= self.collection["maxfail"]:
+            return False
+        if len(self.entered) == len(self.collection["nodeids"]):
+            return False
+        (self.directory / "recovery.json").write_text(
+            json.dumps({"entered": sorted(self.entered), "failures": failures}), encoding="ascii",
+        )
+        return True
+
+
 def _run_shard(
     repo_root: Path,
     files: Sequence[Path],
@@ -162,35 +238,54 @@ def _run_shard(
     timeout: int,
     env: dict[str, str],
     pytest_command: Sequence[str],
+    case_timeout: float | None,
+    directory: Path,
 ) -> dict[str, Any]:
-    relpaths = [str(path.relative_to(repo_root)) for path in files]
     started = time.monotonic()
-    code = None
-    try:
-        completed = subprocess.run(
-            [*pytest_command, "-q", "--durations=0", *relpaths],
-            cwd=str(repo_root),
-            env=env,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-        code = completed.returncode
-        status = "passed" if code == 0 else "failed"
-        output = completed.stdout + completed.stderr
-    except subprocess.TimeoutExpired as error:
-        status = "timed_out"
-        output = error.output or ""
-        if isinstance(output, bytes):
-            output = output.decode("utf-8", errors="replace")
-    except OSError as error:
-        status = "error"
-        output = f"{type(error).__name__}: {error}"
-    file_durations, slowest_tests = parse_test_durations(output)
+    directory.mkdir()
+    shutil.copyfile(Path(__file__).with_name("_pytest_cases.py"), directory / "_blackhole_pytest_cases.py")
+    command = [*pytest_command, "-q", "--durations=0", "-p", "_blackhole_pytest_cases",
+               *(str(path.relative_to(repo_root)) for path in files)]
+    env = dict(env, PYTHONPATH=os.pathsep.join(filter(None, (str(directory), env.get("PYTHONPATH")))),
+               _BLACKHOLE_CASE_DEADLINE=str(case_timeout) if case_timeout is not None else "")
+    shard_expiry = None
+    code, status, output = None, "timed_out", ""
+    with (directory / "events").open("w+b") as events:
+        watch = _CaseWatch(directory, events, case_timeout)
+        while (remaining := started + timeout - time.monotonic()) > 0:
+            try:
+                completed = run_captured_process(command, cwd=repo_root, env=env, timeout=remaining,
+                                                 cancel_event=watch if case_timeout is not None else None)
+                output = completed.stdout + completed.stderr
+                watch.refresh()
+                if not watch.worker_expired:
+                    if not watch.timeouts:
+                        code = completed.returncode
+                        status = "passed" if code == 0 else "failed"
+                    elif completed.returncode not in (0, 1):
+                        code, status = completed.returncode, "error"
+                    break
+            except ProcessCancelled:
+                pass  # The same recovery handles a live hang and a worker that stopped at a phase boundary.
+            except subprocess.TimeoutExpired as error:
+                output = (error.output or "") + (error.stderr or "")
+                watch.refresh()
+                if watch.active is not None:
+                    shard_expiry = watch.describe(*watch.active)
+                break
+            except (OSError, RuntimeError) as error:
+                status, output = "error", f"{type(error).__name__}: {error}"
+                break
+            if not watch.after_case_timeout():
+                break
+        watch.refresh()
+    if watch.entered:
+        file_durations, slowest_tests = _duration_profile(watch.durations)
+    else:
+        file_durations, slowest_tests = parse_test_durations(output)
     return {
         "status": status, "exit_code": code, "duration_seconds": round(time.monotonic() - started, 3),
+        "timed_out_cases": watch.timeouts, "failed_cases": watch.failures, "active_at_shard_timeout": shard_expiry,
         "file_durations": file_durations, "slowest_tests": slowest_tests, "output_tail": output[-400:],
     }
 
@@ -200,11 +295,14 @@ def run_suite_shards(
     *,
     shard_count: int = DEFAULT_SHARD_COUNT,
     shard_timeout: int = DEFAULT_SHARD_TIMEOUT,
+    case_timeout: float | None = None,
     ledger_path: Path | None = None,
     resume: bool = True,
     balance: bool = True,
 ) -> dict[str, Any]:
     """Save each verified shard before starting the next one."""
+    if case_timeout is not None and (not math.isfinite(case_timeout) or case_timeout <= 0):
+        raise ValueError("case_timeout must be positive and finite")
     root = Path(repo_root).resolve()
     ledger_file = (root / (ledger_path or DEFAULT_LEDGER)).resolve()
     ledger = _load_ledger(ledger_file)
@@ -228,6 +326,8 @@ def run_suite_shards(
     settings = {k: v for k, v in env.items() if k.startswith("PYTEST_") or k == "PYTHONPATH"}
     identity = [initial[0] if initial else None, str(root), sys.platform, sys.version,
                 pytest_runner, pytest_command, settings]
+    if case_timeout is not None:
+        identity.append(case_timeout)
     context = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     records: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="blackhole-suite-shards-") as overlay:
@@ -253,7 +353,8 @@ def run_suite_shards(
                 if index + 1 < len(shards):
                     continue
             else:
-                result = _run_shard(root, group, timeout=shard_timeout, env=env, pytest_command=pytest_command)
+                result = _run_shard(root, group, timeout=shard_timeout, env=env, pytest_command=pytest_command,
+                                    case_timeout=case_timeout, directory=Path(overlay) / f"shard-{index}")
                 entry.update(result)
             if initial is None:
                 continue
@@ -291,14 +392,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--repo", default=".", help="repository root containing tests/")
     parser.add_argument("--shards", type=int, default=DEFAULT_SHARD_COUNT, help="number of shards")
     parser.add_argument("--shard-timeout", type=int, default=DEFAULT_SHARD_TIMEOUT, help="per-shard timeout in seconds")
+    parser.add_argument("--case-timeout", type=float, default=os.environ.get("BLACKHOLE_PYTEST_CASE_TIMEOUT"),
+                        help="stop a stalled serial pytest case and run remaining cases within the shard deadline")
     parser.add_argument("--ledger", default="", help="ledger path; defaults to artifacts/suite-shards-ledger.json")
     parser.add_argument("--no-resume", action="store_true", help="re-run shards even when the ledger is green")
     parser.add_argument("--no-balance", action="store_true", help="pack round-robin and ignore duration profiles")
     args = parser.parse_args(argv)
+    if args.case_timeout is not None and (not math.isfinite(args.case_timeout) or args.case_timeout <= 0):
+        parser.error("--case-timeout must be positive and finite")
     report = run_suite_shards(
         Path(args.repo),
         shard_count=args.shards,
         shard_timeout=args.shard_timeout,
+        case_timeout=args.case_timeout,
         ledger_path=Path(args.ledger) if args.ledger else None,
         resume=not args.no_resume,
         balance=not args.no_balance,
