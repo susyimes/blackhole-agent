@@ -24,7 +24,8 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.experience_fuel import harvest_experience, merge_experience_into_proposals
-from blackhole_agent.file_guard import atomic_write_json, atomic_write_text, file_guard
+from blackhole_agent.file_guard import atomic_write_json, atomic_write_text, file_guard, json_text
+from blackhole_agent.intake_publication import next_digest_archive, publish_intake_batch, recover_intake_batch
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
@@ -1265,6 +1266,7 @@ def build_digest(
     *,
     state: GrowthState,
     generated_at: str | None = None,
+    digest_id_suffix: str = "",
     source: dict[str, Any] | None = None,
     memory: GrowthMemory | None = None,
     proposals: list[dict[str, Any]] | None = None,
@@ -1285,7 +1287,7 @@ def build_digest(
         for signal in signals
     ]
     digest = {
-        "digest_id": digest_id,
+        "digest_id": digest_id + digest_id_suffix,
         "generated_at": generated_at,
         "repositories": repos,
         "cursor": dict(sorted(state.last_seen_at_by_repo.items())),
@@ -3611,6 +3613,7 @@ def run_intake_once(
     # same lock that publishes the selected items and advances that cursor.
     state_file.parent.mkdir(parents=True, exist_ok=True)
     with file_guard(state_file):
+        recover_intake_batch(state_file)
         state = load_state(state_file)
         memory = load_memory(memory_file)
         poll_started_at = datetime.now(timezone.utc)
@@ -3640,8 +3643,10 @@ def run_intake_once(
             events.extend(selected)
         events.sort(key=lambda event: parse_github_timestamp(event.created_at), reverse=True)
         signals = extract_growth_signals([*trend_events, *events], topics=topics or list(DEFAULT_TOPICS))
+        json_path, suffix = next_digest_archive(output_dir, poll_started_at.strftime("%Y%m%dT%H%M%S.%fZ"))
         digest = build_digest(
             normalized_repos, signals, state=state, generated_at=generated_at, source=trend_source, memory=memory,
+            digest_id_suffix=suffix,
         )
         if validate_proposal_mode(proposal_mode) != "heuristic":
             digest["proposals"] = synthesize_digest_proposals(
@@ -3663,16 +3668,14 @@ def run_intake_once(
         digest["experience_fuel"] = harvest_experience(repo_path).to_dict()
         update_memory_from_digest(memory, digest)
 
-        timestamp = poll_started_at.strftime("%Y%m%dT%H%M%S.%fZ")
-        json_path = output_dir / f"github-growth-digest-{timestamp}.json"
         markdown_path = json_path.with_suffix(".md")
-        json_text = json.dumps(digest, indent=2, sort_keys=True) + "\n"
+        digest_text = json_text(digest, ensure_ascii=True)
         markdown_text = render_markdown_digest(digest)
-        for json_file, md_file in ((json_path, markdown_path), (output_dir / "latest.json", output_dir / "latest.md")):
-            atomic_write_text(json_file, json_text)
-            atomic_write_text(md_file, markdown_text)
-        save_state(state_file, state)
-        save_memory(memory_file, memory)
+        publish_intake_batch(state_file, [
+            (json_path, digest_text), (markdown_path, markdown_text),
+            (output_dir / "latest.json", digest_text), (output_dir / "latest.md", markdown_text),
+            (state_file, json_text(state.to_dict())), (memory_file, json_text(memory.to_dict())),
+        ])
         return DigestWriteResult(
             digest=digest, json_path=json_path, markdown_path=markdown_path,
             state_path=state_file, memory_path=memory_file,

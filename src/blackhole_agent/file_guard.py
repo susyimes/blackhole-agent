@@ -15,8 +15,24 @@ else:
     import fcntl
 
 
+def json_text(payload: dict[str, Any], *, ensure_ascii: bool = False) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=ensure_ascii) + "\n"
+
+
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    atomic_write_text(path, json_text(payload))
+
+
+def replace_file(source: Path, destination: Path) -> None:
+    """Atomically install a sibling file, allowing brief Windows reader locks."""
+    for attempt in range(8):
+        try:
+            os.replace(source, destination)
+            return
+        except OSError as error:
+            if getattr(error, "winerror", None) not in {5, 32} or attempt == 7:
+                raise
+            time.sleep(0.01 * (attempt + 1))
 
 
 def atomic_write_text(path: Path, text: str) -> None:
@@ -26,15 +42,7 @@ def atomic_write_text(path: Path, text: str) -> None:
     try:
         with stream:
             stream.write(text)
-        for attempt in range(8):
-            try:
-                os.replace(temporary, path)
-                return
-            except OSError as error:
-                # On Windows even a short-lived reader can deny replacement.
-                if getattr(error, "winerror", None) not in {5, 32} or attempt == 7:
-                    raise
-                time.sleep(0.01 * (attempt + 1))
+        replace_file(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
 

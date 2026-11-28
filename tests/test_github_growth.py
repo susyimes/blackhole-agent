@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
@@ -110,6 +111,13 @@ class FakeSession:
     def get(self, url: str, **kwargs) -> FakeResponse:
         self.requests.append({"url": url, **kwargs})
         return next(self.responses)
+
+
+def poll_intake(root, session, *, output_dir=None, token=None, proposal_mode="heuristic", **options):
+    return run_intake_once(
+        repo_path=root, output_dir=output_dir or root, proposal_mode=proposal_mode,
+        client=GitHubEventsClient(session=session, token=token), **options,
+    )
 
 
 def trend_repository(*, stars: int = 125) -> TrendingRepository:
@@ -1341,48 +1349,6 @@ def test_proposal_evidence_package_downweights_generic_shepherd_activity_before_
     )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def test_proposal_evidence_package_disambiguates_duplicate_item_ids_under_context_pressure():
     digest = {
         "digest_id": "github-growth-duplicate-context-ids",
@@ -2051,106 +2017,6 @@ def test_self_evolution_plan_carries_upstream_evidence_capability_step(tmp_path:
     )
     assert "Upstream evidence capability step:" in plan.task
     assert "local_pr_compare_before_draft" in plan.task
-
-
-def _skill_route_discovery_pipeline_fixture_proposals() -> list[dict]:
-    reverse_url = "https://github.com/lingbol088-spec/reverse-flow-skill"
-    rnskill_url = "https://github.com/Pluviobyte/rnskill"
-    fortress_url = "https://github.com/tiliondev/fortress"
-    chief_url = "https://github.com/SmileLikeYe/agent-chief"
-    return [
-        {
-            "proposal_id": "prop-skill-route-discovery-pipeline-reverse-flow-rnskill",
-            "kind": "code_patch",
-            "summary": (
-                "Translate reverse-flow-skill and rnskill skill_workflow trend signals into one "
-                "local skill_route_discovery capability pipeline."
-            ),
-            "evidence_urls": [reverse_url, rnskill_url],
-            "risk_flags": [],
-            "implementation_scope": "local_validation_candidate",
-            "validation_gate": "focused-evidence-review",
-            "validation_task": (
-                "Locally validate skill_route_discovery against reverse-flow-skill "
-                "(codex_workflow_gate / skill_route_discovery_first) and rnskill "
-                "(generic_skill_workflow / skill_route_discovery)."
-            ),
-            "requires_approval": False,
-        },
-        {
-            "proposal_id": "trend:lingbol088-spec/reverse-flow-skill-2",
-            "kind": "test",
-            "summary": (
-                "reverse-flow-skill is a Codex workflow skill with skill_route_discovery_first "
-                "and codex_workflow_gate evidence."
-            ),
-            "evidence_urls": [reverse_url],
-            "risk_flags": [],
-            "implementation_scope": "local_validation_candidate",
-            "validation_gate": "focused-evidence-review",
-            "validation_task": "Map reverse-flow-skill to a local test lane after comparison.",
-            "requires_approval": False,
-        },
-        {
-            "proposal_id": "trend:Pluviobyte/rnskill-2",
-            "kind": "documentation",
-            "summary": (
-                "rnskill is a generic_skill_workflow SKILL.md collection for skill_route_discovery."
-            ),
-            "evidence_urls": [rnskill_url],
-            "risk_flags": [],
-            "implementation_scope": "local_validation_candidate",
-            "validation_gate": "focused-evidence-review",
-            "validation_task": "Map rnskill to a documentation lane after comparison.",
-            "requires_approval": False,
-        },
-        {
-            "proposal_id": "prop-fortress-agent-harness-eval-local-candidate",
-            "kind": "test",
-            "summary": (
-                "Advance tiliondev/fortress as a general_agent_project harness-eval candidate."
-            ),
-            "evidence_urls": [fortress_url],
-            "risk_flags": [],
-            "implementation_scope": "local_validation_candidate",
-            "validation_gate": "focused-evidence-review",
-            "validation_task": "Keep fortress behind agent_harness_eval_required.",
-            "requires_approval": False,
-        },
-        {
-            "proposal_id": "prop-agent-chief-privacy-review-only",
-            "kind": "follow_up_issue",
-            "summary": (
-                "Hold SmileLikeYe/agent-chief as review-only privacy/governance evidence."
-            ),
-            "evidence_urls": [chief_url],
-            "risk_flags": ["privacy-leakage"],
-            "implementation_scope": "reviewable_proposal_only",
-            "validation_gate": "privacy-leakage-human-review",
-            "validation_task": "Do not select agent-chief for local apply.",
-            "requires_approval": False,
-        },
-    ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_build_digest_redirects_skill_route_pipeline_when_compounder_is_ready():
@@ -2824,7 +2690,6 @@ def test_llm_controller_internal_governance_candidate_can_apply_after_local_vali
 
 def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_invalid(tmp_path):
     events = [event_payload("3", "PullRequestEvent", "Improve agent workflow tests")]
-    client = GitHubEventsClient(session=FakeSession(FakeResponse(events)))
 
     def runner(command, **kwargs):
         last_message = command[command.index("--output-last-message") + 1]
@@ -2832,14 +2697,9 @@ def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_inval
             handle.write("not json")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    result = run_intake_once(
-        repos=["example/repo"],
-        output_dir=tmp_path,
-        topics=["agent", "workflow"],
-        client=client,
-        repo_path=tmp_path,
-        proposal_mode="llm",
-        command_runner=runner,
+    result = poll_intake(
+        tmp_path, FakeSession(FakeResponse(events)), repos=["example/repo"], topics=["agent", "workflow"],
+        proposal_mode="llm", command_runner=runner,
     )
 
     assert result.digest["proposals"][0]["proposal_source"] == "heuristic"
@@ -2848,185 +2708,77 @@ def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_inval
     assert "not valid JSON" in review["reason"]
 
 
-def test_repository_trend_sandboxing_controls_stay_review_gated(tmp_path):
-    event = trend_repository_to_event(
-        TrendingRepository(
-            full_name="omnigent-ai/omnigent",
-            html_url="https://github.com/omnigent-ai/omnigent",
-            description="Common agent layer to keep agents in check with sandboxing and tool restrictions.",
-            language="Python",
-            stargazers_count=1287,
-            forks_count=135,
-            open_issues_count=12,
-            created_at="2026-06-14T00:00:00Z",
-            updated_at="2026-06-15T00:00:00Z",
-            pushed_at="2026-06-15T00:00:00Z",
-            topics=["agent"],
-        ),
-        generated_at="2026-06-15T04:19:00Z",
+def local_trend_plan(tmp_path, name, description, topics, *, stars, forks, issues, generated_at, digest_id):
+    repository = TrendingRepository(
+        full_name=name, html_url=f"https://github.com/{name}", description=description, topics=topics,
+        language="Python", stargazers_count=stars, forks_count=forks, open_issues_count=issues,
+        created_at="2026-06-14T00:00:00Z", updated_at="2026-06-15T00:00:00Z", pushed_at="2026-06-15T00:00:00Z",
     )
-
-    signals = extract_growth_signals([event], topics=["agent"])
+    event = trend_repository_to_event(repository, generated_at=generated_at)
+    signals = extract_growth_signals([event], topics=topics)
     proposal = build_proposals(signals)[0]
     plan = build_self_evolution_plan(
-        {
-            "digest_id": "github-growth-omnigent-trend",
-            "generated_at": "2026-06-15T04:19:00Z",
-            "proposals": [proposal],
-        },
-        repo_path=tmp_path,
+        {"digest_id": digest_id, "generated_at": generated_at, "proposals": [proposal]}, repo_path=tmp_path,
     )
-
     assert signals[0].risk_flags == []
     assert proposal["kind"] == "follow_up_issue"
     assert proposal["implementation_scope"] == "local_validation_candidate"
     assert proposal["validation_gate"] == "focused-evidence-review"
     assert "extract one reusable pattern" in proposal["validation_task"]
     assert plan is not None
-    assert "Implementation scope: local_validation_candidate" in plan.task
     assert "Validation gate: focused-evidence-review" in plan.task
+    return signals[0], proposal, plan
+
+
+def test_repository_trend_sandboxing_controls_stay_review_gated(tmp_path):
+    _, _, plan = local_trend_plan(
+        tmp_path, "omnigent-ai/omnigent",
+        "Common agent layer to keep agents in check with sandboxing and tool restrictions.",
+        ["agent"], stars=1287, forks=135, issues=12, generated_at="2026-06-15T04:19:00Z",
+        digest_id="github-growth-omnigent-trend",
+    )
+    assert "Implementation scope: local_validation_candidate" in plan.task
 
 
 def test_repository_trend_direct_governance_language_can_apply_after_local_validation(tmp_path):
-    event = trend_repository_to_event(
-        TrendingRepository(
-            full_name="omnigent-ai/omnigent",
-            html_url="https://github.com/omnigent-ai/omnigent",
-            description="A common layer to govern your agents across local sessions.",
-            language="Python",
-            stargazers_count=1312,
-            forks_count=135,
-            open_issues_count=12,
-            created_at="2026-06-14T00:00:00Z",
-            updated_at="2026-06-15T00:00:00Z",
-            pushed_at="2026-06-15T00:00:00Z",
-            topics=["agent"],
-        ),
-        generated_at="2026-06-15T05:19:00Z",
+    _, _, plan = local_trend_plan(
+        tmp_path, "omnigent-ai/omnigent", "A common layer to govern your agents across local sessions.",
+        ["agent"], stars=1312, forks=135, issues=12, generated_at="2026-06-15T05:19:00Z",
+        digest_id="github-growth-omnigent-governance",
     )
-
-    signals = extract_growth_signals([event], topics=["agent"])
-    proposal = build_proposals(signals)[0]
-    plan = build_self_evolution_plan(
-        {
-            "digest_id": "github-growth-omnigent-governance",
-            "generated_at": "2026-06-15T05:19:00Z",
-            "proposals": [proposal],
-        },
-        repo_path=tmp_path,
-    )
-
-    assert signals[0].risk_flags == []
-    assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "local_validation_candidate"
-    assert proposal["validation_gate"] == "focused-evidence-review"
-    assert "extract one reusable pattern" in proposal["validation_task"]
-    assert plan is not None
     assert "Implementation scope: local_validation_candidate" in plan.task
-    assert "Validation gate: focused-evidence-review" in plan.task
     assert "extract one reusable pattern" in plan.task
 
 
 def test_repository_trend_security_harness_is_not_review_gated_without_offensive_or_privacy_signal(tmp_path):
-    event = trend_repository_to_event(
-        TrendingRepository(
-            full_name="visa/visa-vulnerability-agentic-harness",
-            html_url="https://github.com/visa/visa-vulnerability-agentic-harness",
-            description=(
-                "Agentic SAST pipeline for autonomous vulnerability discovery with structured findings "
-                "that require human review."
-            ),
-            language="Python",
-            stargazers_count=338,
-            forks_count=59,
-            open_issues_count=0,
-            created_at="2026-06-14T00:00:00Z",
-            updated_at="2026-06-15T00:00:00Z",
-            pushed_at="2026-06-15T00:00:00Z",
-            topics=["security", "agent"],
-        ),
-        generated_at="2026-06-15T06:32:33Z",
+    signal, _, plan = local_trend_plan(
+        tmp_path, "visa/visa-vulnerability-agentic-harness",
+        "Agentic SAST pipeline for autonomous vulnerability discovery with structured findings "
+        "that require human review.",
+        ["security", "agent"], stars=338, forks=59, issues=0, generated_at="2026-06-15T06:32:33Z",
+        digest_id="github-growth-visa-security-harness",
     )
-
-    signals = extract_growth_signals([event], topics=["security", "agent"])
-    proposal = build_proposals(signals)[0]
-    plan = build_self_evolution_plan(
-        {
-            "digest_id": "github-growth-visa-security-harness",
-            "generated_at": "2026-06-15T06:32:33Z",
-            "proposals": [proposal],
-        },
-        repo_path=tmp_path,
-    )
-
-    assert signals[0].risk_flags == []
-    assert signals[0].recommended_action == (
+    assert signal.recommended_action == (
         "review the repository for reusable patterns and turn only one concrete lesson into a validation task"
     )
-    assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "local_validation_candidate"
-    assert proposal["validation_gate"] == "focused-evidence-review"
-    assert "extract one reusable pattern" in proposal["validation_task"]
-    assert plan is not None
-    assert "Validation gate: focused-evidence-review" in plan.task
     assert "Autonomous local apply: True" in plan.task
 
 
 def test_repository_trend_agent_harness_can_be_behavior_or_report_work(tmp_path):
-    event = trend_repository_to_event(
-        TrendingRepository(
-            full_name="samarailly51-pixel/opencode-harness",
-            html_url="https://github.com/samarailly51-pixel/opencode-harness",
-            description=(
-                "Clean-room model-agnostic coding agent harness with traces, eval suites, "
-                "and evaluation reports for reproducible agent workflows."
-            ),
-            language="Python",
-            stargazers_count=193,
-            forks_count=5,
-            open_issues_count=0,
-            created_at="2026-06-14T00:00:00Z",
-            updated_at="2026-06-15T00:00:00Z",
-            pushed_at="2026-06-15T00:00:00Z",
-            topics=["agent", "workflow"],
-        ),
-        generated_at="2026-06-15T09:57:47Z",
+    _, proposal, plan = local_trend_plan(
+        tmp_path, "samarailly51-pixel/opencode-harness",
+        "Clean-room model-agnostic coding agent harness with traces, eval suites, "
+        "and evaluation reports for reproducible agent workflows.",
+        ["agent", "workflow"], stars=193, forks=5, issues=0, generated_at="2026-06-15T09:57:47Z",
+        digest_id="github-growth-opencode-harness",
     )
-
-    signals = extract_growth_signals([event], topics=["agent", "workflow"])
-    proposal = build_proposals(signals)[0]
-    plan = build_self_evolution_plan(
-        {
-            "digest_id": "github-growth-opencode-harness",
-            "generated_at": "2026-06-15T09:57:47Z",
-            "proposals": [proposal],
-        },
-        repo_path=tmp_path,
-    )
-
-    assert signals[0].risk_flags == []
-    assert proposal["kind"] == "follow_up_issue"
-    assert proposal["implementation_scope"] == "local_validation_candidate"
-    assert proposal["validation_gate"] == "focused-evidence-review"
-    assert "extract one reusable pattern" in proposal["validation_task"]
     assert "validation_report_requirement" not in proposal_manifest_control(proposal)
-    assert plan is not None
-    assert "Validation gate: focused-evidence-review" in plan.task
     assert "Autonomous local apply: True" in plan.task
 
 
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
     fake_session = FakeSession(FakeResponse([event_payload("3", "PullRequestEvent", "Improve agent workflow tests")]))
-    client = GitHubEventsClient(session=fake_session, token="test-token")
-
-    result = run_intake_once(
-        repos=["example/repo"],
-        output_dir=tmp_path,
-        topics=["agent", "workflow"],
-        client=client,
-        repo_path=tmp_path,
-        proposal_mode="heuristic",
-    )
+    result = poll_intake(tmp_path, fake_session, repos=["example/repo"], topics=["agent", "workflow"], token="test-token")
 
     assert result.json_path.exists()
     assert result.markdown_path.exists()
@@ -3056,15 +2808,7 @@ def test_run_intake_once_updates_state_for_all_paginated_events(tmp_path):
         FakeResponse(events[100:]),
     )
 
-    result = run_intake_once(
-        repos=["example/repo"],
-        output_dir=tmp_path,
-        topics=["workflow"],
-        client=GitHubEventsClient(session=session),
-        repo_path=tmp_path,
-        max_events_per_repo=100,
-        proposal_mode="heuristic",
-    )
+    result = poll_intake(tmp_path, session, repos=["example/repo"], topics=["workflow"], max_events_per_repo=100)
 
     state = json.loads(result.state_path.read_text(encoding="utf-8"))
     assert [request["params"] for request in session.requests] == [{"per_page": 100}, None]
@@ -3087,14 +2831,7 @@ def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
     )
     session = FakeSession(trend_search_response(), FakeResponse([]))
 
-    result = run_intake_once(
-        output_dir=tmp_path,
-        state_path=state_path,
-        trend_config=GitHubTrendConfig(),
-        client=GitHubEventsClient(session=session),
-        repo_path=tmp_path,
-        proposal_mode="heuristic",
-    )
+    result = poll_intake(tmp_path, session, state_path=state_path, trend_config=GitHubTrendConfig())
 
     digest = result.digest
     state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -3111,13 +2848,7 @@ def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
 
 def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
     session = FakeSession(trend_search_response(), FakeResponse([], status_code=403))
-    result = run_intake_once(
-        output_dir=tmp_path,
-        trend_config=GitHubTrendConfig(),
-        client=GitHubEventsClient(session=session),
-        repo_path=tmp_path,
-        proposal_mode="heuristic",
-    )
+    result = poll_intake(tmp_path, session, trend_config=GitHubTrendConfig())
 
     assert result.digest["items"][0]["event_kind"] == "RepositoryTrend"
     assert result.digest["source"]["event_fetch_errors"] == [
@@ -3133,11 +2864,8 @@ def test_overlapping_intakes_deliver_one_copy(tmp_path):
     rows = [event_payload("shared", "ReleaseEvent", "release")]
 
     def poll():
-        client = GitHubEventsClient(session=FakeSession(FakeResponse(rows)))
         start.wait(timeout=10)
-        return run_intake_once(
-            repos=["example/repo"], output_dir=tmp_path, repo_path=tmp_path, client=client, proposal_mode="heuristic",
-        )
+        return poll_intake(tmp_path, FakeSession(FakeResponse(rows)), repos=["example/repo"])
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         first, second = pool.submit(poll), pool.submit(poll)
@@ -3145,6 +2873,61 @@ def test_overlapping_intakes_deliver_one_copy(tmp_path):
     assert paths[0] != paths[1]
     batches = [[row["item_id"] for row in json.loads(path.read_bytes())["items"]] for path in paths]
     assert sorted(batches) == [[], ["shared"]]
+
+
+@pytest.mark.parametrize("fault", ["memory_parent", "latest_directory"])
+def test_intake_write_failure_keeps_old_batch_and_allows_retry(tmp_path, fault):
+    output = tmp_path / "reports"
+    cursor = tmp_path / "state.json"
+    memory = tmp_path / "memory.json"
+    rows = [event_payload("release", "ReleaseEvent", "release")]
+
+    def poll(reports, learning):
+        return poll_intake(
+            tmp_path, FakeSession(FakeResponse(rows)), repos=["example/repo"],
+            output_dir=reports, state_path=cursor, memory_path=learning,
+        )
+
+    if fault == "memory_parent":
+        (tmp_path / "file").touch()
+        memory = tmp_path / "file" / "memory.json"
+    else:
+        (output / "latest.md").mkdir(parents=True)
+    with pytest.raises(OSError):
+        poll(output, memory)
+    assert not cursor.exists() and not list(output.glob("github-growth-digest-*"))
+    result = poll(tmp_path / "new", tmp_path / "memory.json")
+    assert [item["item_id"] for item in result.digest["items"]] == ["release"]
+    assert not any(path.is_file() for path in output.iterdir())
+
+
+def test_recovery_finishes_at_original_destinations_after_reconfiguration(tmp_path, monkeypatch):
+    def poll(event_ids, output):
+        rows = [event_payload(ident, "ReleaseEvent", ident) for ident in event_ids]
+        return poll_intake(
+            tmp_path, FakeSession(FakeResponse(rows)), repos=["example/repo"],
+            output_dir=output, state_path=tmp_path / "state.json",
+        )
+
+    old = tmp_path / "old"
+    replace = os.replace
+
+    def stop_after_latest(source, destination):
+        replace(source, destination)
+        if destination == old / "latest.json":
+            raise OSError("writer interrupted")
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(os, "replace", stop_after_latest)
+        with pytest.raises(OSError, match="interrupted"):
+            poll(["original"], old)
+    result = poll(["original", "new"], tmp_path / "new")
+    assert [item["item_id"] for item in result.digest["items"]] == ["new"]
+    for folder, ident in ((old, "original"), (result.json_path.parent, "new")):
+        digest = json.loads((folder / "latest.json").read_bytes())
+        memory = json.loads((folder / "memory.json").read_bytes())
+        assert [item["item_id"] for item in digest["items"]] == [ident]
+        assert [lesson["source_digest_id"] for lesson in memory["lessons"]] == [digest["digest_id"]]
 
 
 def test_memory_bias_prioritizes_previously_useful_sources():

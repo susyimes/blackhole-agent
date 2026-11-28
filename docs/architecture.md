@@ -48,6 +48,8 @@ Trend discovery uses GitHub repository search with bounded query parameters:
 
 The digest records star counts, first-seen status, and changes since the previous live search. A complete search also saves its repository names and discovery time in the intake state file. During a temporary search outage or rate limit, the next poll can use that list for up to the configured search window, with matching search settings, API endpoint, and request credentials. The digest marks the list as cached, dates it, and reports only newly fetched events as items. A successful empty search clears the list.
 
+Each poll stages its dated and latest JSON and Markdown digests, cursor, and learning memory beside their destinations. If the writer exits during publication, the next poll sharing that cursor finishes the prepared batch at its original paths before contacting GitHub. Interrupted staging leaves the previous batch in place. Polls with the same timestamp receive distinct archive names and digest IDs. Each file replacement is atomic. Readers that need all six files to agree can read them under the intake cursor lock after recovery.
+
 Initial event types:
 
 - commits
