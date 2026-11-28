@@ -556,8 +556,6 @@ def remote_head_is_fast_forward(
         return True
     if head == tip:
         return True
-    if not git_commit_exists(repo_path, head, command_runner=command_runner):
-        return False
     try:
         return git_is_ancestor(repo_path, head, tip, command_runner=command_runner)
     except RuntimeError:
@@ -604,26 +602,15 @@ def remote_branch_head(
     command_runner: Callable[..., Any] = subprocess.run,
     push_url: str | None = None,
 ) -> tuple[str, str]:
-    from blackhole_agent.publication_resilience import is_http_transport_abort, is_schannel_handshake_failure
+    from blackhole_agent.publication_resilience import (
+        is_http_transport_abort, is_schannel_handshake_failure, read_publication_receiver,
+    )
 
-    env = None
-    if push_url is not None:
-        # Read the already expanded push URL verbatim. Passing it back as a repository
-        # argument could select a different named remote or apply insteadOf a second time.
-        remote = f"blackhole-receiver-{uuid.uuid4().hex}:"
-        env = dict(os.environ)
-        index = int(env.get("GIT_CONFIG_COUNT") or 0)
-        env.update({
-            "GIT_CONFIG_COUNT": str(index + 1),
-            f"GIT_CONFIG_KEY_{index}": f"url.{push_url}.insteadOf",
-            f"GIT_CONFIG_VALUE_{index}": remote,
-        })
     ref = f"refs/heads/{branch}"
     for _ in range(2):
         try:
-            response = run_command(
-                ["git", "ls-remote", "--heads", "--", remote, ref], cwd=repo_path,
-                command_runner=command_runner, check=False, env=env,
+            response = read_publication_receiver(
+                repo_path, remote, push_url, ["ls-remote", "--heads"], ref, command_runner,
             )
         except subprocess.TimeoutExpired as exc:
             error = f"git ls-remote timed out after {exc.timeout}s"
@@ -661,6 +648,7 @@ def publish_lineage(
     from blackhole_agent.publication_resilience import (
         POST_BUFFER_RETRY_BYTES,
         REMOTE_HEAD_MISMATCH_PREFIX,
+        acquire_receiver_head,
         integrate_clean_divergence,
         is_http_transport_abort,
         is_post_buffer_overflow,
@@ -698,8 +686,12 @@ def publish_lineage(
         return receipt(error)
     remote_before = before[0]
     publish_sha = commit_sha
-    predecessors = tuple(dict.fromkeys(before))
-    for head in predecessors:
+    if all(head == publish_sha for head in before):
+        return receipt(after=publish_sha)
+    for target, head in zip(targets, before):
+        error = acquire_receiver_head(repo_path, remote, branch, head, target, command_runner)
+        if error:
+            return receipt(error)
         if remote_head_is_fast_forward(repo_path, head, publish_sha, command_runner=command_runner):
             continue
         # Plan against the primary receiving branch. Every additional receiver
@@ -710,10 +702,8 @@ def publish_lineage(
                 publish_sha = merged
                 continue
         return receipt(f"{REMOTE_HEAD_MISMATCH_PREFIX}: {head} is not a fast-forward ancestor of {publish_sha}")
-    if all(head == publish_sha for head in before):
-        return receipt(after=publish_sha)
     command = ("git", "push", remote, f"{publish_sha}:refs/heads/{branch}")
-    for head in predecessors:
+    for head in dict.fromkeys(before):
         if head and head != publish_sha:
             protected = evaluate_candidate_protected_paths(
                 target_repo_path=repo_path, candidate_repo_path=repo_path,

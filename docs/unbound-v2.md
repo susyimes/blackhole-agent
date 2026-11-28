@@ -370,11 +370,12 @@ proven milestone commit rather than resetting to `main`. An active latest
 mission is resumed after a controller restart. This produces one serial
 single-agent lineage; it does not introduce child agents or parallel work.
 
-After a mission reaches `complete`, the CLI defaults to publishing the exact
-proven lineage commit to `origin/main` with a normal non-force push. The remote
-ref is read before the push and verified afterward. A rejected or unavailable
-push leaves `pending_publish_ref` in loop state, waits 30 minutes, and retries;
-the controller does not create the next mission until publication succeeds.
+After a mission reaches `complete`, the CLI publishes to `origin/main` by default.
+If a collaborator has pushed independent edits, the publisher reads the commit
+from the receiving repository, even when the configured fetch mirror is behind.
+A clean merge retains the collaborator and mission commits as its two parents.
+The publisher uses a normal fast-forward push and verifies the receiving branch
+afterward. A failed transfer keeps `pending_publish_ref` for the next interval.
 
 Worktree creation uses a dedicated 15-minute setup timeout. If Git reports a
 timeout after leaving the expected branch, commit, and clean tracked checkout,
@@ -385,11 +386,10 @@ interval, and retries instead of terminating the continuous loop.
 Use another configured remote with `--publish-remote <name>`. Pass an empty
 value only when a deliberately local-only loop is wanted.
 
-Publication is subject to the protected-paths gate: if the lineage diff against
-the current remote head touches a protected governance path, the push is
-refused and retried on the normal publication schedule. An operator restarts
-the loop with `--allow-protected-path-publish` to acknowledge and release that
-specific lineage.
+Before pushing, the publisher checks the proposed change against each receiving
+branch. A content conflict or an unacknowledged protected-path change stops
+publication of that commit. An operator can acknowledge protected changes with
+`--allow-protected-path-publish`.
 
 ### Worktree reclamation
 

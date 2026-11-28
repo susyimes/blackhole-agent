@@ -1,52 +1,23 @@
-"""Fail closed when lineage publication is not a fast-forward.
+"""Inspect receiving Git histories and recover publishable lineage commits.
 
-``publish_lineage`` already skips a same-SHA republication and verifies the
-remote head after a push. A remote branch that moved to an unrelated commit
-still attempted ``git push sha:refs/heads/branch``. Git usually rejected the
-non-fast-forward, ``last_publish_error`` stayed sticky, and the continuous
-loop retried the same hopeless SHA as ``sleeping_publish_retry`` instead of
-creating the next mission.
-
-A protected-path refusal is the same kind of stall. From 2026-08-17 through
-2026-08-22 the loop retried commit e7b754131c475cdb13012f16f8b29f212125fd56
-222 times after ``protected paths require operator acknowledgment`` for
-``src/blackhole_agent/experience_fuel.py``. Retrying that SHA cannot succeed
-without an operator acknowledgment, so the pending publish is cleared. The
-push stays refused. Transient DNS and connect failures keep the pending
-publish.
-
-``publication_failed`` is a catalog class without a closer, so harvest could
-never drop it.
-
-A later stall is different. On 2026-11-02 origin/main gained one sibling
-commit (soul.md) while the proved lineage gained another. The tips shared
-history and did not touch the same files, but publication treated every
-non-ancestor as terminal, so the proved commit never reached the remote.
-
-This module closes that class:
-
-- fast-forward an ancestor remote, and keep same-SHA republication idempotent
-- when the tips share history and merge cleanly, publish a merge commit whose
-  first parent is the remote head so the push is a fast-forward
-- refuse unrelated histories and content conflicts before push
-- drop pending publish on a terminal remote-head mismatch so the loop does
-  not stall; keep pending on transient transport errors
-- drop pending publish on a protected-path acknowledgment refusal so the
-  same SHA is not retried; the push stays refused
-- drop the class from genesis fuel once this closer is proved
+In August 2026 the loop retried a protected-path refusal 222 times. In
+November it discarded a clean sibling of a newly published soul.md edit.
+Local ancestry and protected-path review determine which changes can land.
+An unreadable receiver leaves the publication pending for a later attempt.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
 from blackhole_agent.capability_compounder import (
     Capability,
-    CapabilityLedger,
     default_ledger_path,
     legacy_pipeline_was_used,
     load_ledger,
@@ -62,6 +33,7 @@ PUBLICATION_FAILED = "publication_failed"
 PUBLICATION_RESILIENCE_ID = "capability.publication-resilience"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REMOTE_HEAD_MISMATCH_PREFIX = "remote-head mismatch"
+RECEIVER_FETCH_ERROR = "Unable to fetch receiver commit"
 # Harvested 2026-08-17..2026-08-22. The same SHA was retried 222 times.
 # The gate still refuses the push; only the hopeless pending retry is dropped.
 PROTECTED_PATH_REFUSAL_MARKER = "protected paths require operator acknowledgment"
@@ -111,6 +83,8 @@ def is_terminal_publication_error(error: str) -> bool:
     """
 
     text = str(error or "").lower()
+    if text.startswith(RECEIVER_FETCH_ERROR.lower()):
+        return False  # A transport diagnostic cannot establish divergent ancestry.
     return any(marker in text for marker in TERMINAL_PUBLICATION_MARKERS)
 
 
@@ -199,6 +173,57 @@ def publication_read_targets(repo: Path, remote: str, command_runner: Callable[.
     return tuple(dict.fromkeys(None if url == fetch_url else url for url in push.stdout.splitlines()))
 
 
+def read_publication_receiver(
+    repo: Path, remote: str, push_url: str | None, args: list[str], ref: str, command_runner: Callable[..., Any],
+) -> subprocess.CompletedProcess:
+    """Run ls-remote or fetch against the same endpoint that will receive the push."""
+    from blackhole_agent.unbound import run_command
+
+    env = None
+    if push_url is not None:
+        # Read the expanded push URL verbatim, even if it resembles a remote name
+        # or matches another insteadOf rule. Preserve existing per-command config.
+        remote = f"blackhole-receiver-{uuid.uuid4().hex}:"
+        env = os.environ.copy()
+        index = int(env.get("GIT_CONFIG_COUNT") or 0)
+        env.update({
+            "GIT_CONFIG_COUNT": str(index + 1),
+            f"GIT_CONFIG_KEY_{index}": f"url.{push_url}.insteadOf",
+            f"GIT_CONFIG_VALUE_{index}": remote,
+        })
+    return run_command(["git", *args, "--", remote, ref], cwd=repo, env=env, command_runner=command_runner, check=False)
+
+
+def acquire_receiver_head(
+    repo: Path, remote: str, branch: str, head: str, push_url: str | None, command_runner: Callable[..., Any],
+) -> str:
+    """Obtain a missing advertised commit without changing local refs, index or FETCH_HEAD."""
+    from blackhole_agent.unbound import git_commit_exists, remote_branch_head
+
+    if not head or git_commit_exists(repo, head, command_runner=command_runner):
+        return ""
+    failure = f"{RECEIVER_FETCH_ERROR} {head}"
+    try:
+        fetched = read_publication_receiver(
+            repo, remote, push_url,
+            ["fetch", "--no-tags", "--no-prune", "--no-prune-tags", "--no-recurse-submodules",
+             "--no-write-fetch-head", "--no-auto-maintenance", "--refmap="],
+            head, command_runner,
+        )
+        if fetched.returncode or not git_commit_exists(repo, head, command_runner=command_runner):
+            return f"{failure}: {(fetched.stderr or fetched.stdout or '').strip() or 'commit unavailable'}"
+        current, error = remote_branch_head(repo, remote, branch, push_url=push_url, command_runner=command_runner)
+    except subprocess.TimeoutExpired as exc:
+        return f"{failure}: timed out after {exc.timeout}s"
+    except OSError as exc:
+        return f"{failure}: {exc}"
+    if error:
+        return f"{failure}: {error}"
+    if current != head:
+        return f"Receiving branch changed during fetch: expected {head}, observed {current or '(missing)'}"
+    return ""
+
+
 def apply_publication_failure(loop_state: dict[str, Any], error: str) -> dict[str, Any]:
     """Record a failed publish; a terminal refusal must not retry forever."""
 
@@ -281,149 +306,43 @@ def integrate_clean_divergence(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> str:
-    """Return a merge commit that fast-forwards ``remote_head``, or empty.
+    """Write a clean two-parent merge object for related, diverged commits."""
+    from blackhole_agent.unbound import run_command
 
-    The harvested 2026-11-02 stall was two children of one parent with
-    disjoint files. Unrelated histories, a remote that already contains the
-    lineage, and content conflicts return empty so publication still refuses
-    them. This writes a commit object only. It does not push or move HEAD.
-    """
-
-    from blackhole_agent.unbound import git_is_ancestor, run_command
+    def git(*args: str) -> subprocess.CompletedProcess:
+        return run_command(["git", *args], cwd=repo_path, command_runner=command_runner, check=False)
 
     remote_oid = str(remote_head or "").strip()
     lineage_oid = str(lineage_tip or "").strip()
-    if not remote_oid or not lineage_oid or remote_oid == lineage_oid:
+    if not remote_oid or not lineage_oid:
         return ""
-    try:
-        if git_is_ancestor(
-            repo_path,
-            lineage_oid,
-            remote_oid,
-            command_runner=command_runner,
-        ):
-            return ""
-    except RuntimeError:
+    if git("merge-base", "--is-ancestor", lineage_oid, remote_oid).returncode != 1:
         return ""
-    base = run_command(
-        ["git", "merge-base", remote_oid, lineage_oid],
-        cwd=repo_path,
-        command_runner=command_runner,
-        check=False,
+    # merge-tree rejects unrelated histories and conflicting edits without touching the checkout.
+    merged = git("merge-tree", "--write-tree", remote_oid, lineage_oid)
+    tree = (merged.stdout or "").strip()
+    if merged.returncode or not tree:
+        return ""
+    created = git(
+        "commit-tree", tree.splitlines()[0], "-p", remote_oid, "-p", lineage_oid,
+        "-m", "Integrate a clean remote sibling with the proved lineage",
     )
-    if base.returncode != 0 or not (base.stdout or "").strip():
-        return ""
-    merged = run_command(
-        ["git", "merge-tree", "--write-tree", remote_oid, lineage_oid],
-        cwd=repo_path,
-        command_runner=command_runner,
-        check=False,
-    )
-    if merged.returncode != 0:
-        return ""
-    tree = (merged.stdout or "").strip().splitlines()
-    tree_oid = tree[0].strip() if tree else ""
-    if not tree_oid:
-        return ""
-    created = run_command(
-        [
-            "git",
-            "commit-tree",
-            tree_oid,
-            "-p",
-            remote_oid,
-            "-p",
-            lineage_oid,
-            "-m",
-            "Integrate a clean remote sibling with the proved lineage",
-        ],
-        cwd=repo_path,
-        command_runner=command_runner,
-        check=False,
-    )
-    if created.returncode != 0:
-        return ""
-    return (created.stdout or "").strip()
+    return "" if created.returncode else (created.stdout or "").strip()
 
 
 def _git(repo: Path, *arguments: str) -> str:
-    completed = subprocess.run(
-        ["git", *arguments],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return (completed.stdout or "").strip()
+    return subprocess.check_output(["git", *arguments], cwd=repo, text=True, stderr=subprocess.PIPE).strip()
 
 
-def _init_repo(root: Path) -> Path:
-    repo = root / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-b", "main")
-    _git(repo, "config", "user.email", "pub@test.local")
-    _git(repo, "config", "user.name", "Pub Test")
-    (repo / "README.md").write_text("seed\n", encoding="utf-8")
-    _git(repo, "add", "README.md")
-    _git(repo, "commit", "-m", "seed")
-    return repo
-
-
-def _bare_remote(root: Path, repo: Path) -> Path:
-    remote = root / "remote.git"
-    subprocess.run(
-        ["git", "init", "--bare", str(remote)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    _git(repo, "remote", "add", "origin", remote.as_posix())
-    _git(repo, "push", "-u", "origin", "main")
-    return remote
-
-
-def _remote_head(remote: Path, branch: str = "main") -> str:
-    completed = subprocess.run(
-        ["git", "--git-dir", str(remote), "rev-parse", f"refs/heads/{branch}"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return (completed.stdout or "").strip()
-
-
-def _recording_runner(pushes: list[list[str]]) -> Callable[..., Any]:
-    def runner(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
-        tokens = [str(part) for part in command]
-        if len(tokens) >= 2 and tokens[0] == "git" and tokens[1] == "push":
-            pushes.append(tokens)
-        return subprocess.run(command, **kwargs)
-
-    return runner
-
-
-def _register_proved(root: Path, capability_id: str) -> None:
-    path = default_ledger_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    ledger = load_ledger(path) if path.is_file() else CapabilityLedger()
-    register_capability(
-        ledger,
-        Capability(
-            id=capability_id,
-            name=capability_id,
-            description="Proved closer used by publication-resilience proof.",
-            kind="python",
-            entry="blackhole_agent.local_capability_kernel:builtin_fixture_probe",
-            proof_command="uv run python -c \"print('ok')\"",
-            last_proof_exit_code=0,
-        ),
-        replace=True,
-    )
-    save_ledger(path, ledger)
+def _commit_file(repo: Path, name: str, text: str) -> str:
+    (repo / name).write_text(text + "\n", encoding="utf-8")
+    _git(repo, "add", "--", name)
+    _git(repo, "commit", "-qm", text)
+    return _git(repo, "rev-parse", "HEAD")
 
 
 def builtin_publication_resilience_proof() -> dict[str, Any]:
-    """Hermetic proof: diverged remotes are refused; same-SHA and FF stay live."""
+    """Exercise publication, refusal and retry against independent local Git repositories."""
 
     from blackhole_agent.experience_fuel import harvest_experience
     from blackhole_agent.kernel_class_closure import class_is_closed
@@ -476,142 +395,79 @@ def builtin_publication_resilience_proof() -> dict[str, Any]:
         and transient["last_publish_error"] == "simulated remote failure"
     )
 
-    with tempfile.TemporaryDirectory(prefix="publication-ff-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="publication-peers-") as tmp:
         root = Path(tmp)
-        repo = _init_repo(root)
-        remote = _bare_remote(root, repo)
-        seed = _git(repo, "rev-parse", "HEAD")
-        (repo / "advance.txt").write_text("next\n", encoding="utf-8")
-        _git(repo, "add", "advance.txt")
-        _git(repo, "commit", "-m", "advance")
-        tip = _git(repo, "rev-parse", "HEAD")
+        repo, remote, peer = (root / name for name in ("repo", "remote.git", "peer"))
+        _git(root, "init", "-qb", "main", str(repo))
+        _git(repo, "config", "user.email", "pub@test.local")
+        _git(repo, "config", "user.name", "Pub Test")
+        seed = _commit_file(repo, "README.md", "seed")
+        _git(root, "init", "--bare", str(remote))
+        _git(repo, "remote", "add", "origin", remote.as_posix())
         pushes: list[list[str]] = []
-        published = publish_lineage(
-            repo,
-            tip,
-            "origin",
-            "main",
-            command_runner=_recording_runner(pushes),
+
+        def record(command, **kwargs):
+            if "push" in command:
+                pushes.append(command)
+            return subprocess.run(command, **kwargs)
+
+        created = publish_lineage(repo, seed, remote.as_posix(), "main")
+        checks["empty_remote_creates_branch"] = (
+            created.ok and created.remote_before == "" and created.remote_after == seed
         )
+        tip = _commit_file(repo, "advance.txt", "next")
+        published = publish_lineage(repo, tip, "origin", "main", command_runner=record)
         checks["ancestor_fast_forward_publishes"] = (
             published.ok
             and published.remote_before == seed
             and published.remote_after == tip
             and remote_head_is_fast_forward(repo, seed, tip)
-            and any(item[:2] == ["git", "push"] for item in pushes)
+            and bool(pushes)
         )
-        idempotent_pushes: list[list[str]] = []
-        republished = publish_lineage(
-            repo,
-            tip,
-            "origin",
-            "main",
-            command_runner=_recording_runner(idempotent_pushes),
-        )
+        pushes.clear()
+        republished = publish_lineage(repo, tip, "origin", "main", command_runner=record)
         checks["same_sha_republication_is_idempotent"] = (
-            republished.ok
-            and republished.remote_before == tip
-            and republished.remote_after == tip
-            and not any(item[:2] == ["git", "push"] for item in idempotent_pushes)
+            republished.ok and republished.remote_before == republished.remote_after == tip and not pushes
         )
-        checks["remote_head_matches_tip"] = _remote_head(remote) == tip
+        checks["remote_head_matches_tip"] = _git(remote, "rev-parse", "main") == tip
 
-    with tempfile.TemporaryDirectory(prefix="publication-diverge-") as tmp:
-        root = Path(tmp)
-        repo = _init_repo(root)
-        remote = _bare_remote(root, repo)
-        seed = _git(repo, "rev-parse", "HEAD")
-        (repo / "remote-only.txt").write_text("remote\n", encoding="utf-8")
-        _git(repo, "add", "remote-only.txt")
-        _git(repo, "commit", "-m", "remote only")
-        remote_tip = _git(repo, "rev-parse", "HEAD")
-        _git(repo, "push", "origin", "main")
-        _git(repo, "reset", "--hard", seed)
-        (repo / "local.txt").write_text("local\n", encoding="utf-8")
-        _git(repo, "add", "local.txt")
-        _git(repo, "commit", "-m", "local advance")
-        local_tip = _git(repo, "rev-parse", "HEAD")
-        pushes = []
-        integrated = publish_lineage(
-            repo,
-            local_tip,
-            "origin",
-            "main",
-            command_runner=_recording_runner(pushes),
+        _git(
+            root, "clone", "--no-local", "-b", "main", "-c", "user.name=Peer", "-c", "user.email=peer@test.local",
+            remote.as_posix(), str(peer),
         )
+        remote_tip = _commit_file(peer, "remote-only.txt", "remote")
+        _git(peer, "push", "origin", "main")
+        local_tip = _commit_file(repo, "local.txt", "local")
+        pushes.clear()
+        integrated = publish_lineage(repo, local_tip, "origin", "main", command_runner=record)
         merged = integrated.remote_after
-        first_parent = _git(repo, "rev-parse", f"{merged}^1") if integrated.ok else ""
-        second_parent = _git(repo, "rev-parse", f"{merged}^2") if integrated.ok else ""
-        remote_text = _git(repo, "show", f"{merged}:remote-only.txt") if integrated.ok else ""
-        local_text = _git(repo, "show", f"{merged}:local.txt") if integrated.ok else ""
         checks["diverged_clean_merge_publishes"] = (
             integrated.ok
             and integrated.remote_before == remote_tip
-            and merged not in {local_tip, remote_tip}
-            and first_parent == remote_tip
-            and second_parent == local_tip
-            and remote_text == "remote"
-            and local_text == "local"
-            and any(item[:2] == ["git", "push"] for item in pushes)
+            and _git(remote, "show", "-s", "--format=%P", merged).split() == [remote_tip, local_tip]
+            and _git(remote, "show", f"{merged}:remote-only.txt") == "remote"
+            and _git(remote, "show", f"{merged}:local.txt") == "local"
+            and bool(pushes)
             and not any("--force" in item or "--force-with-lease" in item for item in pushes)
         )
         checks["diverged_clean_merge_fast_forwards"] = (
-            _remote_head(remote) == merged
-            and remote_head_is_fast_forward(repo, remote_tip, merged)
+            _git(remote, "rev-parse", "main") == merged and remote_head_is_fast_forward(repo, remote_tip, merged)
         )
         checks["unknown_remote_sha_is_not_ancestor"] = (
             remote_head_is_fast_forward(repo, remote_tip, local_tip) is False
             and remote_head_is_fast_forward(repo, "0" * 40, local_tip) is False
         )
 
-    with tempfile.TemporaryDirectory(prefix="publication-conflict-") as tmp:
-        root = Path(tmp)
-        repo = _init_repo(root)
-        remote = _bare_remote(root, repo)
-        seed = _git(repo, "rev-parse", "HEAD")
-        (repo / "shared.txt").write_text("remote\n", encoding="utf-8")
-        _git(repo, "add", "shared.txt")
-        _git(repo, "commit", "-m", "remote edit")
-        remote_tip = _git(repo, "rev-parse", "HEAD")
-        _git(repo, "push", "origin", "main")
-        _git(repo, "reset", "--hard", seed)
-        (repo / "shared.txt").write_text("local\n", encoding="utf-8")
-        _git(repo, "add", "shared.txt")
-        _git(repo, "commit", "-m", "local edit")
-        local_tip = _git(repo, "rev-parse", "HEAD")
-        pushes = []
-        refused = publish_lineage(
-            repo,
-            local_tip,
-            "origin",
-            "main",
-            command_runner=_recording_runner(pushes),
-        )
+        remote_tip = _commit_file(peer, "shared.txt", "remote")
+        _git(peer, "push", "origin", "HEAD:refs/heads/conflict")
+        local_tip = _commit_file(repo, "shared.txt", "local")
+        pushes.clear()
+        refused = publish_lineage(repo, local_tip, "origin", "conflict", command_runner=record)
         checks["conflicting_divergence_is_refused"] = (
-            refused.ok is False
-            and is_remote_head_mismatch(refused.error)
-            and refused.remote_before == remote_tip
-            and not any(item[:2] == ["git", "push"] for item in pushes)
+            not refused.ok and is_remote_head_mismatch(refused.error)
+            and refused.remote_before == remote_tip and not pushes
         )
-        checks["conflicting_remote_is_unchanged"] = _remote_head(remote) == remote_tip
-
-    with tempfile.TemporaryDirectory(prefix="publication-new-branch-") as tmp:
-        root = Path(tmp)
-        repo = _init_repo(root)
-        remote = root / "remote.git"
-        subprocess.run(
-            ["git", "init", "--bare", str(remote)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        tip = _git(repo, "rev-parse", "HEAD")
-        created = publish_lineage(repo, tip, remote.as_posix(), "lineage")
-        checks["empty_remote_creates_branch"] = (
-            created.ok
-            and created.remote_before == ""
-            and created.remote_after == tip
-        )
+        checks["conflicting_remote_is_unchanged"] = _git(remote, "rev-parse", "conflict") == remote_tip
 
     with tempfile.TemporaryDirectory(prefix="publication-harvest-") as tmp:
         root = Path(tmp)
@@ -638,7 +494,7 @@ def builtin_publication_resilience_proof() -> dict[str, Any]:
             and event["class_id"] == PUBLICATION_FAILED
             and any(item.class_id == PUBLICATION_FAILED for item in fuel.candidates)
         )
-        _register_proved(root, PUBLICATION_RESILIENCE_ID)
+        register_catalog_proved(root, PUBLICATION_RESILIENCE_ID)
         closed_fuel = harvest_experience(root, limit=5)
         checks["proved_closer_drops_class"] = class_is_closed(
             PUBLICATION_FAILED, root
