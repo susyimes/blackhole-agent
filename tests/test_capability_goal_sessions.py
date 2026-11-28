@@ -12,12 +12,13 @@ from urllib.error import HTTPError
 
 import pytest
 
-from blackhole_agent.capability_service import InvocationError, build_server, record_resource_quarantine
+from blackhole_agent.capability_service import InvocationError, build_server, load_invocable_capabilities
 from blackhole_agent.capability_sessions import (
     SessionManager,
     external_state_keys,
     plan_goal_with_elicitation,
 )
+from blackhole_agent.invocation_artifacts import artifacts_root
 
 _REVERSER = (
     "import json, sys\n"
@@ -140,11 +141,12 @@ def _wait_status(base: str, session_id: str, wanted: set[str], timeout: float = 
 # -- elicitation planner ----------------------------------------------------
 
 
-def test_planner_elicits_minimal_external_key(tmp_path: Path) -> None:
-    root = _fixture_root(tmp_path)
-    from blackhole_agent.capability_service import load_invocable_capabilities
+@pytest.fixture
+def invocable(tmp_path: Path):
+    return load_invocable_capabilities(_fixture_root(tmp_path))
 
-    invocable = load_invocable_capabilities(root)
+
+def test_planner_elicits_minimal_external_key(invocable) -> None:
     planned = plan_goal_with_elicitation(invocable, set(), ["loud_text"])
     assert planned is not None
     assert planned["program"] == [
@@ -155,21 +157,33 @@ def test_planner_elicits_minimal_external_key(tmp_path: Path) -> None:
     assert planned["key_consumers"] == {"raw_text": "capability.absorbed-text-reverser"}
 
 
-def test_planner_no_elicitation_when_state_suffices(tmp_path: Path) -> None:
-    root = _fixture_root(tmp_path)
-    from blackhole_agent.capability_service import load_invocable_capabilities
-
-    invocable = load_invocable_capabilities(root)
+def test_planner_prefers_fewer_inputs_within_step_limit(invocable) -> None:
+    invocable["manual"] = {"requires": ["transcript"], "provides": ["loud_text"]}
     planned = plan_goal_with_elicitation(invocable, {"raw_text"}, ["loud_text"])
     assert planned is not None
     assert planned["elicited_keys"] == []
+    assert planned["program"] == ["capability.absorbed-text-reverser", "capability.absorbed-loud-shouter"]
+    limited = plan_goal_with_elicitation(invocable, {"raw_text"}, ["loud_text"], max_steps=1)
+    assert limited == {
+        "program": ["manual"], "elicited_keys": ["transcript"], "key_consumers": {"transcript": "manual"},
+    }
+    assert plan_goal_with_elicitation(invocable, {"raw_text"}, ["loud_text"], max_steps=1, max_elicited=0) is None
 
 
-def test_planner_elicits_goal_key_directly(tmp_path: Path) -> None:
-    root = _fixture_root(tmp_path)
-    from blackhole_agent.capability_service import load_invocable_capabilities
+def test_planner_reaches_a_missing_input_despite_unrelated_tools() -> None:
+    catalog = {f"tag_{i}": {"requires": [], "provides": [f"tag_{i}"]} for i in range(16)}
+    catalog.update({
+        "split": {"requires": ["source"], "provides": ["prefix", "suffix"]},
+        "join": {"requires": ["prefix", "suffix"], "provides": ["assembled"]},
+        "cycle": {"requires": ["assembled"], "provides": ["prefix"]},
+    })
+    assert plan_goal_with_elicitation(catalog, set(), ["assembled"]) == {
+        "program": ["split", "join"], "elicited_keys": ["source"], "key_consumers": {"source": "split"},
+    }
+    assert plan_goal_with_elicitation(catalog, set(), ["assembled"], max_elicited=0) is None
 
-    invocable = load_invocable_capabilities(root)
+
+def test_planner_elicits_goal_key_directly(invocable) -> None:
     planned = plan_goal_with_elicitation(invocable, set(), ["raw_text"])
     assert planned is not None
     assert planned["program"] == []
@@ -177,19 +191,11 @@ def test_planner_elicits_goal_key_directly(tmp_path: Path) -> None:
     assert planned["key_consumers"] == {"raw_text": "goal"}
 
 
-def test_planner_honest_unsolvable_beyond_elicitation(tmp_path: Path) -> None:
-    root = _fixture_root(tmp_path)
-    from blackhole_agent.capability_service import load_invocable_capabilities
-
-    invocable = load_invocable_capabilities(root)
+def test_planner_honest_unsolvable_beyond_elicitation(invocable) -> None:
     assert plan_goal_with_elicitation(invocable, set(), ["no_such_key"]) is None
 
 
-def test_external_state_keys_excludes_provided(tmp_path: Path) -> None:
-    root = _fixture_root(tmp_path)
-    from blackhole_agent.capability_service import load_invocable_capabilities
-
-    invocable = load_invocable_capabilities(root)
+def test_external_state_keys_excludes_provided(invocable) -> None:
     assert external_state_keys(invocable) == {"raw_text"}
 
 
@@ -290,18 +296,17 @@ def test_session_unhealable_blocker_stays_quarantined(server) -> None:
 def test_session_heals_mid_execution_quarantine(server) -> None:
     root, base = server
     hold_source = (
-        "import json, sys, time\n"
+        "import json, os, sys, time\n"
         "from pathlib import Path\n"
         "state = json.load(sys.stdin)\n"
-        "Path('ready.txt').write_text('1', encoding='utf-8')\n"
-        "time.sleep(float(state.get('hold_seconds') or 1.5))\n"
+        "effects = Path(os.environ['BLACKHOLE_EFFECT_DIR'])\n"
+        "(effects / 'ready.txt').touch()\n"
+        "while not (effects / 'release.txt').exists():\n"
+        "    time.sleep(0.05)\n"
         "print(json.dumps({'raw_text': state['start_text']}))\n"
     )
-    _write_tool(
-        root, "tainter", hold_source, ["start_text", "hold_seconds"], ["raw_text"]
-    )
-    capability_id = "capability.absorbed-heal-reverser"
-    _write_healable_tool(root)
+    _write_tool(root, "tainter", hold_source, ["start_text"], ["raw_text"])
+    capability_id = _write_healable_tool(root)
     ledger_path = root / "capabilities" / "ledger.json"
     ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
     ledger["capabilities"]["capability.absorbed-tainter"] = _ledger_entry(
@@ -312,19 +317,20 @@ def test_session_heals_mid_execution_quarantine(server) -> None:
         "POST",
         f"{base}/sessions",
         {
-            "initial_state": {"start_text": "abc", "hold_seconds": "2"},
+            "initial_state": {"start_text": "abc"},
             "goal": ["healed_text"],
         },
     )
     assert status == 200
-    ready = root / "capabilities" / "absorbed" / "tainter" / "ready.txt"
+    effects = artifacts_root(root)
     deadline = time.monotonic() + 10
-    while time.monotonic() < deadline and not ready.is_file():
+    while (ready := next(effects.glob("*/ready.txt"), None)) is None and time.monotonic() < deadline:
         time.sleep(0.05)
-    assert ready.is_file(), "hold step never started"
-    record_resource_quarantine(
-        root, capability_id, {"reason": "taint", "resource": "memory"}
-    )
+    assert ready is not None, "hold step never started"
+    try:
+        _quarantine(root, capability_id)
+    finally:
+        ready.with_name("release.txt").touch()
     final = _wait_status(base, created["session"]["session_id"], {"solved"})
     assert final["outcome"] == {"healed_text": "cba"}
     assert final["healing"][-1]["capability_id"] == capability_id

@@ -1,56 +1,13 @@
-"""Durable, interactive, cancellable goal sessions on the invocation plane.
+"""Durable, interactive goal sessions for the invocation service.
 
-``POST /solve`` answers a declarative goal in one stateless shot: the client
-must already hold every state key the derived program needs, the goal dies
-with the connection, and a long-running tool cannot be stopped without
-killing the server. Goal sessions close those three gaps:
-
-- **Elicitation.** When no program covers the goal from the supplied state
-  alone, an elicitation planner searches for the minimal set of *external*
-  state keys (``requires`` keys no invocable capability ever ``provides``)
-  that would unlock a real program. The session answers ``awaiting_input``
-  naming exactly those keys — with the capability that needs each one — and
-  spawns no subprocess until the client supplies them.
-- **Durability.** Every session is a JSON record under
-  ``artifacts/capability-service-sessions/`` rewritten atomically on each
-  transition (created, input accepted, step completed with its response
-  digest, solved, failed, cancelled, interrupted, resumed). A server
-  restart recovers records from disk: sessions that were mid-execution when
-  the process died become ``interrupted`` and can be resumed from their
-  persisted threaded state via ``POST /sessions/{id}/resume``; sessions
-  awaiting input simply keep waiting. The ``plan_digest`` uses the same
-  binding formula as ``POST /solve``, so an outcome completed across a
-  restart digests identically to a one-shot solve.
-- **Cancellation.** Execution runs on a background thread with a per-session
-  cancel event threaded into :func:`run_captured_process`; ``DELETE
-  /sessions/{id}`` sets the event and the running tool's entire owned
-  process tree (Windows job object or POSIX process group) is terminated —
-  not just the launcher.
-- **Live events.** ``GET /sessions/{id}/events`` with ``Accept:
-  text/event-stream`` streams each persisted transition (snapshot first)
-  so a browser operator can watch elicitation, running, solved, and
-  cancelled without polling. Unknown ids are 404; a GET that does not
-  accept the event stream is 406. The stream closes after a terminal
-  status.
-- **Self-healing.** Planning excludes quarantined capabilities; when the
-  only program runs through quarantined steps — at creation, after input,
-  or mid-execution — exactly those blockers are re-proved inline under
-  governed frozen-case re-execution (the same re-proof ``POST /reproof``
-  performs), bounded per session and never attempted twice for the same
-  capability. Every attempt is a ``healed`` transition on the digest-bound
-  record; an unhealable blocker fails the session honestly.
-- **Outbound notify.** ``POST /sessions`` may include ``notify_url`` and
-  ``notify_secret``. When the session reaches a terminal status, the plane
-  POSTs an HMAC-signed JSON payload (``X-Hub-Signature-256``) to that
-  loopback http(s) URL so an operator who already disconnected still
-  receives the outcome. Failed 5xx/timeout deliveries retry a bounded
-  number of times; non-loopback URLs are refused before any tool runs.
-  API responses never include the shared secret.
-
-Every state transition recomputes a ``session_digest`` over the goal,
-initial state, transition kinds, and per-step response digests (timestamps
-excluded), so a client can verify it is looking at the same session history
-after a restart.
+``POST /sessions`` chooses the shortest available plan among those needing the
+fewest external inputs. An awaiting session names each missing key and its
+first consumer. Supplying the keys to ``/sessions/{id}/input`` starts execution.
+Transitions are saved under ``artifacts/capability-service-sessions/`` and
+streamed on ``/sessions/{id}/events``. After restart, ``/sessions/{id}/resume``
+continues interrupted work from completed steps. Workers support process-tree
+cancellation, bounded reproof of quarantined steps, and signed terminal
+notifications. The final plan digest matches a one-shot solve of the same steps.
 """
 
 from __future__ import annotations
@@ -86,9 +43,7 @@ from blackhole_agent.session_notify import (
 
 SESSION_SCHEMA_VERSION = 1
 SESSIONS_DIR_NAME = "capability-service-sessions"
-# Elicitation is bounded: a session may ask for at most this many external
-# state keys, and the search expands at most this many planner states before
-# honestly reporting the goal unsolvable.
+# Per-request limits on distinct external inputs and expanded planner states.
 MAX_ELICITED_KEYS = 4
 MAX_PLANNER_EXPANSIONS = 20000
 
@@ -122,86 +77,57 @@ def plan_goal_with_elicitation(
     max_steps: int = SOLVE_MAX_STEPS,
     max_elicited: int = MAX_ELICITED_KEYS,
 ) -> dict[str, Any] | None:
-    """Minimal program over the invocable ledger, eliciting external keys.
+    """Work backward from the goal, minimizing distinct user inputs, then steps.
 
-    Dijkstra-ordered search (fewest elicited keys, then fewest steps) over
-    monotone key-set growth. A capability is applicable when every
-    ``requires`` key is either already available or an external key the
-    client can be asked for; applying it threads the elicited keys into the
-    available set as if the client had supplied them. Goal keys that are
-    themselves external are elicited directly. Returns
-    ``{"program": [...], "elicited_keys": [...], "key_consumers": {...}}``
-    or ``None`` when no bounded program exists — an honest unsolvable.
+    Prepending a tool replaces its outputs with its prerequisites. An external
+    requirement can never disappear, so its count is a lower bound on every
+    extension. The first complete plan popped from the heap has minimum cost.
     """
+    external = external_state_keys(invocable)
+    producers: dict[str, list[str]] = {}
+    for name, item in invocable.items():
+        for key in item["provides"]:
+            producers.setdefault(key, []).append(name)
+    goal = frozenset(goal_keys) - initial_keys
+    initial_inputs = len(goal & external)
+    if initial_inputs > max_elicited or goal.difference(external, producers):
+        return None
 
-    goal = set(goal_keys)
-    externals = external_state_keys(invocable)
-    start = frozenset(initial_keys)
-    # (elicited count, step count, tiebreak, available, program, elicited)
-    queue: list[tuple[int, int, int, frozenset[str], tuple[str, ...], frozenset[str]]] = []
-    counter = 0
-    heapq.heappush(queue, (0, 0, counter, start, (), frozenset()))
-    best_elicited: dict[frozenset[str], int] = {start: 0}
+    # A suffix is stored in execution order to break equal-cost ties consistently.
+    frontier: list[tuple[int, int, tuple[str, ...], frozenset[str]]] = [(initial_inputs, 0, (), goal)]
+    best: dict[frozenset[str], tuple[int, tuple[str, ...]]] = {goal: (0, ())}
     expansions = 0
-
-    def finish(
-        available: frozenset[str], program: tuple[str, ...], elicited: frozenset[str]
-    ) -> dict[str, Any] | None:
-        direct = goal - set(available)
-        if not direct <= externals:
-            return None
-        total_elicited = elicited | frozenset(direct)
-        if len(total_elicited) > max_elicited:
-            return None
-        key_consumers: dict[str, str] = {}
-        produced = set(start)
-        for capability_id in program:
-            item = invocable[capability_id]
-            for key in item["requires"]:
-                if key in total_elicited and key not in produced and key not in key_consumers:
-                    key_consumers[key] = capability_id
-            produced |= set(item["provides"])
-        for key in sorted(direct):
-            key_consumers.setdefault(key, "goal")
-        return {
-            "program": list(program),
-            "elicited_keys": sorted(total_elicited),
-            "key_consumers": key_consumers,
-        }
-
-    first = finish(start, (), frozenset())
-    if first is not None:
-        return first
-    while queue:
-        _, _, _, available, program, elicited = heapq.heappop(queue)
-        expansions += 1
-        if expansions > MAX_PLANNER_EXPANSIONS:
-            return None
-        if len(program) >= max_steps:
+    while frontier:
+        _, depth, program, needed = heapq.heappop(frontier)
+        if (depth, program) != best[needed]:
             continue
-        for capability_id in sorted(invocable):
-            if capability_id in program:
+        if needed <= external:
+            consumers: dict[str, str] = {}
+            for name in program:
+                for key in invocable[name]["requires"]:
+                    if key in needed:
+                        consumers.setdefault(key, name)
+            for key in sorted(needed):
+                consumers.setdefault(key, "goal")
+            return {"program": list(program), "elicited_keys": sorted(needed), "key_consumers": consumers}
+        if depth >= max_steps:
+            continue
+        if expansions >= MAX_PLANNER_EXPANSIONS:
+            break
+        expansions += 1
+        candidates = {producer for key in needed for producer in producers.get(key, ())}
+        for name in candidates:
+            item = invocable[name]
+            before = needed.difference(item["provides"]).union(item["requires"]) - initial_keys
+            inputs_needed = len(before & external)
+            if before >= needed or inputs_needed > max_elicited:
                 continue
-            item = invocable[capability_id]
-            missing = set(item["requires"]) - set(available)
-            if not missing <= externals:
+            # Suffixes with identical prerequisites admit exactly the same prefixes.
+            rank = (depth + 1, (name,) + program)
+            if before in best and best[before] <= rank:
                 continue
-            new_elicited = elicited | frozenset(missing)
-            if len(new_elicited) > max_elicited:
-                continue
-            new_available = available | frozenset(missing) | frozenset(item["provides"])
-            new_program = program + (capability_id,)
-            solved = finish(new_available, new_program, new_elicited)
-            if solved is not None:
-                return solved
-            if best_elicited.get(new_available, max_elicited + 1) <= len(new_elicited):
-                continue
-            best_elicited[new_available] = len(new_elicited)
-            counter += 1
-            heapq.heappush(
-                queue,
-                (len(new_elicited), len(new_program), counter, new_available, new_program, new_elicited),
-            )
+            best[before] = rank
+            heapq.heappush(frontier, (inputs_needed, *rank, before))
     return None
 
 
@@ -337,30 +263,15 @@ class SessionManager:
     def _plan_with_healing(
         self, record: dict[str, Any], state_keys: set[str]
     ) -> dict[str, Any] | None:
-        """Plan over healthy capabilities; heal quarantined blockers when needed.
-
-        Quarantined capabilities are excluded from the first pass. When a
-        program through quarantined steps is strictly better (solvable when
-        the healthy planner failed, or needing fewer elicited keys), exactly
-        those blockers are re-proved inline (bounded, never re-attempted
-        within the session), the ledger is reloaded, and the goal is
-        replanned. Every attempt lands on the record's ``healing`` trace and
-        as a ``healed`` transition, so the session digest binds the healing
-        history. An unhealable blocker leaves the healthy plan untouched.
-        """
+        """Re-prove quarantined steps only if they unlock a plan or save a user input."""
 
         invocable = load_invocable_capabilities(self.root)
         healthy = {cid: item for cid, item in invocable.items() if not item.get("quarantine")}
         planned = plan_goal_with_elicitation(healthy, state_keys, record["goal"])
-        blocked = None
-        if planned is None or planned["elicited_keys"]:
-            candidate = plan_goal_with_elicitation(invocable, state_keys, record["goal"])
-            if candidate is not None and (
-                planned is None
-                or len(candidate["elicited_keys"]) < len(planned["elicited_keys"])
-            ):
-                blocked = candidate
-        if blocked is None:
+        if len(healthy) == len(invocable) or (planned is not None and not planned["elicited_keys"]):
+            return planned
+        blocked = plan_goal_with_elicitation(invocable, state_keys, record["goal"])
+        if blocked is None or (planned is not None and len(blocked["elicited_keys"]) >= len(planned["elicited_keys"])):
             return planned
         attempted = {entry["capability_id"] for entry in record["healing"]}
         entries = heal_quarantined_blockers(
@@ -488,23 +399,7 @@ class SessionManager:
                 "delivered_at": None,
             }
         self._transition(record, "created", {"goal": goal_keys})
-        planned = self._plan_with_healing(record, set(initial_state))
-        if planned is None:
-            self._transition(record, "unsolvable", "no bounded capability program covers the goal")
-            return {"ok": True, "session": public_session_record(self._persist(record))}
-        record["plan"] = planned["program"]
-        record["elicited_keys"] = planned["elicited_keys"]
-        record["key_consumers"] = planned["key_consumers"]
-        if planned["elicited_keys"]:
-            record["status"] = "awaiting_input"
-            record["pending_keys"] = planned["elicited_keys"]
-            self._transition(record, "elicited", {"pending_keys": planned["elicited_keys"]})
-            return {"ok": True, "session": public_session_record(self._persist(record))}
-        self._transition(record, "planned", {"plan": planned["program"]})
-        record["status"] = "running"
-        self._persist(record)
-        self._start_execution(record["session_id"])
-        return {"ok": True, "session": public_session_record(record)}
+        return self._plan_session(record)
 
     def supply_input(self, session_id: str, supplied: Any) -> dict[str, Any]:
         record = self._load(session_id)
@@ -528,6 +423,9 @@ class SessionManager:
         record["state"].update(supplied)
         record["pending_keys"] = []
         self._transition(record, "input_accepted", {"keys": sorted(keys)})
+        return self._plan_session(record)
+
+    def _plan_session(self, record: dict[str, Any]) -> dict[str, Any]:
         planned = self._plan_with_healing(record, set(record["state"]))
         if planned is None:
             record["status"] = "unsolvable"
@@ -536,16 +434,16 @@ class SessionManager:
         record["plan"] = planned["program"]
         if planned["elicited_keys"]:
             record["elicited_keys"] = sorted(set(record["elicited_keys"]) | set(planned["elicited_keys"]))
-            record["key_consumers"].update(
-                {k: v for k, v in planned["key_consumers"].items() if k not in record["key_consumers"]}
-            )
+            for key, consumer in planned["key_consumers"].items():
+                record["key_consumers"].setdefault(key, consumer)
+            record["status"] = "awaiting_input"
             record["pending_keys"] = planned["elicited_keys"]
             self._transition(record, "elicited", {"pending_keys": planned["elicited_keys"]})
             return {"ok": True, "session": public_session_record(self._persist(record))}
         self._transition(record, "planned", {"plan": planned["program"]})
         record["status"] = "running"
         self._persist(record)
-        self._start_execution(session_id)
+        self._start_execution(record["session_id"])
         return {"ok": True, "session": public_session_record(record)}
 
     def resume_session(self, session_id: str) -> dict[str, Any]:
