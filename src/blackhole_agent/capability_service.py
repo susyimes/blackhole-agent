@@ -318,13 +318,13 @@ module turns the ledger into a service:
   ``BLACKHOLE_WEBHOOK_HOOK``) maps a callback name to one invocable tool.
   ``POST /hooks/{name}`` with a valid ``X-Hub-Signature-256`` over the raw
   body returns HTTP 202 with a run id and continues after the client hangs
-  up; ``GET /hooks/{run_id}`` returns accepted/running/completed plus the
-  tool output. Missing or wrong signatures are HTTP 401 and never spawn,
-  and they are not recorded. An unknown name is HTTP 404 and is not
-  recorded. An identical raw body that already verified is a replay: the
-  plane persists its SHA-256 under the service root and answers HTTP 409
-  ``webhook_replayed`` without spawning, including after a process restart
-  that reuses that root. A different signed body still returns HTTP 202.
+  up. Missing or wrong signatures return HTTP 401 and an unknown name
+  returns HTTP 404. Retrying a retained body returns HTTP 409
+  ``webhook_replayed``. For a delivery accepted by an upgraded server, a
+  retry to the same hook and tool includes the original ``run_id``.
+  ``GET /hooks/{run_id}`` through any server sharing the root returns the
+  current result, including ``interrupted`` when the execution owner exited
+  before saving a terminal result. A different signed body can start new work.
   The store keeps a bounded number of fingerprints and drops the oldest.
   ``GET /health`` reports ``webhook_replay_guard``. A plane without the
   secret stays fail-closed: ``GET /health`` reports ``webhook_hooks`` false

@@ -97,13 +97,7 @@ def test_valid_signature_accepts_and_completes(tmp_path: Path) -> None:
     accepted = plane.accept_post("shout", body, sign_webhook_body("webhook-secret", body))
     assert accepted["status"] == "accepted"
     run_id = accepted["run_id"]
-    import time
-
-    deadline = time.time() + 2
-    record = plane.get_run(run_id)
-    while record["status"] in {"accepted", "running"} and time.time() < deadline:
-        time.sleep(0.02)
-        record = plane.get_run(run_id)
+    record = _wait_completed(plane, run_id)
     assert record["status"] == "completed"
     assert record["output"] == {"shout_output": "HI!"}
     assert record["invocation_id"] == "inv-1"
@@ -158,10 +152,12 @@ def test_identical_body_is_refused_across_process_restart(tmp_path: Path) -> Non
         plane.accept_post("shout", body, signature)
     assert replayed.value.status == 409
     assert replayed.value.error == "webhook_replayed"
+    assert replayed.value.extra == {"run_id": accepted["run_id"]}
     restarted = WebhookPlane(tmp_path, config, invoke=invoke)
     with pytest.raises(WebhookError) as persisted:
         restarted.accept_post("shout", body, signature)
     assert persisted.value.status == 409
+    assert persisted.value.extra == replayed.value.extra
     fresh = _body("twice")
     second = restarted.accept_post("shout", fresh, sign_webhook_body("webhook-secret", fresh))
     assert second["run_id"] != accepted["run_id"]
@@ -210,3 +206,126 @@ def test_oldest_fingerprint_is_evicted(tmp_path: Path) -> None:
 def test_disabled_plane_reports_replay_guard_off(tmp_path: Path) -> None:
     plane = WebhookPlane(tmp_path, resolve_webhook_config(env={}))
     assert plane.health()["webhook_replay_guard"] is False
+
+
+def test_legacy_fingerprint_keeps_its_place_when_new_receipts_are_added(tmp_path):
+    store = tmp_path / ".blackhole-agent" / "webhook-deliveries.json"
+    store.parent.mkdir()
+    body = _body("legacy")
+    store.write_text(json.dumps({"schema_version": 1, "fingerprints": [hashlib.sha256(body).hexdigest()]}))
+    plane = WebhookPlane(tmp_path, _config(), invoke=_invoke_ok, delivery_limit=2)
+
+    def post(raw):
+        return plane.accept_post("shout", raw, sign_webhook_body("webhook-secret", raw))
+
+    first = post(_body("new"))
+    assert _wait_completed(plane, first["run_id"])["status"] == "completed"
+    with pytest.raises(WebhookError) as legacy:
+        post(body)
+    assert legacy.value.payload == {"ok": False, "error": "webhook_replayed"}
+    next_run = post(_body("newer"))
+    assert _wait_completed(plane, next_run["run_id"])["status"] == "completed"
+    accepted = post(body)
+    assert _wait_completed(plane, accepted["run_id"])["output"] == {"echo_output": "legacy"}
+
+
+@pytest.mark.parametrize("hook, clause", [
+    ("alias", "alias=capability.absorbed-webhook-shout"), ("shout", "shout=other"),
+])
+def test_duplicate_for_a_different_binding_does_not_disclose_original_run(tmp_path, hook, clause):
+    body = _body("a receipt")
+    signature = sign_webhook_body("webhook-secret", body)
+    origin = WebhookPlane(tmp_path, _config(), invoke=_invoke_ok)
+    accepted = origin.accept_post("shout", body, signature)
+    assert _wait_completed(origin, accepted["run_id"])["status"] == "completed"
+    config = resolve_webhook_config("webhook-secret", [clause], env={})
+    with pytest.raises(WebhookError) as mismatch:
+        WebhookPlane(tmp_path, config, invoke=_invoke_ok).accept_post(hook, body, signature)
+    assert mismatch.value.status == 409
+    assert mismatch.value.extra == {}
+
+
+def test_reserved_but_unstarted_run_is_pollable_and_never_dispatched_by_a_retry(tmp_path, monkeypatch):
+    from threading import Thread
+
+    def unavailable(_):
+        raise RuntimeError("fixture cannot start a worker")
+
+    calls = []
+    plane = WebhookPlane(tmp_path, _config(), invoke=lambda *args, **kwargs: calls.append(args))
+    body = _body("held")
+    signature = sign_webhook_body("webhook-secret", body)
+    with monkeypatch.context() as patch:
+        patch.setattr(Thread, "start", unavailable)
+        with pytest.raises(WebhookError) as failure:
+            plane.accept_post("shout", body, signature)
+    assert failure.value.status == 503
+    run_id = failure.value.extra["run_id"]
+    assert plane.get_run(run_id)["status"] == "interrupted"
+    with pytest.raises(WebhookError) as retry:
+        plane.accept_post("shout", body, signature)
+    assert retry.value.status == 409 and retry.value.extra == {"run_id": run_id}
+    assert calls == []
+
+
+def test_failed_publication_cannot_start_a_tool_or_burn_the_next_attempt(tmp_path, monkeypatch):
+    import blackhole_agent.invocation_webhooks as webhooks
+
+    save = webhooks.atomic_write_json
+    calls = []
+
+    def fail_index(path, record, **kwargs):
+        if path.name == "webhook-deliveries.json":
+            raise OSError("fixture failed to publish the reservation")
+        save(path, record, **kwargs)
+
+    def invoke(root, capability_id, provided_input, **kwargs):
+        calls.append(provided_input["text"])
+        return _invoke_ok(root, capability_id, provided_input, **kwargs)
+
+    plane = WebhookPlane(tmp_path, _config(), invoke=invoke)
+    body = _body("once")
+    signature = sign_webhook_body("webhook-secret", body)
+    with monkeypatch.context() as patch:
+        patch.setattr(webhooks, "atomic_write_json", fail_index)
+        with pytest.raises(WebhookError) as failure:
+            plane.accept_post("shout", body, signature)
+    assert failure.value.status == 500 and calls == []
+    assert not list((tmp_path / ".blackhole-agent" / "webhook-runs").glob("*.json"))
+    accepted = plane.accept_post("shout", body, signature)
+    assert _wait_completed(plane, accepted["run_id"])["status"] == "completed"
+    assert calls == ["once"]
+
+
+def test_committed_reservation_recovers_when_its_run_record_could_not_be_written(tmp_path, monkeypatch):
+    import blackhole_agent.invocation_webhooks as webhooks
+
+    save = webhooks.atomic_write_json
+    original_ids, calls = [], []
+
+    def fail_run(path, record, **kwargs):
+        if path.parent.name == "webhook-runs":
+            original_ids.append(record["run_id"])
+            raise OSError("fixture failed to write the accepted run")
+        save(path, record, **kwargs)
+
+    def send(plane):
+        body = _body("reserved")
+        return plane.accept_post("shout", body, sign_webhook_body("webhook-secret", body))
+
+    def invoke(*args, **kwargs):
+        calls.append(args)
+        return {}
+
+    with monkeypatch.context() as patch:
+        patch.setattr(webhooks, "atomic_write_json", fail_run)
+        with pytest.raises(WebhookError) as failure:
+            send(WebhookPlane(tmp_path, _config(), invoke=invoke))
+    assert failure.value.status == 500
+    survivor = WebhookPlane(tmp_path, _config(), invoke=invoke)
+    with pytest.raises(WebhookError) as retry:
+        send(survivor)
+    assert retry.value.status == 409
+    run = survivor.get_run(retry.value.extra["run_id"])
+    assert original_ids == [run["run_id"]]
+    assert run["status"] == "interrupted" and calls == []

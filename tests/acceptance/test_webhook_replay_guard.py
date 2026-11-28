@@ -1,369 +1,210 @@
-"""Outcome probe: a captured signed webhook body cannot start the tool again.
-
-A live capability_service process with webhook opt-in must:
-
-1. Report webhook_replay_guard true on GET /health.
-2. Accept one signed POST /hooks/shout with HTTP 202 and return the tool output.
-3. Refuse that identical signed body with HTTP 409 webhook_replayed and write
-   no second run file.
-4. Still refuse that body after a process restart that reuses the same root.
-5. Accept a different signed body with HTTP 202 and return its output.
-6. A plane without the webhook secret reports webhook_replay_guard false and
-   POST /hooks/shout is HTTP 404.
-
-On the previous milestone the same signed body is accepted twice, so this
-probe reports passed=false. Both outcomes exit 0 with JSON passed and a
-nonempty observed object.
-"""
+"""Retry a real signed delivery after the HTTP acknowledgment and then its worker are lost."""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import http.client
 import json
 import os
 import subprocess
 import sys
 import tempfile
-import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack, closing, contextmanager
 from pathlib import Path
-from urllib import request as urlrequest
-from urllib.error import HTTPError, URLError
+from queue import Queue
+from threading import Barrier, Thread
 
-SECRET = "webhook-replay-guard-secret"
-SHOUT_ID = "capability.absorbed-webhook-shout"
-SIGNATURE_HEADER = "X-Hub-Signature-256"
+SECRET = "webhook-probe-secret"
+TOKEN = "webhook-probe-client"
+CAPABILITY = "capability.absorbed-issue-receipt"
+TOOL = """import json, os, sys, time, uuid
+from pathlib import Path
 
-_ECHO_TOOL = (
-    "import json, sys\n"
-    "state = json.load(sys.stdin)\n"
-    "print(json.dumps({'echo_output': state['text']}))\n"
-)
+label = json.load(sys.stdin)["label"]
+out = Path(os.environ["BLACKHOLE_EFFECT_DIR"])
+receipt = uuid.uuid4().hex
+(out / "issuing").write_text(receipt, encoding="ascii")
+(out / "issuing").replace(out / label)
+if label in {"lost-response", "lost-worker"}:
+    deadline = time.monotonic() + 20
+    while not (out / "release").exists() and time.monotonic() < deadline:
+        time.sleep(0.02)
+print(json.dumps({"issued": label, "receipt": receipt}))
+"""
 
 
-def _ledger_entry(capability_id: str, name: str) -> dict:
-    return {
-        "id": capability_id,
-        "name": name,
-        "kind": "python",
-        "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
-        "proof_command": "uv run python -c \"pass\"",
-        "dependencies": [],
-        "behavior_paths": [],
-        "capability_delta": "",
-        "tags": [],
-        "created_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "last_proved_at": "2026-01-01T00:00:00Z",
-        "last_proof_exit_code": 0,
+def install_tool(root):
+    catalog = root / "capabilities"
+    tool = catalog / "absorbed" / "issue-receipt"
+    tool.mkdir(parents=True)
+    (tool / "tool.py").write_text(TOOL, encoding="utf-8")
+    manifest = {
+        "schema_version": 1, "slug": tool.name, "name": "Issue a receipt",
+        "command": ["python", "tool.py"], "requires": ["label"], "provides": ["issued", "receipt"],
+        "cases": [{"input": {"label": label}, "expect": {"issued": label}} for label in ("a", "b")],
     }
+    (tool / "absorption.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (catalog / "ledger.json").write_text(json.dumps({"capabilities": {CAPABILITY: {"last_proof_exit_code": 0}}}),
+                                         encoding="utf-8")
 
 
-def _write_tool(root: Path) -> None:
-    tool_dir = root / "capabilities" / "absorbed" / "webhook-shout"
-    tool_dir.mkdir(parents=True, exist_ok=True)
-    (tool_dir / "tool.py").write_text(_ECHO_TOOL, encoding="utf-8")
-    (tool_dir / "absorption.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "slug": "webhook-shout",
-                "name": "probe webhook shout",
-                "command": ["python", "tool.py"],
-                "requires": ["text"],
-                "provides": ["echo_output"],
-                "cases": [
-                    {"input": {"text": "x"}, "expect": {"echo_output": "x"}},
-                    {"input": {"text": "y"}, "expect": {"echo_output": "y"}},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (root / "capabilities" / "ledger.json").write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "updated_at": "",
-                "capabilities": {SHOUT_ID: _ledger_entry(SHOUT_ID, "probe webhook shout")},
-            }
-        ),
-        encoding="utf-8",
-    )
+@contextmanager
+def server(root, *, hooks=True):
+    import blackhole_agent
 
-
-def _sign(body: bytes) -> str:
-    digest = hmac.new(SECRET.encode("utf-8"), body, hashlib.sha256).hexdigest()
-    return f"sha256={digest}"
-
-
-def _encode(text: str) -> bytes:
-    return json.dumps({"input": {"text": text}}, separators=(",", ":")).encode("utf-8")
-
-
-def _request(
-    method: str,
-    url: str,
-    data: bytes | None = None,
-    *,
-    headers: dict[str, str] | None = None,
-    timeout: int = 20,
-) -> tuple[int, object]:
-    req = urlrequest.Request(url, data=data, method=method)
-    if data is not None:
-        req.add_header("Content-Type", "application/json")
-        req.add_header("Accept", "application/json")
-    for key, value in dict(headers or {}).items():
-        req.add_header(key, value)
-    try:
-        with urlrequest.urlopen(req, timeout=timeout) as response:
-            raw = response.read().decode("utf-8")
-            try:
-                return response.status, json.loads(raw) if raw else {}
-            except json.JSONDecodeError:
-                return response.status, raw
-    except HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(blackhole_agent.__file__).resolve().parents[1])
+    for key in ("BLACKHOLE_WEBHOOK_SECRET", "BLACKHOLE_WEBHOOK_HOOK"):
+        env.pop(key, None)
+    argv = [sys.executable, "-m", "blackhole_agent.capability_service", "serve",
+            "--root", str(root), "--port", "0", "--token", TOKEN]
+    if hooks:
+        argv.extend(["--webhook-secret", SECRET, "--webhook-hook", "issue=" + CAPABILITY])
+    with subprocess.Popen(argv, env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as process:
         try:
-            return exc.code, json.loads(raw) if raw else {}
-        except json.JSONDecodeError:
-            return exc.code, raw
-    except (URLError, TimeoutError, OSError) as exc:
-        return 0, {"error": f"{type(exc).__name__}: {exc}"}
+            ready = Queue()
+            Thread(target=lambda: ready.put(process.stdout.readline()), daemon=True).start()
+            yield json.loads(ready.get(timeout=15))["listening"], process
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=10)
 
 
-def _read_ready_line(process: subprocess.Popen, sink: dict) -> None:
-    try:
-        line = process.stdout.readline() if process.stdout is not None else ""
-        sink["ready_line"] = line[:500] if isinstance(line, str) else ""
-        sink["ready"] = json.loads(line)
-    except Exception as exc:
-        sink["ready"] = None
-        sink["ready_error"] = f"{type(exc).__name__}: {exc}"
+def request(port, path, label=None, *, drop_response=False):
+    headers = {"Authorization": "Bearer " + TOKEN}
+    raw = None
+    if label is not None:
+        raw = json.dumps({"input": {"label": label}}).encode()
+        headers["Content-Type"] = "application/json"
+        headers["X-Hub-Signature-256"] = "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
+    with closing(http.client.HTTPConnection("127.0.0.1", port, timeout=8)) as client:
+        client.request("GET" if raw is None else "POST", path, raw, headers)
+        if not drop_response:
+            with client.getresponse() as reply:
+                return reply.status, json.load(reply)
 
 
-def _start_plane(src_root: Path, root: Path, extra_args: list[str] | None = None) -> tuple[subprocess.Popen, dict]:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(src_root)
-    env["PYTHONIOENCODING"] = "utf-8"
-    env["PYTHONUTF8"] = "1"
-    command = [
-        sys.executable,
-        "-m",
-        "blackhole_agent.capability_service",
-        "serve",
-        "--port",
-        "0",
-        "--root",
-        str(root),
-    ]
-    if extra_args:
-        command.extend(extra_args)
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-    )
-    sink: dict[str, object] = {}
-    reader = threading.Thread(target=_read_ready_line, args=(process, sink), daemon=True)
-    reader.start()
-    reader.join(timeout=60)
-    return process, sink
+def until(read, ready, seconds=5):
+    deadline = time.monotonic() + seconds
+    while True:
+        value = read()
+        if ready(value) or time.monotonic() >= deadline:
+            return value
+        time.sleep(0.025)
 
 
-def _stop_plane(process: subprocess.Popen) -> str:
+def observe(root, stack, observed):
+    install_tool(root)
+    effects = root / ".blackhole-agent" / "invocation-artifacts"
+
+    def receipts(label, count=1):
+        return until(lambda: sorted(effects.glob("*/" + label)), lambda paths: len(paths) >= count)
+
+    def get(port, run_id):
+        status, row = request(port, "/hooks/" + (run_id or "unknown"))
+        return row if status == 200 else {"http": status, "error": row.get("error")}
+
+    def completed(port, run_id):
+        return until(lambda: get(port, run_id), lambda row: row.get("status") == "completed")
+
+    def post(port, label):
+        return request(port, "/hooks/issue", label)
+
+    def retry(port, label):
+        status, row = post(port, label)
+        return [status, row.get("error"), row.get("run_id")]
+
+    owner, process = stack.enter_context(server(root))
+    peer, peer_process = stack.enter_context(server(root))
+    health = request(owner, "/health")[1]["webhook_replay_guard"]
+    warm_status, warm = post(peer, "warm")
+    warm_result = completed(peer, warm.get("run_id"))
+    observed["independent_delivery"] = [warm_status, (warm_result.get("output") or {}).get("issued")]
+
+    request(owner, "/hooks/issue", "lost-response", drop_response=True)
+    first = receipts("lost-response")[0]
+    issued = first.read_text(encoding="ascii")
+    origin = retry(owner, "lost-response")
+    other = retry(peer, "lost-response")
+    recovered = other[2]
+    live = get(peer, recovered).get("status")
+    for mark in receipts("lost-response", 2 if other[0] == 202 else 1):
+        (mark.parent / "release").touch()
+    result = completed(peer, recovered)
+    observed["lost_ack"] = {"origin_retry": origin, "peer_retry": other, "peer_saw": live,
+                            "output": result.get("output"), "issued_receipt": issued,
+                            "effects": len(receipts("lost-response"))}
+
+    accepted, crash = post(owner, "lost-worker")
+    crash_id = crash.get("run_id")
+    abandoned = receipts("lost-worker")[0]
+    stack.callback((abandoned.parent / "release").touch)
+    before = get(peer, crash_id).get("status")
     process.kill()
+    process.wait(timeout=10)
+    after = until(lambda: get(peer, crash_id), lambda row: row.get("status") == "interrupted").get("status")
+    orphan_retry = retry(peer, "lost-worker")
+    orphan_marks = receipts("lost-worker", 2 if orphan_retry[0] == 202 else 1)
+    for mark in orphan_marks:
+        (mark.parent / "release").touch()
+    observed["worker_exit"] = {"accepted": accepted, "before": before, "after": after,
+                               "retry": orphan_retry, "original": crash_id, "effects": len(orphan_marks)}
+
+    peer_process.kill()
+    peer_process.wait(timeout=10)
+    restarted, _ = stack.enter_context(server(root))
+    persisted = retry(restarted, "lost-response")
+    saved = get(restarted, recovered)
+    observed["restart"] = {"retry": persisted, "output": saved.get("output"),
+                           "worker_status": get(restarted, crash_id).get("status")}
+    new_peer, _ = stack.enter_context(server(root))
+    barrier = Barrier(2)
+
+    def simultaneous(port):
+        barrier.wait(timeout=5)
+        return retry(port, "fresh")
+
+    with ThreadPoolExecutor(max_workers=2) as clients:
+        replies = sorted(clients.map(simultaneous, (new_peer, restarted)), key=lambda row: row[0])
+    new_id = replies[0][2]
+    fresh = completed(restarted, new_id)
+    fresh_marks = receipts("fresh", sum(row[0] == 202 for row in replies))
+    observed["concurrent_delivery"] = {"replies": replies, "output": fresh.get("output"), "effects": len(fresh_marks)}
+    closed, _ = stack.enter_context(server(root, hooks=False))
+    disabled = request(closed, "/health")[1]["webhook_replay_guard"]
+    closed_status, closed_body = post(closed, "disabled")
+    observed["opt_in"] = [health, disabled, closed_status, closed_body.get("error")]
+
+    duplicate = [409, "webhook_replayed", recovered]
+    expected = {"issued": "lost-response", "receipt": issued}
+    return (
+        observed["independent_delivery"] == [202, "warm"]
+        and bool(issued and recovered) and origin == other == persisted == duplicate
+        and live == "running" and result.get("output") == saved.get("output") == expected
+        and len(receipts("lost-response")) == 1
+        and accepted == 202 and bool(crash_id) and before == "running" and after == "interrupted"
+        and orphan_retry == [409, "webhook_replayed", crash_id] and len(orphan_marks) == 1
+        and observed["restart"]["worker_status"] == "interrupted"
+        and bool(new_id) and new_id != recovered and replies == [[202, None, new_id], [409, "webhook_replayed", new_id]]
+        and len(fresh_marks) == 1 and fresh.get("output") == {"issued": "fresh", "receipt": fresh_marks[0].read_text()}
+        and observed["opt_in"] == [True, False, 404, "webhook_disabled"]
+    )
+
+
+def main():
+    observed = {}
     try:
-        _out, err = process.communicate(timeout=10)
-    except Exception:
-        err = ""
-    return err if isinstance(err, str) else ""
-
-
-def _run_files(root: Path) -> list[str]:
-    runs = root / ".blackhole-agent" / "webhook-runs"
-    if not runs.is_dir():
-        return []
-    return sorted(path.name for path in runs.glob("*.json") if not path.name.endswith(".tmp"))
-
-
-def _wait_output(url: str, run_id: str) -> tuple[int, object]:
-    status = 0
-    body: object = {}
-    deadline = time.time() + 20
-    while time.time() < deadline:
-        status, body = _request("GET", f"{url}/hooks/{run_id}")
-        if (
-            status == 200
-            and isinstance(body, dict)
-            and body.get("status") in {"completed", "failed"}
-        ):
-            return status, body
-        time.sleep(0.05)
-    return status, body
-
-
-def _listening_url(sink: dict) -> str:
-    ready = sink.get("ready")
-    if not isinstance(ready, dict) or not ready.get("listening"):
-        return ""
-    return f"http://127.0.0.1:{ready['listening']}"
-
-
-def main() -> dict[str, object]:
-    observed: dict[str, object] = {"family": "webhook-replay-guard"}
-    try:
-        import blackhole_agent.capability_service as service
-    except Exception as error:
-        observed["error"] = type(error).__name__
-        observed["detail"] = str(error)
-        return {"passed": False, "observed": observed}
-
-    src_root = Path(service.__file__).resolve().parents[1]
-    extra = ["--webhook-secret", SECRET, "--webhook-hook", f"shout={SHOUT_ID}"]
-    first_body = _encode("replay-once")
-    second_body = _encode("replay-twice")
-    first_signature = _sign(first_body)
-    scratch = tempfile.TemporaryDirectory(prefix="webhook-replay-guard-", ignore_cleanup_errors=True)
-    try:
-        root = Path(scratch.name) / "repo"
-        root.mkdir()
-        _write_tool(root)
-        process, sink = _start_plane(src_root, root, extra)
-        try:
-            url = _listening_url(sink)
-            observed["ready"] = sink.get("ready")
-            if not url:
-                observed["detail"] = "server never reported a listening port"
-                return {"passed": False, "observed": observed}
-            health_status, health = _request("GET", f"{url}/health")
-            observed["health_status"] = health_status
-            observed["webhook_replay_guard"] = health.get("webhook_replay_guard") if isinstance(health, dict) else None
-            post_status, accepted = _request(
-                "POST",
-                f"{url}/hooks/shout",
-                first_body,
-                headers={SIGNATURE_HEADER: first_signature},
-                timeout=5,
-            )
-            observed["post_status"] = post_status
-            run_id = accepted.get("run_id") if isinstance(accepted, dict) else None
-            get_status, completed = _wait_output(url, str(run_id or ""))
-            observed["completed_status"] = get_status
-            observed["completed_output"] = (
-                completed.get("output") if isinstance(completed, dict) else None
-            )
-            runs_after_first = _run_files(root)
-            replay_status, replay = _request(
-                "POST",
-                f"{url}/hooks/shout",
-                first_body,
-                headers={SIGNATURE_HEADER: first_signature},
-                timeout=5,
-            )
-            observed["replay_status"] = replay_status
-            observed["replay_error"] = replay.get("error") if isinstance(replay, dict) else None
-            runs_after_replay = _run_files(root)
-            observed["run_count_after_replay"] = len(runs_after_replay)
-        finally:
-            observed["server_stderr"] = (_stop_plane(process) or "")[-1500:]
-
-        restarted, restart_sink = _start_plane(src_root, root, extra)
-        try:
-            restart_url = _listening_url(restart_sink)
-            observed["restart_ready"] = restart_sink.get("ready")
-            if not restart_url:
-                observed["detail"] = "restarted server never reported a listening port"
-                return {"passed": False, "observed": observed}
-            persisted_status, persisted = _request(
-                "POST",
-                f"{restart_url}/hooks/shout",
-                first_body,
-                headers={SIGNATURE_HEADER: first_signature},
-                timeout=5,
-            )
-            observed["persisted_replay_status"] = persisted_status
-            observed["persisted_replay_error"] = persisted.get("error") if isinstance(persisted, dict) else None
-            fresh_status, fresh = _request(
-                "POST",
-                f"{restart_url}/hooks/shout",
-                second_body,
-                headers={SIGNATURE_HEADER: _sign(second_body)},
-                timeout=5,
-            )
-            fresh_id = fresh.get("run_id") if isinstance(fresh, dict) else None
-            fresh_get, fresh_body = _wait_output(restart_url, str(fresh_id or ""))
-            observed["fresh_status"] = fresh_status
-            observed["fresh_output"] = fresh_body.get("output") if isinstance(fresh_body, dict) else None
-            observed["run_count_after_fresh"] = len(_run_files(root))
-        finally:
-            observed["restart_stderr"] = (_stop_plane(restarted) or "")[-1500:]
-
-        closed_root = Path(scratch.name) / "closed"
-        closed_root.mkdir()
-        _write_tool(closed_root)
-        closed, closed_sink = _start_plane(src_root, closed_root)
-        try:
-            closed_url = _listening_url(closed_sink)
-            if not closed_url:
-                observed["detail"] = "closed plane never reported a listening port"
-                return {"passed": False, "observed": observed}
-            closed_health_status, closed_health = _request("GET", f"{closed_url}/health")
-            closed_post_status, closed_post = _request(
-                "POST",
-                f"{closed_url}/hooks/shout",
-                first_body,
-                headers={SIGNATURE_HEADER: first_signature},
-                timeout=5,
-            )
-            observed["closed_health_status"] = closed_health_status
-            observed["closed_webhook_replay_guard"] = (
-                closed_health.get("webhook_replay_guard") if isinstance(closed_health, dict) else None
-            )
-            observed["closed_post_status"] = closed_post_status
-            observed["closed_post_error"] = closed_post.get("error") if isinstance(closed_post, dict) else None
-        finally:
-            _stop_plane(closed)
-
-        first_output = observed.get("completed_output")
-        fresh_output = observed.get("fresh_output")
-        passed = bool(
-            observed.get("webhook_replay_guard") is True
-            and observed.get("post_status") == 202
-            and isinstance(first_output, dict)
-            and first_output.get("echo_output") == "replay-once"
-            and observed.get("replay_status") == 409
-            and observed.get("replay_error") == "webhook_replayed"
-            and observed.get("run_count_after_replay") == 1
-            and runs_after_replay == runs_after_first
-            and observed.get("persisted_replay_status") == 409
-            and observed.get("persisted_replay_error") == "webhook_replayed"
-            and observed.get("fresh_status") == 202
-            and isinstance(fresh_output, dict)
-            and fresh_output.get("echo_output") == "replay-twice"
-            and observed.get("run_count_after_fresh") == 2
-            and observed.get("closed_webhook_replay_guard") is False
-            and observed.get("closed_post_status") == 404
-            and observed.get("closed_post_error") == "webhook_disabled"
-        )
-        observed["checks_passed"] = passed
-        return {"passed": passed, "observed": observed}
+        with tempfile.TemporaryDirectory(prefix="webhook-receipts-") as directory, ExitStack() as stack:
+            passed = observe(Path(directory), stack, observed)
     except Exception as exc:
         observed["error"] = f"{type(exc).__name__}: {exc}"
-        return {"passed": False, "observed": observed}
-    finally:
-        scratch.cleanup()
+        passed = False
+    return {"passed": passed, "observed": observed}
 
 
 if __name__ == "__main__":
-    try:
-        report = main()
-    except Exception as exc:
-        report = {
-            "passed": False,
-            "observed": {"family": "webhook-replay-guard", "error": f"{type(exc).__name__}: {exc}"},
-        }
-    print(json.dumps(report, sort_keys=True))
+    print(json.dumps(main()))

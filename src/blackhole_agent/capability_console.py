@@ -75,7 +75,7 @@ pre { background: #0b0e11; padding: 0.75rem; border-radius: 4px; overflow: auto;
 <h1>blackhole capability console</h1>
 <section>
 <h2>service health</h2>
-<p>When <code>webhook_hooks</code> is true, CI can POST a signed body to <code>/hooks/{name}</code> and poll <code>/hooks/{run_id}</code> without keeping the invoke socket open. An identical signed body is refused with <code>webhook_replayed</code>, including after a restart on the same root.</p>
+<p>POST a signed body to <code>/hooks/{name}</code> when hooks are enabled. If the response is lost, retry the same body at the same hook. A retained delivery returns <code>409 webhook_replayed</code> with its original <code>run_id</code>. Poll <code>/hooks/{run_id}</code> on any server sharing the root. If its status is <code>interrupted</code>, check the tool's effects before starting new work. Older deliveries can return 409 without a run ID.</p>
 <pre id="health">loading…</pre>
 </section>
 <section>

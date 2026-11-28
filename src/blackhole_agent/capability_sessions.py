@@ -35,7 +35,7 @@ from blackhole_agent.capability_service import (
     load_invocable_capabilities,
 )
 from blackhole_agent.durable_state import durable_read_path, durable_write_path
-from blackhole_agent.file_guard import file_guard
+from blackhole_agent.file_guard import file_guard, try_file_guard
 from blackhole_agent.process_capture import ProcessCancelled
 from blackhole_agent.session_notify import (
     RETRY_DELAYS_SECONDS,
@@ -67,16 +67,6 @@ def _session_path(root: Path, session_id: str) -> Path:
     ):
         raise InvocationError(404, f"unknown session: {session_id!r}")
     return sessions_dir(root) / f"{session_id}.json"
-
-
-def _try_lease(path: Path) -> ExitStack | None:
-    """The caller can transfer the open guard to a worker thread. Process exit releases it."""
-    lease = ExitStack()
-    try:
-        lease.enter_context(file_guard(path, timeout=0, busy_message="session already owned"))
-    except RuntimeError:
-        return None
-    return lease
 
 
 class _CancelRequest:
@@ -331,7 +321,7 @@ class SessionManager:
         with file_guard(path):
             record = self._load(session_id)
             if record.get("status") == "running":
-                lease = _try_lease(path.with_suffix(".worker"))
+                lease = try_file_guard(path.with_suffix(".worker"))
                 if lease is not None:
                     with lease:
                         cancel = _CancelRequest(path)
@@ -508,7 +498,7 @@ class SessionManager:
         session_id = record["session_id"]
         path = durable_write_path(_session_path(self.root, session_id))
         path.parent.mkdir(parents=True, exist_ok=True)
-        lease = _try_lease(path.with_suffix(".delivery"))
+        lease = try_file_guard(path.with_suffix(".delivery"))
         if lease is not None:
             try:
                 threading.Thread(
@@ -556,7 +546,7 @@ class SessionManager:
         # the worker lease, then transfer its handle to the execution thread.
         session_id = record["session_id"]
         path = durable_write_path(_session_path(self.root, session_id))
-        lease = _try_lease(path.with_suffix(".worker"))
+        lease = try_file_guard(path.with_suffix(".worker"))
         if lease is None:
             raise InvocationError(409, f"session {session_id} already has an execution owner")
         try:

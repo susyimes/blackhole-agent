@@ -4,7 +4,7 @@ import errno
 import json
 import os
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 from uuid import uuid4
@@ -19,8 +19,8 @@ def json_text(payload: dict[str, Any], *, ensure_ascii: bool = False) -> str:
     return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=ensure_ascii) + "\n"
 
 
-def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    atomic_write_text(path, json_text(payload))
+def atomic_write_json(path: Path, payload: dict[str, Any], *, ensure_ascii: bool = False) -> None:
+    atomic_write_text(path, json_text(payload, ensure_ascii=ensure_ascii))
 
 
 def replace_file(source: Path, destination: Path) -> None:
@@ -73,3 +73,13 @@ def file_guard(path: Path, *, timeout: float | None = None, busy_message: str = 
             guard.write(b"\0")
             guard.flush()
         yield
+
+
+def try_file_guard(path: Path) -> ExitStack | None:
+    """Return a transferable guard, or None if another worker owns the file."""
+    lease = ExitStack()
+    try:
+        lease.enter_context(file_guard(path, timeout=0, busy_message="file already owned"))
+    except RuntimeError:
+        return None
+    return lease

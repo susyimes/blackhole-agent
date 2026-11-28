@@ -54,6 +54,13 @@ from the unfinished step before calling `POST /sessions/{id}/resume`. Resume
 skips saved steps and can repeat a step whose result had yet to be saved.
 Drain sessions on older servers before adding the first server with execution locks.
 
+Webhook senders can recover a lost acknowledgment by resending the same signed
+bytes to the same hook. While the delivery is retained, HTTP 409 includes the
+original `run_id`. Poll `GET /hooks/{run_id}` through any server sharing the
+root. An `interrupted` run may already have produced effects. Drain older
+webhook servers before upgrading a shared root. Deliveries accepted before
+the upgrade return 409 without a run ID.
+
 [Interval schedules](docs/invocation-schedules.md) share one execution owner
 per service root. Other service processes remain available as standbys and
 take over scheduling after the owner exits. A fire interrupted by a crash

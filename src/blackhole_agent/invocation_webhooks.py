@@ -13,10 +13,10 @@ This module is the opt-in inbound route:
 - missing or wrong signatures are HTTP 401 and never spawn, and they are
   not recorded, so a later correct signature of that body can still run
 - an unknown hook name after a valid signature is HTTP 404 and is not recorded
-- an identical raw body that already passed the signature check is a replay:
-  its SHA-256 is persisted under the service root and a second POST is HTTP
-  409 ``webhook_replayed`` without spawning, including after a process
-  restart that reuses that root. A different signed body is a new delivery
+- a retry to the same hook returns HTTP 409 ``webhook_replayed`` with the
+  original run id, even through another server sharing the root. GET shows
+  the saved result or ``interrupted`` if its worker exited before saving it.
+  Older fingerprints still receive HTTP 409 without a run id.
 - a plane without the secret stays fail-closed: ``GET /health`` reports
   ``webhook_hooks`` false and ``webhook_replay_guard`` false, and
   ``POST /hooks`` is HTTP 404
@@ -36,11 +36,13 @@ import os
 import re
 import threading
 import uuid
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from blackhole_agent.file_guard import atomic_write_json, file_guard, try_file_guard
 from blackhole_agent.session_notify import (
     SIGNATURE_HEADER,
     sign_notify_body,
@@ -48,6 +50,10 @@ from blackhole_agent.session_notify import (
 )
 
 SCHEMA_VERSION = 1
+RUN_SCHEMA_VERSION = 2
+ACTIVE_STATUSES = frozenset({"accepted", "running"})
+INTERRUPTED_DETAIL = "Worker exited before saving its result. Check tool effects."
+RECEIPT_FIELDS = ("run_id", "hook", "capability_id", "created_at")
 WEBHOOK_SECRET_ENV = "BLACKHOLE_WEBHOOK_SECRET"
 WEBHOOK_HOOK_ENV = "BLACKHOLE_WEBHOOK_HOOK"
 HOOKS_PATH_PREFIX = "/hooks/"
@@ -57,7 +63,6 @@ MAX_DELIVERIES = 4096
 MIN_SECRET_CHARS = 8
 MAX_SECRET_CHARS = 128
 MAX_HOOKS = 64
-MAX_RUNS = 256
 HOOK_NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 CAPABILITY_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
@@ -238,10 +243,6 @@ def public_run_record(record: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _runs_root(root: Path) -> Path:
-    return Path(root).resolve() / RUNS_RELATIVE
-
-
 class WebhookPlane:
     """Accept signed POSTs, run the mapped tool in the background, and serve run status."""
 
@@ -256,12 +257,9 @@ class WebhookPlane:
         self.root = Path(root).resolve()
         self.config = config
         self._invoke = invoke
-        self._lock = threading.Lock()
-        self._runs: dict[str, dict[str, Any]] = {}
         self._delivery_limit = MAX_DELIVERIES if delivery_limit is None else int(delivery_limit)
         if self._delivery_limit < 1:
             raise ValueError("delivery_limit must be at least 1")
-        self._deliveries: list[str] | None = None
 
     @property
     def enabled(self) -> bool:
@@ -278,9 +276,21 @@ class WebhookPlane:
         ident = str(run_id or "")
         if RUN_ID_RE.fullmatch(ident) is None:
             raise WebhookError(400, "run_id must be 1-128 ASCII letters, digits, ._:-")
-        record = self._load(ident)
-        if record is None:
-            raise WebhookError(404, "webhook_run_unknown")
+        path = self.root / RUNS_RELATIVE / f"{ident}.json"
+        record = self._read_run(path)
+        if record.get("schema_version") != RUN_SCHEMA_VERSION or record.get("status") not in ACTIVE_STATUSES:
+            return public_run_record(record)
+        try:
+            lease = try_file_guard(path)
+            if lease is not None:
+                with lease:
+                    # The worker could have finished between our first read and the lock.
+                    record = self._read_run(path)
+                    if record["status"] in ACTIVE_STATUSES:
+                        record.update(status="interrupted", error=INTERRUPTED_DETAIL)
+                        atomic_write_json(path, record)
+        except OSError as exc:
+            raise WebhookError(500, "webhook_run_unavailable") from exc
         return public_run_record(record)
 
     def accept_post(self, name: str, raw_body: bytes, signature_header: str | None) -> dict[str, Any]:
@@ -310,11 +320,9 @@ class WebhookPlane:
             raise WebhookError(422, "input must be a JSON object")
         if self._invoke is None:
             raise WebhookError(500, "webhook_invoke_unbound")
-        if not self._claim_delivery(raw_body):
-            raise WebhookError(409, "webhook_replayed")
         run_id = uuid.uuid4().hex
         record = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": RUN_SCHEMA_VERSION,
             "artifacts": [],
             "capability_id": capability_id,
             "created_at": _utc_now_iso(),
@@ -325,133 +333,110 @@ class WebhookPlane:
             "run_id": run_id,
             "status": "accepted",
         }
-        self._persist(record)
-        worker = threading.Thread(
-            target=self._run_tool,
-            args=(run_id, capability_id, dict(provided_input)),
-            name=f"webhook-run-{run_id[:8]}",
-            daemon=True,
-        )
-        worker.start()
+        path = self.root / RUNS_RELATIVE / f"{run_id}.json"
+        lease = ExitStack()
+        try:
+            self._reserve(raw_body, record, path, lease)
+            worker = threading.Thread(
+                target=self._run_tool, args=(path, dict(record), provided_input, self._invoke, lease),
+                name=f"webhook-run-{run_id[:8]}", daemon=True,
+            )
+            try:
+                worker.start()
+            except (RuntimeError, OSError) as exc:
+                raise WebhookError(503, "webhook_worker_unavailable", {"run_id": run_id}) from exc
+        except BaseException:
+            lease.close()
+            raise
         return public_run_record(record)
 
-    def _run_tool(self, run_id: str, capability_id: str, provided_input: dict[str, Any]) -> None:
-        self._merge(run_id, {"status": "running"})
-        invoke = self._invoke
-        if invoke is None:
-            self._merge(run_id, {"status": "failed", "error": "webhook_invoke_unbound"})
-            return
-        try:
-            result = invoke(self.root, capability_id, provided_input, cancel_event=None)
-        except Exception as exc:
-            error = str(getattr(exc, "error", None) or f"{type(exc).__name__}: {exc}")
-            self._merge(run_id, {"status": "failed", "error": error[:400]})
-            return
-        output = result.get("output") if isinstance(result, Mapping) else None
-        artifacts = result.get("artifacts") if isinstance(result, Mapping) else None
-        invocation_id = result.get("invocation_id") if isinstance(result, Mapping) else None
-        self._merge(
-            run_id,
-            {
-                "status": "completed",
-                "output": dict(output) if isinstance(output, Mapping) else output,
-                "artifacts": list(artifacts or []),
-                "invocation_id": invocation_id,
-                "error": None,
-            },
-        )
-
-    def _deliveries_path(self) -> Path:
-        return self.root / DELIVERIES_RELATIVE
-
-    def _claim_delivery(self, raw_body: bytes) -> bool:
-        """Record ``raw_body`` once. False means this exact body already ran."""
-
-        fingerprint = hashlib.sha256(raw_body).hexdigest()
-        with self._lock:
-            seen = list(self._read_deliveries())
-            if fingerprint in seen:
-                return False
-            seen.append(fingerprint)
-            if len(seen) > self._delivery_limit:
-                del seen[: len(seen) - self._delivery_limit]
+    def _run_tool(
+        self, path: Path, record: dict[str, Any], inputs: dict[str, Any], invoke: InvokeFn, lease: ExitStack,
+    ) -> None:
+        with lease:
+            record["status"] = "running"
+            atomic_write_json(path, record)
             try:
-                self._write_deliveries(seen)
-            except OSError as exc:
-                raise WebhookError(500, "webhook_replay_store_unreadable") from exc
-            self._deliveries = seen
-            return True
+                result = invoke(self.root, record["capability_id"], inputs, cancel_event=None)
+                result = result if isinstance(result, Mapping) else {}
+                output = result.get("output")
+                record.update(
+                    status="completed", output=dict(output) if isinstance(output, Mapping) else output,
+                    artifacts=list(result.get("artifacts") or []), invocation_id=result.get("invocation_id"),
+                )
+            except Exception as exc:
+                error = str(getattr(exc, "error", None) or f"{type(exc).__name__}: {exc}")
+                record.update(status="failed", error=error[:400])
+            atomic_write_json(path, record, ensure_ascii=True)
 
-    def _read_deliveries(self) -> list[str]:
-        if self._deliveries is not None:
-            return self._deliveries
-        path = self._deliveries_path()
+    @staticmethod
+    def _delivery_index(path: Path) -> dict[str, dict[str, str] | None]:
+        """Preserve FIFO order and legacy reservations that never recorded a run id."""
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
-            self._deliveries = []
-            return self._deliveries
-        except (OSError, json.JSONDecodeError) as exc:
-            raise WebhookError(500, "webhook_replay_store_unreadable") from exc
-        fingerprints = payload.get("fingerprints") if isinstance(payload, dict) else None
-        if not isinstance(fingerprints, list) or not all(isinstance(item, str) for item in fingerprints):
-            raise WebhookError(500, "webhook_replay_store_unreadable")
-        self._deliveries = list(fingerprints)
-        return self._deliveries
+            return {}
+        fingerprints = payload["fingerprints"]
+        receipts = payload.get("receipts", {})
+        if not isinstance(fingerprints, list) or not isinstance(receipts, dict):
+            raise ValueError("invalid webhook delivery index")
+        if not all(isinstance(key, str) for key in fingerprints):
+            raise ValueError("invalid webhook fingerprint")
+        for receipt in receipts.values():
+            if not isinstance(receipt, dict) or not all(isinstance(receipt.get(k), str) for k in RECEIPT_FIELDS):
+                raise ValueError("invalid webhook receipt")
+            if not re.fullmatch(r"[a-f0-9]{32}", receipt["run_id"]):
+                raise ValueError("invalid webhook run id")
+        return {key: receipts.get(key) for key in fingerprints}
 
-    def _write_deliveries(self, fingerprints: list[str]) -> None:
-        path = self._deliveries_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        encoded = json.dumps(
-            {"fingerprints": list(fingerprints), "schema_version": SCHEMA_VERSION},
-            indent=2,
-            sort_keys=True,
-        )
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(encoded, encoding="utf-8")
-        tmp.replace(path)
-
-    def _path(self, run_id: str) -> Path:
-        return _runs_root(self.root) / f"{run_id}.json"
-
-    def _load(self, run_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            cached = self._runs.get(run_id)
-            if cached is not None:
-                return dict(cached)
-        path = self._path(run_id)
+    def _retry_details(self, original: dict[str, str] | None, attempt: dict[str, Any]) -> dict[str, str]:
+        if original is None or any(original[key] != attempt[key] for key in ("hook", "capability_id")):
+            return {}
+        run_id = original["run_id"]
+        path = self.root / RUNS_RELATIVE / f"{run_id}.json"
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-        if not isinstance(payload, dict):
-            return None
-        with self._lock:
-            self._runs[run_id] = payload
-        return dict(payload)
+            path.stat()
+        except FileNotFoundError:
+            # The index guard excludes a live admission. A crash in the
+            # interval between its two writes cannot have dispatched a worker.
+            recovered = dict(attempt, run_id=run_id, created_at=original["created_at"],
+                             status="interrupted", error=INTERRUPTED_DETAIL)
+            atomic_write_json(path, recovered)
+        return {"run_id": run_id}
 
-    def _persist(self, record: Mapping[str, Any]) -> None:
-        run_id = str(record.get("run_id") or "")
-        path = self._path(run_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = dict(record)
-        encoded = json.dumps(payload, indent=2, sort_keys=True)
-        tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(encoded, encoding="utf-8")
-        tmp.replace(path)
-        with self._lock:
-            self._runs[run_id] = payload
-            if len(self._runs) > MAX_RUNS:
-                extra = list(self._runs)[:-MAX_RUNS]
-                for ident in extra:
-                    self._runs.pop(ident, None)
+    def _reserve(self, raw: bytes, record: dict[str, Any], run_path: Path, lease: ExitStack) -> None:
+        index_path = self.root / DELIVERIES_RELATIVE
+        fingerprint = hashlib.sha256(raw).hexdigest()
+        try:
+            run_path.parent.mkdir(parents=True, exist_ok=True)
+            with file_guard(index_path):
+                deliveries = self._delivery_index(index_path)
+                if fingerprint in deliveries:
+                    raise WebhookError(409, "webhook_replayed", self._retry_details(deliveries[fingerprint], record))
+                # One replacement binds the fingerprint, destination and run id.
+                # No acknowledgment or worker can precede that commit.
+                deliveries[fingerprint] = {key: record[key] for key in RECEIPT_FIELDS}
+                retained = list(deliveries)[-self._delivery_limit:]
+                atomic_write_json(index_path, {
+                    "schema_version": SCHEMA_VERSION, "fingerprints": retained,
+                    "receipts": {key: deliveries[key] for key in retained if deliveries[key]},
+                })
+                lease.enter_context(file_guard(run_path))
+                atomic_write_json(run_path, record)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise WebhookError(500, "webhook_replay_store_unreadable") from exc
 
-    def _merge(self, run_id: str, updates: Mapping[str, Any]) -> None:
-        record = self._load(run_id)
-        if record is None:
-            return
-        record.update(dict(updates))
-        self._persist(record)
+    @staticmethod
+    def _read_run(path: Path) -> dict[str, Any]:
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(record, dict):
+                raise ValueError("invalid webhook run")
+            return record
+        except FileNotFoundError as exc:
+            raise WebhookError(404, "webhook_run_unknown") from exc
+        except (OSError, ValueError) as exc:
+            raise WebhookError(500, "webhook_run_unreadable") from exc
 
 
 def sign_webhook_body(secret: str, body: bytes) -> str:
