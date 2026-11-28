@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Any, Sequence
 
-from blackhole_agent.behavior_acceptance import execute_outcome_probe
+from blackhole_agent.behavior_acceptance import execute_outcome_probe, probe_verdict
 
 DEFAULT_PROBE_TIMEOUT = 300
 
@@ -26,28 +26,10 @@ DEFAULT_PROBE_TIMEOUT = 300
 def iter_acceptance_probes(repo_root: Path) -> list[Path]:
     """Return the standalone probe scripts of the repository, sorted."""
 
-    acceptance_dir = Path(repo_root) / "tests" / "acceptance"
-    if not acceptance_dir.is_dir():
-        return []
-    return sorted(acceptance_dir.glob("test_*.py"))
+    return sorted((Path(repo_root) / "tests" / "acceptance").glob("test_*.py"))
 
 
-def _parse_verdict(stdout: str) -> dict[str, Any] | None:
-    lines = [line for line in stdout.strip().splitlines() if line.strip()]
-    if not lines:
-        return None
-    try:
-        payload = json.loads(lines[-1])
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    if type(payload.get("passed")) is not bool or not payload.get("observed"):
-        return None
-    return payload
-
-
-def run_probe(probe: Path, *, timeout: int = DEFAULT_PROBE_TIMEOUT, env: dict[str, str] | None = None) -> dict[str, Any]:
+def run_probe(probe: Path, *, timeout: float = DEFAULT_PROBE_TIMEOUT, env: dict[str, str] | None = None) -> dict[str, Any]:
     """Run one probe in a fresh subprocess and adjudicate its verdict."""
 
     record: dict[str, Any] = {
@@ -76,7 +58,7 @@ def run_probe(probe: Path, *, timeout: int = DEFAULT_PROBE_TIMEOUT, env: dict[st
     finally:
         record["duration_seconds"] = round(time.monotonic() - started, 3)
     record["exit_code"] = completed["exit_code"]
-    verdict = _parse_verdict(completed["stdout"])
+    verdict = probe_verdict(completed["stdout"])
     if verdict is None:
         record["error"] = "probe did not print a JSON verdict with boolean passed and nonempty observed"
         record["stderr_tail"] = completed["stderr"][-400:]

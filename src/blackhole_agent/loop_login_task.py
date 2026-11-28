@@ -14,7 +14,6 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Callable
-from xml.sax.saxutils import escape
 
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -25,6 +24,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
     utc_now_iso,
 )
+from blackhole_agent.file_guard import atomic_write_json, atomic_write_text
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
 from blackhole_agent.loop_login_repair import (
     LOOP_LOGIN_REPAIR_DONE_WHEN,
@@ -32,6 +32,7 @@ from blackhole_agent.loop_login_repair import (
     LOOP_LOGIN_REPAIR_ID,
     LOOP_LOGIN_REPAIR_LEFTOVER,
 )
+from blackhole_agent.scheduled_task import task_xml
 
 SCHEMA_VERSION = 1
 LOOP_LOGIN_TASK_ID = "capability.loop-login-task"
@@ -101,40 +102,8 @@ def render_login_restore_launcher(repo_path: Path, output_dir: Path) -> str:
 
 
 def render_login_restore_task_xml(registration: dict[str, Any]) -> str:
-    command = [str(part) for part in registration.get("command") or []]
-    executable = command[0] if command else sys.executable
-    arguments = " ".join(command[1:])
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n'
-        f"  <RegistrationInfo><URI>\\{escape(str(registration.get('name') or LOGIN_TASK_NAME))}</URI></RegistrationInfo>\n"
-        "  <Triggers>\n"
-        "    <LogonTrigger>\n"
-        "      <Enabled>true</Enabled>\n"
-        "    </LogonTrigger>\n"
-        "  </Triggers>\n"
-        "  <Principals><Principal id=\"Author\"><LogonType>InteractiveToken</LogonType></Principal></Principals>\n"
-        "  <Settings>\n"
-        "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\n"
-        "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n"
-        "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n"
-        "    <Enabled>true</Enabled>\n"
-        "  </Settings>\n"
-        "  <Actions Context=\"Author\">\n"
-        "    <Exec>\n"
-        f"      <Command>{escape(executable)}</Command>\n"
-        f"      <Arguments>{escape(arguments)}</Arguments>\n"
-        "    </Exec>\n"
-        "  </Actions>\n"
-        "</Task>\n"
-    )
-
-
-def _atomic_write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
+    trigger = "<LogonTrigger><Enabled>true</Enabled></LogonTrigger>"
+    return task_xml(registration, LOGIN_TASK_NAME, trigger)
 
 
 def build_login_startup_registration(
@@ -195,8 +164,8 @@ def register_loop_restore_at_login(
     registration_path = login_startup_registration_path(repo, output)
     xml_path = login_startup_task_xml_path(repo, output)
     launcher_path = login_startup_launcher_path(repo, output)
-    _atomic_write(launcher_path, render_login_restore_launcher(repo, resolved_output))
-    _atomic_write(xml_path, render_login_restore_task_xml(spec))
+    atomic_write_text(launcher_path, render_login_restore_launcher(repo, resolved_output))
+    atomic_write_text(xml_path, render_login_restore_task_xml(spec))
     recorded = {
         **spec,
         "registration_path": str(registration_path),
@@ -207,7 +176,7 @@ def register_loop_restore_at_login(
         "started": False,
         "registered_at": utc_now_iso(),
     }
-    _atomic_write(registration_path, json.dumps(recorded, indent=2, sort_keys=True) + "\n")
+    atomic_write_json(registration_path, recorded, ensure_ascii=True)
     applied = scheduler(recorded) if scheduler is not None else {"backend": "file", "applied": True}
     return {**recorded, **applied}
 

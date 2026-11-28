@@ -1,35 +1,12 @@
-"""Scheduled hygiene for the acceptance sweep: regressions surface automatically.
-
-The acceptance sweep (``blackhole_agent.acceptance_sweep``) adjudicates every
-standalone probe under ``tests/acceptance``, but nothing ran it on a schedule:
-a probe contract that stopped holding (a probe that went unmet, crashed, or
-timed out) only surfaced when an operator remembered to sweep by hand.
-
-This module wires the sweep into scheduled hygiene. A recurring registration
-(daily trigger, logon-independent) points at a launcher that dispatches the
-hygiene pass; the pass sweeps every probe, compares the verdicts against the
-durable green baseline, and writes a durable report that names every
-probe-contract regression. Regressions surface automatically: the report and
-the pass result flag each probe that was green and no longer is, without
-anyone rerunning the sweep manually. A probe that recovers drops out of the
-regression list on the next pass; a probe that fails on first sight is a
-regression too.
-
-Scheduling never runs the sweep at registration time, so registering beside
-a busy checkout is cheap; the recurring trigger dispatches the pass.
-
-CLI-equivalent entry points: ``schedule_acceptance_hygiene`` (registration),
-``dispatch_acceptance_hygiene`` (what the scheduled launcher calls), and
-``run_acceptance_hygiene`` (the pass itself, usable standalone).
-"""
+"""Schedule acceptance sweeps and diagnose unmet outcomes against the last clean green release."""
 
 from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable
-from xml.sax.saxutils import escape
 
 from blackhole_agent.acceptance_sweep import DEFAULT_PROBE_TIMEOUT, sweep_acceptance_probes
 from blackhole_agent.capability_compounder import (
@@ -42,6 +19,9 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.durable_state import durable_read_path, durable_write_path
+from blackhole_agent.file_guard import atomic_write_json, atomic_write_text, file_guard
+from blackhole_agent.regression_history import bisect_regression, checkout_state
+from blackhole_agent.scheduled_task import task_xml
 
 SCHEMA_VERSION = 1
 ACCEPTANCE_HYGIENE_ID = "capability.acceptance-sweep-hygiene"
@@ -100,67 +80,27 @@ def build_hygiene_command(repo_path: Path, output_dir: Path | None = None) -> li
 
 
 def render_hygiene_launcher(repo_path: Path, output_dir: Path) -> str:
-    from blackhole_agent import unbound
-
-    src = Path(unbound.__file__).resolve().parents[1]
-    return (
-        "import sys\n"
-        "from pathlib import Path\n"
-        f"sys.path.insert(0, {str(src)!r})\n"
-        "from blackhole_agent.loop_acceptance_hygiene import dispatch_acceptance_hygiene\n"
-        "result = dispatch_acceptance_hygiene("
-        f"Path({str(Path(repo_path).resolve())!r}), "
-        f"Path({str(Path(output_dir).resolve())!r}))\n"
-        "raise SystemExit(0 if result.get('ok') else 1)\n"
-    )
+    src = Path(__file__).resolve().parents[1]
+    return f"""import sys
+from pathlib import Path
+sys.path.insert(0, {str(src)!r})
+from blackhole_agent.loop_acceptance_hygiene import dispatch_acceptance_hygiene
+result = dispatch_acceptance_hygiene(Path({str(Path(repo_path).resolve())!r}), Path({str(Path(output_dir).resolve())!r}))
+raise SystemExit(0 if result.get('ok') else 1)
+"""
 
 
 def render_hygiene_task_xml(registration: dict[str, Any]) -> str:
-    command = [str(part) for part in registration.get("command") or []]
-    executable = command[0] if command else sys.executable
-    arguments = " ".join(command[1:])
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n'
-        f"  <RegistrationInfo><URI>\\{escape(str(registration.get('name') or HYGIENE_TASK_NAME))}</URI></RegistrationInfo>\n"
-        "  <Triggers>\n"
-        "    <CalendarTrigger>\n"
-        "      <StartBoundary>2000-01-01T03:00:00</StartBoundary>\n"
-        "      <Enabled>true</Enabled>\n"
-        "      <ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>\n"
-        "    </CalendarTrigger>\n"
-        "  </Triggers>\n"
-        "  <Principals><Principal id=\"Author\"><LogonType>InteractiveToken</LogonType></Principal></Principals>\n"
-        "  <Settings>\n"
-        "    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\n"
-        "    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n"
-        "    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n"
-        "    <Enabled>true</Enabled>\n"
-        "  </Settings>\n"
-        "  <Actions Context=\"Author\">\n"
-        "    <Exec>\n"
-        f"      <Command>{escape(executable)}</Command>\n"
-        f"      <Arguments>{escape(arguments)}</Arguments>\n"
-        "    </Exec>\n"
-        "  </Actions>\n"
-        "</Task>\n"
+    trigger = (
+        "<CalendarTrigger><StartBoundary>2000-01-01T03:00:00</StartBoundary><Enabled>true</Enabled>"
+        "<ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay></CalendarTrigger>"
     )
-
-
-def _atomic_write(path: Path, text: str) -> None:
-    target = durable_write_path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(target.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(target)
+    return task_xml(registration, HYGIENE_TASK_NAME, trigger)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
-    resolved = durable_read_path(path)
-    if not resolved.is_file():
-        return None
     try:
-        payload = json.loads(resolved.read_text(encoding="utf-8"))
+        payload = json.loads(durable_read_path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
@@ -192,20 +132,15 @@ def schedule_acceptance_hygiene(
     *,
     scheduler: HygieneScheduler | None = None,
 ) -> dict[str, Any]:
-    """Create or replace the recurring hygiene registration for the sweep.
-
-    This only schedules. It does not run the sweep, so registration beside a
-    busy checkout is cheap; the recurring trigger dispatches the pass.
-    """
+    """Write the daily launcher and register its command with the scheduler."""
 
     repo = Path(repo_path)
     spec = build_hygiene_registration(repo, output_dir)
     registration_path = hygiene_registration_path(repo, output_dir)
     xml_path = hygiene_task_xml_path(repo, output_dir)
     launcher_path = hygiene_launcher_path(repo, output_dir)
-    resolved_output = hygiene_root(repo, output_dir)
-    _atomic_write(launcher_path, render_hygiene_launcher(repo, resolved_output))
-    _atomic_write(xml_path, render_hygiene_task_xml(spec))
+    atomic_write_text(durable_write_path(launcher_path), render_hygiene_launcher(repo, registration_path.parent.parent))
+    atomic_write_text(durable_write_path(xml_path), render_hygiene_task_xml(spec))
     recorded = {
         **spec,
         "registration_path": str(registration_path),
@@ -216,17 +151,9 @@ def schedule_acceptance_hygiene(
         "ran": False,
         "registered_at": utc_now_iso(),
     }
-    _atomic_write(registration_path, json.dumps(recorded, indent=2, sort_keys=True) + "\n")
+    atomic_write_json(durable_write_path(registration_path), recorded, ensure_ascii=True)
     applied = scheduler(recorded) if scheduler is not None else {"backend": "file", "applied": True}
     return {**recorded, **applied}
-
-
-def _probe_name(record: dict[str, Any]) -> str:
-    return Path(str(record.get("path") or "")).stem
-
-
-def _is_green(record: dict[str, Any]) -> bool:
-    return record.get("exit_code") == 0 and record.get("passed") is True
 
 
 def run_acceptance_hygiene(
@@ -235,50 +162,49 @@ def run_acceptance_hygiene(
     *,
     timeout: int = DEFAULT_PROBE_TIMEOUT,
 ) -> dict[str, Any]:
-    """Sweep every probe and surface probe-contract regressions automatically.
+    """Compare the live sweep with prior green observations and reproduce regressions in Git."""
 
-    A probe is a regression when its verdict is no longer green (unmet,
-    crashed, timed out, or unparseable). Each regression is named in the
-    durable report with whether it was green on a previous pass, so a broken
-    probe contract surfaces on the next scheduled pass without a manual
-    sweep. The green baseline only records green verdicts, so a recovered
-    probe drops out of the regression list on its next green pass.
-    """
-
-    repo = Path(repo_path)
+    repo = Path(repo_path).resolve()
     state_path = hygiene_state_path(repo, output_dir)
-    report_path = hygiene_report_path(repo, output_dir)
+    target = durable_write_path(state_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with file_guard(target):
+        return _run_sweep(repo, state_path, hygiene_report_path(repo, output_dir), timeout)
+
+
+def _run_sweep(repo: Path, state_path: Path, report_path: Path, timeout: int) -> dict[str, Any]:
     state = _read_json(state_path) or {"schema_version": SCHEMA_VERSION, "green": {}}
     baseline = state.get("green") if isinstance(state.get("green"), dict) else {}
 
+    start_head, start_clean = checkout_state(repo, state_path.parent)
     sweep = sweep_acceptance_probes(repo, timeout=timeout)
+    head, clean = checkout_state(repo, state_path.parent)
+    stable = bool(head) and head == start_head
+    deadline = time.monotonic() + timeout
     regressions: list[dict[str, Any]] = []
     green_now: dict[str, Any] = dict(baseline)
     for record in sweep.get("probes") or []:
-        name = _probe_name(record)
-        if _is_green(record):
-            green_now[name] = {
-                "last_green_at": utc_now_iso(),
-                "observed": record.get("observed"),
-            }
+        path = Path(record["path"]).resolve()
+        name = path.stem
+        previous = baseline.get(name)
+        anchor = previous.get("commit") if isinstance(previous, dict) else None
+        if record["exit_code"] == 0 and record["passed"] is True:
+            green_now[name] = {"last_green_at": utc_now_iso(), "observed": record["observed"],
+                               "commit": head if stable and clean and start_clean else anchor}
             continue
         if record.get("timed_out"):
             verdict = "timed_out"
-        elif record.get("passed") is False:
-            verdict = "unmet"
         elif record.get("exit_code") not in (0, None):
             verdict = "crashed"
+        elif record.get("passed") is False:
+            verdict = "unmet"
         else:
             verdict = "invalid"
-        regressions.append(
-            {
-                "name": name,
-                "verdict": verdict,
-                "exit_code": record.get("exit_code"),
-                "previously_green": name in baseline,
-                "error": record.get("error") or "",
-            }
-        )
+        regression = {"name": name, "verdict": verdict, "exit_code": record["exit_code"],
+                      "previously_green": name in baseline, "error": record["error"]}
+        if verdict == "unmet" and anchor and stable:
+            regression["history"] = bisect_regression(repo, path, anchor, head, timeout=timeout, deadline=deadline)
+        regressions.append(regression)
     regressions.sort(key=lambda item: item["name"])
 
     ok = bool(sweep.get("ok")) and not regressions
@@ -297,26 +223,11 @@ def run_acceptance_hygiene(
         },
         "probes": sweep.get("probes") or [],
     }
-    _atomic_write(report_path, json.dumps(report, indent=2, sort_keys=True) + "\n")
-    _atomic_write(
-        state_path,
-        json.dumps(
-            {
-                "schema_version": SCHEMA_VERSION,
-                "updated_at": utc_now_iso(),
-                "green": green_now,
-                "last_ok": ok,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-    )
-    return {
-        **report,
-        "report_path": str(report_path),
-        "state_path": str(state_path),
-    }
+    atomic_write_json(durable_write_path(report_path), report, ensure_ascii=True)
+    atomic_write_json(durable_write_path(state_path), {
+        "schema_version": SCHEMA_VERSION, "updated_at": utc_now_iso(), "green": green_now, "last_ok": ok,
+    }, ensure_ascii=True)
+    return {**report, "report_path": str(report_path), "state_path": str(state_path)}
 
 
 def dispatch_acceptance_hygiene(
@@ -325,47 +236,24 @@ def dispatch_acceptance_hygiene(
     *,
     timeout: int = DEFAULT_PROBE_TIMEOUT,
 ) -> dict[str, Any]:
-    """Run the hygiene pass the recurring registration scheduled.
-
-    Missing, disabled, or wrong-trigger registrations are left alone so a
-    stale schedule never sweeps a repo it no longer describes. An enabled
-    registration dispatches one pass; the pass itself surfaces regressions.
-    """
+    """Dispatch an enabled daily registration for this helper."""
 
     repo = Path(repo_path)
     registration = load_hygiene_registration(repo, output_dir)
+    # Older launchers supplied the registration directory itself as the output root.
+    if registration is None and output_dir is not None and output_dir.name == HYGIENE_DIR_NAME:
+        legacy = _read_json(output_dir / REGISTRATION_NAME)
+        if legacy and legacy.get("repo_path") == str(repo.resolve()) and legacy.get("hygiene_dir") == str(output_dir):
+            registration, output_dir = legacy, output_dir.parent
+    skip = {"ok": True, "ran": False, "action": "skip"}
     if registration is None:
-        return {
-            "ok": True,
-            "ran": False,
-            "action": "skip",
-            "skip_reason": "not_registered",
-            "scheduled": False,
-        }
+        return {**skip, "skip_reason": "not_registered", "scheduled": False}
     if registration.get("enabled") is not True:
-        return {
-            "ok": True,
-            "ran": False,
-            "action": "skip",
-            "skip_reason": "not_enabled",
-            "scheduled": False,
-        }
+        return {**skip, "skip_reason": "not_enabled", "scheduled": False}
     if registration.get("trigger") != HYGIENE_TRIGGER:
-        return {
-            "ok": True,
-            "ran": False,
-            "action": "skip",
-            "skip_reason": "wrong_trigger",
-            "scheduled": True,
-        }
+        return {**skip, "skip_reason": "wrong_trigger", "scheduled": True}
     if registration.get("helper") != HYGIENE_HELPER:
-        return {
-            "ok": True,
-            "ran": False,
-            "action": "skip",
-            "skip_reason": "wrong_helper",
-            "scheduled": True,
-        }
+        return {**skip, "skip_reason": "wrong_helper", "scheduled": True}
     result = run_acceptance_hygiene(repo, output_dir, timeout=timeout)
     return {
         **result,
@@ -394,11 +282,7 @@ def ensure_acceptance_hygiene_capability(*, repo_path: Path | None = None) -> Ca
     capability = Capability(
         id=ACCEPTANCE_HYGIENE_ID,
         name="Acceptance-sweep scheduled hygiene",
-        description=(
-            "A recurring registration schedules the acceptance sweep as hygiene; "
-            "each dispatched pass sweeps every standalone probe and the durable "
-            "report names every probe-contract regression automatically."
-        ),
+        description=ACCEPTANCE_HYGIENE_DONE_WHEN,
         kind="python",
         entry="blackhole_agent.loop_acceptance_hygiene:builtin_acceptance_hygiene_proof",
         proof_command=acceptance_hygiene_proof_command(),
@@ -427,31 +311,9 @@ def ensure_acceptance_hygiene_capability(*, repo_path: Path | None = None) -> Ca
     return capability
 
 
-_MET_PROBE = """import json
-print(json.dumps({"passed": True, "observed": {"sentinel": "GREEN"}}))
-"""
-
-
-def _write_probe(acceptance: Path, name: str, *, green: bool) -> Path:
-    if green:
-        text = _MET_PROBE
-    else:
-        text = (
-            "import json\n"
-            'print(json.dumps({"passed": False, "observed": {"sentinel": "BROKEN"}}))\n'
-        )
-    path = acceptance / name
-    path.write_text(text, encoding="utf-8")
-    return path
-
-
-def _make_repo(tmp: Path) -> Path:
-    repo = tmp / "repo"
-    acceptance = repo / "tests" / "acceptance"
-    acceptance.mkdir(parents=True)
-    _write_probe(acceptance, "test_stable.py", green=True)
-    _write_probe(acceptance, "test_flaky.py", green=True)
-    return repo
+def _write_probe(path: Path, *, green: bool) -> None:
+    verdict = {"passed": green, "observed": {"sentinel": "GREEN" if green else "BROKEN"}}
+    path.write_text(f"print({json.dumps(verdict)!r})\n", encoding="utf-8")
 
 
 def builtin_acceptance_hygiene_proof() -> dict[str, Any]:
@@ -459,11 +321,20 @@ def builtin_acceptance_hygiene_proof() -> dict[str, Any]:
 
     import tempfile
 
-    checks: dict[str, bool] = {}
-    checks["schema_version"] = SCHEMA_VERSION == 1
+    def matches(row: dict, **expected: Any) -> bool:
+        return all(type(row.get(key)) is type(value) and row[key] == value for key, value in expected.items())
+
+    checks = {"schema_version": SCHEMA_VERSION == 1}
 
     with tempfile.TemporaryDirectory(prefix="acceptance-hygiene-proof-") as tmp:
-        repo = _make_repo(Path(tmp))
+        repo = Path(tmp)
+        probes = repo / "tests" / "acceptance"
+        probes.mkdir(parents=True)
+        flaky = probes / "test_flaky.py"
+        _write_probe(probes / "test_stable.py", green=True)
+        _write_probe(flaky, green=True)
+        unregistered = dispatch_acceptance_hygiene(repo)
+        checks["unregistered_dispatch_skips"] = matches(unregistered, ran=False, scheduled=False, skip_reason="not_registered")
         applied: list[str] = []
 
         def scheduler(registration: dict[str, Any]) -> dict[str, Any]:
@@ -474,41 +345,25 @@ def builtin_acceptance_hygiene_proof() -> dict[str, Any]:
         xml_text = durable_read_path(Path(scheduled["task_xml_path"])).read_text(encoding="utf-8")
         launcher = durable_read_path(Path(scheduled["launcher_path"])).read_text(encoding="utf-8")
         checks["registration_schedules_daily_sweep"] = (
-            scheduled.get("scheduled") is True
-            and scheduled.get("ran") is False
-            and scheduled.get("trigger") == HYGIENE_TRIGGER
-            and scheduled.get("helper") == HYGIENE_HELPER
-            and scheduled.get("enabled") is True
-            and HYGIENE_HELPER.split(":")[-1] in launcher
-            and "<CalendarTrigger>" in xml_text
-            and "ScheduleByDay" in xml_text
-            and "IgnoreNew" in xml_text
-            and applied == [HYGIENE_TASK_NAME]
+            matches(scheduled, scheduled=True, ran=False, enabled=True, trigger=HYGIENE_TRIGGER, helper=HYGIENE_HELPER)
+            and all(marker in xml_text for marker in ("<CalendarTrigger>", "ScheduleByDay", "IgnoreNew"))
+            and HYGIENE_HELPER.split(":")[-1] in launcher and applied == [HYGIENE_TASK_NAME]
         )
 
         first = dispatch_acceptance_hygiene(repo)
         checks["green_pass_surfaces_no_regressions"] = (
-            first.get("ran") is True
-            and first.get("ok") is True
-            and first.get("regressions") == []
-            and first.get("dispatched_from") == "scheduled_hygiene"
-            and (first.get("sweep") or {}).get("met") == 2
+            matches(first, ran=True, ok=True, regressions=[], dispatched_from="scheduled_hygiene")
+            and matches(first.get("sweep") or {}, met=2)
         )
         state = _read_json(Path(first["state_path"])) or {}
-        checks["green_baseline_recorded"] = sorted((state.get("green") or {}).keys()) == [
-            "test_flaky",
-            "test_stable",
-        ]
+        checks["green_baseline_recorded"] = sorted(state.get("green") or {}) == ["test_flaky", "test_stable"]
 
-        _write_probe(repo / "tests" / "acceptance", "test_flaky.py", green=False)
+        _write_probe(flaky, green=False)
         second = dispatch_acceptance_hygiene(repo)
         regression = (second.get("regressions") or [{}])[0]
         checks["broken_probe_surfaces_automatically"] = (
-            second.get("ok") is False
-            and second.get("regression_count") == 1
-            and regression.get("name") == "test_flaky"
-            and regression.get("verdict") == "unmet"
-            and regression.get("previously_green") is True
+            matches(second, ok=False, regression_count=1)
+            and matches(regression, name="test_flaky", verdict="unmet", previously_green=True)
         )
         report = _read_json(Path(second["report_path"])) or {}
         checks["durable_report_names_regression"] = (
@@ -516,37 +371,18 @@ def builtin_acceptance_hygiene_proof() -> dict[str, Any]:
             and [item.get("name") for item in report.get("regressions") or []] == ["test_flaky"]
         )
         state_after = _read_json(Path(second["state_path"])) or {}
-        checks["green_baseline_survives_regression"] = (
-            "test_flaky" in (state_after.get("green") or {})
-            and state_after.get("last_ok") is False
-        )
+        checks["green_baseline_survives_regression"] = "test_flaky" in state_after.get("green", {}) and matches(state_after, last_ok=False)
 
-        _write_probe(repo / "tests" / "acceptance", "test_flaky.py", green=True)
+        _write_probe(flaky, green=True)
         third = dispatch_acceptance_hygiene(repo)
-        checks["recovered_probe_leaves_regression_list"] = (
-            third.get("ok") is True and third.get("regressions") == []
-        )
+        checks["recovered_probe_leaves_regression_list"] = matches(third, ok=True, regressions=[])
 
         registration = load_hygiene_registration(repo)
         assert registration is not None
         registration["enabled"] = False
-        _atomic_write(
-            hygiene_registration_path(repo),
-            json.dumps(registration, indent=2, sort_keys=True) + "\n",
-        )
+        atomic_write_json(durable_write_path(hygiene_registration_path(repo)), registration, ensure_ascii=True)
         disabled = dispatch_acceptance_hygiene(repo)
-        checks["disabled_registration_skips"] = (
-            disabled.get("ran") is False and disabled.get("skip_reason") == "not_enabled"
-        )
-
-    with tempfile.TemporaryDirectory(prefix="acceptance-hygiene-unregistered-") as tmp:
-        repo = _make_repo(Path(tmp))
-        unregistered = dispatch_acceptance_hygiene(repo)
-        checks["unregistered_dispatch_skips"] = (
-            unregistered.get("ran") is False
-            and unregistered.get("skip_reason") == "not_registered"
-            and unregistered.get("scheduled") is False
-        )
+        checks["disabled_registration_skips"] = matches(disabled, ran=False, skip_reason="not_enabled")
 
     checks["contract_is_outcome_level"] = (
         "capability_exists:" not in ACCEPTANCE_HYGIENE_DONE_WHEN

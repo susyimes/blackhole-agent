@@ -27,6 +27,7 @@ import sys
 source, script = map(os.path.abspath, sys.argv[1:])
 # The isolated interpreter uses sys.path. Workers launched by the probe inherit PYTHONPATH.
 os.environ["PYTHONPATH"] = source
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 sys.path[:0] = [source, os.path.dirname(script)]
 sys.argv = [script]
 sys.stdout.reconfigure(encoding="utf-8", errors="strict")
@@ -37,14 +38,14 @@ runpy.run_path(script, run_name="__main__")
 
 def outcome_probe_command(implementation: Path, script: Path) -> list[str]:
     """Select the source for the isolated probe and ordinary Python workers it launches."""
-    return [sys.executable, "-I", "-X", "utf8", "-c", _PROBE_BOOTSTRAP, str(implementation), str(script)]
+    return [sys.executable, "-I", "-B", "-X", "utf8", "-c", _PROBE_BOOTSTRAP, str(implementation), str(script)]
 
 
 def execute_outcome_probe(
     implementation: Path | None,
     script: Path,
     *,
-    timeout: int = 120,
+    timeout: float = 120,
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
@@ -61,6 +62,16 @@ def execute_outcome_probe(
         timeout=timeout,
     )
     return {"exit_code": completed.returncode, "stdout": completed.stdout, "stderr": completed.stderr}
+
+
+def probe_verdict(stdout: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(stdout.rstrip().splitlines()[-1])
+    except (IndexError, ValueError):
+        return None
+    if isinstance(payload, dict) and type(payload.get("passed")) is bool and payload.get("observed"):
+        return payload
+    return None
 
 
 def _relative_input(name: str) -> str:
@@ -93,7 +104,7 @@ def _shared_inputs(directory: Path) -> list[str]:
     return [_relative_input(line) for line in lines if line and not line.startswith("#")]
 
 
-def _baseline_snapshot(root: Path, revision: str, paths: list[str], destination: Path) -> None:
+def historical_snapshot(root: Path, revision: str, paths: list[str], destination: Path) -> None:
     checkout = RevisionCheckout(root, revision, destination.parent)
     modes = checkout.modes(*paths)
     for name, mode in modes.items():
@@ -101,6 +112,15 @@ def _baseline_snapshot(root: Path, revision: str, paths: list[str], destination:
         if mode not in {b"100644", b"100755"} or not path.resolve().is_relative_to(destination):
             raise ValueError(f"unsupported link/path in baseline: {os.fsdecode(name)}")
     checkout.write(destination, modes)
+
+
+def read_probe(root: Path, probe_path: str | Path) -> tuple[bytes, list[str], list[str]]:
+    probe = (root / probe_path).resolve()
+    directory = root / "tests" / "acceptance"
+    if not probe.is_relative_to(directory) or probe.suffix != ".py" or not probe.is_file():
+        raise ValueError("acceptance_probe must name a Python file inside tests/acceptance")
+    source = probe.read_bytes()
+    return source, _input_paths(source), _shared_inputs(directory)
 
 
 def _candidate_snapshot(root: Path, paths: list[str], destination: Path) -> None:
@@ -134,25 +154,19 @@ def replay_behavior_acceptance(
     result: dict[str, Any] = {"ok": False, "baseline_ref": baseline_ref, "probe": probe_path}
     try:
         root = workspace.resolve()
-        probe = (root / probe_path).resolve()
-        accepted_root = root / "tests" / "acceptance"
-        if not probe.is_relative_to(accepted_root) or probe.suffix != ".py" or not probe.is_file():
-            raise ValueError("acceptance_probe must name a Python file inside tests/acceptance")
         if not baseline_ref or baseline_ref.startswith("-"):
             raise ValueError("a controller-owned baseline commit is required")
-        source = probe.read_bytes()
+        source, required, shared = read_probe(root, probe_path)
         result["probe_sha256"] = hashlib.sha256(source).hexdigest()
         revision = subprocess.check_output(
             ["git", "rev-parse", "--verify", f"{baseline_ref}^{{commit}}"],
             cwd=root, stderr=subprocess.PIPE, timeout=30,
         ).decode("ascii").strip()
-        required = _input_paths(source)
-        shared = _shared_inputs(accepted_root)
         paths = list(dict.fromkeys([*required, *shared]))
         result.update(baseline_commit=revision, required_inputs=required, shared_inputs=shared)
         with tempfile.TemporaryDirectory(prefix="blackhole-acceptance-") as directory:
             scratch = Path(directory).resolve()
-            _baseline_snapshot(root, revision, paths, scratch / "baseline")
+            historical_snapshot(root, revision, paths, scratch / "baseline")
             _candidate_snapshot(root, paths, scratch / "candidate")
             labels = ("baseline", "candidate")
             for label in labels:
@@ -176,12 +190,8 @@ def replay_behavior_acceptance(
                 result[label] = evidence
                 if completed["exit_code"]:
                     raise ValueError(f"{label} probe crashed; this is not behavioral acceptance evidence")
-                payload = json.loads(completed["stdout"].strip().splitlines()[-1])
-                if (
-                    not isinstance(payload, dict)
-                    or type(payload.get("passed")) is not bool
-                    or not payload.get("observed")
-                ):
+                payload = probe_verdict(completed["stdout"])
+                if payload is None:
                     raise ValueError(f"{label} probe needs boolean passed and nonempty observed")
                 evidence["outcome"] = payload
             result["ok"] = (
