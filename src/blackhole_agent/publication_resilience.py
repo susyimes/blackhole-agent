@@ -306,28 +306,22 @@ def integrate_clean_divergence(
     *,
     command_runner: Callable[..., Any] = subprocess.run,
 ) -> str:
-    """Write a clean two-parent merge object for related, diverged commits."""
+    """Write a two-parent merge object without touching the publisher's checkout."""
+    from blackhole_agent.registry_publication import publication_tree
     from blackhole_agent.unbound import run_command
 
-    def git(*args: str) -> subprocess.CompletedProcess:
-        return run_command(["git", *args], cwd=repo_path, command_runner=command_runner, check=False)
+    def git(*args: str, **options: Any) -> subprocess.CompletedProcess:
+        return run_command(["git", *args], cwd=repo_path, command_runner=command_runner, **options)
 
-    remote_oid = str(remote_head or "").strip()
-    lineage_oid = str(lineage_tip or "").strip()
-    if not remote_oid or not lineage_oid:
+    if not remote_head or not lineage_tip:
         return ""
-    if git("merge-base", "--is-ancestor", lineage_oid, remote_oid).returncode != 1:
+    tree = publication_tree(git, remote_head, lineage_tip)
+    if not tree:
         return ""
-    # merge-tree rejects unrelated histories and conflicting edits without touching the checkout.
-    merged = git("merge-tree", "--write-tree", remote_oid, lineage_oid)
-    tree = (merged.stdout or "").strip()
-    if merged.returncode or not tree:
-        return ""
-    created = git(
-        "commit-tree", tree.splitlines()[0], "-p", remote_oid, "-p", lineage_oid,
+    return git(
+        "commit-tree", tree, "-p", remote_head, "-p", lineage_tip,
         "-m", "Integrate a clean remote sibling with the proved lineage",
-    )
-    return "" if created.returncode else (created.stdout or "").strip()
+    ).stdout.strip()
 
 
 def _git(repo: Path, *arguments: str) -> str:

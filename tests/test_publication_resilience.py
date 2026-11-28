@@ -1,5 +1,8 @@
+import json
 import subprocess
 from pathlib import Path
+
+import pytest
 
 from blackhole_agent.capability_compounder import default_ledger_path, load_ledger
 from blackhole_agent.kernel_class_closure import CLASS_CLOSURE_REQUIREMENTS
@@ -13,8 +16,39 @@ from blackhole_agent.publication_resilience import (
     PUBLICATION_RESILIENCE_ID,
     builtin_publication_resilience_proof,
 )
+from blackhole_agent.registry_publication import merge_registry
 from blackhole_agent.unbound import publish_lineage
 from tests.test_unbound import init_repository
+
+
+def catalog(**rows):
+    entries = {key: {"id": key, "name": key, "kind": "command", "entry": "git status",
+                     "proof_command": "git status", **fields} for key, fields in rows.items()}
+    return json.dumps({"capabilities": entries, "schema_version": 1})
+
+
+def test_registry_preserves_whole_winning_record_and_proof_timestamp():
+    base = catalog(one={}, two={})
+    peer = catalog(one={"updated_at": "2026-09-01T00:00:00Z"}, two={"last_proved_at": "peer"})
+    mission = catalog(one={"entry": "git log", "updated_at": "2026-08-01T00:00:00Z"}, two={})
+    rows = json.loads(merge_registry(base, peer, mission))["capabilities"]
+    assert rows["one"] == json.loads(mission)["capabilities"]["one"]
+    assert rows["two"] == json.loads(peer)["capabilities"]["two"]
+    created = json.loads(merge_registry(None, catalog(first={}), catalog(second={})))
+    assert set(created["capabilities"]) == {"first", "second"}
+
+
+@pytest.mark.parametrize(("base", "peer", "mission", "reason"), [
+    (catalog(one={}), catalog(), catalog(one={"last_proved_at": "new"}), "competing edits"),
+    (catalog(), catalog(one={"extra": True}), catalog(one={"extra": 1}), "competing edits"),
+    (catalog(one={}, two={}), catalog(one={"dependencies": ["two"]}, two={}),
+     catalog(one={}, two={"dependencies": ["one"]}), "cycle"),
+    (catalog(), '{"capabilities": {}, "capabilities": {}}', catalog(one={}), "duplicate"),
+    (catalog(), catalog(one={}).replace('"schema_version": 1', '"schema_version": 2'), catalog(two={}), "format"),
+], ids=["delete-edit", "json-types", "combined-cycle", "duplicate-key", "future-schema"])
+def test_registry_refuses_ambiguous_or_invalid_merge(base, peer, mission, reason):
+    with pytest.raises(ValueError, match=reason):
+        merge_registry(base, peer, mission)
 
 
 def exercise_transport_retry(tmp_path: Path, error: str) -> list[list[str]]:

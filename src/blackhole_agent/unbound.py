@@ -640,13 +640,7 @@ def publish_lineage(
     command_runner: Callable[..., Any] = subprocess.run,
     operator_acknowledged: bool = False,
 ) -> PublicationResult:
-    """Publish a fast-forward and confirm delivery at the receiving Git branch.
-
-    A lost acknowledgement can follow a successful ref update. Read the receiver
-    after each attempt. Retry a transport failure once if all tips are still at
-    their preflight values. Clean sibling integration and protected-path review
-    apply before the first write.
-    """
+    """Review each receiving branch, publish a fast-forward, and verify delivery after each attempt."""
     from blackhole_agent.publication_resilience import (
         POST_BUFFER_RETRY_BYTES,
         REMOTE_HEAD_MISMATCH_PREFIX,
@@ -699,7 +693,12 @@ def publish_lineage(
         # Plan against the primary receiving branch. Every additional receiver
         # must accept that same commit without combining separate receiver histories.
         if head == remote_before:
-            merged = integrate_clean_divergence(repo_path, head, publish_sha, command_runner=command_runner)
+            try:
+                merged = integrate_clean_divergence(repo_path, head, publish_sha, command_runner=command_runner)
+            except ValueError as exc:
+                return receipt(f"{REMOTE_HEAD_MISMATCH_PREFIX}: capabilities/ledger.json: {exc}")
+            except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+                return receipt(f"Unable to integrate receiving history: {exc}")
             if merged:
                 publish_sha = merged
                 continue
