@@ -1,122 +1,119 @@
-"""Acceptance probe: sharded suite execution is bounded and resumable.
-
-Prints JSON with boolean passed and nonempty observed. Exits 0 for both
-met and unmet outcomes so the controller can replay the same probe on
-baseline and candidate source trees.
-
-The mission condition is a bare ambient interpreter (mission workspaces
-are uv venvs with runtime deps only). The replay host's own interpreter
-may carry pytest, which would erase the before/after contrast, so the
-probe builds its own bare venv (--without-pip, no site packages) and
-points the runner's ambient interpreter at it: baseline source then has
-no way to execute shards (passed=false) while candidate source must
-obtain a pytest-capable interpreter on its own (passed=true).
-"""
-
-from __future__ import annotations
+# replay-input: uv.lock
+"""Each till run reports its CLI exit, resumed shard count and actual test executions."""
 
 import json
 import os
+import py_compile
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-_PASSING_TEST = """def test_ok_{index}():
-    assert {index} == {index}
+
+SALE = """from pathlib import Path
+
+def test_sale():
+    order = Path('../repair-once')
+    if order.exists():
+        Path('src/till.py').write_bytes(order.read_bytes())
+        order.unlink()
+    from till import UNIT_CENTS
+    total = UNIT_CENTS * int(Path('tests/fixtures/quantity').read_text())
+    with Path('../executions').open('a') as stream:
+        print(f'sale={total}', file=stream)
+    assert total == 250
+"""
+STOCK = """from pathlib import Path
+
+def test_stock():
+    with Path('../executions').open('a') as stream:
+        print('stock', file=stream)
 """
 
-_FAILING_TEST = """def test_broken():
-    assert False
-"""
 
+def main():
+    from blackhole_agent import suite_shards
 
-def _write_suite(tests_dir: Path, count: int) -> None:
-    for index in range(count):
-        (tests_dir / f"test_shard_{index}.py").write_text(_PASSING_TEST.format(index=index), encoding="utf-8")
+    with tempfile.TemporaryDirectory(prefix="till-shards-") as directory:
+        scratch = Path(directory)
+        repo = scratch / "shop"
+        tests = repo / "tests"
+        (tests / "fixtures").mkdir(parents=True)
+        (repo / "src").mkdir()
+        (repo / "pytest.ini").write_text("[pytest]\npythonpath = src\n", encoding="ascii")
+        price = repo / "src" / "till.py"
+        quantity = tests / "fixtures" / "quantity"
+        stock = tests / "test_stock.py"
+        stock.write_text(STOCK, encoding="ascii")
+        (tests / "test_sale.py").write_text(SALE, encoding="ascii")
+        good = b"UNIT_CENTS = 125\n"
+        price.write_bytes(good)
+        quantity.write_bytes(b"2")
+        trace = scratch / "executions"
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        subprocess.run(["git", "init", "-q"], cwd=repo, env=env, capture_output=True, check=True, timeout=15)
+        subprocess.run(["git", "add", "--", "src", "pytest.ini", "tests/test_*.py"],
+                       cwd=repo, env=env, capture_output=True, check=True, timeout=15)
+        bare = scratch / "bare"
+        subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(bare)], check=True, timeout=30)
+        python = str(bare / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
+        preflight = subprocess.run([python, "-I", "-c", "import pytest"], capture_output=True, timeout=15)
+        lacks_pytest = preflight.returncode != 0
+        command = [python, "-m", "blackhole_agent.suite_shards", "--repo", str(repo), "--shards", "2",
+                   "--shard-timeout", "25"]
+        env.update(PYTHONPATH=str(Path(suite_shards.__file__).resolve().parents[1]),
+                   PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", PYTEST_ADDOPTS="")
+        runners = set()
 
+        def run():
+            trace.write_bytes(b"")
+            result = subprocess.run(command, cwd=scratch, env=env, capture_output=True, timeout=45)
+            if not result.stdout.strip():
+                raise RuntimeError(result.stderr.decode("utf-8", "replace")[-700:])
+            report = json.loads(result.stdout)
+            runners.add(report["pytest_runner"])
+            return [result.returncode, report["shards_resumed"], sorted(trace.read_text().splitlines())]
 
-def _bare_interpreter(parent: Path) -> str:
-    """Create a venv with no installed packages and return its interpreter."""
-
-    venv_dir = parent / "bare-venv"
-    subprocess.run(
-        [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)],
-        check=True,
-        capture_output=True,
-        timeout=180,
+        observed = {"first": run(), "unchanged": run()}
+        stock.write_text(STOCK + "\n", encoding="ascii")
+        observed["one_test_edit"] = run()
+        stock.write_text(STOCK + "    assert False\n", encoding="ascii")
+        observed["failed_test"] = run()
+        stock.write_text(STOCK + "\n", encoding="ascii")
+        py_compile.compile(str(price), doraise=True, invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)
+        timestamp = price.stat()
+        price.write_bytes(b"UNIT_CENTS = 175\n")
+        os.utime(price, ns=(timestamp.st_atime_ns, timestamp.st_mtime_ns))
+        observed["source_edit"] = run()
+        price.write_bytes(good)
+        quantity.write_bytes(b"3")
+        observed["fixture_edit"] = run()
+        quantity.write_bytes(b"2")
+        broken = b"UNIT_CENTS = 225\n"
+        price.write_bytes(broken)
+        (scratch / "repair-once").write_bytes(good)
+        observed["edit_during_pytest"] = run()
+        price.write_bytes(broken)
+        observed["restored_broken_input"] = run()
+        observed["bare_without_pytest"] = lacks_pytest
+        observed["runners"] = sorted(runners)
+        observed["ledger_persisted"] = (repo / "artifacts" / "suite-shards-ledger.json").is_file()
+    passed = (
+        observed["first"] == [0, 0, ["sale=250", "stock"]]
+        and observed["unchanged"] == [0, 2, []]
+        and observed["one_test_edit"] == [0, 1, ["stock"]]
+        and observed["failed_test"] == [1, 1, ["stock"]]
+        and observed["source_edit"] == [1, 0, ["sale=350", "stock"]]
+        and observed["fixture_edit"] == [1, 0, ["sale=375", "stock"]]
+        and observed["edit_during_pytest"][0] == 1 and "sale=250" in observed["edit_during_pytest"][2]
+        and observed["restored_broken_input"][0] == 1 and "sale=450" in observed["restored_broken_input"][2]
+        and lacks_pytest and runners == {"uv-ephemeral"} and observed["ledger_persisted"]
     )
-    return str(venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
-
-
-def _lacks_pytest(interpreter: str) -> bool:
-    completed = subprocess.run(
-        [interpreter, "-c", "import pytest"],
-        capture_output=True,
-        timeout=60,
-    )
-    return completed.returncode != 0
-
-
-def main() -> dict[str, object]:
-    observed: dict[str, object] = {"family": "suite-shards"}
-    try:
-        from blackhole_agent.suite_shards import run_suite_shards
-    except Exception as error:  # baseline source tree has no sharded runner
-        observed["error"] = type(error).__name__
-        observed["detail"] = str(error)
-        return {"passed": False, "observed": observed}
-
-    with tempfile.TemporaryDirectory(prefix="suite-shards-probe-") as directory:
-        repo = Path(directory)
-        tests_dir = repo / "tests"
-        tests_dir.mkdir()
-        _write_suite(tests_dir, 4)
-        ledger = repo / "ledger.json"
-
-        bare = _bare_interpreter(repo)
-        fixture_bare = _lacks_pytest(bare)
-        real_executable = sys.executable
-        sys.executable = bare
-        try:
-            first = run_suite_shards(repo, shard_count=2, shard_timeout=120, ledger_path=ledger)
-            second = run_suite_shards(repo, shard_count=2, shard_timeout=120, ledger_path=ledger)
-
-            # Touch one test file: exactly its shard must re-run, the other resumes.
-            (tests_dir / "test_shard_0.py").write_text(_PASSING_TEST.format(index=0) + "\n", encoding="utf-8")
-            third = run_suite_shards(repo, shard_count=2, shard_timeout=120, ledger_path=ledger)
-
-            # A failing shard must fail the aggregate without blocking other shards.
-            (tests_dir / "test_shard_1.py").write_text(_FAILING_TEST, encoding="utf-8")
-            fourth = run_suite_shards(repo, shard_count=2, shard_timeout=120, ledger_path=ledger)
-        finally:
-            sys.executable = real_executable
-        ledger_persisted = ledger.is_file()
-
-    checks = {
-        "fixture_ambient_lacks_pytest": fixture_bare,
-        "first_run_all_green": first.get("ok") is True and first.get("shards_passed") == 2,
-        "second_run_fully_resumed": second.get("ok") is True and second.get("shards_resumed") == 2,
-        "content_change_reruns_one_shard": third.get("shards_resumed") == 1 and third.get("ok") is True,
-        "failing_shard_fails_aggregate": fourth.get("ok") is False and fourth.get("shards_failed") == 1,
-        "failure_does_not_block_peers": fourth.get("shards_passed") == 1,
-        "self_served_pytest_runner": first.get("pytest_runner") == "uv-ephemeral",
-        "ledger_persisted": ledger_persisted,
-    }
-    observed.update(
-        {
-            "checks": checks,
-            "first": {key: first.get(key) for key in ("ok", "shards_passed", "shards_resumed")},
-            "second": {key: second.get(key) for key in ("ok", "shards_passed", "shards_resumed")},
-            "third": {key: third.get(key) for key in ("ok", "shards_passed", "shards_resumed")},
-            "fourth": {key: fourth.get(key) for key in ("ok", "shards_passed", "shards_failed")},
-            "pytest_runner": first.get("pytest_runner"),
-            "sentinel": "BH-SUITE-SHARDS-OK" if all(checks.values()) else "",
-        }
-    )
-    return {"passed": bool(all(checks.values())), "observed": observed}
+    return {"passed": passed, "observed": observed}
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(), sort_keys=True))
-    sys.exit(0)
+    try:
+        print(json.dumps(main()))
+    except Exception as exc:
+        print(json.dumps({"passed": False, "observed": {"error": str(exc)}}))

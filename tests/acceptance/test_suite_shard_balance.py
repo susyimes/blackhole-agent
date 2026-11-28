@@ -1,23 +1,7 @@
-"""Acceptance probe: recorded slow-test profiles rebalance shard packing.
+"""Retain timing profiles from older shard ledgers and rerun their unverified passes.
 
-The 12-way sharded run bound each shard to 900s, and shard 2296c7cf
-timed out because round-robin packing concentrated the slow test files
-by position. The shard runner now harvests per-file duration profiles
-into its ledger and packs shards longest-processing-time first, so a
-skewed profile spreads heavy files under the bound.
-
-This probe builds a synthetic suite whose round-robin packing doubles
-the heaviest shard, seeds the runner ledger with the skewed profile, and
-checks that packing spreads the heavy files and that the end-to-end run
-records per-shard estimates. Prints JSON with boolean passed and
-nonempty observed; exits 0 for both met and unmet outcomes so the
-controller can replay the same probe on baseline and candidate trees.
-
-The end-to-end leg runs under a self-built bare ambient interpreter (a
-``--without-pip`` venv, mirroring real mission workspaces) so the
-contrast does not depend on whether the replay host's own interpreter
-happens to carry pytest: baseline source cannot execute the shards,
-candidate source must self-serve a pytest runner.
+Shard 2296c7cf previously timed out at 900s when round-robin packing paired
+the heaviest files. An eight-test workload makes both packing and execution observable.
 """
 
 from __future__ import annotations
@@ -28,22 +12,20 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
-_PASSING_TEST = """def test_ok_{index}():
+_PASSING_TEST = """from pathlib import Path
+
+def test_ok_{index}():
+    with Path('../executions').open('a') as trace:
+        print({index}, file=trace)
     assert {index} == {index}
 """
 
 
 def _bare_interpreter(parent: Path) -> str:
-    """Create a venv with no installed packages and return its interpreter."""
-
     venv_dir = parent / "bare-venv"
-    subprocess.run(
-        [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)],
-        check=True,
-        capture_output=True,
-        timeout=180,
-    )
+    subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv_dir)], check=True, timeout=180)
     return str(venv_dir / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
 
 
@@ -51,18 +33,13 @@ def _load(shard: list[Path], weights: dict[str, float]) -> float:
     return sum(weights.get(path.name, 0.0) for path in shard)
 
 
-def main() -> dict[str, object]:
-    observed: dict[str, object] = {"family": "suite-shards-balance"}
-    try:
-        from blackhole_agent.suite_shards import run_suite_shards, shard_files
-    except Exception as error:  # baseline source tree predates the runner change
-        observed["error"] = f"{type(error).__name__}: {error}"
-        return {"passed": False, "observed": observed}
+def _exercise() -> dict[str, object]:
+    from blackhole_agent.suite_shards import run_suite_shards, shard_digest, shard_files
 
     with tempfile.TemporaryDirectory(prefix="suite-shard-balance-") as directory:
-        repo = Path(directory)
+        repo = Path(directory) / "suite"
         tests_dir = repo / "tests"
-        tests_dir.mkdir()
+        tests_dir.mkdir(parents=True)
         for index in range(8):
             (tests_dir / f"test_pack_{index}.py").write_text(
                 _PASSING_TEST.format(index=index), encoding="utf-8"
@@ -72,12 +49,8 @@ def main() -> dict[str, object]:
         weights = {
             f"test_pack_{index}.py": (300.0 if index % 2 == 0 else 1.0) for index in range(8)
         }
-        try:
-            round_robin = shard_files(files, 4)
-            balanced = shard_files(files, 4, weights=weights)
-        except TypeError as error:  # baseline shard_files has no weights parameter
-            observed["error"] = f"shard_files lacks duration-aware packing: {error}"
-            return {"passed": False, "observed": observed}
+        round_robin = shard_files(files, 4)
+        balanced = shard_files(files, 4, weights=weights)
 
         rr_loads = [round(_load(shard, weights), 3) for shard in round_robin]
         balanced_loads = [round(_load(shard, weights), 3) for shard in balanced]
@@ -85,26 +58,15 @@ def main() -> dict[str, object]:
             1 for shard in balanced if any(weights.get(path.name, 0.0) > 100.0 for path in shard)
         )
 
-        # end-to-end: a ledger seeded with the skewed profile (as recorded
-        # from a timed-out shard) must drive the runner's packing, under a
-        # bare ambient interpreter the runner must self-serve past
+        old_records = {shard_digest(repo, group): {"status": "passed", "exit_code": 0} for group in balanced}
+        old_records["seed"] = {"status": "timed_out", "file_durations": weights}
         ledger = repo / "ledger.json"
-        ledger.write_text(
-            json.dumps({"shards": {"seed": {"status": "timed_out", "file_durations": weights}}}),
-            encoding="utf-8",
-        )
-        bare = _bare_interpreter(repo)
-        real_executable = sys.executable
-        sys.executable = bare
-        try:
+        ledger.write_text(json.dumps({"shards": old_records}), encoding="utf-8")
+        with patch.object(sys, "executable", _bare_interpreter(repo)):
             report = run_suite_shards(repo, shard_count=4, shard_timeout=120, ledger_path=ledger)
-        finally:
-            sys.executable = real_executable
-        estimates = [
-            record.get("estimated_seconds")
-            for record in report.get("shards", [])
-            if isinstance(record, dict)
-        ]
+        estimates = [record.get("estimated_seconds") for record in report["shards"]]
+        trace = repo.parent / "executions"
+        executions = sorted(map(int, trace.read_text().splitlines())) if trace.exists() else []
 
     checks = {
         "round_robin_concentrates_heavy_files": max(rr_loads) >= 2 * max(min(rr_loads), 1.0),
@@ -113,29 +75,26 @@ def main() -> dict[str, object]:
         "packing_covers_same_files": {p.name for s in balanced for p in s}
         == {p.name for s in round_robin for p in s},
         "end_to_end_green": report.get("ok") is True,
+        "legacy_passes_reexecuted": executions == list(range(8)) and report["shards_resumed"] == 0,
         "self_served_pytest_runner": report.get("pytest_runner") == "uv-ephemeral",
         "report_marked_balanced": report.get("balanced") is True,
         "estimates_recorded": len(estimates) == 4
         and all(isinstance(value, (int, float)) for value in estimates)
         and max(estimates) <= 320.0,
     }
-    observed.update(
-        {
-            "checks": checks,
-            "round_robin_loads": rr_loads,
-            "balanced_loads": balanced_loads,
-            "estimated_seconds": estimates,
-            "pytest_runner": report.get("pytest_runner"),
-            "sentinel": "BH-SHARD-BALANCE-OK" if all(checks.values()) else "",
-        }
-    )
-    return {"passed": bool(all(checks.values())), "observed": observed}
+    passed = all(checks.values())
+    observed = {"family": "suite-shards-balance", "checks": checks, "round_robin_loads": rr_loads,
+                "balanced_loads": balanced_loads, "estimated_seconds": estimates, "executions": executions,
+                "pytest_runner": report["pytest_runner"], "sentinel": "BH-SHARD-BALANCE-OK" if passed else ""}
+    return {"passed": passed, "observed": observed}
+
+
+def main() -> dict[str, object]:
+    try:
+        return _exercise()
+    except Exception as error:
+        return {"passed": False, "observed": {"error": f"{type(error).__name__}: {error}"}}
 
 
 if __name__ == "__main__":
-    try:
-        result = main()
-    except Exception as error:  # crashes never count; report unmet instead
-        result = {"passed": False, "observed": {"error": f"{type(error).__name__}: {error}"}}
-    print(json.dumps(result, sort_keys=True))
-    sys.exit(0)
+    print(json.dumps(main(), sort_keys=True))

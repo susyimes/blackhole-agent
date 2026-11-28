@@ -1,36 +1,9 @@
-"""Bounded, resumable full-suite execution across session windows.
+"""Run bounded pytest shards and resume passes against the same working inputs.
 
-The full unit suite outlives a single session, so a plain ``pytest tests/``
-run never finishes: progress is lost every time the session ends. This
-runner shards the suite by test file into bounded batches, runs each shard
-in a fresh subprocess with its own timeout, and records per-shard results
-in a durable ledger after every shard. Re-invoking the runner skips shards
-whose file set and contents are unchanged and already green, so a
-full-suite pass can be assembled across any number of session restarts.
-
-Acceptance probes under ``tests/acceptance`` are standalone scripts swept
-by ``blackhole_agent.acceptance_sweep``; this runner covers the pytest unit
-suite only.
-
-Every shard run also profiles itself: per-test durations reported by
-pytest are aggregated per test file into the ledger, and the next run
-packs shards longest-processing-time first from those recorded weights
-instead of round-robin, so a skewed profile (slow growth/actuation files
-concentrated into one 900s-bound shard) is spread under the bound.
-
-Mission workspaces are bare uv venvs (runtime dependencies only), so the
-ambient interpreter usually cannot run pytest at all; historically every
-shard was then recorded as failed and the resumable suite never assembled.
-The runner therefore preflights ``import pytest`` once per invocation and,
-when it fails, runs shards through an ephemeral uv tool environment
-(``uv run --python <current X.Y> --with pytest --no-project``) instead of
-the ambient interpreter. The workspace venv is never mutated; when neither
-ambient pytest nor uv is available the shard failure stays honest.
-
-CLI: ``python -m blackhole_agent.suite_shards [--repo PATH]
-[--shards N] [--shard-timeout SECONDS] [--ledger PATH] [--no-resume]
-[--no-balance]`` prints the aggregate report and exits 0 only when every
-shard is green (freshly or via resume).
+Shared inputs cover tracked and nonignored files in Git, or project files in a
+standalone suite. Each shard also owns its top-level test files. Interpreter
+caches and this runner's ledger are outputs. Use --no-resume when tests depend
+on external state. See ``python -m blackhole_agent.suite_shards --help``.
 """
 
 from __future__ import annotations
@@ -49,6 +22,9 @@ import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from blackhole_agent.file_guard import atomic_write_json, file_guard
+from blackhole_agent.suite_inputs import file_digest, inputs_digest, suite_inputs
+
 DEFAULT_SHARD_COUNT = 8
 DEFAULT_SHARD_TIMEOUT = 600
 DEFAULT_LEDGER = Path("artifacts") / "suite-shards-ledger.json"
@@ -56,12 +32,7 @@ PYTEST_PREFLIGHT_TIMEOUT = 60
 
 
 def list_test_files(repo_root: Path) -> list[Path]:
-    """Return the top-level unit test files of the repository, sorted."""
-
-    tests_dir = Path(repo_root) / "tests"
-    if not tests_dir.is_dir():
-        return []
-    return sorted(path for path in tests_dir.glob("test_*.py") if path.is_file())
+    return sorted(p for p in (Path(repo_root) / "tests").glob("test_*.py") if p.is_file())
 
 
 def shard_files(
@@ -69,52 +40,35 @@ def shard_files(
     shard_count: int,
     weights: Mapping[str, float] | None = None,
 ) -> list[list[Path]]:
-    """Distribute files into at most shard_count deterministic shards.
-
-    Without weights, files are dealt round-robin (historical behavior).
-    With weights (test-file name -> estimated seconds, as recorded in the
-    shard ledger), files are packed longest-processing-time first so slow
-    files are spread across shards instead of concentrated by position.
-    """
-
-    count = max(1, min(int(shard_count), len(files) or 1))
-    shards: list[list[Path]] = [[] for _ in range(count)]
+    """Deal round-robin initially, then pack longest-running files first."""
+    count = min(max(1, int(shard_count)), len(files))
     if not weights:
-        for index, path in enumerate(sorted(files)):
-            shards[index % count].append(path)
-        return [shard for shard in shards if shard]
+        ordered = sorted(files)
+        return [ordered[i::count] for i in range(count)]
+    shards: list[list[Path]] = [[] for _ in range(count)]
     loads = [0.0] * count
     ordered = sorted(files, key=lambda path: (-float(weights.get(path.name, 0.0)), str(path)))
     for path in ordered:
-        index = min(range(count), key=lambda i: (loads[i], i))
+        index = min(range(count), key=lambda i: (loads[i], len(shards[i]), i))
         shards[index].append(path)
         loads[index] += float(weights.get(path.name, 0.0))
     return [shard for shard in shards if shard]
 
 
-def shard_digest(repo_root: Path, files: Sequence[Path]) -> str:
-    """Content-address a shard so changed test files force a re-run."""
-
+def shard_digest(repo_root: Path, files: Sequence[Path], *, contents: Mapping[Path, bytes] | None = None) -> str:
     root = Path(repo_root).resolve()
-    digest = hashlib.sha1()
-    for path in sorted(files):
-        resolved = path.resolve()
-        digest.update(str(resolved.relative_to(root)).replace("\\", "/").encode("utf-8"))
-        digest.update(resolved.read_bytes())
-    return digest.hexdigest()
+    entries = []
+    for path in files:
+        name = os.fsencode(path.absolute().relative_to(root).as_posix())
+        entries.append((name, contents[path] if contents is not None else file_digest(path)))
+    return inputs_digest(entries)
 
 
 _DURATION_LINE = re.compile(r"^\s*(\d+(?:\.\d+)?)s\s+(?:call|setup|teardown)\s+(\S+?)\s*$")
 
 
 def parse_test_durations(output: str) -> tuple[dict[str, float], list[dict[str, Any]]]:
-    """Aggregate a pytest ``--durations=0`` report into per-file seconds.
-
-    Returns (file_durations, slowest_tests): file_durations maps the test
-    file name to summed seconds; slowest_tests lists the ten slowest
-    individual tests, slowest first.
-    """
-
+    """Sum per-file seconds and keep the ten slowest tests."""
     per_file: dict[str, float] = {}
     per_test: dict[str, float] = {}
     for line in output.splitlines():
@@ -134,22 +88,13 @@ def parse_test_durations(output: str) -> tuple[dict[str, float], list[dict[str, 
 
 
 def ledger_file_weights(ledger: Mapping[str, Any], *, bucket_seconds: float = 10.0) -> dict[str, float]:
-    """Harvest per-file duration estimates from recorded shard runs.
-
-    Takes the slowest recording per file across every ledger entry
-    (including timed-out shards, whose partial profile is still evidence)
-    and rounds up to bucket_seconds so minor run-to-run jitter does not
-    reshuffle the packing and defeat resume.
-    """
-
+    """Bucket the slowest recorded time per file, including partial runs."""
     weights: dict[str, float] = {}
     shards = ledger.get("shards") if isinstance(ledger, Mapping) else None
     if not isinstance(shards, Mapping):
         return weights
     for record in shards.values():
-        if not isinstance(record, Mapping):
-            continue
-        durations = record.get("file_durations")
+        durations = record.get("file_durations") if isinstance(record, Mapping) else None
         if not isinstance(durations, Mapping):
             continue
         for name, seconds in durations.items():
@@ -158,45 +103,30 @@ def ledger_file_weights(ledger: Mapping[str, Any], *, bucket_seconds: float = 10
             except (TypeError, ValueError):
                 continue
             weights[str(name)] = max(weights.get(str(name), 0.0), value)
-    if bucket_seconds > 0:
-        weights = {
-            name: math.ceil(value / bucket_seconds) * bucket_seconds for name, value in weights.items()
-        }
-    return weights
+    if bucket_seconds <= 0:
+        return weights
+    return {name: math.ceil(value / bucket_seconds) * bucket_seconds for name, value in weights.items()}
 
 
 def _load_ledger(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(payload, dict) and isinstance(payload.get("shards"), dict):
+            return payload
     except (OSError, ValueError):
-        return {"shards": {}}
-    if not isinstance(payload, dict) or not isinstance(payload.get("shards"), dict):
-        return {"shards": {}}
-    return payload
+        pass
+    return {"shards": {}}
 
 
-def _save_ledger(path: Path, ledger: dict[str, Any]) -> None:
+def _save_shard(path: Path, key: str, record: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    scratch = path.with_suffix(path.suffix + ".tmp")
-    scratch.write_text(json.dumps(ledger, indent=2, sort_keys=True), encoding="utf-8")
-    os.replace(scratch, path)
-
-
-def _ambient_pytest_available() -> bool:
-    try:
-        completed = subprocess.run(
-            [sys.executable, "-c", "import pytest"],
-            capture_output=True,
-            timeout=PYTEST_PREFLIGHT_TIMEOUT,
-        )
-    except Exception:
-        return False
-    return completed.returncode == 0
+    with file_guard(path):
+        ledger = _load_ledger(path)
+        ledger["shards"][key] = record
+        atomic_write_json(path, ledger)
 
 
 def _locked_pytest_spec() -> str:
-    """Pin the ephemeral pytest to the owning project's locked version when known."""
-
     try:
         text = (Path(__file__).resolve().parents[2] / "uv.lock").read_text(encoding="utf-8", errors="replace")
     except (OSError, IndexError):
@@ -206,26 +136,23 @@ def _locked_pytest_spec() -> str:
 
 
 def resolve_pytest_command() -> tuple[list[str], str]:
-    """Return (pytest command prefix, mode) for shard subprocesses.
-
-    ``ambient`` reuses the current interpreter when it can import pytest.
-    ``uv-ephemeral`` runs pytest from a cached uv tool environment pinned to
-    the current interpreter's Python version, leaving the workspace venv
-    untouched. ``ambient-missing-pytest`` means neither is available; shard
-    failures then stay honest instead of fabricating a runner.
-    """
+    """Prefer ambient pytest, falling back to uv for a bare mission venv."""
 
     ambient = [sys.executable, "-m", "pytest"]
-    if _ambient_pytest_available():
-        return ambient, "ambient"
+    try:
+        check = subprocess.run(
+            [sys.executable, "-c", "import pytest"], capture_output=True, timeout=PYTEST_PREFLIGHT_TIMEOUT,
+        )
+        if check.returncode == 0:
+            return ambient, "ambient"
+    except (OSError, subprocess.SubprocessError):
+        pass
     uv = shutil.which("uv")
     if uv is None:
         return ambient, "ambient-missing-pytest"
     version = f"{sys.version_info.major}.{sys.version_info.minor}"
-    return (
-        [uv, "run", "--python", version, "--with", _locked_pytest_spec(), "--no-project", "--", "python", "-m", "pytest"],
-        "uv-ephemeral",
-    )
+    launcher = [uv, "run", "--python", version, "--with", _locked_pytest_spec(), "--no-project"]
+    return [*launcher, "--", "python", "-m", "pytest"], "uv-ephemeral"
 
 
 def _run_shard(
@@ -236,9 +163,9 @@ def _run_shard(
     env: dict[str, str],
     pytest_command: Sequence[str],
 ) -> dict[str, Any]:
-    record: dict[str, Any] = {"status": "", "exit_code": None, "duration_seconds": 0.0, "output_tail": ""}
-    relpaths = [str(path.resolve().relative_to(Path(repo_root).resolve())) for path in files]
+    relpaths = [str(path.relative_to(repo_root)) for path in files]
     started = time.monotonic()
+    code = None
     try:
         completed = subprocess.run(
             [*pytest_command, "-q", "--durations=0", *relpaths],
@@ -250,33 +177,22 @@ def _run_shard(
             errors="replace",
             timeout=timeout,
         )
+        code = completed.returncode
+        status = "passed" if code == 0 else "failed"
+        output = completed.stdout + completed.stderr
     except subprocess.TimeoutExpired as error:
-        record["status"] = "timed_out"
-        record["duration_seconds"] = round(time.monotonic() - started, 3)
-        partial = error.output or ""
-        if isinstance(partial, bytes):
-            partial = partial.decode("utf-8", errors="replace")
-        if partial:
-            # a killed shard still yields its completed-test profile, which
-            # feeds duration-aware repacking on the next run
-            file_durations, slowest_tests = parse_test_durations(partial)
-            record["file_durations"] = file_durations
-            record["slowest_tests"] = slowest_tests
-        return record
+        status = "timed_out"
+        output = error.output or ""
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="replace")
     except OSError as error:
-        record["status"] = "error"
-        record["output_tail"] = f"{type(error).__name__}: {error}"
-        record["duration_seconds"] = round(time.monotonic() - started, 3)
-        return record
-    record["duration_seconds"] = round(time.monotonic() - started, 3)
-    record["exit_code"] = completed.returncode
-    record["status"] = "passed" if completed.returncode == 0 else "failed"
-    output = completed.stdout + completed.stderr
+        status = "error"
+        output = f"{type(error).__name__}: {error}"
     file_durations, slowest_tests = parse_test_durations(output)
-    record["file_durations"] = file_durations
-    record["slowest_tests"] = slowest_tests
-    record["output_tail"] = output[-400:]
-    return record
+    return {
+        "status": status, "exit_code": code, "duration_seconds": round(time.monotonic() - started, 3),
+        "file_durations": file_durations, "slowest_tests": slowest_tests, "output_tail": output[-400:],
+    }
 
 
 def run_suite_shards(
@@ -288,66 +204,74 @@ def run_suite_shards(
     resume: bool = True,
     balance: bool = True,
 ) -> dict[str, Any]:
-    """Run the unit suite in bounded shards, resuming green shards from the ledger.
-
-    When the ledger already carries per-file duration profiles, shards are
-    packed by those estimates (longest-processing-time first) so a shard
-    that previously hit the timeout bound is dissolved; pass
-    ``balance=False`` to force historical round-robin packing.
-    """
-
+    """Save each verified shard before starting the next one."""
     root = Path(repo_root).resolve()
-    ledger_file = Path(ledger_path) if ledger_path else root / DEFAULT_LEDGER
-    if not ledger_file.is_absolute():
-        ledger_file = root / ledger_file
+    ledger_file = (root / (ledger_path or DEFAULT_LEDGER)).resolve()
     ledger = _load_ledger(ledger_file)
     weights = ledger_file_weights(ledger) if balance else {}
-    files = list_test_files(root)
-    shards = shard_files(files, shard_count, weights=weights or None)
     pytest_command, pytest_runner = resolve_pytest_command()
     env = dict(os.environ)
+    if (root / "src").is_dir():
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, (str(root / "src"), env.get("PYTHONPATH"))))
+    errors = []
+
+    def snapshot():
+        try:
+            return suite_inputs(root, ledger_file)
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            errors.append(str(exc))
+            return None
+
+    initial = snapshot()
+    files = sorted(initial[1]) if initial is not None else list_test_files(root)
+    shards = shard_files(files, shard_count, weights=weights)
+    settings = {k: v for k, v in env.items() if k.startswith("PYTEST_") or k == "PYTHONPATH"}
+    identity = [initial[0] if initial else None, str(root), sys.platform, sys.version,
+                pytest_runner, pytest_command, settings]
+    context = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     records: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="blackhole-suite-shards-") as overlay:
         env["BLACKHOLE_DURABLE_ROOT"] = overlay
-        for index, files in enumerate(shards):
-            key = shard_digest(root, files)
+        # Equal-length edits inside a bytecode timestamp tick must reach the interpreter.
+        env["PYTHONPYCACHEPREFIX"] = str(Path(overlay) / "pycache")
+        for index, group in enumerate(shards):
+            key = shard_digest(root, group, contents=initial[1]) if initial else ""
             entry: dict[str, Any] = {
-                "index": index,
-                "files": len(files),
-                "digest": key,
-                "resumed": False,
-                "pytest_runner": pytest_runner,
+                "index": index, "files": len(group), "digest": key, "resumed": False, "pytest_runner": pytest_runner,
             }
+            records.append(entry)
             if weights:
-                entry["estimated_seconds"] = round(sum(weights.get(path.name, 0.0) for path in files), 3)
+                entry["estimated_seconds"] = round(sum(weights.get(path.name, 0.0) for path in group), 3)
             previous = ledger["shards"].get(key)
-            if resume and isinstance(previous, dict) and previous.get("status") == "passed":
-                entry.update(
-                    {
-                        "status": "passed",
-                        "exit_code": previous.get("exit_code"),
-                        "duration_seconds": previous.get("duration_seconds"),
-                        "resumed": True,
-                    }
-                )
+            result = None
+            if (
+                resume and initial is not None and isinstance(previous, dict) and previous.get("context") == context
+                and previous.get("status") == "passed" and previous.get("exit_code") == 0
+            ):
+                entry.update(status="passed", exit_code=0, resumed=True)
+                entry["duration_seconds"] = previous.get("duration_seconds")
+                if index + 1 < len(shards):
+                    continue
             else:
-                entry.update(_run_shard(root, files, timeout=shard_timeout, env=env, pytest_command=pytest_command))
-                ledger["shards"][key] = {
-                    "status": entry["status"],
-                    "exit_code": entry["exit_code"],
-                    "duration_seconds": entry["duration_seconds"],
-                    "file_durations": entry.get("file_durations") or {},
-                    "slowest_tests": entry.get("slowest_tests") or [],
-                }
+                result = _run_shard(root, group, timeout=shard_timeout, env=env, pytest_command=pytest_command)
+                entry.update(result)
+            if initial is None:
+                continue
+            if snapshot() != initial:
+                entry["status"] = "inputs_changed"
+                errors.append("checkout inputs changed during the suite run")
+                break
+            if result is not None:
+                saved = dict(result, context=context)
+                del saved["output_tail"]
                 try:
-                    _save_ledger(ledger_file, ledger)
+                    _save_shard(ledger_file, key, saved)
                 except OSError:
                     entry["ledger_error"] = "could not persist shard result"
-            records.append(entry)
     report: dict[str, Any] = {
-        "shards_total": len(records),
+        "shards_total": len(shards),
         "shards_passed": sum(1 for record in records if record["status"] == "passed"),
-        "shards_failed": sum(1 for record in records if record["status"] in ("failed", "error")),
+        "shards_failed": sum(1 for record in records if record["status"] in ("failed", "error", "inputs_changed")),
         "shards_timed_out": sum(1 for record in records if record["status"] == "timed_out"),
         "shards_resumed": sum(1 for record in records if record["resumed"]),
         "balanced": bool(weights),
@@ -356,6 +280,8 @@ def run_suite_shards(
         "ledger_path": str(ledger_file),
         "shards": records,
     }
+    if errors:
+        report["input_errors"] = errors
     report["ok"] = bool(records) and all(record["status"] == "passed" for record in records)
     return report
 
@@ -367,7 +293,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--shard-timeout", type=int, default=DEFAULT_SHARD_TIMEOUT, help="per-shard timeout in seconds")
     parser.add_argument("--ledger", default="", help="ledger path; defaults to artifacts/suite-shards-ledger.json")
     parser.add_argument("--no-resume", action="store_true", help="re-run shards even when the ledger is green")
-    parser.add_argument("--no-balance", action="store_true", help="ignore recorded duration profiles and pack round-robin")
+    parser.add_argument("--no-balance", action="store_true", help="pack round-robin and ignore duration profiles")
     args = parser.parse_args(argv)
     report = run_suite_shards(
         Path(args.repo),
