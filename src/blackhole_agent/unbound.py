@@ -29,6 +29,7 @@ from typing import Any, BinaryIO, Callable, ContextManager, Iterator, Mapping, S
 import typer
 from rich.console import Console
 
+from blackhole_agent import validation_env
 from blackhole_agent.durable_state import durable_overlay_session
 from blackhole_agent.process_capture import run_captured_process, run_text_command
 from blackhole_agent.process_lifetime import pid_is_running, process_started_after
@@ -957,9 +958,7 @@ def create_mission(
     base_head = git_head(workspace, command_runner=command_runner)
     ensure_git_longpaths(workspace, command_runner=command_runner)
     try:
-        from blackhole_agent.validation_env import ensure_validation_environment
-
-        ensure_validation_environment(workspace, command_runner=command_runner)
+        validation_env.ensure_validation_environment(workspace, command_runner=command_runner)
     except Exception:
         # tooling repair must never block mission creation; the validation
         # replay path retries it before re-executing reported commands
@@ -1680,22 +1679,6 @@ def normalize_cmd_single_quoted_args(command: str) -> str:
     return re.sub(r'"[^"]*(?:"|\Z)' r"|'[^']*'", quote, command)
 
 
-def _replay_environment(overlay: dict[str, str] | None) -> dict[str, str]:
-    """Copy the controller environment and drop an inherited PYTHONHOME.
-
-    A tick points PYTHONHOME at a different CPython than the interpreter
-    under test. Replaying ``python -c`` then dies in the standard library
-    before the claimed checks. A prefix on the command may still set it.
-    """
-
-    environment = {str(key): str(value) for key, value in os.environ.items()}
-    for key in [key for key in environment if str(key).casefold() == "pythonhome"]:
-        del environment[key]
-    if overlay:
-        environment.update({key.upper() if os.name == "nt" else key: value for key, value in overlay.items()})
-    return environment
-
-
 def replay_validation_command(
     workspace: Path,
     command: str,
@@ -1716,10 +1699,10 @@ def replay_validation_command(
     }
     shell_fallback = False
     try:
+        deadline = time.monotonic() + timeout
+        overlay, run_command = split_posix_env_prefix(command) or (None, command)
+        environment = validation_env.validation_process_env(workspace, overlay)
         if command_runner is subprocess.run:
-            deadline = time.monotonic() + timeout
-            overlay, run_command = split_posix_env_prefix(command) or (None, command)
-            environment = _replay_environment(overlay)
             argv = powershell_replay_argv(run_command)
             if argv is None and os.name == "nt" and not _use_cmd_for_unclassified(
                 run_command, workspace, environment, deadline
@@ -1738,8 +1721,9 @@ def replay_validation_command(
             )
         else:
             completed = command_runner(
-                command,
+                run_command,
                 cwd=workspace,
+                env=environment,
                 shell=True,
                 capture_output=True,
                 text=True,
@@ -1782,9 +1766,7 @@ def reproduce_validation(
     from blackhole_agent.validation_replay import WITNESS_TIMEOUT_SECONDS, reproduce_resilient
 
     try:
-        from blackhole_agent.validation_env import ensure_validation_environment
-
-        ensure_validation_environment(workspace, command_runner=command_runner)
+        validation_env.ensure_validation_environment(workspace, command_runner=command_runner)
     except Exception:
         # replay still proceeds; a genuinely broken environment fails the
         # replayed command, which is itself the honest verdict

@@ -1,28 +1,15 @@
-"""Acceptance probe: mission workspaces self-heal hermetic validation tooling.
-
-The controller replays probes via runpy from a temp copy with only the
-implementation ``src`` on sys.path (isolated ``python -I``), so this probe
-is fully self-contained: it generates a minimal project whose dev tooling
-is declared as an optional extra — exactly how this repository declares
-pytest/ruff/pyyaml — syncs it the way a fresh Unbound worktree is synced
-(runtime deps only), observes that the project venv then lacks the dev
-tools, invokes the runtime repair hook, and observes the tools importing
-from the project venv itself.
-
-Prints JSON with boolean passed and nonempty observed. Exits 0 for both
-met and unmet outcomes so the controller can replay the same probe on
-baseline and candidate source trees.
-"""
-
-from __future__ import annotations
+"""Repair a runtime-only uv checkout, then import its real dev tools in isolation."""
 
 import json
+import os
 import subprocess
-import sys
 import tempfile
+from functools import partial
 from pathlib import Path
+from unittest.mock import patch
 
-_PYPROJECT = """\
+
+PROJECT = """\
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
@@ -31,7 +18,6 @@ build-backend = "setuptools.build_meta"
 name = "probe-mini"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "pyyaml"]
@@ -41,90 +27,46 @@ py-modules = []
 """
 
 
-def _run(command: list[str], cwd: Path, timeout: int = 600) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        command,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+def observe(project):
+    from blackhole_agent.validation_env import ensure_validation_environment, validation_environment_report, venv_python
 
-
-def main() -> dict[str, object]:
-    observed: dict[str, object] = {"family": "validation-env-repair"}
-    try:
-        from blackhole_agent.validation_env import (
-            ensure_validation_environment,
-            validation_environment_report,
-            venv_python,
-        )
-    except Exception as error:  # baseline source tree has no repair hook
-        observed["error"] = type(error).__name__
-        observed["detail"] = str(error)
-        return {"passed": False, "observed": observed}
-
-    with tempfile.TemporaryDirectory(prefix="validation-env-probe-") as directory:
-        project = Path(directory) / "proj"
-        project.mkdir()
-        (project / "pyproject.toml").write_text(_PYPROJECT, encoding="utf-8")
-
-        # a fresh worktree syncs runtime deps only: dev tooling is absent
-        fresh = _run(["uv", "sync"], project)
+    (project / "pyproject.toml").write_text(PROJECT, encoding="utf-8")
+    venv = project / ".venv"
+    # The initial uv sync belongs to this fixture, including when replay inherits an active project.
+    with patch.dict(os.environ, UV_PROJECT=str(project), UV_WORKING_DIR=str(project), UV_PROJECT_ENVIRONMENT=str(venv)):
+        run = partial(subprocess.run, cwd=project, capture_output=True, text=True, timeout=600)
+        fresh = run(["uv", "sync"])
+        python = [str(venv_python(project)), "-I", "-c"]
         before = validation_environment_report(project)
-        interpreter = venv_python(project)
-        drifted = _run(
-            [str(interpreter), "-c", "import pytest"],
-            project,
-            timeout=60,
-        )
-
+        drifted = run([*python, "import pytest"])
         repaired = ensure_validation_environment(project)
-        hermetic = _run(
-            [
-                str(interpreter),
-                "-c",
-                "import pathlib, pytest, ruff, yaml; "
-                "print(pathlib.Path(pytest.__file__).resolve())",
-            ],
-            project,
-            timeout=60,
-        )
-        tool_path = (hermetic.stdout or "").strip()
-        in_venv = ".venv" in tool_path and str(project) in tool_path
-
+        imports = run([*python, "import pytest, ruff, yaml; print(pytest.__file__)"])
+    tool_path = imports.stdout.strip()
     checks = {
         "fresh_sync_succeeds": fresh.returncode == 0,
-        "fresh_venv_lacks_dev_tools": before.get("ok") is False
-        and "pytest" in (before.get("missing_tools") or []),
+        "fresh_venv_lacks_dev_tools": not before["ok"] and "pytest" in before["missing_tools"],
         "fresh_venv_cannot_import_pytest": drifted.returncode != 0,
-        "repair_reports_ok": repaired.get("ok") is True,
-        "repair_was_needed": repaired.get("repaired") is True,
-        "tools_import_from_project_venv": hermetic.returncode == 0 and in_venv,
+        "repair_reports_ok": repaired["ok"],
+        "repair_was_needed": repaired["repaired"],
+        "tools_import_from_project_venv": imports.returncode == 0 and Path(tool_path).is_relative_to(venv),
     }
-    observed.update(
-        {
-            "checks": checks,
-            "before_missing": before.get("missing_tools"),
-            "after_missing": repaired.get("missing_tools"),
-            "tool_path": tool_path,
-            "sentinel": "BH-VALIDATION-ENV-HERMETIC" if all(checks.values()) else "",
-        }
-    )
-    return {"passed": bool(all(checks.values())), "observed": observed}
+    passed = all(checks.values())
+    observed = {
+        "family": "validation-env-repair", "checks": checks, "tool_path": tool_path,
+        "before_missing": before["missing_tools"], "after_missing": repaired["missing_tools"],
+        "sentinel": "BH-VALIDATION-ENV-HERMETIC" if passed else "",
+    }
+    return {"passed": passed, "observed": observed}
+
+
+def main():
+    with tempfile.TemporaryDirectory(prefix="validation-env-probe-") as directory:
+        try:
+            return observe(Path(directory).resolve())
+        except Exception as error:
+            observed = {"family": "validation-env-repair", "error": type(error).__name__, "detail": str(error)}
+            return {"passed": False, "observed": observed}
 
 
 if __name__ == "__main__":
-    try:
-        outcome = main()
-    except Exception as error:  # an unmet outcome must exit 0, not crash
-        outcome = {
-            "passed": False,
-            "observed": {
-                "family": "validation-env-repair",
-                "error": type(error).__name__,
-                "detail": str(error),
-            },
-        }
-    print(json.dumps(outcome, sort_keys=True))
-    sys.exit(0)
+    print(json.dumps(main(), sort_keys=True))

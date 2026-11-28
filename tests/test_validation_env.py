@@ -1,99 +1,56 @@
-"""Unit tests for blackhole_agent.validation_env."""
+"""Exercise validation readiness with a real venv and controlled sync results."""
 
-from __future__ import annotations
-
-import json
+import shutil
 import subprocess
+import sys
+import venv
 from pathlib import Path
+from unittest.mock import Mock
 
 from blackhole_agent import validation_env
 
 
-def _fake_venv_python(repo: Path) -> Path:
-    interpreter = validation_env.venv_python(repo)
-    interpreter.parent.mkdir(parents=True, exist_ok=True)
-    interpreter.write_text("", encoding="utf-8")
-    return interpreter
-
-
-def _runner_returning(missing: list[str], calls: list[list[str]]):
-    def runner(command, **kwargs):
-        calls.append([str(part) for part in command])
-        return subprocess.CompletedProcess(command, 0, json.dumps(missing), "")
-
-    return runner
-
-
-def test_healthy_environment_is_not_repaired(tmp_path: Path) -> None:
-    _fake_venv_python(tmp_path)
-    calls: list[list[str]] = []
-    report = validation_env.ensure_validation_environment(
-        tmp_path,
-        command_runner=_runner_returning([], calls),
-    )
-    assert report["ok"] is True
-    assert report["repaired"] is False
-    assert report["missing_tools"] == []
-    assert all("sync" not in call for call in calls)
-
-
-def test_drifted_environment_is_repaired(tmp_path: Path) -> None:
-    _fake_venv_python(tmp_path)
-    state = {"synced": False}
+def test_repair_ignores_shadow_modules_and_is_idempotent(tmp_path, monkeypatch):
+    local = tmp_path / ".venv"
+    venv.create(local, with_pip=False)
+    python = validation_env.venv_python(tmp_path)
+    purelib = Path(subprocess.check_output(
+        [python, "-I", "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"], text=True,
+    ).strip())
+    # These files are visible via both the project's cwd and the inherited Python path.
+    tools = [tmp_path / f"{name}.py" for name in validation_env.DEV_TOOL_MODULES]
+    for tool in tools:
+        tool.touch()
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    monkeypatch.setattr(shutil, "which", lambda name: sys.executable if name == "pytest" else None)
+    syncs = []
 
     def runner(command, **kwargs):
-        command = [str(part) for part in command]
-        if command[:2] == ["uv", "sync"]:
-            state["synced"] = True
-            return subprocess.CompletedProcess(command, 0, "", "")
-        missing = [] if state["synced"] else ["pytest", "ruff", "yaml"]
-        return subprocess.CompletedProcess(command, 0, json.dumps(missing), "")
+        if command[:2] != ["uv", "sync"]:
+            return subprocess.run(command, **kwargs)
+        syncs.append(command)
+        for tool in tools:
+            shutil.copyfile(tool, purelib / tool.name)
+        return subprocess.CompletedProcess(command, 0)
 
+    repaired = validation_env.ensure_validation_environment(tmp_path, command_runner=runner)
+    healthy = validation_env.ensure_validation_environment(tmp_path, command_runner=runner)
+    assert repaired["ok"] and repaired["repaired"] and repaired["sync_exit_code"] == 0
+    assert repaired["missing_before"] == ["pytest", "ruff", "yaml"]
+    assert repaired["foreign_path_fallback_before"] == ["pytest"]
+    assert healthy["ok"] and not healthy["repaired"] and healthy["missing_tools"] == []
+    assert syncs == [["uv", "sync", "--extra", "dev"]]
+
+
+def test_missing_venv_triggers_repair_attempt(tmp_path):
+    runner = Mock(return_value=subprocess.CompletedProcess([], 0))
     report = validation_env.ensure_validation_environment(tmp_path, command_runner=runner)
-    assert state["synced"] is True
-    assert report["ok"] is True
-    assert report["repaired"] is True
-    assert report["missing_before"] == ["pytest", "ruff", "yaml"]
-    assert report["sync_exit_code"] == 0
+    assert not report["ok"] and not report["repaired"]
+    assert runner.call_args.args[0] == ["uv", "sync", "--extra", "dev"]
 
 
-def test_missing_venv_triggers_repair_attempt(tmp_path: Path) -> None:
-    calls: list[list[str]] = []
-
-    def runner(command, **kwargs):
-        calls.append([str(part) for part in command])
-        return subprocess.CompletedProcess(command, 0, "", "")
-
+def test_sync_failure_is_reported(tmp_path):
+    runner = Mock(side_effect=OSError("uv not found"))
     report = validation_env.ensure_validation_environment(tmp_path, command_runner=runner)
-    assert report["ok"] is False
-    assert report["repaired"] is False
-    assert ["uv", "sync", "--extra", "dev"] in calls
-
-
-def test_sync_failure_is_reported_not_raised(tmp_path: Path) -> None:
-    def runner(command, **kwargs):
-        raise OSError("uv not found")
-
-    report = validation_env.ensure_validation_environment(tmp_path, command_runner=runner)
-    assert report["ok"] is False
-    assert report["repaired"] is False
+    assert not report["ok"] and not report["repaired"]
     assert report["sync_error"] == "uv not found"
-
-
-def test_foreign_path_fallback_is_named(tmp_path: Path, monkeypatch) -> None:
-    _fake_venv_python(tmp_path)
-    foreign = tmp_path / "elsewhere" / "bin"
-    foreign.mkdir(parents=True)
-    foreign_pytest = foreign / "pytest"
-    foreign_pytest.write_text("", encoding="utf-8")
-    monkeypatch.setattr(
-        validation_env.shutil,
-        "which",
-        lambda name: str(foreign_pytest) if name == "pytest" else None,
-    )
-    report = validation_env.validation_environment_report(
-        tmp_path,
-        command_runner=_runner_returning(["pytest"], []),
-    )
-    assert report["ok"] is False
-    assert report["foreign_path_fallback"] == ["pytest"]

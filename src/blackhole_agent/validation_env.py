@@ -1,29 +1,7 @@
-"""Hermetic validation environments for Unbound mission workspaces.
+"""Prepare the mission worktree's Python tools for validation and replay.
 
-A fresh mission worktree starts with no ``.venv``. The first ``uv run``
-syncs only the project's runtime dependencies: the dev tooling declared
-under ``[project.optional-dependencies].dev`` (pytest, ruff, pyyaml) is an
-optional extra and is never installed by default. From that point every
-bare ``uv run pytest`` or ``uv run ruff`` inside the workspace silently
-falls back to whatever executable happens to be on ``PATH`` — on this
-fleet that is a foreign agent venv whose interpreter lacks the project's
-own dependencies, so the suite fails collection with misleading
-``ModuleNotFoundError`` noise and milestone validation evidence is
-computed by the wrong toolchain.
-
-This module makes the workspace self-healing instead:
-
-- :func:`validation_environment_report` inspects the workspace venv and
-  reports which dev tools are importable there and whether a foreign
-  ``PATH`` fallback would be picked up for the missing ones;
-- :func:`ensure_validation_environment` repairs a drifted or missing
-  environment by running ``uv sync --extra dev`` inside the workspace and
-  re-checking, so a subsequent bare ``uv run pytest`` resolves to the
-  project venv's locked toolchain.
-
-The Unbound runtime calls the repair hook after worktree creation and
-before replaying agent-reported validation commands, so both new and
-long-lived workspaces stay hermetic.
+Repair targets its .venv. Replayed commands search that environment first and
+can select a different import path or uv project explicitly.
 """
 
 from __future__ import annotations
@@ -32,7 +10,6 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -46,24 +23,37 @@ CommandRunner = Callable[..., Any]
 
 def venv_python(repo_path: Path) -> Path:
     """Return the project venv interpreter path for this platform."""
-
     if os.name == "nt":
         return Path(repo_path) / ".venv" / "Scripts" / "python.exe"
     return Path(repo_path) / ".venv" / "bin" / "python"
 
 
-def _missing_modules(
-    repo_path: Path,
-    *,
-    command_runner: CommandRunner,
-) -> tuple[str, ...] | None:
-    """Return dev tool modules not importable in the project venv.
+def validation_process_env(
+    workspace: Path, overrides: dict[str, str] | None = None, *, for_sync: bool = False,
+) -> dict[str, str]:
+    """Activate the workspace toolchain in the child. Explicit command assignments win."""
+    root = workspace.resolve()
+    python = venv_python(root)
+    env = os.environ.copy()
+    env.pop("PYTHONHOME", None)
+    if for_sync or python.is_file() or (root / "pyproject.toml").is_file():
+        for key in ("PYTHONPATH", "UV_PROJECT", "UV_WORKING_DIR", "UV_PROJECT_ENVIRONMENT"):
+            env.pop(key, None)
+        env["VIRTUAL_ENV"] = str(root / ".venv")
+        if for_sync:
+            # Use the controller's uv to bootstrap this target. Nested uv commands select their own project.
+            env["UV_PROJECT_ENVIRONMENT"] = env["VIRTUAL_ENV"]
+        else:
+            env["PATH"] = os.pathsep.join((str(python.parent), env.get("PATH", os.defpath)))
+    if overrides:
+        env.update({key.upper() if os.name == "nt" else key: value for key, value in overrides.items()})
+    return env
 
-    Returns ``None`` when the venv interpreter itself is absent.
-    """
 
-    interpreter = venv_python(repo_path)
-    if not interpreter.exists():
+def _missing_modules(repo_path: Path, command_runner: CommandRunner) -> tuple[str, ...] | None:
+    """Return None for an absent interpreter, otherwise its missing dev imports."""
+    interpreter = venv_python(repo_path.resolve())
+    if not interpreter.is_file():
         return None
     probe = (
         "import importlib.util, json; "
@@ -72,21 +62,15 @@ def _missing_modules(
     )
     try:
         completed = command_runner(
-            [str(interpreter), "-c", probe],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            timeout=60,
+            [str(interpreter), "-I", "-c", probe], cwd=repo_path, capture_output=True, text=True, timeout=60,
         )
+        if completed.returncode == 0:
+            missing = json.loads(completed.stdout)
+            if isinstance(missing, list) and all(name in DEV_TOOL_MODULES for name in missing):
+                return tuple(missing)
     except Exception:
-        return tuple(DEV_TOOL_MODULES)
-    if completed.returncode != 0:
-        return tuple(DEV_TOOL_MODULES)
-    try:
-        missing = json.loads(completed.stdout.strip() or "[]")
-    except ValueError:
-        return tuple(DEV_TOOL_MODULES)
-    return tuple(str(item) for item in missing)
+        pass
+    return DEV_TOOL_MODULES
 
 
 def _foreign_fallbacks(repo_path: Path, missing: tuple[str, ...]) -> tuple[str, ...]:
@@ -116,16 +100,15 @@ def validation_environment_report(
     """Inspect the workspace venv for hermetic dev tooling."""
 
     repo_path = Path(repo_path)
-    missing = _missing_modules(repo_path, command_runner=command_runner)
+    missing = _missing_modules(repo_path, command_runner)
     venv_present = missing is not None
-    missing = missing if missing is not None else tuple(DEV_TOOL_MODULES)
-    foreign = _foreign_fallbacks(repo_path, missing) if missing else ()
+    missing = missing if missing is not None else DEV_TOOL_MODULES
     return {
         "ok": venv_present and not missing,
         "venv_present": venv_present,
         "venv_python": str(venv_python(repo_path)),
         "missing_tools": list(missing),
-        "foreign_path_fallback": list(foreign),
+        "foreign_path_fallback": list(_foreign_fallbacks(repo_path, missing)) if missing else [],
         "sync_command": ["uv", "sync", "--extra", DEV_EXTRA],
     }
 
@@ -136,14 +119,7 @@ def ensure_validation_environment(
     command_runner: CommandRunner = subprocess.run,
     timeout: int = SYNC_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
-    """Repair the workspace venv so dev tooling resolves hermetically.
-
-    Idempotent: a healthy environment is left untouched. A missing or
-    drifted environment is repaired with one ``uv sync --extra dev`` and
-    re-inspected; the report records before/after state so callers can
-    surface the repair in mission evidence.
-    """
-
+    """Sync the dev extra into this workspace when its interpreter lacks required tools."""
     repo_path = Path(repo_path)
     before = validation_environment_report(repo_path, command_runner=command_runner)
     if before["ok"]:
@@ -151,25 +127,17 @@ def ensure_validation_environment(
         return before
     try:
         completed = command_runner(
-            list(before["sync_command"]),
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
+            before["sync_command"], cwd=repo_path, env=validation_process_env(repo_path, for_sync=True),
+            capture_output=True, text=True, timeout=timeout,
         )
-        sync_exit = completed.returncode
     except Exception as error:
         before["repaired"] = False
         before["sync_error"] = str(error)
         return before
     after = validation_environment_report(repo_path, command_runner=command_runner)
     after.update(
-        {
-            "repaired": after["ok"],
-            "sync_exit_code": sync_exit,
-            "missing_before": before["missing_tools"],
-            "foreign_path_fallback_before": before["foreign_path_fallback"],
-        }
+        repaired=after["ok"], sync_exit_code=completed.returncode,
+        missing_before=before["missing_tools"], foreign_path_fallback_before=before["foreign_path_fallback"],
     )
     return after
 
@@ -181,19 +149,13 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("repo_path", nargs="?", default=".")
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="inspect only; do not run the repair sync",
-    )
+    parser.add_argument("--check", action="store_true", help="inspect the environment without syncing")
     args = parser.parse_args(argv)
-    if args.check:
-        report = validation_environment_report(Path(args.repo_path))
-    else:
-        report = ensure_validation_environment(Path(args.repo_path))
+    action = validation_environment_report if args.check else ensure_validation_environment
+    report = action(Path(args.repo_path))
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if report.get("ok") else 1
 
 
 if __name__ == "__main__":  # pragma: no cover
-    sys.exit(main())
+    raise SystemExit(main())
