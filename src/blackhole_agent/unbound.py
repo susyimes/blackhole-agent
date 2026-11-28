@@ -20,7 +20,7 @@ import sys
 import time
 import uuid
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timedelta, timezone
 from functools import partial
 from pathlib import Path
@@ -46,7 +46,8 @@ from blackhole_agent.kernel_resume import (
     consume_resumed_campaign,
     hydrate_mission_from_campaign,
 )
-from blackhole_agent.milestone_commit import ensure_git_longpaths, run_git_pathspec, stage_milestone_paths
+from blackhole_agent.genesis_rollback import GenesisRollback, restore_unaccepted_workspace as restore_unaccepted_workspace
+from blackhole_agent.milestone_commit import ensure_git_longpaths, stage_milestone_paths
 from blackhole_agent.mission_prompt import TurnPrompt, compact_text, decision_only_prompt
 from blackhole_agent.mission_selection import (
     SELECTION_REJECTION_LIMIT,
@@ -1370,11 +1371,6 @@ def invoke_kernel_turn(
     raise ValueError(f"Unsupported kernel: {state.kernel}")
 
 
-_UNACCEPTED_SKIP_NAMES = frozenset({".env", ".env.local", "credentials.json", "id_rsa", "id_rsa.pub"})
-_UNACCEPTED_SKIP_SUFFIXES = frozenset({".pem", ".key"})
-_REPARSE_ATTRIBUTE = 0x400
-
-
 def _porcelain_entries(
     workspace: Path,
     *,
@@ -1386,121 +1382,6 @@ def _porcelain_entries(
         cwd=workspace, command_runner=command_runner, exact_stdout=True,
     )
     return [(record[:2], record[3:]) for record in result.stdout.split("\0") if record]
-
-
-def _leave_unaccepted_path(path: str) -> bool:
-    pure = Path(path)
-    if ".git" in pure.parts:
-        return True
-    name = pure.name.lower()
-    return name in _UNACCEPTED_SKIP_NAMES or pure.suffix.lower() in _UNACCEPTED_SKIP_SUFFIXES
-
-
-def _path_is_reparse(path: Path) -> bool:
-    try:
-        attributes = getattr(os.lstat(path), "st_file_attributes", 0)
-    except OSError:
-        return False
-    return bool(attributes & _REPARSE_ATTRIBUTE)
-
-
-def _strictly_inside_workspace(workspace: Path, candidate: Path) -> bool:
-    try:
-        relative = candidate.resolve().relative_to(workspace)
-    except (OSError, ValueError):
-        return False
-    return bool(relative.parts)
-
-
-def restore_unaccepted_workspace(
-    workspace: Path,
-    *,
-    command_runner: Callable[..., Any] = subprocess.run,
-) -> dict[str, Any]:
-    """Drop unaccepted workspace edits without moving HEAD.
-
-    Tracked paths are restored from HEAD. Untracked files that porcelain
-    lists inside the workspace are removed one file at a time. Ignored
-    files stay because porcelain does not list them. Credentials, ``.git``,
-    reparse points, and anything that resolves outside the workspace stay.
-    This does not use ``reset --hard`` or a recursive delete.
-    """
-
-    workspace = workspace.resolve()
-    entries = _porcelain_entries(workspace, command_runner=command_runner)
-    in_git = {path: status for status, path in entries if status != "??"}
-    removed: list[str] = []
-    skipped: list[dict[str, str]] = []
-    tracked_files: list[str] = []
-    tracked_directories: list[str] = []
-    for status, path in entries:
-        if status == "??" and path in in_git:
-            # A staged deletion and a newly created working copy can name the same file.
-            continue
-        if _leave_unaccepted_path(path):
-            skipped.append({"path": path, "reason": "protected_name"})
-            continue
-        raw = workspace / Path(path)
-        if _path_is_reparse(raw):
-            skipped.append({"path": path, "reason": "reparse"})
-            continue
-        if not _strictly_inside_workspace(workspace, raw):
-            skipped.append({"path": path, "reason": "outside_workspace"})
-            continue
-        if status != "??":
-            if raw.is_dir():
-                tracked_directories.append(path)
-            else:
-                tracked_files.append(path)
-        elif raw.is_file():
-            raw.unlink()
-            removed.append(path)
-        elif raw.exists():
-            skipped.append({"path": path, "reason": "not_a_file"})
-    restored: list[str] = []
-    # Remove rejected leaf additions before checking whether their parent can become a file again.
-    for group in (tracked_files, tracked_directories):
-        paths = []
-        for path in group:
-            raw = workspace / path
-            if raw.is_dir():
-                entry = git_text(
-                    workspace, ["git", "--literal-pathspecs", "ls-tree", "HEAD", "--", path],
-                    command_runner=command_runner,
-                )
-                kind = entry.partition(" ")[2].partition(" ")[0]
-                if kind != "commit" and (kind != "blob" or any(raw.iterdir())):
-                    skipped.append({"path": path, "reason": "directory_in_the_way"})
-                    continue
-            paths.append(path)
-        if not paths:
-            continue
-        run_git_pathspec(
-            workspace, ["restore", "--source=HEAD", "--worktree", "--staged", "--no-recurse-submodules"],
-            paths, command_runner=command_runner,
-        )
-        for path in paths:
-            # A case-only rename's removed spelling may still resolve on a case-insensitive filesystem.
-            if in_git[path] in {"A ", "AM", "AD", "AT", " A"} or not os.path.lexists(workspace / path):
-                removed.append(path)
-            else:
-                restored.append(path)
-    return {
-        "restored_tracked": restored,
-        "removed_untracked": removed,
-        "skipped": skipped,
-        "clean": not _porcelain_entries(workspace, command_runner=command_runner),
-    }
-
-
-def _prior_genesis_selection_rejected(state: UnboundMission) -> bool:
-    if state.stage != "genesis" or not state.recent_turns:
-        return False
-    prior = state.recent_turns[-1]
-    if not isinstance(prior, dict):
-        return False
-    gate = prior.get("selection_gate")
-    return isinstance(gate, dict) and gate.get("accepted") is False
 
 
 def status_changed_paths(
@@ -2314,12 +2195,15 @@ def run_unbound_turn(
                 reclaim_published_checkouts_on_turn(controller)
             except Exception:
                 pass
-        if _prior_genesis_selection_rejected(state):
-            restore_unaccepted_workspace(workspace, command_runner=command_runner)
         iteration = state.iteration + 1
         started_at = utc_now_iso()
         turn_dir = state_path.parent / "turns" / f"{iteration:04d}"
         turn_dir.mkdir(parents=True, exist_ok=True)
+        rollback = None
+        if state.stage == "genesis" or not state.selection_checked:
+            rollback = GenesisRollback(workspace, turn_dir, command_runner)
+            prior = state.recent_turns[-1] if state.stage == "genesis" and state.recent_turns else None
+            rollback.begin(prior)
         context = _prepare_turn_prompt(state, state_path)
 
         def fresh_prompt(*, handoff: bool = True) -> str:
@@ -2352,7 +2236,7 @@ def run_unbound_turn(
         selection_rejection_count = 0
         contract_changed = bool(state.stage == "execution" and state.done_when and decision.done_when
                                 and decision.done_when.strip() != state.done_when.strip())
-        if state.stage == "genesis" or not state.selection_checked:
+        if rollback is not None:
             proposed_goal = state.goal or decision.mission_goal
             proposed_done_when = state.done_when or decision.done_when
             selection_gate = assess_mission_selection(
@@ -2368,6 +2252,7 @@ def run_unbound_turn(
                 state.stage = "execution"
                 state.selection_checked = True
             else:
+                rollback.record_rejection()
                 selection_rejection_count = 1
                 for prior in reversed(state.recent_turns):
                     prior_gate = prior.get("selection_gate") if isinstance(prior, dict) else None
@@ -2390,42 +2275,21 @@ def run_unbound_turn(
             baseline_ref=state.last_milestone_head,
         )
         if contract_changed:
-            gate = MilestoneGate(
-                requested=gate.requested, accepted=False,
+            gate = replace(
+                gate, accepted=False,
                 reasons=(*gate.reasons, "bound done_when cannot be replaced by an execution-stage decision"),
-                changed_paths=gate.changed_paths, behavior_paths=gate.behavior_paths,
-                validation_replay=gate.validation_replay,
-                auto_declined=gate.auto_declined,
             )
         effective_status = decision.status
         if selection_gate is not None and not selection_gate.accepted:
-            gate = MilestoneGate(
-                requested=gate.requested,
-                accepted=False,
-                reasons=(*gate.reasons, *selection_gate.reasons),
-                changed_paths=gate.changed_paths,
-                behavior_paths=gate.behavior_paths,
-                validation_replay=gate.validation_replay,
-                auto_declined=gate.auto_declined,
-            )
+            gate = replace(gate, accepted=False, reasons=(*gate.reasons, *selection_gate.reasons))
             effective_status = "blocked" if selection_rejection_count >= SELECTION_REJECTION_LIMIT else "continue"
-        if gate.auto_declined and (selection_gate is None or selection_gate.accepted):
-            # A paperwork-only request never reaches the milestone pipeline;
-            # the turn continues instead of recording a rejected milestone.
+        elif gate.auto_declined or (gate.requested and not gate.accepted):
             effective_status = "continue"
         commit_sha = ""
         milestone_number = state.milestone_count + 1
         skip_commit = (gate.accepted and decision.status == "complete"
                        and str(kernel_result.kernel or "") == "local" and not changed_paths)
-        if gate.requested and not gate.accepted:
-            effective_status = (
-                "blocked"
-                if selection_gate is not None
-                and not selection_gate.accepted
-                and selection_rejection_count >= SELECTION_REJECTION_LIMIT
-                else "continue"
-            )
-        elif gate.accepted and not skip_commit:
+        if gate.accepted and not skip_commit:
             try:
                 commit_sha = commit_milestone(
                     workspace,
@@ -2434,14 +2298,7 @@ def run_unbound_turn(
                     command_runner=command_runner,
                 )
             except Exception as error:
-                gate = MilestoneGate(
-                    requested=True,
-                    accepted=False,
-                    reasons=(*gate.reasons, f"milestone commit failed: {error}"),
-                    changed_paths=gate.changed_paths,
-                    behavior_paths=gate.behavior_paths,
-                    validation_replay=gate.validation_replay,
-                )
+                gate = replace(gate, requested=True, accepted=False, reasons=(*gate.reasons, f"milestone commit failed: {error}"))
                 effective_status = "continue"
             else:
                 state.milestone_count = milestone_number
@@ -2484,9 +2341,7 @@ def run_unbound_turn(
         state.session_started = bool(state.session_id) or state.session_started
         rejection_restore = None
         if selection_gate is not None and not selection_gate.accepted:
-            rejection_restore = restore_unaccepted_workspace(
-                workspace, command_runner=command_runner
-            )
+            rejection_restore = rollback.restore()
             rejection_summary = (
                 f"Autonomous mission selection rejected ({selection_rejection_count}/"
                 f"{SELECTION_REJECTION_LIMIT}): {'; '.join(selection_gate.reasons)}"
