@@ -1,19 +1,4 @@
-"""Evidence-ranked goal planning acceptance, replayable against baseline src.
-
-A live HTTP invocation plane serves a fixture ledger where TWO proved
-one-step programs cover the same goal: ``a-slow-route`` sorts first
-lexicographically, but the workspace's invocation journal records it as
-slower and previously failed, while ``z-fast-route`` is recorded fast and
-reliable. Acceptance is that POST /solve selects the evidence-preferred
-program instead of the lexicographic one, and that the response carries an
-auditable plan_evidence trace naming both candidates with their measured
-stats. When the evidence-preferred fast route then fails mid-execution on a
-hostile input, the same request must fall back to the next-ranked viable
-program and still solve, with the fallback recorded in the response trace.
-On baseline src (syntactic planner) the lexicographic route is chosen, no
-plan_evidence exists, and no fallback trace can ever be produced, so the
-probe reports passed=false. Exit 0 either way.
-"""
+"""Exercise evidence-ranked HTTP solves, a torn journal append, restart, and tool fallback."""
 
 from __future__ import annotations
 
@@ -22,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -62,9 +48,8 @@ def write_tool(root: Path, slug: str, source: str = REVERSER) -> str:
     return f"capability.absorbed-{slug}"
 
 
-def fixture(root: Path) -> None:
-    ids = [write_tool(root, "a-slow-route"), write_tool(root, "z-fast-route", FLAKY_REVERSER)]
-    (root / "capabilities").mkdir(exist_ok=True)
+def fixture(root: Path, fast_source: str = FLAKY_REVERSER) -> None:
+    ids = [write_tool(root, "a-slow-route"), write_tool(root, "z-fast-route", fast_source)]
     (root / "capabilities" / "ledger.json").write_text(json.dumps({
         "schema_version": 1,
         "capabilities": {
@@ -79,24 +64,21 @@ def fixture(root: Path) -> None:
     }), encoding="utf-8")
 
 
-def seed_history(root: Path) -> None:
+def seed_history(root: Path) -> Path:
     journal = root / ".blackhole-agent" / "invocation-history.jsonl"
     journal.parent.mkdir(parents=True, exist_ok=True)
-    records = []
-    for index in range(3):
-        records.append({
-            "schema_version": 1, "capability_id": SLOW_ID,
-            "duration_ms": 900.0 + index, "ok": index != 1,
-            "at": f"2026-01-01T00:00:0{index}Z",
-        })
-        records.append({
-            "schema_version": 1, "capability_id": FAST_ID,
-            "duration_ms": 40.0 + index, "ok": True,
-            "at": f"2026-01-01T00:00:1{index}Z",
-        })
-    journal.write_text(
-        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+
+    def row(cid: str, duration: int, ok: bool = True) -> bytes:
+        return json.dumps({"capability_id": cid, "duration_ms": duration, "ok": ok}).encode() + b"\n"
+
+    # The old failures would reverse the choice. The oldest in-window success
+    # must be evicted precisely when the live execution is recorded.
+    journal.write_bytes(
+        row(FAST_ID, 40, False) * 100 + row(SLOW_ID, 900) + row(FAST_ID, 40)
+        + row("unrelated", 10) * 4994 + row(SLOW_ID, 901, False) + row(FAST_ID, 41)
+        + row(SLOW_ID, 902) + row(FAST_ID, 42)
     )
+    return journal
 
 
 def request(base: str, path: str, payload: dict) -> tuple[int, dict]:
@@ -111,38 +93,48 @@ def request(base: str, path: str, payload: dict) -> tuple[int, dict]:
         return 0, {"transport_error": type(exc).__name__}
 
 
-class Server:
-    def __init__(self, src: Path, root: Path):
-        code = (
-            "import sys;sys.path.insert(0,sys.argv[1]);from pathlib import Path;"
-            "from blackhole_agent.capability_service import serve;serve(Path(sys.argv[2]))"
-        )
-        self.process = subprocess.Popen(
-            [sys.executable, "-I", "-c", code, str(src), str(root)],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-        )
+@contextmanager
+def serving(src: Path, root: Path):
+    code = (
+        "import sys;sys.path.insert(0,sys.argv[1]);from pathlib import Path;"
+        "from blackhole_agent.capability_service import serve;serve(Path(sys.argv[2]))"
+    )
+    with subprocess.Popen(
+        [sys.executable, "-I", "-c", code, str(src), str(root)],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    ) as process:
         ready = []
-        reader = threading.Thread(target=lambda: ready.append(self.process.stdout.readline()), daemon=True)
+        reader = threading.Thread(target=lambda: ready.append(process.stdout.readline()), daemon=True)
         reader.start()
-        reader.join(20)
         try:
-            self.port = json.loads(ready[0])["listening"]
-        except (IndexError, KeyError, ValueError):
-            self.stop()
-            raise RuntimeError("HTTP service did not become ready")
-        self.base = f"http://127.0.0.1:{self.port}"
+            reader.join(20)
+            if not ready or not ready[0]:
+                raise RuntimeError("HTTP service did not become ready")
+            yield f"http://127.0.0.1:{json.loads(ready[0])['listening']}"
+        finally:
+            process.kill()
+            process.wait(timeout=10)
 
-    def stop(self):
-        if self.process.poll() is None:
-            self.process.kill()
-        self.process.wait(timeout=10)
-        if self.process.stdout:
-            self.process.stdout.close()
+
+def solve(base: str, text: str = "unbound", *, preview: bool = False) -> dict:
+    status, body = request(base, "/solve", {
+        "initial_state": {"raw_text": text}, "goal": ["goal_text"], "dry_run": preview,
+    })
+    evidence = body.get("plan_evidence", {})
+    counts = {
+        step["capability_id"]: [step["recorded_invocations"], step["recorded_failures"]]
+        for route in evidence.get("ranking", []) for step in route["steps"]
+    }
+    return {
+        "status": status, "solved": body.get("solved"), "outcome": body.get("outcome"), "plan": body.get("plan"),
+        "counts": counts, "selected": evidence.get("selected"), "fallbacks": body.get("fallbacks", []),
+        "ranking": [route["program"] for route in evidence.get("ranking", [])],
+        "candidates_considered": evidence.get("candidates_considered"), "error": body.get("detail") or body.get("error"),
+    }
 
 
 def main() -> dict:
-    observed = {"family": "evidence-ranked-goal-planning"}
-    server = None
+    observed = {}
     try:
         import blackhole_agent.capability_service as service
 
@@ -150,96 +142,44 @@ def main() -> dict:
         with tempfile.TemporaryDirectory(prefix="evidence-ranked-acceptance-") as directory:
             root = Path(directory)
             fixture(root)
-            seed_history(root)
-            server = Server(src, root)
-            checks = {}
+            journal = seed_history(root)
+            with serving(src, root) as base:
+                clean = observed["clean_preview"] = solve(base, preview=True)
+                with journal.open("ab") as handle:
+                    handle.write(b'{"error":"torn \xe5\xad\n{"error":"torn again \xe5\xad')
+                original = journal.read_bytes()
+                live = observed["live_solve"] = solve(base)
+            with serving(src, root) as base:
+                restored = observed["restarted_preview"] = solve(base, preview=True)
+                fallback = observed["fallback_solve"] = solve(base, "failme")
 
-            status, solved = request(server.base, "/solve", {
-                "initial_state": {"raw_text": "unbound"}, "goal": ["goal_text"],
-            })
-            evidence = solved.get("plan_evidence") or {}
-            ranking = evidence.get("ranking") or []
-            checks["solved"] = (
-                status == 200
-                and solved.get("solved") is True
-                and solved.get("outcome") == {"goal_text": "dnuobnu"}
-            )
-            checks["evidence_preferred_program_chosen"] = solved.get("plan") == [FAST_ID]
-            checks["evidence_trace_present"] = (
-                evidence.get("candidates_considered") == 2
-                and evidence.get("selected") == [FAST_ID]
-                and len(ranking) == 2
-                and ranking[0].get("program") == [FAST_ID]
-            )
-            checks["measured_stats_recorded"] = any(
-                entry.get("program") == [SLOW_ID]
-                and any(
-                    step.get("capability_id") == SLOW_ID
-                    and step.get("recorded_failures") == 1
-                    and step.get("recorded_invocations") == 3
-                    for step in (entry.get("steps") or [])
-                )
-                for entry in ranking
-            )
-            observed["solve"] = {
-                "status": status,
-                "solved": solved.get("solved"),
-                "plan": solved.get("plan"),
-                "plan_evidence": evidence,
+            before = {SLOW_ID: [3, 1], FAST_ID: [3, 0]}
+            saved = journal.read_bytes()
+            added = [json.loads(line) for line in saved[len(original):].splitlines() if line.strip()]
+            events = observed["journal_appends"] = [[row["capability_id"], row["ok"]] for row in added]
+            checks = {
+                "clean_control": clean["status"] == 200 and clean["plan"] == [FAST_ID] and clean["counts"] == before,
+                "solved": live["status"] == 200 and live["solved"] is True
+                and live["plan"] == [FAST_ID] and live["outcome"] == {"goal_text": "dnuobnu"},
+                "evidence_trace": live["counts"] == before and live["candidates_considered"] == 2
+                and live["selected"] == [FAST_ID] and live["ranking"] == [[FAST_ID], [SLOW_ID]],
+                "execution_recorded_once": restored["status"] == 200 and restored["plan"] == [FAST_ID]
+                and restored["counts"] == {SLOW_ID: [2, 1], FAST_ID: [4, 0]},
+                "original_bytes_preserved": saved.startswith(original),
+                "execution_recorded": events == [[FAST_ID, True], [FAST_ID, False], [SLOW_ID, True]]
+                and all(row.get("at") for row in added),
+                "fallback_still_solves": fallback["status"] == 200 and fallback["solved"] is True
+                and fallback["plan"] == [SLOW_ID] and fallback["outcome"] == {"goal_text": "emliaf"},
+                "fallback_reported": any(
+                    entry.get("capability_id") == FAST_ID and entry.get("replaced_by") == [SLOW_ID]
+                    for entry in fallback["fallbacks"]
+                ),
             }
-
-            # (b) the evidence-preferred fast route fails mid-execution on
-            # the 'failme' input: the same request must fall back to the
-            # next-ranked viable program (the slow route) and still solve,
-            # with the fallback recorded in the response trace.
-            status, fell_back = request(server.base, "/solve", {
-                "initial_state": {"raw_text": "failme"}, "goal": ["goal_text"],
-            })
-            fallback_trace = fell_back.get("fallbacks") or []
-            checks["fallback_still_solves"] = (
-                status == 200
-                and fell_back.get("solved") is True
-                and fell_back.get("outcome") == {"goal_text": "emliaf"}
-            )
-            checks["mid_execution_fallback_recorded"] = any(
-                entry.get("capability_id") == FAST_ID
-                and entry.get("replaced_by") == [SLOW_ID]
-                for entry in fallback_trace
-            )
-            checks["fallback_completed_by_slow_route"] = fell_back.get("plan") == [SLOW_ID]
-            observed["fallback_solve"] = {
-                "status": status,
-                "solved": fell_back.get("solved"),
-                "plan": fell_back.get("plan"),
-                "fallbacks": fallback_trace,
-            }
-
-            # A goal solvable by exactly one route still solves, and the
-            # journal records the execution for future rankings.
-            journal = root / ".blackhole-agent" / "invocation-history.jsonl"
-            lines = [
-                json.loads(line)
-                for line in journal.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            ]
-            live_records = [r for r in lines if r.get("at", "") > "2026-01-02"]
-            checks["execution_recorded"] = any(
-                r.get("capability_id") == FAST_ID and r.get("ok") is True
-                for r in live_records
-            )
-            observed["journal_records"] = len(lines)
-
             observed["checks"] = checks
-            verdict = {"passed": all(checks.values()), "observed": observed}
-            server.stop()
-            server = None
-            return verdict
+            return {"passed": all(checks.values()), "observed": observed}
     except Exception as exc:
         observed["error"] = f"{type(exc).__name__}: {exc}"
         return {"passed": False, "observed": observed}
-    finally:
-        if server is not None:
-            server.stop()
 
 
 if __name__ == "__main__":

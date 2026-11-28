@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from blackhole_agent.capability_service import (
     solve_goal_request,
 )
 from blackhole_agent.invocation_history import (
+    journal_path,
     load_capability_stats,
     load_records,
     plan_evidence,
@@ -18,51 +20,13 @@ from blackhole_agent.invocation_history import (
     rank_programs,
     record_invocation,
 )
-
-_TOOL = (
-    "import json, sys\n"
-    "state = json.load(sys.stdin)\n"
-    "print(json.dumps({'goal_text': state['raw_text'][::-1]}))\n"
-)
+from tests.acceptance.test_evidence_ranked_solve import FAST_ID, FLAKY_REVERSER, REVERSER, SLOW_ID, fixture
 
 
-def _write_tool(root: Path, slug: str) -> str:
-    tool_dir = root / "capabilities" / "absorbed" / slug
-    tool_dir.mkdir(parents=True)
-    (tool_dir / "tool.py").write_text(_TOOL, encoding="utf-8")
-    (tool_dir / "absorption.json").write_text(json.dumps({
-        "schema_version": 1,
-        "slug": slug,
-        "name": f"fixture {slug}",
-        "command": ["python", "tool.py"],
-        "requires": ["raw_text"],
-        "provides": ["goal_text"],
-        "cases": [
-            {"input": {"raw_text": "ab"}, "expect": {"goal_text": "ba"}},
-            {"input": {"raw_text": "cd"}, "expect": {"goal_text": "dc"}},
-        ],
-    }), encoding="utf-8")
-    return f"capability.absorbed-{slug}"
-
-
-def _two_route_root(tmp_path: Path) -> tuple[Path, str, str]:
+def _two_route_root(tmp_path: Path, fast_source: str = REVERSER) -> tuple[Path, str, str]:
     root = tmp_path / "repo"
-    root.mkdir()
-    slow = _write_tool(root, "a-slow-route")
-    fast = _write_tool(root, "z-fast-route")
-    (root / "capabilities" / "ledger.json").write_text(json.dumps({
-        "schema_version": 1,
-        "capabilities": {
-            cid: {
-                "id": cid, "name": cid, "kind": "python",
-                "entry": "blackhole_agent.capability_absorption:demo_absorbed_steps",
-                "proof_command": "python -c pass", "dependencies": [], "behavior_paths": [],
-                "last_proof_exit_code": 0, "last_proved_at": "2026-01-01T00:00:00Z",
-            }
-            for cid in (slow, fast)
-        },
-    }), encoding="utf-8")
-    return root, slow, fast
+    fixture(root, fast_source)
+    return root, SLOW_ID, FAST_ID
 
 
 def test_record_and_aggregate_stats(tmp_path: Path) -> None:
@@ -80,7 +44,7 @@ def test_record_and_aggregate_stats(tmp_path: Path) -> None:
 def test_missing_and_corrupt_journal_is_empty_not_fatal(tmp_path: Path) -> None:
     assert load_records(tmp_path) == []
     assert load_capability_stats(tmp_path) == {}
-    journal = tmp_path / ".blackhole-agent" / "invocation-history.jsonl"
+    journal = journal_path(tmp_path)
     journal.parent.mkdir(parents=True)
     journal.write_text(
         'not json\n{"capability_id": "c", "ok": true, "duration_ms": 5}\n{"bad": 1}\n',
@@ -91,14 +55,43 @@ def test_missing_and_corrupt_journal_is_empty_not_fatal(tmp_path: Path) -> None:
     assert records[0]["capability_id"] == "c"
 
 
-def test_record_limit_reads_tail_only(tmp_path: Path) -> None:
+def test_record_limit_reads_tail_only(tmp_path: Path, monkeypatch) -> None:
+    journal = journal_path(tmp_path)
+    journal.parent.mkdir()
+    old = b'{"capability_id":"old","duration_ms":1,"ok":true}\n'
+    journal.write_bytes(old * ((16 << 20) // len(old)))
     for index in range(10):
         record_invocation(tmp_path, f"capability.{index % 2}", duration_ms=1.0, ok=True)
-    records = load_records(tmp_path, record_limit=4)
-    assert len(records) == 4
+
+    class MeteredFile(io.FileIO):
+        bytes_read = 0
+
+        def read(self, size=-1):
+            data = super().read(size)
+            self.bytes_read += len(data)
+            return data
+
+    with MeteredFile(journal) as stream:
+        monkeypatch.setattr(Path, "open", lambda path, mode: stream)
+        records = load_records(tmp_path, record_limit=4)
+        assert 0 < stream.bytes_read <= 128 * 1024
     assert [r["capability_id"] for r in records] == [
         "capability.0", "capability.1", "capability.0", "capability.1",
     ]
+
+
+def test_legacy_records_span_blocks_and_survive_an_unterminated_last_line(tmp_path: Path) -> None:
+    journal = journal_path(tmp_path)
+    journal.parent.mkdir()
+    large = {"capability_id": "古", "duration_ms": 2, "ok": False, "error": "雑" * 70000}
+    last = {"capability_id": "newer", "duration_ms": 3, "ok": True}
+    invalid = [dict(last, duration_ms=value) for value in [True, -1, float("nan"), 10 ** 310]]
+    data = b"\r\n".join(json.dumps(r, ensure_ascii=False).encode() for r in [large, *invalid, last])
+    journal.write_bytes(b"unreadable\xff\r" + data)
+    assert load_records(tmp_path, record_limit=2) == [large, last]
+    record_invocation(tmp_path, "latest", duration_ms=4, ok=True)
+    assert journal.read_bytes().startswith(b"unreadable\xff\r" + data + b"\n")
+    assert [r["capability_id"] for r in load_records(tmp_path)] == ["古", "newer", "latest"]
 
 
 def test_ranking_prefers_fewer_failures_then_speed_then_order() -> None:
@@ -165,25 +158,8 @@ def test_solve_without_history_keeps_lexicographic_order(tmp_path: Path) -> None
     assert result["plan_evidence"]["candidates_considered"] == 2
 
 
-_FLAKY_TOOL = (
-    "import json, sys\n"
-    "state = json.load(sys.stdin)\n"
-    "if state['raw_text'] == 'failme':\n"
-    "    sys.exit(3)\n"
-    "print(json.dumps({'goal_text': state['raw_text'][::-1]}))\n"
-)
-
-
-def _flaky_two_route_root(tmp_path: Path) -> tuple[Path, str, str]:
-    root, slow, fast = _two_route_root(tmp_path)
-    (root / "capabilities" / "absorbed" / "z-fast-route" / "tool.py").write_text(
-        _FLAKY_TOOL, encoding="utf-8"
-    )
-    return root, slow, fast
-
-
 def test_mid_execution_failure_falls_back_to_next_ranked_program(tmp_path: Path) -> None:
-    root, slow, fast = _flaky_two_route_root(tmp_path)
+    root, slow, fast = _two_route_root(tmp_path, FLAKY_REVERSER)
     for _ in range(3):
         record_invocation(root, slow, duration_ms=800.0, ok=True)
         record_invocation(root, fast, duration_ms=30.0, ok=True)
@@ -201,7 +177,7 @@ def test_mid_execution_failure_falls_back_to_next_ranked_program(tmp_path: Path)
 
 
 def test_failed_capability_is_never_retried_within_one_request(tmp_path: Path) -> None:
-    root, slow, fast = _flaky_two_route_root(tmp_path)
+    root, slow, fast = _two_route_root(tmp_path, FLAKY_REVERSER)
     # Make the slow route fail too: no viable program remains after the
     # fast route's failure, so the original error propagates honestly.
     (root / "capabilities" / "absorbed" / "a-slow-route" / "tool.py").write_text(

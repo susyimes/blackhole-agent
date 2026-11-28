@@ -1,49 +1,27 @@
-"""Invocation evidence journal: measured per-capability execution history.
+"""Rank goal programs using recent execution costs and failures from the root's JSONL journal.
 
-The goal planner's syntactic core (BFS over ``requires``/``provides`` key
-sets) answers *which* programs can solve a goal, but when several proved
-programs cover the same goal it chooses lexicographically — blind to what
-actually happens when capabilities run. This module records the missing
-evidence and turns it into a deterministic ranking:
-
-- every real tool execution on the invocation plane appends one JSONL record
-  (capability id, wall-clock duration, ok/failed verdict) to the root-scoped
-  journal ``.blackhole-agent/invocation-history.jsonl`` — evidence, not
-  receipts: no request payloads, no idempotency semantics;
-- :func:`load_capability_stats` folds a bounded tail of the journal into
-  per-capability aggregates (invocations, failures, mean duration), so a
-  huge journal cannot make planning unbounded;
-- :func:`rank_programs` orders candidate programs by recorded failures
-  first, then recorded mean duration, then a deterministic lexicographic
-  tie-break — with no history at all the ranking degenerates exactly to the
-  planner's previous syntactic order;
-- :func:`plan_evidence` renders the ranking as an auditable response trace:
-  which programs were considered and the measured stats that decided.
-
-Honesty boundary: stats describe this workspace's recorded history only. A
-capability with no records is not "known good" — it is unmeasured, and the
-ranking treats unmeasured steps as zero-failure zero-duration, falling back
-to deterministic order rather than fabricating evidence.
+Writers preserve interrupted appends and start the next observation on its own line.
+Readers work back from EOF until they have enough valid observations to rank the routes.
 """
 
 from __future__ import annotations
 
 import json
-import threading
+import os
+import sys
 import time
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, BinaryIO, Iterator, Mapping, Sequence
+
+from blackhole_agent.file_guard import file_guard
 
 SCHEMA_VERSION = 1
 JOURNAL_RELATIVE = Path(".blackhole-agent") / "invocation-history.jsonl"
-# Planning reads at most this many trailing records: evidence stays fresh and
-# stats loading stays bounded no matter how long the plane has been serving.
 DEFAULT_STATS_RECORD_LIMIT = 5000
+_READ_BLOCK_BYTES = 64 * 1024
 MAX_ERROR_CHARS = 200
-
-_LOCK = threading.Lock()
 
 
 def journal_path(root: Path) -> Path:
@@ -73,42 +51,68 @@ def record_invocation(
     }
     if error:
         record["error"] = str(error)[:MAX_ERROR_CHARS]
-    line = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    line = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
     try:
-        with _LOCK:
-            path = journal_path(root)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "a", encoding="utf-8") as handle:
-                handle.write(line + "\n")
+        path = journal_path(root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with file_guard(path), path.open("a+b") as handle:
+            if handle.tell():
+                handle.seek(-1, os.SEEK_END)
+                if handle.read(1) != b"\n":
+                    line = b"\n" + line
+            handle.write(line)
     except OSError:
         pass
 
 
-def load_records(root: Path, *, record_limit: int = DEFAULT_STATS_RECORD_LIMIT) -> list[dict[str, Any]]:
-    """Return the trailing valid records, oldest first; corrupt lines are skipped."""
+def _reverse_lines(stream: BinaryIO) -> Iterator[bytes]:
+    """Read backwards from the opening length. Join fragments only across block boundaries."""
+    offset = stream.seek(0, os.SEEK_END)
+    fragments: deque[bytes] = deque()
+    while offset:
+        size = min(offset, _READ_BLOCK_BYTES)
+        offset -= size
+        stream.seek(offset)
+        # Both CR and LF terminate a JSON line. An empty line between CR and LF is harmless.
+        pieces = stream.read(size).replace(b"\r", b"\n").split(b"\n")
+        fragments.appendleft(pieces[-1])
+        if len(pieces) > 1:
+            yield b"".join(fragments)
+            yield from reversed(pieces[1:-1])
+            fragments = deque([pieces[0]])
+    if fragments:
+        yield b"".join(fragments)
 
-    path = journal_path(root)
-    records: deque[dict[str, Any]] = deque(maxlen=max(int(record_limit), 1))
+
+def load_records(root: Path, *, record_limit: int = DEFAULT_STATS_RECORD_LIMIT) -> list[dict[str, Any]]:
+    """Return the newest valid observations in chronological order."""
+    limit = max(int(record_limit), 1)
+    records = []
     try:
-        with open(path, encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
+        with journal_path(root).open("rb") as handle:
+            for line in _reverse_lines(handle):
                 if not line:
                     continue
                 try:
-                    record = json.loads(line)
-                except json.JSONDecodeError:
+                    record = json.loads(line.decode("utf-8"))
+                except (ValueError, RecursionError):
                     continue
-                if (
+                if not (
                     isinstance(record, dict)
                     and isinstance(record.get("capability_id"), str)
                     and isinstance(record.get("ok"), bool)
-                    and isinstance(record.get("duration_ms"), (int, float))
                 ):
-                    records.append(record)
+                    continue
+                duration = record.get("duration_ms")
+                if type(duration) not in (int, float) or not 0 <= duration <= sys.float_info.max:
+                    continue
+                records.append(record)
+                if len(records) == limit:
+                    break
     except OSError:
         return []
-    return list(records)
+    records.reverse()
+    return records
 
 
 def load_capability_stats(
