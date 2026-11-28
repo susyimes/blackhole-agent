@@ -663,6 +663,18 @@ def test_grok_signed_out_is_not_retryable():
     assert zero_exit.class_id != "auth_failed"
 
 
+def test_cursor_login_refusal_belongs_to_the_failing_attempt():
+    notice = "Error: Authentication required. Please run 'agent login' first, or set CURSOR_API_KEY environment variable."
+    receipt = {"returncode": 1, "provider_preflight": {"provider": "cursor"}, "stderr_tail": notice}
+    assert classify_run_artifact(receipt).class_id == "auth_failed"
+    for variation in (
+        {"returncode": 0}, {"timed_out": True}, {"provider_preflight": {"provider": "kimi"}},
+        {"stderr_tail": "", "stdout_tail": notice}, {"stderr_tail": "tool example: " + notice},
+        {"stderr_tail": "Error: Authentication required."},
+    ):
+        assert classify_run_artifact({**receipt, **variation}).class_id != "auth_failed"
+
+
 def test_grok_response_stream_is_not_retryable():
     decode = classify_run_artifact(
         {

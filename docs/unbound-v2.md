@@ -48,6 +48,13 @@ The working repository lives in a sibling directory rather than inside the
 state tree. This lets incomplete work survive process restarts without leaving
 the controller checkout dirty.
 
+When a provider rejects a task because it needs authentication, missions use
+the next available kernel during its cooldown. Once the cooldown expires, a
+single dispatcher can send that provider a task. Other missions continue on
+their fallback route. A valid decision restores normal routing, and a repeated
+refusal renews the cooldown. If the dispatcher exits mid-trial, the OS releases
+its per-provider lock so the next mission can try.
+
 ## Turn Contract
 
 Every turn receives only the durable mission, current Git state, recent compact

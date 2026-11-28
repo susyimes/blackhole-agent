@@ -8,10 +8,11 @@ cooldown a caller observed before doing work.
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Iterator, Mapping
 
 from blackhole_agent.file_guard import atomic_write_json, file_guard
 
@@ -70,6 +71,7 @@ class KernelBreaker:
     trip_count: int = 0
     last_evidence: str = ""
     last_success_at: str = ""
+    auth_trial_required: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -85,6 +87,7 @@ class KernelBreaker:
             trip_count=int(payload.get("trip_count") or 0),
             last_evidence=str(payload.get("last_evidence") or ""),
             last_success_at=str(payload.get("last_success_at") or ""),
+            auth_trial_required=bool(payload.get("auth_trial_required") or payload.get("class_id") == "auth_failed"),
         )
 
 
@@ -156,7 +159,7 @@ def _merge_breaker(
         return replace(proposed, last_success_at=max(current.last_success_at, proposed.last_success_at))
     if proposed.state == "closed":
         return replace(
-            current, state="closed", class_id="", cooldown_until="",
+            current, state="closed", class_id="", cooldown_until="", auth_trial_required=False,
             last_success_at=max(current.last_success_at, proposed.last_success_at),
         )
     # A diagnostic from a half-open ping can update evidence while the same trip is outstanding.
@@ -255,6 +258,7 @@ def kernel_health_report(health: KernelHealth, *, now: datetime | None = None) -
             "cooldown_until": breaker.cooldown_until,
             "trip_count": breaker.trip_count,
             "available": available,
+            "auth_trial_required": breaker.auth_trial_required,
         }
         if status == "open":
             dead.append(name)
@@ -310,6 +314,39 @@ def kernel_is_available(health: KernelHealth, kernel: str, *, now: datetime | No
     return breaker_status(health.kernels.get(kernel), now=now) in {"closed", "half_open"}
 
 
+@contextmanager
+def kernel_dispatch_admission(
+    repo: Path | None, health: KernelHealth, *, now: datetime | None = None,
+) -> Iterator[Callable[[str], bool]]:
+    """Hold one provider's login trial across same-session retries and the durable decision."""
+    owner = ""
+    with ExitStack() as trial:
+
+        def admit(kernel: str) -> bool:
+            nonlocal owner
+            if owner and owner != kernel:
+                trial.close()
+                owner = ""
+            if not kernel_is_available(health, kernel, now=now):
+                return False
+            breaker = health.kernels.get(kernel)
+            if repo is None or kernel not in CLI_FAILOVER_ORDER or owner == kernel:
+                return True
+            if breaker is None or not breaker.auth_trial_required or breaker_status(breaker, now=now) != "half_open":
+                return True
+            guard = health_path(repo).with_name(f"{kernel}-auth-trial")
+            try:
+                trial.enter_context(file_guard(guard, timeout=0, busy_message="provider recovery trial in progress"))
+            except RuntimeError:
+                return False
+            owner = kernel
+            # The previous owner could have committed a fresh refusal just before we took its lock.
+            save_kernel_health(repo, health, now=now)
+            return kernel_is_available(health, kernel, now=now)
+
+        yield admit
+
+
 def cooldown_seconds(class_id: str, trip_count: int) -> int:
     base = DEFAULT_COOLDOWN_SECONDS.get(class_id, DEFAULT_COOLDOWN_FALLBACK)
     scaled = base * max(1, trip_count)
@@ -330,6 +367,7 @@ def trip_kernel(
     current = health.kernels.get(kernel) or KernelBreaker()
     current.trip_count = int(current.trip_count) + 1
     current.state = "open"
+    current.auth_trial_required = current.auth_trial_required or class_id == "auth_failed"
     current.class_id = class_id
     current.tripped_at = _iso(moment)
     current.cooldown_until = _iso(moment + timedelta(seconds=cooldown_seconds(class_id, current.trip_count)))
@@ -349,6 +387,7 @@ def mark_kernel_success(
     current = health.kernels.get(kernel) or KernelBreaker()
     current.state = "closed"
     current.class_id = ""
+    current.auth_trial_required = False
     current.cooldown_until = ""
     current.last_success_at = _iso(moment)
     health.kernels[kernel] = current

@@ -32,6 +32,7 @@ from blackhole_agent.kernel_health import (
     apply_health_reroute,
     empty_local_decision,
     invoke_local_kernel,
+    kernel_dispatch_admission,
     kernel_is_available,
     load_kernel_health,
     mark_kernel_success,
@@ -71,124 +72,25 @@ FAILOVER_CLASSES = TRIP_CLASSES | frozenset(
         RESPONSE_STREAM_FAILED,
     }
 )
-_TRANSPORT_ABORT_MARKERS = (
-    "disconnected before secure tls connection was established",
+# Match every phrase in a row. Order matters when a provider emits several diagnoses.
+# Timeout and quota precedence are handled separately in classify_kernel_failure.
+_EXIT_DIAGNOSES = (
+    (SESSION_ALREADY_IN_USE, ("session id", "already in use")),
+    (SESSION_NOT_FOUND, ("failed to restore session from remote", "session get failed: 404")),
+    (MODEL_UNAVAILABLE, ("cannot use this model",)),
+    (MODEL_UNAVAILABLE, ("model is not supported when using codex",)),
+    (MODEL_UNAVAILABLE, ("model ", "is not configured in config.toml")),
+    ("auth_failed", ("failed to fetch an access token",)),
+    ("auth_failed", ("not signed in", "grok login")),
+    (PROVIDER_CONNECTION_FAILED,
+     ("provider.connection_error: connection error", "turn.step.retrying", "apiconnectionerror")),
+    (PROVIDER_OVERLOADED, ("provider.rate_limit",)),
+    (PROVIDER_OVERLOADED, ("engine is currently overloaded",)),
+    (RESPONSES_ENDPOINT_MISSING, ("unexpected status 404 not found", "backend-api/codex/responses")),
+    (STEP_RETRIES_EXHAUSTED, ("failed to run step", "exceeded max retries")),
 )
-_SESSION_OCCUPIED_MARKERS = (
-    "session id",
-    "already in use",
-)
-# Harvested Grok --resume (2026-08-13). Both phrases are in that stderr.
-# A bare 404, a worktree-gc warning, or an occupied session is not this class.
-_SESSION_MISSING_MARKERS = (
-    "failed to restore session from remote",
-    "session get failed: 404",
-)
-# Harvested rejection strings. A Codex "unknown model ... fallback" warning
-# is not a rejection, and a bare 403 is not a model failure.
-_MODEL_REJECTION_MARKERS = (
-    "cannot use this model",
-)
-_MODEL_CONFIG_MARKERS = (
-    "is not configured in config.toml",
-)
-# Harvested Codex death (2026-08-24 through 2026-09-06). ChatGPT-account
-# Codex rejects grok-4.6 with this sentence and exits 1. The unknown-model
-# fallback warning does not contain it.
-_CODEX_ACCOUNT_MODEL_MARKERS = (
-    "model is not supported when using codex",
-)
-# Harvested Kimi deaths (2026-08-02/03). The provider never issued a token.
-# A socket error that does not mention token fetch stays on its existing path.
-_TOKEN_FETCH_MARKERS = (
-    "failed to fetch an access token",
-)
-# Harvested Kimi death (2026-08-02). The CLI already retried the 429.
-# A bare 429 or the word "overloaded" without this provider phrasing is not
-# this class. Quota markers such as "rate limit" do not match "rate_limit".
-_PROVIDER_OVERLOAD_MARKERS = (
-    "provider.rate_limit",
-    "engine is currently overloaded",
-)
-# Harvested Codex death (2026-09-03). The CLI already retried the websocket
-# and the HTTPS fallback. Both phrases are in that stdout. A bare 404, a
-# session-get 404, or a model-metadata warning is not this class.
-_RESPONSES_ENDPOINT_MARKERS = (
-    "unexpected status 404 not found",
-    "backend-api/codex/responses",
-)
-# Harvested Kimi death (2026-07-31). The CLI already retried APIConnectionError
-# and then exited on this death line. All three phrases are in that run.
-# A bare "connection error", a zero exit, and the OAuth token-fetch wording
-# are not this class. Token fetch is classified earlier as auth_failed.
-# Harvested Grok death (2026-08-13). Both phrases are in that stderr and
-# stdout. A model-fetch warning that only says "No auth credentials" is not
-# this class, and a zero exit is not this class.
-_GROK_SIGNED_OUT_MARKERS = (
-    "not signed in",
-    "grok login",
-)
-# Harvested Grok deaths (2026-07-29 decode-body, 2026-07-29 and 2026-09-10
-# responses URL). Both phrases sit inside "reqwest error stream". A telemetry
-# "network error", a settings-fetch warning, and a zero exit do not.
-_RESPONSE_STREAM_MARKERS = (
-    "reqwest error stream",
-)
-# Harvested Grok deaths (2026-08-13 and 2026-08-23). All three phrases are in
-# the 401 body. The stderr also contains "timed out" and the run is recorded
-# with timed_out true, which used to win before this class. A bare 401, a
-# signed-out login line, and a timeout without these phrases are not this class.
-_AUTH_WAKE_BLIP_MARKERS = (
-    "authentication is temporarily unavailable",
-    "still signed in",
-    "no need to run",
-)
-# Harvested Grok death (2026-08-24). Both phrases are in the exit error after
-# 204 model calls. The same stderr also contains "grep timed out", which used
-# to win before this class. A bare timeout, a signed-out login line, and a
-# zero exit are not this class.
-_TOKEN_GENERATION_MARKERS = (
-    "internal error during token generation",
-    "status 500",
-)
-# Harvested Grok death (2026-08-25, mission 20260825T174327Z-1e9ef9af).
-# Both phrases are in the exit error after 20 model calls. The same stderr
-# also contains "grep timed out" and "file lock timed out", and the run is
-# recorded timed_out. A bare process timeout, a file-lock wait, and a zero
-# exit are not this class.
-_INFERENCE_IDLE_MARKERS = (
-    "inference idle timeout",
-    "no chunks",
-)
-# Harvested Grok death (2026-08-26, mission 20260826T102353Z-ee74a113).
-# Both phrases are in the stderr after 26 model calls, next to the session id
-# that the command line still carries. The same stderr also contains
-# "auth: file lock timed out", and the run is recorded timed_out. A file-lock
-# wait without both phrases, and a zero exit, are not this class.
-_SESSION_ACTOR_DEAD_MARKERS = (
-    "resident session actor exited unexpectedly",
-    "reaping as deadfailed",
-)
-# Harvested Grok death (2026-10-10, mission 20261010T200752Z-1f0fecd9).
-# Both phrases are in the stderr after the CLI started doom-loop recovery
-# for tail_repetition. The same stderr also contains "grep timed out" and
-# an MCP handshake timeout, and the run is recorded timed_out. A bare tool
-# timeout, one phrase alone, and a zero exit are not this class.
-_DOOM_LOOP_MARKERS = (
-    "doom loop detected",
-    "tail_repetition",
-)
-# Harvested Kimi death (2026-09-12, mission 20260912T181339Z-47f10307).
-# The stderr repeats this sentence until the controller records exit 124.
-# A bare tool timeout does not contain it. An exit 0 that quotes it is not
-# this death: those transcripts already returned.
-_BACKGROUND_TASK_MARKERS = (
-    "background task still running",
-)
-# Harvested Kimi deaths (2026-07-31, mission 20260731T101902Z-e1bfdef8).
-# cmd.exe printed GBK "命令行太长。" and the UTF-8 capture stored U+FFFD around
-# the one byte sequence that survived. A bare "too long" warning, a git
-# "Filename too long" line, and a zero exit are not this class.
+
+# cmd.exe can report launch failure in English, Chinese, or a lossy GBK capture.
 COMMAND_LINE_TOO_LONG = "command_line_too_long"
 _COMMAND_LINE_TOO_LONG_MARKERS = (
     "命令行太长",
@@ -198,25 +100,7 @@ _COMMAND_LINE_TOO_LONG_MARKERS = (
     "filename or extension is too long",
     "\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\u032b\ufffd\ufffd\ufffd\ufffd",
 )
-_PROVIDER_CONNECTION_MARKERS = (
-    "provider.connection_error: connection error",
-    "turn.step.retrying",
-    "apiconnectionerror",
-)
-# Harvested Grok death (2026-09-04). The reply itself was cut off. A bare
-# "truncated" log line is not this class, and a successful message that only
-# quotes the error is not a failed launch.
-_OUTPUT_TRUNCATION_MARKERS = (
-    "max_tokens_truncation",
-    "response truncated by max_tokens",
-)
-# Harvested Cursor death (2026-09-11). The CLI already retried the step.
-# A bare "max retries" warning, or "missing terminal result" alone, is not
-# this class. Both phrases are in that stderr.
-_STEP_RETRY_MARKERS = (
-    "failed to run step",
-    "exceeded max retries",
-)
+_OUTPUT_TRUNCATION_MARKERS = ("max_tokens_truncation", "response truncated by max_tokens")
 DECISION_ONLY_PROMPT = (
     "The previous response was truncated by max_tokens before a JSON decision. "
     "Do not call tools. Do not re-explore the repository. Do not repeat the mission prompt. "
@@ -416,56 +300,6 @@ def _contains_any(text: str, markers: Iterable[str]) -> bool:
     return any(marker in text for marker in markers)
 
 
-def _is_model_unavailable(blob: str) -> bool:
-    """True for a harvested model rejection, not an unknown-model warning."""
-
-    if _contains_any(blob, _MODEL_REJECTION_MARKERS):
-        return True
-    if _contains_any(blob, _CODEX_ACCOUNT_MODEL_MARKERS):
-        return True
-    return "model " in blob and _contains_any(blob, _MODEL_CONFIG_MARKERS)
-
-
-def _background_task_wait(blob: str, *, returncode: int, timed_out: bool) -> bool:
-    """True when the process was killed while waiting on a background shell.
-
-    Exit 124 is the harvested controller kill. A zero exit that only quotes
-    the wait sentence, and a non-timeout failure that happens to contain it,
-    stay on their existing paths.
-    """
-
-    if int(returncode or 0) == 0 and not timed_out:
-        return False
-    if not (timed_out or int(returncode or 0) == 124):
-        return False
-    return all(marker in blob for marker in _BACKGROUND_TASK_MARKERS)
-
-
-def _output_truncated_death(blob: str, *, returncode: int, timed_out: bool) -> bool:
-    """True when max_tokens cut the reply off.
-
-    A tool-timeout line in the same stderr used to win, so the harvested
-    2026-08-25 run stayed a retryable timeout. Both truncation phrases are
-    required when a timeout string is also present. A zero exit that only
-    quotes the phrases is not this death.
-    """
-
-    if int(returncode or 0) == 0:
-        return False
-    if timed_out or "timed out" in blob:
-        return all(marker in blob for marker in _OUTPUT_TRUNCATION_MARKERS)
-    return _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS)
-
-
-def _unsigned_process_exit(returncode: int) -> bool:
-    """True for Windows exit 4294967295, the unsigned form of -1."""
-
-    code = int(returncode or 0)
-    if code == 0:
-        return False
-    return (code & _UNSIGNED_PROCESS_EXIT) == _UNSIGNED_PROCESS_EXIT
-
-
 def _has_tool_result(text: str) -> bool:
     """True when a transcript contains a tool-result record.
 
@@ -497,129 +331,62 @@ def classify_kernel_failure(
     error: str = "",
     session_id: str = "",
     command: Any = None,
+    kernel: str = "",
 ) -> KernelFailureClass:
     blob = _haystack(stdout_tail, stderr_tail, last_message, error)
     evidence = (error or stderr_tail or stdout_tail or last_message or "")[:400]
-    if (int(returncode or 0) != 0 or timed_out) and all(
-        marker in blob for marker in _AUTH_WAKE_BLIP_MARKERS
+    code = int(returncode or 0)
+    failed = bool(code or timed_out)
+
+    # Scope the login refusal to the failing Cursor process's own diagnostic line.
+    if kernel == "cursor" and code and not timed_out and any(
+        line.lstrip().startswith("error: authentication required.") and "agent login" in line and "cursor_api_key" in line
+        for line in stderr_tail.lower().splitlines()
     ):
-        # The CLI already said the session is signed in and asked for a short
-        # retry. "timed out" in the same stderr must not discard that session,
-        # and the 401 text must not open the auth circuit.
+        return KernelFailureClass("auth_failed", False, evidence)
+
+    def mentions(*phrases: str) -> bool:
+        return all(phrase in blob for phrase in phrases)
+
+    # Provider diagnoses take precedence over incidental tool timeouts in the same receipt.
+    if failed and mentions("authentication is temporarily unavailable", "still signed in", "no need to run"):
         return KernelFailureClass(AUTH_TEMPORARILY_UNAVAILABLE, False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _TOKEN_GENERATION_MARKERS):
-        # A tool that said "timed out" is not this process death. The session
-        # already spent hundreds of model calls, and the 500 is not an auth
-        # failure, so the auth circuit stays closed.
+    if code and mentions("internal error during token generation", "status 500"):
         return KernelFailureClass(TOKEN_GENERATION_FAILED, False, evidence)
-    if (int(returncode or 0) != 0 or timed_out) and all(
-        marker in blob for marker in _INFERENCE_IDLE_MARKERS
-    ):
-        # The controller records this exit as timed_out, and the stderr also
-        # contains tool and file-lock timeouts. The idle sentence is the death.
-        # The session already made model calls, so this is not an auth failure.
+    if failed and mentions("inference idle timeout", "no chunks"):
         return KernelFailureClass(INFERENCE_IDLE_TIMEOUT, False, evidence)
-    if (int(returncode or 0) != 0 or timed_out) and all(
-        marker in blob for marker in _SESSION_ACTOR_DEAD_MARKERS
-    ):
-        # The controller records this exit as timed_out, and the stderr also
-        # contains an auth file-lock wait. The actor for the session id on the
-        # command line is already dead, so that id must not be resumed.
+    if failed and mentions("resident session actor exited unexpectedly", "reaping as deadfailed"):
         return KernelFailureClass(SESSION_ACTOR_DEAD, False, evidence)
-    if _output_truncated_death(blob, returncode=returncode, timed_out=timed_out):
-        # A grep or signal-sync "timed out" line is not this process death.
-        # The reply was cut off, so the mission prompt must not be sent again.
+    timeout = timed_out or "timed out" in blob
+    # Under timeout both truncation markers must agree; either suffices on a clean nonzero exit.
+    truncated = mentions(*_OUTPUT_TRUNCATION_MARKERS) if timeout else _contains_any(blob, _OUTPUT_TRUNCATION_MARKERS)
+    if code and truncated:
         return KernelFailureClass(OUTPUT_TRUNCATED, False, evidence)
-    if (int(returncode or 0) != 0 or timed_out) and all(
-        marker in blob for marker in _DOOM_LOOP_MARKERS
-    ):
-        # The controller records this exit as timed_out, and the stderr also
-        # contains tool and MCP timeouts. The doom-loop sentence is the death.
-        # A max_tokens truncation in the same log is classified above.
+    if failed and mentions("doom loop detected", "tail_repetition"):
         return KernelFailureClass(DOOM_LOOP_REPETITION, False, evidence)
-    if int(returncode or 0) != 0 and _contains_any(blob, _COMMAND_LINE_TOO_LONG_MARKERS):
-        # The process never started. Another launch with the same argv dies
-        # inside cmd.exe again. A tool log that only says "too long" does not
-        # contain these sentences, and a zero exit does not take this class.
+    if code and _contains_any(blob, _COMMAND_LINE_TOO_LONG_MARKERS):
         return KernelFailureClass(COMMAND_LINE_TOO_LONG, False, evidence)
-    if int(returncode or 0) != 0 and _contains_any(blob, _RESPONSE_STREAM_MARKERS):
-        # An MCP or tool line that says "timed out" is not this process death.
-        # The 2026-08-27 run exited 1 on reqwest error stream while gmail MCP
-        # timed out, and the generic timeout rule used to discard that session.
-        # A settings-fetch warning, a telemetry export error, and a zero exit
-        # do not contain this phrase.
+    if code and "reqwest error stream" in blob:
         return KernelFailureClass(RESPONSE_STREAM_FAILED, False, evidence)
-    if _background_task_wait(blob, returncode=returncode, timed_out=timed_out):
-        # The controller records this exit as timed_out. The stderr is the
-        # wait line, not a tool timeout. An exit 0 that quotes the sentence
-        # is excluded above. The kernel already did work, so the mission
-        # prompt must not be sent again on the first wait.
+    if (timed_out or code == 124) and "background task still running" in blob:
         return KernelFailureClass(BACKGROUND_TASK_WAIT, False, evidence)
-    if timed_out or "timed out" in blob:
+    if timeout:
         return KernelFailureClass("timeout", True, evidence)
     if _contains_any(blob, _QUOTA_MARKERS):
         return KernelFailureClass("quota_exhausted", False, evidence)
     if _contains_any(blob, _AUTH_MARKERS):
         return KernelFailureClass("auth_failed", False, evidence)
-    if (
-        int(returncode or 0) != 0
-        and not str(session_id or "").strip()
-        and _contains_any(blob, _TRANSPORT_ABORT_MARKERS)
-    ):
-        return KernelFailureClass(PRE_SESSION_TRANSPORT_ABORT, False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _SESSION_OCCUPIED_MARKERS):
-        # The occupied id is not retryable. The kernel itself stays available.
-        return KernelFailureClass(SESSION_ALREADY_IN_USE, False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _SESSION_MISSING_MARKERS):
-        # The missing remote id is not retryable. The kernel itself stays available.
-        return KernelFailureClass(SESSION_NOT_FOUND, False, evidence)
-    if int(returncode or 0) != 0 and _is_model_unavailable(blob):
-        # The same model on the same kernel fails again. Failover, do not retry.
-        return KernelFailureClass(MODEL_UNAVAILABLE, False, evidence)
-    if int(returncode or 0) != 0 and _contains_any(blob, _TOKEN_FETCH_MARKERS):
-        # Token fetch died after a session id existed, so this is not the
-        # empty-session transport abort. The kernel cannot authenticate.
-        return KernelFailureClass("auth_failed", False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _GROK_SIGNED_OUT_MARKERS):
-        # The CLI already refused to run because nobody is signed in.
-        # Another launch of this kernel dies on the same login wall.
-        return KernelFailureClass("auth_failed", False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _PROVIDER_CONNECTION_MARKERS):
-        # The CLI already retried APIConnectionError. Another launch of this
-        # kernel dies on the same provider.connection_error death line.
-        return KernelFailureClass(PROVIDER_CONNECTION_FAILED, False, evidence)
-    if int(returncode or 0) != 0 and _contains_any(blob, _PROVIDER_OVERLOAD_MARKERS):
-        # The provider already retried. Another immediate launch of this kernel
-        # dies the same way. This is not a spent account (quota_exhausted).
-        return KernelFailureClass(PROVIDER_OVERLOADED, False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _RESPONSES_ENDPOINT_MARKERS):
-        # The CLI already retried websocket and HTTPS. Another launch of this
-        # kernel dies on the same missing responses URL.
-        return KernelFailureClass(RESPONSES_ENDPOINT_MISSING, False, evidence)
-    if int(returncode or 0) != 0 and all(marker in blob for marker in _STEP_RETRY_MARKERS):
-        # The CLI already retried the step. Replaying the mission prompt on
-        # another kernel abandons the session that was doing the work.
-        return KernelFailureClass(STEP_RETRIES_EXHAUSTED, False, evidence)
-    if (
-        not timed_out
-        and _unsigned_process_exit(returncode)
-        and _resume_session_id(session_id, command)
-    ):
-        # Windows recorded -1 while a session was already selected. Replaying
-        # the mission prompt discards that session. Exit 1, exit 124, exit 0,
-        # and this code with no session id are classified above or below.
-        return KernelFailureClass(ABNORMAL_PROCESS_EXIT, False, evidence)
-    if (
-        not timed_out
-        and _unsigned_process_exit(returncode)
-        and not _resume_session_id(session_id, command)
-        and _has_tool_result(f"{stdout_tail}\n{stderr_tail}")
-    ):
-        # Windows recorded -1 after a tool result and before a session id
-        # existed. Replaying the mission prompt discards that transcript.
-        # An empty transcript and a sentence that only mentions a tool stay
-        # a retryable CLI error below. A resumed session was classified above.
-        return KernelFailureClass(SESSIONLESS_PROCESS_ABORT, False, evidence)
+    if code:
+        if not str(session_id or "").strip() and "disconnected before secure tls connection was established" in blob:
+            return KernelFailureClass(PRE_SESSION_TRANSPORT_ABORT, False, evidence)
+        for class_id, phrases in _EXIT_DIAGNOSES:
+            if mentions(*phrases):
+                return KernelFailureClass(class_id, False, evidence)
+        if code & _UNSIGNED_PROCESS_EXIT == _UNSIGNED_PROCESS_EXIT:
+            if _resume_session_id(session_id, command):
+                return KernelFailureClass(ABNORMAL_PROCESS_EXIT, False, evidence)
+            if _has_tool_result(f"{stdout_tail}\n{stderr_tail}"):
+                return KernelFailureClass(SESSIONLESS_PROCESS_ABORT, False, evidence)
     if "did not contain a json decision" in blob or "malformed" in blob:
         return KernelFailureClass("malformed_decision", True, evidence)
     if "no final message" in blob or (returncode == 0 and not (last_message or "").strip()):
@@ -627,8 +394,12 @@ def classify_kernel_failure(
     return KernelFailureClass("cli_error", True, evidence)
 
 
-def classify_run_artifact(artifact: dict[str, Any], *, error: str = "") -> KernelFailureClass:
+def classify_run_artifact(artifact: dict[str, Any], *, error: str = "", kernel: str = "") -> KernelFailureClass:
+    preflight = artifact.get("provider_preflight")
+    if not kernel and isinstance(preflight, Mapping):
+        kernel = str(preflight.get("provider") or "")
     return classify_kernel_failure(
+        kernel=kernel,
         returncode=int(artifact.get("returncode") or 0),
         timed_out=bool(artifact.get("timed_out")),
         stdout_tail=str(artifact.get("stdout_tail") or ""),
@@ -842,7 +613,7 @@ def salvage_kernel_failure(
             evidence=error_text[:400],
             artifact_path=str(artifact.get("_artifact_path") or ""),
         )
-    failure = classify_run_artifact(artifact, error=error_text)
+    failure = classify_run_artifact(artifact, error=error_text, kernel=current_kernel)
     installed = (
         set(installed_kernels)
         if installed_kernels is not None
@@ -1005,119 +776,121 @@ def execute_kernel_turn_with_salvage(
     def full_task() -> str:
         return refresh_prompt() if refresh_prompt is not None else original_prompt
 
-    rerouted = apply_health_reroute(original, store, installed, now=now)
-    if rerouted != original:
-        _switch_kernel(state, rerouted)
-        prompt = full_task()
-
     tried: set[str] = set()
-    retries: set[tuple[str, str]] = set()
-    source = "kernel"
-    from_kernel = original
-    salvaged = None
-    turn_dir.mkdir(parents=True, exist_ok=True)
-    while True:
-        # Reserve before dispatch, even on a same-session retry or a reopened turn.
-        attempt = Path(tempfile.mkdtemp(prefix="attempt-", dir=turn_dir))
-        provider = state.kernel
-        kernel_result = None
-        try:
-            try:
-                kernel_result = dispatch(attempt)
-            finally:
-                _publish_attempt(attempt, provider)
-            mark_kernel_success(store, state.kernel, now=now)
-            persist()
-            decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
-            if source == "kernel":
-                meta = {"ok": True, "source": source}
-                if rerouted != original:
-                    meta.update({"rerouted_from": original, "health_reroute": True})
-            else:
-                meta = salvaged.to_dict()
-                meta.update(
-                    ok=True, source=source, from_kernel=from_kernel,
-                    failover_kernel=state.kernel if source == "failover" else "",
-                    released_session=source == "fresh_session",
-                )
-            if source == "decision_only_resume" and hasattr(state, "decision_only_resume"):
-                state.decision_only_resume = False
-            return kernel_result, decision, with_probe_meta(meta)
-        except Exception as error:
-            if kernel_result is not None:
-                state.session_id = kernel_result.session_id or state.session_id
-                state.session_started = bool(state.session_id) or state.session_started
-            tried.add(state.kernel)
-            artifact = load_kernel_run_artifact(attempt, kernel=provider)
-            if state.kernel == "cursor" and artifact.get("session_id"):
-                state.session_id = str(artifact["session_id"])
-                state.session_started = True
-            evidence = dict(
-                error=error, current_kernel=provider, artifact=artifact,
-                installed_kernels=installed, health=store, now=now,
-            )
-            message = kernel_result.last_message if kernel_result else ""
-            salvaged = salvage_kernel_failure(**evidence, last_message=message)
-            retry = _SESSION_RETRIES.get(salvaged.class_id)
-            if retry is not None:
-                if retry.session != "fresh" and not str(getattr(state, "session_id", "") or "").strip():
-                    adopted = session_id_from_artifact(artifact)
-                    if adopted:
-                        state.session_id = adopted
-                        state.session_started = True
-                resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
-                    getattr(state, "session_started", False)
-                )
-                key = (state.kernel, retry.source)
-                if key not in retries and (retry.session != "required" or resumable):
-                    persist()
-                    if kernel_is_available(store, state.kernel, now=now):
-                        retries.add(key)
-                        if retry.session == "fresh":
-                            _release_session(state)
-                        from_kernel = state.kernel
-                        source = retry.source
-                        prompt = retry.prompt if retry.prompt is not None else full_task()
-                        continue
-                elif salvaged.class_id == OUTPUT_TRUNCATED and resumable:
-                    state.decision_only_resume = True
-                    exhausted = salvage_kernel_failure(**evidence, allow_failover=False)
-                    decision = TurnDecision.from_payload(exhausted.decision)
-                    result = _synthetic_result(state, exhausted, None, KernelTurnResult)
-                    meta = exhausted.to_dict()
-                    meta.update(
-                        ok=False, exhausted=True, source="decision_only_resume",
-                        from_kernel=state.kernel, failover_kernel="",
-                    )
-                    return result, decision, with_probe_meta(meta)
-            if salvaged.class_id in FAILOVER_CLASSES and kernel_is_available(store, state.kernel, now=now):
-                trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
-            # A different turn may have taken our next provider out of service during dispatch.
-            persist()
-            if salvaged.source == "message":
-                receipt_session = session_id_from_artifact(artifact)
-                if receipt_session and not getattr(kernel_result, "session_id", ""):
-                    state.session_id = receipt_session
-                    state.session_started = True
-                decision = TurnDecision.from_payload(salvaged.decision)
-                result = _synthetic_result(state, salvaged, kernel_result, KernelTurnResult)
-                return result, decision, with_probe_meta(salvaged.to_dict())
-            next_kernel = select_failover_kernel(
-                state.kernel,
-                installed,
-                health=store,
-                now=now,
-                exclude=tried,
-            )
-            if not next_kernel:
-                blocked = salvage_kernel_failure(**evidence, last_message=message, allow_failover=False)
-                decision = TurnDecision.from_payload(blocked.decision)
-                result = _synthetic_result(state, blocked, kernel_result, KernelTurnResult)
-                return result, decision, with_probe_meta(blocked.to_dict())
-            from_kernel = state.kernel
-            _switch_kernel(state, next_kernel)
-            source = "failover"
+    with kernel_dispatch_admission(repo if persist_health else None, store, now=now) as admit:
+
+        def reserve(candidate: str) -> str:
+            while candidate and not admit(candidate):
+                tried.add(candidate)
+                candidate = select_failover_kernel(candidate, installed, health=store, now=now, exclude=tried)
+            return candidate
+
+        rerouted = reserve(apply_health_reroute(original, store, installed, now=now))
+        if rerouted != original:
+            _switch_kernel(state, rerouted)
             prompt = full_task()
+
+        retries: set[tuple[str, str]] = set()
+        source = "kernel"
+        from_kernel = original
+        salvaged = None
+        turn_dir.mkdir(parents=True, exist_ok=True)
+        while True:
+            # Reserve before dispatch, even on a same-session retry or a reopened turn.
+            attempt = Path(tempfile.mkdtemp(prefix="attempt-", dir=turn_dir))
+            provider = state.kernel
+            kernel_result = None
+            try:
+                try:
+                    kernel_result = dispatch(attempt)
+                finally:
+                    _publish_attempt(attempt, provider)
+                decision = TurnDecision.from_payload(extract_json_decision(kernel_result.last_message))
+                mark_kernel_success(store, state.kernel, now=now)
+                persist()
+                if source == "kernel":
+                    meta = {"ok": True, "source": source}
+                    if rerouted != original:
+                        meta.update({"rerouted_from": original, "health_reroute": True})
+                else:
+                    meta = salvaged.to_dict()
+                    meta.update(
+                        ok=True, source=source, from_kernel=from_kernel,
+                        failover_kernel=state.kernel if source == "failover" else "",
+                        released_session=source == "fresh_session",
+                    )
+                if source == "decision_only_resume" and hasattr(state, "decision_only_resume"):
+                    state.decision_only_resume = False
+                return kernel_result, decision, with_probe_meta(meta)
+            except Exception as error:
+                if kernel_result is not None:
+                    state.session_id = kernel_result.session_id or state.session_id
+                    state.session_started = bool(state.session_id) or state.session_started
+                tried.add(state.kernel)
+                artifact = load_kernel_run_artifact(attempt, kernel=provider)
+                if state.kernel == "cursor" and artifact.get("session_id"):
+                    state.session_id = str(artifact["session_id"])
+                    state.session_started = True
+                evidence = dict(
+                    error=error, current_kernel=provider, artifact=artifact,
+                    installed_kernels=installed, health=store, now=now,
+                )
+                message = kernel_result.last_message if kernel_result else ""
+                salvaged = salvage_kernel_failure(**evidence, last_message=message)
+                retry = _SESSION_RETRIES.get(salvaged.class_id)
+                if retry is not None:
+                    if retry.session != "fresh" and not str(getattr(state, "session_id", "") or "").strip():
+                        adopted = session_id_from_artifact(artifact)
+                        if adopted:
+                            state.session_id = adopted
+                            state.session_started = True
+                    resumable = bool(str(getattr(state, "session_id", "") or "").strip()) and bool(
+                        getattr(state, "session_started", False)
+                    )
+                    key = (state.kernel, retry.source)
+                    if key not in retries and (retry.session != "required" or resumable):
+                        persist()
+                        if admit(state.kernel):
+                            retries.add(key)
+                            if retry.session == "fresh":
+                                _release_session(state)
+                            from_kernel = state.kernel
+                            source = retry.source
+                            prompt = retry.prompt if retry.prompt is not None else full_task()
+                            continue
+                    elif salvaged.class_id == OUTPUT_TRUNCATED and resumable:
+                        state.decision_only_resume = True
+                        exhausted = salvage_kernel_failure(**evidence, allow_failover=False)
+                        decision = TurnDecision.from_payload(exhausted.decision)
+                        result = _synthetic_result(state, exhausted, None, KernelTurnResult)
+                        meta = exhausted.to_dict()
+                        meta.update(
+                            ok=False, exhausted=True, source="decision_only_resume",
+                            from_kernel=state.kernel, failover_kernel="",
+                        )
+                        return result, decision, with_probe_meta(meta)
+                if salvaged.class_id in FAILOVER_CLASSES and kernel_is_available(store, state.kernel, now=now):
+                    trip_kernel(store, state.kernel, salvaged.class_id, salvaged.evidence, now=now)
+                # A different turn may have taken our next provider out of service during dispatch.
+                persist()
+                if salvaged.source == "message":
+                    receipt_session = session_id_from_artifact(artifact)
+                    if receipt_session and not getattr(kernel_result, "session_id", ""):
+                        state.session_id = receipt_session
+                        state.session_started = True
+                    decision = TurnDecision.from_payload(salvaged.decision)
+                    result = _synthetic_result(state, salvaged, kernel_result, KernelTurnResult)
+                    return result, decision, with_probe_meta(salvaged.to_dict())
+                next_kernel = reserve(select_failover_kernel(provider, installed, health=store, now=now, exclude=tried))
+                if not next_kernel:
+                    blocked = salvage_kernel_failure(**evidence, last_message=message, allow_failover=False)
+                    decision = TurnDecision.from_payload(blocked.decision)
+                    result = _synthetic_result(state, blocked, kernel_result, KernelTurnResult)
+                    return result, decision, with_probe_meta(blocked.to_dict())
+                from_kernel = state.kernel
+                _switch_kernel(state, next_kernel)
+                source = "failover"
+                prompt = full_task()
 
 
 def builtin_kernel_decision_salvage_proof() -> dict[str, Any]:

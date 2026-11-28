@@ -10,6 +10,7 @@ from blackhole_agent.kernel_health import (
     apply_health_reroute,
     breaker_status,
     builtin_kernel_circuit_breaker_proof,
+    kernel_dispatch_admission,
     kernel_is_available,
     load_kernel_health,
     mark_kernel_success,
@@ -103,3 +104,15 @@ def test_failed_replace_preserves_legacy_health_and_allows_retry(tmp_path, monke
     save_kernel_health(tmp_path, pending)
     restarted = load_kernel_health(tmp_path)
     assert {name: row.trip_count for name, row in restarted.kernels.items()} == {"kimi": 3, "grok": 1}
+
+
+def test_login_trial_rechecks_a_cooldown_committed_after_route_selection(tmp_path):
+    now = datetime(2026, 11, 28)
+    legacy = {"kernels": {"cursor": {"state": "half_open", "class_id": "auth_failed", "trip_count": 1}}}
+    stale = KernelHealth.from_dict(legacy)
+    health = KernelHealth.from_dict(legacy)
+    trip_kernel(health, "cursor", "auth_failed", now=now)
+    save_kernel_health(tmp_path, health, now=now)
+    with kernel_dispatch_admission(tmp_path, stale, now=now) as admit:
+        assert not admit("cursor")
+        assert admit("codex")

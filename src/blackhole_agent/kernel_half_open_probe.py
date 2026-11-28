@@ -128,19 +128,15 @@ def half_open_peer_names(
     installed: Iterable[str],
     now: Any = None,
 ) -> tuple[str, ...]:
-    """Installed CLI peers that are half_open and are not the requested kernel."""
+    """Return peers eligible for a CLI ping. Login recovery requires a serving turn."""
 
-    present = {name for name in installed if name}
-    names: list[str] = []
-    for name in CLI_FAILOVER_ORDER:
-        if name == requested or name == LOCAL_KERNEL:
-            continue
-        if name not in present:
-            continue
-        if breaker_status(health.kernels.get(name), now=now) != "half_open":
-            continue
-        names.append(name)
-    return tuple(names)
+    present = set(installed)
+    return tuple(
+        name for name in CLI_FAILOVER_ORDER
+        if name != requested and name in present
+        and breaker_status(health.kernels.get(name), now=now) == "half_open"
+        and not health.kernels[name].auth_trial_required
+    )
 
 
 def default_peer_kernel_probe(name: str) -> dict[str, Any]:
@@ -196,13 +192,15 @@ def apply_peer_probe_outcome(
     ok = bool(outcome.get("ok"))
     class_id = str(outcome.get("class_id") or "")
     evidence = str(outcome.get("evidence") or "")[:400]
+    current = health.kernels.get(name)
     if ok:
+        if current is not None and current.auth_trial_required:
+            return "left_half_open"
         mark_kernel_success(health, name, now=now)
         return "recovered"
     if class_id in TRIP_CLASSES:
         trip_kernel(health, name, class_id, evidence, now=now)
         return "retripped"
-    current = health.kernels.get(name)
     if current is not None and evidence:
         current.last_evidence = evidence
     return "left_half_open"
@@ -518,19 +516,22 @@ def builtin_kernel_half_open_probe_proof() -> dict[str, Any]:
         probe_at = tripped_at + timedelta(hours=7)
         health = KernelHealth()
         trip_kernel(health, "kimi", "auth_failed", "401", now=tripped_at)
+        trip_kernel(health, "codex", "quota_exhausted", "402", now=tripped_at)
         save_kernel_health(root, health, now=probe_at)
         refresh_kernel_breakers(health, now=probe_at)
         direct = probe_half_open_peer_kernels(
             health,
             requested="grok",
-            installed={"grok", "kimi"},
+            installed={"grok", "kimi", "codex"},
             probe=lambda name: {"ok": True, "class_id": "", "evidence": name},
             now=probe_at,
         )
         checks["direct_probe_recovers_peer"] = (
-            health.kernels["kimi"].state == "closed"
-            and direct["recovered"] == ["kimi"]
+            health.kernels["codex"].state == "closed" and direct["recovered"] == ["codex"]
             and direct["requested"] == "grok"
+        )
+        checks["login_recovery_waits_for_work"] = (
+            health.kernels["kimi"].state == "half_open" and "kimi" not in direct["candidates"]
         )
         empty = probe_half_open_peer_kernels(
             KernelHealth(),
