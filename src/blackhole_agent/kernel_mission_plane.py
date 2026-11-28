@@ -155,7 +155,7 @@ def select_mission_plane_step(
     *,
     goal: str = "",
 ) -> str:
-    skip = tuple(dict.fromkeys([*campaign.completed_ids, *campaign.failed_ids]))
+    skip = tuple(campaign.unavailable_ids)
     program = plan_mission_plane_program(ledger, goal or campaign.goal, skip_ids=skip)
     return program[0] if program else ""
 
@@ -210,7 +210,7 @@ def attach_mission_plane_step(
     handoff = dict(campaign.handoff or {})
     handoff["mission_plane_step"] = step
     if not handoff.get("mission_plane_program"):
-        skip = tuple(dict.fromkeys([*campaign.completed_ids, *campaign.failed_ids]))
+        skip = tuple(campaign.unavailable_ids)
         handoff["mission_plane_program"] = plan_mission_plane_program(
             ledger, goal or campaign.goal, skip_ids=skip
         ) or [step]

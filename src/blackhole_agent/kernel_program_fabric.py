@@ -354,7 +354,7 @@ def select_program_fabric(
 ) -> str:
     """Pick an unfinished in-ledger fabric, else the top novel recipe."""
 
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     existing = [
         item_id
         for item_id, item in ledger.capabilities.items()
@@ -476,7 +476,7 @@ def saturate_program_fabrics(
     """Mint every remaining novel consecutive-pair program fabric."""
 
     minted: list[str] = []
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     while True:
         fabric_id = ""
         for item in rank_ready_program_fabrics(ledger, skip_ids=tuple(skip)):

@@ -321,7 +321,7 @@ def select_program_lattice(
 ) -> str:
     """Pick an unfinished in-ledger lattice, else the top novel recipe."""
 
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     existing = [
         item_id
         for item_id, item in ledger.capabilities.items()
@@ -437,7 +437,7 @@ def saturate_program_lattices(
     """Mint every remaining novel consecutive-pair program lattice."""
 
     minted: list[str] = []
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     while True:
         lattice_id = ""
         for item in rank_ready_program_lattices(ledger, skip_ids=tuple(skip)):

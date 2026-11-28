@@ -305,7 +305,7 @@ def select_composed_program(
 ) -> str:
     """Pick an unfinished in-ledger program, else the top novel recipe."""
 
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     existing = [
         item_id
         for item_id, item in ledger.capabilities.items()
@@ -422,7 +422,7 @@ def saturate_composed_programs(
     """Promote every remaining novel consecutive-pair composed program."""
 
     promoted: list[str] = []
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     while True:
         program_id = ""
         for item in rank_ready_composed_programs(ledger, skip_ids=tuple(skip)):

@@ -108,7 +108,7 @@ def remaining_is_cheap_inventory(
     planned = plan_campaign_program(
         ledger,
         goal or campaign.goal,
-        skip_ids=tuple(campaign.completed_ids),
+        skip_ids=tuple(campaign.unavailable_ids),
     )
     if not planned:
         return True
@@ -240,7 +240,7 @@ def attach_consumed_growth_leaf(
         bind_source=bind_source,
     ):
         return ""
-    if CONSUMED_GROWTH_LEAF_ID in campaign.completed_ids:
+    if CONSUMED_GROWTH_LEAF_ID in campaign.unavailable_ids:
         return ""
     leaf_id = absorb_and_prove_growth_leaf(Path(root), ledger)
     if not leaf_id:

@@ -300,7 +300,7 @@ def select_program_weave(
 ) -> str:
     """Pick an unfinished in-ledger weave, else the top novel recipe."""
 
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     existing = [
         item_id
         for item_id, item in ledger.capabilities.items()

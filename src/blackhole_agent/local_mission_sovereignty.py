@@ -18,8 +18,10 @@ rotate inventory instead of pursuing a mission. This module closes that hole:
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from importlib import import_module
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -34,6 +36,7 @@ from blackhole_agent.capability_compounder import (
     save_ledger,
 )
 from blackhole_agent.experience_fuel import ExperienceCandidate, ExperienceFuel, harvest_experience
+from blackhole_agent.file_guard import atomic_write_json, file_guard
 from blackhole_agent.kernel_health import empty_local_decision
 from blackhole_agent.local_capability_kernel import (
     invoke_local_capability,
@@ -47,6 +50,7 @@ from blackhole_agent.pattern_register import PATTERN_CLASSES
 SCHEMA_VERSION = 1
 CAMPAIGN_RELATIVE = Path(".blackhole-agent") / "unbound" / "local-campaign.json"
 MAX_CAMPAIGN_STEPS = 4
+MAX_RETRY_DELAY = 4  # keep even the longest delay inside the six-wake no-progress window
 
 HARVESTED_KERNEL_FAILURE_GOAL = (
     "Close kernel_turn_failed: when a first-class kernel dies on quota, bind genesis "
@@ -69,6 +73,14 @@ class LocalMissionBinding:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class StepRetry:
+    """Number of intervening wakes and the first eligible one-based campaign tick."""
+
+    delay: int
+    next_tick: int
+
+
 @dataclass
 class LocalCampaign:
     schema_version: int = SCHEMA_VERSION
@@ -87,6 +99,30 @@ class LocalCampaign:
     updated_at: str = ""
     consumed_at: str = ""
     resumed_by_mission_id: str = ""
+    retries: dict[str, StepRetry] = field(default_factory=dict)
+
+    @property
+    def unavailable_ids(self) -> set[str]:
+        """Steps already completed or still waiting at the upcoming wake."""
+        return set(self.completed_ids) | {
+            step for step in self.failed_ids
+            if step not in self.retries or self.tick_count + 1 < self.retries[step].next_tick
+        }
+
+    def record_result(self, step: str, passed: bool) -> None:
+        if passed:
+            if step not in self.completed_ids:
+                self.completed_ids.append(step)
+            if step in self.failed_ids:
+                self.failed_ids.remove(step)
+            self.retries.pop(step, None)
+            return
+        previous = self.retries.get(step)
+        delay = min(MAX_RETRY_DELAY, previous.delay * 2) if previous else 1
+        attempt_tick = self.tick_count + 1
+        self.retries[step] = StepRetry(delay, attempt_tick + delay + 1)
+        if step not in self.failed_ids:
+            self.failed_ids.append(step)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -99,7 +135,7 @@ class LocalCampaign:
         raw_failed = payload.get("failed_ids") or []
         contract = payload.get("last_contract_met")
         handoff = payload.get("handoff") if isinstance(payload.get("handoff"), Mapping) else {}
-        return cls(
+        campaign = cls(
             schema_version=int(payload.get("schema_version") or SCHEMA_VERSION),
             mission_id=str(payload.get("mission_id") or ""),
             goal=str(payload.get("goal") or ""),
@@ -108,7 +144,6 @@ class LocalCampaign:
             program=[str(item) for item in raw_program if str(item).strip()],
             cursor=int(payload.get("cursor") or 0),
             completed_ids=[str(item) for item in raw_completed if str(item).strip()],
-            failed_ids=[str(item) for item in raw_failed if str(item).strip()],
             tick_count=int(payload.get("tick_count") or 0),
             last_contract_met=None if contract is None else bool(contract),
             last_summary=str(payload.get("last_summary") or ""),
@@ -117,6 +152,26 @@ class LocalCampaign:
             consumed_at=str(payload.get("consumed_at") or ""),
             resumed_by_mission_id=str(payload.get("resumed_by_mission_id") or ""),
         )
+        # Old campaigns recorded each failed invocation as another copy of its ID.
+        # Its exact wake is unknown, so allow one backoff window from the saved tick.
+        saved = payload.get("retries") or {}
+        for step, count in Counter(str(item) for item in raw_failed if str(item).strip()).items():
+            if step in campaign.completed_ids:
+                continue
+            row = saved.get(step) if isinstance(saved, Mapping) else None
+            if (
+                isinstance(row, dict)
+                and type(row.get("delay")) is int and 1 <= row["delay"] <= MAX_RETRY_DELAY
+                and type(row.get("next_tick")) is int
+                and 0 < row["next_tick"] <= campaign.tick_count + 1 + MAX_RETRY_DELAY
+            ):
+                retry = StepRetry(row["delay"], row["next_tick"])
+            else:
+                delay = min(MAX_RETRY_DELAY, 2 ** min(count - 1, MAX_RETRY_DELAY.bit_length()))
+                retry = StepRetry(delay, campaign.tick_count + 1 + delay)
+            campaign.retries[step] = retry
+            campaign.failed_ids.append(step)
+        return campaign
 
 
 def _utc_now() -> str:
@@ -154,9 +209,8 @@ def load_campaign(root: Path) -> LocalCampaign:
 
 def save_campaign(root: Path, campaign: LocalCampaign) -> Path:
     path = campaign_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
     campaign.updated_at = _utc_now()
-    path.write_text(json.dumps(campaign.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_json(path, campaign.to_dict())
     return path
 
 
@@ -433,6 +487,7 @@ def campaign_handoff(campaign: LocalCampaign) -> dict[str, Any]:
         "bound_from": campaign.bound_from,
         "completed_ids": list(campaign.completed_ids),
         "failed_ids": list(campaign.failed_ids),
+        "retry_ticks": {step: retry.next_tick for step, retry in campaign.retries.items()},
         "program": list(campaign.program),
         "cursor": campaign.cursor,
         "tick_count": campaign.tick_count,
@@ -455,12 +510,11 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
     except Exception:  # noqa: BLE001 - brief must still render unknown leftovers
         pass
     completed = ", ".join(campaign.completed_ids) or "(none)"
-    remaining = [
-        item
-        for item in campaign.program[campaign.cursor :]
-        if item not in campaign.completed_ids
-    ]
+    unavailable = campaign.unavailable_ids
+    remaining = [item for item in campaign.program[campaign.cursor :] if item not in unavailable]
     remaining_text = ", ".join(remaining) or "(none)"
+    retries = ", ".join(f"{step} (wake {retry.next_tick})" for step, retry in campaign.retries.items())
+    retry_line = f"\n- retry eligibility: {retries}" if retries else ""
     succession = str((campaign.handoff or {}).get("succession_step") or "")
     succession_line = f"\n- succession_step: {succession}" if succession else ""
     plane_step = str((campaign.handoff or {}).get("mission_plane_step") or "")
@@ -478,6 +532,7 @@ def render_local_campaign_for_prompt(repo_path: Path) -> str:
         f"- remaining: {remaining_text}\n"
         f"- contract_met: {campaign.last_contract_met}\n"
         f"- last: {campaign.last_summary}"
+        f"{retry_line}"
         f"{succession_line}"
         f"{plane_line}"
         f"{plane_ok_line}"
@@ -489,7 +544,7 @@ def _prepare_campaign(
     *,
     mission_id: str,
     binding: LocalMissionBinding,
-    ledger: CapabilityLedger,
+    ledger: CapabilityLedger | None,
 ) -> LocalCampaign:
     same_mission = existing.mission_id == mission_id and existing.goal == binding.goal
     keep_remaining = False
@@ -509,35 +564,101 @@ def _prepare_campaign(
     campaign.goal = binding.goal
     campaign.done_when = binding.done_when
     campaign.bound_from = binding.source
-    remaining = [item for item in campaign.program[campaign.cursor :] if item not in campaign.completed_ids]
+    if ledger is None:
+        return campaign
+    unavailable = campaign.unavailable_ids
+    remaining = [item for item in campaign.program[campaign.cursor :] if item not in unavailable]
     if not remaining:
         campaign.program = plan_campaign_program(
             ledger,
             binding.goal,
-            skip_ids=tuple(campaign.completed_ids),
+            skip_ids=tuple(unavailable),
         )
         campaign.cursor = 0
     return campaign
 
 
 def _next_step(campaign: LocalCampaign) -> str:
+    unavailable = campaign.unavailable_ids
     while campaign.cursor < len(campaign.program):
         capability_id = campaign.program[campaign.cursor]
         campaign.cursor += 1
-        if capability_id and capability_id not in campaign.completed_ids:
+        if capability_id and capability_id not in unavailable:
             return capability_id
     return ""
 
 
-def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
-    """Default local-kernel action: bind a mission and advance a campaign."""
+# The order is the fallback policy. Optional extensions are imported only when reached.
+# Each successful extension keeps its existing handoff key for recovering kernels.
+_STEP_ROUTES = (
+    ("consumed_growth", "attach_consumed_growth_leaf", "consumed_growth_leaf"),
+    ("compound_loop", "attach_compound_loop_leaf", "compound_loop_leaf"),
+    ("primitive_compose", "attach_primitive_composition", "primitive_compose_unit"),
+    ("composed_program", "attach_composed_program", "composed_program_unit"),
+    ("program_stack", "attach_program_stack", "program_stack_unit"),
+    ("program_tower", "attach_program_tower", "program_tower_unit"),
+    ("program_lattice", "attach_program_lattice", "program_lattice_unit"),
+    ("program_fabric", "attach_program_fabric", "program_fabric_unit"),
+    ("program_weave", "attach_program_weave", "program_weave_unit"),
+    ("invoked", "", ""),
+    ("succession", "attach_succession_step", "succession_step"),
+    ("mission_plane", "attach_mission_plane_step", "mission_plane_step"),
+)
 
-    root = resolve_tick_root(state, workspace)
+
+def _select_campaign_step(
+    campaign: LocalCampaign, ledger: CapabilityLedger, root: Path, binding: LocalMissionBinding,
+) -> tuple[str, str, str]:
+    unavailable = campaign.unavailable_ids
+    for route, function, handoff_key in _STEP_ROUTES:
+        if route == "invoked":
+            step = _next_step(campaign)
+        else:
+            try:
+                attach = getattr(import_module(f".kernel_{route}", __package__), function)
+                if route in {"succession", "mission_plane"}:
+                    step = attach(campaign, ledger, goal=binding.goal)
+                else:
+                    step = attach(
+                        campaign, ledger, root, goal=binding.goal, done_when=binding.done_when, bind_source=binding.source,
+                    )
+            except Exception:  # Optional extensions must still allow ordinary campaign work.
+                continue
+        if step and step not in unavailable:
+            return step, route, handoff_key
+    return "", "", ""
+
+
+def invoke_campaign_step(ledger: CapabilityLedger, campaign: LocalCampaign, capability_id: str) -> dict[str, Any]:
+    capability = ledger.capabilities.get(capability_id)
+    try:
+        if capability is None:
+            raise ValueError("capability missing from ledger")
+        result = invoke_local_capability(capability)
+    except Exception as error:  # The handoff must survive an entry that fails to run.
+        result = {
+            "capability_id": capability_id, "ok": False, "exit_code": 1, "kind": "python-inprocess",
+            "summary": str(error)[:400], "entry": capability.entry if capability else "",
+        }
+    campaign.record_result(capability_id, bool(result.get("ok")))
+    return result
+
+
+def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
+    """Advance one durable wake. Overlapping callers observe the preceding result."""
     durable = durable_campaign_root(state, workspace)
+    path = campaign_path(durable)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with file_guard(path):
+        return _local_mission_tick(state, workspace, durable)
+
+
+def _local_mission_tick(state: Any, workspace: Path, durable: Path) -> dict[str, Any]:
+    root = resolve_tick_root(state, workspace)
     binding = bind_local_mission(state, repo_path=durable)
     mission_id = str(getattr(state, "mission_id", "") or "local")
     ledger = load_tick_ledger(root)
-    campaign = load_campaign(durable)
+    campaign = _prepare_campaign(load_campaign(durable), mission_id=mission_id, binding=binding, ledger=ledger)
     invoked: list[dict[str, Any]] = []
     contract: dict[str, Any] = {"ok": True, "met": None, "machine_checkable": False, "results": []}
 
@@ -546,10 +667,6 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
             "Local mission sovereignty bound a mission while the ledger was missing; "
             "recorded a structured continue so genesis cannot stall."
         )
-        campaign.mission_id = mission_id
-        campaign.goal = binding.goal
-        campaign.done_when = binding.done_when
-        campaign.bound_from = binding.source
         campaign.tick_count += 1
         campaign.last_summary = summary
         campaign.handoff = campaign_handoff(campaign)
@@ -582,7 +699,6 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         )
         return report
 
-    campaign = _prepare_campaign(campaign, mission_id=mission_id, binding=binding, ledger=ledger)
     if "mission_leftover" in binding.source:
         prefix = "Close operational class `mission_leftover`: "
         leftover_summary = (
@@ -590,212 +706,9 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         )
         campaign.handoff = {**dict(campaign.handoff or {}), "leftover_summary": leftover_summary}
     previous_handoff = dict(campaign.handoff or {})
-    growth_used = False
-    compound_used = False
-    compose_used = False
-    program_used = False
-    stack_used = False
-    tower_used = False
-    lattice_used = False
-    fabric_used = False
-    weave_used = False
-    capability_id = ""
-    try:
-        from blackhole_agent.kernel_consumed_growth import attach_consumed_growth_leaf
-
-        capability_id = attach_consumed_growth_leaf(
-            campaign,
-            ledger,
-            root,
-            goal=binding.goal,
-            done_when=binding.done_when,
-            bind_source=binding.source,
-        )
-        growth_used = bool(capability_id)
-    except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-        capability_id = ""
-        growth_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_compound_loop import attach_compound_loop_leaf
-
-            capability_id = attach_compound_loop_leaf(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            compound_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            compound_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_primitive_compose import attach_primitive_composition
-
-            capability_id = attach_primitive_composition(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            compose_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            compose_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_composed_program import attach_composed_program
-
-            capability_id = attach_composed_program(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            program_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            program_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_program_stack import attach_program_stack
-
-            capability_id = attach_program_stack(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            stack_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            stack_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_program_tower import attach_program_tower
-
-            capability_id = attach_program_tower(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            tower_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            tower_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_program_lattice import attach_program_lattice
-
-            capability_id = attach_program_lattice(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            lattice_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            lattice_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_program_fabric import attach_program_fabric
-
-            capability_id = attach_program_fabric(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            fabric_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            fabric_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_program_weave import attach_program_weave
-
-            capability_id = attach_program_weave(
-                campaign,
-                ledger,
-                root,
-                goal=binding.goal,
-                done_when=binding.done_when,
-                bind_source=binding.source,
-            )
-            weave_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            weave_used = False
-    if not capability_id:
-        capability_id = _next_step(campaign)
-    succession_used = False
-    mission_plane_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_succession import attach_succession_step
-
-            capability_id = attach_succession_step(campaign, ledger, goal=binding.goal)
-            succession_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            succession_used = False
-    if not capability_id:
-        try:
-            from blackhole_agent.kernel_mission_plane import attach_mission_plane_step
-
-            capability_id = attach_mission_plane_step(campaign, ledger, goal=binding.goal)
-            mission_plane_used = bool(capability_id)
-        except Exception:  # noqa: BLE001 - cheap tick must still emit a decision
-            capability_id = ""
-            mission_plane_used = False
+    capability_id, route, handoff_key = _select_campaign_step(campaign, ledger, root, binding)
     if capability_id:
-        capability = ledger.capabilities.get(capability_id)
-        if capability is None:
-            invoked.append(
-                {
-                    "capability_id": capability_id,
-                    "ok": False,
-                    "exit_code": 1,
-                    "kind": "python-inprocess",
-                    "summary": "capability missing from ledger",
-                    "entry": "",
-                }
-            )
-            campaign.failed_ids.append(capability_id)
-        else:
-            try:
-                result = invoke_local_capability(capability)
-            except Exception as error:  # noqa: BLE001 - tick must still emit a decision
-                result = {
-                    "capability_id": capability_id,
-                    "ok": False,
-                    "exit_code": 1,
-                    "kind": "python-inprocess",
-                    "summary": str(error)[:400],
-                    "entry": capability.entry,
-                }
-            invoked.append(result)
-            if result.get("ok"):
-                campaign.completed_ids.append(capability_id)
-            else:
-                campaign.failed_ids.append(capability_id)
+        invoked.append(invoke_campaign_step(ledger, campaign, capability_id))
 
     plane_ok = False
     preserve_handoff = None
@@ -816,34 +729,13 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         mission_plane_ok=plane_ok,
     )
     passed = [item["capability_id"] for item in invoked if item.get("ok")]
-    if mission_plane_used:
-        reason = "mission_plane"
-    elif succession_used:
-        reason = "succession"
-    elif weave_used:
-        reason = "program_weave"
-    elif fabric_used:
-        reason = "program_fabric"
-    elif lattice_used:
-        reason = "program_lattice"
-    elif tower_used:
-        reason = "program_tower"
-    elif stack_used:
-        reason = "program_stack"
-    elif program_used:
-        reason = "composed_program"
-    elif compose_used:
-        reason = "primitive_compose"
-    elif compound_used:
-        reason = "compound_loop"
-    elif growth_used:
-        reason = "consumed_growth"
-    elif invoked:
-        reason = "invoked"
-    elif plane_ok:
-        reason = "mission_plane_ok"
-    else:
-        reason = "no_safe_capability"
+    next_retry = min(
+        (retry.next_tick for retry in campaign.retries.values() if retry.next_tick > campaign.tick_count + 1),
+        default=None,
+    )
+    reason = route or ("mission_plane_ok" if plane_ok else "no_safe_capability")
+    if not route and next_retry is not None:
+        reason = "retry_deferred"
     evidence = [
         f"root={root}",
         f"ledger_count={len(ledger.capabilities)}",
@@ -855,143 +747,23 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         f"mission_plane_ok={plane_ok}",
     ]
     evidence.extend(f"invoked={item['capability_id']}:ok={item.get('ok')}" for item in invoked)
-    if passed and mission_plane_used:
-        delta = (
-            "Local mission-plane escaped cheap-anchor rotation and succession via "
-            + ", ".join(passed)
-            + " after first-class kernels were unavailable."
-        )
-        summary = (
-            f"Local mission-plane executed {', '.join(passed)} after cheap "
-            "local-anchor rotation and succession were exhausted."
-        )
-    elif passed and weave_used:
-        delta = (
-            "Local program-weave raised and proved "
-            + ", ".join(passed)
-            + " as a program weave after unique program-fabric coverage saturated."
-        )
-        summary = (
-            f"Local program-weave raised and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep compounding tapestries instead of "
-            "falling through to cheap inventory."
-        )
-    elif passed and fabric_used:
-        delta = (
-            "Local program-fabric minted and proved "
-            + ", ".join(passed)
-            + " as a program fabric after unique program-lattice coverage saturated."
-        )
-        summary = (
-            f"Local program-fabric minted and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep compounding weaves instead of "
-            "probing cheap inventory."
-        )
-    elif passed and lattice_used:
-        delta = (
-            "Local program-lattice minted and proved "
-            + ", ".join(passed)
-            + " as a program lattice after unique program-tower coverage saturated."
-        )
-        summary = (
-            f"Local program-lattice minted and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep compounding fabrics instead of "
-            "falling back to cheap inventory probes."
-        )
-    elif passed and tower_used:
-        delta = (
-            "Local program-tower promoted and proved "
-            + ", ".join(passed)
-            + " as a program tower after unique stacked-program coverage saturated."
-        )
-        summary = (
-            f"Local program-tower promoted and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep compounding lattices instead of "
-            "rotating cheap inventory."
-        )
-    elif passed and stack_used:
-        delta = (
-            "Local program-stack promoted and proved "
-            + ", ".join(passed)
-            + " as a stacked program after unique composed-program coverage saturated."
-        )
-        summary = (
-            f"Local program-stack promoted and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep compounding towers instead of "
-            "blocking."
-        )
-    elif passed and program_used:
-        delta = (
-            "Local composed-program promoted and proved "
-            + ", ".join(passed)
-            + " as a stacked composition program after unique composition coverage saturated."
-        )
-        summary = (
-            f"Local composed-program promoted and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep stacking programs instead of "
-            "blocking."
-        )
-    elif passed and compose_used:
-        delta = (
-            "Local primitive-compose promoted and proved "
-            + ", ".join(passed)
-            + " as a multi-primitive composition after unique primitive coverage saturated."
-        )
-        summary = (
-            f"Local primitive-compose promoted and proved {', '.join(passed)} "
-            "in-process so recovered kernels keep compounding programs instead of "
-            "blocking."
-        )
-    elif passed and compound_used:
-        delta = (
-            "Local compound-loop absorbed and proved "
-            + ", ".join(passed)
-            + " as a novelty-ranked primitive after consumed-campaign leaves saturated."
-        )
-        summary = (
-            f"Local compound-loop absorbed and proved {', '.join(passed)} "
-            "in-process so recovered kernels expand primitive coverage instead of "
-            "blocking."
-        )
-    elif passed and growth_used:
-        delta = (
-            "Local consumed-growth absorbed and proved "
-            + ", ".join(passed)
-            + " in-process after cheap inventory was all that remained."
-        )
-        summary = (
-            f"Local consumed-growth absorbed and proved {', '.join(passed)} "
-            "in-process so recovered kernels compound capability instead of "
-            "rotating inventory."
-        )
-    elif passed and succession_used:
-        delta = (
-            "Local mission succession escaped cheap-anchor rotation via "
-            + ", ".join(passed)
-            + " after first-class kernels were unavailable."
-        )
-        summary = (
-            f"Local mission succession executed {', '.join(passed)} after cheap "
-            "local-anchor rotation was exhausted."
-        )
-    elif passed:
-        delta = (
-            "Local mission sovereignty bound a campaign from "
-            f"{binding.source} and invoked "
-            + ", ".join(passed)
-            + " in-process after first-class kernels were unavailable."
-        )
-        summary = (
-            f"Local mission sovereignty executed {', '.join(passed)} toward "
-            "the bound mission without a first-class CLI kernel."
-        )
+    if next_retry is not None:
+        evidence.append(f"next_retry_tick={next_retry}")
+    if passed:
+        if handoff_key:
+            summary = f"Local {route.replace('_', ' ')} executed {capability_id} toward the bound mission."
+            delta = summary
+        else:
+            summary = (f"Local mission sovereignty executed {capability_id} toward the bound mission "
+                       "without a first-class CLI kernel.")
+            delta = (f"Local mission sovereignty bound a campaign from {binding.source} and invoked "
+                     f"{capability_id} in-process after first-class kernels were unavailable.")
     elif invoked:
         delta = ""
-        summary = (
-            "Local mission sovereignty invoked "
-            + ", ".join(item["capability_id"] for item in invoked)
-            + " but the entries failed; recorded a structured continue."
-        )
+        summary = f"{capability_id} failed. Its next eligible wake is {campaign.retries[capability_id].next_tick}."
+    elif reason == "retry_deferred":
+        delta = ""
+        summary = f"Waiting for a campaign step to become eligible again on wake {next_retry}."
     elif plane_ok:
         delta = (
             "Local mission-plane recorded mission_plane_ok because the bound "
@@ -1034,28 +806,8 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
         preserve_handoff(campaign, previous_handoff)
     else:
         campaign.handoff = campaign_handoff(campaign)
-    if succession_used and passed:
-        campaign.handoff["succession_step"] = passed[0]
-    if mission_plane_used and passed:
-        campaign.handoff["mission_plane_step"] = passed[0]
-    if growth_used and passed:
-        campaign.handoff["consumed_growth_leaf"] = passed[0]
-    if compound_used and passed:
-        campaign.handoff["compound_loop_leaf"] = passed[0]
-    if compose_used and passed:
-        campaign.handoff["primitive_compose_unit"] = passed[0]
-    if program_used and passed:
-        campaign.handoff["composed_program_unit"] = passed[0]
-    if stack_used and passed:
-        campaign.handoff["program_stack_unit"] = passed[0]
-    if tower_used and passed:
-        campaign.handoff["program_tower_unit"] = passed[0]
-    if lattice_used and passed:
-        campaign.handoff["program_lattice_unit"] = passed[0]
-    if fabric_used and passed:
-        campaign.handoff["program_fabric_unit"] = passed[0]
-    if weave_used and passed:
-        campaign.handoff["program_weave_unit"] = passed[0]
+    if handoff_key and passed:
+        campaign.handoff[handoff_key] = passed[0]
     if plane_ok:
         campaign.handoff["mission_plane_ok"] = True
     if finalize:
@@ -1104,7 +856,6 @@ def local_mission_tick(state: Any, workspace: Path) -> dict[str, Any]:
 
 
 def _write_fixture_ledger(root: Path, *, include_sovereignty: bool = False) -> Path:
-    from blackhole_agent.capability_compounder import default_ledger_path
     from blackhole_agent.local_capability_kernel import _write_fixture_ledger as write_cheap
 
     path = write_cheap(root)

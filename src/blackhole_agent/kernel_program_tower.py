@@ -309,7 +309,7 @@ def select_program_tower(
 ) -> str:
     """Pick an unfinished in-ledger tower, else the top novel recipe."""
 
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     existing = [
         item_id
         for item_id, item in ledger.capabilities.items()
@@ -425,7 +425,7 @@ def saturate_program_towers(
     """Promote every remaining novel consecutive-pair program tower."""
 
     promoted: list[str] = []
-    skip = {item for item in [*campaign.completed_ids, *campaign.failed_ids] if item}
+    skip = campaign.unavailable_ids
     while True:
         tower_id = ""
         for item in rank_ready_program_towers(ledger, skip_ids=tuple(skip)):

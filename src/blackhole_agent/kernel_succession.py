@@ -28,7 +28,6 @@ from blackhole_agent.local_capability_kernel import (
     LOCAL_DENYLIST,
     PREFERRED_LOCAL_IDS,
     _EXPENSIVE_MARKERS,
-    invoke_local_capability,
     is_safe_local_capability,
     load_tick_ledger,
 )
@@ -36,6 +35,7 @@ from blackhole_agent.local_mission_sovereignty import (
     LocalCampaign,
     campaign_handoff,
     durable_campaign_root,
+    invoke_campaign_step,
     load_campaign,
     plan_campaign_program,
     save_campaign,
@@ -76,11 +76,11 @@ def is_succession_capability(capability: Capability) -> bool:
 
 
 def cheap_remaining(campaign: LocalCampaign) -> list[str]:
-    completed = {item for item in campaign.completed_ids if item}
+    unavailable = campaign.unavailable_ids
     return [
         item
         for item in campaign.program[campaign.cursor :]
-        if item and item not in completed
+        if item and item not in unavailable
     ]
 
 
@@ -91,15 +91,9 @@ def cheap_rotation_exhausted(campaign: LocalCampaign, ledger: CapabilityLedger) 
         return False
     if not campaign.completed_ids and int(campaign.tick_count or 0) <= 0:
         return False
-    replanned = plan_campaign_program(
-        ledger,
-        campaign.goal,
-        skip_ids=tuple(campaign.completed_ids),
-    )
-    if not replanned:
-        return True
-    completed = {item for item in campaign.completed_ids if item}
-    return all(item in completed for item in replanned)
+    unavailable = campaign.unavailable_ids
+    replanned = plan_campaign_program(ledger, campaign.goal, skip_ids=tuple(unavailable))
+    return all(item in unavailable for item in replanned)
 
 
 def plan_succession_program(
@@ -152,9 +146,7 @@ def select_succession_step(
     *,
     goal: str = "",
 ) -> str:
-    skip = tuple(
-        dict.fromkeys([*campaign.completed_ids, *campaign.failed_ids, *PREFERRED_LOCAL_IDS])
-    )
+    skip = tuple(campaign.unavailable_ids.union(PREFERRED_LOCAL_IDS))
     program = plan_succession_program(ledger, goal or campaign.goal, skip_ids=skip)
     return program[0] if program else ""
 
@@ -238,40 +230,7 @@ def continue_resumed_succession(
     }
 
 
-def invoke_succession_step(
-    ledger: CapabilityLedger,
-    campaign: LocalCampaign,
-    capability_id: str,
-) -> dict[str, Any]:
-    capability = ledger.capabilities.get(capability_id)
-    if capability is None:
-        result = {
-            "capability_id": capability_id,
-            "ok": False,
-            "exit_code": 1,
-            "kind": "python-inprocess",
-            "summary": "capability missing from ledger",
-            "entry": "",
-        }
-        campaign.failed_ids.append(capability_id)
-        return result
-    try:
-        result = invoke_local_capability(capability)
-    except Exception as error:  # noqa: BLE001 - succession must still emit a decision
-        result = {
-            "capability_id": capability_id,
-            "ok": False,
-            "exit_code": 1,
-            "kind": "python-inprocess",
-            "summary": str(error)[:400],
-            "entry": capability.entry,
-        }
-    if result.get("ok"):
-        if capability_id not in campaign.completed_ids:
-            campaign.completed_ids.append(capability_id)
-    elif capability_id not in campaign.failed_ids:
-        campaign.failed_ids.append(capability_id)
-    return result
+invoke_succession_step = invoke_campaign_step
 
 
 def builtin_fixture_succession() -> dict[str, Any]:
