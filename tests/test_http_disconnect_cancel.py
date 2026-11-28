@@ -9,18 +9,19 @@ import time
 from pathlib import Path
 
 from blackhole_agent.capability_service import build_server, http_client_disconnected
+from blackhole_agent.invocation_artifacts import artifacts_root
 
 _SLOW_TOOL = """
-import json, sys, time
+import json, os, time
 from pathlib import Path
-state = json.load(sys.stdin)
-path = Path(state["heartbeat_path"])
+path = Path(os.environ["BLACKHOLE_EFFECT_DIR"]) / "heartbeat"
 deadline = time.monotonic() + 20
 n = 0
-while time.monotonic() < deadline:
-    n += 1
-    path.write_text(str(n), encoding="utf-8")
-    time.sleep(0.05)
+with path.open("ab", buffering=0) as stream:
+    while time.monotonic() < deadline:
+        n += 1
+        stream.write(b".")
+        time.sleep(0.05)
 print(json.dumps({"beats": n}))
 """
 
@@ -70,7 +71,7 @@ def _write_tool(root: Path, slug: str, source: str, requires: list[str], provide
 
 def _fixture(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
-    _write_tool(root, "heartbeat-hold", _SLOW_TOOL, ["heartbeat_path"], ["beats"])
+    _write_tool(root, "heartbeat-hold", _SLOW_TOOL, [], ["beats"])
     _write_tool(root, "text-reverser", _FAST_TOOL, ["raw_text"], ["reversed_text"])
     (root / "capabilities").mkdir(exist_ok=True)
     (root / "capabilities" / "ledger.json").write_text(
@@ -86,13 +87,6 @@ def _fixture(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     return root
-
-
-def _beats(path: Path) -> int:
-    try:
-        return int(path.read_text(encoding="utf-8").strip() or "0")
-    except (OSError, ValueError):
-        return 0
 
 
 def test_http_client_disconnected_detects_peer_close() -> None:
@@ -114,7 +108,7 @@ def test_http_client_disconnected_detects_peer_close() -> None:
 
 def test_aborting_invoke_stops_heartbeat_and_plane_stays_up(tmp_path: Path) -> None:
     root = _fixture(tmp_path)
-    heartbeat = root / "capabilities" / "absorbed" / "heartbeat-hold" / "heartbeat.txt"
+    effects = artifacts_root(root)
     httpd = build_server(root, port=0)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -123,7 +117,7 @@ def test_aborting_invoke_stops_heartbeat_and_plane_stays_up(tmp_path: Path) -> N
         body = json.dumps(
             {
                 "capability_id": "capability.absorbed-heartbeat-hold",
-                "input": {"heartbeat_path": str(heartbeat)},
+                "input": {},
             }
         ).encode("utf-8")
         sock = socket.create_connection(("127.0.0.1", port), timeout=10)
@@ -138,19 +132,23 @@ def test_aborting_invoke_stops_heartbeat_and_plane_stays_up(tmp_path: Path) -> N
             ).encode("ascii")
             + body
         )
-        started = time.monotonic()
-        while time.monotonic() - started < 15 and _beats(heartbeat) < 1:
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            heartbeat = next(effects.glob("*/heartbeat"), None)
+            if heartbeat is not None and heartbeat.stat().st_size:
+                break
             time.sleep(0.05)
-        assert _beats(heartbeat) >= 1
+        else:
+            raise AssertionError("tool produced no heartbeat")
         try:
             sock.shutdown(socket.SHUT_RDWR)
         except OSError:
             pass
         sock.close()
         time.sleep(1.5)
-        sample_a = _beats(heartbeat)
+        sample_a = heartbeat.stat().st_size
         time.sleep(0.8)
-        sample_b = _beats(heartbeat)
+        sample_b = heartbeat.stat().st_size
         assert sample_b == sample_a
 
         follow = json.dumps(

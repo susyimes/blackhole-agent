@@ -88,7 +88,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from blackhole_agent.capability_compounder import atomic_write_json, utc_now_iso
-from blackhole_agent.process_capture import ProcessCancelled
+from blackhole_agent.process_capture import CancellationSignal, ProcessCancelled
 from blackhole_agent.tool_routing import (
     DEFAULT_EXECUTABLE_TOOL_PROVIDERS,
     EXECUTABLE_TOOL_ROUTE,
@@ -148,6 +148,10 @@ class McpProtocolError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.www_authenticate = str(www_authenticate or "")
+
+
+class McpRequestCancelled(McpProtocolError, ProcessCancelled):
+    """A peer's cancellation reply preserves its diagnostic and stops the caller's work."""
 
 
 def extract_next_cursor(payload: Mapping[str, Any] | None) -> str:
@@ -579,7 +583,7 @@ class McpStdioSession:
         request_id: int,
         *,
         cancel_after: float | None = None,
-        cancel_event: threading.Event | None = None,
+        cancel_event: CancellationSignal | None = None,
     ) -> dict[str, Any]:
         cancel_at = (
             time.monotonic() + float(cancel_after) if cancel_after is not None else None
@@ -664,7 +668,7 @@ class McpStdioSession:
         params: Mapping[str, Any] | None = None,
         *,
         cancel_after: float | None = None,
-        cancel_event: threading.Event | None = None,
+        cancel_event: CancellationSignal | None = None,
         progress_token: str | int | None = None,
     ) -> Any:
         if cancel_event is not None and cancel_event.is_set():
@@ -688,11 +692,8 @@ class McpStdioSession:
         if "error" in response:
             error = response["error"] or {}
             code = error.get("code")
-            if code == JSONRPC_REQUEST_CANCELLED:
-                raise ProcessCancelled()
-            raise McpProtocolError(
-                f"JSON-RPC error {error.get('code')}: {error.get('message')} for method {method}"
-            )
+            error_type = McpRequestCancelled if code == JSONRPC_REQUEST_CANCELLED else McpProtocolError
+            raise error_type(f"JSON-RPC error {code}: {error.get('message')} for method {method}")
         return response.get("result")
 
     def notify(self, method: str, params: Mapping[str, Any] | None = None) -> None:
@@ -749,7 +750,7 @@ class McpStdioSession:
         arguments: Mapping[str, Any],
         *,
         cancel_after: float | None = None,
-        cancel_event: threading.Event | None = None,
+        cancel_event: CancellationSignal | None = None,
         progress_token: str | int | None = None,
     ) -> dict[str, Any]:
         result = self.request(

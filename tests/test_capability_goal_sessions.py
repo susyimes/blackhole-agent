@@ -32,13 +32,15 @@ _SHOUTER = (
     "print(json.dumps({'loud_text': state['reversed_text'].upper()}))\n"
 )
 
-_SLEEPER = (
-    "import json, sys, time, pathlib\n"
-    "state = json.load(sys.stdin)\n"
-    "time.sleep(30)\n"
-    "pathlib.Path(state['marker_path']).write_text('done')\n"
-    "print(json.dumps({'marker_done': True}))\n"
-)
+_SLEEPER = """import json, os, sys, time
+from pathlib import Path
+effects = Path(os.environ['BLACKHOLE_EFFECT_DIR'])
+(effects / (json.load(sys.stdin)['start_token'] + '-ready')).touch()
+while not (effects / 'release').exists():
+    time.sleep(0.02)
+(effects / 'done').touch()
+print(json.dumps({'marker_done': True}))
+"""
 
 
 def _write_tool(root: Path, slug: str, source: str, requires: list, provides: list) -> None:
@@ -87,7 +89,7 @@ def _fixture_root(base: Path, *, with_sleeper: bool = False) -> Path:
     _write_tool(root, "loud-shouter", _SHOUTER, ["reversed_text"], ["loud_text"])
     ids = ["capability.absorbed-text-reverser", "capability.absorbed-loud-shouter"]
     if with_sleeper:
-        _write_tool(root, "slow-marker", _SLEEPER, ["start_token", "marker_path"], ["marker_done"])
+        _write_tool(root, "slow-marker", _SLEEPER, ["start_token"], ["marker_done"])
         ids.append("capability.absorbed-slow-marker")
     (root / "capabilities").mkdir(parents=True, exist_ok=True)
     (root / "capabilities" / "ledger.json").write_text(
@@ -435,28 +437,25 @@ def test_cancel_awaiting_session(server) -> None:
 
 def test_cancel_running_session_kills_tool_tree(server) -> None:
     root, base = server
-    marker = root / "capabilities" / "absorbed" / "slow-marker" / "marker.txt"
-    started = time.monotonic()
     status, created = _request(
-        "POST",
-        f"{base}/sessions",
-        {
-            "initial_state": {"start_token": "go", "marker_path": str(marker)},
-            "goal": ["marker_done"],
-        },
+        "POST", f"{base}/sessions", {"initial_state": {"start_token": "go"}, "goal": ["marker_done"]},
     )
     assert status == 200
     session_id = created["session"]["session_id"]
     assert created["session"]["status"] == "running"
-    time.sleep(1.5)  # let the tool actually spawn
+    effects = artifacts_root(root)
+    deadline = time.monotonic() + 10
+    while (ready := next(effects.glob("*/go-ready"), None)) is None and time.monotonic() < deadline:
+        time.sleep(0.03)
+    assert ready is not None
     status, body = _request("DELETE", f"{base}/sessions/{session_id}")
     assert status == 200
     final = _wait_status(base, session_id, {"cancelled"}, timeout=15)
-    assert time.monotonic() - started < 20  # the tool sleeps 30s
     kinds = [t["kind"] for t in final["transitions"]]
     assert "cancel_requested" in kinds and kinds[-1] == "cancelled"
-    time.sleep(30)  # beyond the tool's full sleep: the tree must be dead
-    assert not marker.exists()
+    ready.with_name("release").touch()
+    time.sleep(0.3)
+    assert not ready.with_name("done").exists()
 
 
 def test_session_listing(server) -> None:
@@ -502,8 +501,11 @@ def test_sessions_survive_restart(tmp_path: Path) -> None:
 def test_interrupted_session_resumes_after_restart(tmp_path: Path) -> None:
     root = _fixture_root(tmp_path)
     manager = SessionManager(root)
-    record = manager.create_session({"raw_text": "blackhole"}, ["loud_text"])["session"]
-    # Simulate server death mid-execution: status running, one step persisted.
+    # Seed a pre-lease checkpoint with no live worker. The HTTP acceptance
+    # probe separately kills a real owning process after this same boundary.
+    record = manager.create_session({}, ["loud_text"])["session"]
+    record.update(status="running", pending_keys=[], initial_state={"raw_text": "blackhole"})
+    record["state"]["raw_text"] = "blackhole"
     record["steps"].append(
         {
             "capability_id": "capability.absorbed-text-reverser",
@@ -529,6 +531,7 @@ def test_interrupted_session_resumes_after_restart(tmp_path: Path) -> None:
         final = _wait_status(base, record["session_id"], {"solved"})
         assert final["outcome"] == {"loud_text": "ELOHKCALB"}
         assert len(final["steps"]) == 2  # persisted step + resumed step
+        assert final["steps"][0]["response_digest"] == "deadbeef"
     finally:
         httpd.shutdown()
         httpd.server_close()

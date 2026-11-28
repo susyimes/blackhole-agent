@@ -46,6 +46,14 @@ when the only program for a goal runs through quarantined capabilities,
 frozen cases, replans, and answers in one request — with a healing trace,
 and an honest `solved: false` when a blocker's cases genuinely fail.
 
+Goal sessions share execution ownership across servers using the same root.
+Clients can follow `GET /sessions/{id}/events` or cancel a running tool with
+`DELETE /sessions/{id}` through either server. If the worker process exits,
+a surviving server reports the session as `interrupted`. Inspect any effects
+from the unfinished step before calling `POST /sessions/{id}/resume`. Resume
+skips saved steps and can repeat a step whose result had yet to be saved.
+Drain sessions on older servers before adding the first server with execution locks.
+
 [Interval schedules](docs/invocation-schedules.md) share one execution owner
 per service root. Other service processes remain available as standbys and
 take over scheduling after the owner exits. A fire interrupted by a crash

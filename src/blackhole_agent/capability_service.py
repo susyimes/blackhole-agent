@@ -52,10 +52,9 @@ module turns the ledger into a service:
   exactly the minimal external keys the client must supply (answered as
   ``awaiting_input`` with per-key consumers, no subprocess spawned);
   ``POST /sessions/{id}/input`` resumes execution with the supplied keys;
-  execution runs on a background thread whose transitions are persisted
-  atomically, so a server restart recovers sessions — mid-execution ones as
-  resumable ``interrupted`` — and ``DELETE /sessions/{id}`` cancels a
-  running session by terminating the tool's entire owned process tree.
+  one server holds each running session's execution lock. Peers can cancel
+  its tool tree with ``DELETE /sessions/{id}`` and explicitly resume an
+  interrupted session from its last saved step after the owner exits.
 - The plane is fail-closed: unknown, unproved, or non-absorbed capability
   ids, malformed bodies, missing/extra input keys, empty or
   non-machine-checkable done_when texts, and malformed solve requests all
@@ -521,6 +520,7 @@ from blackhole_agent.invocation_history import (
 from blackhole_agent.process_capture import (
     MAX_OUTPUT_BYTES_ENV,
     MAX_SCRATCH_BYTES_ENV,
+    CancellationSignal,
     OutputLimitExceeded,
     ProcessCancelled,
     ResourceLimits,
@@ -1545,7 +1545,7 @@ def invoke_capability(
     provided_input: Any,
     *,
     timeout: int = INVOKE_TIMEOUT_SECONDS,
-    cancel_event: threading.Event | None = None,
+    cancel_event: CancellationSignal | None = None,
     output_listener: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """Execute one proved absorbed capability or opted-in MCP plugin tool.
@@ -2585,7 +2585,7 @@ def build_server(
     configure_mcp_plugin_plane(None)
     if mcp_plugin_commands:
         start_mcp_plugin_plane(mcp_plugin_commands)
-    from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager
+    from blackhole_agent.capability_sessions import TERMINAL_STATUSES, SessionManager, session_event_payload
     from blackhole_agent.invocation_receipts import (
         InvocationReceipts,
         ReceiptError,
@@ -3241,6 +3241,7 @@ def build_server(
                     )
                     return
                 listener = sessions.subscribe_events(events_id)
+                last_sequence = None
                 try:
                     release_request_deadline(self)
                     self.send_response(200)
@@ -3257,11 +3258,16 @@ def build_server(
                         if http_client_disconnected(sock):
                             break
                         try:
-                            item = listener.get(timeout=DISCONNECT_POLL_SECONDS)
+                            item = listener.get(timeout=0.5)
                         except queue.Empty:
-                            continue
+                            # A peer process can own the worker or request cancellation.
+                            item = session_event_payload(sessions.get_session(events_id)["session"])
                         if item is None:
                             break
+                        sequence = (item.get("transition") or {}).get("seq", -1)
+                        if last_sequence is not None and sequence <= last_sequence:
+                            continue
+                        last_sequence = sequence
                         try:
                             self.wfile.write(_encode_session_sse(item))
                             self.wfile.flush()

@@ -44,7 +44,7 @@ from blackhole_agent.mcp_plugin_sandbox import (
     SandboxedPluginProcess,
     spawn_sandboxed_plugin,
 )
-from blackhole_agent.process_capture import ProcessCancelled
+from blackhole_agent.process_capture import CancellationSignal, ProcessCancelled
 
 SCHEMA_VERSION = 1
 PLUGIN_ID_PREFIX = "capability.mcp-plugin-"
@@ -287,7 +287,7 @@ class McpPluginPlane:
         provided_input: Mapping[str, Any],
         *,
         timeout: int | None = None,
-        cancel_event: threading.Event | None = None,
+        cancel_event: CancellationSignal | None = None,
         output_listener: Callable[[str, str], None] | None = None,
     ) -> dict[str, Any]:
         """Execute one plugin tool and return the invocation-plane payload."""

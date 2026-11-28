@@ -36,7 +36,11 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Mapping, Sequence
+from typing import Any, BinaryIO, Callable, Mapping, Protocol, Sequence
+
+
+class CancellationSignal(Protocol):
+    def is_set(self) -> bool: ...
 
 
 class ProcessCancelled(RuntimeError):
@@ -770,7 +774,7 @@ def run_captured_process(
     env: dict[str, str] | None = None,
     resource_limits: ResourceLimits | None = None,
     shell: bool = False,
-    cancel_event: threading.Event | None = None,
+    cancel_event: CancellationSignal | None = None,
     sandbox_roots: Sequence[Path] | None = None,
     sandbox_rw_roots: Sequence[Path] | None = None,
     max_output_bytes: int | None = None,

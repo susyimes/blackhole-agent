@@ -13,6 +13,7 @@ from urllib.error import HTTPError
 import pytest
 
 from blackhole_agent.capability_service import build_server
+from blackhole_agent.capability_sessions import SessionManager
 from blackhole_agent.session_notify import (
     SIGNATURE_HEADER,
     NotifyTargetError,
@@ -92,7 +93,7 @@ def _request(method: str, url: str, payload: dict | None = None) -> tuple[int, o
         return exc.code, json.loads(exc.read().decode("utf-8"))
 
 
-def _start_listener(*, fail_first: bool = False):
+def _start_listener(*, fail_first: bool = False, acknowledge: threading.Event | None = None):
     box: dict = {"lock": threading.Lock(), "items": [], "fail_first": fail_first}
 
     class Handler(BaseHTTPRequestHandler):
@@ -110,6 +111,8 @@ def _start_listener(*, fail_first: bool = False):
             with box["lock"]:
                 box["items"].append(item)
                 count = len(box["items"])
+            if acknowledge is not None:
+                acknowledge.wait(timeout=5)
             if box["fail_first"] and count == 1:
                 self.send_response(503)
                 self.send_header("Content-Length", "0")
@@ -188,8 +191,9 @@ def test_loopback_url_accepted_and_non_loopback_refused() -> None:
         normalize_notify_spec(None, SECRET)
 
 
-def test_terminal_session_posts_signed_callback(plane: str) -> None:
-    server, thread, url, box = _start_listener()
+def test_terminal_session_posts_signed_callback(plane: str, tmp_path: Path) -> None:
+    acknowledge = threading.Event()
+    server, thread, url, box = _start_listener(acknowledge=acknowledge)
     try:
         status, created = _request(
             "POST",
@@ -211,6 +215,10 @@ def test_terminal_session_posts_signed_callback(plane: str) -> None:
         assert "notify_secret" not in final
         items = _wait_items(box, 1)
         assert len(items) == 1
+        # A second server starts recovery while the receiver still holds the first POST open.
+        SessionManager(tmp_path / "repo").recover()
+        assert len(_wait_items(box, 2, timeout=0.4)) == 1
+        acknowledge.set()
         payload = json.loads(items[0]["raw"].decode("utf-8"))
         assert payload["event"] == "session.terminal"
         assert payload["session_id"] == session_id
@@ -225,8 +233,9 @@ def test_terminal_session_posts_signed_callback(plane: str) -> None:
             time.sleep(0.05)
             delivered = _wait_status(plane, session_id, {"solved"})
         assert delivered["notify"]["delivered"] is True
-        assert delivered["notify"]["attempts"] >= 1
+        assert delivered["notify"]["attempts"] == 1
     finally:
+        acknowledge.set()
         _stop_listener(server, thread)
 
 
