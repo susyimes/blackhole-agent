@@ -3534,25 +3534,12 @@ def run_continuous_loop(
 
 
 def mission_summary(state: UnboundMission, state_path: Path) -> dict[str, Any]:
-    return {
-        "mission_id": state.mission_id,
-        "status": state.status,
-        "stage": state.stage,
-        "goal": state.goal,
-        "done_when": state.done_when,
-        "iteration": state.iteration,
-        "milestone_count": state.milestone_count,
-        "kernel": state.kernel,
-        "model": state.model,
-        "branch": state.branch,
-        "workspace_path": state.workspace_path,
-        "state_path": str(state_path),
-        "last_milestone_head": state.last_milestone_head,
-        "current_strategy": state.current_strategy,
-        "next_step": state.next_step,
-        "last_summary": state.last_summary,
-        "last_error": state.last_error,
-    }
+    keys = (
+        "mission_id", "status", "stage", "goal", "done_when", "iteration", "milestone_count",
+        "kernel", "model", "branch", "workspace_path", "last_milestone_head", "current_strategy",
+        "next_step", "last_summary", "last_error",
+    )
+    return {**{key: getattr(state, key) for key in keys}, "state_path": str(state_path)}
 
 
 @app.command(help="Create a durable single-agent mission and its long-lived worktree.")
@@ -4077,17 +4064,18 @@ def status(
     mission_id: str = typer.Option("", "--mission-id", help="Mission id; defaults to latest."),
     output_dir: Path = typer.Option(DEFAULT_OUTPUT_DIR, "--output-dir", help="Durable mission state root."),
 ) -> None:
+    from blackhole_agent.kernel_mission_memory import iter_turn_records, mission_failures
+
     try:
-        resolved = resolve_state_path(
-            state_path=state_path,
-            repo_path=repo_path,
-            mission_id=mission_id,
-            output_dir=output_dir,
-        )
+        resolved = resolve_state_path(state_path=state_path, repo_path=repo_path, mission_id=mission_id,
+                                      output_dir=output_dir)
         state = load_mission(resolved)
     except (ValueError, FileNotFoundError) as error:
         raise typer.BadParameter(str(error)) from error
-    console.print_json(data=mission_summary(state, resolved))
+    summary = mission_summary(state, resolved)
+    records = iter_turn_records(resolved, {"recent_turns": state.recent_turns})
+    summary["failures"] = mission_failures(Path(state.repo_path), state.mission_id, records)
+    console.print_json(data=summary)
 
 
 def set_mission_status(state_path: Path, status_value: str) -> UnboundMission:

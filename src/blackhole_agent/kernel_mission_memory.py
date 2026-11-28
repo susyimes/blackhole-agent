@@ -1,21 +1,4 @@
-"""Replay harvested operational classes from durable memory at the next genesis.
-
-Experience fuel reads ``state.json`` fields and ``recent_turns``. A harvested
-class that lives only in a completed mission's ``turns/*/turn.json`` (empty
-``recent_turns``, generic next_step, no last_error) never enters that surface.
-``ingest_unbound_turn`` writes the pattern register, but harvest only promotes
-forced rows after three recurrences, so a single completed-turn class is
-forgotten. The next genesis then invents instead of replaying the failure.
-
-This module closes that hole:
-
-- scan completed-mission turn artifacts, not only ``recent_turns``
-- persist harvested operational classes into durable mission memory
-- recall those classes at the next genesis even after the mission directory
-  is gone
-- bind the recalled class instead of a catalog invention
-- keep structurally closed classes out of fuel
-"""
+"""Retain failed-turn diagnostics for mission status and recall open classes at genesis."""
 
 from __future__ import annotations
 
@@ -24,7 +7,7 @@ import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from blackhole_agent.capability_compounder import (
     Capability,
@@ -36,6 +19,7 @@ from blackhole_agent.capability_compounder import (
     utc_now_iso,
 )
 from blackhole_agent.experience_fuel import ExperienceCandidate, leftover_next_step
+from blackhole_agent.file_guard import atomic_write_json, file_guard
 from blackhole_agent.kernel_leftover import leftover_marker_ids
 from blackhole_agent.local_capability_kernel import LOCAL_DENYLIST
 
@@ -46,6 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 KERNEL_TURN_FAILED = "kernel_turn_failed"
 _SKIP_MEMORY_CLASSES = frozenset({"", "mission_leftover"})
 _SALVAGE_CLASSES = frozenset({"quota_exhausted", "auth_failed"})
+_UNKNOWN_TIME = datetime.min.replace(tzinfo=timezone.utc)
 
 MISSION_MEMORY_DONE_WHEN = (
     f"capability_exists:{MISSION_MEMORY_ID};"
@@ -88,24 +73,26 @@ def mission_memory_proof_command() -> str:
     )
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def memory_path(root: Path) -> Path:
     return Path(root) / MEMORY_RELATIVE
 
 
-def load_mission_memory(root: Path) -> dict[str, Any]:
-    path = memory_path(root)
-    if not path.is_file():
-        return {"schema_version": SCHEMA_VERSION, "updated_at": "", "classes": {}}
+def _read_json(path: Path, *, strict: bool = False) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"schema_version": SCHEMA_VERSION, "updated_at": "", "classes": {}}
-    if not isinstance(payload, Mapping):
-        return {"schema_version": SCHEMA_VERSION, "updated_at": "", "classes": {}}
+        if not isinstance(payload, dict):
+            raise ValueError(f"Expected an object in {path}")
+        return payload
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        if strict:
+            raise
+        return {}
+
+
+def load_mission_memory(root: Path) -> dict[str, Any]:
+    payload = _read_json(memory_path(root))
     raw = payload.get("classes") if isinstance(payload.get("classes"), Mapping) else {}
     classes = {
         str(key): dict(value)
@@ -119,24 +106,20 @@ def load_mission_memory(root: Path) -> dict[str, Any]:
     }
 
 
+def _write_memory(path: Path, payload: Mapping[str, Any]) -> None:
+    atomic_write_json(path, {
+        "schema_version": int(payload.get("schema_version") or SCHEMA_VERSION),
+        "updated_at": utc_now_iso(),
+        "classes": dict(payload.get("classes") or {}),
+    })
+
+
 def save_mission_memory(root: Path, payload: Mapping[str, Any]) -> Path:
     path = memory_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    body = {
-        "schema_version": int(payload.get("schema_version") or SCHEMA_VERSION),
-        "updated_at": _utc_now(),
-        "classes": dict(payload.get("classes") or {}),
-    }
-    path.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with file_guard(path):
+        _write_memory(path, payload)
     return path
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def events_from_turn(record: Mapping[str, Any] | None) -> list[dict[str, str]]:
@@ -145,107 +128,39 @@ def events_from_turn(record: Mapping[str, Any] | None) -> list[dict[str, str]]:
     from blackhole_agent.pattern_register import classify_unbound_turn
 
     turn = dict(record or {})
-    events: list[dict[str, str]] = []
-    salvage = turn.get("kernel_salvage") if isinstance(turn.get("kernel_salvage"), Mapping) else {}
-    salvage_class = str(salvage.get("class_id") or "")
-    if salvage_class in _SALVAGE_CLASSES:
-        events.append(
-            {
-                "class_id": salvage_class,
-                "source": "unbound-salvage",
-                "summary": f"salvaged {salvage_class} without stalling",
-                "evidence": str(salvage.get("evidence") or salvage.get("source") or "")[:400],
-                "at": str(turn.get("finished_at") or turn.get("started_at") or ""),
-                "iteration": str(turn.get("iteration") if turn.get("iteration") is not None else ""),
-            }
-        )
-    for event in classify_unbound_turn(turn):
-        class_id = str(event.get("class_id") or "")
-        if class_id in _SKIP_MEMORY_CLASSES:
-            continue
-        events.append(
-            {
-                "class_id": class_id,
-                "source": str(event.get("source") or "unbound"),
-                "summary": str(event.get("summary") or ""),
-                "evidence": str(event.get("evidence") or "")[:400],
-                "at": str(event.get("at") or ""),
-                "iteration": str(turn.get("iteration") if turn.get("iteration") is not None else ""),
-            }
-        )
-    return events
-
-
-def _remember_identity(mission_id: str, event: Mapping[str, Any]) -> str:
-    return "\n".join(
-        (
-            str(mission_id or ""),
-            str(event.get("iteration") or ""),
-            str(event.get("class_id") or ""),
-            str(event.get("summary") or ""),
-        )
-    )
-
-
-def _same_remembered_turn(stored: str, mission_id: str, event: Mapping[str, Any]) -> bool:
-    """True when two identities name one turn.
-
-    Ingest during the turn can omit the mission id. A later genesis read of
-    that same turn includes it. Those are one occurrence. Two non-empty
-    mission ids stay distinct.
-    """
-
-    parts = str(stored or "").split("\n")
-    if len(parts) != 4:
-        return False
-    stored_mission, iteration, class_id, summary = parts
-    event_mission = str(mission_id or "")
-    if iteration != str(event.get("iteration") or ""):
-        return False
-    if class_id != str(event.get("class_id") or ""):
-        return False
-    if summary != str(event.get("summary") or ""):
-        return False
-    if stored_mission == event_mission:
-        return True
-    return not stored_mission or not event_mission
+    events = classify_unbound_turn(turn)
+    salvage = turn.get("kernel_salvage")
+    if isinstance(salvage, Mapping) and salvage.get("class_id") in _SALVAGE_CLASSES:
+        events.insert(0, {
+            "class_id": salvage["class_id"], "source": "unbound-salvage",
+            "summary": f"salvaged {salvage['class_id']} without stalling",
+            "evidence": str(salvage.get("evidence") or salvage.get("source") or "")[:400],
+            "at": str(turn.get("finished_at") or turn.get("started_at") or ""),
+        })
+    iteration = "" if turn.get("iteration") is None else str(turn["iteration"])
+    return [dict(event, iteration=iteration) for event in events if event["class_id"] not in _SKIP_MEMORY_CLASSES]
 
 
 def iter_turn_records(state_path: Path, state: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
-    """Yield persisted turns, including artifacts omitted from ``recent_turns``."""
-
-    payload = dict(state or {})
-    if not payload:
-        payload = _read_json(Path(state_path))
-    records: list[dict[str, Any]] = []
-    seen_iterations: set[Any] = set()
-    for turn in list(payload.get("recent_turns") or []):
-        if not isinstance(turn, dict):
-            continue
-        records.append(turn)
-        iteration = turn.get("iteration")
-        if iteration is not None:
-            seen_iterations.add(iteration)
-    turns_dir = Path(state_path).parent / "turns"
-    if not turns_dir.is_dir():
-        return records
-    for path in sorted(turns_dir.glob("*/turn.json")):
+    """Include archived turns that aged out of the recent state window."""
+    state_path = Path(state_path)
+    payload = state or _read_json(state_path)
+    records = [turn for turn in payload.get("recent_turns") or [] if isinstance(turn, dict)]
+    seen_iterations = {turn["iteration"] for turn in records if turn.get("iteration") is not None}
+    for path in sorted(state_path.parent.glob("turns/*/turn.json")):
         turn = _read_json(path)
-        if not turn:
-            continue
         iteration = turn.get("iteration")
-        if iteration is not None and iteration in seen_iterations:
-            continue
-        records.append(turn)
-        if iteration is not None:
-            seen_iterations.add(iteration)
+        if turn and iteration not in seen_iterations:
+            records.append(turn)
+            if iteration is not None:
+                seen_iterations.add(iteration)
     return records
 
 
 def harvest_state_surface_classes(state: Mapping[str, Any] | None) -> tuple[str, ...]:
     """Classes the pre-memory harvest could see from ``state.json`` alone."""
 
-    from blackhole_agent.pattern_register import blocked_class_id, classify_unbound_turn
+    from blackhole_agent.pattern_register import blocked_class_id
 
     payload = dict(state or {})
     classes: list[str] = []
@@ -255,79 +170,152 @@ def harvest_state_surface_classes(state: Mapping[str, Any] | None) -> tuple[str,
         classes.append(blocked_class_id(payload))
     if leftover_next_step(str(payload.get("next_step") or "")):
         classes.append("mission_leftover")
-    for turn in list(payload.get("recent_turns") or []):
-        if not isinstance(turn, dict):
-            continue
-        salvage = turn.get("kernel_salvage") if isinstance(turn.get("kernel_salvage"), Mapping) else {}
-        salvage_class = str(salvage.get("class_id") or "")
-        if salvage_class in _SALVAGE_CLASSES:
-            classes.append(salvage_class)
-        for event in classify_unbound_turn(turn):
-            class_id = str(event.get("class_id") or "")
-            if class_id:
-                classes.append(class_id)
+    for turn in payload.get("recent_turns") or []:
+        if isinstance(turn, dict):
+            classes.extend(event["class_id"] for event in events_from_turn(turn))
     return tuple(dict.fromkeys(item for item in classes if item))
 
 
-def remember_events(
-    root: Path,
-    events: list[dict[str, str]],
-    *,
-    source_mission_id: str = "",
-) -> int:
-    """Persist harvested operational classes into durable mission memory."""
+def _instant(stamp: str) -> datetime:
+    try:
+        value = datetime.fromisoformat(str(stamp or "").replace("Z", "+00:00"))
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return _UNKNOWN_TIME
 
-    if not events:
-        return 0
-    payload = load_mission_memory(root)
-    classes = dict(payload.get("classes") or {})
-    written = 0
-    changed = False
-    now = _utc_now()
+
+def _restore_identities(row: dict[str, Any]) -> list[dict[str, Any]]:
+    """Keep identified legacy turns as placeholders until their own journals supply evidence."""
+    if "turns" not in row:
+        known = {}
+        for identity in row.pop("seen", None) or []:
+            parts = str(identity).split("\n", 3)
+            if len(parts) == 4:
+                owner, iteration, class_id, summary = parts
+                if owner and iteration and class_id == row["class_id"]:
+                    known[owner, iteration] = dict(mission_id=owner, iteration=iteration, summary=summary, legacy=True)
+        row["turns"] = list(known.values())
+        remaining = int(row.get("count") or 0) - len(known)
+        if row.get("last_seen"):
+            row["legacy_through"] = row["last_seen"]
+        if remaining > 0:
+            row["legacy_unattributed"] = remaining
+        if row.get("first_seen"):
+            row["legacy_first_seen"] = row["first_seen"]
+        row["source_mission_id"] = ""
+    return row["turns"]
+
+
+def _same_turn(old: dict[str, Any], new: dict[str, Any]) -> bool:
+    if old["iteration"] != new["iteration"]:
+        return False
+    if old["mission_id"] and new["mission_id"]:
+        if old["mission_id"] != new["mission_id"]:
+            return False
+        if new["iteration"]:
+            return True
+    # An unlabelled journal can establish an alias only for the same observed event.
+    if any(old.get(key) != new[key] for key in ("source", "summary", "evidence")):
+        return False
+    stamp = _instant(new["at"])
+    return old.get("at") == new["at"] or (stamp != _UNKNOWN_TIME and _instant(old.get("at", "")) == stamp)
+
+
+def _time_of(turn: dict[str, str]) -> str:
+    return turn["at"] or turn["recorded_at"]
+
+
+def _turn_order(turn: dict[str, str]) -> tuple:
+    iteration = turn["iteration"]
+    return (_instant(_time_of(turn)), turn["mission_id"], int(iteration) if iteration.isdecimal() else -1,
+            iteration, turn["summary"], turn["evidence"])
+
+
+def _diagnostic_order(turn: dict[str, Any]) -> tuple:
+    evidence = turn.get("evidence", "")
+    return bool(evidence), _instant(turn.get("at", "")), len(evidence), evidence, turn.get("summary", "")
+
+
+def _merge_turn(turns: list[dict[str, Any]], fact: dict[str, Any]) -> bool:
+    matches = [old for old in turns if _same_turn(old, fact)]
+    old = max(matches, key=lambda item: item["mission_id"] == fact["mission_id"], default=None)
+    # A named replay may link a previously anonymous observation to a legacy placeholder.
+    aliases = [item for item in matches if item is not old and not item["mission_id"]]
+    if old:
+        fact["mission_id"] = fact["mission_id"] or old["mission_id"]
+        if "at" in old and _diagnostic_order(old) > _diagnostic_order(fact):
+            fact = dict(old, mission_id=fact["mission_id"])
+        if old.get("legacy"):
+            fact["legacy"] = True
+    if not fact["at"]:
+        fact["recorded_at"] = (old or {}).get("recorded_at") or utc_now_iso()
+    if fact == old and not aliases:
+        return False
+    for alias in aliases:
+        turns.remove(alias)
+    if old:
+        old.clear()
+        old.update(fact)
+    else:
+        turns.append(fact)
+    return True
+
+
+def _summarize(row: dict[str, Any]) -> None:
+    observed = [turn for turn in row["turns"] if "at" in turn]
+    through = _instant(row.get("legacy_through", ""))
+    # Older aggregate-only counts are a floor. Backfill can replace anonymous counts
+    # with identifiable evidence, but cannot reconstruct missing historical diagnostics.
+    historical = sum(not turn.get("legacy") and (not turn["at"] or _instant(turn["at"]) <= through)
+                     for turn in observed)
+    row["count"] = len(row["turns"]) + max(0, row.get("legacy_unattributed", 0) - historical)
+    stamps = [_time_of(turn) for turn in observed]
+    if row.get("legacy_first_seen"):
+        stamps.append(row["legacy_first_seen"])
+    row["first_seen"] = min(stamps, key=_instant)
+    latest = max(observed, key=_turn_order)
+    if _instant(_time_of(latest)) >= through:
+        row.update(last_seen=_time_of(latest), source_mission_id=latest["mission_id"],
+                   source=latest["source"], summary=latest["summary"], evidence=latest["evidence"])
+
+
+def _merge_events(classes: dict[str, Any], events: Iterable[dict[str, str]], owner: str) -> tuple[bool, int]:
+    before = {}
     for event in events:
         class_id = str(event.get("class_id") or "").strip()
         if class_id in _SKIP_MEMORY_CLASSES:
             continue
-        raw_existing = classes.get(class_id)
-        existing = dict(raw_existing) if isinstance(raw_existing, Mapping) else {}
-        seen = [str(item) for item in existing.get("seen") or [] if str(item)]
-        if any(_same_remembered_turn(item, source_mission_id, event) for item in seen):
-            continue
-        stamp = str(event.get("at") or "")
-        last_seen = str(existing.get("last_seen") or "")
-        summary = str(event.get("summary") or "")
-        # Rows written before identities existed already contain every replay
-        # of turns at or before last_seen. Seal those reads. A later stamp is
-        # a new occurrence and still increments.
-        legacy = "seen" not in existing and bool(existing)
-        if legacy and not (stamp and last_seen and stamp > last_seen):
-            seen.append(_remember_identity(source_mission_id, event))
-            existing["seen"] = seen
-            classes[class_id] = existing
-            changed = True
-            continue
-        stamp = stamp or now
-        seen.append(_remember_identity(source_mission_id, event))
-        classes[class_id] = {
-            "class_id": class_id,
-            "count": int(existing.get("count") or 0) + 1,
-            "evidence": str(event.get("evidence") or existing.get("evidence") or "")[:400],
-            "first_seen": str(existing.get("first_seen") or stamp),
-            "last_seen": stamp if not last_seen or stamp >= last_seen else last_seen,
-            "source": str(event.get("source") or existing.get("source") or "unbound"),
-            "source_mission_id": str(
-                source_mission_id or existing.get("source_mission_id") or ""
-            ),
-            "summary": str(summary or existing.get("summary") or "")[:400],
-            "seen": seen,
+        row = classes.setdefault(class_id, {})
+        row["class_id"] = class_id
+        fact = {
+            "mission_id": owner,
+            "iteration": "" if event.get("iteration") is None else str(event["iteration"]),
+            "at": str(event.get("at") or ""),
+            "source": str(event.get("source") or "unbound"),
+            "summary": str(event.get("summary") or "")[:400],
+            "evidence": str(event.get("evidence") or "")[:400],
         }
-        written += 1
-        changed = True
-    if not changed:
+        if _merge_turn(_restore_identities(row), fact):
+            before.setdefault(class_id, int(row.get("count") or 0))
+    for class_id in before:
+        _summarize(classes[class_id])
+    added = sum(max(0, classes[class_id]["count"] - count) for class_id, count in before.items())
+    return bool(before), added
+
+
+def remember_events(root: Path, events: list[dict[str, str]], *, source_mission_id: str = "") -> int:
+    """Persist harvested operational classes into durable mission memory."""
+
+    if not events:
         return 0
-    payload["classes"] = classes
-    save_mission_memory(root, payload)
-    return written
+    path = memory_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with file_guard(path):
+        payload = _read_json(path, strict=True)
+        changed, added = _merge_events(payload.setdefault("classes", {}), events, source_mission_id)
+        if changed:
+            _write_memory(path, payload)
+        return added
 
 
 def remember_turn_record(
@@ -336,11 +324,8 @@ def remember_turn_record(
     *,
     source_mission_id: str = "",
 ) -> int:
-    return remember_events(
-        Path(root),
-        events_from_turn(record),
-        source_mission_id=source_mission_id,
-    )
+    owner = source_mission_id or str((record or {}).get("mission_id") or "")
+    return remember_events(root, events_from_turn(record), source_mission_id=owner)
 
 
 def remember_completed_mission_turns(
@@ -351,26 +336,17 @@ def remember_completed_mission_turns(
 ) -> int:
     """Backfill durable memory from one mission, or every mission under ``root``."""
 
-    written = 0
-    if state_path is not None:
-        mission_id = str((state or {}).get("mission_id") or Path(state_path).parent.name)
-        for turn in iter_turn_records(Path(state_path), state):
-            written += remember_turn_record(root, turn, source_mission_id=mission_id)
-        return written
-    missions_dir = Path(root) / ".blackhole-agent" / "unbound" / "missions"
-    if not missions_dir.is_dir():
-        return 0
-    for path in missions_dir.glob("*/state.json"):
-        payload = _read_json(path)
-        written += remember_completed_mission_turns(root, state_path=path, state=payload)
-    return written
+    if state_path is None:
+        states = (memory_path(root).parent / "missions").glob("*/state.json")
+        return sum(remember_completed_mission_turns(root, state_path=path) for path in states)
+    state_path = Path(state_path)
+    payload = state or _read_json(state_path)
+    owner = str(payload.get("mission_id") or state_path.parent.name)
+    events = [event for turn in iter_turn_records(state_path, payload) for event in events_from_turn(turn)]
+    return remember_events(root, events, source_mission_id=owner)
 
 
-def recall_open_classes(
-    root: Path,
-    *,
-    lineage_ref: str = "",
-) -> list[ExperienceCandidate]:
+def recall_open_classes(root: Path, *, lineage_ref: str = "") -> list[ExperienceCandidate]:
     """Return durable-memory classes that are still structurally open."""
 
     try:
@@ -381,25 +357,42 @@ def recall_open_classes(
             return False
 
     candidates: list[ExperienceCandidate] = []
-    payload = load_mission_memory(root)
-    for class_id, row in sorted((payload.get("classes") or {}).items()):
-        if not isinstance(row, Mapping):
+    for class_id, row in sorted(load_mission_memory(root)["classes"].items()):
+        if class_id in _SKIP_MEMORY_CLASSES or class_is_closed(class_id, Path(root), lineage_ref=lineage_ref):
             continue
-        if class_id in _SKIP_MEMORY_CLASSES:
-            continue
-        if class_is_closed(class_id, Path(root), lineage_ref=lineage_ref):
-            continue
+        summary = str(row.get("summary") or class_id)
+        if row.get("turns") and row.get("source_mission_id"):
+            summary += f" (mission {row['source_mission_id']})"
         candidates.append(
             ExperienceCandidate(
                 source="mission-memory",
                 class_id=class_id,
-                summary=str(row.get("summary") or class_id),
+                summary=summary,
                 evidence=str(row.get("evidence") or "")[:400],
                 priority=4,
                 forced=False,
             )
         )
     return candidates
+
+
+def mission_failures(root: Path, mission_id: str, records: Iterable[dict] = ()) -> list[dict[str, Any]]:
+    """Return this mission's observed failures, including classes later closed at genesis."""
+    classes = load_mission_memory(root)["classes"]
+    # Status also works on pre-upgrade journals. Fold them into this read without changing the store.
+    _merge_events(classes, (event for turn in records for event in events_from_turn(turn)), mission_id)
+    found = [
+        dict(turn, class_id=class_id)
+        for class_id, row in classes.items()
+        for turn in row.get("turns", ())
+        if mission_id and turn["mission_id"] == mission_id and "evidence" in turn
+    ]
+    found.sort(key=_turn_order)
+    for turn in found:
+        turn.pop("legacy", None)
+        if turn["iteration"].isdecimal():
+            turn["iteration"] = int(turn["iteration"])
+    return found
 
 
 def ensure_kernel_mission_memory_capability(*, repo_path: Path | None = None) -> Capability:
@@ -448,68 +441,33 @@ def ensure_kernel_mission_memory_capability(*, repo_path: Path | None = None) ->
     return capability
 
 
-def _write_turn_only_mission(
+def _write_mission_fixture(
     root: Path,
     *,
     mission_id: str,
     turn: Mapping[str, Any],
     status: str = "complete",
+    last_error: str = "",
+    archived: bool = True,
 ) -> Path:
-    mission_dir = Path(root) / ".blackhole-agent" / "unbound" / "missions" / mission_id
-    turn_dir = mission_dir / "turns" / "0013"
-    turn_dir.mkdir(parents=True, exist_ok=True)
-    (turn_dir / "turn.json").write_text(json.dumps(dict(turn), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    mission_dir = memory_path(root).parent / "missions" / mission_id
+    if archived:
+        atomic_write_json(mission_dir / "turns" / f"{turn['iteration']:04d}" / "turn.json", dict(turn))
     state_path = mission_dir / "state.json"
-    state_path.write_text(
-        json.dumps(
-            {
-                "mission_id": mission_id,
-                "status": status,
-                "stage": "execution",
-                "goal": "Close leftover contract-materializer cliff.",
-                "done_when": "",
-                "next_step": "None. Mission complete.",
-                "last_summary": "Mission completed after a later recovery.",
-                "last_error": "",
-                "milestones": [],
-                "recent_turns": [],
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    atomic_write_json(state_path, {
+        "mission_id": mission_id, "status": status, "stage": "execution",
+        "goal": "Close leftover contract-materializer cliff.", "done_when": "",
+        "next_step": "None. Mission complete.", "last_summary": "Mission completed after a later recovery.",
+        "last_error": last_error, "milestones": [], "recent_turns": [] if archived else [dict(turn)],
+    })
     return state_path
-
-
-def _register_closers(root: Path, ids: tuple[str, ...]) -> Path:
-    from blackhole_agent.capability_compounder import CapabilityLedger
-
-    path = default_ledger_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    ledger = load_ledger(path) if path.is_file() else CapabilityLedger()
-    for capability_id in ids:
-        register_capability(
-            ledger,
-            Capability(
-                id=capability_id,
-                name=capability_id,
-                description="Proved structural closer for a harvested operational class.",
-                kind="python",
-                entry="blackhole_agent.local_capability_kernel:builtin_fixture_probe",
-                proof_command="uv run python -c \"print('ok')\"",
-                last_proof_exit_code=0,
-            ),
-            replace=True,
-        )
-    save_ledger(path, ledger)
-    return path
 
 
 def builtin_kernel_mission_memory_proof() -> dict[str, Any]:
     """Hermetic proof: a turn-only harvested class is replayed from durable memory."""
 
     from blackhole_agent.experience_fuel import harvest_experience
-    from blackhole_agent.kernel_class_closure import CLASS_CLOSURE_REQUIREMENTS, class_is_closed
+    from blackhole_agent.kernel_class_closure import CLASS_CLOSURE_REQUIREMENTS, _register_closers, class_is_closed
     from blackhole_agent.kernel_genesis_bind import (
         KERNEL_GENESIS_BIND_GOAL,
         _State,
@@ -520,68 +478,55 @@ def builtin_kernel_mission_memory_proof() -> dict[str, Any]:
     from blackhole_agent.local_mission_sovereignty import (
         HARVESTED_KERNEL_FAILURE_DONE_WHEN,
         HARVESTED_KERNEL_FAILURE_GOAL,
+        LocalMissionBinding,
         bind_local_mission,
         save_campaign,
     )
     from blackhole_agent.pattern_register import classify_unbound_turn, ingest_unbound_turn
 
+    def has_failure(candidates: Iterable[ExperienceCandidate]) -> bool:
+        return any(item.class_id == KERNEL_TURN_FAILED for item in candidates)
+
+    def binds_failure(binding: LocalMissionBinding) -> bool:
+        return (binding.goal == HARVESTED_KERNEL_FAILURE_GOAL
+                and HARVESTED_KERNEL_FAILURE_DONE_WHEN in binding.done_when
+                and ("experience/" in binding.source or "mission-memory" in binding.source))
+
     checks: dict[str, bool] = {}
     checks["denylists_self"] = MISSION_MEMORY_ID in LOCAL_DENYLIST
     checks["leftover_marker"] = leftover_marker_ids(MISSION_MEMORY_GOAL) == (MISSION_MEMORY_ID,)
     classified = classify_unbound_turn(HARVESTED_ERROR_TURN)
-    checks["harvested_turn_is_kernel_turn_failed"] = any(
-        item.get("class_id") == KERNEL_TURN_FAILED for item in classified
-    )
+    checks["harvested_turn_is_kernel_turn_failed"] = any(event["class_id"] == KERNEL_TURN_FAILED for event in classified)
     checks["success_turn_is_not_a_class"] = classify_unbound_turn(HARVESTED_SUCCESS_TURN) == []
 
     with tempfile.TemporaryDirectory(prefix="kernel-mission-memory-hole-") as tmp:
         root = Path(tmp)
-        state_path = _write_turn_only_mission(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
-        state = _read_json(state_path)
-        surface = harvest_state_surface_classes(state)
-        artifact_events = events_from_turn(HARVESTED_ERROR_TURN)
-        fuel = harvest_experience(root, limit=5)
-        binding = bind_local_mission(_State(root), harvest=True)
-    checks["state_surface_misses_turn_only_class"] = KERNEL_TURN_FAILED not in surface
-    checks["turn_artifact_has_class"] = any(
-        item.get("class_id") == KERNEL_TURN_FAILED for item in artifact_events
-    )
-    checks["harvest_recalls_turn_only_class"] = any(
-        item.class_id == KERNEL_TURN_FAILED for item in fuel.candidates
-    )
-    checks["local_bind_replays_recalled_class"] = (
-        binding.goal == HARVESTED_KERNEL_FAILURE_GOAL
-        and HARVESTED_KERNEL_FAILURE_DONE_WHEN in binding.done_when
-        and ("experience/" in binding.source or "mission-memory" in binding.source)
-    )
+        state_path = _write_mission_fixture(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
+        surface = harvest_state_surface_classes(_read_json(state_path))
+        checks["state_surface_misses_turn_only_class"] = KERNEL_TURN_FAILED not in surface
+        events = events_from_turn(HARVESTED_ERROR_TURN)
+        checks["turn_artifact_has_class"] = any(event["class_id"] == KERNEL_TURN_FAILED for event in events)
+        checks["harvest_recalls_turn_only_class"] = has_failure(harvest_experience(root).candidates)
+        checks["local_bind_replays_recalled_class"] = binds_failure(bind_local_mission(_State(root)))
 
     with tempfile.TemporaryDirectory(prefix="kernel-mission-memory-durable-") as tmp:
         root = Path(tmp)
         ingest_unbound_turn(root, HARVESTED_ERROR_TURN)
-        recalled = recall_open_classes(root)
-        fuel_before = harvest_experience(root, limit=5)
-        mission_dir = root / ".blackhole-agent" / "unbound" / "missions"
-        if mission_dir.exists():
-            shutil.rmtree(mission_dir)
-        fuel_after = harvest_experience(root, limit=5)
-        binding = bind_local_mission(_State(root), harvest=True)
-    checks["ingest_persists_turn_into_memory"] = any(
-        item.class_id == KERNEL_TURN_FAILED for item in recalled
-    )
-    checks["harvest_without_mission_dir_still_recalls"] = any(
-        item.class_id == KERNEL_TURN_FAILED for item in fuel_before.candidates
-    ) and any(item.class_id == KERNEL_TURN_FAILED for item in fuel_after.candidates)
-    checks["bind_replays_after_mission_dir_gone"] = (
-        binding.goal == HARVESTED_KERNEL_FAILURE_GOAL
-        and HARVESTED_KERNEL_FAILURE_DONE_WHEN in binding.done_when
-        and ("mission-memory" in binding.source or "experience/" in binding.source)
-    )
+        checks["ingest_persists_turn_into_memory"] = has_failure(recall_open_classes(root))
+        _write_mission_fixture(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
+        before = has_failure(harvest_experience(root).candidates)
+        missions = (memory_path(root).parent / "missions").resolve()
+        if not missions.is_relative_to(root.resolve()):
+            raise ValueError("Mission fixture is outside its temporary directory")
+        shutil.rmtree(missions)
+        checks["harvest_without_mission_dir_still_recalls"] = before and has_failure(harvest_experience(root).candidates)
+        checks["bind_replays_after_mission_dir_gone"] = binds_failure(bind_local_mission(_State(root)))
 
     with tempfile.TemporaryDirectory(prefix="kernel-mission-memory-bind-") as tmp:
         root = Path(tmp)
         _write_fixture_ledger(root)
         save_campaign(root, _consumed_campaign())
-        _write_turn_only_mission(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
+        _write_mission_fixture(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
         live_goal, live_done, live_source = bind_gate_passing_successor(root)
     checks["genesis_bind_replays_instead_of_inventing"] = (
         live_goal == HARVESTED_KERNEL_FAILURE_GOAL
@@ -592,27 +537,23 @@ def builtin_kernel_mission_memory_proof() -> dict[str, Any]:
 
     with tempfile.TemporaryDirectory(prefix="kernel-mission-memory-closed-") as tmp:
         root = Path(tmp)
-        _write_turn_only_mission(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
+        _write_mission_fixture(root, mission_id="prior-complete", turn=HARVESTED_ERROR_TURN)
         remember_completed_mission_turns(root)
         _register_closers(root, CLASS_CLOSURE_REQUIREMENTS[KERNEL_TURN_FAILED])
         closed = class_is_closed(KERNEL_TURN_FAILED, root)
-        closed_fuel = harvest_experience(root, limit=5)
-        closed_recall = recall_open_classes(root)
-    checks["closed_class_does_not_replay"] = (
-        closed is True
-        and not any(item.class_id == KERNEL_TURN_FAILED for item in closed_fuel.candidates)
-        and not any(item.class_id == KERNEL_TURN_FAILED for item in closed_recall)
-    )
+        checks["closed_class_does_not_replay"] = (
+            closed is True and not has_failure(harvest_experience(root).candidates)
+            and not has_failure(recall_open_classes(root))
+        )
 
     with tempfile.TemporaryDirectory(prefix="kernel-mission-memory-success-") as tmp:
         root = Path(tmp)
-        _write_turn_only_mission(root, mission_id="prior-success", turn=HARVESTED_SUCCESS_TURN)
+        _write_mission_fixture(root, mission_id="prior-success", turn=HARVESTED_SUCCESS_TURN)
         remember_completed_mission_turns(root)
-        success_fuel = harvest_experience(root, limit=5)
-        success_memory = load_mission_memory(root)
-    checks["success_turn_is_not_remembered"] = KERNEL_TURN_FAILED not in (
-        success_memory.get("classes") or {}
-    ) and not any(item.class_id == KERNEL_TURN_FAILED for item in success_fuel.candidates)
+        success_fuel = harvest_experience(root)
+        checks["success_turn_is_not_remembered"] = (
+            KERNEL_TURN_FAILED not in load_mission_memory(root)["classes"] and not has_failure(success_fuel.candidates)
+        )
 
     kept = bind_local_mission(_State(Path("."), goal="Operator growth goal."), harvest=False)
     checks["preserves_operator_goal"] = kept.goal == "Operator growth goal."

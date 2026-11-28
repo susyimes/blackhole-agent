@@ -343,34 +343,10 @@ def _write_error_turn_mission(
     status: str = "complete",
     last_error: str = "",
 ) -> Path:
-    mission_dir = Path(root) / ".blackhole-agent" / "unbound" / "missions" / mission_id
-    mission_dir.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "mission_id": mission_id,
-        "status": status,
-        "stage": "execution",
-        "goal": "Close leftover contract-materializer cliff.",
-        "done_when": "",
-        "next_step": "None. Mission complete.",
-        "last_summary": "Mission completed after a later recovery.",
-        "last_error": last_error,
-        "milestones": [],
-        "recent_turns": [
-            {
-                "iteration": 13,
-                "effective_status": "error",
-                "error": (
-                    "Grok CLI failed with exit code 1; result details were written to "
-                    "grok-run-20260816T055123Z.json"
-                ),
-                "summary": "turn 13 failed before a structured decision",
-                "finished_at": "2026-08-16T05:51:28Z",
-            }
-        ],
-    }
-    path = mission_dir / "state.json"
-    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
-    return path
+    from blackhole_agent.kernel_mission_memory import HARVESTED_ERROR_TURN, _write_mission_fixture
+
+    return _write_mission_fixture(root, mission_id=mission_id, status=status, last_error=last_error,
+                                  turn=HARVESTED_ERROR_TURN, archived=False)
 
 
 def _register_closers(root: Path, ids: tuple[str, ...]) -> Path:

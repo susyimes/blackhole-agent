@@ -76,12 +76,9 @@ def write_bounded_turn_files(
         raise ValueError("turn directory is a reparse point")
     if not _strictly_inside(mission, turn):
         raise ValueError("turn directory is outside the mission directory")
-    persisted = bound_turn_record(record)
+    persisted = bound_turn_record({**record, "mission_id": mission_id})
     _atomic_json(turn / "turn.json", persisted)
-    _append_jsonl(
-        mission / "events.jsonl",
-        {"event": "turn.completed", "mission_id": mission_id, **persisted},
-    )
+    _append_jsonl(mission / "events.jsonl", {**persisted, "event": "turn.completed"})
     return persisted
 
 
