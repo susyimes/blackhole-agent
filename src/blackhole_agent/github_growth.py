@@ -23,6 +23,7 @@ import typer
 from rich.console import Console
 
 from blackhole_agent.experience_fuel import harvest_experience, merge_experience_into_proposals
+from blackhole_agent.file_guard import atomic_write_json, atomic_write_text, file_guard
 from blackhole_agent.kernels.codex_cli import CodexCliConfig, CodexCliKernel, CodexCliRunResult
 from blackhole_agent.kernels.grok_cli import GrokCliConfig, GrokCliKernel, GrokCliRunResult
 from blackhole_agent.kernels.kimi_cli import KimiCliConfig, KimiCliKernel, KimiCliRunResult
@@ -363,12 +364,14 @@ class GrowthState:
     last_seen_at_by_repo: dict[str, str] = field(default_factory=dict)
     trend_seen_repositories: set[str] = field(default_factory=set)
     trend_last_stars_by_repo: dict[str, int] = field(default_factory=dict)
+    last_poll_at_by_repo: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GrowthState":
         return cls(
             seen_event_ids=set(data.get("seen_event_ids", [])),
             last_seen_at_by_repo=dict(data.get("last_seen_at_by_repo", {})),
+            last_poll_at_by_repo=dict(data.get("last_poll_at_by_repo", {})),
             trend_seen_repositories=set(data.get("trend_seen_repositories", [])),
             trend_last_stars_by_repo={
                 str(repo): int(stars) for repo, stars in dict(data.get("trend_last_stars_by_repo", {})).items()
@@ -379,6 +382,7 @@ class GrowthState:
         return {
             "seen_event_ids": sorted(self.seen_event_ids),
             "last_seen_at_by_repo": dict(sorted(self.last_seen_at_by_repo.items())),
+            "last_poll_at_by_repo": dict(sorted(self.last_poll_at_by_repo.items())),
             "trend_seen_repositories": sorted(self.trend_seen_repositories),
             "trend_last_stars_by_repo": dict(sorted(self.trend_last_stars_by_repo.items())),
         }
@@ -751,8 +755,7 @@ def load_state(path: Path) -> GrowthState:
 
 
 def save_state(path: Path, state: GrowthState) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_json(path, state.to_dict())
 
 
 def load_memory(path: Path) -> GrowthMemory:
@@ -762,8 +765,7 @@ def load_memory(path: Path) -> GrowthMemory:
 
 
 def save_memory(path: Path, memory: GrowthMemory) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(memory.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_json(path, memory.to_dict())
 
 
 def update_memory_from_digest(memory: GrowthMemory, digest: dict[str, Any], *, lesson_limit: int = 200) -> None:
@@ -984,23 +986,22 @@ def select_new_events(
     *,
     lookback_hours: int,
     max_events: int | None = None,
+    poll_started_at: datetime | None = None,
 ) -> list[GitHubEvent]:
-    newest_seen_at = state.last_seen_at_by_repo.get(repo)
-    if newest_seen_at:
-        since = parse_github_timestamp(newest_seen_at)
-    else:
-        since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
-
-    selected: list[GitHubEvent] = []
+    # Older state files have only the newest event time. Overlap that cursor
+    # once, then use the start of the last fully fetched scan, even an empty one.
+    checkpoint = state.last_poll_at_by_repo.get(repo) or state.last_seen_at_by_repo.get(repo)
+    now = poll_started_at or datetime.now(timezone.utc)
+    anchor = min(now, parse_github_timestamp(checkpoint)) if checkpoint else now
+    since = anchor - timedelta(hours=lookback_hours)
+    selected: dict[str, GitHubEvent] = {}
     for raw in raw_events:
-        event = normalize_event(repo, raw)
-        created_at = parse_github_timestamp(event.created_at)
-        if event.id in state.seen_event_ids or created_at < since:
-            continue
-        selected.append(event)
         if max_events is not None and len(selected) >= max_events:
             break
-    return selected
+        event = normalize_event(repo, raw)
+        if event.id not in state.seen_event_ids and parse_github_timestamp(event.created_at) >= since:
+            selected.setdefault(event.id, event)
+    return list(selected.values())
 
 
 def update_state(state: GrowthState, events: list[GitHubEvent]) -> None:
@@ -1071,39 +1072,13 @@ def build_trend_events(
 
 
 def build_trend_source_metadata(result: GitHubTrendSearchResult, *, state: GrowthState) -> dict[str, Any]:
-    repositories: list[dict[str, Any]] = []
-    for repository in result.repositories:
-        previous_stars = state.trend_last_stars_by_repo.get(repository.full_name)
-        repositories.append(
-            {
-                "full_name": repository.full_name,
-                "html_url": repository.html_url,
-                "description": repository.description,
-                "language": repository.language,
-                "stargazers_count": repository.stargazers_count,
-                "forks_count": repository.forks_count,
-                "open_issues_count": repository.open_issues_count,
-                "star_delta_since_last_run": None
-                if previous_stars is None
-                else repository.stargazers_count - previous_stars,
-                "first_seen": repository.full_name not in state.trend_seen_repositories,
-                "created_at": repository.created_at,
-                "updated_at": repository.updated_at,
-                "pushed_at": repository.pushed_at,
-                "topics": repository.topics,
-            }
-        )
-    return {
-        "kind": "github_trending_repositories",
-        "query": result.query,
-        "sort": result.sort,
-        "order": result.order,
-        "window_days": result.window_days,
-        "min_stars": result.min_stars,
-        "total_count": result.total_count,
-        "incomplete_results": result.incomplete_results,
-        "repositories": repositories,
-    }
+    source = asdict(result)
+    source["kind"] = "github_trending_repositories"
+    for repo in source["repositories"]:
+        previous = state.trend_last_stars_by_repo.get(repo["full_name"])
+        repo["star_delta_since_last_run"] = None if previous is None else repo["stargazers_count"] - previous
+        repo["first_seen"] = repo["full_name"] not in state.trend_seen_repositories
+    return source
 
 
 def extract_growth_signals(events: list[GitHubEvent], *, topics: list[str]) -> list[GrowthSignal]:
@@ -3769,92 +3744,81 @@ def run_intake_once(
     normalized_repos = ["/".join(parse_repo_spec(repo)) for repo in repo_specs]
     state_file = state_path or output_dir / "state.json"
     memory_file = memory_path or output_dir / "memory.json"
-    state = load_state(state_file)
-    memory = load_memory(memory_file)
     github = client or GitHubEventsClient(token=token)
-    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    trend_result: GitHubTrendSearchResult | None = None
-    trend_events: list[GitHubEvent] = []
-    trend_source: dict[str, Any] | None = None
-    if trend_config is not None:
-        trend_result = github.search_trending_repositories(trend_config)
-        trend_repos = [repository.full_name for repository in trend_result.repositories]
-        normalized_repos = list(dict.fromkeys([*normalized_repos, *trend_repos]))
-        trend_events = build_trend_events(trend_result.repositories, state=state, generated_at=generated_at)
-        trend_source = build_trend_source_metadata(trend_result, state=state)
+    # A scheduler and a manual poll can share a cursor. Read it under the
+    # same lock that publishes the selected items and advances that cursor.
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    with file_guard(state_file):
+        state = load_state(state_file)
+        memory = load_memory(memory_file)
+        poll_started_at = datetime.now(timezone.utc)
+        generated_at = poll_started_at.isoformat().replace("+00:00", "Z")
+        trend_events: list[GitHubEvent] = []
+        trend_source: dict[str, Any] | None = None
+        if trend_config is not None:
+            result = github.search_trending_repositories(trend_config)
+            normalized_repos.extend(repo.full_name for repo in result.repositories)
+            trend_events = build_trend_events(result.repositories, state=state, generated_at=generated_at)
+            trend_source = build_trend_source_metadata(result, state=state)
+            trend_source["event_fetch_errors"] = []
+            update_trend_state(state, result.repositories)
+        normalized_repos = list(dict.fromkeys(normalized_repos))
 
-    events: list[GitHubEvent] = []
-    event_fetch_errors: list[dict[str, str]] = []
-    for repo in normalized_repos:
-        try:
-            raw_events = github.list_repository_events(repo, per_page=max_events_per_repo)
-        except RuntimeError as error:
-            if trend_config is None:
-                raise
-            event_fetch_errors.append({"repo": repo, "error": str(error)})
-            continue
-        events.extend(
-            select_new_events(repo, raw_events, state, lookback_hours=lookback_hours)
+        events: list[GitHubEvent] = []
+        for repo in normalized_repos:
+            try:
+                raw_events = github.list_repository_events(repo, per_page=max_events_per_repo)
+            except (RuntimeError, requests.RequestException) as error:
+                if trend_source is None:
+                    raise
+                trend_source["event_fetch_errors"].append({"repo": repo, "error": str(error)})
+                continue
+            selected = select_new_events(
+                repo, raw_events, state, lookback_hours=lookback_hours, poll_started_at=poll_started_at,
+            )
+            update_state(state, selected)
+            state.last_poll_at_by_repo[repo] = generated_at
+            events.extend(selected)
+        events.sort(key=lambda event: parse_github_timestamp(event.created_at), reverse=True)
+        signals = extract_growth_signals([*trend_events, *events], topics=topics or list(DEFAULT_TOPICS))
+        digest = build_digest(
+            normalized_repos, signals, state=state, generated_at=generated_at, source=trend_source, memory=memory,
         )
-    if trend_source is not None:
-        trend_source["event_fetch_errors"] = event_fetch_errors
-    events.sort(key=lambda event: parse_github_timestamp(event.created_at), reverse=True)
-    signals = extract_growth_signals([*trend_events, *events], topics=topics or list(DEFAULT_TOPICS))
-    update_state(state, events)
-    if trend_result is not None:
-        update_trend_state(state, trend_result.repositories)
-    heuristic_proposals = build_proposals(signals, memory=memory)
-    digest = build_digest(
-        normalized_repos,
-        signals,
-        state=state,
-        generated_at=generated_at,
-        source=trend_source,
-        memory=memory,
-        proposals=heuristic_proposals,
-    )
-    if validate_proposal_mode(proposal_mode) != "heuristic":
-        digest["proposals"] = synthesize_digest_proposals(
-            digest,
-            signals,
-            heuristic_proposals,
-            mode=proposal_mode,
-            output_dir=output_dir,
-            repo_path=repo_path,
-            self_model_path=self_model_path,
-            model=proposal_model,
-            profile=proposal_profile,
-            kernel=kernel,
-            ignore_user_config=ignore_user_config,
-            timeout_seconds=proposal_timeout_seconds,
-            command_runner=command_runner,
-        )
-        attach_upstream_evidence_capability_step(digest)
-        attach_evolution_route_surface(digest)
-    digest["proposals"] = merge_experience_into_proposals(list(digest.get("proposals") or []), repo_path)
-    digest["experience_fuel"] = harvest_experience(repo_path).to_dict()
-    update_memory_from_digest(memory, digest)
+        if validate_proposal_mode(proposal_mode) != "heuristic":
+            digest["proposals"] = synthesize_digest_proposals(
+                digest, signals, digest["proposals"],
+                mode=proposal_mode,
+                output_dir=output_dir,
+                repo_path=repo_path,
+                self_model_path=self_model_path,
+                model=proposal_model,
+                profile=proposal_profile,
+                kernel=kernel,
+                ignore_user_config=ignore_user_config,
+                timeout_seconds=proposal_timeout_seconds,
+                command_runner=command_runner,
+            )
+            attach_upstream_evidence_capability_step(digest)
+            attach_evolution_route_surface(digest)
+        digest["proposals"] = merge_experience_into_proposals(digest["proposals"], repo_path)
+        digest["experience_fuel"] = harvest_experience(repo_path).to_dict()
+        update_memory_from_digest(memory, digest)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / f"github-growth-digest-{timestamp}.json"
-    markdown_path = output_dir / f"github-growth-digest-{timestamp}.md"
-    json_text = json.dumps(digest, indent=2, sort_keys=True) + "\n"
-    markdown_text = render_markdown_digest(digest)
-    json_path.write_text(json_text, encoding="utf-8")
-    markdown_path.write_text(markdown_text, encoding="utf-8")
-    (output_dir / "latest.json").write_text(json_text, encoding="utf-8")
-    (output_dir / "latest.md").write_text(markdown_text, encoding="utf-8")
-    save_state(state_file, state)
-    save_memory(memory_file, memory)
-    return DigestWriteResult(
-        digest=digest,
-        json_path=json_path,
-        markdown_path=markdown_path,
-        state_path=state_file,
-        memory_path=memory_file,
-    )
+        timestamp = poll_started_at.strftime("%Y%m%dT%H%M%S.%fZ")
+        json_path = output_dir / f"github-growth-digest-{timestamp}.json"
+        markdown_path = json_path.with_suffix(".md")
+        json_text = json.dumps(digest, indent=2, sort_keys=True) + "\n"
+        markdown_text = render_markdown_digest(digest)
+        for json_file, md_file in ((json_path, markdown_path), (output_dir / "latest.json", output_dir / "latest.md")):
+            atomic_write_text(json_file, json_text)
+            atomic_write_text(md_file, markdown_text)
+        save_state(state_file, state)
+        save_memory(memory_file, memory)
+        return DigestWriteResult(
+            digest=digest, json_path=json_path, markdown_path=markdown_path,
+            state_path=state_file, memory_path=memory_file,
+        )
 
 
 def _event_text(repo: str, kind: str, payload: dict[str, Any]) -> tuple[str, str, str]:
@@ -3942,7 +3906,7 @@ def main(
     memory_path: Path | None = typer.Option(None, "--memory", help="Memory file path. Defaults to <output-dir>/memory.json."),
     token_env: str = typer.Option("GITHUB_TOKEN", "--token-env", help="Environment variable containing a GitHub token."),
     topics: str = typer.Option("", "--topics", help="Comma-separated relevance terms. Defaults to agent/workflow/test/security topics."),
-    lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Initial event lookback window when no state exists."),
+    lookback_hours: int = typer.Option(24, "--lookback-hours", min=1, help="Hours to look back from each repository's last successful poll, or from now on its first poll."),
     max_events_per_repo: int = typer.Option(100, "--max-events-per-repo", min=1, max=100, help="GitHub event page size; all Link-paginated pages are fetched."),
     interval_seconds: int = typer.Option(0, "--interval-seconds", min=0, help="Run forever at this interval; 0 runs exactly once."),
     evolution_mode: str = typer.Option("digest", "--evolution-mode", help="One of: digest, plan, codex."),

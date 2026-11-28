@@ -1,8 +1,11 @@
 import hashlib
 import json
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from typer.testing import CliRunner
@@ -11,7 +14,6 @@ import blackhole_agent.github_growth as github_growth
 from blackhole_agent.github_growth import (
     GitHubEventsClient,
     GitHubTrendConfig,
-    GitHubTrendSearchResult,
     GrowthMemory,
     GrowthSignal,
     GrowthState,
@@ -53,22 +55,14 @@ from blackhole_agent.self_model import (
 
 def event_payload(event_id: str, kind: str, title: str, *, created_at: str | None = None) -> dict:
     created_at = created_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    pull_request = {"title": title, "html_url": "https://github.com/example/repo/pull/1"}
     payload = {}
     if kind == "PullRequestEvent":
-        payload = {
-            "action": "opened",
-            "pull_request": {
-                "title": title,
-                "html_url": "https://github.com/example/repo/pull/1",
-            },
-        }
+        payload = {"action": "opened", "pull_request": pull_request}
     elif kind == "PullRequestReviewEvent":
         payload = {
             "action": "submitted",
-            "pull_request": {
-                "title": title,
-                "html_url": "https://github.com/example/repo/pull/1",
-            },
+            "pull_request": pull_request,
             "review": {
                 "state": "commented",
                 "body": "Please add validation coverage.",
@@ -78,10 +72,7 @@ def event_payload(event_id: str, kind: str, title: str, *, created_at: str | Non
     elif kind == "PullRequestReviewCommentEvent":
         payload = {
             "action": "created",
-            "pull_request": {
-                "title": title,
-                "html_url": "https://github.com/example/repo/pull/1",
-            },
+            "pull_request": pull_request,
             "comment": {
                 "body": "This needs a focused smoke test.",
                 "html_url": "https://github.com/example/repo/pull/1#discussion_r1",
@@ -90,12 +81,7 @@ def event_payload(event_id: str, kind: str, title: str, *, created_at: str | Non
     elif kind == "PushEvent":
         payload = {
             "ref": "refs/heads/main",
-            "commits": [
-                {
-                    "sha": "abc123456789",
-                    "message": title,
-                }
-            ],
+            "commits": [{"sha": "abc123456789", "message": title}],
         }
     return {
         "id": event_id,
@@ -106,88 +92,24 @@ def event_payload(event_id: str, kind: str, title: str, *, created_at: str | Non
     }
 
 
+@dataclass
 class FakeResponse:
-    status_code = 200
-
-    def __init__(self, payload: object, *, links: dict | None = None) -> None:
-        self._payload = payload
-        self.links = links or {}
+    payload: object
+    links: dict | None = None
+    status_code: int = 200
 
     def json(self) -> object:
-        return self._payload
+        return self.payload
 
 
 class FakeSession:
-    def __init__(self, payload: list[dict]) -> None:
-        self.payload = payload
+    def __init__(self, *responses: FakeResponse) -> None:
+        self.responses = iter(responses)
         self.requests: list[dict] = []
 
     def get(self, url: str, **kwargs) -> FakeResponse:
         self.requests.append({"url": url, **kwargs})
-        return FakeResponse(self.payload)
-
-
-class PagedFakeSession:
-    def __init__(self, responses: list[FakeResponse]) -> None:
-        self.responses = responses
-        self.requests: list[dict] = []
-
-    def get(self, url: str, **kwargs) -> FakeResponse:
-        self.requests.append({"url": url, **kwargs})
-        if not self.responses:
-            raise AssertionError("unexpected extra request")
-        return self.responses.pop(0)
-
-
-class FakeEventsClient:
-    def __init__(self, events: list[dict]) -> None:
-        self.events = events
-        self.per_page_values: list[int] = []
-
-    def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
-        self.per_page_values.append(per_page)
-        return self.events
-
-
-class FakeTrendClient:
-    def __init__(self, result: GitHubTrendSearchResult, *, failed_repos: set[str] | None = None) -> None:
-        self.result = result
-        self.failed_repos = failed_repos or set()
-        self.event_repo_calls: list[str] = []
-
-    def search_trending_repositories(self, config: GitHubTrendConfig) -> GitHubTrendSearchResult:
-        return self.result
-
-    def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
-        self.event_repo_calls.append(repo)
-        if repo in self.failed_repos:
-            raise RuntimeError(f"GitHub events request failed for {repo}: HTTP 403")
-        return []
-
-
-class JourneyFakeGitHubClient:
-    def __init__(self, *args, **kwargs) -> None:
-        self.requests: list[tuple[str, int]] = []
-
-    def list_repository_events(self, repo: str, *, per_page: int = 100) -> list[dict]:
-        self.requests.append((repo, per_page))
-        return [
-            {
-                "id": "terminal-e2e",
-                "type": "PushEvent",
-                "actor": {"login": "octocat"},
-                "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "payload": {
-                    "ref": "refs/heads/main",
-                    "commits": [
-                        {
-                            "sha": "abc123",
-                            "message": "terminal-driven end-to-end journey tests for local agent runner",
-                        }
-                    ],
-                },
-            }
-        ]
+        return next(self.responses)
 
 
 def trend_repository(*, stars: int = 125) -> TrendingRepository:
@@ -231,7 +153,10 @@ def test_cli_codex_mode_runs_terminal_driven_controller_journey(tmp_path, monkey
     calls: list[list[str]] = []
     codex_commands: list[list[str]] = []
 
-    monkeypatch.setattr(github_growth, "GitHubEventsClient", JourneyFakeGitHubClient)
+    row = event_payload("terminal-e2e", "PushEvent", "terminal-driven end-to-end journey tests for local agent runner")
+    row["payload"]["commits"][0]["sha"] = "abc123"
+    session = FakeSession(FakeResponse([row]))
+    monkeypatch.setattr(github_growth, "GitHubEventsClient", lambda **kwargs: GitHubEventsClient(session=session, **kwargs))
 
     def fake_run(command, **kwargs):
         calls.append(command)
@@ -343,14 +268,10 @@ def test_normalize_pull_request_review_comment_event_extracts_review_text():
 
 
 def test_github_events_client_follows_paginated_event_links():
-    session = PagedFakeSession(
-        [
-            FakeResponse(
-                [event_payload("first-page", "PushEvent", "workflow one")],
-                links={"next": {"url": "https://api.example.test/page/2"}},
-            ),
-            FakeResponse([event_payload("second-page", "PushEvent", "workflow two")]),
-        ]
+    session = FakeSession(
+        FakeResponse([event_payload("first-page", "PushEvent", "workflow one")],
+                     links={"next": {"url": "https://api.example.test/page/2"}}),
+        FakeResponse([event_payload("second-page", "PushEvent", "workflow two")]),
     )
     client = GitHubEventsClient(session=session, api_base_url="https://api.example.test")
 
@@ -371,27 +292,12 @@ def test_build_trending_repository_query_adds_recent_stars_and_fork_filters():
     assert query == "language:Python topic:agents created:>=2026-06-01 stars:>=25 fork:false"
 
 
+def trend_search_response(total_count=1):
+    return FakeResponse({"total_count": total_count, "incomplete_results": False, "items": [asdict(trend_repository())]})
+
+
 def test_github_events_client_searches_trending_repositories():
-    payload = {
-        "total_count": 42,
-        "incomplete_results": False,
-        "items": [
-            {
-                "full_name": "example/trend-agent",
-                "html_url": "https://github.com/example/trend-agent",
-                "description": "A useful agent workflow project",
-                "language": "Python",
-                "stargazers_count": 125,
-                "forks_count": 12,
-                "open_issues_count": 3,
-                "created_at": "2026-06-10T00:00:00Z",
-                "updated_at": "2026-06-13T00:00:00Z",
-                "pushed_at": "2026-06-13T00:00:00Z",
-                "topics": ["agent", "workflow"],
-            }
-        ],
-    }
-    session = FakeSession(payload)
+    session = FakeSession(trend_search_response(total_count=42))
     client = GitHubEventsClient(session=session, api_base_url="https://api.example.test")
 
     result = client.search_trending_repositories(
@@ -2918,7 +2824,7 @@ def test_llm_controller_internal_governance_candidate_can_apply_after_local_vali
 
 def test_run_intake_once_falls_back_to_heuristic_when_llm_proposal_json_is_invalid(tmp_path):
     events = [event_payload("3", "PullRequestEvent", "Improve agent workflow tests")]
-    client = FakeEventsClient(events)
+    client = GitHubEventsClient(session=FakeSession(FakeResponse(events)))
 
     def runner(command, **kwargs):
         last_message = command[command.index("--output-last-message") + 1]
@@ -3110,11 +3016,7 @@ def test_repository_trend_agent_harness_can_be_behavior_or_report_work(tmp_path)
 
 
 def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
-    fake_session = FakeSession(
-        [
-            event_payload("3", "PullRequestEvent", "Improve agent workflow tests"),
-        ]
-    )
+    fake_session = FakeSession(FakeResponse([event_payload("3", "PullRequestEvent", "Improve agent workflow tests")]))
     client = GitHubEventsClient(session=fake_session, token="test-token")
 
     result = run_intake_once(
@@ -3149,20 +3051,23 @@ def test_run_intake_once_writes_schema_shaped_digest_latest_and_state(tmp_path):
 
 def test_run_intake_once_updates_state_for_all_paginated_events(tmp_path):
     events = [event_payload(str(index), "PushEvent", f"workflow update {index}") for index in range(101)]
-    client = FakeEventsClient(events)
+    session = FakeSession(
+        FakeResponse(events[:100], links={"next": {"url": "https://api.example.test/page/2"}}),
+        FakeResponse(events[100:]),
+    )
 
     result = run_intake_once(
         repos=["example/repo"],
         output_dir=tmp_path,
         topics=["workflow"],
-        client=client,
+        client=GitHubEventsClient(session=session),
         repo_path=tmp_path,
         max_events_per_repo=100,
         proposal_mode="heuristic",
     )
 
     state = json.loads(result.state_path.read_text(encoding="utf-8"))
-    assert client.per_page_values == [100]
+    assert [request["params"] for request in session.requests] == [{"per_page": 100}, None]
     assert len(state["seen_event_ids"]) == 101
     assert "100" in state["seen_event_ids"]
 
@@ -3180,23 +3085,13 @@ def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
         ),
         encoding="utf-8",
     )
-    trend_result = GitHubTrendSearchResult(
-        query="created:>=2026-06-06 stars:>=25 fork:false",
-        sort="stars",
-        order="desc",
-        window_days=7,
-        min_stars=25,
-        repositories=[trend_repository(stars=125)],
-        total_count=1,
-        incomplete_results=False,
-    )
-    client = FakeTrendClient(trend_result)
+    session = FakeSession(trend_search_response(), FakeResponse([]))
 
     result = run_intake_once(
         output_dir=tmp_path,
         state_path=state_path,
         trend_config=GitHubTrendConfig(),
-        client=client,
+        client=GitHubEventsClient(session=session),
         repo_path=tmp_path,
         proposal_mode="heuristic",
     )
@@ -3210,27 +3105,16 @@ def test_run_intake_once_discovers_trends_when_repos_are_omitted(tmp_path):
     assert digest["source"]["repositories"][0]["first_seen"] is False
     assert digest["items"][0]["event_kind"] == "RepositoryTrend"
     assert digest["proposals"][0]["kind"] == "follow_up_issue"
-    assert client.event_repo_calls == ["example/trend-agent"]
+    assert session.requests[1]["url"] == "https://api.github.com/repos/example/trend-agent/events"
     assert state["trend_last_stars_by_repo"]["example/trend-agent"] == 125
 
 
 def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
-    trend_result = GitHubTrendSearchResult(
-        query="created:>=2026-06-06 stars:>=25 fork:false",
-        sort="stars",
-        order="desc",
-        window_days=7,
-        min_stars=25,
-        repositories=[trend_repository()],
-        total_count=1,
-        incomplete_results=False,
-    )
-    client = FakeTrendClient(trend_result, failed_repos={"example/trend-agent"})
-
+    session = FakeSession(trend_search_response(), FakeResponse([], status_code=403))
     result = run_intake_once(
         output_dir=tmp_path,
         trend_config=GitHubTrendConfig(),
-        client=client,
+        client=GitHubEventsClient(session=session),
         repo_path=tmp_path,
         proposal_mode="heuristic",
     )
@@ -3242,6 +3126,25 @@ def test_trend_intake_records_event_fetch_errors_without_failing(tmp_path):
             "error": "GitHub events request failed for example/trend-agent: HTTP 403",
         }
     ]
+
+
+def test_overlapping_intakes_deliver_one_copy(tmp_path):
+    start = Barrier(2)
+    rows = [event_payload("shared", "ReleaseEvent", "release")]
+
+    def poll():
+        client = GitHubEventsClient(session=FakeSession(FakeResponse(rows)))
+        start.wait(timeout=10)
+        return run_intake_once(
+            repos=["example/repo"], output_dir=tmp_path, repo_path=tmp_path, client=client, proposal_mode="heuristic",
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, second = pool.submit(poll), pool.submit(poll)
+        paths = [first.result().json_path, second.result().json_path]
+    assert paths[0] != paths[1]
+    batches = [[row["item_id"] for row in json.loads(path.read_bytes())["items"]] for path in paths]
+    assert sorted(batches) == [[], ["shared"]]
 
 
 def test_memory_bias_prioritizes_previously_useful_sources():
