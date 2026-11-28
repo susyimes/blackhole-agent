@@ -42,7 +42,7 @@ def test_probe_domains_are_fixed_and_split() -> None:
 
 
 def test_extracted_dep_cache_is_reused(tmp_path: Path) -> None:
-    from blackhole_agent.capability_foraging import EXTRACT_CACHE_DIR, _extracted_cache_dir, _link_extracted_dep
+    from blackhole_agent.capability_foraging import EXTRACT_CACHE_DIR, _extracted_cache_dir, _install_extracted_dep
 
     archive = tmp_path / "cache-demo-1.0-py3-none-any.whl"
     cache = _extracted_cache_dir("cache-demo", "1.0", archive)
@@ -56,11 +56,61 @@ def test_extracted_dep_cache_is_reused(tmp_path: Path) -> None:
     src.mkdir()
     (src / "demo.py").write_text("x = 1\n", encoding="utf-8")
     dest = tmp_path / "staged" / ".forage-deps" / "cache-demo"
-    _link_extracted_dep(src, dest)
-    assert (dest / "demo.py").is_file()
-    _link_extracted_dep(src, dest)
-    assert (src / "demo.py").is_file()
-    assert (dest / "demo.py").is_file()
+    _install_extracted_dep(src, dest)
+    (dest / "demo.py").write_text("x = 2\n", encoding="utf-8")
+    assert (src / "demo.py").read_text(encoding="utf-8") == "x = 1\n"
+    _install_extracted_dep(src, dest)
+    assert (dest / "demo.py").read_text(encoding="utf-8") == "x = 1\n"
+
+
+def test_pypi_wheel_refresh_preserves_last_good_download(tmp_path, monkeypatch):
+    import hashlib
+    import io
+    from blackhole_agent import capability_foraging as forage
+
+    wheel_name = "invoice_rates-1.0-py3-none-any.whl"
+    url = f"https://registry.invalid/{wheel_name}"
+    expected = hashlib.sha256(b"new distribution").hexdigest()
+    metadata = {"info": {"version": "1.0"}, "urls": [
+        {"packagetype": "bdist_wheel", "url": url, "digests": {"sha256": expected}}
+    ]}
+    bodies = iter([b"interrupted", b"new distribution"])
+
+    def open_fixture(location, timeout):
+        return io.BytesIO(next(bodies) if location == url else json.dumps(metadata).encode())
+
+    monkeypatch.setattr(forage, "_urlopen", open_fixture)
+    prior = tmp_path / wheel_name
+    prior.write_bytes(b"prior distribution")
+    assert not forage.fetch_pypi_wheel("invoice-rates", dest_dir=tmp_path)["ok"]
+    assert prior.read_bytes() == b"prior distribution"
+    assert forage.fetch_pypi_wheel("invoice-rates", dest_dir=tmp_path)["sha256"] == expected
+    assert prior.read_bytes() == b"new distribution"
+    assert forage.fetch_pypi_wheel("invoice-rates", dest_dir=tmp_path)["cache_hit"]
+
+
+def test_inference_reselects_callable_after_dependency_rebuild(tmp_path, monkeypatch):
+    from blackhole_agent import capability_foraging as forage
+    from tests.acceptance.test_rebuilt_python_dependency import wheel
+
+    monkeypatch.setattr(forage, "DEFAULT_DOWNLOAD_DIR", tmp_path)
+    monkeypatch.setattr(forage, "EXTRACT_CACHE_DIR", tmp_path / "cache")
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    (consumer / "PKG-INFO").write_text("Requires-Dist: invoice-rates\n", encoding="utf-8")
+    (consumer / "billing.py").write_text(
+        "from invoice_rates import invoice as _price\n"
+        "if _price(5) == 45:\n    def wholesale(n: int) -> int: return _price(n)\n"
+        "else:\n    def retail(n: int) -> int: return _price(n)\n", encoding="utf-8",
+    )
+    for rate, expected in [(9, "wholesale"), (13, "retail")]:
+        wheel(tmp_path / "invoice_rates-1.0-py3-none-any.whl", rate)
+        result = infer_acquisition_spec(
+            slug="billing", name="billing", source=consumer, staging_root=tmp_path / str(rate),
+        )
+        assert result["ok"], result
+        assert result["record"]["winner"] == expected
+        assert result["record"]["runtime_deps"][0]["version"] == "1.0"
 
 
 def test_requirement_name_skips_stdlib_shadowing_backports() -> None:
@@ -124,10 +174,21 @@ def test_introspection_import_failure_refused(tmp_path: Path) -> None:
     assert "import failed" in result["error"]
 
 
-def test_import_unclosed_sdist_closes_runtime_deps(tmp_path: Path) -> None:
-    from blackhole_agent.capability_acquisition import stage_acquisition_source
+def test_import_unclosed_sdist_closes_runtime_deps(tmp_path: Path, monkeypatch) -> None:
+    import shutil
+    from blackhole_agent import capability_foraging as forage
+    from blackhole_agent.capability_acquisition import _run_probe, stage_acquisition_source, synthesize_acquisition
     from blackhole_agent.capability_forage_targets import live_registry_archive
 
+    def offline(url, timeout):
+        raise OSError("offline package fixture")
+
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    shutil.copy2(forage.DEFAULT_DOWNLOAD_DIR / "text-unidecode-1.3.tar.gz", downloads)
+    monkeypatch.setattr(forage, "_urlopen", offline)
+    monkeypatch.setattr(forage, "DEFAULT_DOWNLOAD_DIR", downloads)
+    monkeypatch.setattr(forage, "EXTRACT_CACHE_DIR", tmp_path / "extracted")
     fetched = live_registry_archive(
         {"name": "python-slugify", "slug": "python-slugify", "registry": "pypi", "version": "8.0.4"}
     )
@@ -163,6 +224,11 @@ def test_import_unclosed_sdist_closes_runtime_deps(tmp_path: Path) -> None:
     vendored = close_runtime_dependencies(staged)
     assert vendored["ok"], vendored
     assert "text-unidecode" in vendored["requires"]
+    spec = closed["spec"]
+    acquired = synthesize_acquisition(spec, tmp_path / "acquire")
+    assert acquired["ok"], acquired
+    invocation = _run_probe(Path(acquired["staged_dir"]), spec, {spec.requires[0]: "Crème brûlée"})
+    assert invocation["fragment"] == {"slugify_output": "creme-brulee"}
 
 
 def test_import_unclosed_npm_tarball_closes_runtime_deps(tmp_path: Path) -> None:

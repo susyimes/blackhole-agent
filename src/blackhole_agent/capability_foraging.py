@@ -1,118 +1,19 @@
-"""Capability foraging plane: zero-spec autonomous acquisition.
+"""Infer runnable Python and Node capabilities from a local package or registry release.
 
-The acquisition plane still needs a human to write the declarative kernel of
-each ``AcquisitionSpec``: import name, entry callable, state keys, and probe
-inputs. This module removes that last human input — **foraging**:
+Foraging detects the runtime and import root, then reflects functions, class
+methods and constructed instances in an isolated process. It selects candidates
+with fixed scalar inputs and checks them on held-out inputs from the same domain.
+The first candidate supplies the primary AcquisitionSpec. Additional candidates
+can form a bundle. A package with no viable candidate is refused before registration.
 
-- a forage request names only a package: a local source (directory or
-  sdist/npm tarball) or a live PyPI / npm registry name plus an optional
-  version;
-- the runtime is detected from the staged tree (Python import layout vs
-  ``package.json`` / ``.mjs`` entry), never declared unless the request
-  pins it;
-- Python import root/name and Node entry modules are detected from the
-  staged tree layout, never declared;
-- candidate callables are enumerated by sandboxed introspection — a
-  subprocess imports the package (CPython or Node) and reflects its
-  exported functions, including a Node default export when that is a
-  single function, a namespace object of functions, a constructable
-  with instance methods, a class whose callable API is static
-  ``Class.method``, a named class export such as ``Base64.encode``,
-  ``new Parser().parse``, or ``new Parser(options).parse`` (constructor
-  arguments and instance-own methods visible only after construction),
-  or a nested namespace class such as ``buffer.Buffer.byteLength``,
-  Python class instance methods such as ``Parser(opts).loads``
-  (constructed with ``()``, ``{}``, ``""``, or ``1``, including methods that
-  exist only on the instance after construction), Python class
-  static methods such as ``Class.method`` / ``HTMLRenderer.escape_html``
-  (``@staticmethod`` / ``@classmethod`` called on the class, including
-  when the constructor cannot be satisfied), Python nested-namespace
-  class statics such as ``package.submodule.Class.method`` /
-  ``api.String.from_raw`` (class statics on a submodule that is not a
-  top-level ``Class.method``), Python nested-namespace class
-  statics two submodule levels down such as
-  ``package.subpackage.submodule.Class.method`` /
-  ``dev.helpers.File.exists`` (class statics that are not a
-  one-level ``package.submodule.Class.method``), Python nested-namespace class
-  statics three submodule levels down such as
-  ``package.subpackage.subpackage.submodule.Class.method`` (class statics that
-  are not a two-level ``package.subpackage.submodule.Class.method``), Python nested-namespace class
-  statics four submodule levels down such as
-  ``package.subpackage.subpackage.subpackage.submodule.Class.method`` (class
-  statics that are not a three-level
-  ``package.subpackage.subpackage.submodule.Class.method``), Python nested-namespace class
-  statics five submodule levels down such as
-  ``package.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``
-  / ``create.via_global_ref.builtin.cpython.common.CPython.exe_stem`` (a
-  covering ``Class.method`` that returns a cwd-independent JSON scalar,
-  including a nullary class static, rather than an inherited path
-  validator such as ``CPython.validate_dest``), Python nested-namespace class
-  statics six submodule levels down such as
-  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``
-  (class statics that are not a five-level
-  ``package.subpackage.subpackage.subpackage.subpackage.submodule.Class.method``), Python nested-namespace class
-  instance methods such as ``package.submodule.Class(opts).method``
-  (constructed nested classes that are not a top-level
-  ``Class(opts).method``), Python nested-namespace class
-  instance methods two submodule levels down such as
-  ``package.subpackage.submodule.Class(opts).method`` (constructed
-  classes that are not a one-level ``package.submodule.Class(opts).method``),
-  Python nested-namespace class instance methods five submodule levels
-  down, Python nested-namespace class instance methods six submodule
-  levels down such as
-  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
-  / ``providers.amazon.aws.executors.batch.utils.BatchJobCollection.failure_count_by_id``
-  (constructable instance methods that are not a six-level
-  ``Class.method`` static), and Python nested-namespace class instance
-  methods seven submodule levels down such as
-  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
-  (constructable instance methods that are not a six-level nested
-  ``Class().method`` instance), Python nested-namespace class instance
-  methods eight submodule levels down such as
-  ``package.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.subpackage.submodule.Class().method``
-  (constructable instance methods that are not a seven-level nested
-  ``Class().method`` instance),
-  and Python nested-submodule functions such as
-  ``package.submodule.func`` / ``package.subpackage.submodule.func``
-  (module-level callables exported only on a nested submodule, not a
-  class method; two-level ``package.subpackage.submodule.func`` is
-  selected ahead of one-level ``package.submodule.func`` so a deeper
-  module function is not shadowed)
-  — filtered to
-  JSON-scalar signatures, and ordered deterministically;
-- probe inputs are derived from a fixed, task-independent sample vocabulary
-  (plain text, TOML, JSON, and markdown string domains; fixed scalar
-  samples for int/float/bool), split into selection and held-out probes; no
-  expected output is ever written or consulted;
-- candidate selection is split-honest: a candidate must satisfy every
-  selection probe of one sample domain and then generalize to that domain's
-  held-out probe the selector never used; rejected candidates are recorded
-  with their reason;
-- every held-out-honest callable becomes an ``AcquisitionSpec``: the first
-  winner is the primary leaf and additional winners are a multi-callable
-  bundle; extras that fail acquisition (for example a provides key already
-  covered by another absorbed leaf) are recorded and skipped, and do not
-  refuse a covering primary;
-- the live lane fetches a package from the PyPI JSON API or the npm
-  registry, verifies its digest, and forages it through the identical
-  inference path;
-- declared runtime dependencies are closed into the staged tree: Python
-  ``install_requires`` / Requires-Dist into ``.forage-deps`` on ``sys.path``,
-  Node ``package.json`` ``dependencies`` into ``.forage-deps`` then materialized
-  as ``node_modules`` so ESM imports resolve; isolated introspection without
-  those deps stays an honest refusal;
-- falsification: a package with no viable candidate is refused before any
-  ledger write; a candidate that only fits the selection probes fails the
-  held-out probe; a tampered or forged foraging report fails verification;
-- a digest-sealed report under ``artifacts/capability-foraging/`` whose
-  grade is a pure function of the recorded verdicts; verification
-  re-grades, re-checks the digest, and re-proves every foraged capability
-  live.
+Python dependencies declared in package metadata are staged under .forage-deps.
+Each consumer receives a private copy of a complete extraction of the selected bytes.
+Node dependencies are staged as node_modules for ESM resolution. Live acquisition
+verifies published archive digests and uses the same inference path as local input.
 
-Determinism contract: candidate order, probe vocabulary, selection, and
-every verdict must be reproducible on the same checkout and package source.
-Durations and timestamps are diagnostics only and are excluded from every
-digest.
+Reports under artifacts/capability-foraging record the candidate order, probe
+results and rejections. Verification checks the report digest, recomputes the
+grade and runs each acquired capability. Durations and timestamps are diagnostic.
 """
 
 from __future__ import annotations
@@ -126,7 +27,9 @@ import shutil
 import subprocess
 import sys
 import sysconfig
+import tarfile
 import tempfile
+import zlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import quote
@@ -134,6 +37,7 @@ from urllib.parse import quote
 from blackhole_agent.capability_absorption import (
     _STATE_KEY_PATTERN,
     _digest,
+    _file_digest,
     capability_id_for_slug,
     prove_absorbed_capability,
 )
@@ -141,7 +45,6 @@ from blackhole_agent.capability_acquisition import (
     STEWARDSHIP_ROOT,
     AcquisitionSpec,
     RUNTIMES,
-    _STAGE_SKIP_PARTS,
     _run_probe,
     acquire_capability,
     adapter_name_for,
@@ -160,6 +63,7 @@ from blackhole_agent.capability_compounder import (
     slugify_capability_id,
     utc_now_iso,
 )
+from blackhole_agent.file_guard import file_guard, replace_file
 
 SCHEMA_VERSION = 1
 
@@ -604,7 +508,7 @@ _NON_SCALAR_RETURN_ROOTS = frozenset(
     }
 )
 _DEFAULT_LIVE_TARGETS = ("inflection",)
-_INFER_CACHE: dict[tuple[Any, ...], dict[str, Any]] = {}
+_INFER_CACHE: dict[tuple[Any, ...], tuple[tuple[Any, ...] | None, dict[str, Any]]] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -2264,64 +2168,31 @@ def _skip_require_dir(name: str) -> bool:
 
 def parse_runtime_requires(staged_dir: Path) -> list[str]:
     """Declared install_requires / Requires-Dist, extras skipped."""
-
+    parsers = {
+        "requires.txt": _parse_requires_txt,
+        "pkg-info": _parse_requires_dist,
+        "metadata": _parse_requires_dist,
+        "setup.cfg": _parse_setup_cfg_requires,
+        "pyproject.toml": _parse_pyproject_dependencies,
+        "setup.py": _parse_setup_py_requires,
+    }
     names: list[str] = []
     seen: set[str] = set()
-    if not staged_dir.is_dir():
-        return names
-    for root, dirs, files in os.walk(staged_dir, topdown=True, onerror=lambda _exc: None):
-        try:
-            rel_root = Path(root).relative_to(staged_dir)
-        except ValueError:
-            dirs[:] = []
-            continue
-        depth = 0 if rel_root == Path(".") else len(rel_root.parts)
-        dirs[:] = [
-            name
-            for name in dirs
-            if not _skip_require_dir(name)
-            and (
-                name.endswith((".dist-info", ".egg-info"))
-                and depth + 1 <= 3
-                or depth + 1 <= 2
-            )
-        ]
-        if depth > 3:
-            continue
-        found_meta = False
+    for root, dirs, files in os.walk(staged_dir):
+        directory = Path(root)
+        depth = len(directory.relative_to(staged_dir).parts)
+        dirs[:] = [name for name in dirs if depth < 2 and not _skip_require_dir(name)]
         for filename in files:
-            path = Path(root) / filename
-            relative = path.relative_to(staged_dir)
-            if any(
-                part == FORAGE_DEPS_DIR
-                or part.startswith(".")
-                or part.lower() in _SKIP_REQUIRE_DIRS
-                for part in relative.parts
-            ):
+            parse = parsers.get(filename.lower())
+            if parse is None:
                 continue
-            if len(relative.parts) > 3:
-                continue
-            label = path.name.lower()
             try:
-                text = path.read_text(encoding="utf-8", errors="replace")
+                parsed = parse((directory / filename).read_text(encoding="utf-8", errors="replace"))
             except OSError:
                 continue
-            parsed: list[str] = []
-            if label == "requires.txt":
-                parsed = _parse_requires_txt(text)
-            elif label in {"pkg-info", "metadata"}:
-                parsed = _parse_requires_dist(text)
-            elif label == "setup.cfg":
-                parsed = _parse_setup_cfg_requires(text)
-            elif label == "pyproject.toml":
-                parsed = _parse_pyproject_dependencies(text)
-            elif label == "setup.py":
-                parsed = _parse_setup_py_requires(text)
             if parsed:
-                found_meta = True
-            _add_requirement_names(names, seen, parsed)
-        if found_meta:
-            dirs[:] = []
+                _add_requirement_names(names, seen, parsed)
+                dirs.clear()
     return names
 
 
@@ -2366,35 +2237,18 @@ def _archive_matches_project(path: Path, prefix: str) -> bool:
     return bool(rest) and rest[0].isdigit()
 
 
-def _cached_pypi_archive(name: str, dest: Path) -> Path | None:
+def _cached_pypi_archive(name: str, dest: Path, *, wheel: bool = False) -> Path | None:
     prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
+    suffixes = (".whl",) if wheel else (".tar.gz", ".zip")
     matches: list[Path] = []
     for prefix in prefixes:
-        matches.extend(dest.glob(f"{prefix}-*.tar.gz"))
-        matches.extend(dest.glob(f"{prefix}-*.zip"))
-    files = [path for path in matches if path.is_file() and any(_archive_matches_project(path, prefix) for prefix in prefixes)]
-    if not files:
-        return None
-    files.sort(key=lambda path: path.name)
-    return files[-1]
-
-
-def _cached_pypi_wheel(name: str, dest: Path) -> Path | None:
-    prefixes = dict.fromkeys((name, name.replace("_", "-"), name.replace("-", "_")))
-    matches: list[Path] = []
-    for prefix in prefixes:
-        matches.extend(dest.glob(f"{prefix}-*.whl"))
-    files = [
-        path
-        for path in matches
-        if path.is_file()
-        and _wheel_compatible(path.name)
-        and any(_archive_matches_project(path, prefix) for prefix in prefixes)
-    ]
-    if not files:
-        return None
-    files.sort(key=lambda path: path.name)
-    return files[-1]
+        for suffix in suffixes:
+            for path in dest.glob(f"{prefix}-*{suffix}"):
+                if not _archive_matches_project(path, prefix) or not path.is_file():
+                    continue
+                if not wheel or _wheel_compatible(path.name):
+                    matches.append(path)
+    return max(matches, key=lambda path: path.name, default=None)
 
 
 def _wheel_compatible(filename: str) -> bool:
@@ -2447,6 +2301,8 @@ def _flatten_npm_stage(root: Path) -> None:
 
 def _archive_version(archive: Path) -> str:
     filename = archive.name
+    if filename.lower().endswith(".whl"):
+        return filename.partition("-")[2].partition("-")[0]
     for suffix in (".tar.gz", ".tgz", ".zip"):
         if filename.endswith(suffix):
             filename = filename[: -len(suffix)]
@@ -2455,13 +2311,48 @@ def _archive_version(archive: Path) -> str:
 
 
 def _extracted_cache_dir(pep: str, version: str, archive: Path) -> Path:
-    """Short extract dir: never embed a ``.whl`` filename (Windows MAX_PATH)."""
+    """Historical version-addressed location, still referenced by recorded growth proofs."""
 
     token = re.sub(r"[^a-z0-9._-]+", "-", str(version or archive.stem).lower()).strip("-")
     if not token or token.endswith(".whl") or ".whl" in token:
         token = re.sub(r"[^a-z0-9._-]+", "-", archive.stem.lower()).strip("-")
         token = token.replace(".whl", "").strip("-._")
     return EXTRACT_CACHE_DIR / pep / (token[:40] or "pkg")
+
+
+def _materialize_python_archive(archive: Path, expected_digest: str) -> tuple[Path, str]:
+    """Pin the selected bytes and publish the complete tree in one directory rename."""
+    digest = _file_digest(archive)
+    if digest is None:
+        raise OSError(f"cannot read dependency archive: {archive}")
+    if expected_digest and expected_digest != digest:
+        raise ValueError(f"download changed before staging: {archive.name}")
+    suffix = ".zip" if archive.suffix.lower() in {".whl", ".zip"} else ".tar.gz"
+    # A fresh namespace keeps existing consumers of old version directories readable.
+    entry = EXTRACT_CACHE_DIR / (".zip-v1" if suffix == ".zip" else ".tar-v1") / digest
+    ready = entry / "tree"
+    if ready.is_dir():
+        return ready, digest
+    entry.mkdir(parents=True, exist_ok=True)
+    with file_guard(ready):
+        if ready.is_dir():
+            return ready, digest
+        pending = entry / "building"
+        if pending.exists():
+            shutil.rmtree(os_fs_path(pending))  # Abandoned by a previous lock owner.
+        pending.mkdir()
+        try:
+            snapshot = pending / ("archive" + suffix)
+            shutil.copyfile(archive, snapshot)
+            if _file_digest(snapshot) != digest:
+                raise ValueError(f"dependency archive changed during staging: {archive.name}")
+            tree = pending / "tree"
+            stage_acquisition_source(snapshot, tree)
+            snapshot.unlink()
+            tree.rename(ready)
+        finally:
+            shutil.rmtree(os_fs_path(pending))
+    return ready, digest
 
 
 def _detach_dep_dest(path: Path) -> None:
@@ -2477,37 +2368,42 @@ def _detach_dep_dest(path: Path) -> None:
             os.rmdir(path)
             return
         except OSError:
-            shutil.rmtree(os_fs_path(path), ignore_errors=True)
+            shutil.rmtree(os_fs_path(path))
             return
     path.unlink(missing_ok=True)
 
 
-def _link_extracted_dep(src: Path, dest: Path) -> None:
+def _install_extracted_dep(src: Path, dest: Path) -> None:
+    """Keep imports inside the staged tree, including when the adapter runs in a sandbox."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    _detach_dep_dest(dest)
-    src_abs = os.path.abspath(os.fspath(src))
-    dest_abs = os.path.abspath(os.fspath(dest))
-    if os.name == "nt":
-        completed = subprocess.run(
-            ["cmd", "/c", "mklink", "/J", dest_abs, src_abs],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-        if completed.returncode == 0 and os.path.lexists(dest_abs):
-            return
-    try:
-        os.symlink(src_abs, dest_abs, target_is_directory=True)
-        return
-    except OSError:
-        pass
-    shutil.copytree(
-        os_fs_path(src),
-        os_fs_path(dest),
-        ignore=shutil.ignore_patterns(*sorted(_STAGE_SKIP_PARTS)),
-    )
+    pending = dest.with_name(f".{dest.name}.next")
+    previous = dest.with_name(f".{dest.name}.previous")
+    with file_guard(dest.parent / ".install"):
+        if os.path.lexists(previous) and not os.path.lexists(dest):
+            previous.rename(dest)
+        _detach_dep_dest(previous)
+        _detach_dep_dest(pending)
+        try:
+            shutil.copytree(os_fs_path(src), os_fs_path(pending))
+            if os.path.lexists(dest):
+                dest.rename(previous)
+            pending.rename(dest)
+        finally:
+            if os.path.lexists(previous) and not os.path.lexists(dest):
+                previous.rename(dest)
+            _detach_dep_dest(pending)
+        _detach_dep_dest(previous)
+
+
+def _select_python_archive(name: str, downloads: Path) -> tuple[Path, str, bool, str]:
+    for wheel, fetch in ((True, fetch_pypi_wheel), (False, fetch_pypi_sdist)):
+        cached = _cached_pypi_archive(name, downloads, wheel=wheel)
+        if cached is not None:
+            return cached, _archive_version(cached), True, ""
+        result = fetch(name, dest_dir=downloads)
+        if result.get("ok"):
+            return Path(result["path"]), result["version"], bool(result.get("cache_hit")), result["sha256"]
+    raise ValueError(str(result.get("error") or f"fetch failed: {name}"))
 
 
 def _close_python_runtime_dependencies(
@@ -2531,41 +2427,12 @@ def _close_python_runtime_dependencies(
             seen.add(pep)
             continue
         seen.add(pep)
-        archive: Path | None = None
-        version = ""
-        cache_hit = False
-        wheel = _cached_pypi_wheel(name, download_dir)
-        if wheel is not None:
-            archive = wheel
-            version = _archive_version(wheel)
-            cache_hit = True
-        else:
-            fetched_wheel = fetch_pypi_wheel(name, dest_dir=download_dir)
-            if fetched_wheel.get("ok"):
-                archive = Path(str(fetched_wheel["path"]))
-                version = str(fetched_wheel.get("version") or "")
-        if archive is None:
-            cached = _cached_pypi_archive(name, download_dir)
-            if cached is not None:
-                archive = cached
-                version = _archive_version(cached)
-                cache_hit = True
-            else:
-                fetched = fetch_pypi_sdist(name, None, dest_dir=download_dir)
-                if fetched.get("ok"):
-                    archive = Path(str(fetched["path"]))
-                    version = str(fetched.get("version") or "")
-                else:
-                    errors.append(str(fetched.get("error") or f"fetch failed: {name}"))
-                    continue
         dep_root = staged_dir / FORAGE_DEPS_DIR / pep
-        cache_root = _extracted_cache_dir(pep, version, archive)
         try:
-            if not cache_root.exists():
-                cache_root.parent.mkdir(parents=True, exist_ok=True)
-                stage_acquisition_source(archive, cache_root)
-            _link_extracted_dep(cache_root, dep_root)
-        except (ValueError, OSError) as exc:
+            archive, version, cache_hit, expected = _select_python_archive(name, download_dir)
+            cache_root, digest = _materialize_python_archive(archive, expected)
+            _install_extracted_dep(cache_root, dep_root)
+        except (ValueError, OSError, EOFError, tarfile.TarError, zlib.error) as exc:
             errors.append(f"{name}: {exc}")
             continue
         path_root: str | None
@@ -2585,6 +2452,7 @@ def _close_python_runtime_dependencies(
                     "name": pep,
                     "requested": name,
                     "version": version,
+                    "sha256": digest,
                     "path_root": extra,
                     "cache_hit": cache_hit,
                 }
@@ -2764,8 +2632,8 @@ def infer_acquisition_spec(
         bool(include_default),
     )
     cached = _INFER_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
+    if cached is not None and cached[0] is None:
+        return cached[1]
 
     staged_dir = staging_root / "pkg"
     if staged_dir.exists():
@@ -2782,9 +2650,15 @@ def infer_acquisition_spec(
     path_root = "."
     extra_paths: tuple[str, ...] = ()
     closed_deps: dict[str, Any] = {"ok": True, "closed": [], "extra_paths": []}
+    dependency_inputs = None
     if close_deps:
         closed_deps = close_runtime_dependencies(staged_dir, runtime=detected_runtime)
         extra_paths = tuple(str(item) for item in closed_deps.get("extra_paths") or [])
+        if detected_runtime == "python":
+            selected = tuple((item["name"], item["sha256"]) for item in closed_deps["closed"])
+            dependency_inputs = (selected, closed_deps["error"])
+            if cached is not None and cached[0] == dependency_inputs:
+                return cached[1]
     if detected_runtime == "node":
         try:
             path_root, entry = detect_node_entry(staged_dir, hint)
@@ -2936,7 +2810,7 @@ def infer_acquisition_spec(
             "error": "no viable candidate generalized to a held-out probe",
             "rejected": rejected,
         }
-        _INFER_CACHE[cache_key] = failed
+        _INFER_CACHE[cache_key] = (dependency_inputs, failed)
         return failed
     primary = collected[0]["spec"]
     record = {
@@ -2971,7 +2845,7 @@ def infer_acquisition_spec(
         "bundle_specs": [item["spec"] for item in collected[1:]],
         "record": record,
     }
-    _INFER_CACHE[cache_key] = inferred
+    _INFER_CACHE[cache_key] = (dependency_inputs, inferred)
     return inferred
 
 
@@ -2990,118 +2864,69 @@ def _urlopen(url: str, timeout: int):
     return urllib.request.urlopen(url, timeout=timeout)
 
 
-def fetch_pypi_sdist(
-    name: str,
-    version: str | None = None,
-    dest_dir: Path = DEFAULT_DOWNLOAD_DIR,
-    timeout: int = 60,
+def _fetch_pypi_distribution(
+    name: str, version: str | None, dest_dir: Path, timeout: int, package_type: str,
 ) -> dict[str, Any]:
-    """Download one package sdist from PyPI and verify its sha256."""
+    from http.client import HTTPException
 
     api = f"https://pypi.org/pypi/{name}/json" if not version else f"https://pypi.org/pypi/{name}/{version}/json"
     try:
         with _urlopen(api, timeout=timeout) as response:
             meta = json.loads(response.read().decode("utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, HTTPException, json.JSONDecodeError) as exc:
         return {"ok": False, "stage": "fetch", "name": name, "error": f"pypi metadata failed: {exc}"}
-    resolved = str(meta.get("info", {}).get("version") or "")
-    sdist = next((item for item in meta.get("urls") or [] if item.get("packagetype") == "sdist"), None)
-    if sdist is None:
-        return {"ok": False, "stage": "fetch", "name": name, "error": "registry release ships no sdist"}
-    url = str(sdist["url"])
-    expected_sha256 = str((sdist.get("digests") or {}).get("sha256") or "")
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    files = [item for item in meta.get("urls") or [] if item.get("packagetype") == package_type]
+    kind = "wheel" if package_type == "bdist_wheel" else "sdist"
+    if kind == "wheel":
+        files = [item for item in files if _wheel_compatible(Path(str(item.get("url") or "")).name)]
+        files.sort(key=lambda item: (
+            "none-any" not in str(item.get("filename") or item.get("url") or "").lower(),
+            str(item.get("filename") or ""),
+        ))
+    if not files:
+        wanted = "compatible wheel" if kind == "wheel" else kind
+        return {"ok": False, "stage": "fetch", "name": name, "error": f"registry release ships no {wanted}"}
+    chosen = files[0]
+    url = str(chosen["url"])
     dest = dest_dir / Path(url.split("?")[0]).name
-    try:
-        with _urlopen(url, timeout=timeout) as response:
-            payload = response.read()
-    except OSError as exc:
-        return {"ok": False, "stage": "fetch", "name": name, "error": f"sdist download failed: {exc}"}
-    actual_sha256 = hashlib.sha256(payload).hexdigest()
-    if expected_sha256 and actual_sha256 != expected_sha256:
-        return {
-            "ok": False,
-            "stage": "fetch",
-            "name": name,
-            "error": f"sha256 mismatch: expected {expected_sha256}, got {actual_sha256}",
-        }
-    dest.write_bytes(payload)
-    return {
-        "ok": True,
-        "name": name,
-        "version": resolved,
-        "path": str(dest),
-        "sha256": actual_sha256,
-        "url": url,
+    expected = str((chosen.get("digests") or {}).get("sha256") or "")
+    record = {
+        "ok": True, "name": name, "version": str(meta.get("info", {}).get("version") or ""),
+        "path": str(dest), "url": url,
     }
+    if expected and _file_digest(dest) == expected:
+        return {**record, "sha256": expected, "cache_hit": True}
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=dest_dir, prefix=".download-") as work:
+            pending = Path(work) / "archive"
+            digest = hashlib.sha256()
+            with _urlopen(url, timeout=timeout) as response, pending.open("wb") as output:
+                while chunk := response.read(1024 * 1024):
+                    digest.update(chunk)
+                    output.write(chunk)
+            actual = digest.hexdigest()
+            if expected and actual != expected:
+                error = f"sha256 mismatch: expected {expected}, got {actual}"
+                return {"ok": False, "stage": "fetch", "name": name, "error": error}
+            replace_file(pending, dest)
+    except (OSError, HTTPException) as exc:
+        return {"ok": False, "stage": "fetch", "name": name, "error": f"{kind} download failed: {exc}"}
+    return {**record, "sha256": actual}
+
+
+def fetch_pypi_sdist(
+    name: str, version: str | None = None, dest_dir: Path = DEFAULT_DOWNLOAD_DIR, timeout: int = 60,
+) -> dict[str, Any]:
+    """Download a source distribution matching the registry digest."""
+    return _fetch_pypi_distribution(name, version, dest_dir, timeout, "sdist")
 
 
 def fetch_pypi_wheel(
-    name: str,
-    version: str | None = None,
-    dest_dir: Path = DEFAULT_DOWNLOAD_DIR,
-    timeout: int = 60,
+    name: str, version: str | None = None, dest_dir: Path = DEFAULT_DOWNLOAD_DIR, timeout: int = 60,
 ) -> dict[str, Any]:
-    """Download one importable wheel for this interpreter from PyPI."""
-
-    api = f"https://pypi.org/pypi/{name}/json" if not version else f"https://pypi.org/pypi/{name}/{version}/json"
-    try:
-        with _urlopen(api, timeout=timeout) as response:
-            meta = json.loads(response.read().decode("utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        return {"ok": False, "stage": "fetch", "name": name, "error": f"pypi metadata failed: {exc}"}
-    resolved = str(meta.get("info", {}).get("version") or "")
-    wheels = [
-        item
-        for item in meta.get("urls") or []
-        if item.get("packagetype") == "bdist_wheel"
-        and _wheel_compatible(str(Path(str(item.get("url") or "")).name))
-    ]
-    wheels.sort(
-        key=lambda item: (
-            0 if "none-any" in str(item.get("filename") or item.get("url") or "").lower() else 1,
-            str(item.get("filename") or ""),
-        )
-    )
-    if not wheels:
-        return {"ok": False, "stage": "fetch", "name": name, "error": "registry release ships no compatible wheel"}
-    chosen = wheels[0]
-    url = str(chosen["url"])
-    expected_sha256 = str((chosen.get("digests") or {}).get("sha256") or "")
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / Path(url.split("?")[0]).name
-    if dest.is_file() and dest.stat().st_size > 0:
-        return {
-            "ok": True,
-            "name": name,
-            "version": resolved,
-            "path": str(dest),
-            "sha256": expected_sha256,
-            "url": url,
-            "cache_hit": True,
-        }
-    try:
-        with _urlopen(url, timeout=timeout) as response:
-            payload = response.read()
-    except OSError as exc:
-        return {"ok": False, "stage": "fetch", "name": name, "error": f"wheel download failed: {exc}"}
-    actual_sha256 = hashlib.sha256(payload).hexdigest()
-    if expected_sha256 and actual_sha256 != expected_sha256:
-        return {
-            "ok": False,
-            "stage": "fetch",
-            "name": name,
-            "error": f"sha256 mismatch: expected {expected_sha256}, got {actual_sha256}",
-        }
-    dest.write_bytes(payload)
-    return {
-        "ok": True,
-        "name": name,
-        "version": resolved,
-        "path": str(dest),
-        "sha256": actual_sha256,
-        "url": url,
-    }
+    """Download an importable wheel matching the registry digest."""
+    return _fetch_pypi_distribution(name, version, dest_dir, timeout, "bdist_wheel")
 
 
 def fetch_npm_tarball(
