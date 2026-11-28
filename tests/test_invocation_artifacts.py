@@ -9,6 +9,7 @@ import pytest
 from blackhole_agent.invocation_artifacts import (
     ArtifactError,
     list_invocation_artifacts,
+    open_artifact_response,
     prepare_artifact_dir,
     read_invocation_artifact,
     serve_invocation_artifact,
@@ -46,3 +47,15 @@ def test_serve_lists_and_reads(tmp_path: Path) -> None:
     assert status == 200
     assert body == b"hello"
     assert "attachment" in headers.get("Content-Disposition", "")
+
+
+def test_download_stops_before_emitting_a_changed_block(tmp_path: Path) -> None:
+    target = prepare_artifact_dir(tmp_path, "mutable") / "file.bin"
+    target.write_bytes(b"A" * (1 << 20))
+    with open_artifact_response(tmp_path, "mutable", target.name) as response:
+        chunks = iter(response.chunks)
+        with target.open("r+b") as writer:
+            writer.seek(len(next(chunks)))
+            writer.write(b"B")
+        with pytest.raises(OSError, match="changed during transfer"):
+            next(chunks)

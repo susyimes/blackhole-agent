@@ -224,8 +224,8 @@ module turns the ledger into a service:
   file is deleted with the scratch directory and never echoed. Child-created
   files at or under the cap are harvested before TEMP is deleted.
   ``POST /invoke`` returns ``invocation_id`` and ``artifacts``; ``GET
-  /artifacts/{id}`` lists them and ``GET /artifacts/{id}/{name}`` returns
-  the bytes. Path traversal and unknown ids are refused. ``GET
+  /artifacts/{id}`` lists them. File GETs support a single byte range and
+  a strong ETag for resuming with ``If-Range``. ``GET
   /health`` reports ``max_scratch_bytes`` and ``invocation_artifacts``. A
   small scratch write still succeeds. Kernel and git subprocesses omit the cap.
 - The same per-invocation artifact directory is a host-visible effect
@@ -488,8 +488,9 @@ from blackhole_agent.invocation_artifacts import (
     artifacts_root,
     list_artifact_files,
     new_invocation_id,
+    open_artifact_response,
     prepare_artifact_dir,
-    serve_invocation_artifact,
+    serve_invocation_artifact as serve_invocation_artifact,
 )
 from blackhole_agent.invocation_webhooks import (
     DISABLED_WEBHOOKS,
@@ -2496,12 +2497,8 @@ def _invocation_error_response(handler: BaseHTTPRequestHandler, exc: InvocationE
     _json_response(handler, exc.status, payload, headers=_admission_retry_headers(exc.status, payload))
 
 
-def _bytes_response(
-    handler: BaseHTTPRequestHandler,
-    status: int,
-    body: bytes,
-    *,
-    content_type: str,
+def _response_headers(
+    handler: BaseHTTPRequestHandler, status: int, content_type: str | None, length: int | None,
     headers: Mapping[str, str] | None = None,
 ) -> None:
     extra = dict(headers or {})
@@ -2509,12 +2506,13 @@ def _bytes_response(
     if callable(cors):
         extra.update(cors())
     handler.send_response(status)
-    handler.send_header("Content-Type", content_type)
-    handler.send_header("Content-Length", str(len(body)))
+    if content_type is not None:
+        handler.send_header("Content-Type", content_type)
+    if length is not None:
+        handler.send_header("Content-Length", str(length))
     for key, value in extra.items():
         handler.send_header(key, value)
     handler.end_headers()
-    handler.wfile.write(body)
 
 
 def _json_response(
@@ -2522,18 +2520,10 @@ def _json_response(
     *, replayed: bool | None = None, headers: Mapping[str, str] | None = None,
 ) -> None:
     body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("Content-Type", "application/json")
-    handler.send_header("Content-Length", str(len(body)))
-    if replayed is not None:
-        handler.send_header("Idempotency-Replayed", "true" if replayed else "false")
     extra = dict(headers or {})
-    cors = getattr(handler, "_oauth_cors", None)
-    if callable(cors):
-        extra.update(cors())
-    for key, value in extra.items():
-        handler.send_header(key, value)
-    handler.end_headers()
+    if replayed is not None:
+        extra["Idempotency-Replayed"] = "true" if replayed else "false"
+    _response_headers(handler, status, "application/json", len(body), extra)
     handler.wfile.write(body)
 
 
@@ -2547,15 +2537,7 @@ def _html_response(
     body = str(document or "").encode("utf-8")
     extra = dict(headers or {})
     content_type = extra.pop("Content-Type", "text/html; charset=utf-8")
-    cors = getattr(handler, "_oauth_cors", None)
-    if callable(cors):
-        extra.update(cors())
-    handler.send_response(status)
-    handler.send_header("Content-Type", content_type)
-    handler.send_header("Content-Length", str(len(body)))
-    for key, value in extra.items():
-        handler.send_header(key, value)
-    handler.end_headers()
+    _response_headers(handler, status, content_type, len(body), extra)
     handler.wfile.write(body)
 
 
@@ -2566,15 +2548,7 @@ def _send_oauth_authorize_result(
     payload: Mapping[str, Any] | str | None,
 ) -> None:
     if status == 302:
-        extra = dict(headers or {})
-        cors = getattr(handler, "_oauth_cors", None)
-        if callable(cors):
-            extra.update(cors())
-        handler.send_response(302)
-        for key, value in extra.items():
-            handler.send_header(key, value)
-        handler.send_header("Content-Length", "0")
-        handler.end_headers()
+        _response_headers(handler, status, None, 0, headers)
         return
     if isinstance(payload, str):
         _html_response(handler, status, payload, headers=headers)
@@ -3112,14 +3086,10 @@ def build_server(
 
                 self._bind_optional_principal()
                 try:
-                    body = console_html(service_root).encode("utf-8")
+                    document = console_html(service_root)
                 finally:
                     reset_principal()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                _html_response(self, 200, document)
                 return
             if path == "/health":
                 from blackhole_agent.invocation_failure_circuit import failure_circuit_health
@@ -3229,15 +3199,16 @@ def build_server(
                 return
             artifact = self._artifact_request()
             if artifact is not None:
-                invocation_id, name = artifact
                 try:
-                    status, content_type, body, extra = serve_invocation_artifact(
-                        service_root, invocation_id, name
-                    )
+                    with open_artifact_response(service_root, *artifact, fields=self.headers.items()) as reply:
+                        _response_headers(self, reply.status, reply.content_type, reply.length, reply.headers)
+                        for chunk in reply.chunks:
+                            self.wfile.write(chunk)
                 except ArtifactError as exc:
                     _json_response(self, exc.status, exc.payload)
-                    return
-                _bytes_response(self, status, body, content_type=content_type, headers=extra)
+                except OSError:
+                    # The connection closed or the file changed after headers were sent.
+                    self.close_connection = True
                 return
             if path == "/sessions" or self._session_events_id() is not None:
                 if not self._require_operator():

@@ -1,36 +1,25 @@
-"""Preserve and serve files an untrusted tool wrote into per-invocation TEMP.
-
-``POST /invoke`` already size-caps child-created scratch, then deletes the
-directory. A capability that writes a report, image, or other declared file
-therefore cannot be retrieved by an HTTP client. This module keeps those
-files under a per-invocation directory and serves them:
-
-- ``prepare_artifact_dir`` allocates ``.blackhole-agent/invocation-artifacts/<id>/``
-- ``list_artifact_files`` returns the relative names and sizes that landed
-- ``read_invocation_artifact`` returns file bytes after a fail-closed path
-  check (no ``..``, no absolute names, no escape from the invocation dir)
-- ``serve_invocation_artifact`` is the live-plane GET dispatcher so a
-  missing module on a baseline tree is a clean ``passed=false`` rather than
-  a crash
-
-Honesty boundary: regular files written into this invocation's effect
-directory, including files copied out of its TEMP, are served. Symlinks
-are skipped. The store does not expire; operators delete the workspace
-root to drop artifacts, matching receipts.
-"""
+"""Store invocation output and stream verified byte ranges from its regular files."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import mimetypes
+import os
 import re
+import stat
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO, Iterable, Iterator, NamedTuple, Sequence
+from urllib.parse import quote
+
+from blackhole_agent.http_preconditions import evaluate_http_preconditions
 
 ARTIFACTS_RELATIVE = Path(".blackhole-agent") / "invocation-artifacts"
 INVOCATION_ID_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,128}\Z")
 MAX_ARTIFACT_FILES = 256
+_BLOCK_BYTES = 256 * 1024
 
 
 class ArtifactError(Exception):
@@ -53,8 +42,8 @@ def artifacts_root(root: Path) -> Path:
 
 def validate_invocation_id(invocation_id: str) -> str:
     value = str(invocation_id or "")
-    if INVOCATION_ID_PATTERN.fullmatch(value) is None:
-        raise ArtifactError(400, "invocation_id must be 1-128 ASCII letters, digits, ._:-")
+    if value in {".", ".."} or INVOCATION_ID_PATTERN.fullmatch(value) is None:
+        raise ArtifactError(400, "expected a 1-128 character invocation ID using letters, digits, dots, _ or -")
     return value
 
 
@@ -72,7 +61,7 @@ def _safe_relative(name: str) -> Path:
     if not raw or raw.startswith("/") or raw.startswith("~"):
         raise ArtifactError(400, "artifact name must be a relative file path")
     parts = [part for part in raw.split("/") if part not in ("", ".")]
-    if not parts or any(part == ".." for part in parts):
+    if not parts or ".." in parts:
         raise ArtifactError(400, "artifact name must not contain '..' or be empty")
     return Path(*parts)
 
@@ -81,19 +70,16 @@ def list_artifact_files(dest: Path) -> list[dict[str, Any]]:
     """Return sorted ``{name, bytes}`` rows for regular files under dest."""
 
     folder = Path(dest)
-    if not folder.is_dir():
-        return []
     rows: list[dict[str, Any]] = []
     try:
         for path in sorted(folder.rglob("*")):
-            if not path.is_file() or path.is_symlink():
-                continue
             try:
-                rel = path.relative_to(folder).as_posix()
-                size = path.stat().st_size
-            except (OSError, ValueError):
+                info = path.lstat()
+            except OSError:
                 continue
-            rows.append({"name": rel, "bytes": int(size)})
+            if not stat.S_ISREG(info.st_mode):
+                continue
+            rows.append({"name": path.relative_to(folder).as_posix(), "bytes": info.st_size})
             if len(rows) >= MAX_ARTIFACT_FILES:
                 break
     except OSError:
@@ -101,54 +87,112 @@ def list_artifact_files(dest: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def list_invocation_artifacts(root: Path, invocation_id: str) -> dict[str, Any]:
+def _artifact_folder(root: Path, invocation_id: str) -> Path:
     ident = validate_invocation_id(invocation_id)
-    folder = artifacts_root(root) / ident
-    if not folder.is_dir():
+    folder = artifacts_root(root).resolve() / ident
+    if not folder.is_dir() or folder.resolve() != folder:
         raise ArtifactError(404, f"unknown invocation artifacts: {ident}")
-    files = list_artifact_files(folder)
-    return {"ok": True, "invocation_id": ident, "files": files}
+    return folder
+
+
+def list_invocation_artifacts(root: Path, invocation_id: str) -> dict[str, Any]:
+    folder = _artifact_folder(root, invocation_id)
+    return {"ok": True, "invocation_id": folder.name, "files": list_artifact_files(folder)}
+
+
+def _artifact_path(root: Path, invocation_id: str, name: str) -> Path:
+    folder = _artifact_folder(root, invocation_id)
+    relative = _safe_relative(name)
+    target = (folder / relative).resolve()
+    if not target.is_relative_to(folder):
+        raise ArtifactError(400, "artifact name escapes the invocation directory")
+    if not target.is_file() or target != folder / relative:
+        raise ArtifactError(404, f"unknown artifact: {relative.as_posix()}")
+    return target
+
+
+class ArtifactResponse(NamedTuple):
+    status: int
+    content_type: str
+    length: int | None
+    headers: dict[str, str]
+    chunks: Iterable[bytes]
+
+
+def _fingerprint(source: BinaryIO, size: int) -> list[bytes]:
+    """One digest per block lets a later read verify every byte before sending it."""
+    checksums = []
+    for offset in range(0, size, _BLOCK_BYTES):
+        count = min(_BLOCK_BYTES, size - offset)
+        block = source.read(count)
+        if len(block) != count:
+            raise ArtifactError(409, "artifact changed while opening the download")
+        checksums.append(hashlib.sha256(block).digest())
+    return checksums
+
+
+def _verified_slice(source: BinaryIO, checksums: list[bytes], size: int, start: int, stop: int) -> Iterator[bytes]:
+    offset = start - start % _BLOCK_BYTES
+    source.seek(offset)
+    while offset < stop:
+        block = source.read(min(_BLOCK_BYTES, size - offset))
+        if hashlib.sha256(block).digest() != checksums[offset // _BLOCK_BYTES]:
+            raise OSError("artifact changed during transfer")
+        yield block[max(start - offset, 0):stop - offset]
+        offset += len(block)
+
+
+@contextmanager
+def open_artifact_response(
+    root: Path, invocation_id: str, name: str = "", fields: Sequence[tuple[str, str]] = (),
+) -> Iterator[ArtifactResponse]:
+    """Open a listing or a single-range GET. The caller consumes chunks inside the context."""
+    if not str(name or "").strip():
+        payload = list_invocation_artifacts(root, invocation_id)
+        body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
+        yield ArtifactResponse(200, "application/json", len(body), {}, (body,))
+        return
+
+    path = _artifact_path(root, invocation_id, name)
+    try:
+        source = path.open("rb")
+    except OSError as exc:
+        raise ArtifactError(404, f"cannot open artifact: {name}") from exc
+    with source:
+        try:
+            size = os.fstat(source.fileno()).st_size
+            checksums = _fingerprint(source, size)
+        except OSError as exc:
+            raise ArtifactError(409, "artifact unavailable during download") from exc
+        etag = '"' + hashlib.sha256(b"".join(checksums)).hexdigest() + '"'
+        decision = evaluate_http_preconditions("GET", fields, etag=etag, length=size)
+        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        filename = quote(path.name, safe="")
+        disposition = f'filename="{filename}"' if filename == path.name else f"filename*=UTF-8''{filename}"
+        headers = {"Accept-Ranges": "bytes", "ETag": etag, "Content-Disposition": f"attachment; {disposition}"}
+        status = decision["status"]
+        if decision["content_range"]:
+            headers["Content-Range"] = decision["content_range"]
+        if status in (304, 412, 416):
+            yield ArtifactResponse(status, content_type, None if status == 304 else 0, headers, ())
+            return
+        start, stop = 0, size
+        if status == 206 and len(decision["ranges"]) == 1:
+            start, last = decision["ranges"][0]
+            stop = last + 1
+        else:
+            status = 200  # Multipart selections and partial selections of an empty file fall back to a full GET.
+        yield ArtifactResponse(status, content_type, stop - start, headers,
+                               _verified_slice(source, checksums, size, start, stop))
+
+
+def serve_invocation_artifact(root: Path, invocation_id: str, name: str = "") -> tuple[int, str, bytes, dict[str, str]]:
+    """Materialize a response for in-process callers that need its bytes."""
+    with open_artifact_response(root, invocation_id, name) as response:
+        return response.status, response.content_type, b"".join(response.chunks), response.headers
 
 
 def read_invocation_artifact(root: Path, invocation_id: str, name: str) -> tuple[bytes, str, str]:
-    """Return ``(body, content_type, filename)`` for one harvested file."""
-
-    ident = validate_invocation_id(invocation_id)
     relative = _safe_relative(name)
-    folder = (artifacts_root(root) / ident).resolve()
-    if not folder.is_dir():
-        raise ArtifactError(404, f"unknown invocation artifacts: {ident}")
-    target = (folder / relative).resolve()
-    try:
-        target.relative_to(folder)
-    except ValueError as exc:
-        raise ArtifactError(400, "artifact name escapes the invocation directory") from exc
-    if not target.is_file() or target.is_symlink():
-        raise ArtifactError(404, f"unknown artifact: {relative.as_posix()}")
-    try:
-        body = target.read_bytes()
-    except OSError as exc:
-        raise ArtifactError(404, f"unknown artifact: {relative.as_posix()}") from exc
-    guessed, _encoding = mimetypes.guess_type(target.name)
-    content_type = guessed or "application/octet-stream"
+    _, content_type, body, _ = serve_invocation_artifact(root, invocation_id, relative.as_posix())
     return body, content_type, relative.name
-
-
-def serve_invocation_artifact(
-    root: Path, invocation_id: str, name: str = ""
-) -> tuple[int, str, bytes, dict[str, str]]:
-    """GET dispatcher: listing JSON when ``name`` is empty, otherwise file bytes.
-
-    Return ``(status, content_type, body, extra_headers)``. Baseline trees
-    lack this function, so acceptance probes can fail closed without crashing.
-    """
-
-    ident = str(invocation_id or "")
-    relative = str(name or "").strip()
-    if not relative:
-        payload = list_invocation_artifacts(root, ident)
-        body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
-        return 200, "application/json", body, {}
-    data, content_type, filename = read_invocation_artifact(root, ident, relative)
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
-    return 200, content_type, data, headers
